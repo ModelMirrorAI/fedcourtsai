@@ -15,7 +15,7 @@ inputs. Config resolves one level out, at the caller.
 from __future__ import annotations
 
 from ..corpus import CorpusRow, scotus_term_year
-from ..schemas import Outcome, Prediction, StatPack
+from ..schemas import Outcome, Prediction, PredictionContext, StatPack
 from .salience import salience_band
 
 
@@ -28,32 +28,71 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
     return (prediction.probability - outcome.actual_granted) ** 2
 
 
+def _pooled_band_rate(
+    band: str,
+    term: int,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    risk_set: bool,
+) -> float | None:
+    """One band's grant rate pooled over Terms strictly before ``term``.
+
+    ``risk_set`` picks which of the two published rates is pooled, and the choice
+    has to match how ``band`` was obtained — see the two callers. Pooled as a
+    resolved-weighted mean of the per-Term rates, which equals aggregate weighted
+    grants over aggregate weighted resolved, so a Term contributes at the weight
+    belonging to the rate being pooled.
+    """
+    # `band` and the statpack segments are both `sal-v1` today, so a plain name
+    # match is safe. When sal-v2 lands, reconcile the band version with each Term's
+    # `salience_version` here — a lagging statpack would otherwise miss silently. A
+    # bounded `lookback_terms` limits, but does not fix, that exposure: it caps how
+    # far back a stale version can reach, not whether the mismatch is noticed.
+    #
+    # A Term-YEAR floor, not a row count — see the callers' docstrings. `0` means no
+    # floor; `term - 0` would exclude every Term, so the sentinel must short-circuit.
+    # A negative window would read as unbounded-plus-a-Term; `ge=0` guards the config
+    # path, and clamping here guards a direct caller.
+    oldest = term - lookback_terms if lookback_terms > 0 else None
+    weighted_grants = 0.0
+    weighted_resolved = 0.0
+    for entry in statpack.terms:
+        if entry.term >= term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the configured lookback window
+        for seg in entry.segments:
+            if seg.band != band:
+                continue
+            rate = seg.prefix_est_grant_rate if risk_set else seg.est_grant_rate
+            denominator = seg.prefix_weighted_resolved if risk_set else seg.weighted_resolved
+            if rate is not None:
+                weighted_grants += rate * denominator
+                weighted_resolved += denominator
+    if weighted_resolved == 0:
+        return None
+    return weighted_grants / weighted_resolved
+
+
 def segment_base_rate(
     row: CorpusRow, statpack: StatPack, *, lookback_terms: int = 0
 ) -> float | None:
-    """The leakage-safe salience-segment base rate for a case.
+    """The band rate for a case whose band is read from the row **now**.
 
-    The case's frozen ``sal-v1`` band's grant rate, pooled over statpack Terms
-    **strictly before the case's own Term**. Leakage-safe by construction: only
-    Terms preceding the case contribute, so the rate a replay cell anchors on never
-    sees the case's own — or any later — Term. Pooled as a resolved-weighted mean of
-    the per-Term band rates, which equals the aggregate weighted grants over
-    aggregate weighted resolved. ``None`` when the case has no Term, no band data
-    precedes it, or nothing in the band resolved.
+    For a resolved case that is its *terminal* band, so this pools
+    ``est_grant_rate`` — the rate over rows that ended in the band. Baseline and
+    grouping match, which is what makes the number meaningful.
 
-    Reads ``est_grant_rate`` — the rate over rows that **ended** in the band —
-    because ``band`` above is derived from the row as it stands *now*, which for a
-    resolved case is its terminal band. Baseline and grouping therefore match.
+    This is the fallback, not the preferred path. Prefer
+    :func:`prediction_base_rate` wherever the cell froze its own conditioning;
+    use this only where it did not, which today means the cert back-test (whose
+    replay snapshot has its proceedings stripped, so the cell could not observe
+    its band at all) and any prediction written before the frozen block existed.
 
-    That pairing is correct but not what a forecast wants. A band is monotone
-    non-decreasing, so a cell predicted at ``baseline`` may still relist into a
-    stronger band, and the rate it actually faced is the **risk-set** rate over
-    every petition that ever *reached* its band —
-    ``StatPackTermSegment.prefix_est_grant_rate``, published beside this one and
-    several-fold higher in the weaker bands. Switching to it requires the band to
-    be the one the cell ran at; read against a terminal band it would overstate
-    the baseline for exactly the petitions whose band moved. The two changes go
-    together or not at all.
+    Leakage-safe by construction: only Terms preceding the case contribute, so
+    the rate never sees the case's own — or any later — Term. ``None`` when the
+    case has no Term, no band data precedes it, or nothing in the band resolved.
 
     ``lookback_terms`` bounds how far back the pool reaches;
     ``0`` (the default, and ``salience.base_rate_lookback_terms``'s shipped value)
@@ -68,31 +107,45 @@ def segment_base_rate(
     term = scotus_term_year(row.docket_number)
     if term is None:
         return None
-    # `band` and the statpack segments are both `sal-v1` today, so a plain name
-    # match is safe. When sal-v2 lands, reconcile the band version with each Term's
-    # `salience_version` here — a lagging statpack would otherwise miss silently. A
-    # bounded `lookback_terms` limits, but does not fix, that exposure: it caps how
-    # far back a stale version can reach, not whether the mismatch is noticed.
-    band = salience_band(row)
-    # A Term-YEAR floor, not a row count — see the docstring. `0` means no floor;
-    # `term - 0` would exclude every Term, so the sentinel must short-circuit. A
-    # negative window would read as unbounded-plus-a-Term; `ge=0` guards the config
-    # path, and clamping here guards a direct caller.
-    oldest = term - lookback_terms if lookback_terms > 0 else None
-    weighted_grants = 0.0
-    weighted_resolved = 0.0
-    for entry in statpack.terms:
-        if entry.term >= term:
-            continue  # leakage guard: the case's own and later Terms never contribute
-        if oldest is not None and entry.term < oldest:
-            continue  # outside the configured lookback window
-        for seg in entry.segments:
-            if seg.band == band and seg.est_grant_rate is not None:
-                weighted_grants += seg.est_grant_rate * seg.weighted_resolved
-                weighted_resolved += seg.weighted_resolved
-    if weighted_resolved == 0:
+    return _pooled_band_rate(
+        salience_band(row),
+        term,
+        statpack,
+        lookback_terms=lookback_terms,
+        risk_set=False,
+    )
+
+
+def prediction_base_rate(
+    context: PredictionContext | None, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The band rate a cell actually faced, from its frozen conditioning.
+
+    Pools ``prefix_est_grant_rate`` — the **risk-set** rate over every petition
+    that ever *reached* the band, not only those that ended in it. That is the
+    right rate precisely because ``context.band`` is the band as at prediction: a
+    band only ever strengthens, so a cell sitting at ``baseline`` may still relist,
+    and the population it belongs to is everyone who has reached ``baseline``.
+
+    The pairing is the whole point. Reading the risk-set rate against a *terminal*
+    band would overstate the baseline for exactly the petitions whose band moved,
+    and reading the terminal rate against a frozen band would understate it
+    several-fold in the weak bands. Neither half is correct alone.
+
+    ``None`` when there is no frozen context, when the snapshot disclosed no
+    proceedings so no band could be derived, or when no prior Term carries the
+    band — the caller then falls back to :func:`segment_base_rate`, which is
+    honest rather than invented.
+    """
+    if context is None or context.band is None or context.term is None:
         return None
-    return weighted_grants / weighted_resolved
+    return _pooled_band_rate(
+        context.band,
+        context.term,
+        statpack,
+        lookback_terms=lookback_terms,
+        risk_set=True,
+    )
 
 
 def brier_skill(brier: float, actual_granted: int, base_rate: float | None) -> float | None:

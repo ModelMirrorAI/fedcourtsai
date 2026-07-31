@@ -42,6 +42,108 @@
       "title": "JudgeVote",
       "type": "object"
     },
+    "PredictionContext": {
+      "additionalProperties": false,
+      "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written four\ndifferent ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
+      "properties": {
+        "band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The sal-v1 salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
+          "title": "Band"
+        },
+        "cvsg_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CVSG invitation date the snapshot showed, or None for no CVSG \u2014 ambiguous unless signals_observable is true",
+          "title": "Cvsg Date"
+        },
+        "distribution_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distinct conferences the snapshot showed this petition distributed for, as at provisioning; None when unobservable",
+          "title": "Distribution Count"
+        },
+        "mode": {
+          "description": "The cell's mode: forward or replay",
+          "title": "Mode",
+          "type": "string"
+        },
+        "salience_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version of the scorer that produced band",
+          "title": "Salience Version"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "signals_observable": {
+          "description": "Whether the payload disclosed a proceedings list at all. False means the docket-progress signals below are UNOBSERVABLE from what the cell saw, not that they are zero \u2014 a redacted replay snapshot drops the proceedings wholesale, and reading that absence as 'never distributed' would invent a fact",
+          "title": "Signals Observable",
+          "type": "boolean"
+        },
+        "snapshot_date": {
+          "description": "Date of the provisioned snapshot the cell read",
+          "format": "date",
+          "title": "Snapshot Date",
+          "type": "string"
+        },
+        "term": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The case's October Term, the leakage guard's key",
+          "title": "Term"
+        }
+      },
+      "required": [
+        "mode",
+        "snapshot_date",
+        "signals_observable"
+      ],
+      "title": "PredictionContext",
+      "type": "object"
+    },
     "ProcessVersion": {
       "additionalProperties": false,
       "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved configuration for this actor\n(engine, resolved model, pinned MCP manifest, and the engine's retrieval\nsurface) \u2014 so a silent prompt or config change is automatically a distinct\nversion. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is provenance only and is deliberately **not** folded into\n``digest``: the checkout commit changes on every unrelated pipeline edit, and\nfolding it in would break the frozen set every time predict/evaluate resume at\na newer HEAD. The digest captures what defines the process; the sha records\nwhich commit ran it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
@@ -140,6 +242,18 @@
       ],
       "default": null,
       "title": "Confidence"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PredictionContext"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The conditioning state this cell ran against, frozen at provisioning. Harness-written like process_version \u2014 anything an agent puts here is overwritten. Absent on predictions written before the block existed, and on cells that ran without a provisioned snapshot."
     },
     "created_at": {
       "format": "date-time",

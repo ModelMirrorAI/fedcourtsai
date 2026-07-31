@@ -228,6 +228,69 @@ class ProcessVersion(_Strict):
     stamped_at: datetime = Field(description="When the harness stamped the cell (UTC)")
 
 
+class PredictionContext(_Strict):
+    """The conditioning state a predict cell actually ran against.
+
+    **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
+    prediction by ``stamp-cell``, exactly like ``process_version`` and
+    ``usage.json`` — never the agent's word. That matters here more than
+    elsewhere: ``input_snapshot`` is the agent's own string and is written four
+    different ways across the committed set, with some cells naming no path at
+    all, so it cannot carry a scoring input.
+
+    It exists because the salience band moves. ``distribution_count`` is
+    max-latched and a ``cvsg_date``, once set, stays set, so a petition's band
+    only ever strengthens — and a band re-derived at evaluation is the band the
+    petition *ended* at, not the one the cell faced. Scoring against that
+    conditions a forecast's baseline on its own future. Freezing the band here is
+    what lets the evaluator read the risk-set rate
+    (``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition
+    at this band actually faces.
+
+    Derived from the **provisioned snapshot payload**, not from the corpus row.
+    The row holds current values; the payload is what the cell could read, which
+    is the thing a baseline has to be conditioned on. It also makes the record
+    reproducible — an auditor re-parses the dated snapshot and recovers the same
+    band — and makes forward and replay cells identical by construction, since
+    both go through the same derivation.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    mode: str = Field(description="The cell's mode: forward or replay")
+    snapshot_date: date = Field(description="Date of the provisioned snapshot the cell read")
+    signals_observable: bool = Field(
+        description="Whether the payload disclosed a proceedings list at all. False "
+        "means the docket-progress signals below are UNOBSERVABLE from what the cell "
+        "saw, not that they are zero — a redacted replay snapshot drops the "
+        "proceedings wholesale, and reading that absence as 'never distributed' "
+        "would invent a fact"
+    )
+    distribution_count: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct conferences the snapshot showed this petition distributed "
+        "for, as at provisioning; None when unobservable",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="CVSG invitation date the snapshot showed, or None for no CVSG — "
+        "ambiguous unless signals_observable is true",
+    )
+    band: str | None = Field(
+        default=None,
+        description="The sal-v1 salience band as at prediction, derived from the "
+        "signals above. None when they were unobservable, which is the honest "
+        "answer for a cell whose snapshot carried no proceedings — the evaluator "
+        "then falls back to the terminal band rather than guessing",
+    )
+    salience_version: str | None = Field(
+        default=None, description="Version of the scorer that produced band"
+    )
+    term: int | None = Field(
+        default=None, description="The case's October Term, the leakage guard's key"
+    )
+
+
 class Prediction(_Strict):
     """``prediction.json`` — one predictor's quantitative output for an event."""
 
@@ -285,6 +348,13 @@ class Prediction(_Strict):
         default=None,
         description="Harness-stamped process version (absent on shakedown cells "
         "written before the stamp existed); the frozen-headline partition key.",
+    )
+    context: PredictionContext | None = Field(
+        default=None,
+        description="The conditioning state this cell ran against, frozen at "
+        "provisioning. Harness-written like process_version — anything an agent "
+        "puts here is overwritten. Absent on predictions written before the block "
+        "existed, and on cells that ran without a provisioned snapshot.",
     )
 
 
@@ -467,10 +537,23 @@ class Evaluation(_Strict):
         le=1.0,
         description="The leakage-safe salience-segment base rate for this case — its "
         "sal-v1 band's grant rate pooled over statpack Terms strictly before the "
-        "case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive "
+        "case's Term. Which band, and therefore which of the two published rates, "
+        "is recorded in base_rate_basis below. The naive "
         "baseline the prediction's skill is scored against; null on offline evaluator "
         "outputs, when no prior-Term band data exists, and on records written before "
         "the field existed.",
+    )
+    base_rate_basis: Literal["risk_set", "terminal"] | None = Field(
+        default=None,
+        description="Which population segment_base_rate was taken over. 'risk_set' "
+        "pools across every petition that had REACHED the prediction's frozen band — "
+        "the population a live cell was actually in, and the right basis wherever the "
+        "prediction carries a frozen band. 'terminal' pools across petitions that "
+        "ENDED in the band derived from the row now, the fallback where no frozen "
+        "band exists (an older cell, or one whose snapshot disclosed no proceedings). "
+        "The two differ several-fold in the weak bands, so a skill score is only "
+        "comparable within one basis; absent on evaluations written before the "
+        "distinction existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,

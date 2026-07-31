@@ -34,7 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind
 from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
-from .cert_signals import match_disposition_signal
+from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -416,7 +416,7 @@ _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appell
 # Conference membership rides in the proceedings as its own entry —
 # "DISTRIBUTED for Conference of 3/24/2023." — one entry per (re)distribution.
 # Anchored on the full phrase so a filing's "(Distributed)" suffix never matches.
-_LIVE_DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I)
+_LIVE_DISTRIBUTED_RE = DISTRIBUTED_RE  # the shared definition; see cert_signals
 
 
 def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
@@ -467,7 +467,7 @@ def _live_distribution_count(entries: list[dict[str, Any]]) -> int:
 # Solicitor General is invited to file a brief in this case expressing the
 # views of the United States." — with minor wording drift across eras, so the
 # anchor is the stable head of the phrase only.
-_LIVE_CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
+_LIVE_CVSG_RE = CVSG_RE  # the shared definition; see cert_signals
 
 
 def _live_cvsg_date(entries: list[dict[str, Any]]) -> date | None:

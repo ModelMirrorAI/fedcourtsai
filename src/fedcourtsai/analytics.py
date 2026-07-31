@@ -1160,11 +1160,16 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
                 "resolved denominator. The bracketed `reached` figure is the same band on a "
                 "**risk-set** denominator — every petition that ever reached the band, not "
                 "only those that ended in it — which is the rate a live petition actually "
-                "faces, since a band only ever strengthens. Nothing scores against it yet: "
-                "doing so needs the band pinned as at prediction, and the two changes go "
-                "together. The risk sets are **nested**, so the bracketed denominators are "
-                "cumulative across a row rather than a partition of it, and the strongest "
-                "band's two figures coincide because nothing sits above it. "
+                "faces, since a band only ever strengthens. **Which figure is scored depends "
+                "on how the band was obtained**: a cell carrying a band frozen at prediction "
+                "is scored against the bracketed one, because that is the population it was "
+                "in; a cell without one falls back to its terminal band and the leading "
+                "figure, which at least agrees with it. The risk sets are **nested**, so the "
+                "bracketed denominators are "
+                "cumulative across a row rather than a partition of it; the strongest "
+                "band's two figures coincide because nothing sits above it, and the weakest "
+                "band's risk set is the whole scored segment, so its bracketed figure is the "
+                "paid segment's own grant rate rather than a band effect. "
                 f"Most recent {len(shown)} of {len(pack.terms)} Term(s) — "
                 "pooling a band over the rows below is bounded by what this table renders._"
             ),
@@ -1190,8 +1195,9 @@ def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
     by_band = {s.band: s for s in entry.segments}
 
     def _cell(band: str) -> str:
-        """The scored rate first, with the risk-set rate bracketed beside it so the
-        gap is legible without a second table. A band's risk set contains its
+        """The terminal rate first, with the risk-set rate bracketed beside it so
+        the gap is legible without a second table. Which one is scored depends on
+        how the reader's band was obtained — see the caption. A band's risk set contains its
         terminal set, so a bracketed figure can exist where the leading one does
         not — a band no petition *ended* in, but some passed through."""
         seg = by_band.get(band)

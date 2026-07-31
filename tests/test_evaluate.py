@@ -12,7 +12,11 @@ from datetime import date, datetime
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline.evaluate import brier_skill_score, segment_base_rate
+from fedcourtsai.pipeline.evaluate import (
+    brier_skill_score,
+    prediction_base_rate,
+    segment_base_rate,
+)
 from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
     BaseRateBucket,
@@ -20,6 +24,7 @@ from fedcourtsai.schemas import (
     Engine,
     Outcome,
     Prediction,
+    PredictionContext,
     StatPack,
     StatPackTerm,
     StatPackTermSegment,
@@ -277,3 +282,70 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
     # (0.04*100 + 0.08*300) / 400 = 0.07
     row = _row("25-100", distribution_count=1)
     assert segment_base_rate(row, _statpack(*terms)) == pytest.approx(0.07)
+
+
+def _context(
+    band: str | None, term: int | None = 2025, *, signals_observable: bool = True
+) -> PredictionContext:
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2025, 3, 1),
+        signals_observable=signals_observable,
+        band=band,
+        term=term,
+    )
+
+
+def _split_term(year: int, *, terminal: float, risk_set: float) -> StatPackTerm:
+    """A Term whose two published rates disagree, so reading the wrong one fails."""
+    return StatPackTerm(
+        term=year,
+        base_rates=BaseRateBucket(),
+        salience_version="sal-v1",
+        segments=[
+            StatPackTermSegment(
+                band="baseline",
+                weighted_resolved=900,
+                est_grant_rate=terminal,
+                prefix_weighted_resolved=1300,
+                prefix_est_grant_rate=risk_set,
+            )
+        ],
+    )
+
+
+def test_a_frozen_band_reads_the_risk_set_rate() -> None:
+    """The pairing this change exists for: band as at prediction, rate over the
+    population that had reached it. A cell at `baseline` may still relist, so the
+    petitions it belongs with are everyone who reached `baseline`."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    assert prediction_base_rate(_context("baseline"), pack) == pytest.approx(0.069)
+
+
+def test_a_row_derived_band_keeps_the_terminal_rate() -> None:
+    """The other half of the pairing. `segment_base_rate` reads the band off the
+    row, which for a resolved case is terminal — so it must pool the terminal
+    rate. Mixing the two is what would overstate the baseline for exactly the
+    petitions whose band moved."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    row = _row("25-100", distribution_count=1)
+    assert segment_base_rate(row, pack) == pytest.approx(0.015)
+
+
+def test_an_unobservable_band_yields_no_frozen_rate() -> None:
+    """A replay snapshot with its proceedings stripped discloses no band. Falling
+    back is honest; guessing `baseline` from the absence would invent a posture."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    assert prediction_base_rate(_context(None, signals_observable=False), pack) is None
+    assert prediction_base_rate(None, pack) is None
+
+
+def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
+    """Freezing the band must not loosen the leakage control: a cell's own Term
+    and every later one still contribute nothing."""
+    pack = _statpack(
+        _split_term(2026, terminal=0.99, risk_set=0.99),  # later than the cell
+        _split_term(2025, terminal=0.99, risk_set=0.99),  # the cell's own Term
+        _split_term(2024, terminal=0.015, risk_set=0.069),
+    )
+    assert prediction_base_rate(_context("baseline", term=2025), pack) == pytest.approx(0.069)

@@ -301,13 +301,30 @@ prediction's timing contract:
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
 anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) run
-**25.8%–48.0%**, nearly 2×; elevated runs 8.7%–18.8%. Anchored at an OT2026
+**25.8%–48.0%**, nearly 2×; elevated runs 16.8%–25.2% on the **risk-set** rate a
+forecast is scored against (8.7%–18.8% on the terminal rate the same table shows
+in the lead column — see below). Anchored at an OT2026
 petition, the high band reads roughly **37% (n≈1000)** pooling every prior Term,
 **34% (n≈610)** over the last five, and **44% (n≈70)** over the last one — recompute
 from the statpack's per-Term band table rather than quoting these. That is a
 ~10-point spread in the number a forecast's Brier skill is scored against, and in
 the prior a cell is told to start from, turning on a parameter — so the parameter
 is stated rather than left to a default.
+
+**Two rates per band, and which one is scored depends on how the band was
+obtained.** A band only ever strengthens — the distribution count is max-latched
+and a CVSG date, once set, stays set — so a band re-derived at evaluation is the
+band a petition *ended* at, while the band frozen on the prediction is the one
+the cell faced. The statpack publishes both rates against each band: the terminal
+one over petitions that ended there, and the **risk-set** one over every petition
+that ever reached it. A cell carrying a frozen band is scored against the
+risk-set rate, because that is the population it belonged to; a cell without one
+falls back to the terminal band and the terminal rate, which at least agree with
+each other. Reading either rate against the other kind of band is the error the
+pairing exists to prevent — the risk-set rate against a terminal band overstates
+the baseline for exactly the petitions whose band moved, and the terminal rate
+against a frozen band understates it several-fold in the weak bands. The top band
+has nothing above it, so its two rates coincide exactly.
 
 The tension is bias against variance, and it has no free answer. Per-Term
 high-band samples are small (61–163 weighted-resolved petitions), so a short
