@@ -790,3 +790,18 @@ def test_the_predictor_facing_cuts_are_paid_only(fixture_corpus: FixtureCorpus) 
     # docket pack keeps them, where describing the whole docket is the point.
     assert "Cert petitions by relist count" not in titles  # the pooled cut
     assert "Cert petitions by CVSG status" not in titles
+
+
+def test_the_docket_pack_warns_that_the_gvr_split_is_not_cross_term_comparable(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The `gvr` label is a forward convention, so two Terms resolved inside the
+    window where it did not yet exist carry zero GVRs against 30-59% either side.
+    A reader comparing the split across Terms would be reading ingestion history
+    as if it were the Court, so the artifact has to say so where it publishes it."""
+    md = analytics.render_docket_markdown(
+        analytics.build_docket_pack(corpus_db_path=fixture_corpus.db_path)
+    )
+    assert "not comparable across Terms" in md
+    assert "forward convention" in md
+    assert "OT2023 and OT2024" in md
