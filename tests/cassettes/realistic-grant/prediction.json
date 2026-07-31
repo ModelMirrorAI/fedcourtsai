@@ -15,12 +15,12 @@
   "schema_version": "1.0",
   "votes": [
     {
-      "judge": "berzon",
-      "vote": "granted"
+      "justice": "berzon",
+      "vote": "grant"
     },
     {
-      "judge": "smith",
-      "vote": "granted"
+      "justice": "smith",
+      "vote": "grant"
     }
   ]
 }

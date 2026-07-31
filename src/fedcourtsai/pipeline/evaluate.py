@@ -204,12 +204,19 @@ def claim_score(p: float, y: int, b: float) -> float:
 
 
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
-    """Fraction of predicted panel votes that matched, if votes were predicted."""
+    """Fraction of predicted votes that matched, over the Justices both name.
+
+    Scored only where the outcome actually records a vote, so a Justice whose vote
+    was never observed costs a predictor nothing — the denominator is what the
+    record discloses, never what the predictor attempted. ``Outcome.vote_provenance``
+    is what says whether a short list means "only these are public" or "nobody
+    looked"; this function needs only the intersection either way.
+    """
     if not prediction.votes or not outcome.votes:
         return None
-    actual = {v.judge: v.vote for v in outcome.votes}
-    scored = [v for v in prediction.votes if v.judge in actual]
+    actual = {v.justice: v.vote for v in outcome.votes}
+    scored = [v for v in prediction.votes if v.justice in actual]
     if not scored:
         return None
-    hits = sum(1 for v in scored if actual[v.judge] == v.vote)
+    hits = sum(1 for v in scored if actual[v.justice] == v.vote)
     return hits / len(scored)

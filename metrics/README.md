@@ -174,8 +174,8 @@ calibration with vacatur-practice prediction.
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
   *not yet parsed*, not *did not happen*. The document names the statistics it
   cannot yet compute (what the petitions are about, which needs a claim taxonomy
-  that does not exist; summary reversals, which the disposition vocabulary has no
-  label for; justice-level statistics, which need a per-justice vote record) so a
+  that does not exist; summary reversals, which have a disposition label
+  but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
 These files are deterministic, offline roll-ups that start empty (zero counts)
