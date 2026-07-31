@@ -37,10 +37,23 @@ def segment_base_rate(
     **strictly before the case's own Term**. Leakage-safe by construction: only
     Terms preceding the case contribute, so the rate a replay cell anchors on never
     sees the case's own — or any later — Term. Pooled as a resolved-weighted mean of
-    the per-Term band rates (each Term's ``est_grant_rate`` weighted by its
-    ``weighted_resolved``), which equals the aggregate weighted grants over
+    the per-Term band rates, which equals the aggregate weighted grants over
     aggregate weighted resolved. ``None`` when the case has no Term, no band data
     precedes it, or nothing in the band resolved.
+
+    Reads ``est_grant_rate`` — the rate over rows that **ended** in the band —
+    because ``band`` above is derived from the row as it stands *now*, which for a
+    resolved case is its terminal band. Baseline and grouping therefore match.
+
+    That pairing is correct but not what a forecast wants. A band is monotone
+    non-decreasing, so a cell predicted at ``baseline`` may still relist into a
+    stronger band, and the rate it actually faced is the **risk-set** rate over
+    every petition that ever *reached* its band —
+    ``StatPackTermSegment.prefix_est_grant_rate``, published beside this one and
+    several-fold higher in the weaker bands. Switching to it requires the band to
+    be the one the cell ran at; read against a terminal band it would overstate
+    the baseline for exactly the petitions whose band moved. The two changes go
+    together or not at all.
 
     ``lookback_terms`` bounds how far back the pool reaches;
     ``0`` (the default, and ``salience.base_rate_lookback_terms``'s shipped value)

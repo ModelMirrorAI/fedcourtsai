@@ -1763,6 +1763,23 @@ class StatPackTermSegment(_Strict):
     replay cell reads only Terms strictly before its clock, so the rate never leaks
     the current Term. Estimates are sample-weighted (each row counted
     ``sample_weight`` times), matching the Term's other weighted cuts.
+
+    **Two rates, answering two different questions.** A band is monotone
+    non-decreasing over a petition's life — the distribution count is max-latched
+    and a CVSG date, once set, stays set — so a petition passes *through* the
+    weaker bands on its way to the one it ends in.
+
+    ``est_grant_rate`` conditions on the band a petition **ended** in. It is the
+    descriptive cut: of the petitions that finished at one distribution, how many
+    were granted.
+
+    ``prefix_est_grant_rate`` conditions on having **reached** the band, which is
+    the same event as "ended here or stronger". That is the forecast baseline,
+    because a cell is scored at the band it sat in when it ran, and from there the
+    petition may still relist. Conditioning a live forecast on the terminal rate
+    would ask it to beat a number computed with knowledge of its own future, and
+    understates the honest baseline several-fold in the weaker bands (the
+    strongest band has nothing above it, so the two coincide there exactly).
     """
 
     band: str = Field(
@@ -1781,8 +1798,33 @@ class StatPackTermSegment(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share (granted + gvr) of the band's resolved "
-        "rows — the segment base rate; None when nothing in the band resolved",
+        description="Weighted grant-family share (granted + gvr) of the rows that "
+        "ENDED in this band — a descriptive rate, not a forecast baseline; None "
+        "when nothing in the band resolved",
+    )
+    prefix_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Rows in the band's risk set carrying a disposition (raw count) — "
+        "the observed rows behind the weighted estimate beside it",
+    )
+    prefix_weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Sample-weighted resolved estimate over the band's risk set — "
+        "every row that ever reached this band, not only those that ended in it. "
+        "Risk sets are nested, so this contains every stronger band's",
+    )
+    prefix_est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted grant-family share over the band's risk set: "
+        "P(grant | the petition has REACHED this band). The forecast baseline — "
+        "this is what a predictor is asked to beat, because a cell is scored at "
+        "the band it sat in when it ran, not the one it ended in. Identical to "
+        "est_grant_rate for the strongest band, which has nothing above it; "
+        "None when the risk set is empty",
     )
 
 

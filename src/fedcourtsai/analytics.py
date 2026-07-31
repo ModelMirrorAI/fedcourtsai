@@ -616,10 +616,17 @@ class _Slice:
         return _timing_from_days([days for days, _ in self.day_pairs])
 
 
+# Each band mapped to itself and every weaker band, precomputed from the
+# strongest-first order so the risk-set fan-out is a dict lookup per row.
+_WEAKER_OR_EQUAL: dict[str, tuple[str, ...]] = {
+    band: salience_bands()[i:] for i, band in enumerate(salience_bands())
+}
+
+
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
-    __slots__ = ("classes", "grant_days", "grants", "overall", "segments")
+    __slots__ = ("classes", "grant_days", "grants", "overall", "prefixes", "segments")
 
     def __init__(self) -> None:
         self.overall = _Slice(cert_timing=True)
@@ -631,6 +638,9 @@ class _TermAcc:
         # leakage-safe per-Term segment base rate. Pre-seeded for every band so a
         # Term with no rows in a band still emits that band (a stable JSON shape).
         self.segments: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        # The same bands on a **risk-set** denominator: every row that ever
+        # *reached* a band, not only those that ended in it. See `add`.
+        self.prefixes: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
         self.grants = 0
         self.grant_days: list[int] = []
 
@@ -640,7 +650,17 @@ class _TermAcc:
         if fee is not None:
             self.classes[fee].add(row)
         if _is_scored_segment_row(row):
-            self.segments[salience_band(row)].add(row)
+            band = salience_band(row)
+            self.segments[band].add(row)
+            # A band is monotone non-decreasing over a petition's life: the
+            # distribution count is max-latched and a CVSG date, once set, stays
+            # set. So "this petition has reached band b" is the same event as
+            # "its final band is b or stronger", and the risk set for b is every
+            # row at b or above it. `salience_bands()` is ordered strongest-first,
+            # so a row joins its own band's prefix slice and every weaker one.
+            order = salience_bands()
+            for weaker in order[order.index(band) :]:
+                self.prefixes[weaker].add(row)
         if row.disposition in (Disposition.granted.value, Disposition.gvr.value):
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
@@ -736,6 +756,8 @@ def _term_entry(
     for band in salience_bands():
         entry = acc.segments[band]
         weighted = entry.bucket("", weighted=True)
+        prefix_acc = acc.prefixes[band]
+        prefix = prefix_acc.bucket("", weighted=True)
         segments.append(
             StatPackTermSegment(
                 band=band,
@@ -745,6 +767,13 @@ def _term_entry(
                 est_grant_rate=(
                     sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
                     if weighted.resolved
+                    else None
+                ),
+                prefix_resolved=prefix_acc.bucket("").resolved,
+                prefix_weighted_resolved=prefix.resolved,
+                prefix_est_grant_rate=(
+                    sum(d.share for d in prefix.dispositions if d.disposition in _GRANT_LABELS)
+                    if prefix.resolved
                     else None
                 ),
             )
@@ -1128,7 +1157,15 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
                 "_Paid scored-segment grant rate per band, this Term's live slice only "
                 "(denial-reweighted); the leakage-safe base rate the predict prompt is designed "
                 "to anchor on and the evaluator will score skill against. `n` is the weighted "
-                f"resolved denominator. Most recent {len(shown)} of {len(pack.terms)} Term(s) — "
+                "resolved denominator. The bracketed `reached` figure is the same band on a "
+                "**risk-set** denominator — every petition that ever reached the band, not "
+                "only those that ended in it — which is the rate a live petition actually "
+                "faces, since a band only ever strengthens. Nothing scores against it yet: "
+                "doing so needs the band pinned as at prediction, and the two changes go "
+                "together. The risk sets are **nested**, so the bracketed denominators are "
+                "cumulative across a row rather than a partition of it, and the strongest "
+                "band's two figures coincide because nothing sits above it. "
+                f"Most recent {len(shown)} of {len(pack.terms)} Term(s) — "
                 "pooling a band over the rows below is bounded by what this table renders._"
             ),
             "",
@@ -1153,10 +1190,21 @@ def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
     by_band = {s.band: s for s in entry.segments}
 
     def _cell(band: str) -> str:
+        """The scored rate first, with the risk-set rate bracketed beside it so the
+        gap is legible without a second table. A band's risk set contains its
+        terminal set, so a bracketed figure can exist where the leading one does
+        not — a band no petition *ended* in, but some passed through."""
         seg = by_band.get(band)
-        if seg is None or seg.est_grant_rate is None:
+        if seg is None:
             return "—"
-        return f"{_pct(seg.est_grant_rate)} (n={seg.weighted_resolved})"
+        reached = (
+            f"[reached {_pct(seg.prefix_est_grant_rate)}, n={seg.prefix_weighted_resolved}]"
+            if seg.prefix_est_grant_rate is not None
+            else ""
+        )
+        if seg.est_grant_rate is None:
+            return reached or "—"
+        return f"{_pct(seg.est_grant_rate)} (n={seg.weighted_resolved}) {reached}".rstrip()
 
     return f"| {entry.term} | " + " | ".join(_cell(band) for band in bands) + " |"
 

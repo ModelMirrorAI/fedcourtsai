@@ -605,8 +605,12 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     assert "## Cert petitions by salience band" in md
     assert "### Segment base rate by salience band (sal-v1)" in md
     assert "| Term | high | elevated | baseline |" in md
-    # OT22's lone elevated petition is a weight-5 denial: 0.0% over n=5, other bands —.
-    assert "| 2022 | — | 0.0% (n=5) | — |" in md
+    # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
+    # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
+    # nothing reached it. `baseline` carries ONLY a bracket: no row ended there,
+    # but this petition passed through it, so it is in that band's risk set. That
+    # asymmetry is the whole point of publishing both.
+    assert "| 2022 | — | 0.0% (n=5) [reached 0.0%, n=5] | [reached 0.0%, n=5] |" in md
     # The band table states its own rendered window. The predict/evaluate prompts
     # tell agents that this caption is how they detect truncation, so the count has
     # to sit on THIS table — the parent Term table's caption is a different section.
@@ -701,3 +705,74 @@ def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:
     era = _section(_pack(fixture_corpus), "SCOTUS cases by era")
     # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers.
     assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 2)]
+
+
+def test_the_risk_set_rate_nests_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
+    """The structural invariant behind the forecast baseline.
+
+    A band is monotone non-decreasing over a petition's life, so "has reached band
+    b" is the same event as "ended at b or stronger". Two consequences that must
+    hold on every Term, and would catch a mis-ordered or mis-indexed risk set:
+
+    * the strongest band has nothing above it, so its risk set IS its terminal
+      set — the two rates and denominators coincide exactly;
+    * a weaker band's risk set is a superset of its terminal set, so its
+      denominator can only grow.
+    """
+    pack = _pack(fixture_corpus)
+    strongest = _BANDS[0]
+    for term in pack.terms:
+        by_band = {s.band: s for s in term.segments}
+        top = by_band[strongest]
+        assert top.prefix_weighted_resolved == top.weighted_resolved, term.term
+        assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
+        for band in _BANDS[1:]:
+            seg = by_band[band]
+            assert seg.prefix_weighted_resolved >= seg.weighted_resolved, (term.term, band)
+
+
+def test_the_risk_set_rate_lifts_a_weak_band_that_a_stronger_grant_passed_through(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The defect in one assertion: a petition that ends `elevated` was `baseline`
+    when it was first distributed, so it belongs in `baseline`'s risk set. The
+    terminal cut drops it, which is what understated that band several-fold."""
+    term = _term(_pack(fixture_corpus), 2022)
+    by_band = {s.band: s for s in term.segments}
+    # OT2022's only scored row is the weight-5 elevated denial (see the segment
+    # test above). It ended `elevated`, so `baseline` holds no row that ended
+    # there — but the petition passed through `baseline`, so the risk set has it.
+    assert by_band["baseline"].weighted_resolved == 0
+    assert by_band["baseline"].est_grant_rate is None
+    assert by_band["baseline"].prefix_weighted_resolved == 5
+    assert by_band["baseline"].prefix_est_grant_rate == 0.0
+
+
+def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
+    """The structural claims, against real bands rather than the 6-row fixture.
+
+    The fixture corpus has no resolved `high` row, so the strongest-band identity
+    is vacuous there (0 == 0, None == None). It is the claim the rendered caption
+    and both prompts rest on, so it is checked here on the committed artifact,
+    which carries every band across nine Terms. These are invariants of the
+    construction, not of the current data, so a refresh cannot falsify them.
+    """
+    pack = StatPack.model_validate_json(Path("metrics/statpack.json").read_text())
+    bands = list(_BANDS)
+    saw_populated_top = False
+    for term in pack.terms:
+        by_band = {s.band: s for s in term.segments}
+        top = by_band[bands[0]]
+        # Nothing sits above the strongest band, so its risk set IS its terminal set.
+        assert top.prefix_weighted_resolved == top.weighted_resolved, term.term
+        assert top.prefix_resolved == top.resolved, term.term
+        assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
+        if top.weighted_resolved:
+            saw_populated_top = True
+        # Risk sets nest downward, so each denominator contains every stronger one.
+        running = 0
+        for band in bands:
+            seg = by_band[band]
+            running += seg.weighted_resolved
+            assert seg.prefix_weighted_resolved == running, (term.term, band)
+    assert saw_populated_top, "the identity would be vacuous without a resolved top band"
