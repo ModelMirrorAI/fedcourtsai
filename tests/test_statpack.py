@@ -107,11 +107,11 @@ def test_build_statpack_weighted_circuit_cut(fixture_corpus: FixtureCorpus) -> N
 
 def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
-    relists = _section(pack, "Cert petitions by relist count")
+    relists = _section(pack, "Cert petitions by relist count (paid scored segment)")
     # scotus/304: two distributions = one relist (weight 5); scotus/305: one
     # distribution = zero relists (weight 1).
     assert {(b.key, b.cases) for b in relists.buckets} == {("1", 5), ("0", 1)}
-    cvsg = _section(pack, "Cert petitions by CVSG status")
+    cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     # scotus/305 carries the SG invitation; scotus/304 was parsed and has none.
     assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 5)}
 
@@ -255,8 +255,8 @@ def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
             ],
         )
     pack = analytics.build_statpack(corpus_db_path=db)
-    relists = _section(pack, "Cert petitions by relist count")
-    cvsg = _section(pack, "Cert petitions by CVSG status")
+    relists = _section(pack, "Cert petitions by relist count (paid scored segment)")
+    cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     assert [(b.key, b.cases) for b in relists.buckets] == [("(unknown)", 1)]
     assert [(b.key, b.cases) for b in cvsg.buckets] == [("(unknown)", 1)]
 
@@ -776,3 +776,17 @@ def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
             running += seg.weighted_resolved
             assert seg.prefix_weighted_resolved == running, (term.term, band)
     assert saw_populated_top, "the identity would be vacuous without a resolved top band"
+
+
+def test_the_predictor_facing_cuts_are_paid_only(fixture_corpus: FixtureCorpus) -> None:
+    """A predict cell's petition is always paid — IFP is excluded at Tier 0 — so a
+    cut that pools IFP hands it a level it is never in. IFP petitions relist far
+    less often and have never drawn a CVSG, so the pooled level sits below the one
+    a selected petition faces, and a cell reading it anchors low."""
+    titles = [s.title for s in _pack(fixture_corpus).sections]
+    assert "Cert petitions by relist count (paid scored segment)" in titles
+    assert "Cert petitions by CVSG status (paid scored segment)" in titles
+    # The pooled versions stay off the predictor-facing pack; the court-facing
+    # docket pack keeps them, where describing the whole docket is the point.
+    assert "Cert petitions by relist count" not in titles  # the pooled cut
+    assert "Cert petitions by CVSG status" not in titles

@@ -1144,154 +1144,154 @@
     {
       "buckets": [
         {
-          "cases": 36076,
+          "cases": 9904,
           "dispositions": [
             {
-              "count": 34562,
+              "count": 9412,
               "disposition": "denied",
-              "share": 0.9725638067366407
+              "share": 0.9706094668454162
             },
             {
-              "count": 698,
-              "disposition": "dismissed",
-              "share": 0.01964150040802544
-            },
-            {
-              "count": 154,
+              "count": 124,
               "disposition": "granted",
-              "share": 0.004333511551340856
+              "share": 0.012787460039187378
             },
             {
-              "count": 123,
+              "count": 120,
+              "disposition": "dismissed",
+              "share": 0.01237496132824585
+            },
+            {
+              "count": 41,
               "disposition": "gvr",
-              "share": 0.0034611813039930215
+              "share": 0.0042281117871506655
             }
           ],
           "key": "0",
-          "open": 539,
-          "resolved": 35537
+          "open": 207,
+          "resolved": 9697
         },
         {
-          "cases": 6619,
+          "cases": 2531,
           "dispositions": [
             {
-              "count": 5943,
+              "count": 2159,
               "disposition": "denied",
-              "share": 0.9042909312233719
+              "share": 0.86187624750499
             },
             {
-              "count": 270,
+              "count": 239,
               "disposition": "granted",
-              "share": 0.04108338405356056
+              "share": 0.09540918163672654
             },
             {
-              "count": 186,
+              "count": 86,
               "disposition": "gvr",
-              "share": 0.02830188679245283
+              "share": 0.0343313373253493
             },
             {
-              "count": 173,
+              "count": 21,
               "disposition": "dismissed",
-              "share": 0.02632379793061473
+              "share": 0.008383233532934131
             }
           ],
           "key": "1",
-          "open": 47,
-          "resolved": 6572
+          "open": 26,
+          "resolved": 2505
         },
         {
-          "cases": 867,
+          "cases": 499,
           "dispositions": [
             {
-              "count": 596,
+              "count": 297,
               "disposition": "denied",
-              "share": 0.6922183507549361
+              "share": 0.5975855130784709
             },
             {
-              "count": 175,
+              "count": 159,
               "disposition": "granted",
-              "share": 0.2032520325203252
+              "share": 0.3199195171026157
             },
             {
-              "count": 82,
+              "count": 38,
               "disposition": "gvr",
-              "share": 0.09523809523809523
+              "share": 0.07645875251509054
             },
             {
-              "count": 8,
+              "count": 3,
               "disposition": "dismissed",
-              "share": 0.009291521486643438
+              "share": 0.006036217303822937
             }
           ],
           "key": "2",
-          "open": 6,
-          "resolved": 861
+          "open": 2,
+          "resolved": 497
         },
         {
-          "cases": 805,
+          "cases": 441,
           "dispositions": [
             {
-              "count": 546,
+              "count": 262,
               "disposition": "denied",
-              "share": 0.6825
+              "share": 0.6009174311926605
             },
             {
-              "count": 146,
+              "count": 117,
               "disposition": "granted",
-              "share": 0.1825
+              "share": 0.268348623853211
             },
             {
-              "count": 98,
+              "count": 50,
               "disposition": "gvr",
-              "share": 0.1225
+              "share": 0.11467889908256881
             },
             {
-              "count": 10,
+              "count": 7,
               "disposition": "dismissed",
-              "share": 0.0125
+              "share": 0.016055045871559634
             }
           ],
           "key": "3+",
           "open": 5,
-          "resolved": 800
+          "resolved": 436
         }
       ],
       "cert_stage": true,
       "court": "scotus",
       "group_by": "relist_bucket",
       "live_slice": true,
-      "title": "Cert petitions by relist count",
+      "title": "Cert petitions by relist count (paid scored segment)",
       "weighted": true
     },
     {
       "buckets": [
         {
-          "cases": 44193,
+          "cases": 13201,
           "dispositions": [
             {
-              "count": 41545,
+              "count": 12028,
               "disposition": "denied",
-              "share": 0.9527358620373343
+              "share": 0.9272993601110169
             },
             {
-              "count": 885,
-              "disposition": "dismissed",
-              "share": 0.020295372196486722
-            },
-            {
-              "count": 694,
+              "count": 588,
               "disposition": "granted",
-              "share": 0.015915241021877722
+              "share": 0.04533189422558014
             },
             {
-              "count": 482,
+              "count": 208,
               "disposition": "gvr",
-              "share": 0.011053524744301243
+              "share": 0.01603577210700794
+            },
+            {
+              "count": 147,
+              "disposition": "dismissed",
+              "share": 0.011332973556395036
             }
           ],
           "key": "none",
-          "open": 587,
-          "resolved": 43606
+          "open": 230,
+          "resolved": 12971
         },
         {
           "cases": 174,
@@ -1326,7 +1326,7 @@
       "court": "scotus",
       "group_by": "cvsg",
       "live_slice": true,
-      "title": "Cert petitions by CVSG status",
+      "title": "Cert petitions by CVSG status (paid scored segment)",
       "weighted": true
     },
     {
