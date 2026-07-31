@@ -158,18 +158,18 @@ _Live/historical slice; denial-reweighted estimates. Most recent 9 of 9 Term(s);
 | 2017 | 1718/4595 | 878 | 6260 | denied 95.5%, dismissed 1.9%, gvr 1.4%, granted 1.3% | 2.6% | 164 | 67 | ✓/✓ |
 
 ### Segment base rate by salience band (sal-v1)
-_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator._
+_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator. The bracketed `reached` figure is the same band on a **risk-set** denominator — every petition that ever reached the band, not only those that ended in it — which is the rate a live petition actually faces, since a band only ever strengthens. Nothing scores against it yet: doing so needs the band pinned as at prediction, and the two changes go together. The risk sets are **nested**, so the bracketed denominators are cumulative across a row rather than a partition of it, and the strongest band's two figures coincide because nothing sits above it. Most recent 9 of 9 Term(s) — pooling a band over the rows below is bounded by what this table renders._
 
 | Term | high | elevated | baseline |
 | --- | --- | --- | --- |
-| 2025 | 44.4% (n=72) | 8.7% (n=229) | 1.4% (n=875) |
-| 2024 | 40.5% (n=121) | 10.4% (n=259) | 1.5% (n=925) |
-| 2023 | 25.8% (n=163) | 17.8% (n=259) | 2.0% (n=904) |
-| 2022 | 37.5% (n=112) | 13.7% (n=211) | 2.1% (n=909) |
-| 2021 | 29.6% (n=142) | 11.9% (n=353) | 1.6% (n=1125) |
-| 2020 | 44.3% (n=97) | 18.8% (n=292) | 1.7% (n=1358) |
-| 2019 | 47.5% (n=61) | 14.3% (n=280) | 2.6% (n=1123) |
-| 2018 | 31.0% (n=116) | 10.7% (n=272) | 1.7% (n=1202) |
-| 2017 | 48.0% (n=123) | 10.1% (n=278) | 0.9% (n=1274) |
+| 2025 | 44.4% (n=72) [reached 44.4%, n=72] | 8.7% (n=229) [reached 17.3%, n=301] | 1.4% (n=875) [reached 5.4%, n=1176] |
+| 2024 | 40.5% (n=121) [reached 40.5%, n=121] | 10.4% (n=259) [reached 20.0%, n=380] | 1.5% (n=925) [reached 6.9%, n=1305] |
+| 2023 | 25.8% (n=163) [reached 25.8%, n=163] | 17.8% (n=259) [reached 20.9%, n=422] | 2.0% (n=904) [reached 8.0%, n=1326] |
+| 2022 | 37.5% (n=112) [reached 37.5%, n=112] | 13.7% (n=211) [reached 22.0%, n=323] | 2.1% (n=909) [reached 7.3%, n=1232] |
+| 2021 | 29.6% (n=142) [reached 29.6%, n=142] | 11.9% (n=353) [reached 17.0%, n=495] | 1.6% (n=1125) [reached 6.3%, n=1620] |
+| 2020 | 44.3% (n=97) [reached 44.3%, n=97] | 18.8% (n=292) [reached 25.2%, n=389] | 1.7% (n=1358) [reached 6.9%, n=1747] |
+| 2019 | 47.5% (n=61) [reached 47.5%, n=61] | 14.3% (n=280) [reached 20.2%, n=341] | 2.6% (n=1123) [reached 6.7%, n=1464] |
+| 2018 | 31.0% (n=116) [reached 31.0%, n=116] | 10.7% (n=272) [reached 16.8%, n=388] | 1.7% (n=1202) [reached 5.3%, n=1590] |
+| 2017 | 48.0% (n=123) [reached 48.0%, n=123] | 10.1% (n=278) [reached 21.7%, n=401] | 0.9% (n=1274) [reached 5.9%, n=1675] |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._

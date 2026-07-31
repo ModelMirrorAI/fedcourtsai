@@ -13,6 +13,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.evaluate import brier_skill_score, segment_base_rate
+from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
@@ -26,12 +27,25 @@ from fedcourtsai.schemas import (
 
 
 def _term(year: int, band_rates: dict[str, tuple[float, int]]) -> StatPackTerm:
+    """A Term whose bands carry ``(rate, weighted_resolved)``.
+
+    The rate is written to **both** the terminal and the risk-set field, so these
+    fixtures exercise the pooling arithmetic without also encoding a
+    prefix-versus-terminal gap. `test_the_baseline_reads_the_risk_set_rate` is
+    where the two are deliberately set apart.
+    """
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
         salience_version="sal-v1",
         segments=[
-            StatPackTermSegment(band=band, weighted_resolved=n, est_grant_rate=rate)
+            StatPackTermSegment(
+                band=band,
+                weighted_resolved=n,
+                est_grant_rate=rate,
+                prefix_weighted_resolved=n,
+                prefix_est_grant_rate=rate,
+            )
             for band, (rate, n) in band_rates.items()
         ],
     )
@@ -208,3 +222,58 @@ def test_brier_skill_none_without_a_base_rate_or_on_a_perfect_baseline() -> None
     # A base rate that already resolved the outcome exactly (1.0 on a grant) makes
     # the baseline Brier zero -> skill undefined -> None (no divide-by-zero).
     assert brier_skill_score(_prediction(0.9), _outcome(1), base_rate=1.0) is None
+
+
+def test_the_baseline_matches_the_band_it_is_grouped_by() -> None:
+    """Baseline and grouping have to agree, and today both are terminal.
+
+    `segment_base_rate` derives the band from the row as it stands now — for a
+    resolved case, its terminal band — so it must read the rate over rows that
+    *ended* in that band. The risk-set rate is published beside it and is several
+    times higher in the weak bands, but reading it against a terminal band would
+    overstate the baseline for exactly the petitions whose band moved. Switching
+    the read requires pinning the band as at prediction; the two go together.
+    """
+    term = StatPackTerm(
+        term=2024,
+        base_rates=BaseRateBucket(),
+        salience_version="sal-v1",
+        segments=[
+            StatPackTermSegment(
+                band="baseline",
+                weighted_resolved=900,
+                est_grant_rate=0.015,  # ended at baseline
+                prefix_weighted_resolved=1300,
+                prefix_est_grant_rate=0.069,  # ever reached baseline
+            )
+        ],
+    )
+    row = _row("25-100", distribution_count=1)  # OT2025, so OT2024 is prior
+    assert salience_band(row) == "baseline"
+    assert segment_base_rate(row, _statpack(term)) == pytest.approx(0.015)
+
+
+def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
+    """A Term contributes at the weight belonging to the rate being pooled. Mixing
+    a terminal rate with a risk-set denominator (or the reverse) drifts the pooled
+    figure without failing anything."""
+    terms = [
+        StatPackTerm(
+            term=year,
+            base_rates=BaseRateBucket(),
+            salience_version="sal-v1",
+            segments=[
+                StatPackTermSegment(
+                    band="baseline",
+                    weighted_resolved=n,
+                    est_grant_rate=rate,
+                    prefix_weighted_resolved=1,  # decoy: wrong denominator if read
+                    prefix_est_grant_rate=0.99,
+                )
+            ],
+        )
+        for year, rate, n in ((2022, 0.04, 100), (2023, 0.08, 300))
+    ]
+    # (0.04*100 + 0.08*300) / 400 = 0.07
+    row = _row("25-100", distribution_count=1)
+    assert segment_base_rate(row, _statpack(*terms)) == pytest.approx(0.07)
