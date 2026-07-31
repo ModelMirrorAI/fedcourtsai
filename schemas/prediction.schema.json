@@ -7,6 +7,7 @@
         "denied",
         "granted-in-part",
         "gvr",
+        "summary-reversal",
         "dismissed",
         "withdrawn",
         "other"
@@ -24,22 +25,36 @@
       "title": "Engine",
       "type": "string"
     },
-    "JudgeVote": {
+    "JusticeVote": {
       "additionalProperties": false,
+      "description": "One Justice's vote, and whether they wrote.\n\nThe vote is a :class:`VoteValue`, not a :class:`Disposition`: a disposition is\nwhat the *Court* did, and has no member for joining a majority or dissenting.",
       "properties": {
-        "judge": {
-          "title": "Judge",
+        "justice": {
+          "description": "The Justice's name, as the vote source spells it",
+          "title": "Justice",
           "type": "string"
         },
         "vote": {
-          "$ref": "#/$defs/Disposition"
+          "$ref": "#/$defs/VoteValue"
+        },
+        "writing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WritingRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What this Justice wrote. Null means not stated \u2014 the record was written without addressing writing at all. `none` is the opposite: an affirmative observation that this Justice wrote nothing, which is what a final order list or opinion discloses about every participating Justice. Defaulting to `none` would turn every silent record into that claim"
         }
       },
       "required": [
-        "judge",
+        "justice",
         "vote"
       ],
-      "title": "JudgeVote",
+      "title": "JusticeVote",
       "type": "object"
     },
     "ProcessVersion": {
@@ -89,6 +104,35 @@
       ],
       "title": "ProcessVersion",
       "type": "object"
+    },
+    "VoteValue": {
+      "description": "How one Justice voted. Distinct from :class:`Disposition`, which is what the\n*Court* did \u2014 a vocabulary with no member for joining a majority or dissenting,\nand so unable to express a vote at all.\n\nSpans every stage, because the model does: ``grant``/``deny`` are the cert and\ninterim vocabulary, the rest are merits. A vote that does not exist is not a\nvote \u2014 ``recused`` and ``did_not_participate`` are recorded so the aggregation\ndenominator is legible, since a threshold counts *participating* Justices.",
+      "enum": [
+        "grant",
+        "deny",
+        "majority",
+        "concur-in-judgment",
+        "concur-in-part-dissent-in-part",
+        "dissent",
+        "recused",
+        "did-not-participate"
+      ],
+      "title": "VoteValue",
+      "type": "string"
+    },
+    "WritingRole": {
+      "description": "What a Justice wrote, if anything.\n\n``none`` is a real observation, not a gap: once an order list or an opinion is\nfinal, every participating Justice is observed either to have written or not\nto have. A record that simply does not address writing leaves the field null\ninstead, so silence is never read as an observed absence.\n\nThat asymmetry is what makes \"does Justice j write here\" forecastable where an\nindividual cert *vote* is not \u2014 a cert vote becomes public only when a Justice\nchooses to note it, so the visible ones are selected on the outcome.\n\n``statement`` covers a statement respecting the denial of certiorari, which is\nthe commonest non-``none`` value at the cert stage.",
+      "enum": [
+        "none",
+        "majority",
+        "plurality",
+        "concurrence",
+        "concurrence-in-judgment",
+        "dissent",
+        "statement"
+      ],
+      "title": "WritingRole",
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -235,7 +279,7 @@
     },
     "votes": {
       "items": {
-        "$ref": "#/$defs/JudgeVote"
+        "$ref": "#/$defs/JusticeVote"
       },
       "title": "Votes",
       "type": "array"

@@ -64,7 +64,15 @@ _UNKNOWN_KEY = "(unknown)"
 # GVR grants the petition, so it sums into the grant rate alongside a plain grant
 # (both were a single "granted" bucket before the `gvr` label split them out).
 # `granted-in-part` stays its own bucket, preserving the pre-`gvr` definition.
-_GRANT_LABELS = (Disposition.granted.value, Disposition.gvr.value)
+# The grant family, as one definition. The rendered tables print a grant count and
+# a grant rate in adjacent columns, so two enumerations of "what counts as a
+# grant" would diverge somewhere visible. Mirrors `pipeline.outcome.granted_flag`,
+# which owns the same question for the binary scoring target.
+_GRANT_LABELS = (
+    Disposition.granted.value,
+    Disposition.gvr.value,
+    Disposition.summary_reversal.value,
+)
 
 
 class AnalyticsQuery(BaseModel):
@@ -661,7 +669,7 @@ class _TermAcc:
             order = salience_bands()
             for weaker in order[order.index(band) :]:
                 self.prefixes[weaker].add(row)
-        if row.disposition in (Disposition.granted.value, Disposition.gvr.value):
+        if row.disposition in _GRANT_LABELS:
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
                 days = (row.date_cert_granted - row.date_filed).days
@@ -1251,13 +1259,13 @@ _DOCKET_GAPS = (
     "a categorization nothing else in the project shares, and that no later work "
     "could reproduce.",
     "**Summary reversals are not broken out.** The disposition vocabulary carries "
-    "no label for them, and a summary reversal is counted inside the grant family "
-    "above rather than being missing from it. "
+    "a label for them, but no resolver rule reads one off an order, so none is "
+    "produced and a summary reversal is counted inside the grant family above "
+    "rather than being missing from it. "
     "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
     "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
     "of a substantial federal question are deliberate resolver misses that reach "
-    "maintainer triage instead. Counting them here would mean inventing a label "
-    "the corpus does not carry.",
+    "maintainer triage instead.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
     "opinion authorship are per-justice facts; this corpus is docket-first and "
     "holds no per-justice vote record.",

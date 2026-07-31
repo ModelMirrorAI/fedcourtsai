@@ -58,9 +58,84 @@ class Disposition(StrEnum):
     denied = "denied"
     granted_in_part = "granted-in-part"
     gvr = "gvr"
+    summary_reversal = "summary-reversal"
     dismissed = "dismissed"
     withdrawn = "withdrawn"
     other = "other"
+
+
+#: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
+#: only statutory numbers in the decision model; every vote threshold is Court
+#: practice instead (``pipeline.aggregation``).
+SEATS = 9
+QUORUM = 6
+
+
+class VoteValue(StrEnum):
+    """How one Justice voted. Distinct from :class:`Disposition`, which is what the
+    *Court* did — a vocabulary with no member for joining a majority or dissenting,
+    and so unable to express a vote at all.
+
+    Spans every stage, because the model does: ``grant``/``deny`` are the cert and
+    interim vocabulary, the rest are merits. A vote that does not exist is not a
+    vote — ``recused`` and ``did_not_participate`` are recorded so the aggregation
+    denominator is legible, since a threshold counts *participating* Justices.
+    """
+
+    grant = "grant"
+    deny = "deny"
+    majority = "majority"
+    concur_in_judgment = "concur-in-judgment"
+    concur_in_part = "concur-in-part-dissent-in-part"
+    dissent = "dissent"
+    recused = "recused"
+    did_not_participate = "did-not-participate"
+
+
+class WritingRole(StrEnum):
+    """What a Justice wrote, if anything.
+
+    ``none`` is a real observation, not a gap: once an order list or an opinion is
+    final, every participating Justice is observed either to have written or not
+    to have. A record that simply does not address writing leaves the field null
+    instead, so silence is never read as an observed absence.
+
+    That asymmetry is what makes "does Justice j write here" forecastable where an
+    individual cert *vote* is not — a cert vote becomes public only when a Justice
+    chooses to note it, so the visible ones are selected on the outcome.
+
+    ``statement`` covers a statement respecting the denial of certiorari, which is
+    the commonest non-``none`` value at the cert stage.
+    """
+
+    none = "none"
+    majority = "majority"
+    plurality = "plurality"
+    concurrence = "concurrence"
+    concurrence_in_judgment = "concurrence-in-judgment"
+    dissent = "dissent"
+    statement = "statement"
+
+
+class Judgment(StrEnum):
+    """What the Court did to the judgment below — the **merits** axis.
+
+    Deliberately not members of :class:`Disposition`. A dismissal as improvidently
+    granted has no coherent value on the cert binary: certiorari *was* granted, and
+    the merits event resolved to nothing. Forcing it onto that axis would corrupt
+    the comparability anchor every grant-rate figure in this project rests on.
+
+    ``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the
+    same reason mootness practice does: scoring them as merits calls would
+    conflate a prediction about the law with one about the Court's housekeeping.
+    """
+
+    affirmed = "affirmed"
+    reversed = "reversed"
+    vacated = "vacated"
+    affirmed_in_part = "affirmed-in-part-reversed-in-part"
+    dig = "dismissed-as-improvidently-granted"
+    equally_divided = "affirmed-by-an-equally-divided-court"
 
 
 class EventKind(StrEnum):
@@ -189,9 +264,59 @@ class PredictableEvent(_Strict):
     resolved: bool = False
 
 
-class JudgeVote(_Strict):
-    judge: str
-    vote: Disposition
+class JusticeVote(_Strict):
+    """One Justice's vote, and whether they wrote.
+
+    The vote is a :class:`VoteValue`, not a :class:`Disposition`: a disposition is
+    what the *Court* did, and has no member for joining a majority or dissenting.
+    """
+
+    justice: str = Field(description="The Justice's name, as the vote source spells it")
+    vote: VoteValue
+    writing: WritingRole | None = Field(
+        default=None,
+        description="What this Justice wrote. Null means not stated — the record "
+        "was written without addressing writing at all. `none` is the opposite: an "
+        "affirmative observation that this Justice wrote nothing, which is what a "
+        "final order list or opinion discloses about every participating Justice. "
+        "Defaulting to `none` would turn every silent record into that claim",
+    )
+
+
+class VoteProvenance(_Strict):
+    """Where a vote list came from, and how much of it is there.
+
+    **Presence carries meaning**, the discipline ``ResolutionSignals`` established.
+    Absent, nobody looked. Present with ``complete=false`` and two votes beside it,
+    exactly two are on the public record and the other seven genuinely are not —
+    which is the ordinary state at the cert stage, where a vote surfaces only when
+    a Justice notes it. Collapse that distinction and no import can restore it,
+    and no evaluator can tell an unobserved vote from an unrecorded one.
+
+    Scoped to the Supreme Court: the bounds below are its nine seats and its
+    six-Justice quorum, so this does not describe a circuit panel, which has
+    neither. Circuit events carry no vote record.
+
+    It sits beside the votes rather than containing them: ``votes`` is a committed
+    field on every outcome and these models reject unknown keys, so a block that
+    swallowed the list would fail every artifact already written.
+    """
+
+    source: str = Field(
+        description="Where the votes were read from, e.g. 'scdb:2024-001', "
+        "'order-list:2025-03-10', 'opinion'. Free text, because the sources are "
+        "not yet an enumerable set"
+    )
+    participating: int = Field(
+        ge=QUORUM,
+        le=SEATS,
+        description="Justices who took part — the aggregation denominator a "
+        "threshold counts against, which recusals move",
+    )
+    complete: bool = Field(
+        description="Whether every participating Justice's vote is present. False "
+        "means the rest are unobserved, NOT that they abstained"
+    )
 
 
 class ProcessVersion(_Strict):
@@ -247,7 +372,7 @@ class Prediction(_Strict):
     granted: int = Field(ge=0, le=1, description="Binary outcome prediction, 1=granted")
     probability: float = Field(ge=0.0, le=1.0, description="P(granted)")
     predicted_disposition: Disposition
-    votes: list[JudgeVote] = Field(default_factory=list)
+    votes: list[JusticeVote] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     big_case_score: float | None = Field(
         default=None,
@@ -338,7 +463,7 @@ class Outcome(_Strict):
     resolved_at: date
     actual_disposition: Disposition
     actual_granted: int = Field(ge=0, le=1)
-    votes: list[JudgeVote] = Field(default_factory=list)
+    votes: list[JusticeVote] = Field(default_factory=list)
     signals: ResolutionSignals | None = Field(
         default=None,
         description="Docket-progress signals frozen as at resolution, fixing the "
@@ -347,6 +472,20 @@ class Outcome(_Strict):
         "an increment also needs the value as at prediction, which nothing "
         "committed carries. Absent on outcomes written before the block existed, "
         "and on events whose proceedings were never live-parsed",
+    )
+    vote_provenance: VoteProvenance | None = Field(
+        default=None,
+        description="Where `votes` came from and how much of it is there. Absent "
+        "means nobody looked, which is the state of every outcome today; present "
+        "with complete=false means the missing votes are unobserved rather than "
+        "absent. Without it a short vote list cannot be told from an unexamined one",
+    )
+    judgment: Judgment | None = Field(
+        default=None,
+        description="What the Court did to the judgment below — the merits axis, "
+        "kept off the cert disposition vocabulary because a DIG has no coherent "
+        "value on the grant binary. Null on a cert-stage outcome, which has no "
+        "judgment to record",
     )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(

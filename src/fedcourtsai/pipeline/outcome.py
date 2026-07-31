@@ -43,11 +43,18 @@ from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
 
 # Dispositions that count as a granted (1) binary outcome; a partial grant still
-# granted relief, and a GVR grants the petition (it is a grant/vacate/remand), so
-# both land on the granted side of the binary target — which keeps `actual_granted`
-# and the Brier score comparable across the introduction of the `gvr` label.
+# granted relief, a GVR grants the petition (it is a grant/vacate/remand), and a
+# summary reversal is the Court granting review and deciding the merits in one
+# order — all land on the granted side of the binary target, which keeps
+# `actual_granted` and the Brier score comparable across each label's
+# introduction.
 _GRANTED: frozenset[Disposition] = frozenset(
-    {Disposition.granted, Disposition.granted_in_part, Disposition.gvr}
+    {
+        Disposition.granted,
+        Disposition.granted_in_part,
+        Disposition.gvr,
+        Disposition.summary_reversal,
+    }
 )
 
 

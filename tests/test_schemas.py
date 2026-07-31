@@ -12,12 +12,13 @@ from fedcourtsai.schemas import (
     Evaluation,
     FlagCategory,
     FlagSeverity,
-    JudgeVote,
+    JusticeVote,
     ModelUsage,
     Outcome,
     Prediction,
     TrackedCase,
     UsageRole,
+    VoteValue,
 )
 
 
@@ -213,7 +214,7 @@ def test_agent_flags_forbids_extra_fields() -> None:
 def test_scoring() -> None:
     pred = _prediction(
         probability=0.75,
-        votes=[JudgeVote(judge="smith", vote=Disposition.granted)],
+        votes=[JusticeVote(justice="smith", vote=VoteValue.grant)],
     )
     outcome = Outcome(
         case_id="ca9/123",
@@ -221,7 +222,7 @@ def test_scoring() -> None:
         resolved_at=date(2026, 7, 1),
         actual_disposition=Disposition.granted,
         actual_granted=1,
-        votes=[JudgeVote(judge="smith", vote=Disposition.granted)],
+        votes=[JusticeVote(justice="smith", vote=VoteValue.grant)],
     )
     assert is_correct(pred, outcome) == 1
     assert brier_score(pred, outcome) == pytest.approx(0.0625)

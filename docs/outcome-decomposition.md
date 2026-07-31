@@ -502,8 +502,8 @@ and the headline Brier path, so scoring it again would pay one belief twice.
 | Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
 | Relisted at least once | **Withdrawn as specified** — resolved as an absolute level while no committed artifact records the count as at prediction, so the claim is trivially true wherever the petition was already relisted. The underlying event is forecastable: about 26% of paid petitions at a single distribution draw a first relist (denial-reweighted, est. n≈13,100) |
 | CVSG | **Withdrawn as specified** — same level-versus-increment defect, and its per-Term rate is censored in any open Term |
-| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
-| Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
+| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome and nothing populates it, so the blocker is data rather than schema — the vote vocabulary and the provenance block that says how much of a record is there both exist |
+| Majority author, concurrence, dissent | `JusticeVote.writing` records these per Justice, but nothing populates it and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus

@@ -82,7 +82,7 @@ For each predictor you score, write to
     though both count as a grant on the binary axis.
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
     for a `gvr` outcome — a GVR is a grant).
-  - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no
+  - `vote_accuracy` — fraction of predicted per-Justice votes that matched, over the Justices the prediction and the outcome both name (or omit if no
     votes were predicted).
   - `segment_base_rate` — the case's **salience-band** grant rate over prior Terms
     only, read from committed `metrics/statpack.md`. Find the case's band (its

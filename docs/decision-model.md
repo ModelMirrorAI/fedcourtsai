@@ -4,10 +4,17 @@ Cert, interim relief, and merits look like three prediction problems. They are
 one, with two parameters. This document defines that model and pins the
 aggregation rules to sources.
 
-**Almost none of it is implemented.** `pipeline/aggregation.py` carries the
-thresholds and their citations, and `Stage` exists as the vocabulary they key
-on — no artifact carries a stage, no schema carries a vote forecast, and no
-scoring uses any of this. That is pre-registration: the model is settled before
+**Most of it is not implemented.** `pipeline/aggregation.py` carries the
+thresholds and their citations, and the vocabularies exist — `Stage`, the vote
+and writing values, the merits judgment axis, and the provenance block that says
+how much of a vote record is there.
+
+What is live is narrow and worth naming, because the rest of this document is
+not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
+scores it against `Outcome.votes` wherever both name the same Justice, feeding
+the leaderboard's `mean_vote_accuracy`. Everything else is unbuilt: no artifact
+carries a stage, a writing role, a judgment, or a provenance block; no schema
+carries a vote *margin*; and no aggregation rule is applied to anything. That is pre-registration: the model is settled before
 there is data to fit it to, which is the only order in which the choice is
 credible. `docs/outcome-decomposition.md` is the companion — it defines what a
 scoreable claim is and the rule that scores one, and its tests govern anything
@@ -33,7 +40,7 @@ For one event with participating set `P` — nine Justices minus recusals:
 
 ```
 R_j   the latent reasoning of Justice j
-V_j = vote(R_j)               a vote, in the stage's vote vocabulary
+V_j = vote(R_j)               a vote; one vocabulary spans every stage
 W_j = writing(R_j, V_j, D)    none | majority | plurality | concurrence |
                               concurrence-in-judgment | dissent | statement
 D   = A_stage(V_1 … V_|P|)    the disposition
@@ -55,9 +62,10 @@ counted differently and observed differently.
 | `W_j` observed | rarely non-`none` — but **absence is observed for every participating Justice** once the order list is final | sometimes | fully |
 | `R_j` observed | iff `W_j ≠ none` | iff `W_j ≠ none` | iff `W_j ≠ none` |
 
-The last row is the one the current schema cannot express: reasoning censoring is
+The last row is the one that is easiest to lose: reasoning censoring is
 **within-stage**, not a property of the stage. Even at merits, a Justice's
-reasoning is observed only if that Justice wrote.
+reasoning is observed only if that Justice wrote — which is why the writing role
+is recorded per Justice rather than inferred from the stage.
 
 ## Where the aggregation rules come from
 
@@ -194,10 +202,10 @@ conditions on the claim, not details of it.
 
 ## Recording the outcome
 
-A vote record carries its own censoring rather than leaving it to be inferred:
+A vote list carries its own censoring rather than leaving it to be inferred:
 the source it came from, the participating count that is the aggregation
-denominator, whether every participating Justice's vote is present, and the votes
-themselves.
+denominator, whether every participating Justice's vote is present, — the votes themselves sit beside it,
+on the outcome.
 
 Presence carries meaning, the discipline `ResolutionSignals` already
 established: an absent record means **nobody looked**; a record present but
@@ -223,8 +231,10 @@ disposition vocabulary. A DIG has no coherent binary grant value: cert *was*
 granted, and the merits event resolved to nothing. Forcing it onto the cert
 binary would corrupt the comparability anchor every grant-rate figure rests on.
 A summary reversal is the opposite case and belongs in the cert vocabulary,
-because it *is* a grant — the Court disposing of the merits without argument;
-`metrics/README.md` records that the vocabulary has no label for it today.
+because it *is* a grant — the Court disposing of the merits without argument. It
+counts on the granted side of the binary axis, which is what keeps
+`actual_granted` comparable across every rate the project publishes. No resolver
+rule reads one off an order, so nothing produces the label.
 
 ## What a forecast carries — open
 

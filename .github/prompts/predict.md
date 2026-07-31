@@ -174,12 +174,19 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   - `created_at` — current UTC timestamp.
   - `input_snapshot` — identifier/path of the snapshot you used.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`
-    (one of granted/denied/granted-in-part/gvr/dismissed/withdrawn/other). Use
-    `gvr` when the likeliest disposition is a **grant, vacate, and remand** — a
-    summary reversal in light of an intervening decision, or a mootness/Munsingwear
-    vacatur — rather than a plenary cert grant; a GVR still counts as a grant, so
-    set `granted=1` and let `probability` express P(any grant, GVR included).
-  - `votes` — optional per-judge votes; `confidence` — optional 0–1.
+    (one of granted/denied/granted-in-part/gvr/summary-reversal/dismissed/
+    withdrawn/other). Use `gvr` for a **grant, vacate, and remand** — sending the
+    case back for another look in light of an intervening decision, or a
+    mootness/Munsingwear vacatur. Use `summary-reversal` where the Court would
+    decide the merits itself, without argument, rather than remanding for
+    reconsideration. Both count as grants, as does `granted-in-part`, so set
+    `granted=1` and let `probability` express P(any grant).
+  - `votes` — optional per-Justice votes. Each is `{justice, vote, writing}`, and
+    `vote` takes the **vote** vocabulary (grant / deny / majority / dissent / …),
+    not a disposition — a disposition is what the Court did, not how one Justice
+    voted. Leave `writing` out unless you are forecasting it: `none` is a claim
+    that the Justice writes nothing, not a way of saying you did not consider it.
+    `confidence` — optional 0–1.
   - `big_case_score` (optional, 0–1) — your pre-registered opinion of the case's
     **stakes / significance / newsworthiness**, i.e. *how big is this case if
     decided* — **explicitly not** grant likelihood. A case can be denied yet

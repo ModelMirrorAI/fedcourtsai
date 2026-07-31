@@ -50,6 +50,7 @@
         "denied",
         "granted-in-part",
         "gvr",
+        "summary-reversal",
         "dismissed",
         "withdrawn",
         "other"
