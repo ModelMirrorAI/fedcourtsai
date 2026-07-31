@@ -270,7 +270,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/cert-backtest.json`` \u2014 predictors replayed over decided cert petitions.\n\nThe standing instrument for vetting cert predictors and prompt changes:\nreplay over a curated set of resolved modern discretionary-cert petitions\n(outcome hidden \u2014 the replay provisions a redacted snapshot), scored against\nthe realized grant/deny. Produced by the maintainer-triggered\n``run-backtest`` workflow via ``fedcourts cert-backtest``\n(it spends tokens when agentic engines are replayed), never by a schedule.",
+  "description": "``metrics/cert-backtest.json`` \u2014 predictors replayed over decided cert petitions.\n\nThe standing instrument for vetting cert predictors and prompt changes:\nreplay over a curated set of resolved modern discretionary-cert petitions\n(outcome hidden \u2014 the replay provisions the docket as it stood before a\ncutoff, with the decision-only fields redacted), scored against the realized\ngrant/deny.\n\n**Its band mix is not the forward channel's.** One cell per petition, placed\nat the *last* distribution before resolution, so the replay population sits in\nstronger bands than the forward trigger produces \u2014 that fires on any\ndistribution transition, most often the first. So the always-deny floor here\nis lower than the forward stratum's, and neither the top line nor the band mix\nestimates forward performance. ``metrics/README.md``'s stratum rule bars the\npooled comparison regardless. Produced by the maintainer-triggered\n``run-backtest`` workflow via ``fedcourts cert-backtest``\n(it spends tokens when agentic engines are replayed), never by a schedule.",
   "properties": {
     "always_denied_accuracy": {
       "default": 0.0,
@@ -298,6 +298,14 @@
       "minimum": 0,
       "title": "Predictors Evaluated",
       "type": "integer"
+    },
+    "provisioning": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "How many replayed cells were provisioned under each snapshot_provenance \u2014 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with its post-cutoff entries removed), 'blind' (no forward moment identifiable, so no trajectory was shown). These are three different information sets, and a figure over their union is a figure over a mixture: a blind cell cannot observe its own relist history at all, which is most of what a cert forecast turns on. Read the mix before reading the scores. Empty on reports written before the split existed",
+      "title": "Provisioning",
+      "type": "object"
     },
     "schema_version": {
       "const": "1.0",

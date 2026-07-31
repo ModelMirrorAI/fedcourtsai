@@ -94,7 +94,12 @@ cross-evaluator reads it.
   signal, not leakage: use it, and a one-line `flags.json` note when it is
   decisive is good hygiene, not a violation.
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
-  tools**, with etiquette instead of walls. Do not seek information about
+  tools**, with etiquette instead of walls. Your snapshot carries this docket as
+  it stood before your cutoff (`context.cutoff`) — the filings and distributions
+  that had happened by then, with the later entries removed — so read it as the
+  real posture it is, not as a docket that never moved. Where the proceedings are
+  absent entirely, no moment could be identified and you are seeing no trajectory
+  at all; say so rather than reading the silence as a quiet docket. Do not seek information about
   *this case* postdating the event date (the `DECIDED_BEFORE` clock); corpus
   priors and base rates are always fair game. If outcome-revealing material
   surfaces anyway, **disclose it in `flags.json`** (what you saw, where, and

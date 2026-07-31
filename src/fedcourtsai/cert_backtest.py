@@ -26,10 +26,12 @@ axes the cert task demands:
 from __future__ import annotations
 
 import sqlite3
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from . import corpus
 from .analytics import _is_scored_segment_row
@@ -42,8 +44,15 @@ from .backtest import (
 )
 from .config import SalienceConfig
 from .paths import CasePaths
+from .pipeline import cell_context, cert_signals
+from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.evaluate import brier_skill, segment_base_rate
-from .pipeline.outcome import granted_flag, is_machine_readable
+from .pipeline.outcome import (
+    entry_descriptions,
+    granted_flag,
+    is_machine_readable,
+    snapshot_shows_disposition,
+)
 from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
 from .pipeline.salience import salience_band, salience_bands, salience_score
 from .registry import enabled_predictors
@@ -193,13 +202,17 @@ def select_cert_backtest_set(
 
 
 # Snapshot fields that exist only because the matter was decided (or that record
-# the decision), stripped before an agentic replay sees the docket. Docket
-# entries go wholesale: the disposing order lives there, and no deterministic
-# rule can separate it from pre-decision entries. The live channel's snapshots
-# are the raw supremecourt.gov JSON, whose entries key is
-# `ProceedingsandOrder` — the disposing order rides there as plain text
-# ("Petition DENIED."), so it gets the same wholesale treatment; this blocklist
-# is key-name-based, so every channel's outcome-bearing keys must be listed.
+# the decision), stripped before an agentic replay sees the docket. This
+# blocklist is key-name-based, so every channel's outcome-bearing keys must be
+# listed.
+#
+# The proceedings entries are NOT here: they are truncated by date instead
+# (`truncate_snapshot`). Content offers no rule that separates a disposing order
+# from a pre-decision entry, but a date does — an entry filed before the cutoff
+# cannot record a decision that came after it. Dropping them wholesale left a
+# replay cell reading a docket with no history at all, which is not the docket
+# any forward cell ever saw, and left it unable to observe its own salience band.
+# Truncation is applied on top of this list, never instead of it.
 SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     "disposition",
     "date_terminated",
@@ -215,8 +228,6 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     "opinion_text",
     "precedential_status",
     "summary",
-    "docket_entries",
-    "ProceedingsandOrder",
     # Regenerated on docket activity, so on a decided live docket it postdates
     # (and thereby leaks the existence of) the decision.
     "sJsonCreationDate",
@@ -228,15 +239,140 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
 
 
 def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    """A decided docket's snapshot as it would have read before the decision.
+    """Drop the derived fields that exist only because the matter was decided.
 
-    Drops :data:`SNAPSHOT_OUTCOME_FIELDS` so a replayed predictor is tested on
-    foresight, not on reading the outcome off the docket — the file-level
-    counterpart of :class:`fedcourtsai.backtest.BacktestFeatures`' withholding.
-    (What no redaction can remove is the model's parametric memory of a famous
-    case; that is why the report is labeled retrospective.)
+    :data:`SNAPSHOT_OUTCOME_FIELDS` only. The proceedings entries survive this
+    and are handled by :func:`truncate_snapshot`, which is the other half — a
+    caller wanting the pre-decision view wants both.
     """
     return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
+
+
+def replay_cutoff(payload: Mapping[str, Any], resolved_at: date) -> date | None:
+    """The day after the last distribution entry that predates ``resolved_at``.
+
+    A forward cell is queued by a **distribution transition**, so that is the
+    moment a replay has to reproduce if the two channels are to be comparable.
+    Taking the last such entry before resolution puts the replay at the latest
+    posture a forward cell would have seen — the hardest and most realistic one,
+    and exactly one cell per petition.
+
+    ``None`` when the payload shows no dated distribution before resolution, in
+    which case there is no forward moment to reproduce and the caller drops the
+    entries wholesale rather than guessing a cutoff.
+
+    Reading entry dates rather than the conference dates they name is deliberate:
+    the entry "DISTRIBUTED for Conference of March 7" is *filed* in late February,
+    and February is when a forward cell would have run.
+    """
+    latest: date | None = None
+    for text, raw in cert_signals.proceedings_entries(payload):
+        if not cert_signals.DISTRIBUTED_RE.search(text):
+            continue
+        filed = cert_signals.entry_date(raw)
+        if filed is not None and filed < resolved_at and (latest is None or filed > latest):
+            latest = filed
+    return latest + timedelta(days=1) if latest is not None else None
+
+
+def truncate_snapshot(
+    payload: Mapping[str, Any], cutoff: date | None
+) -> tuple[dict[str, Any], int]:
+    """The docket as it stood strictly before ``cutoff``, and how many entries went.
+
+    ``cutoff=None`` removes the proceedings **key**, not just its contents: when
+    no forward moment could be identified the docket's posture is unknown, and an
+    empty list would instead assert that it was empty. A real cutoff leaves the
+    list even when nothing survives, because that genuinely is an observation.
+
+    **Fails closed on an undated entry.** An entry whose date is missing or
+    unparseable is dropped, because it could be the disposing order and nothing
+    about it says otherwise. That costs a little pre-decision context and cannot
+    leak an outcome, which is the right way round.
+
+    A surviving entry is reduced to the fields a consumer reads (see
+    :data:`_ENTRY_FIELDS`), because the outcome blocklist matches top-level keys
+    only and nothing else screens what an entry nests.
+
+    Entry ids are positional and assigned on read, so truncating the *tail*
+    renumbers nothing. Dropping an undated entry from the *middle* does shift
+    everything after it — accepted, because the alternative is keeping an entry
+    that could be the disposing order, and nothing downstream pins an id across a
+    truncation.
+    """
+    out = dict(payload)
+    dropped = 0
+    for key in cert_signals.PROCEEDINGS_KEYS:
+        entries = out.get(key)
+        if not isinstance(entries, list):
+            continue
+        if cutoff is None:
+            # No cutoff means no moment could be identified, so the key is removed
+            # outright rather than emptied. An empty list is an observation — "the
+            # docket had no entries then" — and this is the opposite of one. Left
+            # as `[]`, a cell would read zero distributions and claim the weakest
+            # band about a petition whose posture is entirely unknown.
+            dropped += len(entries)
+            del out[key]
+            continue
+        kept: list[Any] = []
+        for entry in entries:
+            filed = (
+                cert_signals.entry_date(_entry_raw_date(entry))
+                if isinstance(entry, Mapping)
+                else None
+            )
+            if filed is not None and filed < cutoff:
+                kept.append(_entry_fields(entry))
+            else:
+                dropped += 1
+        # A real cutoff with nothing surviving IS an observation: as at that date
+        # the docket carried no entries, and `[]` says so.
+        out[key] = kept
+    return out, dropped
+
+
+def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
+    """Whether a truncated payload still carries a disposing order.
+
+    The date rule's premise is that the last distribution before resolution
+    precedes the disposing order. That is usually true and not always: cert dates
+    are not latched, so ``resolution_date`` can fall back to the docket's
+    termination, and a rehearing petition after a denial draws a fresh
+    distribution — either way the cutoff can land after the order that decided the
+    matter.
+
+    Rather than enumerate those cases, assert the property directly with the two
+    instruments the forward path already uses for its own leakage guard
+    (``provision-snapshot --refuse-terminal``): the high-recall terminal scan and
+    the resolver, over every surviving entry. A hit means the cutoff cannot be
+    trusted, and the caller degrades to showing no trajectory at all — which is
+    the previous behaviour, and safe.
+    """
+    if snapshot_shows_disposition(payload) is not None:
+        return True
+    return any(match_disposition_signal(text) is not None for text in entry_descriptions(payload))
+
+
+#: What a surviving entry keeps. The outcome blocklist matches **top-level** keys,
+#: so nothing screens the structures nested inside an entry — a live entry's
+#: `Links` (document pointers; a replay cell is provisioned no documents, so this
+#: would be its only path to one) or a REST entry's `recap_documents`, which
+#: carries document text and its own upload date. Rather than extend a blocklist
+#: to a shape upstream can change under us, keep only the two fields every
+#: consumer actually reads and drop the rest.
+_ENTRY_FIELDS: tuple[str, ...] = ("Date", "Text", "date_filed", "description")
+
+
+def _entry_fields(entry: Mapping[str, Any]) -> dict[str, Any]:
+    """A surviving entry reduced to the fields a consumer reads."""
+    return {key: entry[key] for key in _ENTRY_FIELDS if key in entry}
+
+
+def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
+    """An entry's own date string, over either payload shape."""
+    raw = entry.get("Date") if "Date" in entry else entry.get("date_filed")
+    return str(raw) if raw else None
 
 
 @dataclass(frozen=True)
@@ -325,7 +461,7 @@ def replay_predictors(
     run_id: str,
     engine_override: str | None = None,
     skip_engines: frozenset[str] = frozenset(),
-) -> tuple[list[Backtester], list[str]]:
+) -> tuple[list[Backtester], list[str], dict[str, int]]:
     """Replay every routable enabled predictor over ``items``, each through its
     own configured engine.
 
@@ -354,6 +490,10 @@ def replay_predictors(
     pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
     collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
     unavailable: set[str] = set()
+    # Three information sets, counted as they are provisioned. A blind cell cannot
+    # observe its own relist history at all, which is most of what a cert forecast
+    # turns on, so a score over their union is a score over a mixture.
+    provisioning: Counter[str] = Counter()
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -361,19 +501,75 @@ def replay_predictors(
         with corpus.connect_readonly(corpus_db_path) as conn:
             found = corpus.latest_snapshot(conn, item.features.case_id)
             events = corpus.events_for_case(conn, item.features.case_id)
+            row = corpus.get_row(conn, item.features.case_id)
+            resolved_at = corpus.resolution_date(row) if row is not None else None
+            # Prefer a snapshot the docket really served before the cutoff over one
+            # reconstructed by truncation: only the first knows what had not yet
+            # been filed. Both are recorded, so the two are never pooled silently.
+            cutoff = (
+                replay_cutoff(found[1], resolved_at)
+                if found is not None and resolved_at is not None
+                else None
+            )
+            dated = (
+                corpus.snapshot_at(conn, item.features.case_id, before=cutoff)
+                if cutoff is not None
+                else None
+            )
         petitions = [ev for ev in events if ev.kind == EventKind.petition]
         if found is None or not petitions:
             raise ValueError(
                 f"{item.features.case_id}: no snapshot or petition event to replay against"
             )
         snapshot_date, payload = found
-        write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redact_snapshot(payload))
+        provenance: Literal["dated", "truncated", "blind"] = (
+            "truncated" if cutoff is not None else "blind"
+        )
+        if dated is not None:
+            snapshot_date, payload = dated
+            provenance = "dated"
+        redacted = redact_snapshot(payload)
+        # Truncation runs on the dated payload too. It is a no-op when the stored
+        # snapshot really predates the cutoff, and an alarm when it does not —
+        # nothing enforces that a snapshot's date equals the moment it was served.
+        redacted, _ = truncate_snapshot(redacted, cutoff)
+        # Fail closed on the premise the date rule rests on. `resolution_date` can
+        # fall back to the docket's termination where the cert dates were never
+        # stamped, and a rehearing petition after a denial draws a fresh
+        # distribution — so a cutoff can legitimately land *after* the disposing
+        # order, keeping it. The forward path already runs exactly this scan as its
+        # own leakage guard; the replay path, which ships a decided docket's
+        # entries, needs it more.
+        if _kept_entries_show_a_disposition(redacted):
+            redacted, _ = truncate_snapshot(redacted, None)
+            provenance = "blind"
+            cutoff = None
+        # A truncated payload is the docket as at the cutoff, so it is dated by the
+        # cutoff — not by the post-decision pull whose bytes it was reconstructed
+        # from. Labelling it with the latter would put a date months after
+        # resolution on the one file the leakage grade is judged against.
+        if provenance != "dated" and cutoff is not None:
+            snapshot_date = cutoff
+        provisioning[provenance] += 1
+        write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redacted)
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
-        # grading replace walls — so the prompt contract needs the mode stated, not inferred.
+        # grading replace walls — so the prompt contract needs the mode stated, not
+        # inferred. It carries the same conditioning block a forward cell gets, now
+        # that truncation leaves a docket to derive one from: a replay cell that can
+        # see its own trajectory can be scored against the rate that trajectory
+        # implies, instead of one keyed on where the petition ended up.
         write_raw_json(
             case_paths.cell_context,
-            {"mode": "replay", "decided_before": str(item.features.year)},
+            cell_context.build(
+                item.features.case_id,
+                snapshot_date,
+                redacted,
+                "replay",
+                provenance=provenance,
+                cutoff=cutoff,
+                decided_before=str(item.features.year),
+            ).model_dump(mode="json"),
         )
         event = petitions[0]
         write_yaml(
@@ -427,7 +623,7 @@ def replay_predictors(
         for pid, preds in collected.items()
         if pid not in unavailable
     ]
-    return backtesters, sorted(unavailable)
+    return backtesters, sorted(unavailable), dict(provisioning)
 
 
 def _calibration(pairs: list[tuple[float, int]]) -> list[CalibrationBin]:
@@ -615,6 +811,7 @@ def run_cert_backtest(
     items: list[BacktestItem],
     *,
     segments: Mapping[str, _ItemSegment] | None = None,
+    provisioning: Mapping[str, int] | None = None,
 ) -> CertBacktest:
     """Replay each backtester over the cert set and roll the scores up best-first.
 
@@ -642,5 +839,6 @@ def run_cert_backtest(
         events_scored=len(items),
         predictors_evaluated=len(entries),
         always_denied_accuracy=always_denied_accuracy,
+        provisioning=dict(provisioning or {}),
         entries=entries,
     )

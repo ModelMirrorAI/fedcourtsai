@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot
+from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import (
@@ -721,10 +721,16 @@ def test_redact_snapshot_strips_live_outcome_keys() -> None:
     redacted = redact_snapshot(
         _payload(proceedings=[_DENIED_ENTRY]) | {"docket_entries": [{"id": 1}]}
     )
-    assert "ProceedingsandOrder" not in redacted
     assert "sJsonCreationDate" not in redacted
-    assert "docket_entries" not in redacted
     assert redacted["CaseNumber"] == "25-100 "
+    # The entries survive redaction and are removed by date instead; a cutoff of
+    # None keeps nothing, which is what a caller gets when it cannot date the
+    # replay at all.
+    assert "ProceedingsandOrder" in redacted
+    truncated, dropped = truncate_snapshot(redacted, None)
+    assert "ProceedingsandOrder" not in truncated
+    assert "docket_entries" not in truncated
+    assert dropped == 2
 
 
 # --- config -----------------------------------------------------------------------
