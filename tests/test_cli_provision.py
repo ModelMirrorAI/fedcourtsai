@@ -1,19 +1,21 @@
 import json
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import cert_signals, ingest
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
 # A snapshot whose latest entry states the disposition — the payload a forward
 # cell must never be provisioned from (it would hand the predictor the outcome).
-_DECIDED_PAYLOAD = {
+_DECIDED_PAYLOAD: dict[str, Any] = {
     "id": 305,
     "docket_number": "24-12",
     "docket_entries": [
@@ -224,3 +226,188 @@ def test_provision_snapshot_guard_ignores_a_pending_live_shape_snapshot(
     )
 
     assert result.exit_code == 0, result.output
+
+
+# A payload that discloses its own trajectory: two distinct conferences and a
+# CVSG invitation, the two signals the salience band turns on.
+_DISTRIBUTED_PAYLOAD: dict[str, Any] = {
+    # The real live supremecourt.gov shape: `CaseNumber`, not `docket_number`.
+    # Pairing REST keys with live proceedings would be a payload no upstream
+    # emits, and would hide the Term derivation entirely.
+    "CaseNumber": "24-12 ",
+    "ProceedingsandOrder": [
+        {"Date": "Jan 5 2025", "Text": "Petition for a writ of certiorari filed."},
+        {"Date": "Feb 7 2025", "Text": "DISTRIBUTED for Conference of February 21, 2025."},
+        {"Date": "Feb 24 2025", "Text": "DISTRIBUTED for Conference of March 7, 2025."},
+        {"Date": "Mar 3 2025", "Text": "The Solicitor General is invited to file a brief."},
+    ],
+}
+
+
+def _provision(
+    fixture_corpus: FixtureCorpus, payload: dict[str, object], on: date
+) -> dict[str, Any]:
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", on, payload)
+    result = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert result.exit_code == 0, result.output
+    context: dict[str, Any] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.read_text()
+    )
+    return context
+
+
+def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The conditioning is derived from the payload the cell reads, not the corpus
+    row, so it records what this cell could actually see."""
+    context = _provision(fixture_corpus, _DISTRIBUTED_PAYLOAD, date(2026, 7, 14))
+    assert context["mode"] == "forward"
+    assert context["signals_observable"] is True
+    # Two distinct conferences, so one relist; a CVSG lifts it to the top band.
+    assert context["distribution_count"] == 2
+    assert context["cvsg_date"] == "2025-03-03"
+    assert context["band"] == "high"
+    assert context["salience_version"] == "sal-v1"
+    assert context["term"] == 2024  # docket 24-12
+
+
+def test_a_repeated_conference_does_not_inflate_the_frozen_count(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """Distinct parsed conference dates, not raw entry matches — a re-docketed
+    notice of the same conference must not read as another relist."""
+    payload: dict[str, Any] = {
+        "CaseNumber": "24-12 ",
+        "ProceedingsandOrder": [
+            # Two spellings of one conference, plus a phrase the capture group
+            # matches but no date parses out of. Deduping on the matched text
+            # rather than the parsed date would read three distributions here and
+            # move the frozen band two tiers.
+            {"Date": "Feb 7 2025", "Text": "DISTRIBUTED for Conference of February 21, 2025."},
+            {"Date": "Feb 8 2025", "Text": "DISTRIBUTED for Conference of 2/21/2025."},
+            {"Date": "Feb 9 2025", "Text": "DISTRIBUTED for Conference of the Court."},
+        ],
+    }
+    context = _provision(fixture_corpus, payload, date(2026, 7, 15))
+    assert context["distribution_count"] == 1
+    assert context["band"] == "baseline"  # one distribution is no relist
+
+
+def test_the_frozen_count_agrees_with_what_ingest_would_record(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The reproducibility claim: provisioning and the corpus must not disagree
+    about one payload, or the frozen band cannot be re-derived by an auditor."""
+    payload = _DISTRIBUTED_PAYLOAD
+    assert cert_signals.snapshot_distribution_count(payload) == ingest._live_distribution_count(
+        ingest._live_entries(payload)
+    )
+
+
+def test_an_empty_proceedings_list_is_observable_and_zero(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The boundary `signals_observable` exists to draw: a docket with no entries
+    yet is observed to have none, which is not the same as a redacted snapshot."""
+    context = _provision(
+        fixture_corpus,
+        {"CaseNumber": "24-12 ", "ProceedingsandOrder": []},
+        date(2026, 7, 17),
+    )
+    assert context["signals_observable"] is True
+    assert context["distribution_count"] == 0
+    assert context["band"] == "baseline"
+
+
+def test_a_rest_shaped_snapshot_also_freezes_its_term(fixture_corpus: FixtureCorpus) -> None:
+    """The other payload shape carries `docket_number`; both must resolve a Term."""
+    context = _provision(
+        fixture_corpus,
+        {
+            "id": 305,
+            "docket_number": "24-12",
+            "docket_entries": [{"description": "DISTRIBUTED for Conference of February 21, 2025."}],
+        },
+        date(2026, 7, 18),
+    )
+    assert context["term"] == 2024
+    assert context["distribution_count"] == 1
+
+
+def test_a_snapshot_without_proceedings_freezes_no_band(fixture_corpus: FixtureCorpus) -> None:
+    """A redacted replay snapshot drops the proceedings key wholesale. Reading that
+    absence as zero distributions would assert `baseline` about a petition whose
+    posture is simply unknown, so the band is left null and the evaluator falls
+    back rather than scoring against an invented one."""
+    context = _provision(fixture_corpus, {"id": 305, "docket_number": "24-12"}, date(2026, 7, 16))
+    assert context["signals_observable"] is False
+    assert context["distribution_count"] is None
+    assert context["band"] is None
+    assert context["salience_version"] is None
+
+
+def test_stamping_clears_a_context_the_agent_wrote_itself(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """`context` is a scoring input, so it is the harness's like `process_version`.
+
+    Provisioning is continue-on-error, so a cell can run snapshot-less — and that
+    is exactly the case where an agent inventing its own band would hand itself a
+    baseline. The stamp assigns unconditionally, so an authored block is cleared
+    rather than preserved.
+    """
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    event = paths.event("evt-petition-disposition")
+    target = event.prediction("claude-baseline", "20260101T000000Z")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "case_id": "scotus/305",
+                "event_id": "evt-petition-disposition",
+                "predictor_id": "claude-baseline",
+                "engine": "claude-code",
+                "run_id": "20260101T000000Z",
+                "created_at": "2026-01-01T00:00:00",
+                "input_snapshot": "record/snapshots/2025-03-03.json",
+                "granted": 1,
+                "probability": 0.9,
+                "predicted_disposition": "granted",
+                # An agent asserting the strongest band for itself.
+                "context": {
+                    "schema_version": "1.0",
+                    "mode": "forward",
+                    "snapshot_date": "2025-03-03",
+                    "signals_observable": True,
+                    "distribution_count": 9,
+                    "band": "high",
+                    "term": 2024,
+                },
+            }
+        )
+    )
+    assert paths.cell_context.exists() is False  # nothing was provisioned
+
+    result = runner.invoke(
+        app,
+        [
+            "stamp-cell",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260101T000000Z",
+            "--role",
+            "predictor",
+            "--actor",
+            "claude-baseline",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(target.read_text())["context"] is None

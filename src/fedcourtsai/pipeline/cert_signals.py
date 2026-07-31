@@ -34,6 +34,11 @@ routing-only.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from datetime import date
+from typing import Any
+
+from dateutil import parser as date_parser
 
 from ..schemas import Disposition
 
@@ -233,4 +238,102 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
             end = min(len(text), match.end() + _SNIPPET_PAD)
             snippet = " ".join(text[start:end].split())
             return disposition, label, snippet
+    return None
+
+
+# The two docket-progress signals the salience score reads. Defined here, beside
+# the disposition patterns, because two consumers need them over two different
+# shapes: ingest reads them off a synthesized entry list on the way into the
+# corpus, and provisioning reads them off a raw snapshot payload to record what a
+# cell could actually see. One definition, so a pattern change cannot move only
+# one of those.
+DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I)
+CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
+
+
+def _entry_texts(payload: Mapping[str, Any]) -> list[tuple[str, str | None]]:
+    """(description, ISO date) per proceedings entry, over either payload shape.
+
+    Returns an empty list when the payload carries no proceedings key at all —
+    which a caller must distinguish from a docket with zero entries, since a
+    redacted replay snapshot has the key removed wholesale.
+    """
+    live = payload.get("ProceedingsandOrder")
+    if isinstance(live, list):
+        out: list[tuple[str, str | None]] = []
+        for entry in live:
+            if isinstance(entry, Mapping):
+                raw = entry.get("Date")
+                out.append((str(entry.get("Text") or ""), str(raw) if raw else None))
+        return out
+    rest = payload.get("docket_entries")
+    if isinstance(rest, list):
+        return [
+            (str(e.get("description") or ""), str(e.get("date_filed") or "") or None)
+            for e in rest
+            if isinstance(e, Mapping)
+        ]
+    return []
+
+
+def snapshot_carries_proceedings(payload: Mapping[str, Any]) -> bool:
+    """Whether the payload discloses a proceedings list at all.
+
+    ``False`` means the signals below are *unobservable* from this payload, not
+    that they are zero — a redacted replay snapshot drops the key entirely, and a
+    caller that read absence as "never distributed" would invent a fact.
+    """
+    return isinstance(payload.get("ProceedingsandOrder"), list) or isinstance(
+        payload.get("docket_entries"), list
+    )
+
+
+def snapshot_distribution_count(payload: Mapping[str, Any]) -> int | None:
+    """Distinct conferences the payload shows this petition distributed for.
+
+    Distinct **parsed conference dates**, not raw entry matches, so a re-docketed
+    notice of the same conference does not inflate the count and an unparseable
+    capture is not counted at all — the same rule the corpus applies, so the two
+    cannot disagree about one payload. Relists derive downstream as
+    ``max(0, count - 1)``. ``None`` when the payload discloses no proceedings —
+    unobservable rather than zero.
+    """
+    if not snapshot_carries_proceedings(payload):
+        return None
+    conferences: set[date] = set()
+    for text, _ in _entry_texts(payload):
+        match = DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
+        parsed = _conference_date(match.group(1))
+        if parsed is not None:
+            conferences.add(parsed)
+    return len(conferences)
+
+
+def _conference_date(raw: str) -> date | None:
+    """The conference date a DISTRIBUTED entry names, or ``None`` if it will not parse.
+
+    Deduping on the parsed date rather than on the matched text is what keeps this
+    agreeing with the corpus: two spellings of one conference ("2/21/2025" and
+    "February 21, 2025") are one relist, and the capture group is loose enough to
+    match a non-date phrase, which must not count as a distribution at all.
+    """
+    try:
+        return date_parser.parse(raw.strip().rstrip(".")).date()
+    except (ValueError, OverflowError, TypeError):
+        return None
+
+
+def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
+    """The ISO date of the CVSG invitation the payload shows, if any.
+
+    ``None`` covers both "no CVSG" and "no proceedings disclosed"; pair it with
+    :func:`snapshot_carries_proceedings` where the difference matters.
+    """
+    if not snapshot_carries_proceedings(payload):
+        return None
+    for text, entry_date in _entry_texts(payload):
+        if CVSG_RE.search(text) and entry_date:
+            return entry_date
     return None

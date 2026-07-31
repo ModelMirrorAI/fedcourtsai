@@ -149,6 +149,23 @@
   "additionalProperties": false,
   "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
   "properties": {
+    "base_rate_basis": {
+      "anyOf": [
+        {
+          "enum": [
+            "risk_set",
+            "terminal"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Which population segment_base_rate was taken over. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings). The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
+      "title": "Base Rate Basis"
+    },
     "big_case": {
       "anyOf": [
         {
@@ -311,7 +328,7 @@
         }
       ],
       "default": null,
-      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
+      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term. Which band, and therefore which of the two published rates, is recorded in base_rate_basis below. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
       "title": "Segment Base Rate"
     },
     "vote_accuracy": {

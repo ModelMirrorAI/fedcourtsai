@@ -110,7 +110,7 @@ non-interactive** container. Two consequences shape everything you do:
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Some fields are the harness's, not yours.** `usage.json`, `retrieval_log.json`,
-  and the `process_version` stamp on your `prediction.json` / `evaluation.json`
+  and the `process_version` and `context` stamps on your `prediction.json` / `evaluation.json`
   are written by post-run harness steps from the engine log and the registry —
   never the agent's word. Do not write `process_version`; anything you put there
   is overwritten (see `docs/process-version.md`).

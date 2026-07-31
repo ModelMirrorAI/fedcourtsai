@@ -134,9 +134,13 @@ calibration with vacatur-practice prediction.
   states the pack's own denominators, and the per-Term array carries each
   October Term's cursor-derived filings census by fee class (paid/IFP),
   walk-complete flags, weighted estimates, grants, pace-to-grant, and the
-  per-salience-band **segment base rate** (the leakage-safe grant rate the
-  predict prompt is designed to anchor on and the evaluator will score skill
-  against) — the surface a time-masked replay cell self-selects pre-cutoff
+  per-salience-band **segment base rate** in two forms — over the petitions that
+  *ended* in a band, and over every petition that ever *reached* it (the risk
+  set). A prediction carrying a frozen prediction-time band is scored against the
+  second, since that is the population it was in when it ran; one without a frozen
+  band falls back to the first, which matches the terminal band it has to be
+  grouped by. Both are leakage-safe (strictly-prior-Term), and a skill score is
+  only comparable within one basis, which `Evaluation.base_rate_basis` records — the surface a time-masked replay cell self-selects pre-cutoff
   Terms from. `fedcourts statpack` produces both the machine JSON and a
   rendered Markdown document — a
   deterministic, offline roll-up of the corpus — empty

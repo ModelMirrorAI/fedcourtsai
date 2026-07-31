@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
 
 import typer
+from dateutil import parser as date_parser
 from pydantic import BaseModel
 
 from . import (
@@ -103,7 +104,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
-from .pipeline import historical, liveprobe
+from .pipeline import cert_signals, historical, liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
@@ -111,7 +112,7 @@ from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import reconcile_salience_selection
+from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection, salience_band
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -139,6 +140,7 @@ from .schemas import (
     OpsReport,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     ProcessVersion,
     RetrievalCall,
     RetrievalLog,
@@ -1191,12 +1193,26 @@ def stamp_cell(
         )
         model_cls = Evaluation
 
+    # A predictor's conditioning is stamped from the same provisioning record the
+    # agent read, for the same reason the digest is: it is a scoring input, so it
+    # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
+    # where it has to become durable. Absent when provisioning failed — that step
+    # is continue-on-error and the cell runs snapshot-less — and the evaluator
+    # then falls back to the terminal band rather than inventing one.
+    update: dict[str, object] = {"process_version": stamp}
+    if role == "predictor":
+        # Assigned unconditionally, so an agent-authored block is cleared rather
+        # than preserved when provisioning left nothing to freeze. A guarded
+        # assignment would let a cell that ran snapshot-less supply its own
+        # baseline conditioning, which is the one thing this field must not be.
+        update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
+
     stamped = 0
     for path in targets:
         if not path.is_file():
             continue
         record = read_model(path, model_cls)
-        write_json(path, record.model_copy(update={"process_version": stamp}))
+        write_json(path, record.model_copy(update=update))
         stamped += 1
 
     if stamped == 0:
@@ -2550,9 +2566,17 @@ def provision_snapshot(
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
-    # The cell's mode context: stated at provisioning so the prompt
-    # contract keys replay etiquette on it rather than inferring from env vars.
-    write_raw_json(paths.cell_context, {"mode": mode})
+    # The cell's context: its mode, and the conditioning state it is about to run
+    # against. Both are stated at provisioning — the mode so the prompt contract
+    # keys replay etiquette on it rather than inferring from env vars, and the
+    # rest because the salience band only ever strengthens, so a band re-derived
+    # later is the band the petition *ended* at. Derived from the payload rather
+    # than the corpus row: the row holds current values, the payload is what this
+    # cell can read, and a baseline has to be conditioned on the latter.
+    write_raw_json(
+        paths.cell_context,
+        _prediction_context(case, snapshot_date, payload, mode),
+    )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
     if documents:
         for doc in documents:
@@ -2574,6 +2598,93 @@ def provision_snapshot(
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+def _prediction_context(
+    case: str, snapshot_date: date, payload: dict[str, Any], mode: str
+) -> dict[str, Any]:
+    """The conditioning state a cell runs against, as its snapshot discloses it.
+
+    Absence of a proceedings list is recorded as ``signals_observable: false``
+    rather than as zero distributions — a redacted replay snapshot drops the key
+    wholesale, and a band derived from that absence would say `baseline` about a
+    petition whose posture is simply unknown. The band is then left null and the
+    evaluator falls back to the terminal band, which is honest for a cell that
+    could not see its own trajectory.
+    """
+    # The Term comes from the docket NUMBER ("24-12"), which only the payload
+    # carries — `case_id`'s tail is the CourtListener docket id, a different thing
+    # that no Term parses out of.
+    # Both payload shapes: the REST record carries `docket_number`, the live
+    # supremecourt.gov JSON (the only shape that carries proceedings, so the only
+    # one a band derives from) carries `CaseNumber`. Reading just the first left
+    # `term` null on every live cell and silently disabled the frozen path.
+    docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
+    observable = cert_signals.snapshot_carries_proceedings(payload)
+    count = cert_signals.snapshot_distribution_count(payload)
+    raw_cvsg = cert_signals.snapshot_cvsg_date(payload)
+    cvsg = _parse_signal_date(raw_cvsg)
+    band: str | None = None
+    if observable:
+        # Score a row carrying only the two signals the band turns on: the
+        # originating-court nudge is bounded below every cutpoint, so it cannot
+        # move a band, and the snapshot need not disclose it.
+        band = salience_band(
+            corpus.CorpusRow(
+                case_id=case,
+                court=case.split("/", 1)[0],
+                docket_number=docket_number,
+                distribution_count=count,
+                cvsg_date=cvsg,
+            )
+        )
+    context = PredictionContext(
+        mode=mode,
+        snapshot_date=snapshot_date,
+        signals_observable=observable,
+        distribution_count=count,
+        cvsg_date=cvsg,
+        band=band,
+        salience_version=SALIENCE_VERSION if band else None,
+        term=corpus.scotus_term_year(docket_number) if docket_number else None,
+    )
+    return context.model_dump(mode="json")
+
+
+def _parse_signal_date(raw: str | None) -> date | None:
+    """A snapshot's own date string, or ``None`` when it will not parse.
+
+    Fails soft: an unreadable date means the signal is not recorded, never that
+    provisioning dies and the cell runs snapshot-less.
+    """
+    if not raw:
+        return None
+    try:
+        return date_parser.parse(raw).date()
+    except (ValueError, OverflowError, TypeError):
+        return None
+
+
+def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
+    """The provisioned cell context, or ``None`` when there is nothing usable.
+
+    Tolerant on purpose: this runs as a post-agent step, and a missing or
+    unreadable context file means the cell was not provisioned, which is a
+    recorded gap rather than a reason to fail a prediction that already exists.
+    The `mode`-only shape a pre-context provisioning wrote also lands here and is
+    correctly rejected, since it carries no conditioning to freeze.
+    """
+    path = paths.cell_context
+    if not path.is_file():
+        return None
+    try:
+        return PredictionContext.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        # A file that exists but does not parse is worth a line: it is either a
+        # replay cell's own `{mode, decided_before}` shape, which carries no
+        # conditioning and is correctly rejected, or a provisioning bug.
+        typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
+        return None
 
 
 @app.command("corpus-integration-check")

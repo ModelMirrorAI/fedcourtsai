@@ -85,10 +85,23 @@ For each predictor you score, write to
   - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no
     votes were predicted).
   - `segment_base_rate` — the case's **salience-band** grant rate over prior Terms
-    only, read from committed `metrics/statpack.md`. Find the case's band (its
-    relist/CVSG tier, in the per-Term "Segment base rate by salience band" table) and
-    pool that band's rate (resolved-weighted) over Terms **strictly before** this
-    case's Term — the same leakage-safe cut a replay self-selects. Pool every Term
+    only, read from committed `metrics/statpack.md`. Take the band from the
+    prediction's own `context.band` — the band frozen when that cell ran — and
+    **do not re-derive it from the docket**: a band only ever strengthens, so a
+    band worked out now is the one the petition *ended* at, and scoring against it
+    would hold the predictor to a baseline computed with knowledge of its own
+    future. In the per-Term "Segment base rate by salience band" table use the
+    **bracketed `reached`** figure and its `n` (the rate among petitions that had
+    reached the band), pooled resolved-weighted over Terms **strictly before** this
+    case's Term — the same leakage-safe cut a replay self-selects. Where the
+    prediction carries no `context.band` (an older cell, or one whose snapshot
+    disclosed no proceedings), fall back to the band you can derive and the
+    *leading* figure, and say so in `evaluation.md`. Record which you used in
+    `base_rate_basis` (`risk_set` for a frozen band, `terminal` for the fallback);
+    the two are several-fold apart in the weak bands and a skill score only means
+    anything within one basis. **Your own cell's `record/context.json` is not the
+    band to use** — it is provisioned from the decided docket, so its band is
+    terminal. The band you want is on the prediction you are scoring. Pool every Term
     row that table shows that precedes the case's; its caption states how many of
     the pack's Terms are rendered, and where that is fewer than the pack holds, the
     shown window *is* your window. Omit when the case has no Term or no prior-Term
