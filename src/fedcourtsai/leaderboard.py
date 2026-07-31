@@ -33,6 +33,7 @@ from .process_version import is_frozen
 from .schemas import (
     BigCaseLeaderboard,
     Evaluation,
+    EvaluatorAgreement,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStratum,
@@ -186,15 +187,9 @@ def big_case_agreement(
 
     points: dict[str, list[tuple[float, float]]] = defaultdict(list)
     for (predictor_id, case_id, event_id), evaluator_scores in reads.items():
-        prediction_files = sorted(
-            (cases_dir / case_id / "events" / event_id).glob(
-                f"predictions/{predictor_id}/*/prediction.json"
-            )
-        )
-        predictions = [read_model(p, Prediction) for p in prediction_files]
-        if not predictions:
+        latest = _latest_prediction(cases_dir, case_id, event_id, predictor_id)
+        if latest is None:
             continue
-        latest = max(predictions, key=lambda pr: pr.created_at)
         if frozen_only and not is_frozen(latest.process_version):
             continue
         if latest.big_case_score is None:
@@ -208,10 +203,95 @@ def big_case_agreement(
     }
 
 
+def _latest_prediction(
+    cases_dir: Path, case_id: str, event_id: str, predictor_id: str
+) -> Prediction | None:
+    """The newest prediction a predictor wrote for an event, or ``None``."""
+    files = sorted(
+        (cases_dir / case_id / "events" / event_id).glob(
+            f"predictions/{predictor_id}/*/prediction.json"
+        )
+    )
+    predictions = [read_model(p, Prediction) for p in files]
+    if not predictions:
+        return None
+    return max(predictions, key=lambda pr: pr.created_at)
+
+
+def _latest_prediction_is_frozen(
+    cases_dir: Path, case_id: str, event_id: str, predictor_id: str
+) -> bool:
+    """Whether that prediction ran a blessed process.
+
+    One definition, shared by both agreement views, so a frozen-only big-case
+    board and a frozen-only evaluator board always cover the same cells — the
+    partition keys on the *prediction's* stamp because the predictor is the
+    competitor being ranked.
+    """
+    latest = _latest_prediction(cases_dir, case_id, event_id, predictor_id)
+    return latest is not None and is_frozen(latest.process_version)
+
+
+def evaluator_agreement(
+    data_root: Path, *, frozen_only: bool = True
+) -> dict[str, EvaluatorAgreement]:
+    """Each evaluator's big-case rank-agreement with the rest of the panel.
+
+    The grader-side counterpart to :func:`big_case_agreement`, and the check that
+    function cannot make: it pairs each *predictor* against the panel mean, which
+    is blind to a grader that is uniformly generous or strict, because such a bias
+    lands on every predictor that grader scored and cancels out of the ordering.
+    Comparing graders to each other is what surfaces it.
+
+    **Leave-one-out.** An evaluator is scored against the mean of the *other*
+    evaluators' reads on the events they share — never a panel mean including
+    itself, which would correlate it partly with its own read and, on a
+    three-judge panel, by a third.
+
+    Shares :func:`big_case_agreement`'s ``frozen_only`` semantics, keyed on the
+    *prediction's* stamp, so both agreement views cover the same cells and can be
+    read side by side.
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return {}
+    # (case, event) -> evaluator_id -> the reads that evaluator gave on it. One
+    # evaluator scores every predictor for an event, so its read of the *case's*
+    # stakes is the mean of those — the quantity a peer's read is comparable to.
+    reads: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        evaluation = read_model(path, Evaluation)
+        if evaluation.big_case is None:
+            continue
+        if frozen_only and not _latest_prediction_is_frozen(
+            cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+        ):
+            continue
+        key = (evaluation.case_id, evaluation.event_id)
+        reads[key][evaluation.evaluator_id].append(evaluation.big_case.evaluator_score)
+
+    points: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for panel in reads.values():
+        per_evaluator = {
+            evaluator: sum(scores) / len(scores) for evaluator, scores in panel.items()
+        }
+        if len(per_evaluator) < 2:
+            continue  # nothing to agree with on this event
+        for evaluator, own in per_evaluator.items():
+            peers = [v for other, v in per_evaluator.items() if other != evaluator]
+            points[evaluator].append((own, sum(peers) / len(peers)))
+
+    return {
+        evaluator: EvaluatorAgreement(rank_agreement=_kendall_tau_b(pairs), events=len(pairs))
+        for evaluator, pairs in points.items()
+    }
+
+
 def build_leaderboard(
     cells: Iterable[tuple[Evaluation, Stratum]],
     big_case: Mapping[str, BigCaseLeaderboard] | None = None,
     *,
+    evaluators: Mapping[str, EvaluatorAgreement] | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
@@ -267,5 +347,6 @@ def build_leaderboard(
         forward_evaluations=_stratum_total(FORWARD),
         retrospective_evaluations=_stratum_total(RETROSPECTIVE),
         procedural_evaluations=_stratum_total(PROCEDURAL),
+        evaluator_agreement=dict(evaluators or {}),
         entries=entries,
     )

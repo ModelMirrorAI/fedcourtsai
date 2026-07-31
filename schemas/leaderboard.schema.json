@@ -30,6 +30,36 @@
       "title": "BigCaseLeaderboard",
       "type": "object"
     },
+    "EvaluatorAgreement": {
+      "additionalProperties": false,
+      "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
+      "properties": {
+        "events": {
+          "default": 0,
+          "description": "Events this evaluator and at least one peer both read \u2014 the sample the correlation rests on, and small enough to matter",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        },
+        "rank_agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kendall's tau-b between this evaluator's big-case ordering and the mean of the other evaluators' reads, over the events they share (+1 = same order, -1 = reversed); null with fewer than 2 shared events, or when every pair ties on one side",
+          "title": "Rank Agreement"
+        }
+      },
+      "title": "EvaluatorAgreement",
+      "type": "object"
+    },
     "LeaderboardEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings, aggregated per stratum.\n\nForward and retrospective are the pre-registration (timing) strata; the\nprocedural block segments mootness-basis cells out of both.",
@@ -214,6 +244,14 @@
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
+    },
+    "evaluator_agreement": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EvaluatorAgreement"
+      },
+      "description": "Per evaluator, how far its big-case reads track the rest of the panel's \u2014 the check on grader latitude, keyed by evaluator_id. Orthogonal to the ranking and never part of it: it describes the judges, not the competitors",
+      "title": "Evaluator Agreement",
+      "type": "object"
     },
     "forward_evaluations": {
       "default": 0,

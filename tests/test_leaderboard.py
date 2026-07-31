@@ -17,6 +17,7 @@ from fedcourtsai.leaderboard import (
     big_case_agreement,
     build_leaderboard,
     classify_stratum,
+    evaluator_agreement,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
@@ -544,3 +545,130 @@ def test_big_case_agreement_defaults_to_frozen(
     assert big_case_agreement(data_root) == {}
     # All-versions still sees it.
     assert "shakedown" in big_case_agreement(data_root, frozen_only=False)
+
+
+def _big_case_cell(
+    data_root: Path, *, case: str, evaluator: str, score: float, predictor: str = "p-a"
+) -> None:
+    """One evaluator's big-case read on one case, with the cell it targets."""
+    _write_cell(
+        data_root,
+        _evaluation(
+            predictor,
+            case_id=case,
+            evaluator_id=evaluator,
+            big_case=BigCaseAssessment(evaluator_score=score),
+        ),
+        process_version=_frozen_stamp(),
+    )
+
+
+def test_evaluator_agreement_is_positive_when_the_panel_orders_alike(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    root = tmp_path / "data"
+    for case, (a, b, c) in {
+        "ca9/1": (0.9, 0.8, 0.85),
+        "ca9/2": (0.5, 0.6, 0.55),
+        "ca9/3": (0.1, 0.2, 0.15),
+    }.items():
+        _big_case_cell(root, case=case, evaluator="eval-a", score=a)
+        _big_case_cell(root, case=case, evaluator="eval-b", score=b)
+        _big_case_cell(root, case=case, evaluator="eval-c", score=c)
+    agreement = evaluator_agreement(root)
+    assert set(agreement) == {"eval-a", "eval-b", "eval-c"}
+    assert all(v.events == 3 for v in agreement.values())
+    assert all(v.rank_agreement == 1.0 for v in agreement.values())
+
+
+def test_one_inverting_grader_drags_the_whole_small_panel_negative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A property of the measure worth knowing before reading it.
+
+    Leave-one-out means each grader is scored against the *mean* of the others, so
+    on a three-judge panel one inverting grader sits in both peers' comparison and
+    can turn them negative — the two who agree with each other still post negative
+    agreement. That is not a bug in the statistic, it is what a panel this small
+    supports: with three judges there is no majority to be an outlier against.
+
+    So a negative figure identifies a *disagreement in the panel*, not a
+    disagreement by the grader carrying it. Read the whole map, not one row, and
+    read it beside `events`.
+    """
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    root = tmp_path / "data"
+    for case, (a, b, c) in {
+        "ca9/1": (0.9, 0.8, 0.1),
+        "ca9/2": (0.5, 0.6, 0.5),
+        "ca9/3": (0.1, 0.2, 0.9),
+    }.items():
+        _big_case_cell(root, case=case, evaluator="eval-a", score=a)
+        _big_case_cell(root, case=case, evaluator="eval-b", score=b)
+        _big_case_cell(root, case=case, evaluator="eval-c", score=c)
+    agreement = evaluator_agreement(root)
+    # The inverter reads fully reversed, which is the signal.
+    assert agreement["eval-c"].rank_agreement == -1.0
+    # But so does a grader that agreed with a peer, because the peer mean it is
+    # scored against contains the inverter.
+    assert agreement["eval-a"].rank_agreement is not None
+    assert agreement["eval-a"].rank_agreement < 0
+    # And the third reads *undefined*: averaging the aligned grader against the
+    # inverter leaves a flat peer series with no ordering to correlate against,
+    # so the answer is silence rather than a fabricated zero.
+    assert agreement["eval-b"].rank_agreement is None
+    assert agreement["eval-b"].events == 3
+
+
+def test_an_evaluator_is_never_scored_against_a_panel_containing_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    """Leave-one-out is the whole design. With a panel of two, a self-inclusive
+    mean would correlate each grader half with itself, so two graders who disagree
+    completely would still post positive agreement. They must post -1.
+    """
+    root = tmp_path / "data"
+    for case, (a, b) in {"ca9/1": (0.9, 0.1), "ca9/2": (0.1, 0.9)}.items():
+        _big_case_cell(root, case=case, evaluator="eval-a", score=a)
+        _big_case_cell(root, case=case, evaluator="eval-b", score=b)
+    agreement = evaluator_agreement(root)
+    assert agreement["eval-a"].rank_agreement == -1.0
+    assert agreement["eval-b"].rank_agreement == -1.0
+
+
+def test_an_event_only_one_evaluator_read_contributes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    # Agreement needs a peer. A solo read is not a disagreement, and counting it
+    # would let a single-grader event dilute the correlation toward zero.
+    root = tmp_path / "data"
+    _big_case_cell(root, case="ca9/1", evaluator="eval-a", score=0.9)
+    _big_case_cell(root, case="ca9/2", evaluator="eval-a", score=0.2)
+    _big_case_cell(root, case="ca9/2", evaluator="eval-b", score=0.3)
+    agreement = evaluator_agreement(root)
+    assert agreement["eval-a"].events == 1  # only ca9/2 had a peer
+    # One shared event cannot support a correlation.
+    assert agreement["eval-a"].rank_agreement is None
+
+
+def test_evaluator_agreement_honours_the_frozen_partition(tmp_path: Path) -> None:
+    # Same partition as the predictor-side view, keyed on the prediction's stamp,
+    # so the two agreement blocks always describe the same cells.
+    root = tmp_path / "data"
+    for case in ("ca9/1", "ca9/2"):
+        for ev, score in (("eval-a", 0.9), ("eval-b", 0.8)):
+            _write_cell(
+                root,
+                _evaluation(
+                    "p-a",
+                    case_id=case,
+                    evaluator_id=ev,
+                    big_case=BigCaseAssessment(evaluator_score=score),
+                ),
+                process_version=None,  # shakedown
+            )
+    assert evaluator_agreement(root, frozen_only=True) == {}
+    assert evaluator_agreement(root, frozen_only=False) != {}
