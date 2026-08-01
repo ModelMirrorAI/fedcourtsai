@@ -738,3 +738,36 @@ def test_refresh_historical_is_dry_run_until_applied(
     assert applied.exit_code == 0, applied.output
     with corpus.connect(db) as conn:
         assert corpus.get_live_cursor(conn, 22, "historical-paid") is None
+
+
+def test_reset_walk_can_reopen_one_stream_without_the_other(tmp_path: Path) -> None:
+    """A Term's IFP sequence runs roughly three times its paid one and feeds no
+    scored segment, so paying for it first would delay the data the salience work
+    actually needs."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "historical-paid", 400)
+        corpus.set_live_cursor(conn, 22, "historical-ifp", 6000)
+
+    report = historical_module.reset_walk(db, [22], ["historical-paid"])
+    assert report.reset == ["OT2022/historical-paid"]
+    assert report.absent == []  # the IFP stream was not considered, not "missing"
+
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") is None
+        assert corpus.get_live_cursor(conn, 22, "historical-ifp") == 6000
+
+
+def test_refresh_historical_rejects_an_unknown_stream(tmp_path: Path) -> None:
+    """A typo'd stream name must not silently reset nothing and report success."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "historical-paid", 400)
+    result = CliRunner().invoke(
+        cli.app,
+        ["refresh-historical", "--term", "22", "--stream", "paid", "--apply"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus")},
+    )
+    assert result.exit_code == 2
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 400

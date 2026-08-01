@@ -153,7 +153,9 @@ class ResetReport(BaseModel):
     """Configured pairs that carried no cursor — never walked, nothing to reset."""
 
 
-def reset_walk(corpus_db_path: Path, terms: Sequence[int]) -> ResetReport:
+def reset_walk(
+    corpus_db_path: Path, terms: Sequence[int], streams: Sequence[str] | None = None
+) -> ResetReport:
     """Clear the historical cursors for ``terms`` so the next walk re-covers them.
 
     The re-walk half of a full refresh: this moves no data and fetches nothing. It
@@ -167,12 +169,23 @@ def reset_walk(corpus_db_path: Path, terms: Sequence[int]) -> ResetReport:
     a corrected parser, a disposition the old patterns missed. Nothing is deleted
     and ``case_id`` never moves, so re-running is idempotent rather than
     destructive.
+
+    ``streams`` narrows which numbering sequences re-open; ``None`` means both.
+    The two cost very differently — a Term's IFP sequence is roughly three times
+    its paid one — and only the paid stream feeds the scored segment, so a refresh
+    aimed at the predicted population should not have to pay for the rest of the
+    docket first.
     """
+    wanted = tuple(
+        HISTORICAL_STREAMS
+        if streams is None
+        else [(name, base) for name, base in HISTORICAL_STREAMS if name in set(streams)]
+    )
     report = ResetReport()
     _migrate_legacy_cursors(corpus_db_path)
     with corpus.connect(corpus_db_path) as conn:
         for term in sorted(set(terms)):
-            for stream, _base in HISTORICAL_STREAMS:
+            for stream, _base in wanted:
                 label = f"OT{2000 + term}/{stream}"
                 if corpus.clear_live_cursor(conn, term, stream):
                     report.reset.append(label)
