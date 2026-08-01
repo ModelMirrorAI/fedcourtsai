@@ -488,11 +488,25 @@ the ending band understates what a live application faces. Those are the same tw
 defects the cert program corrected, and the answers carry over: freeze the band as
 at prediction, and pool the rate over a risk set.
 
-**What is missing is the rate.** Measuring it means resolving enough substantive
-applications to condition on, and they are 12% of a docket the pipeline does not
-yet poll. Until then the interim segment is declared unspecified rather than given
-a cert-shaped stand-in — the same posture the merits stage takes, and for the same
-reason.
+**What is missing is the rate; the cohort is being accumulated.** The live
+cycle re-polls unresolved applications up to a small per-cycle cap
+(`live.max_applications_per_run`) with prediction queueing off — ground-truth
+collection only. Each poll persists the ask (`application_kind` — arrival-time,
+so safe to condition on) and the three ladder signals as latched corpus
+columns, so an interim cohort can be assembled from the index: which
+applications, which asks, how far each had escalated by resolution. The latched
+signals are the *ending* band — the thing the two traps above forbid
+conditioning a rate on directly — while the as-at-prediction values a valid
+rate needs stay recoverable from the per-poll dated snapshots, whose entry
+dates carry each signal's onset. One caveat bounds the accumulation itself: an
+application counts as resolved only when the interim disposition vocabulary
+matches its disposing entry, so the resolved set is selected for
+machine-matchable resolution text (an unmatched resolution stays in the
+rotation as a visibly long-unresolved residue rather than silently counting).
+The rate itself stays unpublished: predict scope and a base rate for the
+interim segment remain unspecified until enough substantive applications have
+resolved to support one — the same posture the merits stage takes, and for the
+same reason.
 
 ## Shared discipline: leakage / timing
 

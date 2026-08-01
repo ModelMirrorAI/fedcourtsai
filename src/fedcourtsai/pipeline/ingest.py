@@ -35,7 +35,7 @@ from .. import corpus, ids
 from ..schemas import Disposition, EventKind
 from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
-from .interim_signals import match_interim_disposition
+from .interim_signals import application_kind, escalation_signals, match_interim_disposition
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -107,6 +107,31 @@ class CorpusRow(BaseModel):
         description="Raw lower-court name (`LowerCourt`) the live docket JSON "
         "carries — identifies state courts and other tribunals the tracked-court "
         "id mapping leaves out of `originating_court`. Live-channel only.",
+    )
+    application_kind: str | None = Field(
+        default=None,
+        description="What an interim application asks the Court for (`extension` "
+        "| `substantive` | `unknown`), from its own ask clause. Live application "
+        "branch only; None elsewhere (never application-parsed) — the storage "
+        "latch keeps a real reading over a degraded parse's `unknown`.",
+    )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the Court requested a response to an interim "
+        "application (the interim CVSG-analogue). Live application branch only; "
+        "None elsewhere — the storage max-latch keeps a stored True.",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether an interim application was referred to the full "
+        "Court. Live application branch only; None elsewhere — the storage "
+        "max-latch keeps a stored True.",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        description="Amicus briefs recorded on an interim application's docket "
+        "(per-entry count). Live application branch only; None elsewhere — the "
+        "storage max-latch keeps the highest count ever parsed.",
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
@@ -196,6 +221,11 @@ def _date(value: Any) -> date | None:
     if text is None:
         return None
     return date_parser.parse(text).date()
+
+
+def _as_flag(value: Any) -> bool | None:
+    """A nullable boolean, ``None`` preserved as the never-parsed sentinel."""
+    return bool(value) if value is not None else None
 
 
 def _as_count(value: Any) -> int | None:
@@ -390,6 +420,10 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         distribution_count=_as_count(record.get("distribution_count")),
         cvsg_date=_date(record.get("cvsg_date")),
         originating_court_name=_clean(record.get("originating_court_name")),
+        application_kind=_clean(record.get("application_kind")),
+        response_requested=_as_flag(record.get("response_requested")),
+        referred_to_court=_as_flag(record.get("referred_to_court")),
+        amicus_briefs=_as_count(record.get("amicus_briefs")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -673,6 +707,10 @@ def map_live_docket(
     entries = _live_entries(payload)
     conference = _live_conference_date(entries)
     cvsg = _live_cvsg_date(entries)
+    ask: str | None = None
+    requested: bool | None = None
+    referred: bool | None = None
+    amici: int | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -684,6 +722,14 @@ def map_live_docket(
         terminated = decided
         conference = None
         cvsg = None
+        # The interim conditioning set: the ask (what kind of application this
+        # is) and the escalation-ladder signals, read from the proceedings text
+        # here because under the corpus split that text lives only in the
+        # content store — a column is the one place a cohort can be assembled
+        # from. Cert-form dockets leave all four None (never application-parsed).
+        texts = [str(entry.get("description") or "") for entry in entries]
+        ask = application_kind(texts).value
+        requested, referred, amici = escalation_signals(texts)
     else:
         disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
     petitioner = _live_title(payload.get("PetitionerTitle"))
@@ -705,6 +751,10 @@ def map_live_docket(
         "distribution_count": None if form == "application" else _live_distribution_count(entries),
         "cvsg_date": cvsg.isoformat() if cvsg else None,
         "originating_court_name": lower_court,
+        "application_kind": ask,
+        "response_requested": requested,
+        "referred_to_court": referred,
+        "amicus_briefs": amici,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
@@ -836,6 +886,10 @@ def to_corpus_row(
         distribution_count=row.distribution_count,
         cvsg_date=row.cvsg_date,
         originating_court_name=row.originating_court_name,
+        application_kind=row.application_kind,
+        response_requested=row.response_requested,
+        referred_to_court=row.referred_to_court,
+        amicus_briefs=row.amicus_briefs,
         sample_weight=sample_weight,
     )
 

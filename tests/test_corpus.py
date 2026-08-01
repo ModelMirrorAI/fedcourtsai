@@ -1345,6 +1345,156 @@ def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
     assert a_after_none is not None and a_after_none.sample_weight == 1
 
 
+# --- interim-application signal columns and rotation --------------------------------
+
+
+def test_interim_signal_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
+    # Round-trip through the normal API, and a DB created before the columns
+    # existed gains them on connect with the never-parsed NULL sentinel intact.
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/9500024001",
+        court="scotus",
+        docket_number="24A1099",
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=True,
+        amicus_briefs=2,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/9500024001")
+    assert fetched == row
+
+    # A pre-change DB: the current schema minus the four interim columns.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    interim = ("application_kind", "response_requested", "referred_to_court", "amicus_briefs")
+    columns = ",\n".join(
+        f"{name} {ddl}" for name, ddl in corpus._CASES_COLUMN_DDL.items() if name not in interim
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/9500024001', 'scotus', '24A1099');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert set(interim) <= cols
+        migrated = corpus.get_row(conn, "scotus/9500024001")
+    assert migrated is not None
+    assert migrated.application_kind is None  # never parsed, not 'unknown'
+    assert migrated.response_requested is None
+    assert migrated.referred_to_court is None
+    assert migrated.amicus_briefs is None
+
+
+def test_interim_escalation_signals_max_latch_and_never_regress(tmp_path: Path) -> None:
+    # The three ladder signals are monotone over an application's life (the
+    # Court does not un-request a response, un-refer an application, or un-file
+    # an amicus brief), so a degraded parse's confident False/0 — or a writer
+    # with nothing to assert (None) — must never regress a stored value, while a
+    # real advance still lands.
+    db = tmp_path / "corpus.db"
+    base = {"case_id": "scotus/9500024001", "court": "scotus", "docket_number": "24A1099"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [_row(**base, response_requested=True, referred_to_court=True, amicus_briefs=2)],
+        )
+        # A degraded parse: confidently absent signals.
+        corpus.upsert_rows(
+            conn,
+            [_row(**base, response_requested=False, referred_to_court=False, amicus_briefs=0)],
+        )
+        after_degraded = corpus.get_row(conn, "scotus/9500024001")
+        # A cert-form / CourtListener write: nothing to assert.
+        corpus.upsert_rows(conn, [_row(**base)])
+        after_none = corpus.get_row(conn, "scotus/9500024001")
+        # A fresh parse with a real advance still lands.
+        corpus.upsert_rows(conn, [_row(**base, amicus_briefs=5)])
+        after_advance = corpus.get_row(conn, "scotus/9500024001")
+    assert after_degraded is not None and after_none is not None and after_advance is not None
+    assert after_degraded.response_requested is True
+    assert after_degraded.referred_to_court is True
+    assert after_degraded.amicus_briefs == 2
+    assert after_none.response_requested is True
+    assert after_none.referred_to_court is True
+    assert after_none.amicus_briefs == 2
+    assert after_advance.amicus_briefs == 5
+
+
+def test_application_kind_keeps_a_real_reading_over_unknown(tmp_path: Path) -> None:
+    # A degraded application parse reads a confident 'unknown' — not NULL — so
+    # the latch must keep a real reading over it, let 'unknown' fill a genuine
+    # gap, and let a real reading land over anything.
+    db = tmp_path / "corpus.db"
+    base = {"case_id": "scotus/9500024001", "court": "scotus", "docket_number": "24A1099"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(**base, application_kind="substantive")])
+        corpus.upsert_rows(conn, [_row(**base, application_kind="unknown")])
+        after_unknown = corpus.get_row(conn, "scotus/9500024001")
+        corpus.upsert_rows(conn, [_row(**base)])  # nothing to assert (a cert write)
+        after_none = corpus.get_row(conn, "scotus/9500024001")
+        corpus.upsert_rows(conn, [_row(case_id="scotus/9500024002", court="scotus")])
+        corpus.upsert_rows(
+            conn, [_row(case_id="scotus/9500024002", court="scotus", application_kind="unknown")]
+        )
+        filled = corpus.get_row(conn, "scotus/9500024002")
+    assert after_unknown is not None and after_unknown.application_kind == "substantive"
+    assert after_none is not None and after_none.application_kind == "substantive"
+    assert filled is not None and filled.application_kind == "unknown"  # fills a real gap
+
+
+def test_application_rotation_selects_unresolved_applications_in_order(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # OT25 never-polled lead (case_id breaking the tie between the
+                # two); the OT25 polled row follows them.
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="25A2"),
+                corpus.CorpusRow(case_id="scotus/20", court="scotus", docket_number="25A20"),
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25A1",
+                    last_live_polled=date(2026, 7, 1),
+                ),
+                # Older Term follows the current one.
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24A3"),
+                # Below the Term floor -> excluded (unfetchable upstream).
+                corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="16A4"),
+                # Resolved application -> excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/5",
+                    court="scotus",
+                    docket_number="25A5",
+                    disposition="denied",
+                ),
+                # Terminated without a disposition label -> excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/6",
+                    court="scotus",
+                    docket_number="25A6",
+                    date_decided=date(2026, 7, 1),
+                ),
+                # Cert form -> excluded (the cert rotation's population).
+                corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="25-7"),
+                # A spelling the GLOB admits but the strict addressable-form
+                # parser rejects -> dropped by the Python re-verification.
+                corpus.CorpusRow(case_id="scotus/8", court="scotus", docket_number="25A8 (X)"),
+            ],
+        )
+        picked = [r.case_id for r in corpus.application_rotation(conn, limit=10)]
+        assert picked == ["scotus/2", "scotus/20", "scotus/1", "scotus/3"]
+        # The cap is a cap.
+        assert [r.case_id for r in corpus.application_rotation(conn, limit=1)] == ["scotus/2"]
+
+
 def test_salience_columns_roundtrip(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     row = _row(

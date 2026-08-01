@@ -502,6 +502,20 @@ def test_unknown_disposition_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is False
 
 
+def test_unknown_application_kind_fails(tmp_path: Path) -> None:
+    # `application_kind` is typed as text on the row models (no enum at write
+    # time) and its storage latch compares the literal 'unknown', so this check
+    # is the only vocabulary enforcement it gets.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET application_kind = 'Unknown' WHERE case_id = 'ca9/1'")
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is False
+
+
 def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_corpus(db)  # corpus court is ca9

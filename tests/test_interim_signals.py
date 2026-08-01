@@ -243,6 +243,39 @@ def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:
     assert record["date_terminated"] == "2024-06-27"
 
 
+def test_the_application_branch_lands_the_conditioning_columns() -> None:
+    """The ask and the three ladder signals become corpus columns at ingest —
+    under the corpus split the proceedings text lives only in the content store,
+    so a column is the one place an interim cohort can be assembled from."""
+    record = map_live_docket(
+        _payload(
+            ("Dec 18 2023", "Application (23A350) for a stay, submitted to The Chief Justice."),
+            ("Dec 19 2023", "Response to application (23A350) requested by The Chief Justice."),
+            ("Dec 20 2023", "Brief amicus curiae of Energy Infrastructure Council filed."),
+            ("Dec 20 2023", "Application (23A350) referred to the Court."),
+        ),
+        9_500_023_350,
+        form="application",
+    )
+    assert record["application_kind"] == "substantive"
+    assert record["response_requested"] is True
+    assert record["referred_to_court"] is True
+    assert record["amicus_briefs"] == 1
+
+
+def test_a_cert_docket_never_carries_application_columns() -> None:
+    """None — the never-application-parsed sentinel — not a confident 'unknown'
+    or False: the cert branch does not read the interim signals at all, and the
+    storage latches rely on the distinction."""
+    record = map_live_docket(
+        _payload(("May 14 2025", "Petition for a writ of certiorari filed.")), 9_025_000_100
+    )
+    assert record["application_kind"] is None
+    assert record["response_requested"] is None
+    assert record["referred_to_court"] is None
+    assert record["amicus_briefs"] is None
+
+
 def test_the_frontier_walk_probes_the_interim_sequence() -> None:
     """Applications are a third stream, addressed and identified differently: a
     cert petition and an application can share `(term, serial)` and are different

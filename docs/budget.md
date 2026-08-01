@@ -48,7 +48,9 @@ prompt, AGENTS.md, the case snapshot, and retrieved priors, then writes its
 artifacts over several tool-use turns — so effective token usage (≈280–400K
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
-`fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary`.
+`fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary` —
+**≈$767 total inference spend on the ledger to date**, across the 413 cells the
+per-cell figures below draw on.
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
 recorded cost a mild undercount.
@@ -116,6 +118,24 @@ So `N ≈ inference_budget / (≈$13 per fully-tournamented case)`. Tier-1 salie
 scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
+
+**The interim docket: a budgeted stream with no new spend.**
+[salience.md](salience.md)'s interim-docket section designs a second selection
+problem — stays, injunctions, vacaturs pending certiorari — and it changes this
+budget by nothing. In its 26-application OT2023–OT2024 spread sample, roughly
+**85% (22 of 26)** are time-extension requests, filtered out deterministically by
+`interim_signals.is_predictable_application` (≈$0, no model call); only the
+substantive slice — **3 of 26 in that sample, ≈12%** — would ever be predicted;
+and no base rate exists yet to score that slice against (three observations
+cannot support one), so the segment is declared unspecified rather than
+predicted. The stream is therefore budgeted as a **bounded reserve inside the
+existing per-conference spend envelope**, not a new line:
+`salience.interim_reserve_slots` in
+[config/tracking.yaml](../config/tracking.yaml) is the placeholder cap — held at
+`0`, and sized only once a measured base rate exists. When sized above `0` it
+displaces the lowest-ranked cert picks in whichever conference cycle the
+application is live in — the reserve trades slots inside `N`, never adds to it —
+so target total spend stays as published above and below.
 
 **The controls, and the one that reads the bill.** Capacity `N`, the per-run cell
 cap (`predict.max_predict_cells_per_run`), the live cycle's sweep cap, and the

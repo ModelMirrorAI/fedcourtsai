@@ -564,6 +564,96 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     assert relisted.distributed_for_conference == date(2026, 10, 10)
 
 
+def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
+    tmp_path: Path,
+) -> None:
+    """Interim acceptance: a discovered application is re-polled by the
+    application rotation until it resolves — through the interim vocabulary,
+    with the escalation signals latched onto its row — and nothing about it is
+    ever queued to predict."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    case_id = "scotus/9525000001"  # live_application_id(25, 1)
+
+    # Cycle 1: discovery's application stream onboards the pending stay.
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == [case_id]
+    assert queues.predict == [] and queues.evaluate == []
+    with corpus.connect(db) as conn:
+        onboarded = corpus.get_row(conn, case_id)
+    assert onboarded is not None
+    assert onboarded.disposition is None
+    assert onboarded.application_kind == "substantive"
+    assert onboarded.response_requested is False  # parsed, not yet requested
+    assert onboarded.referred_to_court is False
+    assert onboarded.amicus_briefs == 0
+
+    # Cycle 2: the docket has moved — response requested, an amicus brief, the
+    # referral, and the full-Court denial. The application rotation (not the
+    # cert one, whose GLOB can never match `25A1`) re-polls it.
+    served["25A1"]["ProceedingsandOrder"].extend(
+        [
+            {
+                "Date": "Jul 10 2026",
+                "Text": "Response to application (25A1) requested by The Chief Justice.",
+            },
+            {"Date": "Jul 12 2026", "Text": "Brief amicus curiae of Amicus Org filed."},
+            {"Date": "Jul 14 2026", "Text": "Application (25A1) referred to the Court."},
+            {
+                "Date": "Jul 18 2026",
+                "Text": "Application (25A1) for stay presented to The Chief Justice and "
+                "by him referred to the Court is denied.",
+            },
+        ]
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            # The production scope: applications are permanently out of predict
+            # scope, and the application routing is deliberately ungated, so the
+            # resolution must surface even under the gate.
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 19),
+        )
+    # Ground truth only: the resolution is recorded and surfaced (nothing
+    # predicted it, so it lands on evaluate_skipped), and predict stays empty.
+    assert queues2.predict == [] and queues2.evaluate == []
+    assert [q["docket"] for q in queues2.evaluate_skipped] == [9_525_000_001]
+    with corpus.connect(db) as conn:
+        resolved = corpus.get_row(conn, case_id)
+    assert resolved is not None
+    assert resolved.disposition == "denied"  # the interim vocabulary, not the cert one
+    assert resolved.date_decided == date(2026, 7, 18)
+    assert resolved.last_live_polled == date(2026, 7, 19)
+    assert resolved.application_kind == "substantive"
+    assert resolved.response_requested is True
+    assert resolved.referred_to_court is True
+    assert resolved.amicus_briefs == 1
+
+    # Cycle 3: resolved, so the rotation no longer re-polls it.
+    with corpus.connect(db) as conn:
+        assert corpus.application_rotation(conn, limit=10) == []
+
+
 def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:
     # A soft budget already spent: the cycle onboards nothing and polls nothing,
     # writing nothing — so a starved window is a no-op, never a partial-write mess.
@@ -744,6 +834,7 @@ def test_load_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
 
     defaults = load_live_config(tmp_path / "absent")
     assert defaults.max_new_cases_per_run == 25
+    assert defaults.max_applications_per_run == 10
     assert defaults.frontier_misses == 2
 
 
@@ -754,6 +845,7 @@ def test_repo_tracking_yaml_carries_live_section() -> None:
     # not an API budget.
     assert cfg.max_cases_per_run == 300
     assert cfg.max_new_cases_per_run == 100
+    assert cfg.max_applications_per_run == 10
     assert cfg.term_floor_year == 2017
 
 

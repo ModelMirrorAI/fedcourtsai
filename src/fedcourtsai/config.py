@@ -199,6 +199,10 @@ class LiveConfig(BaseModel):
     max_cases_per_run: int = Field(default=30, ge=0)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
+    # Unresolved interim applications re-polled per cycle (the application
+    # rotation; recent Terms first, then stalest). Ground-truth collection
+    # only — prediction queueing is off for applications.
+    max_applications_per_run: int = Field(default=10, ge=0)
     # Oldest October Term the refresh rotation reaches — the reachability
     # probe's floor (docs/live-sources.md): full JSON coverage OT2017+.
     term_floor_year: int = Field(default=2017, ge=1925)
@@ -418,6 +422,13 @@ class SalienceConfig(BaseModel):
     # `cert-backtest.json` per-band skill at once, which is exactly why it is config
     # rather than a constant. Counted in Term *years*, not statpack rows.
     base_rate_lookback_terms: int = Field(default=0, ge=0)
+    # Placeholder cap on interim-docket tournament slots (stays, injunctions —
+    # docs/salience.md, *The interim docket*), carved from the same
+    # per-conference spend envelope rather than added to it (docs/budget.md).
+    # Inert: no enforcement code reads it yet — the field holds the knob's
+    # place until interim predict scope lands, and is sized only once a
+    # measured interim base rate exists.
+    interim_reserve_slots: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

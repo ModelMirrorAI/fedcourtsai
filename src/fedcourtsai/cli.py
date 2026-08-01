@@ -3256,7 +3256,9 @@ def live_poll(
     section of ``config/tracking.yaml`` bound wall clock and politeness.
     Discovery probes the Term's numbering frontier from the persisted per-Term
     cursor and onboards each served petition; the refresh re-polls the pending
-    modern-cert watchlist (recent Terms first). Resolution is detected from the
+    modern-cert watchlist (recent Terms first), then the application rotation
+    re-polls unresolved interim applications under its own cap — ground-truth
+    only, with prediction queueing off. Resolution is detected from the
     proceedings text, so a decided petition lands ``outcome.json``
     deterministically. Writes the same three handoff queues as ``pull-all``.
     """
