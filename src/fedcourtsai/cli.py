@@ -4100,7 +4100,11 @@ def metrics_refresh_plan(
     """
     settings = get_settings()
     changed = [line.strip() for line in changed_file.read_text().splitlines() if line.strip()]
-    pr = metrics_refresh.render_refresh_pr(changed, settings.metrics_root, run_id or ids.run_id())
+    # Repo-relative paths now, since the refresh carries `data/scope/scope.json`
+    # alongside `metrics/`; the roots are siblings under the repo.
+    pr = metrics_refresh.render_refresh_pr(
+        changed, settings.metrics_root.parent, run_id or ids.run_id()
+    )
     typer.echo(
         json.dumps(
             {"changed": changed, "pr": pr.model_dump() if pr is not None else None},

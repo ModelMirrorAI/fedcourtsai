@@ -7,8 +7,9 @@ name: run-analytics
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
 #                      question. Reads the corpus read-only via a full pull.
-#   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
-#                      backtest / statpack) and land any change as a **reviewed**
+#   - metrics-refresh: regenerate the committed deterministic artifacts
+#                      (leaderboard / backtest / statpack, plus the scope
+#                      manifest) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
@@ -216,6 +217,14 @@ jobs:
           if [ -f corpus/corpus.db ]; then
             uv run fedcourts backtest
             uv run fedcourts statpack
+            # The scope manifest is the same kind of artifact — deterministic,
+            # offline, git-tracked, a pure function of the corpus plus the
+            # committed case tree. It publishes the salience decision for the
+            # public set, so when it drifts a claim in README.md stops being true,
+            # which is worse than a stale number. Corpus-gated with the others:
+            # without one it writes an empty `skipped` manifest, which would
+            # replace the real record.
+            uv run fedcourts scope-manifest
           fi
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
@@ -231,8 +240,8 @@ jobs:
           gh auth setup-git
           # Stage first, then diff the index: a plain `git diff` sees only tracked
           # files, so a future brand-new artifact under metrics/ would be missed.
-          git add -A metrics/
-          git diff --cached --name-only -- metrics/ > changed.txt
+          git add -A metrics/ data/scope/
+          git diff --cached --name-only -- metrics/ data/scope/ > changed.txt
           plan=$(uv run fedcourts metrics-refresh-plan --changed-file changed.txt \
             --run-id "$GITHUB_RUN_ID")
           if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
