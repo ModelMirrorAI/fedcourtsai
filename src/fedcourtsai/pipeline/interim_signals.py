@@ -189,3 +189,49 @@ def is_predictable_application(kind: ApplicationKind) -> bool:
     shrinks coverage visibly instead, which is the failure that gets noticed.
     """
     return kind is ApplicationKind.substantive
+
+
+# The Court asking for a response is the interim docket's strongest cheap signal,
+# and it is not the same event as a response arriving: a respondent may answer
+# uninvited, but only the Court (or a Circuit Justice) requests one. That makes
+# it the analogue of a CVSG rather than of a relist — an affirmative act of
+# attention rather than a rescheduling.
+_RESPONSE_REQUESTED_RE = re.compile(r"response\s+to\s+application[^.]{0,80}?requested", re.I)
+_AMICUS_RE = re.compile(r"amicus\s+curiae", re.I)
+
+
+def response_requested(entry_texts: list[str]) -> bool:
+    """Whether the Court or a Circuit Justice asked for a response."""
+    return any(_RESPONSE_REQUESTED_RE.search(text) for text in entry_texts)
+
+
+def amicus_briefs(entry_texts: list[str]) -> int:
+    """How many amicus briefs the docket records.
+
+    A count rather than a flag: on the interim docket amicus interest is a
+    proxy for stakes, and one brief is a different signal from a dozen. Counted
+    over entries, so a single entry naming several filers counts once — an
+    undercount, and the direction that cannot manufacture salience.
+    """
+    return sum(1 for text in entry_texts if _AMICUS_RE.search(text))
+
+
+def escalation_signals(entry_texts: list[str]) -> tuple[bool, bool, int]:
+    """The three cheap signals an interim forecast can condition on.
+
+    ``(response_requested, referred_to_court, amicus_briefs)``.
+
+    All three are **monotone over an application's life** — the Court does not
+    un-request a response, un-refer an application, or un-file an amicus brief —
+    which is the same property the cert docket's distribution count has, and it
+    carries the same two traps with it. A band derived from them at resolution is
+    the band the application *ended* at, not the one a cell faced; and a rate
+    conditioned on the ending band understates the rate a live application
+    actually faces. `docs/salience.md` records how the cert program answers both,
+    and the answers transfer unchanged.
+    """
+    return (
+        response_requested(entry_texts),
+        referral_posture(entry_texts) is ReferralPosture.referred_to_court,
+        amicus_briefs(entry_texts),
+    )
