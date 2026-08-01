@@ -11,6 +11,8 @@ from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
+    _selection_plan,
+    plan_cohorts,
     reconcile_salience_selection,
     salience_band,
     salience_bands,
@@ -254,6 +256,42 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
         row = corpus.get_row(conn, "scotus/1")
     assert result.applied is False and result.scored == 1
     assert row is not None and row.salience_score is None and row.salience_selected is False
+
+
+def test_selection_plan_equals_wrapper_free_plan_cohorts(tmp_path: Path) -> None:
+    # The conn-free core must be bit-identical to the live pass over the same
+    # rows — including the scores dict's insertion order and to_select's cohort
+    # extension order — so a replay through `plan_cohorts` reproduces the gate.
+    rows = [
+        _petition("scotus/a", distribution_count=1),  # ranked, ties on score
+        _petition("scotus/b", distribution_count=1),
+        _petition("scotus/c", distribution_count=1, selected=True),  # already latched
+        _petition("scotus/hot", distribution_count=3),  # above-floor carve-out
+        _petition("scotus/cvsg", distribution_count=1, cvsg=True),  # CVSG carve-out
+        _petition("scotus/late", distribution_count=2, conference=date(2026, 2, 20)),
+        _petition("scotus/pending", distribution_count=2, conference=None),  # no cohort
+        _petition(  # decided: scored, never cohorted
+            "scotus/done", distribution_count=3, date_cert_denied=date(2026, 1, 12)
+        ),
+        _petition("scotus/app", docket="25A100"),  # Tier-0 out of scope: filtered
+        _petition("scotus/ifp", docket="25-5100"),  # Tier-0 IFP: filtered
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=1, floor=0.28)
+    with corpus.connect(db) as conn:
+        direct = _selection_plan(conn, config)
+        eligible = [
+            row
+            for row in corpus.iter_rows(conn, court="scotus")
+            if corpus.out_of_scope_reason_full(conn, row) is None
+        ]
+    assert plan_cohorts(eligible, config) == direct
+    scores, to_select, eligible_count, conferences = direct
+    assert eligible_count == 8  # the two Tier-0 rows never enter
+    assert conferences == 2
+    # The equivalence above is order-sensitive on both compound members.
+    assert list(plan_cohorts(eligible, config)[0]) == list(scores)
+    assert plan_cohorts(eligible, config)[1] == to_select
 
 
 # --- config --------------------------------------------------------------------

@@ -214,6 +214,42 @@ after its first prediction, the observed failure mode — while a relist the
 next day or later queues normally. Only applies under the gated scope with a
 salience config in force (capacity actually enforced); `0` disables it.
 
+## Replaying the gate
+
+Because `sal-v1` scoring is a pure function of a row's features — and
+selection a pure function of a cohort's — the frozen gate can be **replayed
+over past Terms at reconstructed moments**: `fedcourts salience-replay`
+projects each of a named Term's resolved, live-slice, paid modern-cert
+petitions to the state its docket disclosed at a chosen cutoff
+— petition **arrival**, the **first distribution**, or the **last
+pre-resolution distribution** — and runs the same selection core the live pass
+runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+
+The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
+time-invariant identity (docket number, fee class, originating court, sampling
+weight) is copied from the row, the docket-acquired signals (relists, CVSG,
+the conference cohort) are re-derived from a point-in-time payload via the
+same parsers the predict cell's conditioning context uses, and every outcome
+and latch field is nulled. A payload that discloses no proceedings projects as
+**unobservable** — unknown posture, never banded, never selected — and the
+reconstruction reuses the cert back-test's leakage machinery (redaction,
+date-keyed truncation, the dated-snapshot preference, the fail-closed
+disposition scan), so the two replays share one definition of a
+point-in-time docket.
+
+What the report shows, per (Term, policy): the would-have-been selection
+split into carve-outs and rank fill, where capacity actually bit, the band and
+provenance mix, and sample-weighted precision/recall of the selection against
+the realized grant-family outcomes. The arrival cells quantify the gate's
+structural degeneracy — the primary signals the score turns on are
+docket-acquired (the circuit rides only as a bounded nudge that can never move
+a band or clear the floor), so at arrival every observable projection reads
+baseline and nothing is selected — and the
+resolution cells bound what the carve-outs would have caught. The same
+population frame and cutoffs are what a full predict/evaluate backtest over a
+past Term inherits. What the numbers may and may not be read as:
+`metrics/README.md`.
+
 ## Capacity `N` — the funding knob
 
 `N` is the single parameter that scales inference cost, and the mechanism the

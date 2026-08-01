@@ -338,13 +338,13 @@ def snapshot_distribution_count(payload: Mapping[str, Any]) -> int | None:
         match = DISTRIBUTED_RE.search(text)
         if match is None:
             continue
-        parsed = _conference_date(match.group(1))
+        parsed = conference_date(match.group(1))
         if parsed is not None:
             conferences.add(parsed)
     return len(conferences)
 
 
-def _conference_date(raw: str) -> date | None:
+def conference_date(raw: str) -> date | None:
     """The conference date a DISTRIBUTED entry names, or ``None`` if it will not parse.
 
     Deduping on the parsed date rather than on the matched text is what keeps this

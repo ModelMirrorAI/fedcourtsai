@@ -104,6 +104,7 @@ from .ops import (
 )
 from .paths import CasePaths
 from .pipeline import cell_context, historical, liveprobe
+from .pipeline.asof import CutoffPolicy
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
@@ -111,7 +112,7 @@ from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import reconcile_salience_selection
+from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -123,6 +124,7 @@ from .registry import (
     resolve_mcp_servers,
 )
 from .required_checks import produced_contexts
+from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
@@ -143,6 +145,7 @@ from .schemas import (
     ProcessVersion,
     RetrievalCall,
     RetrievalLog,
+    SalienceReplay,
     StatPack,
     UsageRole,
 )
@@ -924,6 +927,95 @@ def cert_backtest_cmd(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
         f"{report.always_denied_accuracy:.3f} -> {destination}"
+    )
+
+
+@app.command("salience-replay")
+def salience_replay_cmd(
+    terms: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated October Terms whose resolved petitions to replay, "
+            "e.g. '2022,2023,2024'."
+        ),
+    ],
+    policies: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated cutoff policies, each one cell per Term: "
+            + ", ".join(p.value for p in CutoffPolicy)
+            + "."
+        ),
+    ] = "arrival,distribution-1,resolution",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/salience-replay.json)."),
+    ] = None,
+) -> None:
+    """Replay the salience gate over past Terms into ``metrics/salience-replay.json``.
+
+    Runs the current frozen ``sal-v1`` scoring, banding, and per-conference
+    selection over each named Term's resolved paid modern-cert petitions,
+    projected to the state their dockets disclosed at each cutoff policy's
+    moment (arrival / first distribution / the last pre-resolution
+    distribution), and scores the would-have-been selection against the
+    realized grant-family outcomes — what the numbers do and do not claim:
+    ``metrics/README.md``. Deterministic, offline, and free: no model runs, no
+    tokens are spent, and nothing under ``data/`` is touched.
+    """
+    try:
+        term_years = [int(raw.strip()) for raw in terms.split(",") if raw.strip()]
+    except ValueError:
+        raise typer.BadParameter(
+            f"terms must be comma-separated years, got {terms!r}", param_hint="--terms"
+        ) from None
+    if not term_years:
+        raise typer.BadParameter("no Terms named", param_hint="--terms")
+    if any(not 1900 <= year <= 2099 for year in term_years):
+        # The parseable modern docket forms sit inside this range, so anything
+        # outside it is a typo that would otherwise write an all-zero report.
+        raise typer.BadParameter(
+            f"terms must be four-digit October-Term years, got {terms!r}", param_hint="--terms"
+        )
+    policy_list: list[CutoffPolicy] = []
+    for raw in policies.split(","):
+        name = raw.strip()
+        if not name:
+            continue
+        try:
+            policy_list.append(CutoffPolicy(name))
+        except ValueError:
+            raise typer.BadParameter(
+                f"unknown policy {name!r}; choose from " + ", ".join(p.value for p in CutoffPolicy),
+                param_hint="--policies",
+            ) from None
+    if not policy_list:
+        raise typer.BadParameter("no policies named", param_hint="--policies")
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    destination = out if out is not None else settings.metrics_root / "salience-replay.json"
+    if not db_path.exists():
+        write_json(
+            destination,
+            SalienceReplay(
+                salience_version=SALIENCE_VERSION,
+                terms=term_years,
+                policies=[str(p) for p in policy_list],
+            ),
+        )
+        typer.echo(f"No corpus at {db_path} — wrote empty salience-replay report -> {destination}")
+        return
+    report = replay_gate(
+        db_path,
+        terms=term_years,
+        policies=policy_list,
+        config=load_salience_config(settings.config_root),
+    )
+    write_json(destination, report)
+    typer.echo(
+        f"salience-replay: {report.cells_evaluated} cell(s) over "
+        f"Term(s) {', '.join(str(t) for t in term_years)} x "
+        f"{len(policy_list)} policy(ies) -> {destination}"
     )
 
 

@@ -2427,6 +2427,173 @@ class SalienceSelectionResult(_Strict):
     sample_selected: list[str] = Field(default_factory=list)
 
 
+class SalienceReplayCell(_Strict):
+    """One (Term, cutoff policy) cell of the salience-gate replay.
+
+    The current frozen salience code run over one past Term's resolved paid
+    modern-cert petitions, each projected to the state its docket disclosed as
+    at the policy's cutoff (see ``fedcourtsai.pipeline.asof``). Selection here
+    is what the gate *would have* latched at that moment; precision/recall
+    score that selection against the realized grant-family outcomes.
+    """
+
+    term: int = Field(description="The October Term whose resolved petitions were replayed")
+    policy: str = Field(
+        description="The reconstruction moment: 'arrival' (day after the earliest "
+        "dated docket entry), 'distribution-1' (day after the first DISTRIBUTED "
+        "entry), or 'resolution' (the last distribution before the realized "
+        "resolution — the latest posture a forward cell would have seen)"
+    )
+    eligible: int = Field(
+        ge=0,
+        description="Resolved, live-slice, paid modern-cert petitions of the Term "
+        "(the time-invariant eligibility bar; a Tier-0 predicate that depends on "
+        "post-arrival state is deliberately not applied)",
+    )
+    skipped_no_snapshot: int = Field(
+        ge=0,
+        description="Eligible petitions with no held snapshot to reconstruct from; "
+        "outside every count below",
+    )
+    cohorts: int = Field(
+        ge=0, description="Distinct as-of conference cohorts the capacity was applied within"
+    )
+    selected: int = Field(
+        ge=0, description="Petitions the gate would have latched selected at this moment"
+    )
+    selected_carve_out: int = Field(
+        ge=0,
+        description="Selected via the always-include carve-outs (a CVSG on file, or a "
+        "score at/above the salience floor) — the capacity-independent core",
+    )
+    selected_rank_fill: int = Field(
+        ge=0,
+        description="Selected by the rank-to-N capacity fill; with capacity above "
+        "every cohort's size this equals every non-carve-out cohort member",
+    )
+    capacity_bound_cohorts: int = Field(
+        ge=0,
+        description="Cohorts whose non-carve-out membership exceeded the capacity, "
+        "so the rank fill actually cut (elsewhere N is inert). Counted over the "
+        "walked sample's cohorts: under legacy denial weights a replayed cohort "
+        "holds ~1/weight of the real cohort's non-carve-out members, so capacity "
+        "that would have bound over the Term's real cohort can read as inert here "
+        "— compare largest_weighted_cohort against the capacity before trusting "
+        "the rank-fill figures",
+    )
+    largest_weighted_cohort: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="The largest cohort's sample_weight-weighted non-carve-out "
+        "mass — the reader's check on the rank fill: a value above the "
+        "per-conference capacity where the raw cohort size sat below it means "
+        "the real cohort could have been cut where the replayed sample was not, "
+        "and the rank-fill and capacity figures are then sample statistics, not "
+        "population estimates. 0 when the cell formed no cohort",
+    )
+    bands: dict[str, int] = Field(
+        default_factory=dict,
+        description="Petitions per as-of sal-v1 band (high / elevated / baseline), "
+        "plus 'unobservable' for a projection whose payload disclosed no "
+        "proceedings — unknown posture, never banded, never selected",
+    )
+    provenance: dict[str, int] = Field(
+        default_factory=dict,
+        description="Projections per snapshot provenance: 'dated' (a snapshot the "
+        "docket really served before the cutoff), 'truncated' (a later payload "
+        "with post-cutoff entries removed — it cannot detect an entry back-filled "
+        "later but dated earlier, an accepted residual), and the two blind cases, "
+        "proceedings removed outright: 'blind-no-moment' (no cutoff exists — the "
+        "live gate would also never have cohorted this petition, a faithful gate "
+        "miss) vs 'blind-untrusted-cutoff' (a disposition survived truncation, so "
+        "a really-distributed petition is unselectable here only because its "
+        "reconstruction could not be trusted). Different information sets; read "
+        "the mix before the counts",
+    )
+    selected_granted: int = Field(
+        ge=0,
+        description="Raw count of selected petitions whose realized disposition is "
+        "in the grant family (granted / granted-in-part / GVR / summary reversal)",
+    )
+    realized_granted: int = Field(
+        ge=0,
+        description="Raw count of grant-family outcomes over every projected "
+        "petition — recall's raw denominator",
+    )
+    weighted_selected: float = Field(
+        ge=0.0,
+        description="Selected petitions weighted by sample_weight (inverse "
+        "inclusion probability, 1 where unasserted), so the figure estimates the "
+        "Term's population rather than counting the walked sample's rows",
+    )
+    weighted_selected_granted: float = Field(
+        ge=0.0, description="Grant-family selected petitions, sample_weight-weighted"
+    )
+    weighted_granted: float = Field(
+        ge=0.0,
+        description="Grant-family outcomes over every projected petition, "
+        "sample_weight-weighted — recall's weighted denominator",
+    )
+    weighted_population: float = Field(
+        ge=0.0, description="Every projected petition, sample_weight-weighted"
+    )
+    precision: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="weighted_selected_granted / weighted_selected — the realized "
+        "grant rate inside the would-have-been-selected slice; null when nothing "
+        "was selected (an undefined rate, not zero)",
+    )
+    recall: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="weighted_selected_granted / weighted_granted — the share of "
+        "the Term's realized grants (among projected petitions) the selection "
+        "would have covered; null when the projected petitions show no weighted "
+        "grant. The denominator includes blind projections, which can never be "
+        "selected — for a 'blind-untrusted-cutoff' row that is a reconstruction "
+        "failure, not a gate miss, so read the provenance mix beside a low recall",
+    )
+
+
+class SalienceReplay(_Strict):
+    """``metrics/salience-replay.json`` — the salience gate replayed over past Terms.
+
+    The current frozen selection code (``salience_version``) run over
+    point-in-time reconstructed dockets at successive moments, one cell per
+    (Term, cutoff policy). It answers "what would the gate have done then" —
+    e.g. that at petition arrival every projected row sits in the baseline band
+    and nothing is selected (the gate is degenerate before the docket moves) —
+    and gives a full predict/evaluate backtest its population frame. Numbers
+    here describe the *gate*, never a predictor: no model ran, so nothing in
+    this report is forecasting skill, and the retrospective stratum rule
+    applies on top (see ``metrics/README.md``).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed petition had already resolved when the replay "
+        "ran, so the figures measure how the gate would have behaved over known "
+        "history, never ex-ante selection quality",
+    )
+    salience_version: str = Field(
+        default="",
+        description="The frozen salience-function version whose scoring, banding, "
+        "and selection the replay ran (e.g. sal-v1)",
+    )
+    terms: list[int] = Field(default_factory=list, description="The October Terms replayed")
+    policies: list[str] = Field(
+        default_factory=list, description="The cutoff policies replayed, one cell per Term each"
+    )
+    cells_evaluated: int = Field(
+        default=0, ge=0, description="(Term, policy) cells the replay produced"
+    )
+    cells: list[SalienceReplayCell] = Field(default_factory=list)
+
+
 class LedgerValidation(_Strict):
     """``validate`` result over the git ledger under ``data/`` — schema conformance only.
 
@@ -2895,6 +3062,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
+    "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
