@@ -477,6 +477,29 @@ _CERT_BY_CVSG = _SectionSpec(
 # The segment base rate the salience program turns on: the paid scored segment
 # split by sal-v1 band. Pack-wide (blended across Terms) for the human board;
 # the leakage-safe per-Term counterpart is `StatPackTerm.segments`.
+# The same two cuts over the **paid scored segment** — the population the salience
+# gate actually predicts on. The pooled versions above include IFP petitions,
+# which relist far less often and have never drawn a CVSG in this corpus, so their
+# levels sit below what a selected petition faces. A court-facing artifact wants
+# the pooled view; a predict cell needs its own.
+_CERT_BY_RELIST_PAID = _SectionSpec(
+    "Cert petitions by relist count (paid scored segment)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.relist_bucket,
+    row_filter=_is_scored_segment_row,
+)
+_CERT_BY_CVSG_PAID = _SectionSpec(
+    "Cert petitions by CVSG status (paid scored segment)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.cvsg,
+    row_filter=_is_scored_segment_row,
+)
 _CERT_BY_SALIENCE_BAND = _SectionSpec(
     "Cert petitions by salience band",
     "scotus",
@@ -534,8 +557,8 @@ _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
     _SCOTUS_BY_ERA,
     _CERT_BY_DISPOSITION,
     _CERT_BY_CIRCUIT,
-    _CERT_BY_RELIST,
-    _CERT_BY_CVSG,
+    _CERT_BY_RELIST_PAID,
+    _CERT_BY_CVSG_PAID,
     _CERT_BY_SALIENCE_BAND,
     _PETITIONS_BY_ORIGINATING_COURT,
 )

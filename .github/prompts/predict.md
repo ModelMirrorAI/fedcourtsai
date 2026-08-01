@@ -237,18 +237,15 @@ another conference, whether a CVSG issues that has not yet. State plainly how
 many distributions the docket shows, so the reader knows which state you are
 forecasting *from*, then give your claim for what follows it.
 
-Read the statpack's **"Cert petitions by relist count"** and **"by CVSG status"**
-cuts rather than working from intuition — but read them for **shape, not level**.
-Both are denial-reweighted over the live/historical slice **including IFP
-petitions**, and IFP petitions relist far less often — no IFP petition in this
-corpus has ever drawn a CVSG at all, so the CVSG table's level is diluted harder
-still. A paid selected petition like the one in front of you therefore sits
-**above** both tables' rates: adjust upward from what they show, and treat their
-levels as a floor rather than an anchor. The statpack publishes no paid-only
-relist or CVSG cut, which is the only reason this correction is yours to make.
+Read the statpack's **"Cert petitions by relist count (paid scored segment)"**
+and **"by CVSG status (paid scored segment)"** cuts rather than working from
+intuition. Both are denial-reweighted over the population the salience gate
+actually predicts on, so their levels are yours to use directly — the pooled cuts
+of the same name in the court-facing docket pack include IFP petitions and sit
+well below.
 
-The shape is what carries: most petitions are never relisted at all, and the
-first relist barely raises the chance of a second — but past that the hazard
+Two things the shape will tell you: most petitions are never relisted at all, and
+the first relist barely raises the chance of a second — but past that the hazard
 climbs steeply, so a petition already distributed several times is in a very
 different position from one at its first conference. Write a claim you would be
 willing to be scored on, not a hedge.

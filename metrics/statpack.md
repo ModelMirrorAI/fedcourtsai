@@ -83,22 +83,22 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 | ca1 | 847 | 839 | 8 | denied 95.1%, granted 2.7%, dismissed 1.7%, gvr 0.5% |
 | cadc | 586 | 570 | 16 | denied 88.4%, granted 6.8%, dismissed 3.5%, gvr 1.2% |
 
-## Cert petitions by relist count
+## Cert petitions by relist count (paid scored segment)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 36076 | 35537 | 539 | denied 97.3%, dismissed 2.0%, granted 0.4%, gvr 0.3% |
-| 1 | 6619 | 6572 | 47 | denied 90.4%, granted 4.1%, gvr 2.8%, dismissed 2.6% |
-| 2 | 867 | 861 | 6 | denied 69.2%, granted 20.3%, gvr 9.5%, dismissed 0.9% |
-| 3+ | 805 | 800 | 5 | denied 68.2%, granted 18.2%, gvr 12.2%, dismissed 1.2% |
+| 0 | 9904 | 9697 | 207 | denied 97.1%, granted 1.3%, dismissed 1.2%, gvr 0.4% |
+| 1 | 2531 | 2505 | 26 | denied 86.2%, granted 9.5%, gvr 3.4%, dismissed 0.8% |
+| 2 | 499 | 497 | 2 | denied 59.8%, granted 32.0%, gvr 7.6%, dismissed 0.6% |
+| 3+ | 441 | 436 | 5 | denied 60.1%, granted 26.8%, gvr 11.5%, dismissed 1.6% |
 
-## Cert petitions by CVSG status
+## Cert petitions by CVSG status (paid scored segment)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 44193 | 43606 | 587 | denied 95.3%, dismissed 2.0%, granted 1.6%, gvr 1.1% |
+| none | 13201 | 12971 | 230 | denied 92.7%, granted 4.5%, gvr 1.6%, dismissed 1.1% |
 | cvsg | 174 | 164 | 10 | denied 62.2%, granted 31.1%, gvr 4.3%, dismissed 2.4% |
 
 ## Cert petitions by salience band
