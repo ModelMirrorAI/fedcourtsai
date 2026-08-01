@@ -123,10 +123,22 @@ any other corpus write. The full design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
 
+A Term walked to its frontier is invisible to every later run, so run-seed's
+**manual dispatch** carries `refresh_terms` (blank by default, and blank on every
+scheduled window) to re-open past Terms when the pipeline learns to read
+something the walk did not capture. It runs `fedcourts refresh-historical
+--apply` after the pull and before the loop, so the reset and the re-walk it
+implies are one serialized operation under the `corpus-write` lock rather than a
+local corpus edit racing a cron window. The reset reaches the remote only through
+the loop's checkpoint push, so a failure before the first checkpoint leaves the
+upstream cursors untouched. `refresh_streams` picks the numbering sequence: IFP
+is ~70% of the probe cost and feeds no scored segment, so the paid stream is the
+default.
+
 ## Cascade
 
 ```
-daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (denials sampled)
+daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
                               └─ checkpointed: corpus-push + pointer commit per chunk
    daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)

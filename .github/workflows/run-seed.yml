@@ -27,7 +27,30 @@ on:
     - cron: "31 8 * * *"
     - cron: "31 14 * * *"
     - cron: "31 20 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      refresh_terms:
+        description: >-
+          Re-open past Terms before walking: space-separated two-digit October
+          Terms (e.g. "17 18 19"), or "all" for every configured Term. Leave
+          blank — the default, and what every scheduled run uses — to resume
+          normally. Clears the walk cursors so the Terms are re-covered from the
+          numbering base; re-walking adds through the corpus latches and deletes
+          nothing.
+        required: false
+        default: ""
+      refresh_streams:
+        description: >-
+          Which numbering stream the refresh re-opens. IFP is ~70% of the probe
+          cost and feeds no scored segment, so prefer paid when the goal is the
+          predicted population. Ignored when refresh_terms is blank.
+        required: false
+        default: historical-paid
+        type: choice
+        options:
+          - historical-paid
+          - historical-ifp
+          - both
 
 permissions: {}
 
@@ -128,6 +151,34 @@ jobs:
           # prior corpus state, so it must be restored; a first run has no
           # committed pointer yet — warn and start fresh. Checksum-verified.
           uv run fedcourts corpus-pull --missing-pointer warn
+
+      - name: Re-open the requested Terms for a full re-walk
+        # Dispatch-only and blank by default, so a scheduled window can never
+        # reset a cursor. Runs after the pull and before the loop, under the
+        # shared corpus-write lock, so the reset and the re-walk it implies are
+        # one serialized operation rather than a local edit racing a cron window.
+        # The mutation reaches the remote only through the loop's checkpoint
+        # push, so a failure before the first checkpoint leaves the cursors
+        # untouched upstream — it fails closed.
+        if: inputs.refresh_terms != ''
+        env:
+          REFRESH_TERMS: ${{ inputs.refresh_terms }}
+          REFRESH_STREAMS: ${{ inputs.refresh_streams }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$REFRESH_TERMS" != "all" ]; then
+            for t in $REFRESH_TERMS; do
+              case "$t" in
+                [0-9][0-9]) args+=(--term "$t") ;;
+                *) echo "::error::refresh_terms must be two-digit Terms or 'all'; got '$t'"; exit 1 ;;
+              esac
+            done
+          fi
+          if [ "$REFRESH_STREAMS" != "both" ]; then
+            args+=(--stream "$REFRESH_STREAMS")
+          fi
+          uv run fedcourts refresh-historical "${args[@]}" --apply
 
       - name: Walk the Terms in checkpointed chunks until done or out of time
         env:
