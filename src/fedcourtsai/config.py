@@ -418,6 +418,13 @@ class SalienceConfig(BaseModel):
     # `cert-backtest.json` per-band skill at once, which is exactly why it is config
     # rather than a constant. Counted in Term *years*, not statpack rows.
     base_rate_lookback_terms: int = Field(default=0, ge=0)
+    # Placeholder cap on interim-docket tournament slots (stays, injunctions —
+    # docs/salience.md, *The interim docket*), carved from the same
+    # per-conference spend envelope rather than added to it (docs/budget.md).
+    # Inert: no enforcement code reads it yet — the field holds the knob's
+    # place until interim predict scope lands, and is sized only once a
+    # measured interim base rate exists.
+    interim_reserve_slots: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

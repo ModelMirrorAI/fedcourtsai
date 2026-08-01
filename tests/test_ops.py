@@ -235,7 +235,7 @@ def test_estimate_cost_projects_model_spend_into_the_run_rate() -> None:
     """The dominant variable cost must be rated, not just reported cumulatively.
 
     Regression: the projection was `actions + fixed`, so the headline run-rate was
-    the infra alone ($55/mo) while the tournament was burning orders of magnitude
+    the fixed infra alone while the tournament was burning orders of magnitude
     more — the reading that missed a cap breach.
     """
     # $60 of model spend over a 6-day ledger span -> $10/day -> $300/mo.
