@@ -13,20 +13,36 @@ name: run-backtest
 # the defaults, and a workflow_dispatch chooses the parameters — its `engine`
 # defaults to the free offline `stub` so an accidental dispatch spends nothing;
 # pick `auto` deliberately to route each predictor through its real engine.
+#
+# Dispatch also selects WHAT is replayed: `replay: cert` (the default, and the
+# only thing a label run does) replays the predictors; `replay: salience-gate`
+# replays the deterministic salience gate over past Terms instead (`fedcourts
+# salience-replay` into `metrics/salience-replay.json`) — offline over the
+# pulled corpus, no model tokens, no engine credential, no agent CLI — landing
+# its report through the same reviewed-PR path.
 on:
   issues:
     types: [labeled]
   workflow_dispatch:
     inputs:
+      replay:
+        description: "What to replay: cert = predictors over decided petitions (may spend tokens per `engine`); salience-gate = the deterministic salience gate over past Terms (free, token-free)."
+        type: choice
+        options: [cert, salience-gate]
+        default: cert
       engine:
-        description: "Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
+        description: "cert only. Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
         type: choice
         options: [stub, auto]
         default: stub
       limit:
-        description: "Replay the N most recently decided petitions (~one cell per predictor each; model spend scales linearly)."
+        description: "cert only. Replay the N most recently decided petitions (~one cell per predictor each; model spend scales linearly)."
         type: string
         default: "25"
+      terms:
+        description: "salience-gate only. Comma-separated October Terms to replay."
+        type: string
+        default: "2022,2023,2024"
       skip_engines:
         description: "Comma-separated engines to opt out of the replay (e.g. 'gemini'); empty runs all three."
         type: string
@@ -114,7 +130,7 @@ jobs:
       # read-only role: the one script it executes on purpose must see a
       # credential-free environment.
       - name: Install the agent CLIs
-        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
         # transitive scripts disabled, and a credential-free step environment
         # are the practical controls for global CLIs; a lockfile is not
@@ -157,7 +173,7 @@ jobs:
       # MCP or telemetry block here: unlike the live workflows, the back-test
       # configures no MCP servers and parses no telemetry.
       - name: Configure the Gemini cell env allowlist
-        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
         run: |
           set -euo pipefail
           mkdir -p .gemini
@@ -174,7 +190,7 @@ jobs:
       # before writing, as upstream does: a kernel without the knob has
       # nothing to loosen.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -185,6 +201,7 @@ jobs:
           fi
 
       - name: Run the cert back-test
+        if: github.event_name == 'issues' || inputs.replay != 'salience-gate'
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
           # One per routable engine — claude, codex, gemini — so `auto` runs the
@@ -226,6 +243,30 @@ jobs:
             --scope "$SCOPE" "$SPREAD_FLAG" \
             --work-dir "$RUNNER_TEMP/backtest-cells"
 
+      # The salience-gate mode replays the deterministic gate, not the
+      # predictors: `fedcourts salience-replay` runs offline over the pulled
+      # corpus (and, under the split mode, the per-case content store the
+      # corpus-readonly role already reaches), spends no model tokens, and
+      # needs no engine credential or agent CLI — so this step's environment
+      # carries none, and the CLI-install/sandbox steps above are skipped for
+      # this mode.
+      - name: Run the salience-gate replay
+        if: github.event_name == 'workflow_dispatch' && inputs.replay == 'salience-gate'
+        env:
+          # Corpus-split read side, exactly as the cert step wires it: under
+          # the split the pulled corpus.db is a payload-free index and the
+          # snapshot reads come from the content store. Inert while off.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          TERMS: ${{ inputs.terms }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db ]; then
+            echo "::error::no corpus on disk; nothing to replay" >&2
+            exit 1
+          fi
+          uv run fedcourts salience-replay --terms "$TERMS"
+
       # The review PR is opened with the dev App token, exactly like the
       # metrics refresh: the dev App is not a branch-protection bypass actor,
       # so the PR still faces the required `gate` check and review is
@@ -245,16 +286,20 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      # The branch name and PR prose come from the tested `cert-backtest-plan`
-      # (null pr = no report); this step only runs git and gh, mirroring the
-      # metrics-refresh job. The fixed branch is force-pushed so an unmerged
-      # back-test PR updates in place rather than stacking.
+      # The cert arm's branch name and PR prose come from the tested
+      # `cert-backtest-plan` (null pr = no report); the salience-gate arm's are
+      # composed inline — a fixed branch and a short static body, since the
+      # report itself is the reviewable content. Either way this step only runs
+      # git and gh, mirroring the metrics-refresh job, and the fixed branch is
+      # force-pushed so an unmerged PR updates in place rather than stacking.
       - name: Open or update the review PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
           LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
+          REPLAY: ${{ github.event_name == 'issues' && 'cert' || inputs.replay }}
+          TERMS: ${{ inputs.terms }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -263,16 +308,28 @@ jobs:
             echo "Back-test report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
-            --limit "$LIMIT" --engine "$ENGINE")
-          if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
-            echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [ "$REPLAY" = "salience-gate" ]; then
+            branch="metrics/salience-replay"
+            title="metrics(salience): gate replay over Terms ${TERMS}"
+            commit_message="metrics(salience): salience-gate replay (run ${GITHUB_RUN_ID})"
+            {
+              printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$TERMS"
+              printf 'Refreshes `metrics/salience-replay.json` — the frozen gate replayed over the named Terms at reconstructed moments (arrival / distribution-1 / resolution). '
+              printf 'No model ran and no tokens were spent. What the numbers may and may not be read as: `metrics/README.md`.\n'
+            } > pr-body.md
+          else
+            plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
+              --limit "$LIMIT" --engine "$ENGINE")
+            if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
+              echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            branch=$(jq -r '.pr.branch' <<<"$plan")
+            title=$(jq -r '.pr.title' <<<"$plan")
+            commit_message=$(jq -r '.pr.commit_message' <<<"$plan")
+            jq -r '.pr.body' <<<"$plan" > pr-body.md
           fi
-          branch=$(jq -r '.pr.branch' <<<"$plan")
-          title=$(jq -r '.pr.title' <<<"$plan")
-          jq -r '.pr.body' <<<"$plan" > pr-body.md
-          git commit -m "$(jq -r '.pr.commit_message' <<<"$plan")"
+          git commit -m "$commit_message"
           git push --force origin "HEAD:refs/heads/${branch}"
           # Reuse an open PR for the fixed branch (the force-push updated it);
           # otherwise open a fresh one.
