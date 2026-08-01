@@ -24,28 +24,43 @@ open PR updates in place instead of stacking a new PR per schedule tick.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel
 
-from .schemas import Backtest, CertBacktest, DocketPack, Leaderboard, StatPack
+from .schemas import (
+    Backtest,
+    CertBacktest,
+    DocketPack,
+    Leaderboard,
+    ScopeManifest,
+    StatPack,
+)
 from .serialize import read_model
 
 REFRESH_BRANCH = "metrics/refresh"
 
-# Display order for the artifacts a refresh PR may carry. It is also the filter:
-# a changed path under `metrics/` that is not listed here drives no PR and
-# appears in none, so an artifact must be named to be reportable at all. The
-# docket pack is listed defensively: the analytics workflow does not regenerate
-# it, so it should never appear here — but if it ever does, being named is what
-# keeps it in the PR body rather than silently absent from it.
+# Display order for the artifacts a refresh PR may carry, as repo-relative paths.
+# It is also the filter: a changed path not listed here drives no PR and appears
+# in none, so an artifact must be named to be reportable at all. The docket pack
+# is listed defensively: the analytics workflow does not regenerate it, so it
+# should never appear here — but if it ever does, being named is what keeps it in
+# the PR body rather than silently absent from it.
+#
+# `data/scope/scope.json` is the one entry outside `metrics/`. It is a
+# deterministic, git-tracked artifact regenerated from the corpus plus the
+# committed case tree, which is exactly what this refresh exists to keep current
+# — and it is the only surface that publishes the salience decision, so drift in
+# it falsifies a claim `README.md` makes rather than merely aging a number.
 _ARTIFACT_ORDER = (
-    "leaderboard.json",
-    "backtest.json",
-    "statpack.json",
-    "statpack.md",
-    "docket.json",
-    "docket.md",
+    "metrics/leaderboard.json",
+    "metrics/backtest.json",
+    "metrics/statpack.json",
+    "metrics/statpack.md",
+    "metrics/docket.json",
+    "metrics/docket.md",
+    "data/scope/scope.json",
 )
 
 
@@ -60,17 +75,40 @@ class MetricsRefreshPr(BaseModel):
 
 # The rendered companions carry no headline of their own: the figures live in
 # the JSON sibling listed beside them.
-_COMPANION_HEADLINES = {
-    "statpack.md": "human-readable statpack companion",
-    "docket.md": "human-readable docket-pack companion",
+def _scope_headline(path: Path) -> str:
+    """The scope manifest's line: the public set and how it splits.
+
+    A `skipped` manifest is called out rather than reported as zero cases — the
+    command writes one when the corpus is not on disk, and "0 public cases" would
+    read as the public set collapsing rather than as a missing input.
+    """
+    manifest = read_model(path, ScopeManifest)
+    if manifest.skipped:
+        return "skipped (no corpus on disk at refresh time)"
+    return (
+        f"{manifest.cases} public case(s): {manifest.eligible} eligible / "
+        f"{manifest.excluded} excluded"
+    )
+
+
+# Artifacts whose headline does not come from reading a metrics model: the two
+# rendered companions, which have nothing to summarize, and the scope manifest,
+# which is a different model in a different tree. Keyed by full relative path so
+# a same-named file elsewhere cannot pick one up.
+_SPECIAL_HEADLINES: dict[str, Callable[[Path], str]] = {
+    "metrics/statpack.md": lambda _: "human-readable statpack companion",
+    "metrics/docket.md": lambda _: "human-readable docket-pack companion",
+    "data/scope/scope.json": _scope_headline,
 }
 
 
-def _headline(metrics_root: Path, filename: str) -> str:
+def _headline(path: Path, relpath: str) -> str:
     """One human line summarizing a refreshed artifact, read from the artifact itself."""
-    companion = _COMPANION_HEADLINES.get(filename)
-    if companion is not None:
-        return companion
+    special = _SPECIAL_HEADLINES.get(relpath)
+    if special is not None:
+        return special(path)
+    filename = Path(relpath).name
+    metrics_root = path.parent
     if filename == "leaderboard.json":
         board = read_model(metrics_root / filename, Leaderboard)
         # Name the scope, so a refresh PR that drops the board to 0 during the
@@ -103,26 +141,28 @@ def _headline(metrics_root: Path, filename: str) -> str:
     return "refreshed"
 
 
-def render_refresh_pr(
-    changed: list[str], metrics_root: Path, run_id: str
-) -> MetricsRefreshPr | None:
+def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> MetricsRefreshPr | None:
     """Render the review PR (branch / title / commit / body) for a refresh's changes.
 
-    ``changed`` is the repo-relative output of ``git diff --name-only -- metrics/``
-    after the regeneration commands ran; empty means the committed artifacts were
-    already current and no PR should open (returns ``None``). The markdown lives in
-    tested code rather than assembled with ``jq`` and a heredoc in the workflow,
-    mirroring :func:`fedcourtsai.cleanup.render_cleanup_pr`.
+    ``changed`` is the repo-relative output of ``git diff --name-only`` over the
+    refreshed paths after the regeneration commands ran; empty means the committed
+    artifacts were already current and no PR should open (returns ``None``).
+    Matched on the full relative path rather than the filename, so two artifacts
+    sharing a basename across directories can never be confused for one another.
+
+    The markdown lives in tested code rather than assembled with ``jq`` and a
+    heredoc in the workflow, mirroring
+    :func:`fedcourtsai.cleanup.render_cleanup_pr`.
     """
-    names = {Path(path).name for path in changed}
-    ordered = [name for name in _ARTIFACT_ORDER if name in names]
+    paths = {path.strip() for path in changed if path.strip()}
+    ordered = [rel for rel in _ARTIFACT_ORDER if rel in paths]
     if not ordered:
         return None
     # Name the artifacts (statpack.json/.md collapse to one) so the title reads
     # "metrics: refresh leaderboard, statpack" rather than a bare count.
-    stems = list(dict.fromkeys(Path(name).stem for name in ordered))
+    stems = list(dict.fromkeys(Path(rel).stem for rel in ordered))
     title = f"metrics: refresh {', '.join(stems)}"
-    rows = "\n".join(f"| `metrics/{name}` | {_headline(metrics_root, name)} |" for name in ordered)
+    rows = "\n".join(f"| `{rel}` | {_headline(repo_root / rel, rel)} |" for rel in ordered)
     body = (
         "Scheduled metrics refresh: the committed artifacts drifted from their "
         "inputs (the `data/` evaluations ledger and the corpus), so the scheduled "
