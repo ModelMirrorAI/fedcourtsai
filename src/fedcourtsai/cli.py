@@ -29,6 +29,7 @@ from . import (
     corpus_ranged,
     corpus_remote,
     corpus_service,
+    dedupe,
     ids,
     integration_check,
     mcp,
@@ -427,6 +428,62 @@ def reconcile_salience_selection_cmd(
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("dedupe-live-rows")
+def dedupe_live_rows_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Drop the duplicate rows; omit for a dry-run that only reports."
+        ),
+    ] = False,
+) -> None:
+    """Merge and drop the live-minted twin of each duplicated SCOTUS docket.
+
+    Where one SCOTUS docket number carries two rows — the upstream
+    CourtListener docket id and a live-minted reserved-range id, the pair shape
+    an annotated docket-number spelling leaves when it defeats the channels'
+    identity join — this merges the pair onto the CourtListener-keyed survivor
+    and drops the live row: every fact only the live twin carries fills in on
+    the survivor, its events / snapshots / documents move under the surviving
+    id, the survivor's `sample_weight` takes the pair's minimum, and the
+    live-minted row is deleted from all four tables — no orphans. A pair
+    disagreeing on `date_filed`, `date_decided`, or `disposition` is skipped
+    and reported, never dropped — the dry-run output is the triage list.
+    Content-store objects under a dropped id are left in place (no-delete
+    store; nothing resolves a dropped id, so they are inert). Idempotent. Run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Prints a
+    `LiveDedupeResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the dedupe.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = dedupe.dedupe_live_rows(conn, apply=apply)
+    verb = "dropped" if apply else "would drop"
+    typer.echo(
+        f"dedupe-live-rows ({'applied' if apply else 'dry-run'}): "
+        f"{result.pairs} duplicate pair(s); {verb} {len(result.dropped)} live-minted row(s), "
+        f"skipped {len(result.skipped)} disagreeing pair(s)"
+    )
+    for entry in result.skipped:
+        typer.echo(
+            f"  - kept {entry.pair.keep}, not dropped {entry.pair.drop}: "
+            f"{'; '.join(entry.conflicts)}"
+        )
+    if result.dropped:
+        typer.echo(
+            "  content-store objects under the dropped ids are left in place "
+            "(no-delete store; nothing resolves a dropped id, so they are inert)"
+        )
     typer.echo(result.model_dump_json())
 
 
