@@ -275,7 +275,8 @@ The mechanics:
   `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
   mis-route — it runs, and fails, only on a PR to `main` whose head is not
   `staging` or a reviewed non-feature lane (the collect run branches, the
-  maintainer's cleanup sweep, the metrics-refresh and cert-backtest PRs) —
+  maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
+  salience-replay PRs) —
   but it is **not** a required context, so it goes red without being able to
   block the merge. It cannot be required yet: a `pull_request` runs the
   workflow from the merge ref, and every legitimate lane into `main` is cut

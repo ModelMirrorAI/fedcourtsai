@@ -305,17 +305,21 @@ jobs:
           gh auth setup-git
           git add -A metrics/
           if git diff --cached --quiet -- metrics/; then
-            echo "Back-test report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Replay report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           if [ "$REPLAY" = "salience-gate" ]; then
+            # The prose stays minimal on purpose — the command line it echoes
+            # is the whole parameterization, and the refreshed report is the
+            # reviewable content; anything more would restate CLI defaults
+            # that would go silently stale here.
             branch="metrics/salience-replay"
             title="metrics(salience): gate replay over Terms ${TERMS}"
             commit_message="metrics(salience): salience-gate replay (run ${GITHUB_RUN_ID})"
             {
               printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$TERMS"
-              printf 'Refreshes `metrics/salience-replay.json` — the frozen gate replayed over the named Terms at reconstructed moments (arrival / distribution-1 / resolution). '
-              printf 'No model ran and no tokens were spent. What the numbers may and may not be read as: `metrics/README.md`.\n'
+              printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
+              printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
             } > pr-body.md
           else
             plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
