@@ -40,6 +40,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 import httpx
 
@@ -51,6 +52,7 @@ from ..store import open_events
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     SupremeCourtClient,
+    live_application_id,
     live_docket_id,
     parse_scotus_docket_number,
 )
@@ -62,7 +64,16 @@ from .pull import PullQueues, _in_predict_scope
 from .salience import apply_salience_selection
 
 # The two per-Term numbering streams discovery probes, each from its base.
-STREAMS: tuple[tuple[str, int], ...] = (("paid", 1), ("ifp", IFP_SERIAL_BASE))
+# The numbering sequences the frontier walk probes, as (name, first serial,
+# docket form). The two cert streams share a form and differ only in where their
+# serials start; the interim docket is a separate sequence addressed differently
+# ("24A1099" rather than "24-1099") and identified in a disjoint id range, since
+# `24A1` and `24-1` are different matters.
+STREAMS: tuple[tuple[str, int, Literal["cert", "application"]], ...] = (
+    ("paid", 1, "cert"),
+    ("ifp", IFP_SERIAL_BASE, "cert"),
+    ("application", 1, "application"),
+)
 
 
 @dataclass
@@ -100,7 +111,12 @@ class LiveDiscovery:
 
 
 def _resolve_identity(
-    conn: sqlite3.Connection, payload: dict[str, object], term: int, serial: int
+    conn: sqlite3.Connection,
+    payload: dict[str, object],
+    term: int,
+    serial: int,
+    *,
+    form: Literal["cert", "application"] = "cert",
 ) -> int:
     """The docket id this petition's row keys on: the matched row's, or a live mint.
 
@@ -109,10 +125,13 @@ def _resolve_identity(
     petition mints the deterministic reserved-range id. The minted id is
     permanent — see :func:`fedcourtsai.supremecourt.live_docket_id`.
     """
-    raw_number = str(payload.get("CaseNumber") or f"{term:02d}-{serial}")
+    separator = "A" if form == "application" else "-"
+    raw_number = str(payload.get("CaseNumber") or f"{term:02d}{separator}{serial}")
     existing = corpus.scotus_case_id_by_docket_number(conn, raw_number)
     if existing is not None:
         return int(existing.rsplit("/", 1)[-1])
+    if form == "application":
+        return live_application_id(term, serial)
     return live_docket_id(term, serial)
 
 
@@ -124,6 +143,7 @@ def ingest_live_payload(
     *,
     today: date,
     sample_weight: int = 1,
+    form: Literal["cert", "application"] = "cert",
 ) -> LiveResult:
     """Land one fetched docket JSON in the corpus; detect change and resolution.
 
@@ -144,7 +164,7 @@ def ingest_live_payload(
         changed = prior is None or prior[1] != payload
         corpus.upsert_snapshot(conn, case_id, today, payload)
 
-    record = map_live_docket(payload, docket_id)
+    record = map_live_docket(payload, docket_id, form=form)
     row = from_live_record(record)
     upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=sample_weight)
 
@@ -229,7 +249,7 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     result = LiveDiscovery()
     if max_new <= 0:
         return result
-    for stream, base in STREAMS:
+    for stream, base, form in STREAMS:
         if len(result.onboarded) >= max_new or (deadline is not None and time_fn() >= deadline):
             break
         with corpus.connect(corpus_db_path) as conn:
@@ -242,7 +262,7 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             and (deadline is None or time_fn() < deadline)
         ):
             try:
-                payload = client.get_docket(term, serial)
+                payload = client.get_docket(term, serial, form=form)
             except httpx.HTTPError as exc:
                 result.failed.append(
                     {"stream": stream, "serial": serial, "reason": f"{type(exc).__name__}: {exc}"}
@@ -254,9 +274,9 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 continue
             misses = 0
             with corpus.connect(corpus_db_path) as conn:
-                docket_id = _resolve_identity(conn, payload, term, serial)
+                docket_id = _resolve_identity(conn, payload, term, serial, form=form)
             ingested = ingest_live_payload(
-                corpus_db_path, data_root, payload, docket_id, today=today
+                corpus_db_path, data_root, payload, docket_id, today=today, form=form
             )
             if ingested.distributed is not None and (
                 not gated or _in_predict_scope(corpus_db_path, ingested.case_id)

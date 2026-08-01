@@ -35,6 +35,7 @@ from .. import corpus, ids
 from ..schemas import Disposition, EventKind
 from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
+from .interim_signals import match_interim_disposition
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -569,7 +570,37 @@ def _live_resolution(
     return None, None, None, None
 
 
-def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any]:
+def _interim_resolution(
+    entries: list[dict[str, Any]],
+) -> tuple[str | None, date | None]:
+    """(disposition, decided) for an application, from its proceedings.
+
+    The interim docket's own vocabulary, not the cert one: an application is
+    granted or denied, and the order says so in language the cert patterns do not
+    match at all — which is why an application ingested through the cert resolver
+    would sit unresolved forever.
+
+    The **last** disposing entry wins, unlike the cert side's first. An
+    application can be deferred pending argument and decided months later, and a
+    consolidated order can dispose of several applications at once; in both cases
+    the earlier entry is a step rather than the outcome.
+    """
+    resolved: tuple[str | None, date | None] = (None, None)
+    for entry in entries:
+        matched = match_interim_disposition(str(entry.get("description") or ""))
+        if matched is None:
+            continue
+        decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
+        resolved = (matched[0].value, decided)
+    return resolved
+
+
+def map_live_docket(
+    payload: Mapping[str, Any],
+    docket_id: int,
+    *,
+    form: Literal["cert", "application"] = "cert",
+) -> dict[str, Any]:
     """A supremecourt.gov docket JSON as an upstream-shaped ingestion record.
 
     The live channel's half of the guardrail "new upstream fields land as
@@ -583,7 +614,19 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
     entries = _live_entries(payload)
     conference = _live_conference_date(entries)
     cvsg = _live_cvsg_date(entries)
-    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+    if form == "application":
+        # An application has no cert stage: no conference, no CVSG, and a
+        # disposition its own vocabulary reads. Dating it as a termination rather
+        # than a cert grant/deny keeps the cert-stage date columns meaning one
+        # thing — `resolution_date` prefers them, and an application landing there
+        # would put a stay in the cert population's timing.
+        disposition, decided = _interim_resolution(entries)
+        cert_granted = cert_denied = None
+        terminated = decided
+        conference = None
+        cvsg = None
+    else:
+        disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
@@ -600,7 +643,7 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
         "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
         "date_terminated": terminated.isoformat() if terminated else None,
         "distributed_for_conference": conference.isoformat() if conference else None,
-        "distribution_count": _live_distribution_count(entries),
+        "distribution_count": None if form == "application" else _live_distribution_count(entries),
         "cvsg_date": cvsg.isoformat() if cvsg else None,
         "originating_court_name": lower_court,
         "disposition": disposition,
