@@ -165,16 +165,16 @@ forward task — the dry run validates the actual instrument, not a proxy. `fedc
 workflow) walks each configured Term's two numbering streams
 sequentially from persisted cursors (`historical-paid` / `historical-ifp` in
 the same cursor table as the forward frontier's, disjoint names so the walkers
-never collide) and **samples deliberately rather than ingesting the sequence**:
-a Term is overwhelmingly denials, so every decided petition is ingested except
-denials, which are kept when their serial is a multiple of the configured
-sampling interval — deterministic per serial, so resumed runs keep the same
-sample, and the committed `historical:` config section documents the set's
-construction. Every row records its **inverse inclusion probability** as
-`sample_weight` (1 for anything kept with certainty — grants, dismissals,
-forward-poller rows — and the sampling interval for a kept denial),
-min-latched so a weight can only ever be learned toward certainty; a weighted
-aggregate multiplies by it so the denial sampling cannot bias a base rate.
+never collide) and **ingests every decided petition**, denials included. The
+walk has already fetched the payload by the time it can read the disposition, so
+declining to store one saves no request; it only drops a row the corpus can then
+recover solely by re-walking the whole Term. Every row records its **inverse
+inclusion probability** as `sample_weight` (1 for anything kept with certainty,
+which is now everything the walk writes), min-latched so a weight can only ever
+be learned toward certainty. The column stays because the corpus still holds
+denials an earlier sampled walk kept at weight 10: a weighted aggregate
+multiplies by it so that legacy frame cannot bias a base rate, and each such row
+regresses to 1 as a re-walk re-serves it.
 Weights land exactly at ingest time; the backfill for pre-capture rows
 recovers them by rule (denied + serial on the sample grid + walker cursor
 covers the serial), whose one residual — a pre-capture poller-resolved denial

@@ -1928,6 +1928,78 @@ def probe_live_terms(
             fh.write(table + "\n")
 
 
+@app.command("refresh-historical")
+def refresh_historical_cmd(
+    term: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--term",
+            help="Two-digit October Term to re-walk; repeatable. Default: every "
+            "Term in `historical.terms`.",
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Clear the cursors; omit for a dry-run listing."),
+    ] = False,
+) -> None:
+    """Re-open past Terms for a full historical re-walk.
+
+    Clears the per-(Term, stream) walk cursors so the next `historical-terms`
+    invocations re-cover those Terms from the numbering base. This command moves
+    no data and fetches nothing — the `run-seed` loop does the work afterwards.
+
+    What it is for: the walk records what the pipeline could read at the time it
+    ran. When the pipeline learns to read more — a new column, a corrected parser,
+    a disposition pattern that used to be missed — already-walked Terms keep the
+    older, thinner rows, and their cursors sit at the frontier so no ordinary run
+    will ever revisit them. This is the way back.
+
+    Re-walking **adds**: each re-served docket upserts onto its existing row
+    through the corpus latches, so nothing is deleted, `case_id` never moves, and
+    a refreshed row keeps every fact the first pass captured. Re-running is
+    therefore idempotent, not destructive — the real cost is upstream traffic
+    (~1 req/s over each Term's full serial range), which is why it is dry-run by
+    default.
+
+    Deliberately separate from the walk rather than a flag on it: a walk that
+    could rewind its own cursor could also do so on a degraded run and silently
+    re-onboard a Term. Resetting stays an explicit, auditable act.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it "
+            "(fedcourts corpus-pull) before resetting walk cursors.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    config = load_historical_config(settings.config_root)
+    terms = term if term else list(config.terms)
+    if not apply:
+        with corpus.connect(db_path) as conn:
+            pending = [
+                f"OT{2000 + t}/{stream}"
+                for t in sorted(set(terms))
+                for stream, _base in historical.HISTORICAL_STREAMS
+                if corpus.get_live_cursor(conn, t, stream) is not None
+            ]
+        typer.echo(
+            f"refresh-historical (dry-run): would reset {len(pending)} cursor(s) "
+            f"across {len(set(terms))} Term(s); re-run with --apply"
+        )
+        if pending:
+            typer.echo(", ".join(pending))
+        return
+    report = historical.reset_walk(db_path, terms)
+    typer.echo(
+        f"refresh-historical (applied): reset {len(report.reset)} cursor(s), "
+        f"{len(report.absent)} already absent"
+    )
+    typer.echo(report.model_dump_json())
+
+
 @app.command("historical-terms")
 def historical_terms(
     report: Annotated[
@@ -1971,9 +2043,7 @@ def historical_terms(
     The historical half of the live channel (docs/live-sources.md): walks the
     configured October Terms' docket serials sequentially over the
     supremecourt.gov docket JSON — resuming from the persisted per-(Term, stream)
-    cursors — and ingests **every decided petition except denials, which are
-    systematically sampled** (all grants/GVRs kept; a denial kept when its
-    serial is a multiple of ``historical.denial_sample_every``). Ingested
+    cursors — and ingests **every decided petition**, denials included. Ingested
     petitions land through the shared live path: identity reconciled by docket
     number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
     and filed documents provisioned for OT``document_floor_term``+ — so they
@@ -2019,7 +2089,7 @@ def historical_terms(
     typer.echo(
         f"historical-terms probed={rep.probed} served={rep.served} ingested={ingested} "
         f"(granted={rep.ingested_granted} denied={rep.ingested_denied} other={rep.ingested_other}) "
-        f"skipped_denials={rep.skipped_denials} documents={rep.documents} "
+        f"documents={rep.documents} "
         f"stopped={rep.stopped} complete={rep.complete}"
     )
 

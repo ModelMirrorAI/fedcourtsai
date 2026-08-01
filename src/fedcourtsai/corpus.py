@@ -303,7 +303,7 @@ class CorpusRow(BaseModel):
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
         "construction: 1 for every row its channel includes with certainty, "
-        "`denial_sample_every` for a denial the historical walker kept by its "
+        "the legacy sampling interval for a denial the earlier historical walker kept by its "
         "systematic serial sample — so a weighted aggregate can multiply by it "
         "and count sampled denials at full strength. None means no channel "
         "asserted a weight: permanent on rows the live channel never wrote, "
@@ -2526,6 +2526,33 @@ def get_live_frontier(conn: sqlite3.Connection, term: int, stream: str) -> int |
     if record is None or record["frontier_serial"] is None:
         return None
     return int(record["frontier_serial"])
+
+
+def clear_live_cursor(conn: sqlite3.Connection, term: int, stream: str) -> bool:
+    """Drop a (Term, stream) cursor so the next walk re-covers it from the base.
+
+    The deliberate exception to :func:`set_live_cursor`'s forward-only rule, and
+    the reason it is a separate function rather than a lower write: rewinding is
+    never something a *walk* may do — a degraded run that rewound its own cursor
+    would silently re-onboard a whole Term — but it is exactly what a maintainer
+    must be able to do when the pipeline starts capturing something the last pass
+    did not record. Deleting rather than zeroing keeps one meaning for an absent
+    row: never probed, start at the numbering base.
+
+    Returns whether a cursor was actually removed, so a caller can tell "reset" from
+    "there was nothing to reset" instead of reporting both as success.
+
+    Re-walking **adds**; it never deletes. Every re-served docket upserts onto its
+    existing row through the same latches (``distribution_count`` max, ``sample_weight``
+    min), so a refreshed row keeps every fact the first pass captured and gains the
+    ones it did not. ``case_id`` is unaffected, which is what makes this safe to
+    re-run: identity is resolved from the docket number, not from walk order.
+    """
+    with conn:
+        cur = conn.execute(
+            "DELETE FROM live_discovery_cursors WHERE term = ? AND stream = ?", (term, stream)
+        )
+    return cur.rowcount > 0
 
 
 def set_live_frontier(conn: sqlite3.Connection, term: int, stream: str, serial: int) -> None:

@@ -456,8 +456,9 @@ shared with the ledger models.
 - **Base-rate aggregation** — `fedcourts stats` on demand, and the published
   **statpack** (`fedcourts statpack` → `metrics/statpack.{json,md}`, kept fresh
   by `run-analytics`'s weekly metrics-refresh job); its cert statistics count
-  each live/historical-slice row `sample_weight` times, so the walker's denial
-  sampling never biases a published rate, and the per-Term array carries the
+  each live/historical-slice row `sample_weight` times, so denials the earlier
+  sampled walk kept at a higher weight never bias a published rate, and the
+  per-Term array carries the
   cursor-derived filings census and walk-complete flags. The **docket pack**
   (`fedcourts docket` → `metrics/docket.{json,md}`) is the court-facing cut of
   the same machinery — the docket-composition sections plus a paid/IFP split and
@@ -497,11 +498,19 @@ or network.
   token, so no mid-loop token re-mint is needed. The cursors advance over every
   served serial (a 404 never advances them), so a capped or crashed run resumes
   gap-free; see [live-sources.md](live-sources.md) for the walk design.
-- **Sampling frame:** every decided petition is ingested except denials, kept
-  when their serial is a multiple of `historical.denial_sample_every` —
-  deterministic per serial, so resumed runs keep the identical sample.
-  Undecided petitions are skipped entirely (pending matters are the forward
-  poller's charter), so the walker writes **no** predict/evaluate handoffs, ever.
+- **What it keeps:** every decided petition, denials included. The walk must
+  probe a serial before it can read the disposition, so declining to store one
+  never saved a fetch — it only cost every rate computed over the result a
+  denominator it had to reconstruct from weights. Corpus breadth is cheap; the
+  expensive stages are predict and evaluate, which *select* from the corpus, and
+  sampling belongs there because it is reversible there. Undecided petitions are
+  skipped entirely (pending matters are the forward poller's charter), so the
+  walker writes **no** predict/evaluate handoffs, ever.
+- **Re-walking:** a Term walked to its frontier is invisible to later runs, so
+  `fedcourts refresh-historical --term <NN> --apply` clears its cursors and the
+  next windows re-cover it. Re-walking **adds** — every re-served docket upserts
+  through the same latches, so nothing is deleted and `case_id` never moves.
+  Dry-run by default; the cost is upstream traffic, not risk to the corpus.
 - **Scope maintenance:** after the loop, the job runs `fedcourts
   reconcile-scope --apply` — the predict-scope latch sweep rides one run-seed
   window a day (gated to keep its daily cadence) because the corpus is already

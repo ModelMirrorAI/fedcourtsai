@@ -39,6 +39,14 @@ from .interim_signals import match_interim_disposition
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
+# The denial-sampling interval the historical walker used before it began keeping
+# every decided petition. Not a knob: it is a fact about rows already in the corpus,
+# and the only thing that can read a pre-capture denial's inclusion probability back
+# off its serial. Changing it would silently re-weight history. It stops mattering
+# once every Term has been re-walked — each re-served denial upserts at weight 1,
+# and `sample_weight`'s min-latch takes it.
+LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
+
 
 class CorpusSource(StrEnum):
     """Which pipeline phase / upstream source produced a corpus row."""
@@ -863,7 +871,7 @@ def upsert_to_corpus(
         return corpus.upsert_rows(conn, store_rows)
 
 
-def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[int, int]:
+def backfill_live_signals(db_path: Path) -> tuple[int, int]:
     """Back-fill live-parsed signals and sample weights onto pre-capture rows.
 
     Rows the live channel wrote before the signal columns existed carry
@@ -882,9 +890,9 @@ def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[i
       that residue is a handful of rows, so the rescan stays cheap.
     - **Weights** (``sample_weight``): a denial the historical walker provably
       kept by its serial sample — the serial parses, lands on the sample grid
-      (``serial % denial_sample_every == 0``), and sits at or below the
+      (``serial % LEGACY_DENIAL_SAMPLE_EVERY == 0``), and sits at or below the
       walker's cursor for its (Term, stream) — back-fills to
-      ``denial_sample_every``; everything else live-written is weight 1.
+      ``LEGACY_DENIAL_SAMPLE_EVERY``; everything else live-written is weight 1.
       One documented residual: a poller-resolved denial inside a walker-covered
       range back-fills to the sampled weight rather than 1 (the rule cannot
       tell the channels apart after the fact) — bounded to the Terms both
@@ -931,12 +939,12 @@ def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[i
             weight = 1
             if record["disposition"] == Disposition.denied.value:
                 parsed = parse_scotus_docket_number(record["docket_number"])
-                if parsed is not None and parsed[1] % denial_sample_every == 0:
+                if parsed is not None and parsed[1] % LEGACY_DENIAL_SAMPLE_EVERY == 0:
                     term, serial = parsed
                     stream = "historical-ifp" if serial >= IFP_SERIAL_BASE else "historical-paid"
                     cursor = corpus.get_live_cursor(conn, term, stream)
                     if cursor is not None and cursor >= serial:
-                        weight = denial_sample_every
+                        weight = LEGACY_DENIAL_SAMPLE_EVERY
             conn.execute(
                 "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
                 (weight, str(record["case_id"])),

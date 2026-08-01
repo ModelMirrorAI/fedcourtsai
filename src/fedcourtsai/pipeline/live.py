@@ -155,7 +155,7 @@ def ingest_live_payload(
 
     ``sample_weight`` records how the calling channel came to include this row.
     The poller's paths include every row they touch — the default 1 — while the
-    historical walker passes ``denial_sample_every`` for a denial its serial
+    historical walker passed the legacy sampling interval for a denial its serial
     sample kept. The upsert min-latches it, so a weight-1 row never regresses.
     """
     case_id = ids.case_id("scotus", docket_id)

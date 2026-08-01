@@ -125,8 +125,8 @@ calibration with vacatur-practice prediction.
   included) gives composition context. The **live/historical-slice cert
   statistics** are what predictor and evaluator cells anchor on: disposition
   base rates computed over rows the supremecourt.gov channel wrote, each row
-  counted `sample_weight` times so the historical walker's denial sampling
-  does not bias them — the **modern discretionary-cert cut** (the calibration
+  counted `sample_weight` times so denials the earlier sampled walk kept at a
+  higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
   by relist count, by CVSG status, and by **salience band** (the frozen
   `sal-v1` grant-likelihood tier over the paid scored segment), plus a

@@ -231,13 +231,15 @@ class HistoricalConfig(BaseModel):
     Drives ``fedcourts historical-terms`` (the run-seed workflow): a
     sequential reverse-chronological walk of past Terms over the
     supremecourt.gov docket JSON that accumulates resolved outcomes for the
-    statpack's per-Term base rates and the cert back-test set. The sampling
-    frame lives here so the set's construction is documented and reproducible:
-    **every decided petition is ingested except denials, which are
-    systematically sampled** — a denial is kept when its docket serial is a
-    multiple of ``denial_sample_every`` (deterministic per serial, so a resumed
-    run keeps the same sample). No API budget: the caps bound per-invocation
-    wall clock and upstream politeness.
+    statpack's per-Term base rates and the cert back-test set.
+
+    **Every decided petition is ingested**, and there is deliberately no sampling
+    knob: the walk must probe a serial before it can read the disposition, so
+    declining to store one never saved a fetch — it only cost every rate computed
+    over the result a denominator it had to reconstruct from weights. Sampling
+    belongs where the cost actually is, at predict/evaluate selection, which draws
+    from the corpus rather than being bounded by it, and where it is reversible.
+    No API budget: the caps bound per-invocation wall clock and upstream politeness.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -245,8 +247,6 @@ class HistoricalConfig(BaseModel):
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
     # reachability probe's full-JSON floor (docs/live-sources.md).
     terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
-    # Keep a denial when serial % denial_sample_every == 0 (1 keeps every denial).
-    denial_sample_every: int = Field(default=10, ge=1)
     # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)

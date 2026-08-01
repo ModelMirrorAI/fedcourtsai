@@ -969,7 +969,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
         )
         conn.commit()
 
-    assert backfill_live_signals(db, denial_sample_every=10) == (4, 5)
+    assert backfill_live_signals(db) == (4, 5)
     with corpus.connect(db) as conn:
         row_a = corpus.get_row(conn, a.case_id)
         row_b = corpus.get_row(conn, b.case_id)
@@ -986,7 +986,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
     assert row_e.distribution_count is None  # no live snapshot to parse
 
     # Idempotent: everything resolvable was resolved; the second run is a no-op.
-    assert backfill_live_signals(db, denial_sample_every=10) == (0, 0)
+    assert backfill_live_signals(db) == (0, 0)
 
 
 def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> None:
