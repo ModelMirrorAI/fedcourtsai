@@ -1651,3 +1651,84 @@ def test_relist_cooldown_does_not_suppress_a_first_distribution(tmp_path: Path) 
         )
     assert [q["docket"] for q in queues.predict] == [docket_id]
     assert queues.predict_skipped_relist_cooldown == []
+
+
+# --- counsel: the side of the caption, which the flat lists destroy ---------------
+
+
+def test_counsel_keeps_the_side_the_flat_lists_lose() -> None:
+    """Verbatim from 25-885, the case that motivates the column: the Solicitor
+    General is counsel of record for the *petitioner* (the United States), while
+    Skadden's appellate group appears for the respondent. Both land in the same
+    flat `attorneys` list, where "the SG is on this docket" cannot be told apart
+    from "the SG is opposing cert" — opposite signals about the same petition."""
+    payload = _payload()
+    payload["Petitioner"] = [
+        {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+    ]
+    payload["Respondent"] = [
+        {
+            "PartyName": "Donte J. Carter",
+            "Attorney": "Parker Andrew Rider-Longmaid",
+            "IsCounselofRecord": True,
+        },
+        {"PartyName": "Donte J. Carter", "Attorney": "Shay Dvoretzky", "IsCounselofRecord": False},
+    ]
+    row = from_live_docket(payload, live_docket_id(25, 885))
+
+    assert [(c.party, c.attorney, c.role, c.counsel_of_record) for c in row.counsel] == [
+        ("United States", "D. John Sauer", "petitioner", True),
+        ("Donte J. Carter", "Parker Andrew Rider-Longmaid", "respondent", True),
+        ("Donte J. Carter", "Shay Dvoretzky", "respondent", False),
+    ]
+    # The flat lists keep their contract: deduplicated and sorted, which is exactly
+    # why the side cannot be recovered from them — sorting destroys the block order
+    # that was the only trace of it.
+    assert row.parties == ["Donte J. Carter", "United States"]
+    assert row.attorneys == [
+        "D. John Sauer",
+        "Parker Andrew Rider-Longmaid",
+        "Shay Dvoretzky",
+    ]
+
+
+def test_counsel_of_record_defaults_false_when_upstream_is_silent() -> None:
+    """Absent is not False-as-observed, but a bare `party: attorney` block is all
+    the older Terms serve, and treating silence as "is counsel of record" would
+    invent the strongest form of the signal wherever the field is missing."""
+    payload = _payload()
+    payload["Petitioner"] = [{"PartyName": "Jane Doe", "Attorney": "A. Counsel"}]
+    payload["Respondent"] = []
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert [(c.role, c.counsel_of_record) for c in row.counsel] == [("petitioner", False)]
+
+
+def test_a_party_with_no_attorney_still_carries_its_side() -> None:
+    """A pro se party has a side and no counsel; dropping the entry for want of an
+    attorney would lose the party from the structured view entirely."""
+    payload = _payload()
+    payload["Petitioner"] = [{"PartyName": "Jane Doe"}]
+    payload["Respondent"] = []
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert [(c.party, c.attorney, c.role) for c in row.counsel] == [
+        ("Jane Doe", None, "petitioner")
+    ]
+
+
+def test_amicus_counsel_lands_under_other_and_is_not_arrival_time() -> None:
+    """The `other` side accumulates amici over the docket's life, overwhelmingly
+    after a grant — a merits case carries dozens where a denied petition carries
+    none. Structuring by role is what lets a consumer take the stable
+    petitioner/respondent blocks and refuse this one; the flat `attorneys` list
+    mixes them with nothing to tell them apart."""
+    payload = _payload()
+    payload["Other"] = [
+        {"PartyName": f"Amici {i}", "Attorney": f"Amicus Counsel {i}"} for i in range(3)
+    ]
+    row = from_live_docket(payload, live_docket_id(25, 451))
+
+    by_role = {r: [c.party for c in row.counsel if c.role == r] for r in ("petitioner", "other")}
+    assert by_role["petitioner"] == ["Jane Doe"]
+    assert by_role["other"] == ["Amici 0", "Amici 1", "Amici 2"]
+    # All of them reach the flat list undifferentiated — the exposure the role fixes.
+    assert len(row.attorneys) == 5

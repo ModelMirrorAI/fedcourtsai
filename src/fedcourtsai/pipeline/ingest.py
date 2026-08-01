@@ -107,6 +107,10 @@ class CorpusRow(BaseModel):
     )
     parties: list[str] = Field(default_factory=list, description="Party names on the docket")
     attorneys: list[str] = Field(default_factory=list, description="Attorney names of record")
+    counsel: list[corpus.CounselEntry] = Field(
+        default_factory=list,
+        description="Structured counsel (party + attorney + side) behind `parties`/`attorneys`",
+    )
     citations: list[str] = Field(default_factory=list)
     citation_count: int | None = Field(default=None, description="Times the decision was cited")
     precedential_status: str | None = Field(
@@ -241,6 +245,26 @@ def _str_list(value: Any) -> list[str]:
     return out
 
 
+def _counsel_list(value: Any) -> list[corpus.CounselEntry]:
+    """Structured counsel entries from an already-mapped record, order-preserving.
+
+    Only the live/historical SCOTUS path supplies these — the mapper has already
+    read the per-side blocks — so this validates rather than parses. A malformed
+    entry is dropped rather than raised on: counsel is an enrichment, and a
+    single bad block must not cost the docket's whole row.
+    """
+    out: list[corpus.CounselEntry] = []
+    for item in _items(value):
+        if isinstance(item, corpus.CounselEntry):
+            out.append(item)
+        elif isinstance(item, Mapping):
+            try:
+                out.append(corpus.CounselEntry(**item))
+            except ValueError:
+                continue
+    return out
+
+
 def _panel(record: Mapping[str, Any]) -> list[corpus.PanelMember]:
     """Structured panel members (name + seniority), deduplicated by name.
 
@@ -363,6 +387,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         panel=panel,
         parties=sorted(_str_list(record.get("parties"))),
         attorneys=sorted(_str_list(record.get("attorneys"))),
+        counsel=_counsel_list(record.get("counsel")),
         citations=_str_list(record.get("citations")),
         citation_count=_as_count(record.get("citation_count")),
         precedential_status=_clean(record.get("precedential_status")),
@@ -493,11 +518,28 @@ def _live_title(raw: Any) -> str | None:
     return _LIVE_TITLE_ROLE_RE.sub("", text) if text else None
 
 
-def _live_counsel(payload: Mapping[str, Any]) -> tuple[list[str], list[str]]:
-    """(parties, attorneys) from the JSON's counsel blocks, order-preserving."""
+_COUNSEL_SIDES: tuple[tuple[str, corpus.CounselRole], ...] = (
+    ("Petitioner", corpus.CounselRole.petitioner),
+    ("Respondent", corpus.CounselRole.respondent),
+    ("Other", corpus.CounselRole.other),
+)
+
+
+def _live_counsel(
+    payload: Mapping[str, Any],
+) -> tuple[list[str], list[str], list[corpus.CounselEntry]]:
+    """(parties, attorneys, counsel) from the JSON's per-side counsel blocks.
+
+    The flat lists stay de-duplicated, because retrieval overlap keys on them and
+    a name repeated across sides is one name; the normalizer then sorts them, which
+    is what leaves the side unrecoverable from them alone. ``counsel`` keeps every
+    block in served order — petitioner side first — so an attorney appearing for
+    both sides survives as two entries rather than collapsing to the first seen.
+    """
     parties: list[str] = []
     attorneys: list[str] = []
-    for side in ("Petitioner", "Respondent", "Other"):
+    counsel: list[corpus.CounselEntry] = []
+    for side, role in _COUNSEL_SIDES:
         blocks = payload.get(side)
         if not isinstance(blocks, list):
             continue
@@ -510,7 +552,16 @@ def _live_counsel(payload: Mapping[str, Any]) -> tuple[list[str], list[str]]:
                 parties.append(party)
             if attorney is not None and attorney not in attorneys:
                 attorneys.append(attorney)
-    return parties, attorneys
+            if party is not None:
+                counsel.append(
+                    corpus.CounselEntry(
+                        party=party,
+                        attorney=attorney,
+                        role=role,
+                        counsel_of_record=block.get("IsCounselofRecord") is True,
+                    )
+                )
+    return parties, attorneys, counsel
 
 
 def _live_entries(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -630,7 +681,7 @@ def map_live_docket(
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
-    parties, attorneys = _live_counsel(payload)
+    parties, attorneys, counsel = _live_counsel(payload)
     lower_court = _clean(payload.get("LowerCourt"))
     lower_numbers = _clean(payload.get("LowerCourtCaseNumbers"))
     return {
@@ -649,6 +700,7 @@ def map_live_docket(
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
+        "counsel": [c.model_dump(mode="json") for c in counsel],
         "appeal_from_id": _LIVE_LOWER_COURT_IDS.get(lower_court.lower()) if lower_court else None,
         "originating_court_information": (
             # The JSON parenthesizes the lower-court numbers ("(21-5166)").
@@ -761,6 +813,7 @@ def to_corpus_row(
         judges=row.judges,
         panel=row.panel,
         parties=row.parties,
+        counsel=row.counsel,
         attorneys=row.attorneys,
         topic=row.nature_of_suit,
         citations=row.citations,
