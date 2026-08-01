@@ -75,6 +75,21 @@ _GRANT_LABELS = (
 )
 
 
+def _grant_family_share(bucket: BaseRateBucket) -> float | None:
+    """The pooled grant-family share of a bucket's resolved rows.
+
+    The single definition behind every published ``est_grant*rate`` figure. The
+    pooling is load-bearing: the ``gvr`` label is a forward convention, so the
+    ``granted`` / ``gvr`` split reflects ingestion history between Terms
+    (:data:`_GVR_SPLIT_CAVEAT`), and only the pooled family is comparable
+    across them. ``None`` when nothing resolved — an all-denied bucket has a
+    real 0% rate; a bucket with nothing resolved has no rate at all.
+    """
+    if not bucket.resolved:
+        return None
+    return sum(d.share for d in bucket.dispositions if d.disposition in _GRANT_LABELS)
+
+
 class AnalyticsQuery(BaseModel):
     """Structured filter selecting the corpus rows an :class:`AnalyticsReport` aggregates.
 
@@ -774,11 +789,7 @@ def _term_entry(
                 ingested=entry.cases,
                 resolved=entry.bucket("").resolved,
                 weighted_resolved=weighted.resolved,
-                est_grant_rate=(
-                    sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
-                    if weighted.resolved
-                    else None
-                ),
+                est_grant_rate=_grant_family_share(weighted),
                 dispositions=weighted.dispositions,
                 timing=entry.timing(weighted=True),
             )
@@ -795,25 +806,19 @@ def _term_entry(
                 ingested=entry.cases,
                 resolved=entry.bucket("").resolved,
                 weighted_resolved=weighted.resolved,
-                est_grant_rate=(
-                    sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
-                    if weighted.resolved
-                    else None
-                ),
+                est_grant_rate=_grant_family_share(weighted),
                 prefix_resolved=prefix_acc.bucket("").resolved,
                 prefix_weighted_resolved=prefix.resolved,
-                prefix_est_grant_rate=(
-                    sum(d.share for d in prefix.dispositions if d.disposition in _GRANT_LABELS)
-                    if prefix.resolved
-                    else None
-                ),
+                prefix_est_grant_rate=_grant_family_share(prefix),
             )
         )
     grant_days = sorted(acc.grant_days)
+    base_rates = acc.overall.bucket(str(year), weighted=True)
     return StatPackTerm(
         term=year,
         ingested=acc.overall.cases,
-        base_rates=acc.overall.bucket(str(year), weighted=True),
+        base_rates=base_rates,
+        est_grant_family_rate=_grant_family_share(base_rates),
         timing=acc.overall.timing(weighted=True),
         classes=classes,
         grants=acc.grants,
@@ -999,6 +1004,7 @@ def _docket_term_entry(
     raw = acc.overall.bucket("")
     weighted = acc.overall.bucket("", weighted=True)
     grant_days = sorted(acc.grant_days)
+    family_rate = _grant_family_share(weighted)
     return DocketPackTerm(
         term=year,
         filings=sum(filings for filings, _ in probed) if probed else None,
@@ -1006,11 +1012,8 @@ def _docket_term_entry(
         ingested=acc.overall.cases,
         resolved=raw.resolved,
         weighted_resolved=weighted.resolved,
-        est_grant_rate=(
-            sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
-            if weighted.resolved
-            else None
-        ),
+        est_grant_rate=family_rate,
+        est_grant_family_rate=family_rate,
         dispositions=weighted.dispositions,
         grants=acc.grants,
         median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
@@ -1179,6 +1182,10 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         ]
         for entry in shown:
             lines.append(_term_row(entry))
+        # The disposition split in the `est. base rate` column separates `granted`
+        # from `gvr`, so the comparability caveat rides directly under the table
+        # that prints it — the same text the docket pack carries.
+        lines += ["", _GVR_SPLIT_CAVEAT]
         bands = salience_bands()
         version = next((t.salience_version for t in shown if t.salience_version), SALIENCE_VERSION)
         lines += [
@@ -1259,13 +1266,10 @@ def _term_row(entry: StatPackTerm) -> str:
         return "✓" if cls is not None and cls.complete else "partial"
 
     rates = entry.base_rates
-    # An all-denied Term has a real grant rate of 0%; only a Term with nothing
-    # resolved has no rate at all. Grants sum the grant family (a GVR is a grant).
-    grant_rate = (
-        sum(d.share for d in rates.dispositions if d.disposition in _GRANT_LABELS)
-        if rates.resolved
-        else None
-    )
+    # The rendered rate is the field's own value, never a recomputation: the JSON
+    # and the Markdown must publish the same grant-family pool (a GVR is a grant),
+    # and `_grant_family_share` is that pool's one definition.
+    grant_rate = entry.est_grant_family_rate
     # `ingested` is the raw row count; every `est.` column is the weighted
     # estimate — mixing the two under one label would publish a false coverage
     # claim on the exact surface the predict prompt points cells at.
@@ -1278,18 +1282,28 @@ def _term_row(entry: StatPackTerm) -> str:
     )
 
 
-# The statistics a reader of a published court stat pack expects and this
-# artifact cannot yet compute. Named in the document rather than left as silent
-# gaps, so a citation is not read as a claim that the number is zero.
-_DOCKET_GAPS = (
+# The one caveat every surface that prints the `granted` / `gvr` split must
+# carry — a single constant so the statpack (the surface the predict/evaluate
+# cells anchor on) and the docket pack (the citable court-facing document) can
+# never state it differently.
+_GVR_SPLIT_CAVEAT = (
     "**The `granted` / `gvr` split is not comparable across Terms.** The `gvr` "
     "label is a forward convention: a resolution recorded before it existed keeps "
     "`granted`, and no post-hoc rule separates a merits GVR from a plenary grant "
     "without re-resolving the source. OT2023 and OT2024 were resolved into the "
     "corpus inside that window, so they carry **zero** GVRs against 30-59% of the "
     "grant family in every Term either side of them — ingestion history, not the "
-    "Court changing behaviour. Read the grant family as one number; the split "
-    "below is safe within a Term and meaningless between them.",
+    "Court changing behaviour. Read the grant family as one number — the JSON "
+    "artifacts publish it per Term as `est_grant_family_rate` — because the split "
+    "is safe within a Term and meaningless between them."
+)
+
+
+# The statistics a reader of a published court stat pack expects and this
+# artifact cannot yet compute. Named in the document rather than left as silent
+# gaps, so a citation is not read as a claim that the number is zero.
+_DOCKET_GAPS = (
+    _GVR_SPLIT_CAVEAT,
     "**What the petitions are about.** A distribution of the questions presented "
     "by subject matter needs a claim taxonomy to classify them against, and no "
     "such taxonomy is built. Inventing one for this artifact alone would publish "
@@ -1457,9 +1471,10 @@ def _docket_term_row(entry: DocketPackTerm) -> str:
     """One Term's row in the docket-pack census table."""
     # `est. n` on the weighted rate, plain `n` on the pace-to-grant subset: one
     # spelling rule across the document, and this row shows both side by side.
+    # The rate reads the pooled-family field, as the statpack's Term row does.
     rate = (
-        f"{_pct(entry.est_grant_rate)} (est. n={entry.weighted_resolved})"
-        if entry.est_grant_rate is not None
+        f"{_pct(entry.est_grant_family_rate)} (est. n={entry.weighted_resolved})"
+        if entry.est_grant_family_rate is not None
         else "—"
     )
     pace = (

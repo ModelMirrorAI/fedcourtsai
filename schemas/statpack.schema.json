@@ -225,6 +225,21 @@
           "title": "Classes",
           "type": "array"
         },
+        "est_grant_family_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weighted grant-family share of this Term's resolved live-slice rows \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `base_rates.dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison on this field. None when nothing resolved",
+          "title": "Est Grant Family Rate"
+        },
         "grants": {
           "default": 0,
           "description": "Cert grants observed in the live slice this Term",
@@ -314,7 +329,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family share (granted + gvr) of resolved; None when nothing resolved",
+          "description": "Weighted grant-family (granted + gvr pooled) share of resolved \u2014 pooled, so comparable across Terms where the `dispositions` split is not; None when nothing resolved",
           "title": "Est Grant Rate"
         },
         "fee_class": {
@@ -387,7 +402,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family share (granted + gvr) of the rows that ENDED in this band \u2014 a descriptive rate, not a forecast baseline; None when nothing in the band resolved",
+          "description": "Weighted grant-family (granted + gvr pooled) share of the rows that ENDED in this band \u2014 a descriptive rate, not a forecast baseline; None when nothing in the band resolved",
           "title": "Est Grant Rate"
         },
         "ingested": {
@@ -409,7 +424,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family share over the band's risk set: P(grant | the petition has REACHED this band). The forecast baseline \u2014 this is what a predictor is asked to beat, because a cell is scored at the band it sat in when it ran, not the one it ended in. Identical to est_grant_rate for the strongest band, which has nothing above it; None when the risk set is empty",
+          "description": "Weighted grant-family (granted + gvr pooled) share over the band's risk set: P(grant | the petition has REACHED this band). The forecast baseline \u2014 this is what a predictor is asked to beat, because a cell is scored at the band it sat in when it ran, not the one it ended in. Identical to est_grant_rate for the strongest band, which has nothing above it; None when the risk set is empty",
           "title": "Prefix Est Grant Rate"
         },
         "prefix_resolved": {
