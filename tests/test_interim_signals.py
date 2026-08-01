@@ -10,10 +10,13 @@ from __future__ import annotations
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
     ReferralPosture,
+    amicus_briefs,
     application_kind,
+    escalation_signals,
     is_predictable_application,
     match_interim_disposition,
     referral_posture,
+    response_requested,
 )
 from fedcourtsai.schemas import Disposition
 
@@ -121,3 +124,44 @@ def test_an_ordinary_entry_disposes_of_nothing() -> None:
         "SET FOR ARGUMENT on Wednesday, February 21, 2024. VIDED.",
     ):
         assert match_interim_disposition(text) is None, text
+
+
+def test_the_court_requesting_a_response_is_not_a_response_arriving() -> None:
+    """The discriminator on the interim docket, and the two are easy to conflate:
+    a respondent may answer uninvited, but only the Court asks. That makes a
+    request the analogue of a CVSG — an act of attention — rather than of a
+    relist."""
+    assert response_requested(
+        ["Response to application (23A350) requested by The Chief Justice, due by 4 p.m."]
+    )
+    assert not response_requested(
+        ["Response to application from respondent Jeremiah Sweeney filed."]
+    )
+
+
+def test_amicus_interest_is_counted_not_flagged() -> None:
+    """One brief is a different signal from a dozen. Counted per entry, so an
+    entry naming several filers counts once — an undercount, which is the
+    direction that cannot manufacture salience."""
+    assert amicus_briefs(["Brief amicus curiae of Energy Infrastructure Council filed."]) == 1
+    assert amicus_briefs(["Reply of applicant filed."]) == 0
+    assert (
+        amicus_briefs(["Brief amicus curiae of A filed.", "Brief amicus curiae of B filed."]) == 2
+    )
+
+
+def test_the_escalation_ladder_separates_the_sampled_outcomes() -> None:
+    """The three real applications, in the order the ladder puts them: a summary
+    denial with no engagement, a referred denial, and a granted application that
+    drew a requested response and an amicus brief. Suggestive of a structure, and
+    far too few for a rate — which is why none is published."""
+    assert escalation_signals(_STAY_CIRCUIT) == (False, False, 0)
+    assert escalation_signals(_STAY_REFERRED) == (False, True, 0)
+    assert escalation_signals(
+        [
+            "Application (23A350) for a stay, submitted to The Chief Justice.",
+            "Response to application (23A350) requested by The Chief Justice.",
+            "Brief amicus curiae of Energy Infrastructure Council filed.",
+            "Application (23A350) referred to the Court.",
+        ]
+    ) == (True, True, 1)

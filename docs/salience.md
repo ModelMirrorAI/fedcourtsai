@@ -447,6 +447,53 @@ rather than folding it into an undifferentiated "granted."
   score captures the stakes — with deterministic mootness-proneness deferred to a
   possible `sal-v2` feature.
 
+## The interim docket (designed, not measured)
+
+The cert program above selects petitions. The interim docket — stays,
+injunctions, vacaturs pending certiorari — needs its own, because none of
+`sal-v1`'s features exists there: an application is not distributed for
+conference, and a CVSG is a cert-stage act. Reusing the band would be the
+conditioning mismatch this document spends its length warning about.
+
+**Most of the docket is not the thing predicted.** Over a spread sample of 26
+OT2023–OT2024 applications, **85%** are requests to extend the time to file:
+granted by a single Justice as a matter of course, with nothing about the case
+moving the answer. 12% are substantive. Admitting the whole docket would hand a
+predictor a base rate it beats by answering "granted" every time — the IFP
+problem in a sharper form. `interim_signals.is_predictable_application` keeps only
+the substantive ones, and excludes an unreadable ask with them: that is a parser
+gap, and shrinking coverage visibly is better than admitting a matter of unknown
+character into a scored population.
+
+**The escalation ladder is the salience structure.** Three signals are readable
+from the proceedings before an application resolves:
+
+| signal | what it is |
+| --- | --- |
+| the Court **requests** a response | an affirmative act of attention — the interim analogue of a CVSG, and *not* the same event as a response arriving uninvited |
+| the application is **referred to the Court** | the full bench takes it, rather than a Circuit Justice acting alone — which is also what selects the aggregation rule |
+| **amicus briefs** filed | a proxy for stakes, counted rather than flagged |
+
+The three sampled substantive applications separate on exactly that ladder — a
+two-entry summary denial with no signals, a referred denial with a response
+filed, and a granted application that drew a requested response, an amicus brief
+and oral argument. That is a suggestive shape and **not a base rate**: three
+observations cannot support a rate, and none is published or scored against.
+
+**The two traps transfer unchanged.** All three signals are monotone over an
+application's life — the Court does not un-request a response, un-refer an
+application, or un-file a brief. So the band derived at resolution is the band the
+application *ended* at rather than the one a cell faced, and a rate conditioned on
+the ending band understates what a live application faces. Those are the same two
+defects the cert program corrected, and the answers carry over: freeze the band as
+at prediction, and pool the rate over a risk set.
+
+**What is missing is the rate.** Measuring it means resolving enough substantive
+applications to condition on, and they are 12% of a docket the pipeline does not
+yet poll. Until then the interim segment is declared unspecified rather than given
+a cert-shaped stand-in — the same posture the merits stage takes, and for the same
+reason.
+
 ## Shared discipline: leakage / timing
 
 The deterministic salience features and the predictor's big-case score both rest on
