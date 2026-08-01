@@ -183,11 +183,11 @@ dashboard, its state carried as a fenced JSON block in its own body
 (`.github/actions/run-log-dashboard`): a rolling 14 days of window × outcome ×
 handoff counts, plus the per-case unrecorded-outcome triage list. A window that
 fails or is stopped mid-run (timeout or a human's cancel — the shared lock
-never cancels an in-flight run) additionally opens (or reuses, for the same
-day) a `pull-log` / `live-log` issue and leaves it open for a human — so an
-open run-log issue means exactly "a window broke": the issue list is the alarm
-surface, the dashboard the reference view, and neither depends on a later
-window firing to stay honest.
+never cancels an in-flight run; a stopped window gets only the alarm, no
+dashboard row) opens (or reuses, for the same day) a `pull-log` / `live-log`
+issue and leaves it open for a human — so an open run-log issue means exactly
+"a window broke": the issue list is the alarm surface, the dashboard the
+reference view, and neither depends on a later window firing to stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts

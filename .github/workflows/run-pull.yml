@@ -43,9 +43,11 @@ name: run-pull
 # dashboard issue, edited in place (.github/actions/run-log-dashboard), and a
 # failing window opens (or reuses, same day) a `pull-log` / `live-log` issue
 # left open for a human — so an open run-log issue means exactly "a window
-# broke". All git/issue writes use the GitHub App token so the resulting
-# issues/commits trigger downstream workflows; the dashboard and run-log labels
-# are deliberately NOT `run:*` trigger labels, so no logging issue re-fires pull.
+# broke". The corpus commits and the run:predict / run:evaluate handoff issues
+# use the GitHub App token so they trigger downstream workflows; the logging
+# writes (dashboard + run-log issues) ride the ambient GITHUB_TOKEN instead —
+# they must trigger nothing, and their labels are deliberately NOT `run:*`
+# trigger labels, so no logging issue re-fires pull.
 on:
   schedule:
     # Four pull windows/day, six hours apart (staggered off the hour from other
@@ -138,6 +140,7 @@ jobs:
       # hold write access; deny everyone else. Fail closed if it can't be read.
       # (The label name is already checked in the job `if:`.)
       - name: Authorize the trigger (issue label must come from a maintainer)
+        id: authorize
         if: github.event_name == 'issues'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -318,6 +321,10 @@ jobs:
       # cancellation — a queued window superseded on the shared lock is not an
       # outcome. A failure before checkout cannot land a row (the composite
       # lives in this tree) and is covered by the failure issue below.
+      # The ambient GITHUB_TOKEN (this job holds `issues: write`), not the App
+      # token: the dashboard must trigger nothing, so it stays on the
+      # lower-trust, non-bypass credential — the same doctrine as run-ops and
+      # the collect/plan issue writes (docs/security.md).
       # Loud-not-fatal like publish-corpus-verdict: a transient dashboard
       # hiccup must not mark a healthy window failed (and so file a false
       # alarm); a stale dashboard is self-evident from its newest row's
@@ -326,11 +333,10 @@ jobs:
         continue-on-error: true
         if: >-
           (success() || failure()) &&
-          steps.app-token.conclusion == 'success' &&
           steps.checkout.conclusion == 'success'
         uses: ./.github/actions/run-log-dashboard
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ github.token }}
           repo: ${{ github.repository }}
           channel: pull
           outcome: ${{ job.status }}
@@ -369,17 +375,20 @@ jobs:
       # Failure-only alarm: an open `pull-log` issue means exactly "a pull
       # window broke" — nothing is filed on the happy path, and nothing closes
       # this automatically; a human closes it once triaged. Inline (no
-      # checkout needed), so it fires for any failure once the App token exists.
+      # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
+      # same doctrine as the dashboard step above), so it fires for any broken
+      # window — including one whose App-token mint itself failed. The one
+      # suppression is a failed authorize step: an unauthorized labeling
+      # attempt must stay fail-closed and file nothing (the step is skipped,
+      # not failed, on schedule/dispatch runs, so those alarm normally).
       # `cancelled()` is included because the shared lock never cancels an
       # in-flight run (cancel-in-progress is false; a superseded run dies
       # queued, before any step) — so an in-flight cancellation is the job
       # timeout or a human's stop, and both are windows that did not complete.
-      # An App-token mint failure stays alarm-silent (there is no token to
-      # file with); the Actions run history is the backstop for that case.
       - name: Open the failure run-log issue
-        if: (failure() || cancelled()) && steps.app-token.conclusion == 'success'
+        if: (failure() || cancelled()) && steps.authorize.conclusion != 'failure'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WINDOW: ${{ github.event_name == 'schedule' && github.event.schedule || github.event_name }}
@@ -398,7 +407,7 @@ jobs:
           # one thread, while an older day's still-open issue is its own
           # record and is left alone.
           num=$(gh issue list --repo "$REPO" --label pull-log --state open \
-            --json number,title | jq -r --arg d "$today" \
+            --limit 100 --json number,title | jq -r --arg d "$today" \
             '[.[] | select(.title | endswith($d))][0].number // empty')
           body=$(printf '### ❌ Pull refresh window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `pull-log` issue means exactly "a pull window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
@@ -443,11 +452,14 @@ jobs:
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
       EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
-    # Unlike `pull`, the ambient GITHUB_TOKEN is never used here (checkout, the
-    # corpus push, and every gh call run on the App token, and there is no
-    # authorize-trigger step to need a read) — so it carries no write at all.
+    # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
+    # (the pipeline-runs dashboard row and the failure run-log issue — the
+    # doctrine in docs/security.md: issue writes that must trigger nothing stay
+    # off the App token). Checkout, the corpus push, and the handoff issues run
+    # on the App token, and there is no authorize-trigger step to need a read.
     permissions:
       contents: read
+      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       - name: Mint app token
@@ -578,18 +590,17 @@ jobs:
       # disposition orders ride in the proceedings text), so a non-empty
       # unrecorded queue signals a case shape worth manual triage.
 
-      # Same dashboard row as `pull` (see that job's step for the gating and
-      # loud-not-fatal rationale) — one shared `Pipeline runs` issue carries
-      # both channels.
+      # Same dashboard row as `pull` (see that job's step for the gating,
+      # token, and loud-not-fatal rationale) — one shared `Pipeline runs`
+      # issue carries both channels.
       - name: Update the pipeline-runs dashboard
         continue-on-error: true
         if: >-
           (success() || failure()) &&
-          steps.app-token.conclusion == 'success' &&
           steps.checkout.conclusion == 'success'
         uses: ./.github/actions/run-log-dashboard
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ github.token }}
           repo: ${{ github.repository }}
           channel: live
           outcome: ${{ job.status }}
@@ -625,12 +636,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Failure-only alarm, mirroring `pull` (see that job's step for the
-      # `cancelled()` rationale): an open `live-log` issue means exactly "a
-      # live window broke"; a human closes it once triaged.
+      # `cancelled()` and ambient-token rationale; there is no authorize step
+      # here to gate on): an open `live-log` issue means exactly "a live
+      # window broke"; a human closes it once triaged.
       - name: Open the failure run-log issue
-        if: (failure() || cancelled()) && steps.app-token.conclusion == 'success'
+        if: failure() || cancelled()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WINDOW: ${{ github.event_name == 'schedule' && github.event.schedule || github.event_name }}
@@ -645,7 +657,7 @@ jobs:
           # One issue per broken day: a day's repeated failures collapse into
           # one thread; an older day's still-open issue is left alone.
           num=$(gh issue list --repo "$REPO" --label live-log --state open \
-            --json number,title | jq -r --arg d "$today" \
+            --limit 100 --json number,title | jq -r --arg d "$today" \
             '[.[] | select(.title | endswith($d))][0].number // empty')
           body=$(printf '### ❌ Live poll window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `live-log` issue means exactly "a live window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")

@@ -519,11 +519,12 @@ or network.
 ## Pull — forward freshness
 
 - **Trigger:** an intraday cron (several windows a day), `workflow_dispatch`,
-  or a maintainer-applied `run:pull` label. Each window that reaches checkout
-  lands its row on the long-lived pipeline-runs dashboard issue; a window that
-  fails or is cancelled mid-run opens a `pull-log` issue for a human (both
-  labels deliberately not `run:*` trigger labels — see
-  [pipeline.md](pipeline.md)).
+  or a maintainer-applied `run:pull` label. Each window that ends in success
+  or failure lands its row on the long-lived pipeline-runs dashboard issue; a
+  failing window also opens a `pull-log` issue for a human, and a window
+  cancelled mid-run (timeout, manual stop) gets only that alarm issue, no
+  dashboard row (`run-log-dashboard` and `pull-log` are deliberately not
+  `run:*` trigger labels — see [pipeline.md](pipeline.md)).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
   the active CourtListener tier's ceilings; a slice of each run

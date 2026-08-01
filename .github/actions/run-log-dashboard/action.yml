@@ -30,7 +30,11 @@ description: >
 
 inputs:
   token:
-    description: 'A GitHub token with `issues: write`, used to read and edit the dashboard issue.'
+    description: >
+      A GitHub token with `issues: write`, used to read and edit the dashboard
+      issue. The ambient `GITHUB_TOKEN` is the right one: the dashboard must
+      trigger nothing, so the write stays off the App token
+      (docs/security.md).
     required: true
   repo:
     description: The `owner/name` the dashboard issue lives in.
@@ -77,24 +81,31 @@ runs:
           --color 0e8a16 --description "Long-lived pipeline-runs dashboard (run-pull; updated in place each window)"
 
         # Counts come from the window's queue files when the run got far enough
-        # to write them; an earlier failure records null (rendered as a blank).
-        count() { if [ -f "$1" ]; then jq 'length' "$1"; else echo null; fi; }
+        # to write them; an earlier failure, or a corrupt file, records null
+        # (rendered as a blank) rather than losing the whole row.
+        count() {
+          local n
+          if [ -f "$1" ] && n=$(jq 'length' "$1" 2>/dev/null | head -n 1) && [ -n "$n" ]; then
+            echo "$n"
+          else
+            echo null
+          fi
+        }
         predict=$(count predict-queue.json)
         evaluate=$(count evaluate-queue.json)
         unrecorded=$(count unrecorded-queue.json)
-        if [ -f unrecorded-queue.json ]; then
-          # Capped per window so a pathological queue cannot balloon the issue
-          # body toward GitHub's size cap; the count column keeps the true total.
-          cases=$(jq '[.[] | "\(.court)/\(.docket) — \(.reason)"][:20]' unrecorded-queue.json)
-        else
-          cases='[]'
-        fi
+        # Capped per window so a pathological queue cannot balloon the issue
+        # body toward GitHub's size cap; the count column keeps the true total.
+        # A corrupt file degrades to an empty triage list, same as absence.
+        cases=$(jq '[.[] | "\(.court)/\(.docket) — \(.reason)"][:20]' \
+          unrecorded-queue.json 2>/dev/null) || cases='[]'
+        [ -n "$cases" ] || cases='[]'
 
         # Find the dashboard by label AND exact title, so a stray issue that
         # merely carries the label cannot shadow the dashboard and feed its
         # body into the parse below.
         num=$(gh issue list --repo "$REPO" --label run-log-dashboard --state open \
-          --json number,title | jq -r '[.[] | select(.title == "Pipeline runs")][0].number // empty')
+          --limit 100 --json number,title | jq -r '[.[] | select(.title == "Pipeline runs")][0].number // empty')
         state='[]'
         if [ -n "$num" ]; then
           gh issue view "$num" --repo "$REPO" --json body --jq .body \
@@ -134,10 +145,13 @@ runs:
             committed: ($committed | if . == "true" then true elif . == "false" then false else null end)}')
 
         # Newest first; a rolling 14 days keeps the body a dashboard, not an
-        # archive (the Actions run history is the archive). An unparseable
-        # timestamp ages its record out rather than failing every later window.
+        # archive (the Actions run history is the archive). An unparseable or
+        # future-dated timestamp ages its record out (the hour of slack covers
+        # clock skew, nothing more) rather than failing — or squatting on —
+        # every later window.
         state=$(jq --argjson rec "$record" \
-          '[$rec] + . | map(select((.ts | try fromdateiso8601 catch 0) > (now - 14 * 86400)))' <<<"$state")
+          '[$rec] + . | map(select((.ts | try fromdateiso8601 catch 0) as $t
+            | $t > (now - 14 * 86400) and $t <= (now + 3600)))' <<<"$state")
 
         # `clean` sanitizes every string rendered back out of the (untrusted)
         # parsed state: no newlines (fake sentinel/fence/row lines), no pipes
@@ -153,7 +167,9 @@ runs:
               .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean)\((.predict_note // "") | clean) | \((.evaluate // "") | clean)\((.evaluate_note // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
               <<<"$state"
             triage=$(jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
-              .[] | "\(.ts | clean) \(.channel | clean)" as $w | (.unrecorded_cases // [])[] | "- \($w): `\(clean)`"' <<<"$state")
+              .[] | "\(.ts | clean) \(.channel | clean)" as $w
+              | (.unrecorded_cases | if type == "array" then . else [] end)[]
+              | "- \($w): `\(clean)`"' <<<"$state")
             if [ -n "$triage" ]; then
               printf '\nUnrecorded outcomes surfaced in these windows — decided-looking dockets whose outcome could not be recorded deterministically, for maintainer triage:\n%s\n' "$triage"
             fi
