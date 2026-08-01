@@ -140,12 +140,12 @@ default.
 ```
 daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
                               └─ checkpointed: corpus-push + pointer commit per chunk
-   daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
+   daily ×4 / run:pull → run-pull (pull job) → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
-                                 │  per-case on the pull-log issue comment
+                                 │  per-case on the pipeline-runs dashboard
                                  └─ create issues  ← APP TOKEN
                                     ├─ run:predict    (changed case with open events,
                                     │                  unless the docket already looks
@@ -155,14 +155,14 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                                        an outcome, or an owed grading
                                                        the backlog deriver surfaces;
                                                        held if EVALUATE_HANDOFF_ENABLED=0)
-   daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
+   daily ×4 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions (per-Term cursor)
                                  ├─ re-poll the pending cert watchlist (recent Terms first)
                                  ├─ detect resolution from the proceedings text
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
-                                 │    live-log issue comment
+                                 │    pipeline-runs dashboard
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
                                     (held per-channel by PREDICT_HANDOFF_ENABLED /
                                      EVALUATE_HANDOFF_ENABLED)
@@ -173,6 +173,21 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
 ```
+
+Run logging creates nothing on the happy path. Every `run-pull` window (pull
+and live, success or failure) that reaches checkout lands its row on the single
+long-lived **Pipeline runs** dashboard issue — label `run-log-dashboard`,
+non-triggering and never declared in an issue form's `labels:` (the same
+discipline as every operational label here), edited in place like the Ops
+dashboard, its state carried as a fenced JSON block in its own body
+(`.github/actions/run-log-dashboard`): a rolling 14 days of window × outcome ×
+handoff counts, plus the per-case unrecorded-outcome triage list. A window that
+fails or is stopped mid-run (timeout or a human's cancel — the shared lock
+never cancels an in-flight run) additionally opens (or reuses, for the same
+day) a `pull-log` / `live-log` issue and leaves it open for a human — so an
+open run-log issue means exactly "a window broke": the issue list is the alarm
+surface, the dashboard the reference view, and neither depends on a later
+window firing to stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts
@@ -513,8 +528,8 @@ a case-level disposition that cannot be attributed across several open events �
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for
-these. Both the pull and live jobs surface each one per-case on the day's
-pull-log / live-log issue comment ("court/docket — reason"), with the count on
+these. Both the pull and live jobs surface each one per-case on the pipeline-runs
+dashboard's triage list ("court/docket — reason"), with the count on
 the Actions step summary, for maintainer triage — recording nothing beats a
 guess.
 
@@ -617,9 +632,9 @@ honors `predict.max_attempts_per_cell` via the ledger-derived failure facts
 attempt cannot re-queue forever while a sibling engine still owed the same event
 is swept normally.
 
-Held windows are marked **held** on the run log and step summary rather than
-reported as dispatched, so a growing backlog is legible as a paused channel and
-not misread as a stalled fan-out.
+Held windows are marked **held** on the pipeline-runs dashboard row, the run
+log, and the step summary rather than reported as dispatched, so a growing
+backlog is legible as a paused channel and not misread as a stalled fan-out.
 
 ### The evaluate queue is level-triggered too
 

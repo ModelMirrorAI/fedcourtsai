@@ -19,7 +19,7 @@ conservative:
 - **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
   no decision date, or more than one open event the case-level disposition cannot
   be attributed to — produces an :class:`UnrecordedOutcome`, surfaced on the
-  run's daily log for maintainer triage. Nothing is written on a guess.
+  pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -243,11 +243,11 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
 class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
 
-    Carried out of the library so the workflow can surface it on the run's
-    daily log; ``reason`` explains why automatic recording was declined.
-    ``reason`` must stay a fixed-vocabulary string (the literals in
+    Carried out of the library so the workflow can surface it on the
+    pipeline-runs dashboard; ``reason`` explains why automatic recording was
+    declined. ``reason`` must stay a fixed-vocabulary string (the literals in
     :func:`detect_resolution`, interpolating only closed-enum values): it is
-    rendered into a GitHub issue comment, so raw docket text — e.g.
+    rendered into a GitHub issue body, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """
 

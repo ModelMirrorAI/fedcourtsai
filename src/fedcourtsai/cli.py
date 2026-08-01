@@ -3090,7 +3090,7 @@ def pull_all(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the run log)."
+            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
         ),
     ] = Path("unrecorded-queue.json"),
     limit: Annotated[
@@ -3222,7 +3222,7 @@ def live_poll(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the run log)."
+            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
         ),
     ] = Path("unrecorded-queue.json"),
     term: Annotated[

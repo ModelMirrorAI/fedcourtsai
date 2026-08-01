@@ -29,7 +29,7 @@ newly distributed for a conference, or relisted to a new one — the cert-calend
 analogue of ``predict_on_change_only``; a newly resolved case queues
 ``evaluate`` when the ledger holds a prediction to score (the live sweeps
 resolve plenty of never-predicted petitions — nothing to score, no cells); an
-ambiguous resolution lands on ``unrecorded`` for the run log.
+ambiguous resolution lands on ``unrecorded`` for the pipeline-runs dashboard.
 """
 
 from __future__ import annotations

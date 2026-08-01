@@ -1,0 +1,183 @@
+name: Update the pipeline-runs dashboard
+description: >
+  Land one run-pull window (pull or live, success or failure) on the single
+  long-lived **Pipeline runs** dashboard issue — the run-ops idiom: find the
+  open issue by its non-triggering label, then create it or `gh issue edit` its
+  body in place. The dashboard is a current-state view of the recent windows;
+  it is always open, so its open state carries no signal. The alarm channel is
+  separate: a failing window opens a per-day `pull-log` / `live-log` issue (the
+  caller's failure step), so an open run-log issue means exactly "a window
+  broke".
+
+  State rides inside the issue body itself as a fenced JSON block (the trailing
+  `<details>` section, anchored by a sentinel comment): each update parses it,
+  prepends this window's record, drops records older than 14 days, and
+  re-renders the table — no repo or branch state, no comments on the happy
+  path. The body is treated as untrusted input: the issue is found by label
+  AND exact title, the parsed state must be an array of objects with string
+  timestamps (anything else restarts the table from this window), an
+  unparseable timestamp just ages its record out, and every string rendered
+  back out of the state is stripped of newlines, pipes, and backticks — so an
+  edited body cannot smuggle a fake state fence, a fake table row, or a
+  wedged-red job into later runs.
+
+  The per-window counts are read from the caller's queue files
+  (`predict-queue.json`, `evaluate-queue.json`, `unrecorded-queue.json`) in the
+  workspace; a window that failed before writing them records blanks. The
+  unrecorded queue's per-case "court/docket — reason" lines are carried into
+  the dashboard's triage list — recording nothing beats a guess, so a human
+  has to see what was left unrecorded.
+
+inputs:
+  token:
+    description: 'A GitHub token with `issues: write`, used to read and edit the dashboard issue.'
+    required: true
+  repo:
+    description: The `owner/name` the dashboard issue lives in.
+    required: true
+  channel:
+    description: '`pull` or `live` — which run-pull job this window ran.'
+    required: true
+  outcome:
+    description: '`success` or `failure` — the job status when the window ended.'
+    required: true
+  committed:
+    description: >
+      The corpus commit step's `committed` output — `true`, `false`, or empty
+      when the window failed before committing (rendered as a blank).
+    required: false
+    default: ''
+  predict-note:
+    description: 'The predict handoff''s Markdown note (held channel); empty otherwise.'
+    required: false
+    default: ''
+  evaluate-note:
+    description: 'The evaluate handoff''s Markdown note (held channel); empty otherwise.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        CHANNEL: ${{ inputs.channel }}
+        OUTCOME: ${{ inputs.outcome }}
+        COMMITTED: ${{ inputs.committed }}
+        PREDICT_NOTE: ${{ inputs.predict-note }}
+        EVALUATE_NOTE: ${{ inputs.evaluate-note }}
+      run: |
+        set -euo pipefail
+        # `run-log-dashboard` is a NON-triggering label by design (no `run:*`
+        # workflow keys on it, so labeling the dashboard cannot fire anything).
+        # Create it idempotently so a fresh repo's first window does not fail.
+        gh label create run-log-dashboard --repo "$REPO" --force \
+          --color 0e8a16 --description "Long-lived pipeline-runs dashboard (run-pull; updated in place each window)"
+
+        # Counts come from the window's queue files when the run got far enough
+        # to write them; an earlier failure records null (rendered as a blank).
+        count() { if [ -f "$1" ]; then jq 'length' "$1"; else echo null; fi; }
+        predict=$(count predict-queue.json)
+        evaluate=$(count evaluate-queue.json)
+        unrecorded=$(count unrecorded-queue.json)
+        if [ -f unrecorded-queue.json ]; then
+          # Capped per window so a pathological queue cannot balloon the issue
+          # body toward GitHub's size cap; the count column keeps the true total.
+          cases=$(jq '[.[] | "\(.court)/\(.docket) — \(.reason)"][:20]' unrecorded-queue.json)
+        else
+          cases='[]'
+        fi
+
+        # Find the dashboard by label AND exact title, so a stray issue that
+        # merely carries the label cannot shadow the dashboard and feed its
+        # body into the parse below.
+        num=$(gh issue list --repo "$REPO" --label run-log-dashboard --state open \
+          --json number,title | jq -r '[.[] | select(.title == "Pipeline runs")][0].number // empty')
+        state='[]'
+        if [ -n "$num" ]; then
+          gh issue view "$num" --repo "$REPO" --json body --jq .body \
+            | tr -d '\r' > "${RUNNER_TEMP}/dashboard-body.md"
+          # The state fence is anchored by the sentinel line the renderer
+          # emits, not by the first ```json in the body; rendered state strings
+          # are newline-stripped below, so body content cannot mint a fake
+          # sentinel + fence pair for later runs to swallow.
+          parsed=$(awk '/^<!-- run-log-state -->$/{f=1; next}
+            f && /^```json$/{g=1; next}
+            g && /^```$/{exit}
+            g{print}' "${RUNNER_TEMP}/dashboard-body.md")
+          # Accept only an array of objects with string timestamps; anything
+          # else (a hand-mangled body) restarts the table from this window.
+          if [ -n "$parsed" ] && jq -e \
+            'type == "array" and all(.[]; type == "object" and (.ts | type == "string"))' \
+            <<<"$parsed" >/dev/null 2>&1; then
+            state="$parsed"
+          fi
+        fi
+
+        record=$(jq -n \
+          --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --arg channel "$CHANNEL" \
+          --arg outcome "$OUTCOME" \
+          --arg committed "$COMMITTED" \
+          --arg pnote "$PREDICT_NOTE" \
+          --arg enote "$EVALUATE_NOTE" \
+          --argjson predict "$predict" \
+          --argjson evaluate "$evaluate" \
+          --argjson unrecorded "$unrecorded" \
+          --argjson unrecorded_cases "$cases" \
+          '{ts: $ts, channel: $channel, outcome: $outcome,
+            predict: $predict, predict_note: $pnote,
+            evaluate: $evaluate, evaluate_note: $enote,
+            unrecorded: $unrecorded, unrecorded_cases: $unrecorded_cases,
+            committed: ($committed | if . == "true" then true elif . == "false" then false else null end)}')
+
+        # Newest first; a rolling 14 days keeps the body a dashboard, not an
+        # archive (the Actions run history is the archive). An unparseable
+        # timestamp ages its record out rather than failing every later window.
+        state=$(jq --argjson rec "$record" \
+          '[$rec] + . | map(select((.ts | try fromdateiso8601 catch 0) > (now - 14 * 86400)))' <<<"$state")
+
+        # `clean` sanitizes every string rendered back out of the (untrusted)
+        # parsed state: no newlines (fake sentinel/fence/row lines), no pipes
+        # (table-cell escapes), no backticks (fence starts). The state fence is
+        # compact JSON: it is machine-maintained, and compact keeps the body
+        # well under GitHub's size cap.
+        render() {
+          {
+            printf 'Auto-updated in place at the end of every `run-pull` window (pull and live), newest first, rolling 14 days. This issue stays open by design — the alarm channel is separate: an open `pull-log` / `live-log` issue means exactly "a window broke and awaits triage".\n\n'
+            echo '| Window (UTC) | Channel | Outcome | predict queued | evaluate queued | unrecorded | Corpus |'
+            echo '|---|---|---|---:|---:|---:|---|'
+            jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
+              .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean)\((.predict_note // "") | clean) | \((.evaluate // "") | clean)\((.evaluate_note // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
+              <<<"$state"
+            triage=$(jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
+              .[] | "\(.ts | clean) \(.channel | clean)" as $w | (.unrecorded_cases // [])[] | "- \($w): `\(clean)`"' <<<"$state")
+            if [ -n "$triage" ]; then
+              printf '\nUnrecorded outcomes surfaced in these windows — decided-looking dockets whose outcome could not be recorded deterministically, for maintainer triage:\n%s\n' "$triage"
+            fi
+            printf '\n<details><summary>state (machine-maintained — the windows above as JSON)</summary>\n\n<!-- run-log-state -->\n```json\n%s\n```\n\n</details>\n' \
+              "$(jq -c . <<<"$state")"
+          } > "${RUNNER_TEMP}/dashboard.md"
+        }
+        render
+        # GitHub caps an issue body at 65,536 characters. A busy fortnight
+        # (persistent triage lists on many windows) could exceed it, and an
+        # oversize edit would fail every later window — so trim the oldest
+        # quarter of the records and re-render until the body fits with
+        # headroom. The Actions run history keeps what the trim drops.
+        while [ "$(wc -c < "${RUNNER_TEMP}/dashboard.md")" -gt 60000 ] \
+          && [ "$(jq 'length' <<<"$state")" -gt 1 ]; do
+          state=$(jq '.[0 : (length - (length / 4 | ceil))]' <<<"$state")
+          render
+        done
+
+        if [ -z "$num" ]; then
+          url=$(gh issue create --repo "$REPO" --title "Pipeline runs" \
+            --label run-log-dashboard --body-file "${RUNNER_TEMP}/dashboard.md")
+          echo "Opened the pipeline-runs dashboard: ${url}"
+        else
+          gh issue edit "$num" --repo "$REPO" --body-file "${RUNNER_TEMP}/dashboard.md"
+          echo "Updated the pipeline-runs dashboard (#${num})."
+        fi
