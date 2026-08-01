@@ -277,6 +277,39 @@ jobs:
           PY
           cat historical-summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      # Merge and drop the live-minted duplicate SCOTUS rows on the now-current
+      # corpus, before the scope reconcile so the latch pass always weighs the
+      # deduped rows. A standing sweep of the one-petition-one-row invariant
+      # across the id ranges: any docket-number spelling that defeats the
+      # channels' identity join leaves this pair shape, and the sweep merges it
+      # away on the next window. Idempotent — a clean corpus finds nothing and
+      # persists nothing — so riding every gated window is safe. Same
+      # one-window/day gate and NON-BLOCKING contract as the reconcile below.
+      - name: Dedupe live-minted duplicate rows
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to dedupe.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping dedupe"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts dedupe-live-rows --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "No duplicate pairs to persist."
+            exit 0
+          fi
+          git commit -m "seed: dedupe live-minted duplicate rows"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "dedupe pointer"
+
       # Reconcile predict scope on the now-current corpus: latch the out-of-scope
       # cases so `open_events` drops them at the source, and clear the latch on any
       # back in scope. Gated to one window/day (02:31) so the sweep keeps its
