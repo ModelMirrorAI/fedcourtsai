@@ -7,6 +7,7 @@ from text that looked like something it was not.
 
 from __future__ import annotations
 
+from fedcourtsai.pipeline.ingest import map_live_docket
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
     ReferralPosture,
@@ -18,7 +19,9 @@ from fedcourtsai.pipeline.interim_signals import (
     referral_posture,
     response_requested,
 )
+from fedcourtsai.pipeline.live import STREAMS
 from fedcourtsai.schemas import Disposition
+from fedcourtsai.supremecourt import live_application_id, live_docket_id
 
 # 24A1 — the administrative majority, verbatim.
 _EXTENSION = [
@@ -165,3 +168,85 @@ def test_the_escalation_ladder_separates_the_sampled_outcomes() -> None:
             "Application (23A350) referred to the Court.",
         ]
     ) == (True, True, 1)
+
+
+# --- ingestion: an application maps to a resolved row -----------------------------
+
+
+def _payload(*entries: tuple[str, str]) -> dict[str, object]:
+    return {
+        "CaseNumber": "24A1099 ",
+        "DocketedDate": "May 14, 2025",
+        "LowerCourt": "United States Court of Appeals for the Fourth Circuit",
+        "ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries],
+    }
+
+
+def test_an_application_resolves_through_its_own_vocabulary() -> None:
+    """Ingested on the cert path an application never resolves — the cert order
+    patterns match nothing in its proceedings, so it would sit open forever."""
+    payload = _payload(
+        ("May 14 2025", "Application (24A1099) for a stay, submitted to The Chief Justice."),
+        (
+            "May 23 2025",
+            "Application (24A1099) for stay presented to The Chief Justice and by him "
+            "referred to the Court is denied.",
+        ),
+    )
+    cert = map_live_docket(payload, 9_500_024_001)
+    assert cert["disposition"] is None  # the cert resolver reads nothing here
+
+    interim = map_live_docket(payload, 9_500_024_001, form="application")
+    assert interim["disposition"] == "denied"
+    assert interim["date_terminated"] == "2025-05-23"
+
+
+def test_an_application_carries_no_cert_stage_columns() -> None:
+    """It has no cert stage. Dating one as a cert grant would put a stay into the
+    cert population's timing, since `resolution_date` prefers those columns; a
+    distribution count of 0 would put it in the weakest salience band rather than
+    outside the band system entirely."""
+    record = map_live_docket(
+        _payload(("May 23 2025", "Application (24A1099) denied by Justice Kagan.")),
+        9_500_024_001,
+        form="application",
+    )
+    assert record["date_cert_granted"] is None
+    assert record["date_cert_denied"] is None
+    assert record["distributed_for_conference"] is None
+    assert record["cvsg_date"] is None
+    assert record["distribution_count"] is None  # unobservable, not zero
+
+
+def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:
+    """Opposite to the cert side's first-match rule, because an application can be
+    deferred pending argument and decided months later. Verbatim from 23A350."""
+    record = map_live_docket(
+        _payload(
+            ("Dec 20 2023", "Application (23A350) referred to the Court."),
+            (
+                "Dec 20 2023",
+                "Consideration of the applications for stay (23A349, 23A350) presented "
+                "to The Chief Justice and by him referred to the Court is deferred "
+                "pending oral argument.",
+            ),
+            ("Feb 21 2024", "Argued."),
+            (
+                "Jun 27 2024",
+                "Applications for stays (23A349, 23A350, 23A351, and 23A384) granted by the Court.",
+            ),
+        ),
+        9_500_023_350,
+        form="application",
+    )
+    assert record["disposition"] == "granted"
+    assert record["date_terminated"] == "2024-06-27"
+
+
+def test_the_frontier_walk_probes_the_interim_sequence() -> None:
+    """Applications are a third stream, addressed and identified differently: a
+    cert petition and an application can share `(term, serial)` and are different
+    matters, so they cannot share an id range."""
+    forms = {name: form for name, _, form in STREAMS}
+    assert forms == {"paid": "cert", "ifp": "cert", "application": "application"}
+    assert live_application_id(24, 1) != live_docket_id(24, 1)
