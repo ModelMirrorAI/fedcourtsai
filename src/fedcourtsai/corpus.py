@@ -45,7 +45,11 @@ from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
 from .schemas import Disposition, EventKind
-from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
+from .supremecourt import (
+    IFP_SERIAL_BASE,
+    parse_scotus_application_number,
+    parse_scotus_docket_number,
+)
 
 CORPUS_DB_FILENAME = "corpus.db"
 
@@ -299,6 +303,44 @@ class CorpusRow(BaseModel):
         "military courts — stay identifiable where `originating_court` (the "
         "tracked-court id linkage) is None. Only the live channel supplies it.",
     )
+    application_kind: str | None = Field(
+        default=None,
+        description="What an interim-docket application asks the Court for "
+        "(`extension` | `substantive` | `unknown`), read from the application's "
+        "own ask clause by the live channel's application branch. None means the "
+        "proceedings were never application-parsed — the same "
+        "never-parsed sentinel `distribution_count` carries — while `unknown` "
+        "asserts they were parsed and the ask could not be read. The upsert "
+        "keeps a real reading over an `unknown` (a degraded payload parses "
+        "confidently to `unknown`, the interim twin of the confident 0).",
+    )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the Court (or a Circuit Justice) requested a "
+        "response to an interim application — the interim analogue of a CVSG. "
+        "None = never application-parsed; the upsert max-latches it (the Court "
+        "does not un-request a response, so a degraded parse's confident False "
+        "never regresses a stored True). Live application branch only.",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether an interim application was referred to the full "
+        "Court rather than decided by a Circuit Justice alone — the signal the "
+        "interim aggregation rule turns on. None = never application-parsed; "
+        "max-latched like `response_requested` (a referral is never undone). "
+        "Live application branch only.",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        description="How many amicus briefs an interim application's docket "
+        "records (counted per entry naming amicus curiae — a stakes proxy, and "
+        "an approximation: a multi-filer entry counts once, a motion reciting "
+        "the phrase counts alongside the brief, and the max-latch makes any "
+        "overcount permanent; see `interim_signals.amicus_briefs`). None = "
+        "never application-parsed; the upsert max-latches it (filings are "
+        "append-only, so the count only ever grows and a degraded parse's "
+        "confident 0 never regresses it). Live application branch only.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -528,7 +570,15 @@ CREATE TABLE IF NOT EXISTS cases (
     predict_queued_at   TEXT,
     -- The last date the evaluate backlog deriver queued evaluate. Owned the same
     -- way; the deriver's daily-retry debounce reads it.
-    evaluate_queued_at  TEXT
+    evaluate_queued_at  TEXT,
+    -- Interim-docket signals (see CorpusRow and pipeline/interim_signals.py):
+    -- the application's ask and the three escalation-ladder signals, written by
+    -- the live channel's application branch. NULL = never application-parsed —
+    -- the conditioning set a future interim base rate accumulates over.
+    application_kind    TEXT,
+    response_requested  INTEGER,
+    referred_to_court   INTEGER,
+    amicus_briefs       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -662,6 +712,10 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
     "predict_queued_at": "TEXT",
     "evaluate_queued_at": "TEXT",
+    "application_kind": "TEXT",
+    "response_requested": "INTEGER",
+    "referred_to_court": "INTEGER",
+    "amicus_briefs": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -871,6 +925,14 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "evaluate_queued_at": (
             row.evaluate_queued_at.isoformat() if row.evaluate_queued_at else None
         ),
+        "application_kind": row.application_kind,
+        "response_requested": (
+            int(row.response_requested) if row.response_requested is not None else None
+        ),
+        "referred_to_court": (
+            int(row.referred_to_court) if row.referred_to_court is not None else None
+        ),
+        "amicus_briefs": row.amicus_briefs,
     }
 
 
@@ -904,6 +966,17 @@ def _optional_str(record: RecordRow, column: str) -> str | None:
     except (KeyError, IndexError):
         return None
     return raw if raw else None
+
+
+def _optional_bool(record: RecordRow, column: str) -> bool | None:
+    """Read a nullable-boolean column an older remote blob lacks (see ``_optional_date``).
+
+    ``None`` (missing column or NULL) stays ``None`` — the never-parsed
+    sentinel — rather than collapsing to ``False``, which would assert a parse
+    that never happened.
+    """
+    raw = _optional_int(record, column)
+    return bool(raw) if raw is not None else None
 
 
 def _optional_float(record: RecordRow, column: str) -> float | None:
@@ -956,6 +1029,10 @@ def _from_record(record: RecordRow) -> CorpusRow:
         salience_selected=bool(_optional_int(record, "salience_selected")),
         predict_queued_at=_optional_date(record, "predict_queued_at"),
         evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
+        application_kind=_optional_str(record, "application_kind"),
+        response_requested=_optional_bool(record, "response_requested"),
+        referred_to_court=_optional_bool(record, "referred_to_court"),
+        amicus_briefs=_optional_int(record, "amicus_briefs"),
     )
 
 
@@ -963,10 +1040,15 @@ def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
     Most columns take the incoming value (``excluded``). Five latch families are
-    special: channel-supplied facts (``last_pulled``, the live-parsed signals)
+    special: channel-supplied facts (``last_pulled`` and the fill-in slice of
+    the live-parsed signals)
     only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count`` is a max-latch (proceedings
-    are append-only, so the count only ever grows); ``sample_weight`` is a
+    another channel stamped; ``distribution_count`` and the interim escalation
+    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``)
+    are max-latches (proceedings are append-only and the signals monotone, so
+    each only ever grows — and ``application_kind`` gets the same protection in
+    TEXT form: a real reading is never wiped by a degraded parse's confident
+    ``unknown``); ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
@@ -987,17 +1069,38 @@ def _update_clause(column: str) -> str:
         # conference parse) must not wipe what another channel stamped. Safe for
         # exactly the columns whose degraded parse yields NULL.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
-    if column == "distribution_count":
+    if column in ("distribution_count", "response_requested", "referred_to_court", "amicus_briefs"):
         # A fill-in latch is not enough here: a degraded live parse (a payload
         # served with its proceedings missing) yields a confident 0 — not NULL —
         # and 0 asserts "parsed, never distributed", so COALESCE would let it
         # wipe a stored count. Proceedings are append-only upstream: the count
         # only ever legitimately grows, so the max-latch takes every real
-        # advance and rejects the regression.
+        # advance and rejects the regression. The interim escalation signals
+        # share the property exactly (the Court does not un-request a response,
+        # un-refer an application, or un-file an amicus brief), so the boolean
+        # flags max-latch as 0/1 integers and the amicus count as a count.
         return (
             f"{column}=MAX("
             f"COALESCE(excluded.{column}, cases.{column}), "
             f"COALESCE(cases.{column}, excluded.{column}))"
+        )
+    if column == "application_kind":
+        # The TEXT twin of the max-latch above: a degraded application parse
+        # (proceedings missing) reads a confident 'unknown' — not NULL — so a
+        # plain fill-in would let it wipe a real reading. 'unknown' only ever
+        # fills a gap, and a writer with nothing to assert (NULL — a cert-form
+        # or CourtListener write) keeps what the application branch stamped. A
+        # real reading ('extension' / 'substantive') deliberately overwrites a
+        # stored real reading: the ask clause is normally the first proceedings
+        # entry of an append-only list, so a flip is rare — a parser fix, or a
+        # payload served with its head entries missing whose surviving text
+        # recites a companion application's ask — and letting the fresh parse
+        # win is what lets a wrong stored reading self-heal.
+        return (
+            f"{column}=CASE "
+            f"WHEN excluded.{column} IS NULL OR excluded.{column} = 'unknown' "
+            f"THEN COALESCE(cases.{column}, excluded.{column}) "
+            f"ELSE excluded.{column} END"
         )
     if column == "sample_weight":
         # An inclusion probability can only be learned upward (toward certainty):
@@ -1009,23 +1112,22 @@ def _update_clause(column: str) -> str:
             f"COALESCE(excluded.{column}, cases.{column}), "
             f"COALESCE(cases.{column}, excluded.{column}))"
         )
-    if column == "predict_excluded":
-        # The scope reconcile owns this flag (it is not an ingestion fact and is not
-        # monotonic), so a re-ingest must never clobber it — keep the stored value.
-        return f"{column}=cases.{column}"
     if column in (
+        "predict_excluded",
         "salience_score",
         "salience_version",
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
     ):
-        # The salience selection pass owns the salience columns and the queue
-        # routing owns the `*_queued_at` stamps (none are ingestion facts): the pass
-        # recomputes score/version and maintains the one-way `salience_selected`
-        # latch, and clearing a queue stamp on re-ingest would let a deriver's
-        # daily-retry debounce re-queue a case every cycle its rotation poll touches
-        # it. Keep the stored values, exactly like `predict_excluded`.
+        # Owned elsewhere, so an ingestion upsert keeps the stored value: the
+        # scope reconcile owns `predict_excluded` (not an ingestion fact, not
+        # monotonic), the salience selection pass owns the salience columns
+        # (the pass recomputes score/version and maintains the one-way
+        # `salience_selected` latch), and the queue routing owns the
+        # `*_queued_at` stamps — clearing one on re-ingest would let a
+        # deriver's daily-retry debounce re-queue a case every cycle its
+        # rotation poll touches it.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -2216,7 +2318,8 @@ def rotation_for_pull(
 # SQL October-Term-year expression over the modern Term-prefixed docket form,
 # with the same century pivot as `scotus_term_year` (>= 30 -> 19xx). Requires
 # the GLOB prefilter so the leading two characters are digits; candidates are
-# re-verified in Python with `is_modern_cert`.
+# re-verified in Python by each rotation's own form check (`is_modern_cert` for
+# the cert rotation, the strict application-number parser for the interim one).
 _TERM_YEAR_SQL = (
     "CASE WHEN CAST(substr(docket_number, 1, 2) AS INTEGER) >= 30 "
     "THEN 1900 + CAST(substr(docket_number, 1, 2) AS INTEGER) "
@@ -2257,6 +2360,46 @@ def live_rotation(
     # docket-number spellings the raw GLOB admits but `is_modern_cert` rejects).
     cur = conn.execute(sql, (term_floor_year, limit * 2))
     picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+    return picked[:limit]
+
+
+def application_rotation(
+    conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
+) -> list[CorpusRow]:
+    """The next ``limit`` unresolved applications the live poller should re-poll.
+
+    The interim docket's counterpart of :func:`live_rotation`, which the
+    ``'[0-9][0-9]-*'`` cert GLOB can never reach (an application docket is
+    ``24A1099``): unresolved applications (no disposition, no termination) from
+    ``term_floor_year`` forward — the cert streams' reachability floor, applied
+    here by inference since both forms ride the same upstream JSON endpoint
+    (the probe's stated conclusions cover the petition streams; extend it to
+    the application sequence when it is next re-run). Recent Terms first, then never-polled
+    before stale, then ``case_id`` for determinism; no conference ordering,
+    because an application is never distributed. Rotates on ``last_live_polled``
+    exactly as the cert rotation does, sharing the stamp — an application is
+    only ever polled by the live channel, so the shared key costs nothing and
+    keeps one staleness clock per row.
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND docket_number GLOB '[0-9][0-9]A*' "
+        f"AND {_TERM_YEAR_SQL} >= ? "
+        f"ORDER BY {_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
+        "last_live_polled ASC, case_id ASC LIMIT ?"
+    )
+    # Over-fetch to cover candidates the Python re-verification drops (spellings
+    # the raw GLOB admits but the strict application-number parser — the form
+    # the upstream endpoint can actually be addressed by — rejects).
+    cur = conn.execute(sql, (term_floor_year, limit * 2))
+    picked = [
+        row
+        for record in cur
+        if parse_scotus_application_number((row := _from_record(record)).docket_number) is not None
+    ]
     return picked[:limit]
 
 

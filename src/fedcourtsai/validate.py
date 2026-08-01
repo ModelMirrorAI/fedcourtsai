@@ -44,6 +44,7 @@ import yaml
 from pydantic import ValidationError
 
 from . import corpus
+from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     FILENAME_MODELS,
     CorpusCheck,
@@ -279,10 +280,16 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     """Coded columns must hold values from their declared vocabulary.
 
     A case ``disposition`` (when set) must be a :class:`~fedcourtsai.schemas.Disposition`,
+    an ``application_kind`` (when set) an
+    :class:`~fedcourtsai.pipeline.interim_signals.ApplicationKind`,
     an event ``kind`` an :class:`~fedcourtsai.schemas.EventKind`, and every case and
-    event ``court`` one of the tracked courts. The pydantic enums enforce this at
-    write time, so a violation means a corpus rebuilt from a source that bypassed
-    them — defensive, like the duplicate check. The tracked-court half is skipped
+    event ``court`` one of the tracked courts. The pydantic enums enforce most of
+    this at write time, so a violation means a corpus rebuilt from a source that
+    bypassed them — defensive, like the duplicate check. ``application_kind`` is
+    typed as text on the row models, so this check is its only vocabulary
+    enforcement — and its storage latch compares the literal ``'unknown'``, so an
+    off-vocabulary value would latch as if it were a real reading. The
+    tracked-court half is skipped
     when no court set is supplied, keeping the verdict a pure function of its inputs.
     """
     checked = corpus.count(conn) + corpus.event_count(conn)
@@ -295,6 +302,16 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
         (*dispositions, _MAX_PROBLEMS),
     ):
         problems.append(f"case {r['case_id']!r} has unknown disposition {r['disposition']!r}")
+    application_kinds = sorted(k.value for k in ApplicationKind)
+    kind_values_ph = ", ".join("?" for _ in application_kinds)
+    for r in conn.execute(
+        f"SELECT case_id, application_kind FROM cases WHERE application_kind IS NOT NULL "
+        f"AND application_kind NOT IN ({kind_values_ph}) ORDER BY case_id LIMIT ?",
+        (*application_kinds, _MAX_PROBLEMS),
+    ):
+        problems.append(
+            f"case {r['case_id']!r} has unknown application_kind {r['application_kind']!r}"
+        )
     kinds = sorted(k.value for k in EventKind)
     kind_ph = ", ".join("?" for _ in kinds)
     for r in conn.execute(
