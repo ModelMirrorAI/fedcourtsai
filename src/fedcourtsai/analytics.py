@@ -1282,6 +1282,14 @@ def _term_row(entry: StatPackTerm) -> str:
 # artifact cannot yet compute. Named in the document rather than left as silent
 # gaps, so a citation is not read as a claim that the number is zero.
 _DOCKET_GAPS = (
+    "**The `granted` / `gvr` split is not comparable across Terms.** The `gvr` "
+    "label is a forward convention: a resolution recorded before it existed keeps "
+    "`granted`, and no post-hoc rule separates a merits GVR from a plenary grant "
+    "without re-resolving the source. OT2023 and OT2024 were resolved into the "
+    "corpus inside that window, so they carry **zero** GVRs against 30-59% of the "
+    "grant family in every Term either side of them — ingestion history, not the "
+    "Court changing behaviour. Read the grant family as one number; the split "
+    "below is safe within a Term and meaningless between them.",
     "**What the petitions are about.** A distribution of the questions presented "
     "by subject matter needs a claim taxonomy to classify them against, and no "
     "such taxonomy is built. Inventing one for this artifact alone would publish "
