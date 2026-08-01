@@ -16,6 +16,11 @@ Deterministic, no agent. Each cycle:
   machine-matchable per the reachability probe, so a decided petition lands its
   ``outcome.json`` deterministically through the same
   :func:`~fedcourtsai.pipeline.outcome.resolve_case` seam pull uses.
+- **The application rotation** re-polls unresolved interim applications
+  (:func:`fedcourtsai.corpus.application_rotation`) under its own small
+  per-cycle cap, resolving them through the interim vocabulary and persisting
+  the escalation signals — ground-truth collection only, with prediction
+  queueing off unconditionally (applications are not predict-scoped).
 
 Identity is reconciled before any row is minted: a petition already in the
 corpus (by normalized Term-form docket number) is **enriched** under its
@@ -54,6 +59,7 @@ from ..supremecourt import (
     SupremeCourtClient,
     live_application_id,
     live_docket_id,
+    parse_scotus_application_number,
     parse_scotus_docket_number,
 )
 from .documents import fetch_case_documents
@@ -436,6 +442,76 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     return queues
 
 
+def poll_applications(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    data_root: Path,
+    due: list[corpus.CorpusRow],
+    *,
+    today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> PullQueues:
+    """Refresh each due unresolved application; ground-truth recording only.
+
+    The interim counterpart of :func:`poll_live_cases`, with the predict seam
+    closed: applications are not predict-scoped, so ``queue_predict`` is off
+    unconditionally and each poll exists to catch the entries filed since the
+    last one — a response request, a referral, an amicus brief, the disposition
+    itself — and land them as the latched corpus signals plus, on resolution,
+    the deterministic ``outcome.json``. Routing is likewise **ungated**
+    regardless of the cycle's predict scope: the scope gate protects predict
+    spend, and with the predict seam closed there is nothing left for it to
+    protect — while gating would hide every resolved application from the run
+    log (they are permanently out of predict scope), leaving the stream's
+    accumulation invisible. So a resolved application always surfaces on
+    ``evaluate_skipped`` (nothing predicted it, so there is never anything to
+    score). The same politeness applies (the
+    client paces every fetch) and the same soft budget: on expiry the polls
+    done so far are committed and the rotation resumes next cycle. A vanished
+    docket (404 on a previously served number) is stamped so it cannot pin the
+    rotation's front, exactly as in the cert refresh.
+    """
+    queues = PullQueues()
+    for row in due:
+        if deadline is not None and time_fn() >= deadline:
+            break
+        parsed = parse_scotus_application_number(row.docket_number)
+        docket_id = int(row.case_id.rsplit("/", 1)[-1])
+        if parsed is None:
+            # application_rotation verified the addressable form, so this is
+            # unreachable in practice; skip defensively rather than probe a
+            # malformed URL.
+            continue
+        term, serial = parsed
+        try:
+            payload = client.get_docket(term, serial, form="application")
+        except httpx.HTTPError as exc:
+            queues.failed.append(
+                {
+                    "court": "scotus",
+                    "docket": docket_id,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
+        if payload is None:
+            with corpus.connect(corpus_db_path) as conn:
+                stamped = row.model_copy(update={"last_live_polled": today})
+                corpus.upsert_rows(conn, [stamped])
+            queues.failed.append(
+                {"court": "scotus", "docket": docket_id, "reason": "docket JSON no longer served"}
+            )
+            continue
+        result = ingest_live_payload(
+            corpus_db_path, data_root, payload, docket_id, today=today, form="application"
+        )
+        _route_result(
+            queues, corpus_db_path, data_root, result, gated=False, queue_predict=False, today=today
+        )
+    return queues
+
+
 def _decided_reason(result: LiveResult) -> str | None:
     """The forward-queue guard: why a decided-looking docket must not queue predict.
 
@@ -719,14 +795,18 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> tuple[PullQueues, LiveDiscovery]:
-    """One live cycle: discovery, the pending refresh, then the salience pass.
+    """One live cycle: discovery, the pending refresh, the application rotation,
+    then the salience pass.
 
     ``config`` (the ``live:`` section of ``tracking.yaml``) carries the cycle's
     caps and politeness knobs. Discovery runs first so a petition docketed since
     the last cycle is onboarded this same cycle; a case discovery just ingested
     is excluded from the refresh rotation (its poll is seconds old; re-fetching
     it would only spend cadence), and its result is routed through the identical
-    queue logic instead.
+    queue logic instead. After the cert polls, up to
+    ``config.max_applications_per_run`` unresolved interim applications are
+    re-polled (:func:`poll_applications`) — ground-truth collection only, with
+    the predict seam closed unconditionally.
 
     Predict timing is the distribution trigger everywhere: a freshly
     onboarded petition queues predict only if it is already distributed for a
@@ -809,6 +889,36 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     queues.evaluate_skipped.extend(refreshed.evaluate_skipped)
     queues.unrecorded.extend(refreshed.unrecorded)
     queues.failed.extend(refreshed.failed)
+
+    # The application rotation, after the cert polls: unresolved interim
+    # applications under their own cap, ground-truth only (poll_applications
+    # keeps the predict seam closed). A case discovery's application stream
+    # just onboarded is excluded exactly as the cert refresh excludes fresh
+    # petitions — its poll is seconds old.
+    max_applications = config.max_applications_per_run
+    with corpus.connect(corpus_db_path) as conn:
+        applications_due = [
+            row
+            for row in corpus.application_rotation(
+                conn,
+                limit=max_applications + len(fresh),
+                term_floor_year=config.term_floor_year,
+            )
+            if row.case_id not in fresh
+        ][:max_applications]
+    application_results = poll_applications(
+        client,
+        corpus_db_path,
+        data_root,
+        applications_due,
+        today=today,
+        deadline=deadline,
+        time_fn=time_fn,
+    )
+    queues.evaluate.extend(application_results.evaluate)
+    queues.evaluate_skipped.extend(application_results.evaluate_skipped)
+    queues.unrecorded.extend(application_results.unrecorded)
+    queues.failed.extend(application_results.failed)
 
     if salience_config is not None:
         with corpus.connect(corpus_db_path) as conn:

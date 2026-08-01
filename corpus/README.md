@@ -89,6 +89,10 @@ source.
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty, which is every row the walk now writes; 10 on a denial kept by the earlier sampled walk); null = no channel asserted a weight |
+| `application_kind`    | text            | what an interim application asks for (`extension` / `substantive` / `unknown`); null = never application-parsed |
+| `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
+| `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
+| `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -126,7 +130,16 @@ the supremecourt.gov channel; every other writer preserves the stored values
 (fill-in latches, except `distribution_count`, which max-latches — proceedings
 are append-only, so the count only grows). `distribution_count` doubles as the
 family's parse-coverage sentinel: null means the proceedings were never
-live-parsed, 0 asserts *parsed and never distributed*. `sample_weight` is
+live-parsed, 0 asserts *parsed and never distributed*. The interim-application
+family (`application_kind`, `response_requested`, `referred_to_court`,
+`amicus_briefs`) is the same shape for the live channel's application branch:
+supplied only there, null everywhere else (the never-application-parsed
+sentinel, with `application_kind` playing `distribution_count`'s coverage
+role). The three escalation signals max-latch — each is monotone over an
+application's life, so a degraded parse's confident 0 never regresses a stored
+value — and `application_kind` gets the TEXT twin of that latch: a real reading
+(`extension` / `substantive`) is never wiped by a degraded parse's confident
+`unknown`, which only ever fills a genuine gap. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
 so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The

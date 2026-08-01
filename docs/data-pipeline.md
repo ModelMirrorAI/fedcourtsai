@@ -127,7 +127,7 @@ matters, while the shared `corpus-write` lock keeps at most one running at a tim
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
-| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions: discovery, watchlist, outcomes |
+| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications: discovery, watchlist, outcomes |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           |
 | Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
@@ -571,7 +571,9 @@ and can never skip a real filing.
 History sits in the corpus, in the historical Term set the walker keeps growing
 newest-Term-first. **SCOTUS freshness is the live channel's**: frontier probing
 onboards new petitions within a cycle, the watchlist refresh catches
-distributions and resolutions within days of the conference; pull's windows
+distributions and resolutions within days of the conference, and the capped
+application rotation keeps re-polling unresolved interim applications until
+their outcomes and escalation signals land; pull's windows
 spend the API budget on enrichment of the in-scope SCOTUS set. The
 *prediction-relevant* slice — every pending petition and its originating docket
 — is complete to within one live cycle, while circuit breadth advances only as

@@ -73,6 +73,13 @@ live:
   # cycles) rather than trickling it over a week; the same soft
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
+  # Unresolved interim applications re-polled per cycle (recent Terms first,
+  # then stalest) — ground-truth collection only; prediction queueing is off
+  # for applications. Small because each re-poll is one request at the polite
+  # ~1 req/s and applications resolve in days to weeks: the unresolved set
+  # stays a short list that drains across cycles like the sweep backlog, so a
+  # small cap keeps the interim tail cheap without ever starving it.
+  max_applications_per_run: 10
   # Oldest October Term the refresh rotation reaches — the reachability probe's
   # floor (docs/live-sources.md): full JSON coverage OT2017+.
   term_floor_year: 2017

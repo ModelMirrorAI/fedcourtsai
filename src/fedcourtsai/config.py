@@ -199,6 +199,10 @@ class LiveConfig(BaseModel):
     max_cases_per_run: int = Field(default=30, ge=0)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
+    # Unresolved interim applications re-polled per cycle (the application
+    # rotation; recent Terms first, then stalest). Ground-truth collection
+    # only — prediction queueing is off for applications.
+    max_applications_per_run: int = Field(default=10, ge=0)
     # Oldest October Term the refresh rotation reaches — the reachability
     # probe's floor (docs/live-sources.md): full JSON coverage OT2017+.
     term_floor_year: int = Field(default=2017, ge=1925)
