@@ -613,6 +613,26 @@ def read_latest_snapshot(
     return latest, json.loads(body)
 
 
+def read_snapshot_at(
+    transport: ObjectTransport, case_id: str, *, before: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest dated snapshot strictly before ``before``, or ``None``.
+
+    Mirrors ``corpus.snapshot_at`` (the exclusive bound and all): the store
+    keys every dated snapshot under ``snapshots/``, so unlike the split-mode
+    blob every historical date is addressable, and a point-in-time read costs
+    one key listing plus one get.
+    """
+    dates = [d for d in _snapshot_dates(transport, case_id) if d < before]
+    if not dates:
+        return None
+    latest = max(dates)
+    body = transport.get(snapshot_key(case_id, latest))
+    if body is None:
+        return None
+    return latest, json.loads(body)
+
+
 def read_latest_live_snapshot(
     transport: ObjectTransport, case_id: str
 ) -> tuple[date, dict[str, Any]] | None:
@@ -692,6 +712,10 @@ class _CasestoreReadSource:
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
         transport = active_transport()
         return None if transport is None else read_latest_snapshot(transport, case_id)
+
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, Any]] | None:
+        transport = active_transport()
+        return None if transport is None else read_snapshot_at(transport, case_id, before=before)
 
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
         transport = active_transport()

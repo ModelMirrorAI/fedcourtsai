@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date
 
 from .. import corpus
@@ -179,22 +180,26 @@ def _select_cohort(
     return selected
 
 
-def _selection_plan(
-    conn: sqlite3.Connection, config: SalienceConfig
+def plan_cohorts(
+    rows: Iterable[corpus.CorpusRow], config: SalienceConfig
 ) -> tuple[dict[str, float], list[str], int, int]:
-    """Score the in-scope cert petitions and pick each cohort's selected slice.
+    """Score ``rows`` and pick each conference cohort's selected slice.
 
-    The pure planning half of the pass: returns ``(scores, to_select, eligible,
-    conferences)`` where ``to_select`` holds only the **not-yet-latched** picks
-    (the sticky latch is additive; the plan never de-selects).
+    The connection-free core of the selection pass, shared with the gate replay
+    (:mod:`fedcourtsai.salience_replay`), which feeds it point-in-time
+    synthesized rows instead of the live corpus scan. Callers own eligibility:
+    every row given is scored, so the Tier-0 filter runs before this. Returns
+    ``(scores, to_select, eligible, conferences)`` where ``to_select`` holds
+    only the **not-yet-latched** picks (the sticky latch is additive; the plan
+    never de-selects). Cohorting keys on each row's
+    ``distributed_for_conference``, so a replay caller sets that field to the
+    as-of value it reconstructs.
     """
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
     already_selected: set[str] = set()
     eligible = 0
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if corpus.out_of_scope_reason_full(conn, row) is not None:
-            continue  # Tier-0 excluded (incl. IFP): not scored, not selected
+    for row in rows:
         eligible += 1
         scores[row.case_id] = salience_score(row)
         if row.salience_selected:
@@ -208,11 +213,31 @@ def _selection_plan(
             cohorts[row.distributed_for_conference].append(row)
 
     to_select: list[str] = []
-    for conference, rows in cohorts.items():
-        selected = _select_cohort(rows, scores, _capacity(conference, config), config.floor)
+    for conference, cohort_rows in cohorts.items():
+        selected = _select_cohort(cohort_rows, scores, _capacity(conference, config), config.floor)
         # Sticky + additive: latch only the not-yet-selected; never de-select.
         to_select.extend(case_id for case_id in selected if case_id not in already_selected)
     return scores, to_select, eligible, len(cohorts)
+
+
+def _selection_plan(
+    conn: sqlite3.Connection, config: SalienceConfig
+) -> tuple[dict[str, float], list[str], int, int]:
+    """Score the in-scope cert petitions and pick each cohort's selected slice.
+
+    The pure planning half of the pass: the live corpus scan with the Tier-0
+    eligibility filter applied, delegating scoring and cohort selection to
+    :func:`plan_cohorts`.
+    """
+    return plan_cohorts(
+        (
+            row
+            for row in corpus.iter_rows(conn, court="scotus")
+            # Tier-0 excluded (incl. IFP): not scored, not selected.
+            if corpus.out_of_scope_reason_full(conn, row) is None
+        ),
+        config,
+    )
 
 
 def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -> list[str]:

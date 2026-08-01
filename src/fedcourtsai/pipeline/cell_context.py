@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
-from . import cert_signals
+from .asof import project_row
 from .salience import SALIENCE_VERSION, salience_band
 
 
@@ -56,28 +56,27 @@ def build(
     position is simply unknown. The evaluator then falls back rather than scoring
     against an invented conditioning.
     """
-    observable = cert_signals.snapshot_carries_proceedings(payload)
-    count = cert_signals.snapshot_distribution_count(payload)
-    cvsg = cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload))
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
     # proceedings, so reading just the first leaves every live cell without a Term
     # and silently disables the whole frozen path.
     docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
-    band: str | None = None
-    if observable:
-        # Scored from a row carrying only the two signals the band turns on: the
-        # originating-court nudge is bounded below every cutpoint, so it cannot
-        # move a band, and a snapshot need not disclose it.
-        band = salience_band(
-            corpus.CorpusRow(
-                case_id=case_id,
-                court=case_id.split("/", 1)[0],
-                docket_number=docket_number,
-                distribution_count=count,
-                cvsg_date=cvsg,
-            )
-        )
+    # The shared as-of projection derives the signals and their observability;
+    # the base row carries only the identity a payload discloses (a forward
+    # cell's snapshot need not disclose its originating court, and the nudge is
+    # bounded below every band cutpoint anyway, so a band never turns on it).
+    projected = project_row(
+        corpus.CorpusRow(
+            case_id=case_id, court=case_id.split("/", 1)[0], docket_number=docket_number
+        ),
+        payload,
+        cutoff=cutoff if cutoff is not None else snapshot_date,
+        provenance="dated" if provenance == "as-stored" else provenance,
+    )
+    observable = projected.observable
+    count = projected.row.distribution_count
+    cvsg = projected.row.cvsg_date
+    band = salience_band(projected.row) if observable else None
     return PredictionContext(
         mode=mode,
         snapshot_date=snapshot_date,

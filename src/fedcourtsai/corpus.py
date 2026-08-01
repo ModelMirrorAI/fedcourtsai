@@ -1088,6 +1088,8 @@ class PayloadReadSource(Protocol):
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, Any]] | None: ...
+
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
@@ -2702,12 +2704,12 @@ def snapshot_at(
     back-filled later, which is the residual a replay carries when no real
     snapshot exists for the moment it wants.
 
-    Under corpus-split mode the payloads live in the content store and only the
-    newest is directly addressable, so this returns ``None`` there rather than
-    pretending — the caller falls back to truncation and records which it got.
+    Under corpus-split mode the payloads live in the content store, where every
+    dated snapshot is its own addressable object, so the read is served from
+    there (``conn`` is unused) — see :func:`_payload_read_source`.
     """
-    if _payload_read_source() is not None:
-        return None
+    if (source := _payload_read_source()) is not None:
+        return source.snapshot_at(case_id, before=before)
     cur = conn.execute(
         "SELECT snapshot_date, payload FROM snapshots "
         "WHERE case_id = ? AND snapshot_date < ? "

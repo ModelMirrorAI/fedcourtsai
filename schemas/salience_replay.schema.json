@@ -1,0 +1,218 @@
+{
+  "$defs": {
+    "SalienceReplayCell": {
+      "additionalProperties": false,
+      "description": "One (Term, cutoff policy) cell of the salience-gate replay.\n\nThe current frozen salience code run over one past Term's resolved paid\nmodern-cert petitions, each projected to the state its docket disclosed as\nat the policy's cutoff (see ``fedcourtsai.pipeline.asof``). Selection here\nis what the gate *would have* latched at that moment; precision/recall\nscore that selection against the realized grant-family outcomes.",
+      "properties": {
+        "bands": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Petitions per as-of sal-v1 band (high / elevated / baseline), plus 'unobservable' for a projection whose payload disclosed no proceedings \u2014 unknown posture, never banded, never selected",
+          "title": "Bands",
+          "type": "object"
+        },
+        "capacity_bound_cohorts": {
+          "description": "Cohorts whose non-carve-out membership exceeded the capacity, so the rank fill actually cut (elsewhere N is inert)",
+          "minimum": 0,
+          "title": "Capacity Bound Cohorts",
+          "type": "integer"
+        },
+        "cohorts": {
+          "description": "Distinct as-of conference cohorts the capacity was applied within",
+          "minimum": 0,
+          "title": "Cohorts",
+          "type": "integer"
+        },
+        "eligible": {
+          "description": "Resolved, live-slice, paid modern-cert petitions of the Term (the time-invariant eligibility bar; a Tier-0 predicate that depends on post-arrival state is deliberately not applied)",
+          "minimum": 0,
+          "title": "Eligible",
+          "type": "integer"
+        },
+        "policy": {
+          "description": "The reconstruction moment: 'arrival' (day after the earliest dated docket entry), 'distribution-1' (day after the first DISTRIBUTED entry), or 'resolution' (the last distribution before the realized resolution \u2014 the latest posture a forward cell would have seen)",
+          "title": "Policy",
+          "type": "string"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "weighted_selected_granted / weighted_selected \u2014 the realized grant rate inside the would-have-been-selected slice; null when nothing was selected (an undefined rate, not zero)",
+          "title": "Precision"
+        },
+        "provenance": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Projections per snapshot provenance: 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with post-cutoff entries removed \u2014 it cannot detect an entry back-filled later but dated earlier, an accepted residual), 'blind' (no cutoff identifiable, or a disposition survived truncation, so the proceedings were removed outright). Three different information sets; read the mix before the counts",
+          "title": "Provenance",
+          "type": "object"
+        },
+        "realized_granted": {
+          "description": "Raw count of grant-family outcomes over every projected petition \u2014 recall's raw denominator",
+          "minimum": 0,
+          "title": "Realized Granted",
+          "type": "integer"
+        },
+        "recall": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants the selection would have covered; null when the Term shows no weighted grant",
+          "title": "Recall"
+        },
+        "selected": {
+          "description": "Petitions the gate would have latched selected at this moment",
+          "minimum": 0,
+          "title": "Selected",
+          "type": "integer"
+        },
+        "selected_carve_out": {
+          "description": "Selected via the always-include carve-outs (a CVSG on file, or a score at/above the salience floor) \u2014 the capacity-independent core",
+          "minimum": 0,
+          "title": "Selected Carve Out",
+          "type": "integer"
+        },
+        "selected_granted": {
+          "description": "Raw count of selected petitions whose realized disposition is in the grant family (granted / granted-in-part / GVR / summary reversal)",
+          "minimum": 0,
+          "title": "Selected Granted",
+          "type": "integer"
+        },
+        "selected_rank_fill": {
+          "description": "Selected by the rank-to-N capacity fill; with capacity above every cohort's size this equals every non-carve-out cohort member",
+          "minimum": 0,
+          "title": "Selected Rank Fill",
+          "type": "integer"
+        },
+        "skipped_no_snapshot": {
+          "description": "Eligible petitions with no held snapshot to reconstruct from; outside every count below",
+          "minimum": 0,
+          "title": "Skipped No Snapshot",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October Term whose resolved petitions were replayed",
+          "title": "Term",
+          "type": "integer"
+        },
+        "weighted_granted": {
+          "description": "Grant-family outcomes over every projected petition, sample_weight-weighted \u2014 recall's weighted denominator",
+          "minimum": 0.0,
+          "title": "Weighted Granted",
+          "type": "number"
+        },
+        "weighted_population": {
+          "description": "Every projected petition, sample_weight-weighted",
+          "minimum": 0.0,
+          "title": "Weighted Population",
+          "type": "number"
+        },
+        "weighted_selected": {
+          "description": "Selected petitions weighted by sample_weight (inverse inclusion probability, 1 where unasserted), so the figure estimates the Term's population rather than counting the walked sample's rows",
+          "minimum": 0.0,
+          "title": "Weighted Selected",
+          "type": "number"
+        },
+        "weighted_selected_granted": {
+          "description": "Grant-family selected petitions, sample_weight-weighted",
+          "minimum": 0.0,
+          "title": "Weighted Selected Granted",
+          "type": "number"
+        }
+      },
+      "required": [
+        "term",
+        "policy",
+        "eligible",
+        "skipped_no_snapshot",
+        "cohorts",
+        "selected",
+        "selected_carve_out",
+        "selected_rank_fill",
+        "capacity_bound_cohorts",
+        "selected_granted",
+        "realized_granted",
+        "weighted_selected",
+        "weighted_selected_granted",
+        "weighted_granted",
+        "weighted_population"
+      ],
+      "title": "SalienceReplayCell",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/salience-replay.json`` \u2014 the salience gate replayed over past Terms.\n\nThe current frozen selection code (``salience_version``) run over\npoint-in-time reconstructed dockets at successive moments, one cell per\n(Term, cutoff policy). It answers \"what would the gate have done then\" \u2014\ne.g. that at petition arrival every projected row sits in the baseline band\nand nothing is selected (the gate is degenerate before the docket moves) \u2014\nand gives a full predict/evaluate backtest its population frame. Numbers\nhere describe the *gate*, never a predictor: no model ran, so nothing in\nthis report is forecasting skill, and the retrospective stratum rule\napplies on top (see ``metrics/README.md``).",
+  "properties": {
+    "cells": {
+      "items": {
+        "$ref": "#/$defs/SalienceReplayCell"
+      },
+      "title": "Cells",
+      "type": "array"
+    },
+    "cells_evaluated": {
+      "default": 0,
+      "description": "(Term, policy) cells the replay produced",
+      "minimum": 0,
+      "title": "Cells Evaluated",
+      "type": "integer"
+    },
+    "policies": {
+      "description": "The cutoff policies replayed, one cell per Term each",
+      "items": {
+        "type": "string"
+      },
+      "title": "Policies",
+      "type": "array"
+    },
+    "salience_version": {
+      "default": "",
+      "description": "The frozen salience-function version whose scoring, banding, and selection the replay ran (e.g. sal-v1)",
+      "title": "Salience Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Every replayed petition had already resolved when the replay ran, so the figures measure how the gate would have behaved over known history, never ex-ante selection quality",
+      "title": "Stratum",
+      "type": "string"
+    },
+    "terms": {
+      "description": "The October Terms replayed",
+      "items": {
+        "type": "integer"
+      },
+      "title": "Terms",
+      "type": "array"
+    }
+  },
+  "title": "SalienceReplay",
+  "type": "object"
+}
