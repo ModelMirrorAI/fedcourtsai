@@ -1643,3 +1643,40 @@ def test_the_bare_number_test_is_unaffected_by_stripping() -> None:
     assert corpus.normalize_docket_number("No. 123") == "123"
     assert (corpus.normalize_docket_number("No. 123") or "").isdigit()
     assert not (corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") or "").isdigit()
+
+
+def _scotus(docket_number: str) -> corpus.CorpusRow:
+    return corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=docket_number)
+
+
+def test_an_application_serial_may_carry_hyphens_or_a_trailing_letter() -> None:
+    """Real spellings on the application docket that an end-anchored `\\d+` missed,
+    which let five rows past the scope rule and into predict scope. An
+    application's disposition is a stay grant/deny, so one reaching a cert cell
+    would be scored against a target the model is not calibrated for."""
+    for dn in ("A14-662", "A-13-717", "A-0245-12", "A04-1646", "18A142T"):
+        assert corpus.is_non_cert_scotus_form(_scotus(dn)), dn
+
+
+def test_the_widened_serial_still_cannot_reach_a_cert_number() -> None:
+    """The letter is the whole discriminator: a modern cert number is `YY-NNNN`
+    with no letter anywhere, so widening what counts as a serial cannot catch one.
+    Verified over the corpus too — the widening excludes nine more rows and zero
+    of them is a modern cert petition."""
+    for dn in ("25-5184", "25-1", "24-12", "22-451"):
+        assert not corpus.is_non_cert_scotus_form(_scotus(dn)), dn
+
+
+def test_a_dangling_hyphen_is_not_a_serial() -> None:
+    """The serial has to end in a digit, or a bare letter-and-dash would read as
+    an application docket."""
+    assert not corpus.is_non_cert_scotus_form(_scotus("A-"))
+
+
+def test_the_sibling_letter_forms_take_the_same_tolerances() -> None:
+    """Original, miscellaneous and disbarment dockets carry the same spellings for
+    the same reason; the rule treats all of them as non-cert forms, so a tolerance
+    added to one belongs on the others."""
+    assert corpus.is_non_cert_scotus_form(_scotus("22O14-1"))
+    assert corpus.is_non_cert_scotus_form(_scotus("M-62-3"))
+    assert corpus.is_disbarment_docket(_scotus("16D02977"))

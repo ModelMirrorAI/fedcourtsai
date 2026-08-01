@@ -1386,12 +1386,43 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
 # can never reach it). Typographic dashes are already folded to a hyphen by
 # :func:`normalize_docket_number` before these regexes see the string.
 _SCOTUS_FORM_SUFFIX = r"(?:\([^()]+\))?\.?$"
-_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+|\d+A)" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_ORIGINAL_RE = re.compile(r"^(?:\d{2}O\d+|\d+O)" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+|\d+M)" + _SCOTUS_FORM_SUFFIX)
+# The serial may itself carry hyphens ("A-0245-12", "A14-662") and may end in a
+# letter ("18A142T"). Both are real spellings on the application docket, and an
+# end-anchored `\d+` misses them — which let five application rows past this rule
+# and into predict scope. The letter after (or before) the digits is still what
+# discriminates: a modern cert number is `YY-NNNN` with no letter anywhere, so
+# widening the serial cannot reach one. Trailing digit required, so a dangling
+# hyphen does not satisfy the serial.
+_SCOTUS_FORM_SERIAL = r"[\d-]*\d[A-Z]?"
+_SCOTUS_APPLICATION_RE = re.compile(
+    r"^(?:\d{2}A"
+    + _SCOTUS_FORM_SERIAL
+    + r"|A-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+A)"
+    + _SCOTUS_FORM_SUFFIX
+)
+_SCOTUS_ORIGINAL_RE = re.compile(
+    r"^(?:\d{2}O" + _SCOTUS_FORM_SERIAL + r"|\d+O)" + _SCOTUS_FORM_SUFFIX
+)
+_SCOTUS_MISCELLANEOUS_RE = re.compile(
+    r"^(?:\d{2}M"
+    + _SCOTUS_FORM_SERIAL
+    + r"|M-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+M)"
+    + _SCOTUS_FORM_SUFFIX
+)
 # SCOTUS disbarment ("D-2464", Term-prefixed "16D2924" / "16D02977") — the
 # attorney-discipline docket, same tolerances as the sibling letter forms.
-_SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+|\d+D)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_DISBARMENT_RE = re.compile(
+    r"^(?:\d{2}D"
+    + _SCOTUS_FORM_SERIAL
+    + r"|D-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+D)"
+    + _SCOTUS_FORM_SUFFIX
+)
 # The spelled-out original-jurisdiction ("No. 155, Orig." / "155, Original.") and
 # miscellaneous ("No. 33, Misc." — the pre-1971 separate docket, merged into the
 # unified numbering at OT1970) markers — the text-form counterparts of the numeric
