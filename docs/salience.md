@@ -216,10 +216,11 @@ salience config in force (capacity actually enforced); `0` disables it.
 
 ## Replaying the gate
 
-Because `sal-v1` is frozen and selection is a pure function of a row's
-features, the gate can be **replayed over past Terms at reconstructed
-moments**: `fedcourts salience-replay` projects each resolved paid modern-cert
-petition of a named Term to the state its docket disclosed at a chosen cutoff
+Because `sal-v1` scoring is a pure function of a row's features — and
+selection a pure function of a cohort's — the frozen gate can be **replayed
+over past Terms at reconstructed moments**: `fedcourts salience-replay`
+projects each of a named Term's resolved, live-slice, paid modern-cert
+petitions to the state its docket disclosed at a chosen cutoff
 — petition **arrival**, the **first distribution**, or the **last
 pre-resolution distribution** — and runs the same selection core the live pass
 runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
@@ -240,8 +241,10 @@ What the report shows, per (Term, policy): the would-have-been selection
 split into carve-outs and rank fill, where capacity actually bit, the band and
 provenance mix, and sample-weighted precision/recall of the selection against
 the realized grant-family outcomes. The arrival cells quantify the gate's
-structural degeneracy — every signal the score turns on is docket-acquired, so
-at arrival everything reads baseline and nothing is selected — and the
+structural degeneracy — the primary signals the score turns on are
+docket-acquired (the circuit rides only as a bounded nudge that can never move
+a band or clear the floor), so at arrival every observable projection reads
+baseline and nothing is selected — and the
 resolution cells bound what the carve-outs would have caught. The same
 population frame and cutoffs are what a full predict/evaluate backtest over a
 past Term inherits. What the numbers may and may not be read as:

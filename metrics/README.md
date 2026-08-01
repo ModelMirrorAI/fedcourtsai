@@ -123,32 +123,49 @@ calibration with vacatur-practice prediction.
   runnable locally with the engine CLIs authenticated.
 - `salience-replay.json` — the **salience gate** replayed over past Terms
   (`fedcourts salience-replay`; deterministic, offline, spends nothing). One
-  cell per (October Term, cutoff policy): each of the Term's resolved paid
-  modern-cert petitions is projected to the state its docket disclosed at the
-  policy's moment — petition arrival, first distribution, or the last
-  pre-resolution distribution — and the current frozen `sal-v1` scoring,
-  banding, and per-conference selection runs over the reconstruction. Each
-  cell reports the would-have-been selection (carve-out vs rank-fill, and
-  where capacity actually bit), the band mix including `unobservable`, the
+  cell per (October Term, cutoff policy): each of the Term's resolved,
+  **live-slice**, paid modern-cert petitions — live-slice because only a
+  docket with parsed proceedings offers a state to reconstruct, so a cell's
+  `eligible` count is walk coverage, not the Term's whole paid cert docket —
+  is projected to the state its docket disclosed at the policy's moment
+  (petition arrival, first distribution, or the last pre-resolution
+  distribution) and the current frozen `sal-v1` scoring, banding, and
+  per-conference selection runs over the reconstruction. Each cell reports
+  the would-have-been selection (carve-out vs rank-fill, and where capacity
+  actually bit), the band mix including `unobservable`, the
   snapshot-provenance mix, and sample-weighted **precision/recall of the
   selection against the realized grant-family outcomes**, with raw counts
-  beside every weighted figure.
+  beside the weighted selection and grant figures.
 
   **What may be claimed.** The numbers describe the *gate* — how the
   deterministic selection rule would have behaved at a reconstructed moment —
-  and its structural facts: at arrival every projected petition reads
+  and its structural facts: at arrival every *observable* projection reads
   relist-0/baseline with no conference cohort, so nothing is selected and
   precision is undefined (the gate cannot distinguish petitions before the
   docket moves). **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before
-  the replay, so the backtest-as-iteration doctrine below applies in full.
-  Weighted figures estimate the Term's population via each row's
-  `sample_weight` (inverse inclusion probability); the raw counts beside them
-  count walked rows, and the two must not be mixed. Read the provenance mix
-  before the rates: a `truncated` projection cannot detect an entry
-  back-filled later but dated earlier (an accepted residual a `dated`
-  snapshot does not carry), and a `blind` one shows no trajectory at all.
-  Cross-policy comparison within a Term is the intended reading;
+  the replay, so the backtest-as-iteration doctrine below applies in full. A
+  Term replayed before it has fully resolved censors its pending — and
+  disproportionately high-salience — petitions, so read only completed Terms.
+  Weighted figures use each row's `sample_weight` (inverse inclusion
+  probability), and what they estimate depends on the statistic: row-wise
+  quantities (the carve-out slice, the grant totals) reweight into population
+  estimates, but the **rank fill is a functional of the walked sample's
+  cohort** — under legacy denial weights a replayed cohort holds a thinned
+  fraction of the real one, so the top-N of that subsample is not the
+  population's top-N, and `capacity_bound_cohorts` can read inert where the
+  real cohort would have been cut. Each cell's `largest_weighted_cohort`
+  against the capacity is the check: rank-fill figures are trustworthy where
+  it too sits below capacity (or on Terms walked at weight 1 throughout).
+  The raw counts beside the weighted figures count walked rows; the two must
+  not be mixed. Read the provenance mix before the rates: a `truncated`
+  projection cannot detect an entry back-filled later but dated earlier (an
+  accepted residual a `dated` snapshot does not carry), and the blind causes
+  read differently under recall — `blind-no-moment` is a faithful gate miss
+  (the live gate would never have cohorted it either), `blind-untrusted-cutoff`
+  a reconstruction failure on a really-distributed petition, and both sit in
+  recall's denominator while being unselectable. Cross-policy comparison
+  within a Term is the intended reading (mind the shifting blind share);
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
@@ -228,7 +245,8 @@ data, e.g. a Supreme Court Database import), amicus-brief counts per petition
 court below — needs judgment-entry parsing on decided merits cases).
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
-the replay runs, `backtest.json`, `cert-backtest.json`) are **iteration
+the replay runs, `backtest.json`, `cert-backtest.json`,
+`salience-replay.json`) are **iteration
 instruments** — for tuning prompts, retrieval, and calibration — and are
 **never claimable performance**; the project claims results only from genuine
 forward predictions. Timing is the integrity mechanism: the prediction's git

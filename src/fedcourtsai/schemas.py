@@ -2441,7 +2441,22 @@ class SalienceReplayCell(_Strict):
     capacity_bound_cohorts: int = Field(
         ge=0,
         description="Cohorts whose non-carve-out membership exceeded the capacity, "
-        "so the rank fill actually cut (elsewhere N is inert)",
+        "so the rank fill actually cut (elsewhere N is inert). Counted over the "
+        "walked sample's cohorts: under legacy denial weights a replayed cohort "
+        "holds ~1/weight of the real cohort's non-carve-out members, so capacity "
+        "that would have bound over the Term's real cohort can read as inert here "
+        "— compare largest_weighted_cohort against the capacity before trusting "
+        "the rank-fill figures",
+    )
+    largest_weighted_cohort: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="The largest cohort's sample_weight-weighted non-carve-out "
+        "mass — the reader's check on the rank fill: a value above the "
+        "per-conference capacity where the raw cohort size sat below it means "
+        "the real cohort could have been cut where the replayed sample was not, "
+        "and the rank-fill and capacity figures are then sample statistics, not "
+        "population estimates. 0 when the cell formed no cohort",
     )
     bands: dict[str, int] = Field(
         default_factory=dict,
@@ -2454,10 +2469,13 @@ class SalienceReplayCell(_Strict):
         description="Projections per snapshot provenance: 'dated' (a snapshot the "
         "docket really served before the cutoff), 'truncated' (a later payload "
         "with post-cutoff entries removed — it cannot detect an entry back-filled "
-        "later but dated earlier, an accepted residual), 'blind' (no cutoff "
-        "identifiable, or a disposition survived truncation, so the proceedings "
-        "were removed outright). Three different information sets; read the mix "
-        "before the counts",
+        "later but dated earlier, an accepted residual), and the two blind cases, "
+        "proceedings removed outright: 'blind-no-moment' (no cutoff exists — the "
+        "live gate would also never have cohorted this petition, a faithful gate "
+        "miss) vs 'blind-untrusted-cutoff' (a disposition survived truncation, so "
+        "a really-distributed petition is unselectable here only because its "
+        "reconstruction could not be trusted). Different information sets; read "
+        "the mix before the counts",
     )
     selected_granted: int = Field(
         ge=0,
@@ -2499,8 +2517,11 @@ class SalienceReplayCell(_Strict):
         ge=0.0,
         le=1.0,
         description="weighted_selected_granted / weighted_granted — the share of "
-        "the Term's realized grants the selection would have covered; null when "
-        "the Term shows no weighted grant",
+        "the Term's realized grants (among projected petitions) the selection "
+        "would have covered; null when the projected petitions show no weighted "
+        "grant. The denominator includes blind projections, which can never be "
+        "selected — for a 'blind-untrusted-cutoff' row that is a reconstruction "
+        "failure, not a gate miss, so read the provenance mix beside a low recall",
     )
 
 

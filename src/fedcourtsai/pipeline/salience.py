@@ -160,18 +160,27 @@ def _capacity(conference: date, config: SalienceConfig) -> int:
     return config.per_conference_capacity
 
 
+def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """The always-include rule: a CVSG petition, or a score at/above the floor.
+
+    Public because the gate replay's carve-out/rank-fill reporting must apply
+    the same predicate selection does — one definition, so the report cannot
+    drift from the selector it describes.
+    """
+    return row.cvsg_date is not None or score >= floor
+
+
 def _select_cohort(
     rows: list[corpus.CorpusRow], scores: dict[str, float], capacity: int, floor: float
 ) -> set[str]:
     """The case ids to hold selected in one conference cohort.
 
-    Carve-outs (CVSG petitions and anything at/above the floor) are selected
-    unconditionally and sit *above* the ``N`` budget; the remainder is ranked by
-    score (descending, case_id tie-break) and fills to ``N``.
+    Carve-outs (:func:`carve_out` — CVSG petitions and anything at/above the
+    floor) are selected unconditionally and sit *above* the ``N`` budget; the
+    remainder is ranked by score (descending, case_id tie-break) and fills to
+    ``N``.
     """
-    selected = {
-        row.case_id for row in rows if row.cvsg_date is not None or scores[row.case_id] >= floor
-    }
+    selected = {row.case_id for row in rows if carve_out(row, scores[row.case_id], floor)}
     remainder = sorted(
         (row for row in rows if row.case_id not in selected),
         key=lambda row: (-scores[row.case_id], row.case_id),

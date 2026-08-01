@@ -348,6 +348,7 @@ def test_arrival_replay_is_degenerate_zero_selected_all_baseline(tmp_path: Path)
     assert cell.cohorts == 0 and cell.selected == 0
     assert cell.bands == {"baseline": 4}  # every projected docket reads relist-0
     assert cell.provenance == {"truncated": 4}
+    assert cell.largest_weighted_cohort == 0.0  # no cohort formed at all
     assert cell.precision is None  # an empty selection has no rate, not a zero one
     assert cell.recall == 0.0  # but it does cover none of the Term's grants
 
@@ -360,10 +361,13 @@ def test_distribution_1_replay_cohorts_on_the_first_conference(tmp_path: Path) -
     # every one relist-0/baseline; scotus/4 never distributed -> blind.
     assert cell.cohorts == 1
     assert cell.bands == {"baseline": 3, "unobservable": 1}
-    assert cell.provenance == {"truncated": 3, "blind": 1}
+    # scotus/4's blind is a faithful gate miss (never distributed), and the
+    # mix says so rather than pooling it with an untrusted reconstruction.
+    assert cell.provenance == {"truncated": 3, "blind-no-moment": 1}
     # All baseline, so no carve-out; capacity 1 fills by case_id tie-break.
     assert (cell.selected, cell.selected_carve_out, cell.selected_rank_fill) == (1, 0, 1)
     assert cell.capacity_bound_cohorts == 1
+    assert cell.largest_weighted_cohort == 12.0  # 1 + 10 + 1, all non-carve-out
 
 
 def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Path) -> None:
@@ -378,6 +382,7 @@ def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Pa
     assert cell.cohorts == 2  # Feb 16 (scotus/2, scotus/3) and Mar 1 (scotus/1)
     assert (cell.selected, cell.selected_carve_out, cell.selected_rank_fill) == (2, 1, 1)
     assert cell.capacity_bound_cohorts == 1  # only Feb 16's rank fill actually cut
+    assert cell.largest_weighted_cohort == 11.0  # Feb 16's non-carve-out weighted mass
     # Weighted precision: the weight-10 denial dominates the selected slice's
     # denominator — (1) / (1 + 10) — while raw counts stay readable beside it.
     assert cell.selected_granted == 1 and cell.realized_granted == 2
@@ -385,6 +390,42 @@ def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Pa
     assert cell.precision == pytest.approx(1 / 11)
     assert cell.recall == pytest.approx(1 / 2)  # scotus/3's grant is missed
     assert cell.weighted_population == 13.0  # 1 + 10 + 1 + 1
+
+
+def test_an_untrusted_cutoff_degrades_to_blind(tmp_path: Path) -> None:
+    """The fail-closed seam: a rehearing distribution after a denial puts the
+    resolution cutoff past the disposing order, so the disposition survives
+    truncation and the projection must go blind — labeled as a reconstruction
+    failure, not a gate miss, because the petition really was cohortable."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = corpus.CorpusRow(
+        case_id="scotus/8",
+        court="scotus",
+        docket_number="23-800",
+        date_filed=date(2024, 1, 5),
+        disposition=Disposition.denied,
+        # The cert dates were never stamped, so resolution falls back to the
+        # docket's termination — after the post-denial rehearing distribution.
+        date_decided=date(2024, 5, 30),
+        last_live_polled=date(2024, 7, 1),
+    )
+    payload = {
+        "CaseNumber": "23-800",
+        "ProceedingsandOrder": [
+            {"Date": "Jan 5 2024", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Feb 2 2024", "Text": "DISTRIBUTED for Conference of February 16, 2024."},
+            {"Date": "Mar 10 2024", "Text": "Petition DENIED."},
+            {"Date": "May 2 2024", "Text": "DISTRIBUTED for Conference of May 15, 2024."},
+        ],
+    }
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_snapshot(conn, row.case_id, date(2024, 7, 1), payload)
+    report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
+    (cell,) = report.cells
+    assert cell.provenance == {"blind-untrusted-cutoff": 1}
+    assert cell.bands == {"unobservable": 1}  # no trajectory shown, never banded
+    assert cell.selected == 0
 
 
 def test_an_empty_term_still_yields_its_cells(tmp_path: Path) -> None:
@@ -420,9 +461,8 @@ def test_read_snapshot_at_returns_the_newest_strictly_before() -> None:
 def test_split_mode_snapshot_at_is_served_from_the_store(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Under the corpus split a dated point-in-time read now exists (every dated
-    snapshot is an addressable store object), upgrading replay provenance from
-    the truncation fallback."""
+    """Under the corpus split every dated snapshot is an addressable store
+    object, so a dated point-in-time read is served from the store."""
     casestore.set_active_transport(_store_with_snapshots())
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
     with corpus.connect(tmp_path / "corpus.db") as conn:  # empty blob: nothing served from SQL

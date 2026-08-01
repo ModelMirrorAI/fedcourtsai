@@ -48,6 +48,7 @@ from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import (
     SALIENCE_VERSION,
     _capacity,
+    carve_out,
     plan_cohorts,
     salience_band,
 )
@@ -84,21 +85,21 @@ def select_replay_population(
     ]
 
 
-def _is_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
-    """The always-include rule, as ``_select_cohort`` applies it: CVSG or at/above floor."""
-    return row.cvsg_date is not None or score >= floor
-
-
 def _project(
     conn: sqlite3.Connection, row: corpus.CorpusRow, policy: asof.CutoffPolicy
-) -> asof.AsOfRow | None:
+) -> tuple[asof.AsOfRow, str] | None:
     """Project one petition to the policy's moment, or ``None`` with no snapshot.
 
     The cert back-test's provisioning ladder, applied to a row instead of a
     cell: redact the latest payload, find the policy cutoff, prefer a snapshot
     the docket really served before it (``dated``) over truncating the later
-    payload (``truncated``), and fail closed to ``blind`` — proceedings removed
-    outright — when no cutoff exists or a disposition survives truncation.
+    payload (``truncated``), and fail closed to blind — proceedings removed
+    outright — when no cutoff exists or a disposition survives truncation. The
+    returned label is the report's provenance-mix key: the two blind causes are
+    told apart (``blind-no-moment`` — the live gate would also never have
+    cohorted this petition — vs ``blind-untrusted-cutoff`` — a distributed,
+    cohortable petition whose reconstruction could not be trusted), because
+    they read very differently under recall.
     """
     found = corpus.latest_snapshot(conn, row.case_id)
     if found is None:
@@ -108,11 +109,12 @@ def _project(
     provenance: Literal["dated", "truncated", "blind"] = (
         "truncated" if cutoff is not None else "blind"
     )
+    label: str = provenance if cutoff is not None else "blind-no-moment"
     if cutoff is not None:
         dated = corpus.snapshot_at(conn, row.case_id, before=cutoff)
         if dated is not None:
             working = redact_snapshot(dated[1])
-            provenance = "dated"
+            provenance = label = "dated"
     # Truncation runs on the dated payload too: a no-op when the stored snapshot
     # really predates the cutoff, an alarm when it does not.
     working, _ = truncate_snapshot(working, cutoff)
@@ -121,13 +123,14 @@ def _project(
     if cutoff is not None and _kept_entries_show_a_disposition(working):
         working, _ = truncate_snapshot(working, None)
         provenance = "blind"
+        label = "blind-untrusted-cutoff"
         cutoff = None
     projected = asof.project_row(row, working, cutoff=cutoff, provenance=provenance)
     if cutoff is not None:
         # The as-of conference, so cohorting reproduces the latest-entry-wins
         # value the live channel would have held at that moment.
         projected.row.distributed_for_conference = asof.asof_conference(working, cutoff)
-    return projected
+    return projected, label
 
 
 def _replay_cell(
@@ -142,20 +145,21 @@ def _replay_cell(
     provenance_mix: Counter[str] = Counter()
     skipped = 0
     for row in rows:
-        projection = _project(conn, row, policy)
-        if projection is None:
+        found = _project(conn, row, policy)
+        if found is None:
             skipped += 1
             continue
-        provenance_mix[projection.provenance] += 1
+        projection, label = found
+        provenance_mix[label] += 1
         projected.append((row, projection))
 
     synthesized = [projection.row for _, projection in projected]
     scores, to_select, _, conferences = plan_cohorts(synthesized, config)
     selected = set(to_select)  # no projected row is pre-latched, so this is the whole pick
-    carve_out = {
+    carved = {
         row.case_id
         for row in synthesized
-        if row.case_id in selected and _is_carve_out(row, scores[row.case_id], config.floor)
+        if row.case_id in selected and carve_out(row, scores[row.case_id], config.floor)
     }
 
     cohort_members: dict[date, list[corpus.CorpusRow]] = {}
@@ -166,11 +170,25 @@ def _replay_cell(
         1
         for conference, members in cohort_members.items()
         if sum(
-            1
-            for member in members
-            if not _is_carve_out(member, scores[member.case_id], config.floor)
+            1 for member in members if not carve_out(member, scores[member.case_id], config.floor)
         )
         > _capacity(conference, config)
+    )
+    # The rank fill is a functional of the realized sample's cohort, so under
+    # legacy denial weights (a thinned cohort) it is not reweightable into a
+    # population estimate. This figure is the reader's check: the largest
+    # cohort's weighted non-carve-out mass against the capacity says whether
+    # the real cohort could have been cut where the sample was not.
+    largest_weighted_cohort = max(
+        (
+            sum(
+                float(member.sample_weight or 1)
+                for member in members
+                if not carve_out(member, scores[member.case_id], config.floor)
+            )
+            for members in cohort_members.values()
+        ),
+        default=0.0,
     )
 
     bands: Counter[str] = Counter()
@@ -199,9 +217,10 @@ def _replay_cell(
         skipped_no_snapshot=skipped,
         cohorts=conferences,
         selected=len(selected),
-        selected_carve_out=len(carve_out),
-        selected_rank_fill=len(selected) - len(carve_out),
+        selected_carve_out=len(carved),
+        selected_rank_fill=len(selected) - len(carved),
         capacity_bound_cohorts=capacity_bound,
+        largest_weighted_cohort=largest_weighted_cohort,
         bands=dict(bands),
         provenance=dict(provenance_mix),
         selected_granted=raw_selected_granted,

@@ -971,6 +971,12 @@ def salience_replay_cmd(
         ) from None
     if not term_years:
         raise typer.BadParameter("no Terms named", param_hint="--terms")
+    if any(not 1900 <= year <= 2099 for year in term_years):
+        # The parseable modern docket forms sit inside this range, so anything
+        # outside it is a typo that would otherwise write an all-zero report.
+        raise typer.BadParameter(
+            f"terms must be four-digit October-Term years, got {terms!r}", param_hint="--terms"
+        )
     policy_list: list[CutoffPolicy] = []
     for raw in policies.split(","):
         name = raw.strip()

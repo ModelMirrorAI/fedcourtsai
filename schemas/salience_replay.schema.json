@@ -13,7 +13,7 @@
           "type": "object"
         },
         "capacity_bound_cohorts": {
-          "description": "Cohorts whose non-carve-out membership exceeded the capacity, so the rank fill actually cut (elsewhere N is inert)",
+          "description": "Cohorts whose non-carve-out membership exceeded the capacity, so the rank fill actually cut (elsewhere N is inert). Counted over the walked sample's cohorts: under legacy denial weights a replayed cohort holds ~1/weight of the real cohort's non-carve-out members, so capacity that would have bound over the Term's real cohort can read as inert here \u2014 compare largest_weighted_cohort against the capacity before trusting the rank-fill figures",
           "minimum": 0,
           "title": "Capacity Bound Cohorts",
           "type": "integer"
@@ -29,6 +29,13 @@
           "minimum": 0,
           "title": "Eligible",
           "type": "integer"
+        },
+        "largest_weighted_cohort": {
+          "default": 0.0,
+          "description": "The largest cohort's sample_weight-weighted non-carve-out mass \u2014 the reader's check on the rank fill: a value above the per-conference capacity where the raw cohort size sat below it means the real cohort could have been cut where the replayed sample was not, and the rank-fill and capacity figures are then sample statistics, not population estimates. 0 when the cell formed no cohort",
+          "minimum": 0.0,
+          "title": "Largest Weighted Cohort",
+          "type": "number"
         },
         "policy": {
           "description": "The reconstruction moment: 'arrival' (day after the earliest dated docket entry), 'distribution-1' (day after the first DISTRIBUTED entry), or 'resolution' (the last distribution before the realized resolution \u2014 the latest posture a forward cell would have seen)",
@@ -54,7 +61,7 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "description": "Projections per snapshot provenance: 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with post-cutoff entries removed \u2014 it cannot detect an entry back-filled later but dated earlier, an accepted residual), 'blind' (no cutoff identifiable, or a disposition survived truncation, so the proceedings were removed outright). Three different information sets; read the mix before the counts",
+          "description": "Projections per snapshot provenance: 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with post-cutoff entries removed \u2014 it cannot detect an entry back-filled later but dated earlier, an accepted residual), and the two blind cases, proceedings removed outright: 'blind-no-moment' (no cutoff exists \u2014 the live gate would also never have cohorted this petition, a faithful gate miss) vs 'blind-untrusted-cutoff' (a disposition survived truncation, so a really-distributed petition is unselectable here only because its reconstruction could not be trusted). Different information sets; read the mix before the counts",
           "title": "Provenance",
           "type": "object"
         },
@@ -76,7 +83,7 @@
             }
           ],
           "default": null,
-          "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants the selection would have covered; null when the Term shows no weighted grant",
+          "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants (among projected petitions) the selection would have covered; null when the projected petitions show no weighted grant. The denominator includes blind projections, which can never be selected \u2014 for a 'blind-untrusted-cutoff' row that is a reconstruction failure, not a gate miss, so read the provenance mix beside a low recall",
           "title": "Recall"
         },
         "selected": {
