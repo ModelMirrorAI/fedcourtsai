@@ -30,6 +30,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -149,6 +150,47 @@ class PanelMember(BaseModel):
     seniority: str | None = None
 
 
+class CounselRole(StrEnum):
+    """Which side of the caption a counsel entry sits on."""
+
+    petitioner = "petitioner"
+    respondent = "respondent"
+    other = "other"
+
+
+class CounselEntry(BaseModel):
+    """One party/attorney pairing on a SCOTUS docket, with the side it appears for.
+
+    Stands to the flat ``parties`` / ``attorneys`` lists as ``panel`` stands to
+    ``judges``: the flat lists drive retrieval overlap, this carries the structure
+    a name string cannot. The side is the part that matters and the part the flat
+    lists destroy — "the Solicitor General is on this docket" is nearly
+    uninformative, because the SG appears as counsel for the *respondent* on a
+    large share of criminal petitions, opposing cert. "The United States is the
+    petitioner" is a different fact entirely, and only the role separates them.
+
+    The role also separates a stable fact from a moving one, which the flat lists
+    silently mix. ``petitioner`` and ``respondent`` blocks are set when the petition
+    is docketed and do not move as the docket progresses — unlike
+    ``distribution_count`` and ``cvsg_date``, they are **arrival-time**, which is
+    what makes them usable in a prospective score. ``other`` is the opposite: it
+    accumulates amici over the docket's life and overwhelmingly *after* a grant (a
+    merits case carries dozens where a denied petition carries none), so it is as
+    outcome-correlated as a relist count and must never be read as arrival-time.
+    Counting ``other`` on a decided docket is a grant oracle.
+
+    Empty off the SCOTUS live/historical channel: the CourtListener REST path
+    reports no role, exactly as it reports no ``seniority``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    party: str
+    attorney: str | None = None
+    role: CounselRole = CounselRole.other
+    counsel_of_record: bool = False
+
+
 class CorpusRow(BaseModel):
     """One normalized, labeled raw-fact record in the corpus.
 
@@ -196,6 +238,13 @@ class CorpusRow(BaseModel):
     )
     attorneys: list[str] = Field(
         default_factory=list, description="Attorney names of record on the docket."
+    )
+    counsel: list[CounselEntry] = Field(
+        default_factory=list,
+        description="Structured counsel (party + attorney + side + counsel-of-record) from the "
+        "SCOTUS docket's per-side blocks; the joined detail behind the flat `parties` and "
+        "`attorneys` names, and the only place the petitioner/respondent side survives. "
+        "Empty off the SCOTUS live/historical channel.",
     )
     topic: str | None = Field(default=None, description="Nature of suit / subject-matter topic.")
     citations: list[str] = Field(default_factory=list)
@@ -441,6 +490,7 @@ CREATE TABLE IF NOT EXISTS cases (
     disposition         TEXT,
     judges              TEXT NOT NULL DEFAULT '[]',
     panel               TEXT NOT NULL DEFAULT '[]',
+    counsel             TEXT NOT NULL DEFAULT '[]',
     parties             TEXT NOT NULL DEFAULT '[]',
     attorneys           TEXT NOT NULL DEFAULT '[]',
     topic               TEXT,
@@ -584,6 +634,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "disposition": "TEXT",
     "judges": "TEXT NOT NULL DEFAULT '[]'",
     "panel": "TEXT NOT NULL DEFAULT '[]'",
+    "counsel": "TEXT NOT NULL DEFAULT '[]'",
     "parties": "TEXT NOT NULL DEFAULT '[]'",
     "attorneys": "TEXT NOT NULL DEFAULT '[]'",
     "topic": "TEXT",
@@ -788,6 +839,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "disposition": row.disposition,
         "judges": json.dumps(row.judges, sort_keys=True),
         "panel": json.dumps([m.model_dump() for m in row.panel], sort_keys=True),
+        "counsel": json.dumps([c.model_dump(mode="json") for c in row.counsel], sort_keys=True),
         "parties": json.dumps(row.parties, sort_keys=True),
         "attorneys": json.dumps(row.attorneys, sort_keys=True),
         "topic": row.topic,
@@ -876,6 +928,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         disposition=record["disposition"],
         judges=json.loads(record["judges"]),
         panel=[PanelMember(**m) for m in json.loads(record["panel"])],
+        counsel=[CounselEntry(**c) for c in json.loads(record["counsel"])],
         parties=json.loads(record["parties"]),
         attorneys=json.loads(record["attorneys"]),
         topic=record["topic"],

@@ -99,6 +99,7 @@ def test_connect_migrates_legacy_cases_table(tmp_path: Path) -> None:
         assert legacy_row is not None
         assert legacy_row.panel == []
         assert legacy_row.parties == []
+        assert legacy_row.counsel == []
         assert legacy_row.date_cert_granted is None and legacy_row.date_cert_denied is None
         assert corpus.rotation_for_pull(conn, limit=10) == [legacy_row]
         # And the enriched columns are now writable.
@@ -1680,3 +1681,30 @@ def test_the_sibling_letter_forms_take_the_same_tolerances() -> None:
     assert corpus.is_non_cert_scotus_form(_scotus("22O14-1"))
     assert corpus.is_non_cert_scotus_form(_scotus("M-62-3"))
     assert corpus.is_disbarment_docket(_scotus("16D02977"))
+
+
+def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
+    """The side is the reason the column exists, so it is the thing that must
+    survive storage — a round trip that kept only the names would be the flat
+    `attorneys` list again, spelled more expensively."""
+    db = tmp_path / "corpus.db"
+    entries = [
+        corpus.CounselEntry(
+            party="United States",
+            attorney="D. John Sauer",
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=True,
+        ),
+        corpus.CounselEntry(
+            party="Donte J. Carter",
+            attorney="Shay Dvoretzky",
+            role=corpus.CounselRole.respondent,
+        ),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/885", counsel=entries)])
+        stored = corpus.get_row(conn, "scotus/885")
+    assert stored is not None
+    assert stored.counsel == entries
+    assert stored.counsel[0].counsel_of_record is True
+    assert stored.counsel[1].counsel_of_record is False

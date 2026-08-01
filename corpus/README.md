@@ -69,6 +69,7 @@ source.
 | `panel`               | json array      | structured panel: `{name, seniority}` per judge |
 | `parties`             | json array      | party names on the docket                     |
 | `attorneys`           | json array      | attorney names of record                      |
+| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only |
 | `topic`               | text            | nature of suit / subject-matter topic         |
 | `citations`           | json array      |                                              |
 | `citation_count`      | integer         | times the decision has been cited            |
@@ -91,9 +92,27 @@ source.
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
-The multi-valued sibling facts (`panel`, `parties`, `attorneys`) are filled by
-whichever channel carries them; a bulk-shaped source supplies them through the
-shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`.
+`counsel` stands to `parties`/`attorneys` as `panel` stands to `judges`, and it
+carries the one fact the flat lists cannot: which side each name appears for. The
+flat lists are deduplicated and sorted, so an attorney's side is unrecoverable
+from them — and the side is what separates opposite signals. The Solicitor
+General appears as counsel for the *respondent* on a large share of criminal
+petitions, opposing certiorari; "the United States is the petitioner" is a
+different fact.
+
+The role also separates a stable fact from a moving one. The `petitioner` and
+`respondent` blocks are fixed when the petition is docketed and do not move as
+the docket progresses — unlike `distribution_count` and `cvsg_date` they are
+arrival-time, which is what makes them usable in a prospective score. `other` is
+the opposite: it accumulates amici over the docket's life and overwhelmingly
+after a grant, so counting it on a decided docket is a grant oracle. The flat
+`attorneys` list mixes the two with nothing to tell them apart.
+
+The multi-valued sibling facts (`panel`, `parties`, `attorneys`, `counsel`) are
+filled by whichever channel carries them; a bulk-shaped source supplies them
+through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. The
+CourtListener REST path reports no side, so `counsel` is empty there, exactly as
+`seniority` is.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
