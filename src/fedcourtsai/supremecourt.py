@@ -25,11 +25,11 @@ import json
 import time
 from collections.abc import Callable
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
-DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{term:02d}-{serial}.json"
+DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{docket}.json"
 
 # Any ordinary browser UA is accepted; the default programmatic UA gets a 403.
 # Pinned so runs are comparable (shared with the reachability probe's posture).
@@ -41,6 +41,12 @@ BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 F
 # the 1_000_000 stride (paid ~1..2000, IFP 5001..~8000).
 LIVE_DOCKET_ID_BASE = 9_000_000_000
 _LIVE_TERM_STRIDE = 1_000_000
+
+# The same scheme for the interim docket. Applications are numbered in their own
+# per-Term sequence ("24A1099"), so `24A1` and `24-1` are different matters and
+# must never share an id — hence a disjoint base rather than a shared one. Serials
+# run to roughly 1200 a Term, far under the stride.
+LIVE_APPLICATION_ID_BASE = 9_500_000_000
 
 # IFP petitions are numbered from 5001 within a Term; paid petitions from 1.
 IFP_SERIAL_BASE = 5001
@@ -56,25 +62,45 @@ def live_docket_id(term: int, serial: int) -> int:
     immutability; the ledger and snapshots key on it). Idempotent by
     construction, so re-discovery of the same petition mints the same id.
     """
+    return _reserved_id(LIVE_DOCKET_ID_BASE, term, serial)
+
+
+def live_application_id(term: int, serial: int) -> int:
+    """The deterministic reserved-range docket id for a live-first application.
+
+    A disjoint range from :func:`live_docket_id`, because the two numbering
+    sequences overlap: ``24A1`` and ``24-1`` are different matters that would
+    otherwise collide on ``(term, serial)``. Same permanence and idempotence.
+    """
+    return _reserved_id(LIVE_APPLICATION_ID_BASE, term, serial)
+
+
+def _reserved_id(base: int, term: int, serial: int) -> int:
     if not 0 <= term < 100:
         raise ValueError(f"term out of range: {term}")
     if not 0 < serial < _LIVE_TERM_STRIDE:
         raise ValueError(f"serial out of range: {serial}")
-    return LIVE_DOCKET_ID_BASE + term * _LIVE_TERM_STRIDE + serial
+    return base + term * _LIVE_TERM_STRIDE + serial
 
 
 def is_live_docket_id(docket_id: int) -> bool:
-    """Whether a docket id sits in the live channel's reserved range."""
+    """Whether a docket id sits in either live-channel reserved range."""
     return docket_id >= LIVE_DOCKET_ID_BASE
+
+
+def is_application_docket_id(docket_id: int) -> bool:
+    """Whether a docket id was minted for an interim-docket application."""
+    return docket_id >= LIVE_APPLICATION_ID_BASE
 
 
 def parse_scotus_docket_number(raw: str | None) -> tuple[int, int] | None:
     """Parse a modern Term-form docket number to ``(term, serial)``, or ``None``.
 
     Accepts the JSON's ``CaseNumber`` verbatim (it carries a trailing space) and
-    ordinary spellings like ``"22-451"``. Applications (``22A123``), original
-    docket (``22O141``), and pre-1925 bare numbers do not parse — the live
-    channel tracks cert petitions.
+    ordinary spellings like ``"22-451"``. Applications (``22A123``) parse through
+    :func:`parse_scotus_application_number` instead, because they are a separate
+    numbering sequence rather than a spelling of the same one. Original docket
+    (``22O141``) and pre-1925 bare numbers do not parse at all.
     """
     if raw is None:
         return None
@@ -83,6 +109,34 @@ def parse_scotus_docket_number(raw: str | None) -> tuple[int, int] | None:
     if not sep or not head.isdigit() or len(head) != 2 or not tail.isdigit():
         return None
     return int(head), int(tail)
+
+
+def parse_scotus_application_number(raw: str | None) -> tuple[int, int] | None:
+    """Parse an interim-docket application number to ``(term, serial)``, or ``None``.
+
+    ``"24A1099"`` -> ``(24, 1099)``. Accepts the JSON's ``CaseNumber`` verbatim,
+    trailing space and all.
+
+    Deliberately strict where the scope rule is tolerant: that rule has to
+    *recognize* every spelling an application might carry so none reaches cert
+    scope, while this has to *address* one on the upstream JSON endpoint, which
+    serves exactly the ``YYAnnn`` form. A number this rejects is still an
+    application; it is simply not one the live channel can fetch.
+    """
+    if raw is None:
+        return None
+    head, sep, tail = raw.strip().upper().partition("A")
+    if not sep or not head.isdigit() or len(head) != 2 or not tail.isdigit():
+        return None
+    return int(head), int(tail)
+
+
+def scotus_docket_slug(
+    term: int, serial: int, *, form: Literal["cert", "application"] = "cert"
+) -> str:
+    """The upstream path segment for a docket: ``"24-1099"`` or ``"24A1099"``."""
+    separator = "A" if form == "application" else "-"
+    return f"{term:02d}{separator}{serial}"
 
 
 def current_october_term(today: date) -> int:
@@ -135,9 +189,17 @@ class SupremeCourtClient:
             return
         self._sleep(self._throttle)
 
-    def get_docket(self, term: int, serial: int) -> dict[str, Any] | None:
-        """Fetch one docket's JSON, or ``None`` when no docket is served there."""
-        url = DOCKET_JSON_URL.format(term=term, serial=serial)
+    def get_docket(
+        self, term: int, serial: int, *, form: Literal["cert", "application"] = "cert"
+    ) -> dict[str, Any] | None:
+        """Fetch one docket's JSON, or ``None`` when no docket is served there.
+
+        ``form`` selects the numbering sequence: a cert petition is ``YY-NNNN``
+        and an interim application ``YYAnnn``. Upstream serves both at the same
+        endpoint with the same payload shape — proceedings included — so nothing
+        below this call has to know which it fetched.
+        """
+        url = DOCKET_JSON_URL.format(docket=scotus_docket_slug(term, serial, form=form))
         response = self._fetch(url)
         if response is None:
             return None
