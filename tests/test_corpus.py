@@ -1605,3 +1605,41 @@ def test_sparse_filter_coverage_names_the_data_gap(tmp_path: Path) -> None:
     assert "OWN reporter cites" in cites[0]
     assert len(topic) == 1 and "1 of 2 rows in scope (ca9)" in topic[0]
     assert "exact" in topic[0]
+
+
+def test_a_docket_annotation_does_not_change_a_docket_number() -> None:
+    """The bug this prevents: two channels spelling one docket differently.
+
+    CourtListener discovers the plain number while supremecourt.gov serves it with
+    a `*** CAPITAL CASE ***` flag appended. Left in, the two normalize differently,
+    the identity join misses, and both channels mint a row for the same petition —
+    which is how 22 duplicate SCOTUS rows reached the corpus.
+    """
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") == "25-5184"
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") == (
+        corpus.normalize_docket_number("25-5184")
+    )
+    # Whichever end it is appended to.
+    assert corpus.normalize_docket_number("*** CAPITAL CASE *** 25-5184") == "25-5184"
+
+
+def test_stripping_an_annotation_still_yields_no_false_matches() -> None:
+    """The normalization's standing promise: a miss, never a wrong link. Removing
+    a flag must not make two genuinely different dockets compare equal, and must
+    not turn a consolidated multi-number string into a single tracked docket."""
+    assert corpus.normalize_docket_number("21-1, 21-2") == "21-1,21-2"
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") != (
+        corpus.normalize_docket_number("25-5185")
+    )
+    # An annotation is not a docket number, so a string that is only one is empty.
+    assert corpus.normalize_docket_number("*** CAPITAL CASE ***") is None
+
+
+def test_the_bare_number_test_is_unaffected_by_stripping() -> None:
+    """`is_historical_mandatory` keys on `.isdigit()` of the normalized value, so a
+    change here could silently reclassify rows into the out-of-scope regime.
+    Verified against the live corpus: 318 rows normalize differently and zero flip
+    this test."""
+    assert corpus.normalize_docket_number("No. 123") == "123"
+    assert (corpus.normalize_docket_number("No. 123") or "").isdigit()
+    assert not (corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") or "").isdigit()

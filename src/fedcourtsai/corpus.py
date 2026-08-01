@@ -644,6 +644,11 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
+# A display annotation the Court appends to some docket numbers, most often
+# "*** CAPITAL CASE ***". It is a flag on the case, not part of its number, and
+# the two upstream channels do not agree on carrying it — so leaving it in makes
+# the same docket normalize two ways and the identity join miss.
+_DN_ANNOTATION = re.compile(r"\*{2,}[^*]*\*{2,}")
 # Typographic dashes (en U+2013 / em U+2014) that stand in for a plain hyphen in a
 # docket number, folded so a dash-variant reads as the modern Term-year form.
 _DN_DASHES = {0x2013: "-", 0x2014: "-"}
@@ -653,11 +658,19 @@ def normalize_docket_number(raw: str | None) -> str | None:
     """Canonicalize a docket-number string for the lower-court join, or ``None``.
 
     Upper-cases, drops a leading ``No.`` label, folds a typographic en/em dash to a
-    plain hyphen, and removes all whitespace, so two spellings of the *same* number
-    compare equal (``"No. 21-35466"`` == ``"21-35466"``, and a dash-variant Term
-    docket reads like ``"01-7700"``). Deliberately a light, lossless normalization
-    that yields no false matches: a consolidated / multi-number string
-    (``"21-1, 21-2"``) keeps
+    plain hyphen, strips a bracketing ``*** … ***`` annotation, and removes all
+    whitespace, so two spellings of the *same* number compare equal
+    (``"No. 21-35466"`` == ``"21-35466"``, a dash-variant Term docket reads like
+    ``"01-7700"``, and ``"25-5184 *** CAPITAL CASE ***"`` == ``"25-5184"``).
+
+    The annotation is a flag on the case, not part of its number, and the two
+    upstream channels disagree about carrying it — CourtListener discovers the
+    plain number while supremecourt.gov serves the annotated one. Leaving it in
+    made the same docket normalize two ways, so the identity join missed and both
+    channels minted a row.
+
+    Deliberately a light, lossless normalization that yields no false matches: a
+    consolidated / multi-number string (``"21-1, 21-2"``) keeps
     its punctuation and so will not match a single tracked docket — a miss, never a
     wrong link. Blank input (and a string that normalizes to empty) returns
     ``None``. Registered as the SQLite ``norm_dn`` function so the join can compare
@@ -665,7 +678,8 @@ def normalize_docket_number(raw: str | None) -> str | None:
     """
     if raw is None:
         return None
-    text = _DN_WHITESPACE.sub("", _DN_LABEL.sub("", raw.strip().upper().translate(_DN_DASHES)))
+    stripped = _DN_ANNOTATION.sub("", raw.strip().upper().translate(_DN_DASHES))
+    text = _DN_WHITESPACE.sub("", _DN_LABEL.sub("", stripped.strip()))
     return text or None
 
 
