@@ -1938,6 +1938,14 @@ def refresh_historical_cmd(
             "Term in `historical.terms`.",
         ),
     ] = None,
+    stream: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--stream",
+            help="Numbering stream to re-open: `historical-paid` or `historical-ifp`; "
+            "repeatable. Default: both.",
+        ),
+    ] = None,
     apply: Annotated[
         bool,
         typer.Option("--apply", help="Clear the cursors; omit for a dry-run listing."),
@@ -1965,6 +1973,11 @@ def refresh_historical_cmd(
     Deliberately separate from the walk rather than a flag on it: a walk that
     could rewind its own cursor could also do so on a degraded run and silently
     re-onboard a Term. Resetting stays an explicit, auditable act.
+
+    `--stream` narrows which numbering sequences re-open. The two cost very
+    differently — a Term's IFP sequence runs roughly three times its paid one —
+    and only the paid stream feeds the scored segment, so a refresh aimed at the
+    predicted population need not pay for the rest of the docket first.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1977,13 +1990,22 @@ def refresh_historical_cmd(
         raise typer.Exit(code=1)
     config = load_historical_config(settings.config_root)
     terms = term if term else list(config.terms)
+    known = {name for name, _base in historical.HISTORICAL_STREAMS}
+    if stream and not set(stream) <= known:
+        typer.echo(
+            f"unknown stream(s): {', '.join(sorted(set(stream) - known))}; "
+            f"expected one of {', '.join(sorted(known))}.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    wanted = [name for name, _base in historical.HISTORICAL_STREAMS if not stream or name in stream]
     if not apply:
         with corpus.connect(db_path) as conn:
             pending = [
-                f"OT{2000 + t}/{stream}"
+                f"OT{2000 + t}/{name}"
                 for t in sorted(set(terms))
-                for stream, _base in historical.HISTORICAL_STREAMS
-                if corpus.get_live_cursor(conn, t, stream) is not None
+                for name in wanted
+                if corpus.get_live_cursor(conn, t, name) is not None
             ]
         typer.echo(
             f"refresh-historical (dry-run): would reset {len(pending)} cursor(s) "
@@ -1992,7 +2014,7 @@ def refresh_historical_cmd(
         if pending:
             typer.echo(", ".join(pending))
         return
-    report = historical.reset_walk(db_path, terms)
+    report = historical.reset_walk(db_path, terms, wanted)
     typer.echo(
         f"refresh-historical (applied): reset {len(report.reset)} cursor(s), "
         f"{len(report.absent)} already absent"
