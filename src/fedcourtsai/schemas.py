@@ -2005,8 +2005,9 @@ class StatPackTermClass(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share (granted + gvr) of resolved; "
-        "None when nothing resolved",
+        description="Weighted grant-family (granted + gvr pooled) share of "
+        "resolved — pooled, so comparable across Terms where the `dispositions` "
+        "split is not; None when nothing resolved",
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,
@@ -2067,9 +2068,9 @@ class StatPackTermSegment(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share (granted + gvr) of the rows that "
-        "ENDED in this band — a descriptive rate, not a forecast baseline; None "
-        "when nothing in the band resolved",
+        description="Weighted grant-family (granted + gvr pooled) share of the "
+        "rows that ENDED in this band — a descriptive rate, not a forecast "
+        "baseline; None when nothing in the band resolved",
     )
     prefix_resolved: int = Field(
         default=0,
@@ -2088,7 +2089,8 @@ class StatPackTermSegment(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share over the band's risk set: "
+        description="Weighted grant-family (granted + gvr pooled) share over the "
+        "band's risk set: "
         "P(grant | the petition has REACHED this band). The forecast baseline — "
         "this is what a predictor is asked to beat, because a cell is scored at "
         "the band it sat in when it ran, not the one it ended in. Identical to "
@@ -2120,6 +2122,20 @@ class StatPackTerm(_Strict):
     )
     base_rates: BaseRateBucket = Field(
         description="This Term's live-slice counts and weighted base rates"
+    )
+    est_grant_family_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted grant-family share of this Term's resolved "
+        "live-slice rows — granted + gvr today, and the vocabulary's "
+        "`summary-reversal` label pools in too if a resolver ever produces it. "
+        "The only disposition series comparable "
+        "across Terms. The `gvr` label is a forward convention: a Term resolved "
+        "into the corpus before it existed carries its GVRs as plain `granted` "
+        "(OT2023-24 carry zero), so the split inside `base_rates.dispositions` is "
+        "safe within a Term and meaningless between them — anchor any cross-Term "
+        "comparison on this field. None when nothing resolved",
     )
     timing: TimingStats = Field(
         default_factory=TimingStats,
@@ -2263,8 +2279,25 @@ class DocketPackTerm(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Denial-reweighted grant-family share (granted + gvr) of the "
-        "resolved petitions; None when nothing resolved",
+        description="Denial-reweighted grant-family (granted + gvr pooled) share "
+        "of the resolved petitions — always equal to `est_grant_family_rate`, "
+        "which carries the same series under the name the statpack's per-Term "
+        "entries share; None when nothing resolved",
+    )
+    est_grant_family_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Denial-reweighted grant-family share of the resolved "
+        "petitions — granted + gvr today, and the vocabulary's `summary-reversal` "
+        "label pools in too if a resolver ever produces it. The only disposition "
+        "series comparable "
+        "across Terms, under the one field name both packs' per-Term entries "
+        "share. The `gvr` label is a forward convention: a Term resolved into the "
+        "corpus before it existed carries its GVRs as plain `granted` (OT2023-24 "
+        "carry zero), so the split inside `dispositions` is safe within a Term "
+        "and meaningless between them — anchor any cross-Term comparison here. "
+        "None when nothing resolved",
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,

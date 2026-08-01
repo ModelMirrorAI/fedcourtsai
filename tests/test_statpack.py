@@ -229,11 +229,63 @@ def test_gvr_counts_as_a_grant_in_the_term_grant_rate(tmp_path: Path) -> None:
     pack = analytics.build_statpack(corpus_db_path=db)
     term = next(t for t in pack.terms if t.term == 2024)
     assert term.grants == 1  # the gvr row counts as a grant
+    # The Term-level pooled series counts the gvr as a grant too.
+    assert term.est_grant_family_rate == 1.0
     # The per-fee-class grant rate sums the grant family, so a lone gvr reads 100%.
     paid = next(c for c in term.classes if c.fee_class == "paid")
     assert paid.est_grant_rate == 1.0
     # gvr is tracked as its own disposition bucket, distinct from granted.
     assert {d.disposition for d in term.base_rates.dispositions} == {"gvr"}
+
+
+def test_term_grant_family_rate_pools_the_split(tmp_path: Path) -> None:
+    # `est_grant_family_rate` is the pooled granted+gvr series — the one per-Term
+    # disposition figure comparable across Terms — and it must equal the sum of
+    # the split's own shares, so the JSON's `dispositions` and the pooled field
+    # can never disagree.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-10",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-11",
+                    disposition=Disposition.gvr,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-12",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=5,
+                    distribution_count=1,
+                ),
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    term = _term(pack, 2025)
+    # granted 1 + gvr 1 over a weighted resolved of 7 (the denial stands in for 5).
+    assert term.est_grant_family_rate == pytest.approx(2 / 7)
+    assert term.est_grant_family_rate == sum(
+        d.share for d in term.base_rates.dispositions if d.disposition in ("granted", "gvr")
+    )
+    # And the rendered Term row prints the field itself, not a recomputation.
+    assert "28.6%" in analytics.render_statpack_markdown(pack)
 
 
 def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
@@ -300,6 +352,8 @@ def test_per_term_entries_carry_census_classes_and_estimates(
     assert resolved_term.timing.cases == 5
     assert resolved_term.timing.median_days == 168.0
     assert resolved_term.grants == 0 and resolved_term.median_days_to_grant is None
+    # All resolved rows are denials, so the pooled grant-family series is a real 0%.
+    assert resolved_term.est_grant_family_rate == 0.0
     paid, ifp = resolved_term.classes
     assert (paid.fee_class, paid.filings, paid.complete) == (FeeClass.paid, 850, True)
     assert (paid.ingested, paid.resolved, paid.weighted_resolved) == (1, 1, 5)
@@ -309,6 +363,7 @@ def test_per_term_entries_carry_census_classes_and_estimates(
 
     open_term = _term(pack, 2024)
     assert (open_term.base_rates.cases, open_term.base_rates.open) == (1, 1)
+    assert open_term.est_grant_family_rate is None  # nothing resolved: no rate, not 0%
     assert open_term.timing.cases == 0  # nothing resolved yet
     paid, ifp = open_term.classes
     assert (paid.filings, paid.complete, paid.ingested) == (12, False, 1)
@@ -595,6 +650,14 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
     # The replay self-selection rule rides under the Term table, verbatim.
     assert "anchor only on Term rows strictly preceding your clock" in md
+    # The grant-family comparability caveat rides directly under the Term table —
+    # the table whose base-rate column prints the `granted` / `gvr` split — before
+    # the segment section begins.
+    term_section = md.split("## SCOTUS cert petitions by Term")[1]
+    assert (
+        "**The `granted` / `gvr` split is not comparable across Terms.**"
+        in term_section.split("### Segment base rate")[0]
+    )
 
 
 def test_render_statpack_markdown_renders_the_segment_base_rate(

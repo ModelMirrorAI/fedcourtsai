@@ -135,6 +135,8 @@ def test_per_term_census_pools_the_fee_streams(fixture_corpus: FixtureCorpus) ->
     assert ot22.complete is False
     assert (ot22.ingested, ot22.resolved, ot22.weighted_resolved) == (1, 1, 5)
     assert ot22.est_grant_rate == 0.0  # a resolved denial, reweighted to five
+    # The pooled cross-Term series carries the same value under the shared name.
+    assert ot22.est_grant_family_rate == 0.0
     assert ot22.grants == 0 and ot22.median_days_to_grant is None
 
     ot24 = next(t for t in pack.terms if t.term == 2024)
@@ -142,6 +144,7 @@ def test_per_term_census_pools_the_fee_streams(fixture_corpus: FixtureCorpus) ->
     assert ot24.filings == 12
     assert (ot24.ingested, ot24.resolved) == (1, 0)
     assert ot24.est_grant_rate is None  # nothing resolved yet
+    assert ot24.est_grant_family_rate is None  # no rate at all, not 0%
 
 
 def test_a_term_is_complete_only_when_every_probed_stream_is(tmp_path: Path) -> None:
@@ -185,6 +188,7 @@ def test_gvr_counts_as_a_grant_in_the_term_grant_rate(tmp_path: Path) -> None:
         )
     term = next(t for t in _pack(db).terms if t.term == 2024)
     assert term.est_grant_rate == 1.0
+    assert term.est_grant_family_rate == 1.0  # the pooled series counts a gvr too
     assert term.grants == 1
     assert term.median_days_to_grant == 97.0
     # Pace to grant states the subset it was computed over, not the grant count.
@@ -286,6 +290,9 @@ def test_render_docket_markdown_names_the_gaps(fixture_corpus: FixtureCorpus) ->
     assert "## Not yet included" in md
     assert "claim taxonomy" in md
     assert "Summary reversals" in md
+    # The grant-family comparability caveat still rides with the gaps — the same
+    # constant the statpack renders under its Term table.
+    assert "**The `granted` / `gvr` split is not comparable across Terms.**" in md
 
 
 def test_render_docket_markdown_empty() -> None:

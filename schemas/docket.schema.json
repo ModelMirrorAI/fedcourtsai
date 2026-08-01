@@ -112,6 +112,21 @@
           "title": "Dispositions",
           "type": "array"
         },
+        "est_grant_family_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Denial-reweighted grant-family share of the resolved petitions \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms, under the one field name both packs' per-Term entries share. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison here. None when nothing resolved",
+          "title": "Est Grant Family Rate"
+        },
         "est_grant_rate": {
           "anyOf": [
             {
@@ -124,7 +139,7 @@
             }
           ],
           "default": null,
-          "description": "Denial-reweighted grant-family share (granted + gvr) of the resolved petitions; None when nothing resolved",
+          "description": "Denial-reweighted grant-family (granted + gvr pooled) share of the resolved petitions \u2014 always equal to `est_grant_family_rate`, which carries the same series under the name the statpack's per-Term entries share; None when nothing resolved",
           "title": "Est Grant Rate"
         },
         "filings": {
