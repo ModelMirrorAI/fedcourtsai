@@ -38,7 +38,6 @@ def _decided(number: str, order: dict[str, Any]) -> dict[str, Any]:
 def _config(**overrides: Any) -> HistoricalConfig:
     defaults: dict[str, Any] = {
         "terms": [22],
-        "denial_sample_every": 3,
         "max_probes_per_run": 100,
         # No document fetching unless a test opts in.
         "document_floor_term": 99,
@@ -61,26 +60,30 @@ def _serving_client(
     return _client(handler)
 
 
-# --- sampling ---------------------------------------------------------------------
+# --- what the walk keeps ----------------------------------------------------------
 
 
-def test_all_grants_kept_and_denials_sampled_every_nth(tmp_path: Path) -> None:
+def test_every_decided_petition_is_kept_and_only_the_undecided_is_skipped(
+    tmp_path: Path,
+) -> None:
+    """The payload is already fetched by the time its disposition can be read, so
+    declining a denial saves no request — it only drops a row the corpus can then
+    recover solely by re-walking the whole Term."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     served = {
-        "22-1": _decided("22-1", _DENIED_ENTRY),  # 1 % 3 != 0 -> sampled out
-        "22-2": _decided("22-2", _GRANTED_ENTRY),  # grant -> always kept
-        "22-3": _decided("22-3", _DENIED_ENTRY),  # 3 % 3 == 0 -> kept
-        "22-4": _decided("22-4", _DISMISSED_ENTRY),  # other decided -> kept
-        "22-5": _payload("22-5"),  # no disposition -> skipped entirely
-        "22-5001": _decided("22-5001", _DENIED_ENTRY),  # IFP; 5001 % 3 == 0 -> kept
+        "22-1": _decided("22-1", _DENIED_ENTRY),
+        "22-2": _decided("22-2", _GRANTED_ENTRY),
+        "22-3": _decided("22-3", _DENIED_ENTRY),
+        "22-4": _decided("22-4", _DISMISSED_ENTRY),
+        "22-5": _payload("22-5"),  # no disposition -> the forward poller's charter
+        "22-5001": _decided("22-5001", _DENIED_ENTRY),
     }
     with _serving_client(served) as client:
         report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
 
     assert report.ingested_granted == 1
-    assert report.ingested_denied == 2  # 22-3 and 22-5001
+    assert report.ingested_denied == 3  # 22-1, 22-3 and 22-5001 — none dropped
     assert report.ingested_other == 1  # the dismissal
-    assert report.skipped_denials == 1  # 22-1
     assert report.skipped_undecided == 1  # 22-5
     assert report.served == 6
     assert report.complete is True and report.stopped == "complete"
@@ -91,6 +94,7 @@ def test_all_grants_kept_and_denials_sampled_every_nth(tmp_path: Path) -> None:
             for r in (
                 corpus.get_row(conn, f"scotus/{d}")
                 for d in (
+                    9_022_000_001,
                     9_022_000_002,
                     9_022_000_003,
                     9_022_000_004,
@@ -99,15 +103,17 @@ def test_all_grants_kept_and_denials_sampled_every_nth(tmp_path: Path) -> None:
             )
             if r is not None
         }
-        sampled_out = corpus.get_row(conn, "scotus/9022000001")
         undecided = corpus.get_row(conn, "scotus/9022000005")
     assert set(kept) == {
+        "scotus/9022000001",
         "scotus/9022000002",
         "scotus/9022000003",
         "scotus/9022000004",
         "scotus/9022005001",
     }
-    assert sampled_out is None and undecided is None
+    # Only the petition with no readable disposition stays out — it is the forward
+    # poller's, and ingesting it here would break the walk's resolved-only guarantee.
+    assert undecided is None
     # Every ingested row lands already resolved: the machine-read label (the
     # back-test target the replay scores against), the raw JSON as its dated
     # snapshot, and its cert event formed and latched resolved.
@@ -447,9 +453,9 @@ def test_documents_fetched_only_from_the_floor_term_up(tmp_path: Path) -> None:
 
 
 def test_load_historical_config_reads_section_and_defaults(tmp_path: Path) -> None:
-    (tmp_path / "tracking.yaml").write_text("historical:\n  denial_sample_every: 5\n")
+    (tmp_path / "tracking.yaml").write_text("historical:\n  max_probes_per_run: 5\n")
     cfg = load_historical_config(tmp_path)
-    assert cfg.denial_sample_every == 5
+    assert cfg.max_probes_per_run == 5
     assert cfg.terms == [25, 24, 23, 22, 21, 20, 19, 18, 17]  # default holds
 
     defaults = load_historical_config(tmp_path / "absent")
@@ -465,7 +471,6 @@ def test_historical_config_rejects_terms_below_the_probe_floor() -> None:
 def test_repo_tracking_yaml_carries_historical_section() -> None:
     cfg = load_historical_config(Path("config"))
     assert cfg.terms[0] == 25 and cfg.terms[-1] == 17
-    assert cfg.denial_sample_every == 10
     assert cfg.document_floor_term == 21
 
 
@@ -475,7 +480,6 @@ def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
         served=580,
         ingested_granted=3,
         ingested_denied=50,
-        skipped_denials=520,
         stopped="probe-cap",
         streams=[
             StreamProgress(term=24, stream="historical-paid", cursor=598, frontier_reached=False)
@@ -485,7 +489,6 @@ def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
         probed=40,
         served=30,
         ingested_denied=3,
-        skipped_denials=27,
         complete=True,
         stopped="complete",
         streams=[
@@ -496,7 +499,6 @@ def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
     totals = fold_totals(fold_totals(None, chunk1), chunk2)
     assert totals.probed == 640 and totals.served == 610
     assert totals.ingested_granted == 3 and totals.ingested_denied == 53
-    assert totals.skipped_denials == 547
     assert totals.complete is True and totals.stopped == "complete"
     # The latest invocation's per-stream state wins; nothing is double-counted.
     by_key = {(s.term, s.stream): s for s in totals.streams}
@@ -514,7 +516,6 @@ def test_render_markdown_carries_counts_and_stream_table() -> None:
         served=8,
         ingested_granted=1,
         ingested_denied=2,
-        skipped_denials=5,
         complete=True,
         streams=[
             {"term": 22, "stream": "historical-paid", "cursor": 8, "frontier_reached": True},
@@ -545,8 +546,9 @@ def test_walker_stamps_weights_and_the_frontier(tmp_path: Path) -> None:
         assert corpus.get_live_frontier(conn, 22, "historical-paid") == corpus.get_live_cursor(
             conn, 22, "historical-paid"
         )
+    # Every row the walk writes is included with certainty, denials included.
     assert granted is not None and granted.sample_weight == 1
-    assert denied is not None and denied.sample_weight == 3
+    assert denied is not None and denied.sample_weight == 1
 
 
 def test_capped_walk_leaves_no_frontier_stamp(tmp_path: Path) -> None:
@@ -574,8 +576,8 @@ def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
     stale = ingest_live_payload(
         db,
         data_root,
-        _decided("22-3", _DENIED_ENTRY),
-        live_docket_id(22, 3),
+        _decided("22-10", _DENIED_ENTRY),
+        live_docket_id(22, 10),
         today=date(2026, 7, 1),
     )
     with corpus.connect(db) as conn, conn:
@@ -583,13 +585,17 @@ def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
             "UPDATE cases SET sample_weight = NULL, distribution_count = NULL WHERE case_id = ?",
             (stale.case_id,),
         )
-        corpus.set_live_cursor(conn, 22, "historical-paid", 3)
+        corpus.set_live_cursor(conn, 22, "historical-paid", 10)
     with _serving_client({}) as client:
         load_terms(client, db, data_root, _config(), today=date(2026, 7, 10))
     with corpus.connect(db) as conn:
         healed = corpus.get_row(conn, stale.case_id)
     assert healed is not None
-    assert healed.sample_weight == 3  # denied, on the grid, cursor-covered
+    # The one place the legacy interval still applies: a pre-capture denial whose
+    # serial sits on the old sample grid and below the cursor was kept by the
+    # sampled walk, so its inclusion probability was 1/10 and must stay recorded
+    # until a re-walk re-serves it at weight 1.
+    assert healed.sample_weight == 10
     assert healed.distribution_count == 0  # re-parsed from the stored snapshot
 
 
@@ -648,3 +654,87 @@ def test_cli_max_run_seconds_rejects_non_positive(
     # widths). The walker not running proves the boundary rejected the value.
     assert result.exit_code == 2
     assert ran is False
+
+
+# --- full refresh: re-opening a walked Term ---------------------------------------
+
+
+def test_reset_walk_reopens_a_term_the_next_walk_would_otherwise_skip(tmp_path: Path) -> None:
+    """The capability the whole command exists for: a Term walked to its frontier is
+    invisible to every later run, so a pipeline that learns to read something new can
+    never apply it to history without this."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _GRANTED_ENTRY), "22-2": _decided("22-2", _DENIED_ENTRY)}
+    with _serving_client(served) as client:
+        first = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    assert first.complete is True and first.served == 2
+
+    # At the frontier, a re-run probes nothing: the cursor has already covered it.
+    with _serving_client(served) as client:
+        second = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 11))
+    assert second.served == 0
+
+    report = historical_module.reset_walk(db, [22])
+    # Only the paid stream carried a cursor: the fixture serves no IFP dockets, and a
+    # 404 never advances one, so that stream was never walked rather than walked-empty.
+    assert report.reset == ["OT2022/historical-paid"]
+    assert report.absent == ["OT2022/historical-ifp"]
+
+    with _serving_client(served) as client:
+        third = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 12))
+    assert third.served == 2  # re-covered from the numbering base
+
+
+def test_reset_walk_reports_a_term_that_was_never_walked(tmp_path: Path) -> None:
+    """ "Nothing to reset" is a different outcome from "reset", and collapsing them
+    would let a typo'd Term report success while changing nothing."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    report = historical_module.reset_walk(db, [19])
+    assert report.reset == []
+    assert set(report.absent) == {"OT2019/historical-paid", "OT2019/historical-ifp"}
+
+
+def test_a_refreshed_row_keeps_what_the_first_pass_captured(tmp_path: Path) -> None:
+    """Re-walking adds; it never deletes. The row is upserted through the same
+    latches, so a re-serve cannot cost the corpus a fact it already held — which is
+    what makes the command safe to run more than once."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _DENIED_ENTRY)}
+    with _serving_client(served) as client:
+        load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    with corpus.connect(db) as conn:
+        before = corpus.get_row(conn, "scotus/9022000001")
+    assert before is not None
+
+    historical_module.reset_walk(db, [22])
+    with _serving_client(served) as client:
+        load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 12))
+    with corpus.connect(db) as conn:
+        after = corpus.get_row(conn, "scotus/9022000001")
+    assert after is not None
+    assert after.case_id == before.case_id  # identity is docket-derived, not walk-order
+    assert after.disposition == before.disposition
+    assert after.sample_weight == 1
+
+
+def test_refresh_historical_is_dry_run_until_applied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _GRANTED_ENTRY)}
+    with _serving_client(served) as client:
+        load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    runner = CliRunner()
+    dry = runner.invoke(cli.app, ["refresh-historical", "--term", "22"])
+    assert dry.exit_code == 0, dry.output
+    assert "dry-run" in dry.output
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") is not None
+
+    applied = runner.invoke(cli.app, ["refresh-historical", "--term", "22", "--apply"])
+    assert applied.exit_code == 0, applied.output
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") is None

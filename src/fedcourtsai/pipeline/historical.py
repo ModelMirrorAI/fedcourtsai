@@ -19,18 +19,21 @@ forward frontier prober:
   The cursors live in the same ``live_discovery_cursors`` table as the forward
   poller's, under the distinct stream names ``historical-paid`` /
   ``historical-ifp``, so the two walkers can never collide on a (term, stream)
-  key. The cursor advances over every *served* serial — ingested or sampled
-  out — so a skipped denial is never re-probed; a 404 never advances it, so a
-  resumed run re-confirms the frontier cheaply.
-- **It samples deliberately instead of ingesting the sequence.** A Term is
-  overwhelmingly denials, so each served record's disposition is read from its
-  proceedings text first (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`,
-  the same patterns ingest-time resolution runs): every decided petition is
-  ingested **except denials, which are kept only when their serial is a
-  multiple of ``denial_sample_every``** — a systematic sample over the docket
-  sequence, deterministic per serial and therefore reproducible across resumed
-  runs. The frame and ratio live in ``tracking.yaml``'s ``historical:`` section
-  so the set's construction is documented. A record with no machine-readable
+  key. The cursor advances over every *served* serial, so a resumed walk never
+  re-reads one; a 404 never advances it, so a resumed run re-confirms the
+  frontier cheaply. :func:`~fedcourtsai.corpus.clear_live_cursor` is the one way
+  back, for a maintainer re-walking a Term the pipeline has since learned to
+  read more from.
+- **It ingests every decided petition.** Each served record's disposition is
+  read from its proceedings text
+  (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`, the same
+  patterns ingest-time resolution runs) and every decided one is kept. The walk
+  probes each serial regardless, so declining to store a denial never saved a
+  fetch — it only discarded a row already in hand, and cost every rate computed
+  over the result a denominator it had to reconstruct from weights. Corpus
+  breadth is cheap; the expensive stages are predict and evaluate, which select
+  from the corpus rather than being bounded by it. Sampling belongs at that
+  selection, where it is reversible. A record with no machine-readable
   disposition (a still-pending or held petition) is skipped entirely — pending
   matters are the forward poller's charter, and skipping them here keeps this
   walker's guarantee absolute: **it writes no predict/evaluate queues, and
@@ -57,7 +60,7 @@ loaded petition provisions replay cells exactly like a forward-tracked one.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from dataclasses import field as dataclasses_field
 from datetime import date
@@ -116,10 +119,9 @@ class HistoricalReport(BaseModel):
     ingested_granted: int = 0
     """Grants and GVRs — everything on the granted side is kept."""
     ingested_denied: int = 0
-    """The systematic denial sample (serial % denial_sample_every == 0)."""
+    """Denials — kept in full; a Term is overwhelmingly these."""
     ingested_other: int = 0
     """Other decided dispositions (dismissed etc.) — rare, all kept."""
-    skipped_denials: int = 0
     skipped_undecided: int = 0
     """Served records with no machine-readable disposition (left to the
     forward poller; never ingested here)."""
@@ -142,6 +144,43 @@ class HistoricalReport(BaseModel):
     streams: list[StreamProgress] = Field(default_factory=list)
 
 
+class ResetReport(BaseModel):
+    """Which (Term, stream) cursors a refresh reset, and which had none."""
+
+    reset: list[str] = Field(default_factory=list)
+    """``OT<term>/<stream>`` for each cursor actually removed."""
+    absent: list[str] = Field(default_factory=list)
+    """Configured pairs that carried no cursor — never walked, nothing to reset."""
+
+
+def reset_walk(corpus_db_path: Path, terms: Sequence[int]) -> ResetReport:
+    """Clear the historical cursors for ``terms`` so the next walk re-covers them.
+
+    The re-walk half of a full refresh: this moves no data and fetches nothing. It
+    drops the resume points, and the next ``historical-terms`` invocations do the
+    work — which is what makes it safe to run and cheap to undo by simply not
+    walking.
+
+    Re-walking **adds**. Every re-served docket upserts onto its existing row
+    through the corpus latches, so a refreshed row keeps what the first pass
+    captured and gains what the pipeline has since learned to read — a new column,
+    a corrected parser, a disposition the old patterns missed. Nothing is deleted
+    and ``case_id`` never moves, so re-running is idempotent rather than
+    destructive.
+    """
+    report = ResetReport()
+    _migrate_legacy_cursors(corpus_db_path)
+    with corpus.connect(corpus_db_path) as conn:
+        for term in sorted(set(terms)):
+            for stream, _base in HISTORICAL_STREAMS:
+                label = f"OT{2000 + term}/{stream}"
+                if corpus.clear_live_cursor(conn, term, stream):
+                    report.reset.append(label)
+                else:
+                    report.absent.append(label)
+    return report
+
+
 def _payload_disposition(payload: Mapping[str, Any]) -> Disposition | None:
     """The cert disposition the record's proceedings text carries, or ``None``.
 
@@ -156,15 +195,6 @@ def _payload_disposition(payload: Mapping[str, Any]) -> Disposition | None:
         if matched is not None:
             return matched[0]
     return None
-
-
-def _keep(disposition: Disposition | None, serial: int, sample_every: int) -> bool:
-    """The sampling frame: all decided kept, except denials sampled by serial."""
-    if disposition is None:
-        return False
-    if disposition == Disposition.denied:
-        return serial % sample_every == 0
-    return True
 
 
 def _migrate_legacy_cursors(corpus_db_path: Path) -> None:
@@ -219,15 +249,16 @@ class _Walk:
             misses = 0
             report.served += 1
             disposition = _payload_disposition(payload)
+            # Every decided petition is kept. The payload is already paid for by
+            # the time its disposition can be read, so declining one saves nothing
+            # and costs a row the corpus can only recover by re-walking the Term.
             if disposition is None:
                 report.skipped_undecided += 1
-            elif _keep(disposition, serial, self.config.denial_sample_every):
-                self.ingest(payload, term, serial, disposition)
             else:
-                report.skipped_denials += 1
-            # The cursor covers every served serial — sampled out or not — so
-            # a resumed walk never re-reads a skipped denial. (404s do not
-            # advance it: the frontier is re-confirmed, cheaply.)
+                self.ingest(payload, term, serial, disposition)
+            # The cursor covers every served serial, so a resumed walk never
+            # re-reads one. (404s do not advance it: the frontier is re-confirmed,
+            # cheaply.)
             with corpus.connect(self.corpus_db_path) as conn:
                 corpus.set_live_cursor(conn, term, stream, serial)
             serial += 1
@@ -281,10 +312,12 @@ class _Walk:
             payload,
             docket_id,
             today=self.today,
-            # The row's inverse inclusion probability under the walk's sampling
-            # frame: a kept denial stands for `denial_sample_every` serials;
-            # every other decided disposition is kept with certainty.
-            sample_weight=(self.config.denial_sample_every if label == Disposition.denied else 1),
+            # The walk keeps every decided petition, so every row it writes is
+            # included with certainty. The column stays because the corpus still
+            # holds denials the earlier sampled walk kept at a higher weight, and
+            # a weighted estimate must keep honouring them until a re-walk
+            # re-serves each one — the min-latch then regresses it to 1.
+            sample_weight=1,
         )
         if label in (Disposition.granted, Disposition.gvr):
             report.ingested_granted += 1
@@ -342,7 +375,7 @@ def load_terms(
     # aggregates never see a NULL a rule could have resolved. (The forward
     # poller needs no such hook: its active rows self-heal on the next re-poll
     # through the ordinary ingest path.)
-    backfill_live_signals(corpus_db_path, denial_sample_every=config.denial_sample_every)
+    backfill_live_signals(corpus_db_path)
     walk = _Walk(client, corpus_db_path, data_root, config, today)
     deadline = clock() + config.max_run_minutes * 60
 
@@ -384,7 +417,6 @@ def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> Hi
         ingested_granted=totals.ingested_granted + latest.ingested_granted,
         ingested_denied=totals.ingested_denied + latest.ingested_denied,
         ingested_other=totals.ingested_other + latest.ingested_other,
-        skipped_denials=totals.skipped_denials + latest.skipped_denials,
         skipped_undecided=totals.skipped_undecided + latest.skipped_undecided,
         left_to_watchlist=totals.left_to_watchlist + latest.left_to_watchlist,
         documents=totals.documents + latest.documents,
@@ -404,9 +436,9 @@ def render_markdown(report: HistoricalReport) -> str:
         "",
         f"Probed **{report.probed}** serial(s) ({report.served} served); ingested "
         f"**{ingested}** decided petition(s) — {report.ingested_granted} granted/GVR, "
-        f"{report.ingested_denied} sampled denial(s), {report.ingested_other} other — "
-        f"skipped {report.skipped_denials} denial(s) and {report.skipped_undecided} "
-        f"undecided; provisioned {report.documents} document(s).",
+        f"{report.ingested_denied} denial(s), {report.ingested_other} other — "
+        f"skipped {report.skipped_undecided} undecided; provisioned "
+        f"{report.documents} document(s).",
         "",
         "| OT | Stream | Serial reached | Frontier |",
         "|----|--------|---------------:|:--------:|",

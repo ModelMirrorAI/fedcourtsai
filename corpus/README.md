@@ -88,7 +88,7 @@ source.
 | `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty; the sampling interval for a walker-kept denial); null = no channel asserted a weight |
+| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty, which is every row the walk now writes; 10 on a denial kept by the earlier sampled walk); null = no channel asserted a weight |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -128,8 +128,11 @@ are append-only, so the count only grows). `distribution_count` doubles as the
 family's parse-coverage sentinel: null means the proceedings were never
 live-parsed, 0 asserts *parsed and never distributed*. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
-so a weighted aggregate can multiply by it and count a walker-sampled denial at
-full strength; null means no channel asserted a weight.
+so a weighted aggregate can multiply by it and count a denial the earlier
+sampled walk kept at full strength; null means no channel asserted a weight. The
+walk now keeps every decided petition, so the weight it writes is always 1 and
+the column's remaining job is to keep those legacy rows honest until a re-walk
+re-serves them.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so
