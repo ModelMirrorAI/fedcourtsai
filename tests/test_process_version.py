@@ -18,7 +18,7 @@ import pytest
 
 from fedcourtsai import process_version
 from fedcourtsai.process_version import _config_canonical
-from fedcourtsai.registry import load_predictors
+from fedcourtsai.registry import enabled_evaluators, enabled_predictors, load_predictors
 from fedcourtsai.schemas import ProcessVersion
 
 CONFIG = Path("config")
@@ -129,7 +129,20 @@ def test_is_frozen_gates_on_the_digest_not_the_label(monkeypatch) -> None:  # ty
     assert not process_version.is_frozen(None)
 
 
-def test_the_frozen_set_is_empty_until_the_freeze_commit() -> None:
-    """The shakedown state: nothing is blessed yet, so nothing is frozen."""
-    assert frozenset() == process_version.FROZEN_PROCESS_DIGESTS
+def test_the_frozen_set_blesses_exactly_the_registry_digests() -> None:
+    """The frozen set holds one digest per registered process — the six
+    proc-v1 processes blessed at the freeze — and every entry actually
+    resolves against the current registry, so a prompt or config drift after
+    the freeze shows up here as a digest that no longer matches."""
+    assert len(process_version.FROZEN_PROCESS_DIGESTS) == 6
+    assert all(d.startswith("sha256:") for d in process_version.FROZEN_PROCESS_DIGESTS)
+    repo_root = Path(__file__).resolve().parent.parent
+    config_root = repo_root / "config"
+    rows = [("predictor", p.id) for p in enabled_predictors(config_root / "predictors.yaml")]
+    rows += [("evaluator", e.id) for e in enabled_evaluators(config_root / "evaluators.yaml")]
+    current = {
+        process_version.digest_for_actor(repo_root, config_root, role, actor_id)
+        for role, actor_id in rows
+    }
+    assert current == set(process_version.FROZEN_PROCESS_DIGESTS)
     assert not process_version.is_frozen(_pv("sha256:anything"))
