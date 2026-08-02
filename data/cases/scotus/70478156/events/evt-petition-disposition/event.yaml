@@ -1,0 +1,11 @@
+case_id: scotus/70478156
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-11-27'
+resolved: true
+schema_version: '1.0'
+title: Annette Chambers-Smith, Director, Ohio Department of Rehabilitation and Correction,
+  Petitioner v. Kayla Jean Ayers

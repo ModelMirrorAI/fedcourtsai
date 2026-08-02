@@ -1,0 +1,11 @@
+case_id: scotus/72485308
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-03'
+resolved: true
+schema_version: '1.0'
+title: United States, ex rel. Gregor Lesnik, et al., Petitioners v. ISM VUZEM, d.o.o.,
+  et al.

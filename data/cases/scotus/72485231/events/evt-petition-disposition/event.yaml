@@ -1,0 +1,12 @@
+case_id: scotus/72485231
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-02'
+resolved: true
+schema_version: '1.0'
+title: Katia Gauthier, Individually and as Administrator of the Estate of Peter Gauthier,
+  and as Parent and Natural Guardian of Minors D.G. and N.G., Petitioner v. Total
+  Quality Logistics, LLC
