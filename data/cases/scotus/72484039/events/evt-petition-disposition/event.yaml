@@ -1,0 +1,10 @@
+case_id: scotus/72484039
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-09-23'
+resolved: true
+schema_version: '1.0'
+title: Pulse8, LLC, et al., Petitioners v.  Family Health Physical Medicine, LLC

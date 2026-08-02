@@ -1,0 +1,11 @@
+case_id: scotus/72483953
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-09-05'
+resolved: true
+schema_version: '1.0'
+title: In Re Scott Douglas Ora, Individually, and In His Derivative Capacity as Trustee
+  of the Leo Robin Trust, on Behalf of the Leo Robin Trust, Petitioner

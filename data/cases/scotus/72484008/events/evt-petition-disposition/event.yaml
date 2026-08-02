@@ -1,0 +1,11 @@
+case_id: scotus/72484008
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-09-16'
+resolved: true
+schema_version: '1.0'
+title: Kieran Ravi Bhattacharya, Petitioner v. James B. Murray, Jr., in His Official
+  Capacity as Rector of the Board of Visitors of the University of Virginia, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72484073
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-10-01'
+resolved: true
+schema_version: '1.0'
+title: Pennsylvania State Conference of the NAACP, et al., Petitioners v. Al Schmidt,
+  Secretary of Pennsylvania, et al.

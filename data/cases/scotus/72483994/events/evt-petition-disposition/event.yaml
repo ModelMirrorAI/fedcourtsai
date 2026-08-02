@@ -1,0 +1,11 @@
+case_id: scotus/72483994
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-09-12'
+resolved: true
+schema_version: '1.0'
+title: Minnesota RFL Republican Farmer Labor Caucus, et al., Petitioners v. Mary Moriarty,
+  in Her Official Capacity as County Attorney for Hennepin County, Minnesota, et al.

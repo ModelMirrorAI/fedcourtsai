@@ -1,0 +1,11 @@
+case_id: scotus/72484118
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-10-10'
+resolved: true
+schema_version: '1.0'
+title: Indiana, ex rel. Deborah Walton, Petitioner v. Superior Court 6 of Indiana,
+  Hamilton County, et al.
