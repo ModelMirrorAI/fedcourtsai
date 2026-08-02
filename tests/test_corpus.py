@@ -1833,6 +1833,25 @@ def test_the_sibling_letter_forms_take_the_same_tolerances() -> None:
     assert corpus.is_disbarment_docket(_scotus("16D02977"))
 
 
+def test_counsel_reads_empty_from_a_blob_that_predates_the_column(tmp_path: Path) -> None:
+    """The ranged and service backends read the published blob as-is — no
+    ``connect`` migration runs — so a column the blob predates must read as its
+    default through ``_from_record``, the same contract every ``_optional_*``
+    column honors."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/886")])
+
+    raw = sqlite3.connect(db)
+    raw.execute("ALTER TABLE cases DROP COLUMN counsel")
+    raw.commit()
+    raw.row_factory = sqlite3.Row
+    record = raw.execute("SELECT * FROM cases WHERE case_id = 'scotus/886'").fetchone()
+    row = corpus._from_record(record)
+    raw.close()
+    assert row.counsel == []
+
+
 def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
     """The side is the reason the column exists, so it is the thing that must
     survive storage — a round trip that kept only the names would be the flat
