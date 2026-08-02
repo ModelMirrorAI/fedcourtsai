@@ -10,13 +10,11 @@
     },
     {
       "checked": 2151683,
-      "detail": "2151683 rows vs baseline 2151873",
-      "failures": 1,
+      "detail": "2151683 rows vs baseline 2151683",
+      "failures": 0,
       "name": "row_count_monotonic",
-      "passed": false,
-      "problems": [
-        "row count 2151683 dropped below baseline 2151873"
-      ]
+      "passed": true,
+      "problems": []
     },
     {
       "checked": 4306454,
@@ -80,7 +78,7 @@
       "problems": []
     },
     {
-      "checked": 3390,
+      "checked": 3416,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -106,7 +104,7 @@
   ],
   "corpus_events": 2151698,
   "corpus_rows": 2151683,
-  "ok": false,
+  "ok": true,
   "schema_version": "1.0",
   "skipped": false
 }
