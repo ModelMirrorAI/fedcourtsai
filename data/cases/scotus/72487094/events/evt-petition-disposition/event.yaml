@@ -1,0 +1,11 @@
+case_id: scotus/72487094
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-02-04'
+resolved: true
+schema_version: '1.0'
+title: Bernice M. Rutland, Petitioner v. Regions Bank, as Trustee of the William Hunter
+  Rutland Family Trust

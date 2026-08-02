@@ -1,0 +1,12 @@
+case_id: scotus/72485842
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-13'
+resolved: true
+schema_version: '1.0'
+title: Eric Manuelian, Petitioner v. Jennifer Starr, Individually and in Her Official
+  Capacity as Trustee of the Laura Kirkland Trust dated 3/10/05 and in the Capacity
+  as Trustee of the Starr Trust, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72486311
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-30'
+resolved: true
+schema_version: '1.0'
+title: Randal Jerome Dalavai, as Successor in Interest to Decedent Geetha Dalavai
+  and son of Geetha Dalavai, Petitioner v. The Regents, et al.
