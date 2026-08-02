@@ -427,9 +427,11 @@ A base rate far enough from 0 to be worth forecasting leaves room for a forecast
 to move it; whether the docket and the briefs support *skill* over that base rate
 is unmeasured, because nothing here has ever scored a predictor on relist.
 
-The weighting is not optional bookkeeping. The historical walker keeps one denial
-in ten, and relists correlate with non-denial, so a raw count over that frame
-runs high — 26.2% unweighted against 19.0% reweighted on the same rows. Worse,
+The weighting is not optional bookkeeping. The walk's legacy sampled rows keep
+one denial in ten (`sample_weight` reconstructs the rest; freshly walked rows
+carry weight 1), and relists correlate with non-denial, so a raw count runs high
+while legacy rows remain in the pool — measured at 26.2% unweighted against
+19.0% reweighted over the same rows. Worse,
 the frame is not uniform: OT2025 comes from the live poller at weight 1 while
 earlier Terms come from the walker, so a row-count pool silently mixes two
 sampling designs. `metrics/README.md` states the rule this paragraph is obeying.
@@ -479,8 +481,8 @@ Drawn from the above, and cheaper to apply than to rediscover:
    agreement figures: it covers a calibration bin scored against a band-derived
    baseline, or a leakage grade computed from the parser that produced the log.
 7. **Is the rate weighted the way the frame demands, and is the frame uniform?**
-   The corpus's denial subsampling means a raw count over the walker's rows
-   overstates anything that correlates with non-denial. Pooling Terms drawn under
+   The corpus's legacy denial-subsampled rows mean a raw count over the walker's
+   rows overstates anything that correlates with non-denial. Pooling Terms drawn under
    different sampling designs compounds it. A reweighted rate prints `est. n=`
    and a raw one plain `n`; `metrics/README.md` is the governing statement. The
    docket pack reweights every cert cut; the statpack keeps one raw reader cut on

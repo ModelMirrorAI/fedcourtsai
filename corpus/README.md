@@ -116,7 +116,9 @@ The multi-valued sibling facts (`panel`, `parties`, `attorneys`, `counsel`) are
 filled by whichever channel carries them; a bulk-shaped source supplies them
 through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
-`seniority` is.
+`seniority` is. A historical row serialized before the column existed also stays
+empty until a re-walk re-serves it — the same legacy-row shape as
+`sample_weight` below.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first

@@ -458,7 +458,8 @@ _SCOTUS_BY_ERA = _SectionSpec("SCOTUS cases by era", "scotus", False, False, Fal
 # The same two cuts, reweighted, for the court-facing pack. Raw is defensible in
 # the statpack, whose reader is calibrating against a known frame; it is not
 # defensible in a citable artifact. Almost every labeled SCOTUS row is live
-# slice, where the walker keeps one denial in ten, so a raw disposition split
+# slice, where legacy walk rows keep one denial in ten (`sample_weight`
+# reconstructs the rest), so a raw disposition split
 # there overstates the grant family several-fold — while a bulk-import circuit
 # row carries weight 1 and is unaffected, which is why reweighting is the whole
 # fix rather than a trade.

@@ -180,7 +180,8 @@ live in different stores, split by **kind**:
    read/write paths: set on the `prod` environment, default
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
-   comes from `FEDCOURTS_CASESTORE_URL` (wired per writer job in `run-pull`);
+   comes from `FEDCOURTS_CASESTORE_URL` (wired at job level in the writer
+   jobs — `run-pull` and `run-seed`);
    mirroring is best-effort — a store failure logs, never breaking the SQLite
    write.
 2. **Derived judgments → the git ledger** under `data/`, where the
@@ -281,8 +282,8 @@ The commit-and-push is one shared retry loop —
 `.github/actions/commit-corpus-to-main/push_with_retry.sh` — that every writer
 reaches: the `pull` and `live` jobs through the `commit-corpus-to-main` composite
 action wrapping it (the action adds the stage/commit/no-op guard), and the
-historical walk's per-chunk checkpoint and scope-latch step by calling the script
-directly. It rebases onto any advance and retries a *transient* push failure (a
+historical walk's per-chunk checkpoint and its dedupe and scope-latch steps by
+calling the script directly. It rebases onto any advance and retries a *transient* push failure (a
 GitHub `commit_refs` blip, not a branch advance) with exponential backoff, long
 enough to outlast a brief server hiccup; a genuine pointer divergence still fails
 loudly and immediately.
@@ -440,7 +441,8 @@ and the full gate need no remote.
 
 Each corpus row is a normalized, **labeled** record: identifiers, dates, the
 realized `disposition` (making the corpus a ready-made back-testing set),
-judges/panel/parties, topic, citations, the live-parsed cert signals, and
+judges/panel/parties/attorneys/counsel, topic, citations, the live-parsed cert
+signals, and
 tracking state — defined and enforced in
 [`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py), with the column reference
 in [corpus/README.md](../corpus/README.md). The SQLite format is internal; the
@@ -490,7 +492,7 @@ or network.
 - **Each run** (deterministic, no agent, no API secret): loop
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
   October Terms' docket serials newest-first from the persisted per-(Term,
-  stream) cursors → ingest each sampled decided petition through the shared
+  stream) cursors → ingest each decided petition through the shared
   live path, landing it already resolved (label, snapshot, events latched
   closed, OT2021+ documents provisioned) → push the corpus and commit the
   pointer per chunk (under the `corpus-write` lock) → write progress to the
@@ -507,14 +509,20 @@ or network.
   skipped entirely (pending matters are the forward poller's charter), so the
   walker writes **no** predict/evaluate handoffs, ever.
 - **Re-walking:** a Term walked to its frontier is invisible to later runs, so
-  `fedcourts refresh-historical --term <NN> --apply` clears its cursors and the
-  next windows re-cover it. Re-walking **adds** — every re-served docket upserts
+  run-seed's manual dispatch carries `refresh_terms` / `refresh_streams` (blank
+  on every scheduled window): it runs `fedcourts refresh-historical --apply`
+  after the pull and before the loop, clearing the named Terms' cursors so the
+  reset and the re-walk it implies are one serialized operation under the
+  `corpus-write` lock. Re-walking **adds** — every re-served docket upserts
   through the same latches, so nothing is deleted and `case_id` never moves.
-  Dry-run by default; the cost is upstream traffic, not risk to the corpus.
-- **Scope maintenance:** after the loop, the job runs `fedcourts
-  reconcile-scope --apply` — the predict-scope latch sweep rides one run-seed
-  window a day (gated to keep its daily cadence) because the corpus is already
-  pulled and pushed there.
+  The CLI is dry-run by default; the cost is upstream traffic, not risk to the
+  corpus.
+- **Maintenance sweeps:** after the loop, one window a day also runs `fedcourts
+  dedupe-live-rows --apply` (merging live-minted duplicate rows) and then
+  `fedcourts reconcile-scope --apply` (the predict-scope latch sweep) — dedupe
+  first, so the latch pass weighs deduped rows; both ride run-seed (gated to
+  keep their daily cadence) because the corpus is already pulled and pushed
+  there.
 
 ## Pull — forward freshness
 

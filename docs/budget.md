@@ -54,10 +54,10 @@ per-cell figures below draw on.
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
 recorded cost a mild undercount.
-Measured per-cell cost spans **≈$0.29–7.87 by model mix** (blended mean **≈$1.86**
+Measured per-cell cost spans **≈$0.25–7.87 by model mix** (blended mean **≈$1.86**
 over the 413 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
 gemini ≈$0.55; evaluate, from the one graded event: claude-judge ≈$4.16, codex-judge
-≈$0.92, gemini-judge ≈$0.52); the cheapest cells approach ≈$0.30 only when the
+≈$0.92, gemini-judge ≈$0.52); the cheapest cells approach ≈$0.25 only when the
 byte-stable prefix (AGENTS.md + prompt template + schema) is served from the prompt
 cache — automatic on all three engines, billing cached reads at ≈0.1×, and the
 reason to keep that prefix stable. Budget the range, not the point. The evaluate
@@ -108,7 +108,7 @@ per case ≈ $13   (planning rate, three engines cross-evaluated)
 `$2.12` is a **deliberately conservative** per-cell rate, held above the current
 measured blended mean of `$1.86` (413 cells) so the knob does not have to be
 re-cut every time the ledger grows. Priced at today's measured per-engine means
-the same case is **≈$11** — predict `$5.57` (claude `$3.65` + codex `$1.38` +
+the same case is **≈$11** — predict `$5.58` (claude `$3.65` + codex `$1.38` +
 gemini `$0.55`) plus evaluate `$5.60` (claude `$4.16` + codex `$0.92` + gemini
 `$0.52`). Treat `$13` as the number to fund against and `$11` as the number to
 expect; the evaluate half rests on a single graded event, so it is indicative
@@ -132,9 +132,11 @@ predicted. The stream is therefore budgeted as a **bounded reserve inside the
 existing per-conference spend envelope**, not a new line:
 `salience.interim_reserve_slots` in
 [config/tracking.yaml](../config/tracking.yaml) is the placeholder cap — held at
-`0`, and sized only once a measured base rate exists. When sized above `0` it
+`0` and **inert** (no enforcement code reads it yet; the field holds the knob's
+place until interim predict scope lands), to be sized only once a measured base
+rate exists. The design it holds a place for: sized above `0`, the reserve
 displaces the lowest-ranked cert picks in whichever conference cycle the
-application is live in — the reserve trades slots inside `N`, never adds to it —
+application is live in — it trades slots inside `N`, never adds to it —
 so target total spend stays as published above and below.
 
 **The controls, and the one that reads the bill.** Capacity `N`, the per-run cell

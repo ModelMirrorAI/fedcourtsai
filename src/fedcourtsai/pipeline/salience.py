@@ -107,8 +107,8 @@ def salience_score(row: corpus.CorpusRow) -> float:
     The primary signal is the stronger of the petition's own-trajectory grant
     rates — relist bucket and (if present) CVSG — nudged by a small fraction of its
     originating circuit's grant rate. Monotone in each feature. Fee class does not
-    enter: IFP petitions will be excluded at Tier 0 (a separate change adds the
-    ``OUT_OF_SCOPE_RULES`` predicate), leaving the scored set paid-only (see
+    enter: IFP petitions are excluded at Tier 0 (the ``OUT_OF_SCOPE_RULES``
+    predicate), leaving the scored set paid-only (see
     ``docs/salience.md``). A pure function of the row's features, so a rescoring
     reproduces the same value.
     """

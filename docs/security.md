@@ -87,15 +87,12 @@ pre-registration record's commit ids.
     merge-routing jail: it runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Rulesets cannot constrain
-    a PR's source branch, which is why it is a check rather than a rule. It
-    cannot be *required* yet: on a `pull_request` the workflow runs from the
-    merge ref, and every legitimate lane into `main` is cut **from** `main` —
-    the collect run branches, the cleanup sweep, the metrics-refresh and
-    cert-backtest PRs — so they run `main`'s own `ci.yml`, which carries no
-    `main-base` job. The context would never report, and an auto-merging
-    collect PR would hang pending forever. It becomes requireable once the job
-    definition promotes into `main`; until then routing rests on the promotion
-    convention and the maintainer's merge. `cleanup-paths` is
+    a PR's source branch, which is why it is a check rather than a rule. Its
+    job definition lives in `main`'s own `ci.yml`, so the context reports on
+    every lane into `main`; making it required is a pending ruleset change
+    that goes through the *Adding a required status check* procedure in
+    [pipeline.md](pipeline.md) — until it lands, routing rests on the
+    promotion convention and the maintainer's merge. `cleanup-paths` is
     deliberately **not** in the required list — a cleanup PR is never
     auto-merged, so it is review-time
     defense-in-depth. **Not** `zizmor` — it is path-filtered
@@ -270,8 +267,9 @@ branch resolution: a `main` dispatch resolves `prod`, a `staging` dispatch
 `staging`, and any other branch its own
 name; an explicit choice still wins). A dispatch whose job *binds* `prod` from
 anything but `main`, or binds `staging` from anything but `staging`, is refused
-at its deployment-branch gate before any step runs; one naming anything else
-auto-creates an unprotected, empty environment and resolves no role variables —
+at its deployment-branch gate before any step runs; an `auto` dispatch from any
+other branch resolves that branch's own name, auto-creating an unprotected,
+empty environment with no role variables —
 the AWS roles' trust policies pin the OIDC `sub` to the named environments, so
 it can assume nothing. The refusal keys on binding, not on the input string: the
 collect scenario binds no environment and so dispatches from anywhere regardless
@@ -325,10 +323,15 @@ assume it, so this is observed, not assumed); the write role's trust never does.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
-this one. It costs one workflow change: adding the environment's name to
-`deploy-environment`'s choice list, which is deliberately a closed vocabulary —
-run titles render the input verbatim and feed the promotion gate's freshness
-matching, so no dispatcher-controlled free text may reach a title.
+this one. It needs no workflow change: `auto` resolution binds an environment
+named after the dispatching branch, so provisioning the environment is itself
+what opens its branch's lane — the environment's existence and contents, not
+the workflow's choice list, are the control surface. The explicit
+`deploy-environment` choices stay a closed vocabulary; the run title renders
+the *resolved* environment (under `auto`, a branch name), and the promotion
+gate's freshness match does not lean on that title being free of
+dispatcher-chosen text — it pins the run's head branch to `staging` and
+anchors its matches, and a ref name cannot carry the title's ` @ ` shape.
 
 **The invariant behind the wiring order:** the environment must never be
 reachable from an arbitrary branch while the read-only role's trust names it.
@@ -350,7 +353,9 @@ run's own synthetic cell artifacts.
 The workflow's engine-smoke scenario additionally — beyond the role
 variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
-other engines' keys never enter the job. The keys live on the `prod`
+other engines' keys never enter the job. An `all` dispatch fans one smoke per
+engine, so a single run reads all three keys — each confined to its own job —
+and spends three cells. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
