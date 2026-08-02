@@ -1,0 +1,11 @@
+case_id: scotus/72487235
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-05'
+resolved: true
+schema_version: '1.0'
+title: Lerner and Rowe PC, an Arizona Corporation, Petitioner v. Brown Engstrand &
+  Shely LLC, dba Accident Law Group, an Arizona Corporation, et al.

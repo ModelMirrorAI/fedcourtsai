@@ -1,0 +1,11 @@
+case_id: scotus/72487161
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-02-18'
+resolved: true
+schema_version: '1.0'
+title: Christopher Schurr, Petitioner v. Peter Lyoya, Personal Representative for
+  the Estate of Patrick Lyoya, Deceased

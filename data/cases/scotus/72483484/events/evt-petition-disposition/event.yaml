@@ -1,0 +1,11 @@
+case_id: scotus/72483484
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-21'
+resolved: true
+schema_version: '1.0'
+title: Jem Accessories, Inc., dba Xtreme Cables, a New Jersey Corporation, Petitioner
+  v. Harman International Industries, Inc., a Delaware Corporation

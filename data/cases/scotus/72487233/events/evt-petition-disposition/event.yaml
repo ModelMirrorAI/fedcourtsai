@@ -1,0 +1,11 @@
+case_id: scotus/72487233
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-05'
+resolved: true
+schema_version: '1.0'
+title: Sergeant Fred Cueto, et al., Petitioners v. Hasmik Jasmine Chinaryan, Individually
+  and as Guardian ad Litem for NEC, a Minor, et al.

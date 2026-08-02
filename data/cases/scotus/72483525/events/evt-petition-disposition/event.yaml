@@ -1,0 +1,12 @@
+case_id: scotus/72483525
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-04-04'
+resolved: true
+schema_version: '1.0'
+title: Michael Nissen, Petitioner v. Javier Ambler, Sr., Individually and on Behalf
+  of All Wrongful Death Beneficiaries of Javier Ambler, II, the Estate of Javier Ambler,
+  II, and as Next Friend of J. R. A., minor child, et al.

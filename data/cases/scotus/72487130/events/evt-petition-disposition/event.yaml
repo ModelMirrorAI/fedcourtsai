@@ -1,0 +1,10 @@
+case_id: scotus/72487130
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-02-11'
+resolved: true
+schema_version: '1.0'
+title: Kari Beeman, et al., Petitioners v. Muskegon County Treasurer
