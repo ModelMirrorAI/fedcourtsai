@@ -1843,12 +1843,14 @@ def test_counsel_reads_empty_from_a_blob_that_predates_the_column(tmp_path: Path
         corpus.upsert_rows(conn, [_row("scotus/886")])
 
     raw = sqlite3.connect(db)
-    raw.execute("ALTER TABLE cases DROP COLUMN counsel")
-    raw.commit()
-    raw.row_factory = sqlite3.Row
-    record = raw.execute("SELECT * FROM cases WHERE case_id = 'scotus/886'").fetchone()
-    row = corpus._from_record(record)
-    raw.close()
+    try:
+        raw.execute("ALTER TABLE cases DROP COLUMN counsel")
+        raw.commit()
+        raw.row_factory = sqlite3.Row
+        record = raw.execute("SELECT * FROM cases WHERE case_id = 'scotus/886'").fetchone()
+        row = corpus._from_record(record)
+    finally:
+        raw.close()
     assert row.counsel == []
 
 
