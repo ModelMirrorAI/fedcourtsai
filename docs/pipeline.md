@@ -10,7 +10,7 @@ stage.
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
-| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (engine/limit params) | Claude Code + Codex (replay) |
+| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
@@ -295,7 +295,8 @@ The mechanics:
   `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
   mis-route — it runs, and fails, only on a PR to `main` whose head is not
   `staging` or a reviewed non-feature lane (the collect run branches, the
-  maintainer's cleanup sweep, the metrics-refresh and cert-backtest PRs) —
+  maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
+  salience-replay PRs) —
   but it is **not** a required context, so it goes red without being able to
   block the merge. It cannot be required yet: a `pull_request` runs the
   workflow from the merge ref, and every legitimate lane into `main` is cut

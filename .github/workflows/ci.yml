@@ -166,7 +166,8 @@ jobs:
     # Merge routing, on the `paths` pattern: code reaches `main` only through
     # the staging→main promotion or a reviewed non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, and the metrics-refresh /
-    # cert-backtest PRs. This job runs (and fails) only on a PR to `main` from
+    # cert-backtest / salience-replay PRs. This job runs (and fails) only on a
+    # PR to `main` from
     # any other head; every legitimate PR skips it. It is not among `main`'s
     # required contexts (`gate`, `paths`, `promotion-gate`) and cannot be yet: a
     # `pull_request` runs the workflow from the merge ref, and the legitimate
@@ -191,7 +192,8 @@ jobs:
           startsWith(github.head_ref, 'evaluate/run-') ||
           startsWith(github.head_ref, 'cleanup/') ||
           github.head_ref == 'metrics/refresh' ||
-          github.head_ref == 'metrics/cert-backtest'
+          github.head_ref == 'metrics/cert-backtest' ||
+          github.head_ref == 'metrics/salience-replay'
         )
       )
     runs-on: ubuntu-latest
