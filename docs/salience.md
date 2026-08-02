@@ -72,8 +72,8 @@ inputs; a scoring-function change is a **new version**, never an in-place edit, 
 a skeptic can replay any past ranking against the version that produced it.
 
 `sal-v1`'s weights are **fit to the empirical per-bucket grant rates**, not
-hand-tuned: a case's score approximates `P(grant | its relist / CVSG / circuit /
-fee-class cell)` read off the committed statpack, so the ranking is directly
+hand-tuned: a case's score approximates `P(grant | its relist / CVSG / circuit
+cell)` read off the committed statpack, so the ranking is directly
 interpretable — a higher score means a historically higher grant rate for cases
 like this — and calibrated to reality rather than to arbitrary coefficients. The
 exact coefficients are pinned and documented in the implementing change against
@@ -90,9 +90,9 @@ the statpack numbers in force.
   without.
 - **Originating circuit** — `originating_court`. Circuits vary in grant rate; a
   documented per-circuit weight.
-- **Fee class** — paid vs IFP. (IFP is Tier-0-excluded, so within the scored set
-  this is near-constant; retained so the score composes if the Tier-0 rule is ever
-  relaxed.)
+
+Fee class (paid vs IFP) deliberately does **not** enter the score: IFP petitions
+are Tier-0-excluded, leaving the scored set paid-only.
 
 Deferred, each with a stated reason:
 
@@ -425,10 +425,10 @@ are SCOTUS-cert-shaped by construction:
   guard has to be built from something else — a rolling window on the decision
   date is the nearest candidate, and a calendar year is not a natural unit of
   appellate practice the way a Term is for the Court.
-- **The `sal-v1` bands do not generalise at all.** Relist count, CVSG presence,
-  originating circuit and fee class have no circuit analogues — there is no
-  relist, no CVSG, no court below in the same sense, and no IFP serial convention
-  to read a fee class from. A circuit band function is a new scorer over
+- **The `sal-v1` bands do not generalise at all.** Relist count, CVSG presence
+  and originating circuit have no circuit analogues — there is no relist, no
+  CVSG, no court below in the same sense, and no IFP serial convention to read
+  the Tier-0 fee-class exclusion from. A circuit band function is a new scorer over
   different features, not a re-parameterisation.
 - **The outcome is a different act.** `granted` means cert was granted on a
   SCOTUS row and a motion was granted on a circuit one. A circuit baseline has to

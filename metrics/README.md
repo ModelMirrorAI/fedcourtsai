@@ -8,7 +8,8 @@ and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which is maintainer-triggered, `docket.{json,md}`,
 which is regenerated on demand by `fedcourts docket`, and
 `salience-replay.json`, produced on demand by the free, deterministic
-`fedcourts salience-replay`. The gate's presence check
+`fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
+`replay: salience-gate` mode, landing as a reviewed PR). The gate's presence check
 tracks the set the weekly refresh regenerates, so an artifact outside that set
 stays outside the gate:
 
@@ -115,9 +116,12 @@ calibration with vacatur-practice prediction.
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run
   is an explicit maintainer action: apply the `run:backtest` label to an
-  issue (the real engines, default set size) or dispatch the workflow with
-  `engine`/`limit` parameters (~one predict cell per petition per routable
-  predictor; `engine: stub` is a free dry run). The refreshed report lands as
+  issue (the real engines, default set size) or dispatch the workflow
+  (`replay`, `engine`, `limit`, `terms`, `skip_engines`, `scope`, and `spread`
+  inputs —
+  ~one predict cell per petition per routable predictor; `engine: stub` is a
+  free dry run; `replay: salience-gate` instead runs the token-free
+  salience-gate replay). The refreshed report lands as
   a **reviewed, never auto-merged** PR. Only petitions holding a snapshot
   replay; the report names what it skips. `fedcourts cert-backtest` remains
   runnable locally with the engine CLIs authenticated.

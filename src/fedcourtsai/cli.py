@@ -3403,8 +3403,9 @@ def live_poll(
     The live counterpart of ``pull-all``, fed by the supremecourt.gov
     docket JSON — no CourtListener token, no API budget; caps in the ``live``
     section of ``config/tracking.yaml`` bound wall clock and politeness.
-    Discovery probes the Term's numbering frontier from the persisted per-Term
-    cursor and onboards each served petition; the refresh re-polls the pending
+    Discovery probes the Term's numbering frontier across the paid, IFP, and
+    application streams from the persisted per-(Term, stream) cursors and
+    onboards each served petition or application; the refresh re-polls the pending
     modern-cert watchlist (recent Terms first), then the application rotation
     re-polls unresolved interim applications under its own cap — ground-truth
     only, with prediction queueing off. Resolution is detected from the

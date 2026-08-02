@@ -167,7 +167,8 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                                        held if EVALUATE_HANDOFF_ENABLED=0)
    daily ×4 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
-                                 │  → onboard new petitions (per-Term cursor)
+                                 │  → onboard new petitions + applications
+                                 │    (per-(Term, stream) cursors)
                                  ├─ re-poll the pending cert watchlist (recent Terms first)
                                  ├─ re-poll unresolved interim applications (capped;
                                  │    ground-truth only — no predict handoff)
@@ -303,12 +304,10 @@ The mechanics:
   maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
   salience-replay PRs) —
   but it is **not** a required context, so it goes red without being able to
-  block the merge. It cannot be required yet: a `pull_request` runs the
-  workflow from the merge ref, and every legitimate lane into `main` is cut
-  from `main`, whose own ci.yml carries no `main-base` job — the context would
-  never report and an auto-merging collect PR would hang pending forever. It
-  becomes requireable once that definition promotes into `main`
-  (docs/security.md inventories this).
+  block the merge. Its definition lives in `main`'s own ci.yml, so the context
+  reports on every lane into `main`; making it required is a pending ruleset
+  change that goes through the *Adding a required status check* procedure
+  below (docs/security.md inventories this).
   Rulesets cannot constrain a PR's source branch, which is why the routing
   lives as a check at all, and why the check deters mistakes while the human
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
@@ -339,8 +338,8 @@ The mechanics:
   sync defers itself while a promotion PR is open, so it never moves the head
   a batch in flight is being tested against. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
-  environment is `main`-only, so `sync-staging` does nothing until it is
-  promoted — the promotion that carries it is itself still synced by hand.
+  environment is `main`-only, so an edit to `sync-staging` takes effect only
+  once it promotes.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
@@ -384,9 +383,9 @@ checks that can report on a staging-targeted PR (`gate` and `paths`),
 inventories it); and add `promotion-gate` to `main`'s required checks
 alongside `gate` and `paths` — it reports `skipped`, which satisfies the
 requirement, on every PR that is not the promotion. `main-base` stays
-**unrequired** until its ci.yml definition has been **promoted to `main`**,
-because a required check that no workflow run reports leaves every collect
-auto-merge PR waiting forever.
+**unrequired** until the *Adding a required status check* procedure below
+clears it, because requiring a context before that procedure confirms its
+producing job strands every collect auto-merge PR.
 
 The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches

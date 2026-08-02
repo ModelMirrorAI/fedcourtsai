@@ -108,7 +108,7 @@ live:
 # for the statpack's per-Term base rates, secondarily the cert back-test set —
 # by walking October Terms over the supremecourt.gov docket JSON: the same
 # client/ingest path as `live:` above, so no API budget. This section IS the
-# set's sampling frame; it is committed so the set's construction stays
+# set's construction frame; it is committed so the set's construction stays
 # documented and reproducible.
 historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
@@ -118,9 +118,10 @@ historical:
   # whose existing case carries an open PREDICTED event to the watchlist (its
   # re-poll queues the evaluate handoff the walker never files); the two
   # walkers' cursors are disjoint, so neither rewinds the other. Note the
-  # sampling frame below applies to what the WALKER ingests — a Term the
-  # forward poller also onboarded (OT2025+) carries poller-full coverage on
-  # top of the walker's sample, so per-Term composition is not uniform there.
+  # frame below applies to what the WALKER ingests — a Term the forward
+  # poller also onboarded (OT2025+) carries the poller's pending-petition
+  # coverage on top of the walker's decided-only set, so per-Term composition
+  # is not uniform there.
   terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
   # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'

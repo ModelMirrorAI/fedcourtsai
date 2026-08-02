@@ -187,7 +187,7 @@ prediction's vantage point — so it clears tests 1 and 2 of the five the
 withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **not** yet
 clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
-it would have to be weighted for the corpus's denial subsampling, writings
+it would have to be weighted for the corpus's legacy denial-subsampled rows, writings
 respecting denial are censored in an open Term, and `has_opinion` is 0 on every
 corpus row today — so a naive implementation would resolve "did not write" for
 all nine on every case and manufacture a base rate of zero out of an empty

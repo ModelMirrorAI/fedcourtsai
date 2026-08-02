@@ -198,7 +198,7 @@ def _payload_disposition(payload: Mapping[str, Any]) -> Disposition | None:
     """The cert disposition the record's proceedings text carries, or ``None``.
 
     First match in docket order over the same entry text ingest-time resolution
-    reads, so the sampling decision always agrees with the label the ingested
+    reads, so the keep/skip decision always agrees with the label the ingested
     row will land with.
     """
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -293,7 +293,7 @@ class _Walk:
         )
 
     def ingest(self, payload: dict[str, Any], term: int, serial: int, label: Disposition) -> None:
-        """Land one sampled decided petition through the shared live-ingest path.
+        """Land one decided petition through the shared live-ingest path.
 
         One guard first: a serial that resolves to an existing case with an
         **open, predicted** event is left to the watchlist instead of ingested.
