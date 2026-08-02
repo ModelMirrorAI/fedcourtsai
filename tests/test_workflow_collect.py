@@ -440,7 +440,11 @@ def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() ->
     from every branch but the environment's own, for a job that needs nothing
     the environment holds."""
     workflow = _load(INTEGRATION_TEST)
-    assert workflow["jobs"]["scenario"]["if"] == "${{ inputs.scenario != 'collect' }}"
+    # Both the matrix planner and the scenario job it feeds sit behind the
+    # same partition, so a collect dispatch never plans or runs a matrix leg.
+    for job_id in ("plan", "scenario"):
+        assert workflow["jobs"][job_id]["if"] == "${{ inputs.scenario != 'collect' }}"
+    assert workflow["jobs"]["scenario"]["needs"] in ("plan", ["plan"])
     assert _collect_scenario_job()["if"] == "${{ inputs.scenario == 'collect' }}"
     # `on:` parses as the YAML boolean True.
     options = workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]

@@ -103,8 +103,13 @@ corpus-consuming workflows and before releases — from main, or via the
 `staging` deployment environment (the collect scenario needs
 none) from the `staging` branch, which is the only branch that environment
 accepts (those runs are the promotion gate's freshness evidence; see
-*Promotion: staging → main* below). See *Infra-bound integration* in
-[testing.md](testing.md).
+*Promotion: staging → main* below). The deployment environment resolves from
+the dispatching branch by default — `main` gets `prod`, `staging` gets
+`staging`, any other branch an empty environment holding no role variables
+and no keys — and a `scenario=all` dispatch
+fans the gate's whole required suite (every scenario but collect, with
+engine-smoke once per engine, so three cells' token spend) out of one run.
+See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -340,7 +345,10 @@ The mechanics:
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
   required integration scenario green at exactly the staging head being
-  promoted). The `promote` dispatch runs it as pre-flight; ci.yml's
+  promoted — one green `scenario=all` run, which succeeds only when every
+  matrix leg does, satisfies all seven required runs at once, engine-smoke
+  counted once per engine). The `promote` dispatch runs it as pre-flight;
+  ci.yml's
   `promotion-gate` job runs it as a required check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
@@ -361,8 +369,9 @@ The full path of a change, operator's view:
    sync — dispatch `sync-staging` and let its PR land, or, if that PR
    conflicts, run the printed commands (your admin-bypass push) — then
    re-dispatch.
-3. Dispatch the required integration scenarios at staging's post-sync head
-   (the summary lists them), then re-dispatch `promote`.
+3. Dispatch the required integration scenarios at staging's post-sync head —
+   one `scenario=all` dispatch covers the whole suite, or per-scenario runs
+   add up to it (the summary prints both forms) — then re-dispatch `promote`.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
    check right before merging, and merge with a **merge commit**. Live on

@@ -2,8 +2,13 @@ name: integration-test
 
 # The staging→main promotion freshness gate matches runs on this title format
 # (scripts/promotion-gate.sh); change the two together — a workflow-shape test
-# pins both ends.
-run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{ inputs.deploy-environment }}"
+# pins both ends. An `all` dispatch drops the `<scenario> / <engine>` pair for
+# a bare `all` — the title the gate accepts as whole-suite evidence. The
+# branch→environment resolution here is duplicated on the scenario job's
+# `environment:` key (YAML anchors do not work in workflows); keep the two
+# expressions identical, or the title stops naming the environment the job
+# actually bound.
+run-name: "integration-test: ${{ inputs.scenario == 'all' && 'all' || format('{0} / {1}', inputs.scenario, inputs.engine) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
@@ -29,10 +34,13 @@ run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{
 # run history.
 #
 # The `deploy-environment` input is what lets a change be exercised against real
-# infrastructure before it is promoted: a dispatch from main uses the `prod`
-# environment as always, while a dispatch from `staging` names the `staging`
-# environment, holding the same read-only role and remote variables plus its own
-# engine keys. Each environment restricts deployments to its one branch, so the
+# infrastructure before it is promoted, and its `auto` default resolves the
+# environment from the dispatching branch: `main` resolves `prod` as always,
+# `staging` resolves the `staging` environment — the same read-only role and
+# remote variables plus its own engine keys — and any other branch resolves its
+# own name, which names no configured environment and so binds nothing: no role
+# variables, no keys. An explicit choice still wins over the resolution.
+# Each environment restricts deployments to its one branch, so the
 # gate is code provenance — only what passed a PR and the branch's required
 # checks can bind either — rather than a per-run approval, which asserts
 # nothing about the code. A dispatch whose job BINDS an environment from the
@@ -44,7 +52,11 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: Which integration scenario to run.
+        description: >-
+          Which integration scenario to run. `all` fans the promotion gate's
+          whole required suite out of one dispatch — every scenario except
+          collect, with engine-smoke once per engine — and therefore SPENDS
+          MODEL TOKENS: three engine-smoke cells' worth, one per engine.
         type: choice
         default: ranged-reads
         options:
@@ -54,6 +66,7 @@ on:
           - engine-smoke
           - mcp-sidecar
           - collect
+          - all
       # The known-good case the scenarios target: it must exist in the corpus
       # with at least one open (predictable) event and — for the snapshot and
       # cascade reads — a snapshot in the per-case content store, which under
@@ -74,7 +87,8 @@ on:
           engine-smoke only — which real engine drives the cell. SPENDS MODEL
           TOKENS: one predict cell's worth against the default open-event
           case; a resolved or multi-event case also replays evaluator cells,
-          so narrow with `event` when pointing elsewhere.
+          so narrow with `event` when pointing elsewhere. Ignored by `all`,
+          which runs one smoke per engine.
         type: choice
         default: claude-code
         options:
@@ -89,13 +103,23 @@ on:
         default: ""
       deploy-environment:
         description: >-
-          Deployment environment supplying the role/remote variables. Each is
-          pinned to one branch: `main` dispatches use `prod`, `staging`
-          dispatches use `staging`. Unused by the collect scenario, whose job
-          binds no environment and so dispatches from anywhere. Any other
-          value resolves no role variables and no keys — fail-closed.
-        type: string
-        default: prod
+          Deployment environment supplying the role/remote variables. The
+          `auto` default resolves it from the dispatching branch — `main`
+          resolves `prod`, `staging` resolves `staging`, and any other branch
+          resolves its own name, which names no configured environment and so
+          binds no role variables and no keys — fail-closed. An explicit
+          choice still wins, and each environment stays pinned to its one
+          branch. A closed choice, not free text: run titles feed the
+          promotion gate's freshness matching, so every dispatcher-controlled
+          title component must come from a server-validated vocabulary.
+          Unused by the collect scenario, whose job binds no environment and
+          so dispatches from anywhere.
+        type: choice
+        default: auto
+        options:
+          - auto
+          - prod
+          - staging
 
 # Least privilege by default; the job widens only to what the scenarios need.
 permissions: {}
@@ -105,22 +129,84 @@ permissions: {}
 # is part of the key so per-engine smokes run side by side (scenario-only
 # grouping made simultaneous claude/gemini smoke dispatches cancel each
 # other); for the other scenarios the engine input is a constant default, so
-# the grouping is unchanged.
+# the grouping is unchanged. An `all` dispatch groups on the scenario alone —
+# its engine input is meaningless, and folding it in would let two `all`
+# dispatches differing only on that input race instead of superseding each
+# other. An `all` run and a single-scenario run therefore never share a group:
+# neither can cancel or queue behind the other, and an overlap on the same
+# scenario is harmless because every scenario is idempotent and side-effect
+# free.
 concurrency:
-  group: integration-test-${{ inputs.scenario }}-${{ inputs.engine }}
+  group: integration-test-${{ inputs.scenario == 'all' && 'all' || format('{0}-{1}', inputs.scenario, inputs.engine) }}
   cancel-in-progress: true
 
 jobs:
+  # Expands the dispatch into the {scenario, engine} legs the job below fans
+  # out over: `all` becomes the promotion gate's whole required suite, any
+  # other scenario one leg carrying the inputs unchanged — so a
+  # single-scenario dispatch runs exactly the steps, env, and environment
+  # binding it always has.
+  plan:
+    if: ${{ inputs.scenario != 'collect' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Compute the scenario matrix
+        id: plan
+        env:
+          # Inputs pass through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands.
+          SCENARIO: ${{ inputs.scenario }}
+          ENGINE: ${{ inputs.engine }}
+        run: |
+          set -euo pipefail
+          if [ "$SCENARIO" = all ]; then
+            # The promotion gate's required suite — keep in lockstep with
+            # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a
+            # workflow-shape test pins the two ends). collect stays out: it
+            # is not part of the gate and runs on its own job below. The
+            # engine field is meaningful only for engine-smoke; the other
+            # legs carry the engine input's default as a benign constant.
+            matrix='[
+              {"scenario": "ranged-reads", "engine": "claude-code"},
+              {"scenario": "corpus-service", "engine": "claude-code"},
+              {"scenario": "stub-cascade", "engine": "claude-code"},
+              {"scenario": "mcp-sidecar", "engine": "claude-code"},
+              {"scenario": "engine-smoke", "engine": "claude-code"},
+              {"scenario": "engine-smoke", "engine": "codex"},
+              {"scenario": "engine-smoke", "engine": "gemini"}
+            ]'
+            matrix=$(jq -c . <<<"$matrix")
+          else
+            matrix=$(jq -nc --arg s "$SCENARIO" --arg e "$ENGINE" \
+              '[{scenario: $s, engine: $e}]')
+          fi
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
   scenario:
     # Every dispatch-selected scenario except `collect`, which runs on its own
     # environment-free job below: it needs no role variables, so binding it to
     # this job's deployment environment would only add a needless gate.
     if: ${{ inputs.scenario != 'collect' }}
+    needs: plan
     runs-on: ubuntu-latest
+    strategy:
+      # A broken leg must not cancel the others: each leg is independent
+      # freshness evidence for its scenario, and an `all` run's whole-suite
+      # evidence is simply the run succeeding — which needs every leg's own
+      # verdict, not the first failure's.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
     timeout-minutes: 45
-    environment: ${{ inputs.deploy-environment }}
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to the one in `run-name:` above (YAML anchors do not work in
+    # workflows), and see the deploy-environment input for what resolves.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the corpus reads
@@ -138,7 +224,7 @@ jobs:
       # assumes the read-only role directly instead of via the corpus-readonly
       # composite, whose pull serves jobs that read the local file.
       - name: Configure AWS credentials (read-only)
-        if: ${{ inputs.scenario == 'ranged-reads' || inputs.scenario == 'stub-cascade' }}
+        if: ${{ matrix.scenario == 'ranged-reads' || matrix.scenario == 'stub-cascade' }}
         uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
@@ -158,7 +244,7 @@ jobs:
       # budget, so a pathology (a table scan, a cache regression) fails the
       # run instead of hiding in the logs.
       - name: Run the fixed ranged read set
-        if: ${{ inputs.scenario == 'ranged-reads' }}
+        if: ${{ matrix.scenario == 'ranged-reads' }}
         env:
           # Inputs pass through the environment (never interpolated into the
           # shell) so a maintainer-supplied value cannot inject commands.
@@ -188,7 +274,7 @@ jobs:
       # for the cascade's own provisioning reads.
       - uses: ./.github/actions/corpus-sidecar
         id: corpus
-        if: ${{ inputs.scenario == 'corpus-service' || inputs.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' }}
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -198,7 +284,7 @@ jobs:
       # backend: two reads through the exact client a cell's `service` backend
       # forwards with, failing on an empty result or a blown budget.
       - name: Run the service read set against the sidecar
-        if: ${{ inputs.scenario == 'corpus-service' }}
+        if: ${{ matrix.scenario == 'corpus-service' }}
         env:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
@@ -216,7 +302,7 @@ jobs:
       # artifacts only into the runner's throwaway checkout — this job holds
       # no write credential, so nothing can land anywhere.
       - name: Run one stub cascade cell over the ranged backend
-        if: ${{ inputs.scenario == 'stub-cascade' }}
+        if: ${{ matrix.scenario == 'stub-cascade' }}
         env:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
@@ -256,9 +342,9 @@ jobs:
       # fresh at every install), so npm lifecycle scripts must never see
       # credentials.
       - name: Install the selected agent CLI
-        if: ${{ inputs.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'engine-smoke' }}
         env:
-          ENGINE: ${{ inputs.engine }}
+          ENGINE: ${{ matrix.engine }}
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
         # transitive scripts disabled, and a secret-free step environment are
         # the practical controls for global CLIs; a lockfile is not
@@ -296,7 +382,7 @@ jobs:
       # writing, as upstream does: a kernel without the knob has nothing to
       # loosen.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: ${{ inputs.scenario == 'engine-smoke' && inputs.engine == 'codex' }}
+        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -314,7 +400,7 @@ jobs:
       # belong on this allowlist — it is written raw here, with no
       # credential-shape screen in the path.
       - name: Configure the Gemini cell env allowlist
-        if: ${{ inputs.scenario == 'engine-smoke' && inputs.engine == 'gemini' }}
+        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'gemini' }}
         run: |
           set -euo pipefail
           mkdir -p .gemini
@@ -339,9 +425,9 @@ jobs:
       # the cell fails closed regardless of step ordering. Output lands only in the
       # runner's throwaway checkout.
       - name: Run one real-engine cascade cell over the service sidecar
-        if: ${{ inputs.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'engine-smoke' }}
         env:
-          ENGINE: ${{ inputs.engine }}
+          ENGINE: ${{ matrix.engine }}
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
           EVENT: ${{ inputs.event }}
@@ -357,9 +443,9 @@ jobs:
           # and the content store is unreachable without the scrubbed creds.
           FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
           FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-          ANTHROPIC_API_KEY: ${{ inputs.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
-          OPENAI_API_KEY: ${{ inputs.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
-          GEMINI_API_KEY: ${{ inputs.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
+          GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
         run: |
           set -euo pipefail
           case "$ENGINE" in
@@ -401,7 +487,7 @@ jobs:
       # includes the CourtListener server (the sidecar scopes tool manifests
       # per actor).
       - uses: ./.github/actions/mcp-sidecar
-        if: ${{ inputs.scenario == 'mcp-sidecar' }}
+        if: ${{ matrix.scenario == 'mcp-sidecar' }}
         with:
           role: predictor
           actor: claude-baseline
@@ -412,7 +498,7 @@ jobs:
       # the job unless the sidecar completes the handshake and hands out a
       # non-empty tool list.
       - name: Run the MCP client check against the sidecar
-        if: ${{ inputs.scenario == 'mcp-sidecar' }}
+        if: ${{ matrix.scenario == 'mcp-sidecar' }}
         run: |
           set -euo pipefail
           uv run fedcourts mcp-integration-check --summary-out "$GITHUB_STEP_SUMMARY"

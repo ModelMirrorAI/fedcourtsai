@@ -265,7 +265,10 @@ Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `prod`). A dispatch whose job *binds* `prod` from
+(`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
+branch resolution: a `main` dispatch resolves `prod`, a `staging` dispatch
+`staging`, and any other branch its own
+name; an explicit choice still wins). A dispatch whose job *binds* `prod` from
 anything but `main`, or binds `staging` from anything but `staging`, is refused
 at its deployment-branch gate before any step runs; one naming anything else
 auto-creates an unprotected, empty environment and resolves no role variables —
@@ -322,8 +325,10 @@ assume it, so this is observed, not assumed); the write role's trust never does.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
-this one. It costs no workflow change: `deploy-environment` is a free-form
-string input.
+this one. It costs one workflow change: adding the environment's name to
+`deploy-environment`'s choice list, which is deliberately a closed vocabulary —
+run titles render the input verbatim and feed the promotion gate's freshness
+matching, so no dispatcher-controlled free text may reach a title.
 
 **The invariant behind the wiring order:** the environment must never be
 reachable from an arbitrary branch while the read-only role's trust names it.
