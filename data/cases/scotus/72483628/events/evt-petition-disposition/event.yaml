@@ -1,0 +1,10 @@
+case_id: scotus/72483628
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-05-07'
+resolved: true
+schema_version: '1.0'
+title: Live Nation Entertainment, Inc., et al., Petitioners v. Skot Heckman, et al.

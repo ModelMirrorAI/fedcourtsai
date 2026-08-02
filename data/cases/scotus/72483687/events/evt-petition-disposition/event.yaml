@@ -1,0 +1,11 @@
+case_id: scotus/72483687
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-05-22'
+resolved: true
+schema_version: '1.0'
+title: Association for Government Accountability, et al., Petitioners v. Steve Simon,
+  Individually and in His Official Capacity as Minnesota Secretary of State, et al.

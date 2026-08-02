@@ -1,0 +1,10 @@
+case_id: scotus/72483656
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-05-15'
+resolved: true
+schema_version: '1.0'
+title: Evans Hotels, LLC, et al., Petitioners v. Unite Here! Local 30, et al.
