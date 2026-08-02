@@ -662,13 +662,6 @@ class _Slice:
         return _timing_from_days([days for days, _ in self.day_pairs])
 
 
-# Each band mapped to itself and every weaker band, precomputed from the
-# strongest-first order so the risk-set fan-out is a dict lookup per row.
-_WEAKER_OR_EQUAL: dict[str, tuple[str, ...]] = {
-    band: salience_bands()[i:] for i, band in enumerate(salience_bands())
-}
-
-
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
