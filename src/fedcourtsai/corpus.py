@@ -1001,7 +1001,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         disposition=record["disposition"],
         judges=json.loads(record["judges"]),
         panel=[PanelMember(**m) for m in json.loads(record["panel"])],
-        counsel=[CounselEntry(**c) for c in json.loads(record["counsel"])],
+        counsel=[CounselEntry(**c) for c in json.loads(_optional_str(record, "counsel") or "[]")],
         parties=json.loads(record["parties"]),
         attorneys=json.loads(record["attorneys"]),
         topic=record["topic"],
