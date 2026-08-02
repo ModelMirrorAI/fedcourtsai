@@ -519,9 +519,12 @@ or network.
 ## Pull — forward freshness
 
 - **Trigger:** an intraday cron (several windows a day), `workflow_dispatch`,
-  or a maintainer-applied `run:pull` label. The day's windows share one
-  short-lived `pull-log` issue (its label is deliberately not a `run:*`
-  trigger label).
+  or a maintainer-applied `run:pull` label. Each window that ends in success
+  or failure lands its row on the long-lived pipeline-runs dashboard issue; a
+  failing window also opens a `pull-log` issue for a human, and a window
+  cancelled mid-run (timeout, manual stop) gets only that alarm issue, no
+  dashboard row (`run-log-dashboard` and `pull-log` are deliberately not
+  `run:*` trigger labels — see [pipeline.md](pipeline.md)).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
   the active CourtListener tier's ceilings; a slice of each run
@@ -532,7 +535,8 @@ or network.
      changed cases with open events — unless the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
-     `predict_skipped_decided` list and surfaced on the log issue instead of
+     `predict_skipped_decided` list and surfaced on the job's Actions run log
+     (the CLI's own output) instead of
      queued: a forward cell on a decided case would be a mislabeled back-test.
      The live job applies the same routing.
   2. **Detect resolution** of tracked open events → write `outcome.json`
@@ -540,7 +544,8 @@ or network.
      `run:evaluate` **when the ledger holds a prediction to score**
      (ground-truth recording is ungated; the evaluator fan-out is). Anything
      ambiguous lands on the runner-local **unrecorded queue**, surfaced
-     per-case on the daily log issue for maintainer triage; no issue is filed.
+     per-case on the pipeline-runs dashboard for maintainer triage; no issue
+     is filed.
 
 ## Event definition — deterministic, corpus-driven
 

@@ -199,7 +199,10 @@ is a non-triggering label), which is the only reason a workflow here ever reache
 for the App token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
 which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
-same way. The capability is therefore on the lower-trust, non-bypass token, scoped
+same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
+run-log issues ride the ambient token for the same reason (its App token is
+reserved for the writes that must trigger downstream: the corpus commits and
+the `run:predict` / `run:evaluate` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the

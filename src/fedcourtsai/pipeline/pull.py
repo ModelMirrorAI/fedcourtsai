@@ -128,7 +128,7 @@ class PullQueues:
     Each entry is a JSON-serializable mapping shaped exactly as the ``run-pull``
     workflow consumes it (the ``jq`` fields in ``run-pull.yml``): ``predict`` and
     ``evaluate`` entries carry ``court`` / ``docket`` / ``events``; ``unrecorded``
-    adds the maintainer-facing ``reason`` the run log surfaces.
+    adds the maintainer-facing ``reason`` the pipeline-runs dashboard surfaces.
     """
 
     predict: list[dict[str, object]] = field(default_factory=list)

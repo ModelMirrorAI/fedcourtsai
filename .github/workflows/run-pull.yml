@@ -37,33 +37,30 @@ name: run-pull
 # a `run:predict` issue for each changed case with open events and a `run:evaluate`
 # issue for each case that gained an outcome; a case that appears decided but
 # whose outcome could not be recorded deterministically is surfaced on the
-# daily log for maintainer triage (no issue is filed for it).
-# The day's windows share one short-lived `pull-log` tracking issue: the first
-# window opens it, each posts its summary, and the final daily window closes it on
-# success (left open as a record if a window fails). All git/issue writes use the GitHub App token so the
-# resulting issues/commits trigger downstream workflows; the `pull-log` label is
-# deliberately NOT a `run:*` trigger label, so the tracking issue does not re-fire pull.
+# pipeline-runs dashboard for maintainer triage (no issue is filed for it).
+# Run logging creates nothing on the happy path: every window (pull and live,
+# success or failure) lands its row on the single long-lived `Pipeline runs`
+# dashboard issue, edited in place (.github/actions/run-log-dashboard), and a
+# failing window opens (or reuses, same day) a `pull-log` / `live-log` issue
+# left open for a human — so an open run-log issue means exactly "a window
+# broke". The corpus commits and the run:predict / run:evaluate handoff issues
+# use the GitHub App token so they trigger downstream workflows; the logging
+# writes (dashboard + run-log issues) ride the ambient GITHUB_TOKEN instead —
+# they must trigger nothing, and their labels are deliberately NOT `run:*`
+# trigger labels, so no logging issue re-fires pull.
 on:
   schedule:
     # Four pull windows/day, six hours apart (staggered off the hour from other
     # jobs). Spreading the work keeps each run under the hourly CourtListener
-    # ceiling while the day's total approaches the daily one. Separate lines
-    # (not a comma-list) so `github.event.schedule` identifies the final daily
-    # window, which is the one that closes the shared pull-log issue. The
-    # minute is also the job selector: `17 *` crons run `pull` and `47 *` run
-    # `live`. (The historical walker's `31` windows live in run-seed.yml.)
-    - cron: "17 1 * * *"
-    - cron: "17 7 * * *"
-    - cron: "17 13 * * *"
-    - cron: "17 19 * * *"
+    # ceiling while the day's total approaches the daily one. The minute is the
+    # job selector: `17 *` crons run `pull` and `47 *` run `live`. (The
+    # historical walker's `31` windows live in run-seed.yml.)
+    - cron: "17 1,7,13,19 * * *"
     # Four live windows/day, interleaved between the pull windows so the
     # corpus writers rarely even queue on the shared lock. Budget-free
     # (supremecourt.gov), so cadence is a freshness/politeness choice — the
     # conference watchlist will retune it around the cert calendar.
-    - cron: "47 4 * * *"
-    - cron: "47 10 * * *"
-    - cron: "47 16 * * *"
-    - cron: "47 22 * * *"
+    - cron: "47 4,10,16,22 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -143,6 +140,7 @@ jobs:
       # hold write access; deny everyone else. Fail closed if it can't be read.
       # (The label name is already checked in the job `if:`.)
       - name: Authorize the trigger (issue label must come from a maintainer)
+        id: authorize
         if: github.event_name == 'issues'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -169,44 +167,12 @@ jobs:
           permission-contents: write
           permission-issues: write
 
-      - name: Open the daily run issue
-        id: run-issue
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # `pull-log` is a NON-triggering label by design: it is not a `run:*`
-          # label, so labeling the tracking issue cannot re-fire this workflow
-          # (issues: labeled) in a loop — unlike run:pull, which is the trigger.
-          # Create it idempotently so a fresh repo's first run does not fail on a
-          # missing label.
-          gh label create pull-log --repo "$REPO" --force \
-            --color 1d76db --description "Daily run-pull refresh log (open while a run is in flight)"
-          today=$(date -u +%Y-%m-%d)
-          # Reuse the open pull-log issue if one exists — the day's earlier windows
-          # share it, and a streak of failures (left open as a record) collapses
-          # into one thread — instead of opening a fresh one each window. The final
-          # daily window closes it (below), so steady state is one issue per day.
-          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
-            --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            url=$(gh issue create --repo "$REPO" \
-              --title "pull: daily refresh — ${today}" \
-              --label pull-log \
-              --body "Daily \`run-pull\` refresh in progress. Each window posts a summary here; the day's final window closes this issue on success, and it is left open as a record if a window fails.")
-            num="${url##*/}"
-            echo "Opened pull-log issue: ${url}"
-          else
-            gh issue comment "$num" --repo "$REPO" \
-              --body "New \`run-pull\` refresh window started ${today} — reusing this open log."
-            echo "Reusing open pull-log issue #${num}"
-          fi
-          echo "number=${num}" >> "$GITHUB_OUTPUT"
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so refreshed snapshots can be pushed back to main;
         # this job uploads no artifacts, so credential leakage is not a concern.
+        # The id gates the dashboard step below: the composite action it uses
+        # lives in this tree, so it can only run once checkout has succeeded.
+        id: checkout
         with: # zizmor: ignore[artipacked]
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -349,19 +315,42 @@ jobs:
           noun: evaluate
           enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
 
-      - name: Summarize the run; close the log after the final daily window
-        if: success() && steps.run-issue.outputs.number != ''
+      # Success or failure, the window lands its row on the long-lived
+      # `Pipeline runs` dashboard issue (edited in place; the unrecorded
+      # outcomes ride along per case for maintainer triage). Never on
+      # cancellation — a queued window superseded on the shared lock is not an
+      # outcome. A failure before checkout cannot land a row (the composite
+      # lives in this tree) and is covered by the failure issue below.
+      # The ambient GITHUB_TOKEN (this job holds `issues: write`), not the App
+      # token: the dashboard must trigger nothing, so it stays on the
+      # lower-trust, non-bypass credential — the same doctrine as run-ops and
+      # the collect/plan issue writes (docs/security.md).
+      # Loud-not-fatal like publish-corpus-verdict: a transient dashboard
+      # hiccup must not mark a healthy window failed (and so file a false
+      # alarm); a stale dashboard is self-evident from its newest row's
+      # timestamp.
+      - name: Update the pipeline-runs dashboard
+        continue-on-error: true
+        if: >-
+          (success() || failure()) &&
+          steps.checkout.conclusion == 'success'
+        uses: ./.github/actions/run-log-dashboard
+        with:
+          token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          channel: pull
+          outcome: ${{ job.status }}
+          committed: ${{ steps.commit.outputs.committed }}
+          predict-note: ${{ steps.predict-handoff.outputs.note }}
+          evaluate-note: ${{ steps.evaluate-handoff.outputs.note }}
+
+      # Ops analytics: the same counts in the Actions UI, no roll-up needed.
+      - name: Roll the window up on the Actions summary
+        if: success()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ steps.run-issue.outputs.number }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
           EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
-          # The shared daily log is closed only after the last scheduled window
-          # (so the day's windows collapse into one thread), or by a one-off
-          # manual / `run:pull` run (no schedule, so it owns its own log).
-          IS_FINAL_WINDOW: ${{ github.event_name != 'schedule' || github.event.schedule == '17 19 * * *' }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
@@ -372,21 +361,6 @@ jobs:
           else
             snap="No outcome or corpus changes this window."
           fi
-          # Unrecorded outcomes are surfaced per case on the daily log (no issue
-          # is filed — nothing consumes one): decided-looking dockets whose
-          # outcome could not be recorded deterministically, for maintainer triage.
-          unrecorded_lines=$(jq -r \
-            '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
-          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**%s\n- outcomes left unrecorded (not deterministically recordable): **%s**\n' \
-            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$EVALUATE_NOTE" "$unrecorded")
-          if [ "$unrecorded" -gt 0 ]; then
-            body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
-          fi
-          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
-          if [ "${IS_FINAL_WINDOW}" = "true" ]; then
-            gh issue close "$ISSUE" --repo "$REPO" --reason completed
-          fi
-          # Ops analytics: the same summary in the Actions UI, no roll-up needed.
           {
             echo "## run-pull — $(date -u +%Y-%m-%d)"
             echo "$snap"
@@ -397,6 +371,55 @@ jobs:
             echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Failure-only alarm: an open `pull-log` issue means exactly "a pull
+      # window broke" — nothing is filed on the happy path, and nothing closes
+      # this automatically; a human closes it once triaged. Inline (no
+      # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
+      # same doctrine as the dashboard step above), so it fires for any broken
+      # window — including one whose App-token mint itself failed. The one
+      # suppression is a failed authorize step: an unauthorized labeling
+      # attempt must stay fail-closed and file nothing (the step is skipped,
+      # not failed, on schedule/dispatch runs, so those alarm normally).
+      # `cancelled()` is included because the shared lock never cancels an
+      # in-flight run (cancel-in-progress is false; a superseded run dies
+      # queued, before any step) — so an in-flight cancellation is the job
+      # timeout or a human's stop, and both are windows that did not complete.
+      - name: Open the failure run-log issue
+        if: (failure() || cancelled()) && steps.authorize.conclusion != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WINDOW: ${{ github.event_name == 'schedule' && github.event.schedule || github.event_name }}
+          STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          # `pull-log` is a NON-triggering label by design: it is not a `run:*`
+          # label, so labeling this issue cannot re-fire the workflow
+          # (issues: labeled) in a loop — unlike run:pull, which is the trigger.
+          # Create it idempotently so a fresh repo's first failure does not
+          # fail on a missing label.
+          gh label create pull-log --repo "$REPO" --force \
+            --color b60205 --description "A run-pull refresh window failed (open until a human triages)"
+          today=$(date -u +%Y-%m-%d)
+          # One issue per broken day: a day's repeated failures collapse into
+          # one thread, while an older day's still-open issue is its own
+          # record and is left alone.
+          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
+            --limit 100 --json number,title | jq -r --arg d "$today" \
+            '[.[] | select(.title | endswith($d))][0].number // empty')
+          body=$(printf '### ❌ Pull refresh window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `pull-log` issue means exactly "a pull window broke".\n' \
+            "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
+          if [ -z "$num" ]; then
+            url=$(gh issue create --repo "$REPO" \
+              --title "pull: window failure — ${today}" \
+              --label pull-log --body "$body")
+            echo "Opened pull-log failure issue: ${url}"
+          else
+            gh issue comment "$num" --repo "$REPO" --body "$body"
+            echo "Reusing today's open pull-log issue #${num}"
+          fi
 
   live:
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
@@ -429,11 +452,14 @@ jobs:
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
       EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
-    # Unlike `pull`, the ambient GITHUB_TOKEN is never used here (checkout, the
-    # corpus push, and every gh call run on the App token, and there is no
-    # authorize-trigger step to need a read) — so it carries no write at all.
+    # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
+    # (the pipeline-runs dashboard row and the failure run-log issue — the
+    # doctrine in docs/security.md: issue writes that must trigger nothing stay
+    # off the App token). Checkout, the corpus push, and the handoff issues run
+    # on the App token, and there is no authorize-trigger step to need a read.
     permissions:
       contents: read
+      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       - name: Mint app token
@@ -445,38 +471,12 @@ jobs:
           permission-contents: write
           permission-issues: write
 
-      - name: Open the daily live-log issue
-        id: run-issue
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # `live-log` mirrors `pull-log`: a NON-triggering label, one shared
-          # issue per day across the live windows, closed by the final window.
-          gh label create live-log --repo "$REPO" --force \
-            --color 1d76db --description "Daily run-pull live-channel log (open while a run is in flight)"
-          today=$(date -u +%Y-%m-%d)
-          num=$(gh issue list --repo "$REPO" --label live-log --state open \
-            --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            url=$(gh issue create --repo "$REPO" \
-              --title "live: daily poll — ${today}" \
-              --label live-log \
-              --body "Daily SCOTUS live-channel poll in progress. Each window posts a summary here; the day's final window closes this issue on success, and it is left open as a record if a window fails.")
-            num="${url##*/}"
-            echo "Opened live-log issue: ${url}"
-          else
-            gh issue comment "$num" --repo "$REPO" \
-              --body "New live-poll window started ${today} — reusing this open log."
-            echo "Reusing open live-log issue #${num}"
-          fi
-          echo "number=${num}" >> "$GITHUB_OUTPUT"
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so outcomes + the corpus pointer can be pushed
         # back to main; this job uploads no artifacts, so credential leakage is
-        # not a concern.
+        # not a concern. The id gates the dashboard step below: its composite
+        # action lives in this tree, so it needs a successful checkout first.
+        id: checkout
         with: # zizmor: ignore[artipacked]
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -585,21 +585,35 @@ jobs:
           noun: evaluate
           enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
 
-      # Unrecorded outcomes are surfaced on the log/summary below, exactly as in
-      # `pull`: live resolution is machine-readable by construction (the
+      # Unrecorded outcomes are surfaced on the dashboard/summary below, exactly
+      # as in `pull`: live resolution is machine-readable by construction (the
       # disposition orders ride in the proceedings text), so a non-empty
       # unrecorded queue signals a case shape worth manual triage.
 
-      - name: Summarize the run; close the log after the final daily window
-        if: success() && steps.run-issue.outputs.number != ''
+      # Same dashboard row as `pull` (see that job's step for the gating,
+      # token, and loud-not-fatal rationale) — one shared `Pipeline runs`
+      # issue carries both channels.
+      - name: Update the pipeline-runs dashboard
+        continue-on-error: true
+        if: >-
+          (success() || failure()) &&
+          steps.checkout.conclusion == 'success'
+        uses: ./.github/actions/run-log-dashboard
+        with:
+          token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          channel: live
+          outcome: ${{ job.status }}
+          committed: ${{ steps.commit.outputs.committed }}
+          predict-note: ${{ steps.predict-handoff.outputs.note }}
+          evaluate-note: ${{ steps.evaluate-handoff.outputs.note }}
+
+      - name: Roll the window up on the Actions summary
+        if: success()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ steps.run-issue.outputs.number }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
           EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
-          IS_FINAL_WINDOW: ${{ github.event_name != 'schedule' || github.event.schedule == '47 22 * * *' }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
@@ -609,17 +623,6 @@ jobs:
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
             snap="No outcome or corpus changes this window."
-          fi
-          unrecorded_lines=$(jq -r \
-            '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
-          body=$(printf '### ✅ Live poll window complete\n\n%s\n\nHandoffs this window:\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**%s\n- outcomes left unrecorded (triage if persistent): **%s**\n' \
-            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$EVALUATE_NOTE" "$unrecorded")
-          if [ "$unrecorded" -gt 0 ]; then
-            body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
-          fi
-          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
-          if [ "${IS_FINAL_WINDOW}" = "true" ]; then
-            gh issue close "$ISSUE" --repo "$REPO" --reason completed
           fi
           {
             echo "## run-pull (live) — $(date -u +%Y-%m-%d)"
@@ -631,3 +634,39 @@ jobs:
             echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Failure-only alarm, mirroring `pull` (see that job's step for the
+      # `cancelled()` and ambient-token rationale; there is no authorize step
+      # here to gate on): an open `live-log` issue means exactly "a live
+      # window broke"; a human closes it once triaged.
+      - name: Open the failure run-log issue
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WINDOW: ${{ github.event_name == 'schedule' && github.event.schedule || github.event_name }}
+          STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          # `live-log` mirrors `pull-log`: a NON-triggering label, created
+          # idempotently, filed only when a window fails.
+          gh label create live-log --repo "$REPO" --force \
+            --color b60205 --description "A run-pull live-channel window failed (open until a human triages)"
+          today=$(date -u +%Y-%m-%d)
+          # One issue per broken day: a day's repeated failures collapse into
+          # one thread; an older day's still-open issue is left alone.
+          num=$(gh issue list --repo "$REPO" --label live-log --state open \
+            --limit 100 --json number,title | jq -r --arg d "$today" \
+            '[.[] | select(.title | endswith($d))][0].number // empty')
+          body=$(printf '### ❌ Live poll window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `live-log` issue means exactly "a live window broke".\n' \
+            "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
+          if [ -z "$num" ]; then
+            url=$(gh issue create --repo "$REPO" \
+              --title "live: window failure — ${today}" \
+              --label live-log --body "$body")
+            echo "Opened live-log failure issue: ${url}"
+          else
+            gh issue comment "$num" --repo "$REPO" --body "$body"
+            echo "Reusing today's open live-log issue #${num}"
+          fi
