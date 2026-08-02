@@ -23,9 +23,11 @@
 #   scripts/promotion-gate.sh freshness <sha>
 #       Every required integration scenario must have a green run at exactly
 #       <sha> — the gate tests what is being promoted, not what staging used
-#       to be. Matching is on the integration-test workflow's `run-name`; the
-#       format here and there are coupled, and a workflow-shape test pins both
-#       ends (tests/test_workflow_promote.py).
+#       to be. A single green `scenario=all` run (the whole suite as one
+#       matrix run) satisfies every scenario at once; otherwise each is
+#       matched per-run. Matching is on the integration-test workflow's
+#       `run-name`; the format here and there are coupled, and a
+#       workflow-shape test pins both ends (tests/test_workflow_promote.py).
 #
 #   scripts/promotion-gate.sh contexts [candidate...]
 #       Every context `main`'s ruleset requires must have a job on `main` that
@@ -44,13 +46,18 @@
 # CI); contexts additionally needs repository administration read (see above).
 # PROMOTION_SCENARIOS overrides the required scenario set (space-separated;
 # an entry is `<scenario>` or `engine-smoke/<engine>`) — for narrowing a local
-# re-check, never for weakening the gate in a workflow.
+# re-check, never for weakening the gate in a workflow. An override also
+# disables the whole-suite `scenario=all` acceptance in freshness: the `all`
+# matrix is keyed to the default set, so an overridden set is checked against
+# per-scenario runs only.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 
 # Keep in step with the dispatch-command list the promote workflow prints on a
-# freshness failure.
+# freshness failure, and with the `all` scenario's matrix in
+# integration-test.yml — a `scenario=all` dispatch must fan out exactly this
+# set (a workflow-shape test pins both couplings).
 REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
 
 fail=0
@@ -81,24 +88,50 @@ quiesce() {
 
 freshness() {
   local sha="$1" titles req scenario engine prefix
+  # head_branch pins the evidence to runs dispatched from the staging branch
+  # itself, in depth with the environment suffix matched below: the title's
+  # `@ staging` reflects the environment the job bound (whose deployment
+  # policy admits only the staging branch), and the branch filter rejects a
+  # same-sha run from any other ref before a title is even read.
   titles=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
-    --jq '.workflow_runs[] | select(.conclusion == "success") | .display_title')
+    --jq '.workflow_runs[] | select(.conclusion == "success" and .head_branch == "staging") | .display_title')
+  # A `scenario=all` dispatch fans the whole required suite out as one
+  # workflow run, so one green `all` title at the sha satisfies every
+  # required scenario at once. The equivalence holds link by link: this exact
+  # title shape is produced only by an `all` dispatch (a per-scenario run
+  # always carries `<scenario> / <engine>`); an `all` run's matrix covers the
+  # whole required set with fail-fast off, so the run concludes success only
+  # when every leg succeeded; and `@ staging` names the environment every leg
+  # bound, which only the staging branch may deploy to. Matched whole-line
+  # (-Fx) because the title is one fully-fixed string — a substring match
+  # could be satisfied by a crafted free-form deploy-environment value
+  # embedded in some other run's title suffix. Only titles selected as
+  # success above are searched, so a match is a green run, never a red one.
+  # Skipped entirely under a PROMOTION_SCENARIOS override: the `all` matrix
+  # covers the default set, so an overridden set — which may name something
+  # beyond it — must be satisfied by per-scenario runs.
+  if [ -z "${PROMOTION_SCENARIOS:-}" ] \
+    && grep -Fqx "integration-test: all @ staging" <<<"$titles"; then
+    return
+  fi
   for req in $REQUIRED_SCENARIOS; do
     scenario="${req%%/*}"
     engine=""
     case "$req" in */*) engine="${req#*/}" ;; esac
-    # Two fixed-string matches per title: the prefix pins the scenario (and
-    # engine, for the smokes), the suffix pins the staging deployment
-    # environment — which is restricted to the staging branch, so only runs
-    # that ran from staging satisfy the gate, independent of the prod
-    # environment's main-only deployment policy. The
-    # second grep runs without -q so the first never dies on a closed pipe.
+    # Two matches per title: the fixed-string prefix pins the scenario (and
+    # engine, for the smokes), the end-anchored suffix pins the staging
+    # deployment environment — anchored so a branch-resolved environment
+    # that merely starts with "staging" cannot satisfy it — which is
+    # restricted to the staging branch, so only runs that ran from staging
+    # satisfy the gate, independent of the prod environment's main-only
+    # deployment policy. The second grep runs without -q so the first never
+    # dies on a closed pipe.
     if [ -n "$engine" ]; then
       prefix="integration-test: ${scenario} / ${engine} @"
     else
       prefix="integration-test: ${scenario} /"
     fi
-    if ! grep -F "$prefix" <<<"$titles" | grep -F "@ staging" >/dev/null; then
+    if ! grep -F "$prefix" <<<"$titles" | grep "@ staging$" >/dev/null; then
       echo "::error::freshness: no green '${req}' integration-test run at ${sha}"
       fail=1
     fi

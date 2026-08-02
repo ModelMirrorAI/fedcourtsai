@@ -116,16 +116,24 @@ jobs:
             {
               echo "## Integration runs needed at \`${sha}\`"
               echo
-              echo "Dispatch each scenario from the staging branch, then re-dispatch this workflow:"
+              echo "One dispatch from the staging branch covers the whole required suite (spends three engine-smoke cells' worth of tokens); the workflow resolves the staging environment from the branch:"
+              echo
+              echo '```'
+              echo "gh workflow run integration-test.yml --ref staging -f scenario=all"
+              echo '```'
+              echo
+              echo "A red \`all\` run earns no partial credit (the gate matches whole runs); \`gh run rerun <run-id> --failed\` turns it green in place. Or dispatch the scenarios individually:"
               echo
               echo '```'
               for s in ranged-reads corpus-service stub-cascade mcp-sidecar; do
-                echo "gh workflow run integration-test.yml --ref staging -f deploy-environment=staging -f scenario=${s}"
+                echo "gh workflow run integration-test.yml --ref staging -f scenario=${s}"
               done
               for e in claude-code codex gemini; do
-                echo "gh workflow run integration-test.yml --ref staging -f deploy-environment=staging -f scenario=engine-smoke -f engine=${e}"
+                echo "gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=${e}"
               done
               echo '```'
+              echo
+              echo "Then re-dispatch this workflow."
             } >>"$GITHUB_STEP_SUMMARY"
             exit 1
           fi

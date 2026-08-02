@@ -10,6 +10,7 @@ jail and dependabot's staging targeting live here too: routing to `main` is
 policy these tests keep mechanical.
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,15 @@ from fedcourtsai.finalize import FinalizeRole
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 GATE_SCRIPT = ROOT / "scripts" / "promotion-gate.sh"
+
+# The branch→environment auto-resolution the integration-test workflow applies
+# wherever it consumes the deploy-environment input. YAML anchors do not work
+# in workflows, so the expression is duplicated at each site; pinning the one
+# literal here is what keeps the sites from drifting apart.
+ENV_RESOLUTION = (
+    "inputs.deploy-environment != 'auto' && inputs.deploy-environment "
+    "|| (github.ref_name == 'main' && 'prod' || github.ref_name)"
+)
 
 
 def _load(path: Path) -> dict[Any, Any]:
@@ -93,12 +103,87 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     script = GATE_SCRIPT.read_text()
     assert 'prefix="integration-test: ${scenario} / ${engine} @"' in script
     assert 'prefix="integration-test: ${scenario} /"' in script
-    # The suffix match is what pins the staging deployment environment.
-    assert 'grep -F "@ staging"' in script
+    # The whole-suite acceptance: one green `all` run counts for every
+    # required scenario. Whole-line (-x) on the one fully-fixed title, so a
+    # crafted environment suffix in some other title cannot smuggle the
+    # substring in.
+    assert 'grep -Fqx "integration-test: all @ staging"' in script
+    # The end-anchored suffix pins the staging deployment environment on the
+    # per-scenario matches (unanchored, `@ staging-anything` would match), and
+    # the branch filter rejects same-sha runs from any other ref.
+    assert 'grep "@ staging$"' in script
+    assert '.head_branch == "staging"' in script
     run_name = _load(WORKFLOWS / "integration-test.yml")["run-name"]
     assert isinstance(run_name, str)
-    assert run_name.startswith("integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @")
-    assert run_name.endswith("@ ${{ inputs.deploy-environment }}")
+    # Pinned in full: the `all` branch must yield `integration-test: all @
+    # <env>` and the single-scenario branch the exact per-scenario shape the
+    # gate's prefixes grep for.
+    assert run_name == (
+        "integration-test: ${{ inputs.scenario == 'all' && 'all' "
+        "|| format('{0} / {1}', inputs.scenario, inputs.engine) }}"
+        f" @ ${{{{ {ENV_RESOLUTION} }}}}"
+    )
+
+
+def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
+    # The run-name's environment suffix is what freshness matches, and the
+    # job's `environment:` is what the run actually binds; the same one
+    # expression must produce both, or a title could name an environment the
+    # job never deployed to.
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    inputs = workflow[True]["workflow_dispatch"]["inputs"]
+    assert inputs["deploy-environment"]["default"] == "auto"
+    assert workflow["jobs"]["scenario"]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}"
+    assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
+    # No third consumer: anywhere else reading the raw input would bypass the
+    # resolution and see the literal string `auto`.
+    body = (WORKFLOWS / "integration-test.yml").read_text()
+    assert body.count("inputs.deploy-environment") == 4  # 2 sites x 2 reads each
+
+
+def _all_matrix_entries() -> list[dict[str, str]]:
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    (step,) = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "plan"]
+    body = str(step["run"])
+    literal = body.split("matrix='", 1)[1].split("'", 1)[0]
+    entries = json.loads(literal)
+    assert isinstance(entries, list)
+    return entries
+
+
+def test_the_all_scenario_matrix_is_exactly_the_required_set() -> None:
+    # `scenario=all` is freshness evidence for the whole required set, so the
+    # matrix it fans out and the set the gate demands must be the same seven —
+    # a leg missing here would let the gate accept an `all` run that never
+    # exercised a required scenario.
+    entries = _all_matrix_entries()
+    as_required = [
+        entry["scenario"] + (f"/{entry['engine']}" if entry["scenario"] == "engine-smoke" else "")
+        for entry in entries
+    ]
+    assert sorted(as_required) == sorted(_required_scenario_entries())
+    # collect is not part of the gate and runs on its own environment-free job.
+    assert all(entry["scenario"] != "collect" for entry in entries)
+    # Every leg carries both keys with non-empty values: the engine-smoke
+    # steps and their secret ternaries read matrix.engine, and an empty
+    # engine would break the CLI install's case-switch and drop every key.
+    assert all(set(entry) == {"scenario", "engine"} for entry in entries)
+    assert all(entry["scenario"] and entry["engine"] for entry in entries)
+
+
+def test_scenario_steps_key_on_the_matrix_not_the_dispatch_inputs() -> None:
+    # The scenario job fans out one leg per planned {scenario, engine} pair;
+    # a step condition (or engine env/secret ternary, or a job-level env)
+    # still reading the dispatch inputs would run the same steps on every leg
+    # of an `all` run — and hand every leg the single-dispatch engine's key.
+    # The whole job minus its `if` (the collect partition legitimately reads
+    # inputs.scenario there) must be input-free on these two.
+    job = _load(WORKFLOWS / "integration-test.yml")["jobs"]["scenario"]
+    text = yaml.safe_dump({key: value for key, value in job.items() if key != "if"})
+    assert "inputs.scenario" not in text
+    assert "inputs.engine" not in text
+    assert "matrix.scenario" in text
+    assert "matrix.engine" in text
 
 
 def _required_scenario_entries() -> list[str]:
@@ -128,6 +213,12 @@ def test_promote_help_text_lists_every_required_scenario() -> None:
     for entry in _required_scenario_entries():
         for name in entry.split("/", 1):
             assert name in text, f"promote.yml help text is missing {name!r}"
+    # The one-shot dispatch leads: a single `scenario=all` run satisfies the
+    # whole freshness gate, so it is the first command the summary offers,
+    # with the per-scenario dispatches kept as the fallback.
+    all_command = "gh workflow run integration-test.yml --ref staging -f scenario=all"
+    assert all_command in text
+    assert text.index(all_command) < text.index("-f scenario=${s}")
 
 
 def test_main_base_jail_covers_every_legitimate_lane() -> None:

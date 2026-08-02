@@ -54,8 +54,10 @@ manual workflow dispatch, never on every iteration.
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
 dispatch, read-only role — the collect scenario none at all — strictly
-side-effect free) runs one scenario per
-dispatch. `ranged-reads` is the tested `fedcourts corpus-integration-check`
+side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
+promotion gate's whole required suite as one matrix run (every scenario but
+collect, with engine-smoke once per engine, so three cells' token spend).
+`ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
@@ -97,18 +99,24 @@ jobs that call it**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the
-role and remote variables, and each is pinned to one branch: `main` dispatches
-use `prod`, and dispatches from `staging` use the `staging` environment, which
-holds the same read-only role and remote variables plus its own engine keys.
+role and remote variables, and by default resolves from the dispatching branch:
+`main` dispatches use `prod`, and dispatches from `staging` use the `staging`
+environment, which holds the same read-only role and remote variables plus its
+own engine keys; any other branch resolves its own name — an unconfigured,
+empty environment with no role variables and no keys — and an explicit value
+still wins. Each environment stays pinned to its one branch.
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide. Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the seven required integration runs — five of the
-six scenarios, with engine-smoke counted once per engine — green at exactly that
+six real scenarios, with engine-smoke counted once per engine, or one green
+`scenario=all` run, which covers all seven because it succeeds only when every
+matrix leg does — green at exactly that
 staging head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. The collect scenario is outside
-the gate, and is also the one scenario still dispatchable from any branch.
+the gate, and — binding no environment at all — is also the one scenario that
+succeeds from any branch.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that

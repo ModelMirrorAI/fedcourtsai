@@ -265,7 +265,9 @@ Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `prod`). A dispatch whose job *binds* `prod` from
+(`deploy-environment`, defaulting to branch resolution: a `main` dispatch
+resolves `prod`, a `staging` dispatch `staging`, and any other branch its own
+name; an explicit value still wins). A dispatch whose job *binds* `prod` from
 anything but `main`, or binds `staging` from anything but `staging`, is refused
 at its deployment-branch gate before any step runs; one naming anything else
 auto-creates an unprotected, empty environment and resolves no role variables —
