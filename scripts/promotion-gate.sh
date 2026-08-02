@@ -88,13 +88,20 @@ quiesce() {
 
 freshness() {
   local sha="$1" titles req scenario engine prefix
-  # head_branch pins the evidence to runs dispatched from the staging branch
-  # itself, in depth with the environment suffix matched below: the title's
-  # `@ staging` reflects the environment the job bound (whose deployment
-  # policy admits only the staging branch), and the branch filter rejects a
-  # same-sha run from any other ref before a title is even read.
+  # Why the titles this matches cannot be forged: every dispatcher-controlled
+  # component of the integration-test run-name — scenario, engine, and
+  # deploy-environment — is a server-validated `choice` input (workflow-shape
+  # tests pin this), so a display title is always drawn from a fixed
+  # vocabulary and never carries free text. Everything below is defense in
+  # depth on top of that: head_branch pins the evidence to runs dispatched
+  # from the staging branch itself, before a title is even read; the
+  # newline exclusion means a title that somehow preserved one could never
+  # split into a fabricated extra line; and the matches are anchored.
   titles=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
-    --jq '.workflow_runs[] | select(.conclusion == "success" and .head_branch == "staging") | .display_title')
+    --jq '.workflow_runs[]
+          | select(.conclusion == "success" and .head_branch == "staging"
+                   and ((.display_title | test("\n")) | not))
+          | .display_title')
   # A `scenario=all` dispatch fans the whole required suite out as one
   # workflow run, so one green `all` title at the sha satisfies every
   # required scenario at once. The equivalence holds link by link: this exact
@@ -103,9 +110,7 @@ freshness() {
   # whole required set with fail-fast off, so the run concludes success only
   # when every leg succeeded; and `@ staging` names the environment every leg
   # bound, which only the staging branch may deploy to. Matched whole-line
-  # (-Fx) because the title is one fully-fixed string — a substring match
-  # could be satisfied by a crafted free-form deploy-environment value
-  # embedded in some other run's title suffix. Only titles selected as
+  # (-Fx): the title is one fully-fixed string. Only titles selected as
   # success above are searched, so a match is a green run, never a red one.
   # Skipped entirely under a PROMOTION_SCENARIOS override: the `all` matrix
   # covers the default set, so an overridden set — which may name something
@@ -118,20 +123,20 @@ freshness() {
     scenario="${req%%/*}"
     engine=""
     case "$req" in */*) engine="${req#*/}" ;; esac
-    # Two matches per title: the fixed-string prefix pins the scenario (and
-    # engine, for the smokes), the end-anchored suffix pins the staging
-    # deployment environment — anchored so a branch-resolved environment
-    # that merely starts with "staging" cannot satisfy it — which is
-    # restricted to the staging branch, so only runs that ran from staging
+    # Two anchored matches per title: the start-anchored prefix pins the
+    # scenario (and engine, for the smokes; both come from the fixed
+    # REQUIRED_SCENARIOS vocabulary, which contains no regex metacharacters),
+    # the end-anchored suffix pins the staging deployment environment — which
+    # is restricted to the staging branch, so only runs that ran from staging
     # satisfy the gate, independent of the prod environment's main-only
     # deployment policy. The second grep runs without -q so the first never
     # dies on a closed pipe.
     if [ -n "$engine" ]; then
-      prefix="integration-test: ${scenario} / ${engine} @"
+      prefix="^integration-test: ${scenario} / ${engine} @"
     else
-      prefix="integration-test: ${scenario} /"
+      prefix="^integration-test: ${scenario} /"
     fi
-    if ! grep -F "$prefix" <<<"$titles" | grep "@ staging$" >/dev/null; then
+    if ! grep "$prefix" <<<"$titles" | grep "@ staging$" >/dev/null; then
       echo "::error::freshness: no green '${req}' integration-test run at ${sha}"
       fail=1
     fi

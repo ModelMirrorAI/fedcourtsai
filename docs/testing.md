@@ -103,8 +103,9 @@ role and remote variables, and by default resolves from the dispatching branch:
 `main` dispatches use `prod`, and dispatches from `staging` use the `staging`
 environment, which holds the same read-only role and remote variables plus its
 own engine keys; any other branch resolves its own name — an unconfigured,
-empty environment with no role variables and no keys — and an explicit value
-still wins. Each environment stays pinned to its one branch.
+empty environment with no role variables and no keys — and an explicit choice
+(the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
+environment stays pinned to its one branch.
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide. Changed seams are therefore validated after the

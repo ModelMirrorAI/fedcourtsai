@@ -39,7 +39,7 @@ run-name: "integration-test: ${{ inputs.scenario == 'all' && 'all' || format('{0
 # `staging` resolves the `staging` environment — the same read-only role and
 # remote variables plus its own engine keys — and any other branch resolves its
 # own name, which names no configured environment and so binds nothing: no role
-# variables, no keys. An explicit value still wins over the resolution.
+# variables, no keys. An explicit choice still wins over the resolution.
 # Each environment restricts deployments to its one branch, so the
 # gate is code provenance — only what passed a PR and the branch's required
 # checks can bind either — rather than a per-run approval, which asserts
@@ -108,11 +108,18 @@ on:
           resolves `prod`, `staging` resolves `staging`, and any other branch
           resolves its own name, which names no configured environment and so
           binds no role variables and no keys — fail-closed. An explicit
-          value still wins, and each environment stays pinned to its one
-          branch. Unused by the collect scenario, whose job binds no
-          environment and so dispatches from anywhere.
-        type: string
+          choice still wins, and each environment stays pinned to its one
+          branch. A closed choice, not free text: run titles feed the
+          promotion gate's freshness matching, so every dispatcher-controlled
+          title component must come from a server-validated vocabulary.
+          Unused by the collect scenario, whose job binds no environment and
+          so dispatches from anywhere.
+        type: choice
         default: auto
+        options:
+          - auto
+          - prod
+          - staging
 
 # Least privilege by default; the job widens only to what the scenarios need.
 permissions: {}

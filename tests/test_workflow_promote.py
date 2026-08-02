@@ -101,18 +101,21 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     # what produces them. A drift on either side makes freshness pass or fail
     # vacuously, so both literals are pinned here.
     script = GATE_SCRIPT.read_text()
-    assert 'prefix="integration-test: ${scenario} / ${engine} @"' in script
-    assert 'prefix="integration-test: ${scenario} /"' in script
+    # Start-anchored: a crafted value embedded mid-title must never satisfy a
+    # per-scenario prefix.
+    assert 'prefix="^integration-test: ${scenario} / ${engine} @"' in script
+    assert 'prefix="^integration-test: ${scenario} /"' in script
     # The whole-suite acceptance: one green `all` run counts for every
-    # required scenario. Whole-line (-x) on the one fully-fixed title, so a
-    # crafted environment suffix in some other title cannot smuggle the
-    # substring in.
+    # required scenario. Whole-line (-x) on the one fully-fixed title.
     assert 'grep -Fqx "integration-test: all @ staging"' in script
     # The end-anchored suffix pins the staging deployment environment on the
-    # per-scenario matches (unanchored, `@ staging-anything` would match), and
-    # the branch filter rejects same-sha runs from any other ref.
+    # per-scenario matches (unanchored, `@ staging-anything` would match); the
+    # branch filter rejects same-sha runs from any other ref; and a title
+    # that somehow preserved a newline is excluded before matching, so it can
+    # never split into a fabricated extra line.
     assert 'grep "@ staging$"' in script
     assert '.head_branch == "staging"' in script
+    assert '(.display_title | test("\\n")) | not' in script
     run_name = _load(WORKFLOWS / "integration-test.yml")["run-name"]
     assert isinstance(run_name, str)
     # Pinned in full: the `all` branch must yield `integration-test: all @
@@ -123,6 +126,19 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
         "|| format('{0} / {1}', inputs.scenario, inputs.engine) }}"
         f" @ ${{{{ {ENV_RESOLUTION} }}}}"
     )
+
+
+def test_every_title_component_is_a_closed_choice_input() -> None:
+    # The freshness gate matches display titles, and the run-name renders
+    # scenario, engine, and deploy-environment verbatim — so each must be a
+    # server-validated `choice` whose options are a fixed vocabulary. A
+    # free-text input here would let one green dispatch (the environment-free
+    # collect scenario in particular) carry a crafted title that forges
+    # freshness evidence.
+    inputs = _load(WORKFLOWS / "integration-test.yml")[True]["workflow_dispatch"]["inputs"]
+    for name in ("scenario", "engine", "deploy-environment"):
+        assert inputs[name]["type"] == "choice", name
+    assert inputs["deploy-environment"]["options"] == ["auto", "prod", "staging"]
 
 
 def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
