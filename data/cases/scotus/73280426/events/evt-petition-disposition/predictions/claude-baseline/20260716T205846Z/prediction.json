@@ -13,15 +13,42 @@
   "predicted_disposition": "gvr",
   "confidence": 0.55,
   "votes": [
-    {"judge": "Roberts", "vote": "gvr"},
-    {"judge": "Thomas", "vote": "gvr"},
-    {"judge": "Alito", "vote": "gvr"},
-    {"judge": "Gorsuch", "vote": "gvr"},
-    {"judge": "Kavanaugh", "vote": "gvr"},
-    {"judge": "Barrett", "vote": "gvr"},
-    {"judge": "Sotomayor", "vote": "denied"},
-    {"judge": "Kagan", "vote": "denied"},
-    {"judge": "Jackson", "vote": "denied"}
+    {
+      "justice": "Roberts",
+      "vote": "grant"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "grant"
+    },
+    {
+      "justice": "Alito",
+      "vote": "grant"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "grant"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "grant"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "grant"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "deny"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "deny"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "deny"
+    }
   ],
   "big_case_score": 0.6,
   "big_case_rationale": "First-wave vehicle for applying Louisiana v. Callais to a court-drawn VRA remedial map; controls Washington's legislative lines and is closely watched in election-law circles, though a GVR disposition would itself be narrow.",

@@ -21,6 +21,10 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# The corpus read backends, defined here because `corpus` imports this module.
+# One definition, so the setting, the type hints, and the CLI help cannot drift.
+CorpusBackend = Literal["local", "ranged", "casestore", "service"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FEDCOURTS_", env_file=".env", extra="ignore")
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
     request_timeout: float = 30.0
-    # CourtListener per-token rate limits (issue #1); override via FEDCOURTS_* env.
+    # CourtListener per-token rate limits; override via FEDCOURTS_* env.
     courtlistener_rpm: int = 5
     courtlistener_rph: int = 50
     courtlistener_rpd: int = 125
@@ -52,15 +56,15 @@ class Settings(BaseSettings):
     # "service" forwards query/open-events to a corpus query service on
     # localhost (see fedcourtsai.corpus_service) so the caller needs no cloud
     # credentials at all. Writers always open local.
-    corpus_backend: Literal["local", "ranged", "casestore", "service"] = "local"
+    corpus_backend: CorpusBackend = "local"
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names
     # are accepted as aliases so the same runner env serves both. The workflow
-    # variable is now CORPUS_REMOTE_URL (the rename is done); the DVC_* aliases
-    # survive only for the Codespaces devcontainer secret, still spelled
-    # DVC_REMOTE_URL (see .devcontainer/) — new names win when both are set, and
-    # the DVC_* aliases retire when that secret is renamed too.
+    # variable is CORPUS_REMOTE_URL; the DVC_* aliases exist for the Codespaces
+    # devcontainer secret, which is spelled DVC_REMOTE_URL (see
+    # .devcontainer/) — new names win when both are set, and the aliases can
+    # retire once that secret is renamed too.
     corpus_remote_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -195,6 +199,10 @@ class LiveConfig(BaseModel):
     max_cases_per_run: int = Field(default=30, ge=0)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
+    # Unresolved interim applications re-polled per cycle (the application
+    # rotation; recent Terms first, then stalest). Ground-truth collection
+    # only — prediction queueing is off for applications.
+    max_applications_per_run: int = Field(default=10, ge=0)
     # Oldest October Term the refresh rotation reaches — the reachability
     # probe's floor (docs/live-sources.md): full JSON coverage OT2017+.
     term_floor_year: int = Field(default=2017, ge=1925)
@@ -227,13 +235,15 @@ class HistoricalConfig(BaseModel):
     Drives ``fedcourts historical-terms`` (the run-seed workflow): a
     sequential reverse-chronological walk of past Terms over the
     supremecourt.gov docket JSON that accumulates resolved outcomes for the
-    statpack's per-Term base rates and the cert back-test set. The sampling
-    frame lives here so the set's construction is documented and reproducible:
-    **every decided petition is ingested except denials, which are
-    systematically sampled** — a denial is kept when its docket serial is a
-    multiple of ``denial_sample_every`` (deterministic per serial, so a resumed
-    run keeps the same sample). No API budget: the caps bound per-invocation
-    wall clock and upstream politeness.
+    statpack's per-Term base rates and the cert back-test set.
+
+    **Every decided petition is ingested**, and there is deliberately no sampling
+    knob: the walk must probe a serial before it can read the disposition, so
+    declining to store one never saved a fetch — it only cost every rate computed
+    over the result a denominator it had to reconstruct from weights. Sampling
+    belongs where the cost actually is, at predict/evaluate selection, which draws
+    from the corpus rather than being bounded by it, and where it is reversible.
+    No API budget: the caps bound per-invocation wall clock and upstream politeness.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -241,8 +251,6 @@ class HistoricalConfig(BaseModel):
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
     # reachability probe's full-JSON floor (docs/live-sources.md).
     terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
-    # Keep a denial when serial % denial_sample_every == 0 (1 keeps every denial).
-    denial_sample_every: int = Field(default=10, ge=1)
     # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)
@@ -374,6 +382,11 @@ class SalienceConfig(BaseModel):
     long conference (the Term's opening conference) carries a larger cap because
     it clears the summer backlog at once. ``floor`` is the always-include
     salience threshold (the relist-2 / CVSG grant-rate band).
+
+    ``base_rate_lookback_terms`` is the one non-selection knob here: it bounds the
+    segment base-rate window the evaluator and the cert back-test score skill
+    against (``0`` = every prior Term). It lives beside the band knobs because the
+    band is what it conditions on.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -395,6 +408,27 @@ class SalienceConfig(BaseModel):
     # re-tournamented hours after its first prediction); 0 disables suppression,
     # so every relist queues unconditionally.
     relist_requeue_cooldown_days: int = Field(default=1, ge=0)
+    # The lookback window for the salience-band segment base rate
+    # (``fedcourtsai.pipeline.evaluate.segment_base_rate``): how many October Terms
+    # immediately preceding a case's own Term may contribute to its band's pooled
+    # grant rate. 0 = unbounded — every prior Term in the statpack, which is the
+    # pre-registered behaviour and the shipped default. A bound trades variance for
+    # bias: the high band carries only ~60-165 weighted-resolved petitions per Term,
+    # so a short window is noisy, while a long one assumes the Court's grant
+    # behaviour is stationary across the whole walked range (it visibly is not —
+    # per-Term high-band rates run 25.8%-48.0%; see docs/salience.md, *Base rates &
+    # baselines for the predicted segment*). Moving this re-bases every forward
+    # Brier skill number and every
+    # `cert-backtest.json` per-band skill at once, which is exactly why it is config
+    # rather than a constant. Counted in Term *years*, not statpack rows.
+    base_rate_lookback_terms: int = Field(default=0, ge=0)
+    # Placeholder cap on interim-docket tournament slots (stays, injunctions —
+    # docs/salience.md, *The interim docket*), carved from the same
+    # per-conference spend envelope rather than added to it (docs/budget.md).
+    # Inert: no enforcement code reads it yet — the field holds the knob's
+    # place until interim predict scope lands, and is sized only once a
+    # measured interim base rate exists.
+    interim_reserve_slots: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:
@@ -416,6 +450,41 @@ def load_salience_config(config_root: Path) -> SalienceConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return SalienceConfig.model_validate((data or {}).get("salience", {}))
+
+
+class StatpackConfig(BaseModel):
+    """The ``statpack`` section of ``config/tracking.yaml`` — publication knobs.
+
+    ``metrics/statpack.json`` always carries every Term and every bucket; these
+    bound only what the Markdown artifact renders. That is not merely cosmetic:
+    ``metrics/statpack.md`` is the surface the predict and evaluate prompts send
+    agents to anchor on, so ``markdown_terms`` bounds the agent stratum's
+    base-rate lookback *as instructed* — the sibling of
+    :attr:`SalienceConfig.base_rate_lookback_terms`, which bounds the same window
+    in code for the baseline those agents are scored against. The bound is
+    conventional rather than a capability limit: ``statpack.json`` sits in the
+    same checkout and carries every Term. Separate fields with separate defaults
+    on purpose; ``docs/salience.md`` states when the two coincide and when they
+    part.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # How many recent Terms the per-Term detail tables in `metrics/statpack.md`
+    # render (the JSON carries them all). 10 spans a decade of cert practice while
+    # keeping the document prompt-sized; 0 renders every Term.
+    markdown_terms: int = Field(default=10, ge=0)
+
+
+def load_statpack_config(config_root: Path) -> StatpackConfig:
+    """Read the statpack publication knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the shipped defaults when the file or its ``statpack`` section is
+    absent, so the artifact still renders rather than failing.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return StatpackConfig.model_validate((data or {}).get("statpack", {}))
 
 
 class EvaluateConfig(BaseModel):
@@ -450,6 +519,41 @@ def load_evaluate_config(config_root: Path) -> EvaluateConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return EvaluateConfig.model_validate((data or {}).get("evaluate", {}))
+
+
+class SpendConfig(BaseModel):
+    """The ex-post spend backstop (`tracking.yaml`'s `spend` section).
+
+    The one control that reads what has actually been spent rather than bounding
+    what a single decision or run may do — see :mod:`fedcourtsai.spend`. It gates
+    both agentic stages, because the ceiling governs total inference spend rather
+    than one stage's share.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Trailing-window ceiling on measured inference spend, USD. `0` DISABLES the
+    # backstop (the convention the other caps use), which is the default: adopting
+    # it is a deliberate act, and a missing config can never wedge the pipeline.
+    # Reaching the ceiling defers new cells — the queue is untouched and re-runs
+    # next cycle — it never destroys queued work.
+    ceiling_usd: float = Field(default=0.0, ge=0.0)
+    # The window the ceiling applies over, days. Sized to the billing period the
+    # ceiling is meant to protect rather than to a run: a per-run bound already
+    # exists (`predict.max_predict_cells_per_run`), and what was missing is a
+    # bound above it.
+    window_days: int = Field(default=30, ge=1)
+
+
+def load_spend_config(config_root: Path) -> SpendConfig:
+    """Read the spend backstop's knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults — i.e. **disabled** — if the file or its ``spend``
+    section is absent, so a checkout without the section behaves exactly as before.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return SpendConfig.model_validate((data or {}).get("spend", {}))
 
 
 class RunnerConfig(BaseModel):

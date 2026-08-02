@@ -10,11 +10,12 @@ stage.
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
-| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (engine/limit params) | Claude Code + Codex (replay) |
+| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
+| _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -38,7 +39,14 @@ Monday schedule tick it additionally posts the short **weekly digest** comment
 to the dashboard issue — the same numbers as fixed questions demanding a
 reaction ("Replay calibration on N scored cell(s): lift over always-deny — do
 you believe it?"), with the daily dashboard staying the reference view. It triggers
-nothing and touches neither `main` nor the corpus.
+nothing and touches neither `main` nor the corpus. It reports the **promoted**
+state: scheduled runs execute from the default branch, so the dashboard describes
+the tree that is actually running rather than the one staged for the next batch —
+and the lag is confined to code and config, since the substance and spend
+sections read `data/` and `metrics/`, which the writers commit to `main`
+directly. One reading note the dashboard now carries itself: `promote` is
+level-triggered, so its failures are unsatisfied-gate reports rather than
+incidents, and its success rate counts promotion attempts.
 
 It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
@@ -72,6 +80,12 @@ each as its own least-privilege job holding only the credentials its mode needs:
   write-capable job (it alone mints the dev App token). The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
+- **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
+  **offered-vs-called** report: which configured MCP tools were never called,
+  which are used by some engines and not others, and call counts per tool /
+  engine / actor. It reads `data/` only — no corpus, no network — so it binds no
+  environment and assumes no role, and the same `fedcourts tool-usage` runs
+  locally and in the gate. Results go to the step summary; it commits nothing.
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
@@ -86,11 +100,16 @@ diverted on the runner), or (the one token-spending scenario) a single
 real-engine cell over the service sidecar — dispatched around changes to
 corpus access, the sidecars, engine CLIs, the collect contract, or the
 corpus-consuming workflows and before releases — from main, or via the
-approval-gated `staging` deployment environment (the collect scenario needs
-none) from a PR branch or from the `staging` branch itself (those
-staging-branch runs are the promotion gate's freshness evidence; see
-*Promotion: staging → main* below). See *Infra-bound integration* in
-[testing.md](testing.md).
+`staging` deployment environment (the collect scenario needs
+none) from the `staging` branch, which is the only branch that environment
+accepts (those runs are the promotion gate's freshness evidence; see
+*Promotion: staging → main* below). The deployment environment resolves from
+the dispatching branch by default — `main` gets `prod`, `staging` gets
+`staging`, any other branch an empty environment holding no role variables
+and no keys — and a `scenario=all` dispatch
+fans the gate's whole required suite (every scenario but collect, with
+engine-smoke once per engine, so three cells' token spend) out of one run.
+See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -99,27 +118,44 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs the
-**predict-scope reconcile** (`fedcourts reconcile-scope`), gated to one window a
-day so it keeps the sweep's daily cadence: it latches out-of-scope cases (the
+the live job owns SCOTUS freshness for free). run-seed also runs two
+maintenance sweeps, each gated to one window a day: the **live-duplicate
+dedupe** (`fedcourts dedupe-live-rows`), a standing sweep that merges and drops
+any SCOTUS petition carrying both a CourtListener-keyed row and a live-minted
+reserved-range row — the pair shape a docket-number spelling leaves when it
+defeats the channels' identity join — and then the **predict-scope reconcile**
+(`fedcourts reconcile-scope`), which latches out-of-scope cases (the
 shared exclusion rules — era, staleness, docket form, date consistency, and the
 snapshot-aware bare opinion-import profile) in the corpus so they leave the
-predictable set at the source, then pushes the blob and commits the pointer like
+predictable set at the source. The dedupe runs first so the latch pass weighs
+deduped rows; each then pushes the blob and commits the pointer like
 any other corpus write. The full design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
 
+A Term walked to its frontier is invisible to every later run, so run-seed's
+**manual dispatch** carries `refresh_terms` (blank by default, and blank on every
+scheduled window) to re-open past Terms when the pipeline learns to read
+something the walk did not capture. It runs `fedcourts refresh-historical
+--apply` after the pull and before the loop, so the reset and the re-walk it
+implies are one serialized operation under the `corpus-write` lock rather than a
+local corpus edit racing a cron window. The reset reaches the remote only through
+the loop's checkpoint push, so a failure before the first checkpoint leaves the
+upstream cursors untouched. `refresh_streams` picks the numbering sequence: IFP
+is ~70% of the probe cost and feeds no scored segment, so the paid stream is the
+default.
+
 ## Cascade
 
 ```
-daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (denials sampled)
+daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
                               └─ checkpointed: corpus-push + pointer commit per chunk
-   daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
+   daily ×4 / run:pull → run-pull (pull job) → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
-                                 │  per-case on the pull-log issue comment
+                                 │  per-case on the pipeline-runs dashboard
                                  └─ create issues  ← APP TOKEN
                                     ├─ run:predict    (changed case with open events,
                                     │                  unless the docket already looks
@@ -129,14 +165,16 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                                        an outcome, or an owed grading
                                                        the backlog deriver surfaces;
                                                        held if EVALUATE_HANDOFF_ENABLED=0)
-   daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
+   daily ×4 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions (per-Term cursor)
                                  ├─ re-poll the pending cert watchlist (recent Terms first)
+                                 ├─ re-poll unresolved interim applications (capped;
+                                 │    ground-truth only — no predict handoff)
                                  ├─ detect resolution from the proceedings text
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
-                                 │    live-log issue comment
+                                 │    pipeline-runs dashboard
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
                                     (held per-channel by PREDICT_HANDOFF_ENABLED /
                                      EVALUATE_HANDOFF_ENABLED)
@@ -147,6 +185,21 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
 ```
+
+Run logging creates nothing on the happy path. Every `run-pull` window (pull
+and live, success or failure) that reaches checkout lands its row on the single
+long-lived **Pipeline runs** dashboard issue — label `run-log-dashboard`,
+non-triggering and never declared in an issue form's `labels:` (the same
+discipline as every operational label here), edited in place like the Ops
+dashboard, its state carried as a fenced JSON block in its own body
+(`.github/actions/run-log-dashboard`): a rolling 14 days of window × outcome ×
+handoff counts, plus the per-case unrecorded-outcome triage list. A window that
+fails or is stopped mid-run (timeout or a human's cancel — the shared lock
+never cancels an in-flight run; a stopped window gets only the alarm, no
+dashboard row) opens (or reuses, for the same day) a `pull-log` / `live-log`
+issue and leaves it open for a human — so an open run-log issue means exactly
+"a window broke": the issue list is the alarm surface, the dashboard the
+reference view, and neither depends on a later window firing to stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts
@@ -200,6 +253,26 @@ pattern rather than rediscovering it:
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
   than per chunk.
+- **A step that calls a cloud provider can hang far longer than it can fail.**
+  `aws-actions/configure-aws-credentials` retries a failed AssumeRole 12 times by
+  default, and an unreachable STS endpoint fails each attempt on a multi-minute
+  TCP connect timeout rather than promptly — so the default policy outlasts every
+  job budget here and the job is killed mid-retry instead of returning an error.
+  A window is then spent entirely on hanging, and a `cancelled` result gets
+  attributed to whatever the job was *supposed* to be doing. Every call site
+  passes `action-timeout-s`; note that a composite action cannot put
+  `timeout-minutes` on its own steps, so the action's own timeout input is the
+  only bound available inside one. The same question is worth asking of any step
+  that talks to an external service: what is its worst case, and is it shorter
+  than the job budget?
+- **A branch built during a long job must be based on a freshly fetched remote
+  tip, not the job's own checkout.** The deterministic writers commit to `main`
+  throughout, so a matrix that runs for an hour finishes holding a stale local
+  `main`; a branch cut from it carries commits that are no longer on the remote —
+  including any merged `.github/workflows/*` change — into the push pack, and a
+  token without `workflows` permission has the whole push rejected. `collect-run`
+  carries the worked reasoning and the fetch-then-branch shape; copy it in any
+  job that pushes a branch it built while other jobs were writing.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**
@@ -222,46 +295,139 @@ below describes the damage). The promotion gates target exactly those two.
 
 The mechanics:
 
-- **Feature PRs target `staging`** (AGENTS.md). The branch's ruleset requires
-  a pull request plus the same status checks as `main`, with the **repository
-  admin role as its sole bypass actor** — a required-checks rule blocks
-  direct pushes of commits that carry no passing check runs, so the
-  maintainer is the only identity that can land the sync merge below.
-  Neither GitHub App bypasses `staging`, and no workflow holds a write token
-  to it: the promote workflow is strictly read-only.
-- **Sync-at-promotion.** `staging` never owns data. At the start of each
-  batch, `main` is merged into `staging` (the corpus pointer and data
-  commits), so the batch is integration-tested against current data
-  read-only. The `promote` workflow checks the ancestry and, when staging is
-  behind, prints the merge-and-push commands for the maintainer — the push is
-  the maintainer's own, via the ruleset's admin bypass. There is no scheduled
-  sync; staging is exactly as fresh as its gate requires.
+- **Feature PRs target `staging`** (AGENTS.md), and the routing rests on that
+  convention plus the maintainer's merge: `main`'s required checks are exactly
+  `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
+  mis-route — it runs, and fails, only on a PR to `main` whose head is not
+  `staging` or a reviewed non-feature lane (the collect run branches, the
+  maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
+  salience-replay PRs) —
+  but it is **not** a required context, so it goes red without being able to
+  block the merge. It cannot be required yet: a `pull_request` runs the
+  workflow from the merge ref, and every legitimate lane into `main` is cut
+  from `main`, whose own ci.yml carries no `main-base` job — the context would
+  never report and an auto-merging collect PR would hang pending forever. It
+  becomes requireable once that definition promotes into `main`
+  (docs/security.md inventories this).
+  Rulesets cannot constrain a PR's source branch, which is why the routing
+  lives as a check at all, and why the check deters mistakes while the human
+  merge is what catches sabotage: a PR that edits ci.yml runs the edited
+  definition. Dependabot targets `staging` for the same reason. The `staging`
+  ruleset itself requires a pull request plus the status checks that can report
+  on a staging-targeted PR — `gate` and `paths`; `promotion-gate` keys on a
+  base of `main` and is always `skipped` here — with the **repository admin
+  role as its sole bypass actor** — a
+  required-checks rule blocks direct pushes of commits that carry no passing
+  check runs, so the admin role is the only identity that can land the sync
+  merge below — the role an interactive agent session borrows, which is why
+  `AGENTS.md` carries the discipline rule against using it. Neither GitHub App *bypasses* `staging`: the scheduled
+  `sync-staging` workflow holds a write token to it but opens an ordinary PR
+  that must satisfy the same required checks, and `promote` itself performs no
+  write at all.
+- **Scheduled sync.** `staging` never owns data, so it falls behind `main`
+  as the writers and bot lanes commit there. The `sync-staging` workflow
+  merges `main` into `staging` daily by opening a PR that auto-merges once
+  the staging ruleset's checks pass — gated like any other change, not
+  bypassed. Syncing on a schedule rather than at batch time is what keeps the
+  cost off the promotion path: the same merge done at promotion moves
+  `staging`'s head, and integration freshness is per-SHA, so every scenario
+  would have to be re-dispatched for a merge whose content is
+  already-gated main history joined with already-gated staging history.
+  `promote` still checks the ancestry, and still prints the manual
+  merge-and-push commands for the maintainer's admin bypass — the escape
+  hatch for a conflicting sync the schedule could not land on its own. The
+  sync defers itself while a promotion PR is open, so it never moves the head
+  a batch in flight is being tested against. **Ordering:** `schedule` and
+  `workflow_dispatch` both read the file from `main`, and the `prod`
+  environment is `main`-only, so `sync-staging` does nothing until it is
+  promoted — the promotion that carries it is itself still synced by hand.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
   required integration scenario green at exactly the staging head being
-  promoted). The `promote` dispatch runs it as pre-flight; ci.yml's
+  promoted — one green `scenario=all` run, which succeeds only when every
+  matrix leg does, satisfies all seven required runs at once, engine-smoke
+  counted once per engine). The `promote` dispatch runs it as pre-flight;
+  ci.yml's
   `promotion-gate` job runs it as a required check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
-  commands when freshness is unmet (each staging deployment waits for the
-  required reviewer), or, when green, the `gh pr create` command for the
-  promotion PR. The workflow performs no write itself: a PR created with a
+  commands when freshness is unmet, or, when green, the `gh pr create` command
+  for the promotion PR. The workflow performs no write itself: a PR created with a
   workflow's own token triggers no `pull_request` checks, so the maintainer
   creating it is what makes the required checks real. Merge promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
   every later sync re-merges rewritten commits.
 
+The full path of a change, operator's view:
+
+1. Branch off `staging`, work, run the relevant gate stages and reviewers,
+   open the PR against `staging`; review and merge. The change is now staged
+   but **not live** — production jobs execute from `main`.
+2. When a batch is worth promoting: dispatch `promote`; if it asks, run the
+   sync — dispatch `sync-staging` and let its PR land, or, if that PR
+   conflicts, run the printed commands (your admin-bypass push) — then
+   re-dispatch.
+3. Dispatch the required integration scenarios at staging's post-sync head —
+   one `scenario=all` dispatch covers the whole suite, or per-scenario runs
+   add up to it (the summary prints both forms) — then re-dispatch `promote`.
+4. Green promote hands you the `gh pr create` for the staging→main PR; its
+   `promotion-gate` check re-verifies quiescence + freshness. Re-run that
+   check right before merging, and merge with a **merge commit**. Live on
+   the next workflow run.
+
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
-same required status checks as `main`, **repository admin role as the only
-bypass actor** (docs/security.md inventories it); and add `promotion-gate` to
-`main`'s required checks — it reports `skipped`, which satisfies the
-requirement, on every non-promotion PR. The `staging` *deployment
-environment* the freshness runs deploy to (required reviewer, read-only role
-trust, per-environment engine keys) is separate wiring, described in
-docs/security.md.
+checks that can report on a staging-targeted PR (`gate` and `paths`),
+**repository admin role as the only bypass actor** (docs/security.md
+inventories it); and add `promotion-gate` to `main`'s required checks
+alongside `gate` and `paths` — it reports `skipped`, which satisfies the
+requirement, on every PR that is not the promotion. `main-base` stays
+**unrequired** until its ci.yml definition has been **promoted to `main`**,
+because a required check that no workflow run reports leaves every collect
+auto-merge PR waiting forever.
+
+The `staging`
+*deployment environment* the freshness runs deploy to (deployment branches
+restricted to `staging`, read-only role trust, per-environment engine keys) is
+separate wiring, described in docs/security.md.
+
+### Adding a required status check
+
+The ordering is forced, and getting it wrong stops data production rather than
+failing loudly: a context nothing on `main` produces leaves every PR into
+`main` pending forever, and the auto-merging collect PRs hang first.
+
+```bash
+scripts/promotion-gate.sh contexts <candidate>   # e.g. main-base
+```
+
+It reads `main: require PR`'s live required contexts and `main`'s own workflow
+files, fails if anything already required has no producing job, and reports each
+candidate as ready or not-yet. It is **not** part of `all`: reading a ruleset
+needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
+so automating it would mean handing a CI job the repo's most powerful scope to
+report an advisory fact. Run it with your own token.
+
+1. Land the job on `staging` and let it promote to `main` in an ordinary batch.
+2. `scripts/promotion-gate.sh contexts <candidate>` — proceed only on *ready to
+   require*.
+3. Confirm a real PR of the kind you are gating reports the context. For
+   `main-base` that means watching one collect PR, since those auto-merge and
+   are what a mistake strands.
+4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
+   context you just added.
+5. Update the surfaces that record the required set — the pinned list in
+   `tests/test_required_checks.py`, which is the only part of this that runs
+   unattended, plus the inventories in docs/security.md and the promotion
+   section above. If the pinned list lags the ruleset, a later promotion that
+   renames the newly-required job hangs collect PRs with nothing red to show
+   for it.
+
+The same ordering applies to `staging`'s ruleset, which gates the unattended
+`main`→`staging` sync PR. The stage above reads `main`'s; check `staging` by
+hand until there is a reason to parameterize it.
 
 ## The predict/evaluate matrix
 
@@ -379,17 +545,18 @@ a case-level disposition that cannot be attributed across several open events �
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for
-these. Both the pull and live jobs surface each one per-case on the day's
-pull-log / live-log issue comment ("court/docket — reason"), with the count on
+these. Both the pull and live jobs surface each one per-case on the pipeline-runs
+dashboard's triage list ("court/docket — reason"), with the count on
 the Actions step summary, for maintainer triage — recording nothing beats a
 guess.
 
 ## Recovering a run whose `collect` failed
 
-`collect` is the single writer for a run's agent output, so its failure used to
-discard the whole run — on 2026-07-18 one transient artifact-download failure
-threw away 46 successful cells. It now degrades per artifact, and what it could
-not collect is named rather than silently dropped. Two gaps, two remedies:
+`collect` is the single writer for a run's agent output, so an all-or-nothing
+failure would discard the whole run — one transient artifact download can carry
+dozens of successful cells with it. It therefore degrades per artifact, and
+what it could not collect is named rather than silently dropped. Two gaps, two
+remedies:
 
 | the PR body / run log says | what happened | fix |
 |---|---|---|
@@ -482,9 +649,9 @@ honors `predict.max_attempts_per_cell` via the ledger-derived failure facts
 attempt cannot re-queue forever while a sibling engine still owed the same event
 is swept normally.
 
-Held windows are marked **held** on the run log and step summary rather than
-reported as dispatched, so a growing backlog is legible as a paused channel and
-not misread as a stalled fan-out.
+Held windows are marked **held** on the pipeline-runs dashboard row, the run
+log, and the step summary rather than reported as dispatched, so a growing
+backlog is legible as a paused channel and not misread as a stalled fan-out.
 
 ### The evaluate queue is level-triggered too
 

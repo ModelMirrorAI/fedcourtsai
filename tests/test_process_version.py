@@ -1,7 +1,8 @@
 """The process-version digest and the frozen-headline partition.
 
 A cell is stamped with a content digest of the process that produced it (the
-prompt template + resolved registry config), so headline metrics can reflect only
+prompt template, the resolved registry config, and the engine's retrieval
+surface), so headline metrics can reflect only
 the frozen, blessed process. These lock the two properties the stamp rests on:
 the digest is *reproducible* (a maintainer can compute a digest to bless) and
 *sensitive* (any real process change moves it), and `is_frozen` gates on the
@@ -74,6 +75,36 @@ def test_digest_for_actor_resolves_from_the_real_registry() -> None:
     # Same prompt, different engine/model -> genuinely different processes.
     assert len(set(digests.values())) == 3
     assert all(d.startswith("sha256:") for d in digests.values())
+
+
+def test_the_retrieval_surface_is_hashed_into_the_digest() -> None:
+    """Dropping the retrieval surface from the canonical config would leave a
+    capability change riding under the identity that blessed the earlier runs."""
+    entry = next(p for p in load_predictors(CONFIG / "predictors.yaml") if p.engine == "codex")
+    canonical = _config_canonical(CONFIG / "predictors.yaml", entry)
+    assert canonical["retrieval"] == list(process_version.ENGINE_RETRIEVAL[entry.engine])
+
+
+def test_a_capability_change_moves_the_digest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The point of hashing the surface: revoke codex's web reach and the
+    digest must move, so its cells cannot be pooled with web-enabled ones."""
+    before = process_version.digest_for_actor(REPO, CONFIG, "predictor", "codex-baseline")
+    monkeypatch.setitem(process_version.ENGINE_RETRIEVAL, "codex", ("subprocess-network",))
+    after = process_version.digest_for_actor(REPO, CONFIG, "predictor", "codex-baseline")
+    assert before != after
+
+
+def test_the_live_codex_cells_declare_the_surface_they_run_with() -> None:
+    """The tournament's cells are configured by the workflows, not the runner
+    seam, so the declared surface is pinned to the args those steps pass."""
+    workflows = Path(".github") / "workflows"
+    declared = process_version.ENGINE_RETRIEVAL["codex"]
+    for name in ("run-predict.yml", "run-evaluate.yml"):
+        text = (workflows / name).read_text()
+        assert ("web" in declared) == ("web_search=live" in text), name
+        assert ("subprocess-network" in declared) == (
+            "sandbox_workspace_write.network_access=true" in text
+        ), name
 
 
 def test_an_unknown_actor_fails_loudly() -> None:

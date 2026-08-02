@@ -16,7 +16,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 
 import typer
 from pydantic import BaseModel
@@ -29,6 +29,7 @@ from . import (
     corpus_ranged,
     corpus_remote,
     corpus_service,
+    dedupe,
     ids,
     integration_check,
     mcp,
@@ -39,6 +40,7 @@ from . import (
     retrieval,
     scope_manifest,
     secretscan,
+    tool_usage,
 )
 from .agent_feedback import post_agent_feedback, post_once
 from .authz import authorize_trigger
@@ -65,6 +67,7 @@ from .collect import (
     render_stall_comment,
 )
 from .config import (
+    CorpusBackend,
     PredictScope,
     get_settings,
     load_courts,
@@ -74,12 +77,14 @@ from .config import (
     load_predict_config,
     load_pull_config,
     load_salience_config,
+    load_spend_config,
+    load_statpack_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .leaderboard import big_case_agreement, build_leaderboard
+from .leaderboard import big_case_agreement, build_leaderboard, evaluator_agreement
 from .matrix import (
     CappedMatrix,
     CaseRequest,
@@ -99,15 +104,16 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
-from .pipeline import historical, liveprobe
+from .pipeline import cell_context, historical, liveprobe
+from .pipeline.asof import CutoffPolicy
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
-from .pipeline.runner import EngineFailed, EngineUnavailable
-from .pipeline.salience import reconcile_salience_selection
+from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
+from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -118,6 +124,8 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
+from .required_checks import produced_contexts
+from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
@@ -134,13 +142,16 @@ from .schemas import (
     OpsReport,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     ProcessVersion,
     RetrievalCall,
     RetrievalLog,
+    SalienceReplay,
     StatPack,
     UsageRole,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
@@ -215,7 +226,8 @@ def validate(
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
     git tree (with its declared ids matching the path) while every evaluation
-    targets a real prediction. The corpus-dependent referential checks need the
+    targets a real prediction and every prose document a prediction names sits
+    beside it. The corpus-dependent referential checks need the
     remote, so they run scheduled via ``validate-corpus`` rather than here.
     """
     result = validate_ledger(path)
@@ -416,6 +428,62 @@ def reconcile_salience_selection_cmd(
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("dedupe-live-rows")
+def dedupe_live_rows_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Drop the duplicate rows; omit for a dry-run that only reports."
+        ),
+    ] = False,
+) -> None:
+    """Merge and drop the live-minted twin of each duplicated SCOTUS docket.
+
+    Where one SCOTUS docket number carries two rows — the upstream
+    CourtListener docket id and a live-minted reserved-range id, the pair shape
+    an annotated docket-number spelling leaves when it defeats the channels'
+    identity join — this merges the pair onto the CourtListener-keyed survivor
+    and drops the live row: every fact only the live twin carries fills in on
+    the survivor, its events / snapshots / documents move under the surviving
+    id, the survivor's `sample_weight` takes the pair's minimum, and the
+    live-minted row is deleted from all four tables — no orphans. A pair
+    disagreeing on `date_filed`, `date_decided`, or `disposition` is skipped
+    and reported, never dropped — the dry-run output is the triage list.
+    Content-store objects under a dropped id are left in place (no-delete
+    store; nothing resolves a dropped id, so they are inert). Idempotent. Run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Prints a
+    `LiveDedupeResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the dedupe.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = dedupe.dedupe_live_rows(conn, apply=apply)
+    verb = "dropped" if apply else "would drop"
+    typer.echo(
+        f"dedupe-live-rows ({'applied' if apply else 'dry-run'}): "
+        f"{result.pairs} duplicate pair(s); {verb} {len(result.dropped)} live-minted row(s), "
+        f"skipped {len(result.skipped)} disagreeing pair(s)"
+    )
+    for entry in result.skipped:
+        typer.echo(
+            f"  - kept {entry.pair.keep}, not dropped {entry.pair.drop}: "
+            f"{'; '.join(entry.conflicts)}"
+        )
+    if result.dropped:
+        typer.echo(
+            "  content-store objects under the dropped ids are left in place "
+            "(no-delete store; nothing resolves a dropped id, so they are inert)"
+        )
     typer.echo(result.model_dump_json())
 
 
@@ -633,6 +701,7 @@ def leaderboard(
     board = build_leaderboard(
         iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only),
         big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
+        evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
@@ -648,6 +717,59 @@ def leaderboard(
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
+    )
+
+
+@app.command("tool-usage")
+def tool_usage_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the ToolUsage JSON artifact here (default: stdout only)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None, typer.Option(help="Write the Markdown rollup here (e.g. a run summary).")
+    ] = None,
+) -> None:
+    """Roll committed retrieval logs into an offered-vs-called tool report.
+
+    Answers which configured MCP tools are actually earning their place: which
+    were offered but never called, which are used by some engines and not
+    others, and how often each is called and by whom. Reads ``data/`` only — no
+    corpus, no network — so it runs offline and in the gate.
+
+    The offered denominator comes from each log's ``mcp_tools`` snapshot, not
+    from ``mcp_servers`` (which names servers, and a server advertises many
+    tools). Logs written before that field existed contribute calls but no
+    denominator, and are counted separately rather than read as offering
+    nothing. Call names are normalized to ``<server>.<tool>`` first, because
+    engines spell the same MCP tool differently.
+
+    A zero means **never called**, not useless — the prompt may never mention
+    the tool, or a sandbox may have blocked it. The report says so; check the
+    cause before retiring anything.
+    """
+    settings = get_settings()
+    # The current manifest's advertised set, so a never-called tool is visible
+    # even though no committed log predating `mcp_tools` carries its own
+    # denominator. Union across both registries: a tool offered to evaluators
+    # but not predictors is still offered.
+    offered_now: set[str] = set()
+    for filename in ("predictors.yaml", "evaluators.yaml"):
+        path = settings.config_root / filename
+        if path.exists():
+            offered_now.update(mcp.manifest_tools(load_mcp_servers(path)))
+    usage = tool_usage.build_tool_usage(settings.data_root, sorted(offered_now))
+    markdown = tool_usage.render_tool_usage_markdown(usage)
+    if out is not None:
+        write_json(out, usage)
+    if markdown_out is not None:
+        write_text(markdown_out, markdown)
+    typer.echo(markdown)
+    never = sum(1 for e in usage.entries if e.calls == 0)
+    typer.echo(
+        f"tool-usage: {usage.logs} log(s), {len(usage.entries)} tool(s), "
+        f"{never} offered but never called",
+        err=True,
     )
 
 
@@ -709,8 +831,9 @@ def cert_backtest_cmd(
         typer.Option(
             help="Also replay the enabled agentic predictors: 'auto' routes each "
             "predictor through its own configured engine (skipping any whose engine "
-            "has no registered runner); a concrete backend (stub, replay, "
-            "claude-code, codex, gemini) routes every predictor through that one backend "
+            "has no registered runner); a concrete backend ("
+            + ", ".join(available_backends())
+            + ") routes every predictor through that one backend "
             "(offline runs / single-engine sweeps). Omit to score only the offline "
             "reference baselines."
         ),
@@ -784,15 +907,17 @@ def cert_backtest_cmd(
         write_json(destination, run_cert_backtest([], []))
         typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
         return
+    salience_cfg = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
         items = select_cert_backtest_set(
             conn,
             limit=limit,
             scope=scope,
             spread=spread,
-            salience_floor=load_salience_config(settings.config_root).floor,
+            salience_floor=salience_cfg.floor,
         )
         backtesters = default_backtesters(conn)
+        provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -819,7 +944,7 @@ def cert_backtest_cmd(
                 typer.echo(
                     "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
                 )
-            replayed, unavailable = replay_predictors(
+            replayed, unavailable, provisioning = replay_predictors(
                 items,
                 corpus_db_path=db_path,
                 config_root=settings.config_root,
@@ -850,13 +975,104 @@ def cert_backtest_cmd(
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
         statpack = analytics.build_statpack(corpus_db_path=db_path)
-        segments = build_segment_context(conn, items, statpack)
-        report = run_cert_backtest(backtesters, items, segments=segments)
+        segments = build_segment_context(
+            conn, items, statpack, lookback_terms=salience_cfg.base_rate_lookback_terms
+        )
+        report = run_cert_backtest(backtesters, items, segments=segments, provisioning=provisioning)
     write_json(destination, report)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
         f"{report.always_denied_accuracy:.3f} -> {destination}"
+    )
+
+
+@app.command("salience-replay")
+def salience_replay_cmd(
+    terms: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated October Terms whose resolved petitions to replay, "
+            "e.g. '2022,2023,2024'."
+        ),
+    ],
+    policies: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated cutoff policies, each one cell per Term: "
+            + ", ".join(p.value for p in CutoffPolicy)
+            + "."
+        ),
+    ] = "arrival,distribution-1,resolution",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/salience-replay.json)."),
+    ] = None,
+) -> None:
+    """Replay the salience gate over past Terms into ``metrics/salience-replay.json``.
+
+    Runs the current frozen ``sal-v1`` scoring, banding, and per-conference
+    selection over each named Term's resolved paid modern-cert petitions,
+    projected to the state their dockets disclosed at each cutoff policy's
+    moment (arrival / first distribution / the last pre-resolution
+    distribution), and scores the would-have-been selection against the
+    realized grant-family outcomes — what the numbers do and do not claim:
+    ``metrics/README.md``. Deterministic, offline, and free: no model runs, no
+    tokens are spent, and nothing under ``data/`` is touched.
+    """
+    try:
+        term_years = [int(raw.strip()) for raw in terms.split(",") if raw.strip()]
+    except ValueError:
+        raise typer.BadParameter(
+            f"terms must be comma-separated years, got {terms!r}", param_hint="--terms"
+        ) from None
+    if not term_years:
+        raise typer.BadParameter("no Terms named", param_hint="--terms")
+    if any(not 1900 <= year <= 2099 for year in term_years):
+        # The parseable modern docket forms sit inside this range, so anything
+        # outside it is a typo that would otherwise write an all-zero report.
+        raise typer.BadParameter(
+            f"terms must be four-digit October-Term years, got {terms!r}", param_hint="--terms"
+        )
+    policy_list: list[CutoffPolicy] = []
+    for raw in policies.split(","):
+        name = raw.strip()
+        if not name:
+            continue
+        try:
+            policy_list.append(CutoffPolicy(name))
+        except ValueError:
+            raise typer.BadParameter(
+                f"unknown policy {name!r}; choose from " + ", ".join(p.value for p in CutoffPolicy),
+                param_hint="--policies",
+            ) from None
+    if not policy_list:
+        raise typer.BadParameter("no policies named", param_hint="--policies")
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    destination = out if out is not None else settings.metrics_root / "salience-replay.json"
+    if not db_path.exists():
+        write_json(
+            destination,
+            SalienceReplay(
+                salience_version=SALIENCE_VERSION,
+                terms=term_years,
+                policies=[str(p) for p in policy_list],
+            ),
+        )
+        typer.echo(f"No corpus at {db_path} — wrote empty salience-replay report -> {destination}")
+        return
+    report = replay_gate(
+        db_path,
+        terms=term_years,
+        policies=policy_list,
+        config=load_salience_config(settings.config_root),
+    )
+    write_json(destination, report)
+    typer.echo(
+        f"salience-replay: {report.cells_evaluated} cell(s) over "
+        f"Term(s) {', '.join(str(t) for t in term_years)} x "
+        f"{len(policy_list)} policy(ies) -> {destination}"
     )
 
 
@@ -890,10 +1106,53 @@ def statpack(
     json_dest = out if out is not None else settings.metrics_root / "statpack.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "statpack.md"
     write_json(json_dest, pack)
-    write_text(md_dest, analytics.render_statpack_markdown(pack))
+    write_text(
+        md_dest,
+        analytics.render_statpack_markdown(
+            pack, markdown_terms=load_statpack_config(settings.config_root).markdown_terms
+        ),
+    )
     typer.echo(
         f"statpack: {pack.corpus_rows} case(s), {len(pack.sections)} section(s) "
         f"-> {json_dest}, {md_dest}"
+    )
+
+
+@app.command()
+def docket(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <metrics_root>/docket.json)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
+    ] = None,
+) -> None:
+    """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
+
+    Facts about the dockets — composition by court and era, cert dispositions,
+    originating circuit and state courts, relist counts, CVSG status, the paid/IFP
+    fee split, and a per-Term census of docketed filings against grant rate.
+    Carries **no claim about this project's predictions**: no accuracy, no
+    leaderboard, no salience, so it is readable and citable by someone with no
+    interest in the models. Every cert cut is denial-reweighted, so its rates
+    estimate the population rather than the walked sample, and each states its
+    own denominator. Deterministic and
+    offline: a pure function of the corpus, so reruns reproduce both files byte
+    for byte. Writes the empty zero-count pack when the corpus is absent (run
+    after a corpus pull).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    pack = analytics.build_docket_pack(corpus_db_path=db_path)
+    json_dest = out if out is not None else settings.metrics_root / "docket.json"
+    md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
+    write_json(json_dest, pack)
+    write_text(md_dest, analytics.render_docket_markdown(pack))
+    typer.echo(
+        f"docket: {pack.corpus_rows} case(s), {len(pack.sections)} section(s), "
+        f"{len(pack.terms)} Term(s) -> {json_dest}, {md_dest}"
     )
 
 
@@ -919,12 +1178,15 @@ def _resolve_token_counts(
 
 @app.command("record-usage")
 def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
-    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    # Typed as the enums, so typer renders the choice list into the metavar
+    # itself; restating it in the help would be a second copy to drift.
+    engine: Annotated[Engine, typer.Option(help="Engine that ran.")],
+    role: Annotated[UsageRole, typer.Option(help="Which agentic stage this cell was.")],
     actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
     model: Annotated[
         str | None, typer.Option(help="Model run; defaults to the engine's default model.")
@@ -1080,12 +1342,26 @@ def stamp_cell(
         )
         model_cls = Evaluation
 
+    # A predictor's conditioning is stamped from the same provisioning record the
+    # agent read, for the same reason the digest is: it is a scoring input, so it
+    # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
+    # where it has to become durable. Absent when provisioning failed — that step
+    # is continue-on-error and the cell runs snapshot-less — and the evaluator
+    # then falls back to the terminal band rather than inventing one.
+    update: dict[str, object] = {"process_version": stamp}
+    if role == "predictor":
+        # Assigned unconditionally, so an agent-authored block is cleared rather
+        # than preserved when provisioning left nothing to freeze. A guarded
+        # assignment would let a cell that ran snapshot-less supply its own
+        # baseline conditioning, which is the one thing this field must not be.
+        update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
+
     stamped = 0
     for path in targets:
         if not path.is_file():
             continue
         record = read_model(path, model_cls)
-        write_json(path, record.model_copy(update={"process_version": stamp}))
+        write_json(path, record.model_copy(update=update))
         stamped += 1
 
     if stamped == 0:
@@ -1131,12 +1407,15 @@ def process_digest_cmd(
 
 @app.command("record-retrieval")
 def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
-    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    # Typed as the enums, so typer renders the choice list into the metavar
+    # itself; restating it in the help would be a second copy to drift.
+    engine: Annotated[Engine, typer.Option(help="Engine that ran.")],
+    role: Annotated[UsageRole, typer.Option(help="Which agentic stage this cell was.")],
     actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
     mode: Annotated[
         str, typer.Option(help="The cell's provisioned mode: forward | replay ('' = unknown).")
@@ -1158,7 +1437,9 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     never the agent's word, so the cross-evaluator's leakage grading can see what a replay cell
     actually retrieved. The pinned tool manifest the cell was configured with
     (from the actor's registry entry) is snapshotted alongside — the
-    pipeline-attribution record. A cell with zero tool calls still records an
+    pipeline-attribution record — as both the server pins and the tool names
+    they advertise, so a later offered-vs-called rollup has a denominator rather
+    than only the numerator. A cell with zero tool calls still records an
     empty log: "retrieved nothing" is itself evidence.
     """
     settings = get_settings()
@@ -1174,6 +1455,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         "predictors.yaml" if role == UsageRole.predictor else "evaluators.yaml"
     )
     labels: list[str] = []
+    offered: list[str] = []
     try:
         actors: list[Any] = (
             load_predictors(registry_file)
@@ -1184,10 +1466,12 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         if match is not None:
             servers = resolve_mcp_servers(load_mcp_servers(registry_file), match.mcp_servers)
             labels = mcp.manifest_labels(servers)
+            offered = mcp.manifest_tools(servers)
     except (OSError, KeyError):
         # Attribution is best-effort here: a registry drift must not lose the
         # harvested calls (the plan already validated the registry).
         labels = []
+        offered = []
 
     record = RetrievalLog(
         case_id=ids.case_id(court, docket),
@@ -1197,6 +1481,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         engine=engine,
         mode=mode or None,
         mcp_servers=labels,
+        mcp_tools=offered,
         calls=calls,
     )
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
@@ -1263,6 +1548,7 @@ def _read_best_effort[T: BaseModel](path: Path | None, model: type[T]) -> T | No
 
 @app.command("ops-report")
 def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
+    *,
     runs: Annotated[
         Path | None,
         typer.Option(
@@ -1429,10 +1715,12 @@ def export_schemas(
 @app.command("mcp-config")
 def mcp_config_cmd(
     engine: Annotated[
-        str, typer.Option(help="Which client format to emit: claude-code | codex | gemini.")
+        str,
+        typer.Option(help=f"Which client format to emit: {' | '.join(e.value for e in Engine)}."),
     ],
     role: Annotated[
-        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+        str,
+        typer.Option(help=f"Registry to read: {' | '.join(r.value for r in UsageRole)}."),
     ],
     actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to emit.")],
     base_settings: Annotated[
@@ -1512,7 +1800,8 @@ def mcp_config_cmd(
 @app.command("mcp-serve")
 def mcp_serve(
     role: Annotated[
-        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+        str,
+        typer.Option(help=f"Registry to read: {' | '.join(r.value for r in UsageRole)}."),
     ],
     actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to read.")],
     server: Annotated[
@@ -1563,15 +1852,22 @@ def mcp_serve(
     os.execvpe(command, [command, *args], {**os.environ, **env})
 
 
+# The cell modes `record/context.json` carries. One definition, so the option
+# help, the validation below, and the replay provisioner cannot disagree.
+CELL_MODES: tuple[str, ...] = ("forward", "replay")
+
+
 CorpusBackendOption = Annotated[
     str,
     typer.Option(
         "--corpus-backend",
-        help="Corpus read backend: local (the pulled file) or ranged (query "
-        "the blob in place on the corpus remote); query/open-events also accept "
-        "service (forward to a corpus query sidecar — see corpus-serve), and "
-        "the provisioning commands casestore (read the per-case content "
-        "objects). Default: the corpus-backend setting from the environment.",
+        help="Corpus read backend, one of "
+        + " / ".join(get_args(CorpusBackend))
+        + ": local reads the pulled file, ranged queries the blob in place on the "
+        "corpus remote; query/open-events also accept service (forward to a corpus "
+        "query sidecar — see corpus-serve), and the provisioning commands accept "
+        "casestore (read the per-case content objects). Default: the "
+        "corpus-backend setting from the environment.",
     ),
 ]
 
@@ -1663,6 +1959,11 @@ def _echo_read_stats(conn: corpus.ReadConnection) -> None:
     The per-query egress evidence: retrieval logging and the integration check
     read these numbers, and a human sees at a glance that a lookup moved KBs,
     not the blob. A no-op for the local backend (nothing was transferred).
+
+    Scope: **ranged index reads only.** Content-store transfer is not counted here
+    — most importantly the per-row opinion bodies `query --full` hydrates under the
+    corpus-split mode, which are the largest objects the system moves. So this line
+    is a floor on a `--full` query's egress, not its total.
     """
     if isinstance(conn, corpus_ranged.RangedConnection):
         stats = conn.stats
@@ -1776,6 +2077,100 @@ def probe_live_terms(
             fh.write(table + "\n")
 
 
+@app.command("refresh-historical")
+def refresh_historical_cmd(
+    term: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--term",
+            help="Two-digit October Term to re-walk; repeatable. Default: every "
+            "Term in `historical.terms`.",
+        ),
+    ] = None,
+    stream: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--stream",
+            help="Numbering stream to re-open: `historical-paid` or `historical-ifp`; "
+            "repeatable. Default: both.",
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Clear the cursors; omit for a dry-run listing."),
+    ] = False,
+) -> None:
+    """Re-open past Terms for a full historical re-walk.
+
+    Clears the per-(Term, stream) walk cursors so the next `historical-terms`
+    invocations re-cover those Terms from the numbering base. This command moves
+    no data and fetches nothing — the `run-seed` loop does the work afterwards.
+
+    What it is for: the walk records what the pipeline could read at the time it
+    ran. When the pipeline learns to read more — a new column, a corrected parser,
+    a disposition pattern that used to be missed — already-walked Terms keep the
+    older, thinner rows, and their cursors sit at the frontier so no ordinary run
+    will ever revisit them. This is the way back.
+
+    Re-walking **adds**: each re-served docket upserts onto its existing row
+    through the corpus latches, so nothing is deleted, `case_id` never moves, and
+    a refreshed row keeps every fact the first pass captured. Re-running is
+    therefore idempotent, not destructive — the real cost is upstream traffic
+    (~1 req/s over each Term's full serial range), which is why it is dry-run by
+    default.
+
+    Deliberately separate from the walk rather than a flag on it: a walk that
+    could rewind its own cursor could also do so on a degraded run and silently
+    re-onboard a Term. Resetting stays an explicit, auditable act.
+
+    `--stream` narrows which numbering sequences re-open. The two cost very
+    differently — a Term's IFP sequence runs roughly three times its paid one —
+    and only the paid stream feeds the scored segment, so a refresh aimed at the
+    predicted population need not pay for the rest of the docket first.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it "
+            "(fedcourts corpus-pull) before resetting walk cursors.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    config = load_historical_config(settings.config_root)
+    terms = term if term else list(config.terms)
+    known = {name for name, _base in historical.HISTORICAL_STREAMS}
+    if stream and not set(stream) <= known:
+        typer.echo(
+            f"unknown stream(s): {', '.join(sorted(set(stream) - known))}; "
+            f"expected one of {', '.join(sorted(known))}.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    wanted = [name for name, _base in historical.HISTORICAL_STREAMS if not stream or name in stream]
+    if not apply:
+        with corpus.connect(db_path) as conn:
+            pending = [
+                f"OT{2000 + t}/{name}"
+                for t in sorted(set(terms))
+                for name in wanted
+                if corpus.get_live_cursor(conn, t, name) is not None
+            ]
+        typer.echo(
+            f"refresh-historical (dry-run): would reset {len(pending)} cursor(s) "
+            f"across {len(set(terms))} Term(s); re-run with --apply"
+        )
+        if pending:
+            typer.echo(", ".join(pending))
+        return
+    report = historical.reset_walk(db_path, terms, wanted)
+    typer.echo(
+        f"refresh-historical (applied): reset {len(report.reset)} cursor(s), "
+        f"{len(report.absent)} already absent"
+    )
+    typer.echo(report.model_dump_json())
+
+
 @app.command("historical-terms")
 def historical_terms(
     report: Annotated[
@@ -1819,9 +2214,7 @@ def historical_terms(
     The historical half of the live channel (docs/live-sources.md): walks the
     configured October Terms' docket serials sequentially over the
     supremecourt.gov docket JSON — resuming from the persisted per-(Term, stream)
-    cursors — and ingests **every decided petition except denials, which are
-    systematically sampled** (all grants/GVRs kept; a denial kept when its
-    serial is a multiple of ``historical.denial_sample_every``). Ingested
+    cursors — and ingests **every decided petition**, denials included. Ingested
     petitions land through the shared live path: identity reconciled by docket
     number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
     and filed documents provisioned for OT``document_floor_term``+ — so they
@@ -1867,7 +2260,7 @@ def historical_terms(
     typer.echo(
         f"historical-terms probed={rep.probed} served={rep.served} ingested={ingested} "
         f"(granted={rep.ingested_granted} denied={rep.ingested_denied} other={rep.ingested_other}) "
-        f"skipped_denials={rep.skipped_denials} documents={rep.documents} "
+        f"documents={rep.documents} "
         f"stopped={rep.stopped} complete={rep.complete}"
     )
 
@@ -1957,6 +2350,7 @@ def build_index_cmd(
 
 @app.command()
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
+    *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
@@ -2124,6 +2518,7 @@ def corpus_serve(
 
 @app.command()
 def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
+    *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
@@ -2175,9 +2570,12 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     group_by: Annotated[
         str,
         typer.Option(
-            help="Break base-rates down by a dimension: court, topic, judge, "
-            "term_year, disposition, originating_court, or era. Omit for the "
-            "overall base rate only."
+            # Rendered from the enum, not restated: a hand-kept list drifts
+            # silently every time a dimension lands, and `--help` is what a cell
+            # agent reads to discover the cuts it can ask for.
+            help="Break base-rates down by a dimension: "
+            + ", ".join(g.value for g in GroupBy)
+            + ". Omit for the overall base rate only."
         ),
     ] = "",
     summary_out: Annotated[
@@ -2192,7 +2590,8 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
 
     The aggregate counterpart of `query`: instead of returning individual priors it
     rolls the whole matched set into base-rates — how the realized dispositions split,
-    overall and (with `--group-by`) per court / topic / judge / SCOTUS Term / disposition.
+    overall and, with `--group-by`, per bucket of the dimension you name (listed
+    under `--group-by` below).
     Shares the `query` filter grammar (`--court` / `--topic` / `--disposition` match
     exactly; `--judge` / `--citation` match on overlap), plus a `--date-from` / `--date-to`
     filed-date window. Strictly read-only. Emits the machine `AnalyticsReport` JSON on
@@ -2312,9 +2711,10 @@ def provision_snapshot(
     mode: Annotated[
         str,
         typer.Option(
-            help="The cell's mode, written into record/context.json: forward "
-            "(a live cell — the default) | replay (a back-test cell; the replay "
-            "provisioner in cert_backtest writes this itself)."
+            help="The cell's mode, written into record/context.json, one of "
+            + " | ".join(CELL_MODES)
+            + ". forward is a live cell and the default; replay is a back-test "
+            "cell, which the replay provisioner in cert_backtest writes itself."
         ),
     ] = "forward",
     refuse_terminal: Annotated[
@@ -2363,7 +2763,7 @@ def provision_snapshot(
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
-    if mode not in ("forward", "replay"):
+    if mode not in CELL_MODES:
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
@@ -2407,9 +2807,17 @@ def provision_snapshot(
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
-    # The cell's mode context: stated at provisioning so the prompt
-    # contract keys replay etiquette on it rather than inferring from env vars.
-    write_raw_json(paths.cell_context, {"mode": mode})
+    # The cell's context: its mode, and the conditioning state it is about to run
+    # against. Both are stated at provisioning — the mode so the prompt contract
+    # keys replay etiquette on it rather than inferring from env vars, and the
+    # rest because the salience band only ever strengthens, so a band re-derived
+    # later is the band the petition *ended* at. Derived from the payload rather
+    # than the corpus row: the row holds current values, the payload is what this
+    # cell can read, and a baseline has to be conditioned on the latter.
+    write_raw_json(
+        paths.cell_context,
+        cell_context.build(case, snapshot_date, payload, mode).model_dump(mode="json"),
+    )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
     if documents:
         for doc in documents:
@@ -2431,6 +2839,28 @@ def provision_snapshot(
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
+    """The provisioned cell context, or ``None`` when there is nothing usable.
+
+    Tolerant on purpose: this runs as a post-agent step, and a missing or
+    unreadable context file means the cell was not provisioned, which is a
+    recorded gap rather than a reason to fail a prediction that already exists.
+    The `mode`-only shape a pre-context provisioning wrote also lands here and is
+    correctly rejected, since it carries no conditioning to freeze.
+    """
+    path = paths.cell_context
+    if not path.is_file():
+        return None
+    try:
+        return PredictionContext.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        # A file that exists but does not parse is worth a line: it is either a
+        # replay cell's own `{mode, decided_before}` shape, which carries no
+        # conditioning and is correctly rejected, or a provisioning bug.
+        typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
+        return None
 
 
 @app.command("corpus-integration-check")
@@ -2526,12 +2956,24 @@ def mcp_integration_check(
     points at, exercised without spending a CourtListener call, so the sidecar
     may run token-free. Emits the machine report JSON on stdout and the
     Markdown summary on stderr; ``--summary-out`` also appends the Markdown.
+
+    It also checks the registry manifest's recorded ``tools`` against what the
+    server advertises. That list is the offered denominator every retrieval log
+    snapshots and is captured by hand at pin time, so this is what stops a
+    version bump from leaving it silently wrong.
+
     Exits 2 when the endpoint cannot be probed at all (a setup problem), 1
-    when the protocol disappoints (no server name, no tools) or the budget
-    blows.
+    when the protocol disappoints (no server name, no tools), the manifest has
+    drifted from the server, or the budget blows.
     """
+    expected: list[str] = []
+    registry = get_settings().config_root / "predictors.yaml"
+    if registry.exists():
+        expected = sorted({tool for server in load_mcp_servers(registry) for tool in server.tools})
     try:
-        report = integration_check.run_mcp_check(mcp_url=url, budget_seconds=budget_seconds)
+        report = integration_check.run_mcp_check(
+            mcp_url=url, budget_seconds=budget_seconds, expected_tools=expected
+        )
     except integration_check.McpProbeError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
@@ -2564,8 +3006,10 @@ def local_cascade(
     engine: Annotated[
         str,
         typer.Option(
-            help="Engine backend: stub (offline, default) | replay (offline, recorded "
-            "cassette) | claude-code | codex | gemini."
+            help="Engine backend, one of "
+            + " | ".join(available_backends())
+            + ". stub is offline and the default; replay is also offline, emitting "
+            "a recorded cassette."
         ),
     ] = "stub",
     run_id: Annotated[
@@ -2795,7 +3239,7 @@ def pull_all(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the run log)."
+            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
         ),
     ] = Path("unrecorded-queue.json"),
     limit: Annotated[
@@ -2927,7 +3371,7 @@ def live_poll(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the run log)."
+            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
         ),
     ] = Path("unrecorded-queue.json"),
     term: Annotated[
@@ -2961,7 +3405,9 @@ def live_poll(
     section of ``config/tracking.yaml`` bound wall clock and politeness.
     Discovery probes the Term's numbering frontier from the persisted per-Term
     cursor and onboards each served petition; the refresh re-polls the pending
-    modern-cert watchlist (recent Terms first). Resolution is detected from the
+    modern-cert watchlist (recent Terms first), then the application rotation
+    re-polls unresolved interim applications under its own cap — ground-truth
+    only, with prediction queueing off. Resolution is detected from the
     proceedings text, so a decided petition lands ``outcome.json``
     deterministically. Writes the same three handoff queues as ``pull-all``.
     """
@@ -3298,6 +3744,49 @@ def _requested_cases(
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
+def _spend_gate_or_empty(stage: str) -> SpendVerdict:
+    """The ex-post spend backstop, consulted before either stage mints a matrix.
+
+    Returns the verdict so the caller can emit an empty matrix on a breach —
+    deferring, never destroying: the trigger's cases stay in their queue and
+    re-derive next cycle, exactly as under the volume cap. Reports on the same two
+    channels as the other plan-time gates (a workflow-command line on stderr, and
+    the step summary inside Actions), never on stdout, which carries only the
+    matrix JSON.
+
+    Disabled by default (a ceiling of ``0``), in which case this is silent and the
+    ledger is never read. See :mod:`fedcourtsai.spend` for what the ceiling can and
+    cannot promise — chiefly that the ledger lags by however long a collect PR
+    takes to merge, so it is a floor on spend rather than a live figure.
+    """
+    settings = get_settings()
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    if not verdict.breached:
+        return verdict
+    typer.echo(
+        f"::error::{stage}: spend backstop reached — ${verdict.spent_usd:.2f} recorded over the "
+        f"trailing {verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+        f"${verdict.ceiling_usd:.2f} ceiling, so no cells are minted this run. The queued work is "
+        f"untouched and re-runs once the window rolls off or the ceiling is raised "
+        f"(spend.ceiling_usd). NOTE: the ledger only counts cells whose collect PR has merged, so "
+        f"actual spend is at least this.",
+        err=True,
+    )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## {stage} — spend backstop reached, no cells minted\n"
+                f"Recorded **${verdict.spent_usd:.2f}** over the trailing "
+                f"{verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+                f"**${verdict.ceiling_usd:.2f}** ceiling (`spend.ceiling_usd`). Queued work is "
+                f"deferred, not dropped — it re-runs once the window rolls off or the ceiling is "
+                f"raised. The ledger counts only cells whose collect PR has merged, so actual "
+                f"spend is at least this figure.\n"
+            )
+    return verdict
+
+
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
     """Surface a volume-cap deferral loudly, so a capped run is never silent.
 
@@ -3411,6 +3900,12 @@ def predict_matrix_cmd(
     capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
     if capped.dropped_cells:
         _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    # The ex-post backstop, last: it reads measured spend rather than projected
+    # volume, so it holds whatever the caps above decided. Checked after the cap
+    # so a breach is reported against the run that would actually have been minted.
+    if _spend_gate_or_empty("predict-matrix").breached:
+        typer.echo(json.dumps({"include": []}, separators=(",", ":")))
+        return
     typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
 
 
@@ -3502,6 +3997,13 @@ def evaluate_matrix_cmd(
         typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
     if already:
         typer.echo(f"evaluate-matrix: dropped {already} already-evaluated cell(s)", err=True)
+    # The same ex-post backstop predict consults: the ceiling governs total
+    # inference spend, and a grading costs a cell like a forecast does. An owed
+    # grading is never lost by deferring it — the backlog deriver re-derives it
+    # from committed ledger state on a later cycle.
+    if _spend_gate_or_empty("evaluate-matrix").breached:
+        typer.echo(json.dumps({"include": []}, separators=(",", ":")))
+        return
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
@@ -3688,6 +4190,55 @@ def assert_cleanup_paths_cmd(
     typer.echo(f"cleanup jail OK ({len(changes)} deletion(s))")
 
 
+@app.command("assert-required-contexts")
+def assert_required_contexts_cmd(
+    workflows: Annotated[
+        Path,
+        typer.Option(help="Workflow directory of the branch PRs are merged INTO (its files run)."),
+    ],
+    context: Annotated[
+        list[str] | None,
+        typer.Option(help="A context the branch's ruleset requires today (repeatable)."),
+    ] = None,
+    candidate: Annotated[
+        list[str] | None,
+        typer.Option(help="A context you are considering requiring; reported, never fatal."),
+    ] = None,
+    base_branch: Annotated[
+        str,
+        typer.Option(help="Branch PRs target, to honour workflows' `branches:` filters. '' = any."),
+    ] = "",
+) -> None:
+    """Check that every required status check has a job that can report it.
+
+    A required context with no producing job on the base branch leaves every PR
+    into that branch pending forever — the auto-merging collect PRs first, so
+    data production stops on a rule that reads like a tightening. Exits non-zero
+    naming any such context.
+
+    ``--candidate`` answers the other half: whether a context is *safe* to
+    require yet. A candidate whose job has landed on the branch is ready; one
+    that has not promoted is not, and requiring it now would hang.
+    """
+    required = list(context or [])
+    branch = base_branch or None
+    # One scan, so the fatal and advisory answers cannot disagree.
+    produced = produced_contexts(workflows, branch)
+    hanging = sorted({name for name in required if name and name not in produced})
+    for name in sorted({name for name in (candidate or []) if name}):
+        verdict = "ready to require" if name in produced else "NOT yet requireable"
+        reason = "a job on this branch reports it" if name in produced else "no job reports it"
+        typer.echo(f"{verdict}: {name!r} — {reason}")
+    if hanging:
+        typer.echo(
+            "::error::required context(s) no job on this branch reports, so every PR "
+            f"into it would hang: {', '.join(hanging)}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"required contexts OK ({len(required)} checked)")
+
+
 @app.command("cleanup-out-of-scope-predictions")
 def cleanup_out_of_scope_predictions_cmd(
     apply: Annotated[
@@ -3792,7 +4343,11 @@ def metrics_refresh_plan(
     """
     settings = get_settings()
     changed = [line.strip() for line in changed_file.read_text().splitlines() if line.strip()]
-    pr = metrics_refresh.render_refresh_pr(changed, settings.metrics_root, run_id or ids.run_id())
+    # Repo-relative paths now, since the refresh carries `data/scope/scope.json`
+    # alongside `metrics/`; the roots are siblings under the repo.
+    pr = metrics_refresh.render_refresh_pr(
+        changed, settings.metrics_root.parent, run_id or ids.run_id()
+    )
     typer.echo(
         json.dumps(
             {"changed": changed, "pr": pr.model_dump() if pr is not None else None},

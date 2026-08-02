@@ -74,7 +74,11 @@ _MAX_REQUEST_BYTES = 1_048_576
 
 # Server-side ceiling on one response's row count: the caller's shell is the
 # only expected client, but an unbounded limit would build every matching
-# row's full opinion text into one in-memory JSON body.
+# row's full opinion text into one in-memory JSON body. Under the corpus-split
+# mode a `full` query also costs one content-store GetObject per opinion-bearing
+# row, issued sequentially by this single-threaded server, so the ceiling bounds
+# request round-trips as well as memory — keep it well inside the client's own
+# timeout, and prefer a smaller `limit` on `full` queries.
 MAX_QUERY_LIMIT = 500
 
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
+
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import PullQueues, evaluate_backlog
@@ -323,3 +325,45 @@ def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) 
         drained |= {e["docket"] for e in queues.evaluate}
         day += timedelta(days=1)
     assert drained == {1, 2, 3, 4, 5}, "every owed case is reached within ceil(n/cap) cycles"
+
+
+def test_the_deriver_never_indexes_the_whole_court(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Candidates come from the resolved-event set, not from a whole-court index.
+
+    Peak memory must scale with the work (cases holding a resolved event) rather
+    than with the corpus, whose SCOTUS slice is hundreds of thousands of rows and
+    only grows. `iter_rows` is the whole-court walk, so making it fatal is what
+    pins the property — a fixture-sized test cannot observe the memory itself.
+    """
+    db = tmp_path / "corpus.db"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(tmp_path, "scotus", 1, "evt-petition-disposition")
+
+    def _fail(*args: object, **kwargs: object) -> object:
+        raise AssertionError("evaluate_backlog must not walk every row in the court")
+
+    monkeypatch.setattr(corpus, "iter_rows", _fail)
+    queues = PullQueues()
+    evaluate_backlog(db, tmp_path, EVALUATORS, queues, cap=25, max_attempts=5)
+
+    assert queues.evaluate_from_backlog == 1
+    assert [e["docket"] for e in queues.evaluate] == [1]
+
+
+def test_a_resolved_event_whose_case_row_is_absent_is_skipped(tmp_path: Path) -> None:
+    """A resolved event with no `cases` row cannot be scope-checked, so it is not a
+    candidate — the row lookup replaced a dict membership test, and absence must
+    stay a skip rather than becoming a crash."""
+    db = tmp_path / "corpus.db"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(tmp_path, "scotus", 1, "evt-petition-disposition")
+    with corpus.connect(db) as conn:
+        conn.execute("DELETE FROM cases WHERE case_id = ?", ("scotus/1",))
+        conn.commit()
+
+    queues = PullQueues()
+    evaluate_backlog(db, tmp_path, EVALUATORS, queues, cap=25, max_attempts=5)
+    assert queues.evaluate_from_backlog == 0
+    assert queues.evaluate == []

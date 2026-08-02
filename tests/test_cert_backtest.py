@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -16,13 +17,17 @@ from fedcourtsai.backtest import (
     ConstantBacktester,
 )
 from fedcourtsai.cert_backtest import (
+    _kept_entries_show_a_disposition,
     redact_snapshot,
+    replay_cutoff,
     replay_predictors,
     replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
+    truncate_snapshot,
 )
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
@@ -267,7 +272,10 @@ def test_redact_snapshot_strips_outcome_fields_only() -> None:
         "docket_entries": [{"id": 1, "description": "Petition DENIED."}],
     }
     redacted = redact_snapshot(payload)
-    assert set(redacted) == {"id", "case_name", "docket_number", "date_filed"}
+    # The derived, decision-only fields go. The proceedings do NOT: content offers
+    # no rule that separates a disposing order from a pre-decision entry, but a
+    # date does, so they are truncated instead — see truncate_snapshot.
+    assert set(redacted) == {"id", "case_name", "docket_number", "date_filed", "docket_entries"}
 
 
 def test_scoring_reports_lift_over_the_always_deny_floor() -> None:
@@ -430,6 +438,59 @@ def test_segment_context_bands_only_the_paid_scored_segment(tmp_path: Path) -> N
     assert context["scotus/900"].base_rate is None
 
 
+def _seed_gapped_segment_corpus(db: Path) -> None:
+    # An OT25 high-band item whose only prior high-band anchor is OT23 — OT24 is
+    # absent, so the pack carries a Term GAP. That gap is what lets a lookback
+    # window discriminate: a 1-Term window reaches only OT24, which has no rows.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-100",  # paid, OT25, 2 relists -> high band
+                    disposition=Disposition.granted,
+                    date_filed=date(2025, 10, 1),
+                    date_cert_granted=date(2026, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900",
+                    court="scotus",
+                    docket_number="23-500",  # paid, OT23 high band -> the only anchor
+                    disposition=Disposition.denied,
+                    date_filed=date(2023, 10, 1),
+                    date_cert_denied=date(2024, 1, 8),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+            ],
+        )
+
+
+def test_build_segment_context_honours_the_lookback_window(tmp_path: Path) -> None:
+    # The seam that carries `salience.base_rate_lookback_terms` into the back-test.
+    # Over a gapped pack (OT25 item, OT23 anchor, no OT24) the window is decisive:
+    # unbounded reaches OT23 and yields its rate, while a 1-Term window reaches
+    # only the empty OT24 and leaves the item with no anchor at all. `None` must
+    # behave as the shipped default, 0 — dropping the kwarg fails this test.
+    db = tmp_path / "corpus.db"
+    _seed_gapped_segment_corpus(db)
+    with corpus.connect(db) as conn:
+        items = select_cert_backtest_set(conn)
+        statpack = analytics.build_statpack(corpus_db_path=db)
+        default = cert_backtest.build_segment_context(conn, items, statpack)
+        unbounded = cert_backtest.build_segment_context(conn, items, statpack, lookback_terms=0)
+        narrowed = cert_backtest.build_segment_context(conn, items, statpack, lookback_terms=1)
+    assert default["scotus/2"].base_rate == 0.0  # OT23's denial, pooled
+    assert unbounded["scotus/2"].base_rate == 0.0
+    assert narrowed["scotus/2"].base_rate is None  # OT23 is outside a 1-Term window
+
+
 def test_cert_backtest_reports_per_band_segment_skill(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_segment_corpus(db)
@@ -463,7 +524,7 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     # cell receives it as DECIDED_BEFORE so its retrieval is time-masked.
     assert items[0].features.year == 2022
 
-    backtesters, unavailable = replay_predictors(
+    backtesters, unavailable, _ = replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -487,7 +548,11 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     # The provisioned tree hides the outcome: the snapshot is redacted and the
     # event definition reads unresolved; nothing was written outside work_root.
     snapshot = next(work_root.rglob("record/snapshots/*.json")).read_text()
-    assert "date_terminated" not in snapshot and "Denied" not in snapshot
+    assert "date_terminated" not in snapshot
+    # Case-insensitively: the fixture writes "Petition DENIED.", so asserting on
+    # "Denied" passed whether or not the order was still there.
+    assert "denied" not in snapshot.lower()
+    assert "granted" not in snapshot.lower()
     event_yaml = next(work_root.rglob("event.yaml")).read_text()
     assert "resolved: false" in event_yaml
     assert not fixture_corpus.data_root.exists()
@@ -527,7 +592,7 @@ def test_replay_routes_each_predictor_through_its_own_engine(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable = cert_backtest.replay_predictors(
+    backtesters, unavailable, _ = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -555,7 +620,7 @@ def test_replay_drops_a_predictor_whose_engine_has_no_runner(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls, unrouted="gemini"))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable = cert_backtest.replay_predictors(
+    backtesters, unavailable, _ = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -578,7 +643,7 @@ def test_replay_opts_a_named_engine_out(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable = cert_backtest.replay_predictors(
+    backtesters, unavailable, _ = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -622,7 +687,7 @@ def test_replay_drops_a_missing_binary_loudly_and_keeps_the_rest(
     )
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable = cert_backtest.replay_predictors(
+    backtesters, unavailable, _ = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -822,3 +887,218 @@ def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     report = read_model(out, CertBacktest)
     assert report.events_scored == 0
+
+
+# --- replay truncation: the docket as it stood, not a docket with no history ------
+
+
+def _live(*entries: tuple[str, str]) -> dict[str, Any]:
+    return {
+        "CaseNumber": "24-12 ",
+        "ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries],
+    }
+
+
+_TRAJECTORY = _live(
+    ("Jan 5 2025", "Petition for a writ of certiorari filed."),
+    ("Feb 7 2025", "DISTRIBUTED for Conference of February 21, 2025."),
+    ("Feb 24 2025", "DISTRIBUTED for Conference of March 7, 2025."),
+    ("Mar 10 2025", "Petition DENIED."),
+)
+
+
+def test_the_cutoff_is_the_last_distribution_before_resolution() -> None:
+    """A forward cell is queued by a distribution transition, so that is the moment
+    a replay has to reproduce. The last one before resolution is the latest — and
+    hardest — posture a forward cell would have seen."""
+    assert replay_cutoff(_TRAJECTORY, date(2025, 3, 10)) == date(2025, 2, 25)
+
+
+def test_the_cutoff_reads_entry_dates_not_the_conferences_they_name() -> None:
+    """ "DISTRIBUTED for Conference of March 7" is *filed* in February, and February
+    is when a forward cell would have run. Keying on the conference date would date
+    the replay after the docket had already moved."""
+    cutoff = replay_cutoff(_TRAJECTORY, date(2025, 3, 10))
+    assert cutoff is not None and cutoff < date(2025, 3, 7)
+
+
+def test_no_dated_distribution_yields_no_cutoff() -> None:
+    """Nothing to reproduce, so the caller drops the entries wholesale rather than
+    inventing a moment."""
+    assert replay_cutoff(_live(("Jan 5 2025", "Petition filed.")), date(2025, 3, 10)) is None
+    assert replay_cutoff({}, date(2025, 3, 10)) is None
+
+
+def test_truncation_keeps_the_pre_cutoff_docket_and_drops_the_disposition() -> None:
+    kept, dropped = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    texts = [e["Text"] for e in kept["ProceedingsandOrder"]]
+    assert texts == [
+        "Petition for a writ of certiorari filed.",
+        "DISTRIBUTED for Conference of February 21, 2025.",
+        "DISTRIBUTED for Conference of March 7, 2025.",
+    ]
+    assert dropped == 1  # the denial, which is the whole point
+    assert not any("DENIED" in t for t in texts)
+
+
+def test_truncation_fails_closed_on_an_undated_entry() -> None:
+    """An entry with no readable date could be the disposing order and nothing
+    about it says otherwise. Dropping it costs a little context and cannot leak an
+    outcome, which is the right way round."""
+    payload = _live(("Feb 7 2025", "DISTRIBUTED for Conference of February 21, 2025."))
+    payload["ProceedingsandOrder"] += [
+        {"Text": "Petition DENIED."},  # no date at all
+        {"Date": "not a date", "Text": "Petition DENIED."},
+    ]
+    kept, dropped = truncate_snapshot(payload, date(2025, 2, 25))
+    assert [e["Text"] for e in kept["ProceedingsandOrder"]] == [
+        "DISTRIBUTED for Conference of February 21, 2025."
+    ]
+    assert dropped == 2
+
+
+def test_truncation_does_not_renumber_what_it_keeps() -> None:
+    """Entry ids are positional and assigned on read, so removing the tail must
+    leave a reference to entry *n* still meaning entry *n*."""
+    full = ingest._live_entries(_TRAJECTORY)
+    kept, _ = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    truncated = ingest._live_entries(kept)
+    assert [e["id"] for e in truncated] == [1, 2, 3]
+    assert [e["description"] for e in truncated] == [e["description"] for e in full[:3]]
+
+
+def test_a_truncated_docket_still_discloses_its_own_band() -> None:
+    """The reason truncation matters beyond leakage: a replay cell that can see its
+    trajectory gets a real prediction-time band, so it is scored against the rate
+    that posture implies instead of falling back to where the petition ended up."""
+    kept, _ = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    context = cell_context.build(
+        "scotus/305", date(2025, 2, 24), kept, "replay", provenance="truncated"
+    )
+    assert context.signals_observable is True
+    assert context.distribution_count == 2  # one relist, as at the cutoff
+    assert context.band == "elevated"
+    # Wholesale deletion — the previous behaviour — disclosed nothing at all.
+    blind, _ = truncate_snapshot(_TRAJECTORY, None)
+    assert cell_context.build("scotus/305", date(2025, 2, 24), blind, "replay").band is None
+
+
+def test_truncating_a_decided_payload_reproduces_the_real_pre_decision_snapshot() -> None:
+    """The golden check, and the only real check on a blocklist: reconstructing the
+    pre-decision view from the decided payload must match the docket the corpus
+    actually served before the decision."""
+    real_pre_decision = _live(
+        ("Jan 5 2025", "Petition for a writ of certiorari filed."),
+        ("Feb 7 2025", "DISTRIBUTED for Conference of February 21, 2025."),
+        ("Feb 24 2025", "DISTRIBUTED for Conference of March 7, 2025."),
+    )
+    decided = dict(_TRAJECTORY) | {
+        "disposition": "Certiorari denied",
+        "date_terminated": "2025-03-10",
+        "sJsonCreationDate": "2025-03-11",
+    }
+    cutoff = replay_cutoff(decided, date(2025, 3, 10))
+    reconstructed, _ = truncate_snapshot(redact_snapshot(decided), cutoff)
+    assert reconstructed == redact_snapshot(real_pre_decision)
+
+
+def test_a_disposition_surviving_the_cutoff_degrades_to_showing_nothing() -> None:
+    """The date rule's premise can fail, so it is asserted rather than assumed.
+
+    A petition denied in March, then a pro se rehearing petition, then a fresh
+    distribution in May: the last distribution before the docket's termination now
+    postdates the disposing order, so the cutoff keeps it. Rather than enumerate
+    that family, the provisioner checks the surviving entries for a disposition and
+    falls back to showing no trajectory at all.
+    """
+    rehearing = _live(
+        ("Jan 5 2025", "Petition for a writ of certiorari filed."),
+        ("Feb 7 2025", "DISTRIBUTED for Conference of February 21, 2025."),
+        ("Mar 10 2025", "Petition DENIED."),
+        ("May 2 2025", "DISTRIBUTED for Conference of May 15, 2025."),
+    )
+    # `resolution_date` falling back to the docket's termination is what puts the
+    # cutoff after the denial.
+    cutoff = replay_cutoff(rehearing, date(2025, 5, 30))
+    assert cutoff == date(2025, 5, 3)
+    kept, _ = truncate_snapshot(rehearing, cutoff)
+    assert any("DENIED" in e["Text"] for e in kept["ProceedingsandOrder"])  # the leak
+    # ...which the post-condition catches.
+    assert _kept_entries_show_a_disposition(kept) is True
+    blind, _ = truncate_snapshot(kept, None)
+    assert "ProceedingsandOrder" not in blind
+
+
+def test_a_clean_trajectory_passes_the_post_condition() -> None:
+    """The guard must not fire on the ordinary case, or every replay goes blind."""
+    kept, _ = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    assert _kept_entries_show_a_disposition(kept) is False
+
+
+def test_a_partial_date_is_not_a_date() -> None:
+    """`dateutil` fills missing components from today, so "2025" parses to a real
+    date that is really a function of the day the parser ran. Accepting it would
+    keep entries it should drop AND make the retained set differ between two runs
+    of the same replay."""
+    assert cert_signals.entry_date("Mar 10 2025") == date(2025, 3, 10)
+    for partial in ("2025", "Mar", "12", "March 2025"):
+        assert cert_signals.entry_date(partial) is None, partial
+
+
+def test_truncation_drops_what_an_entry_nests() -> None:
+    """The outcome blocklist matches top-level keys, so nothing screens inside an
+    entry. A live entry's `Links` would be a replay cell's only path to a document
+    (replay provisions none), and a REST entry's `recap_documents` carries document
+    text and its own upload date."""
+    payload = {
+        "CaseNumber": "24-12 ",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Feb 7 2025",
+                "Text": "DISTRIBUTED for Conference of February 21, 2025.",
+                "Links": [{"Description": "Petition", "DocumentUrl": "https://example/p.pdf"}],
+            }
+        ],
+        "docket_entries": [
+            {
+                "date_filed": "2025-02-07",
+                "description": "Petition filed.",
+                "recap_documents": [{"plain_text": "...", "date_upload": "2025-09-01"}],
+            }
+        ],
+    }
+    kept, _ = truncate_snapshot(payload, date(2025, 2, 25))
+    assert kept["ProceedingsandOrder"] == [
+        {"Date": "Feb 7 2025", "Text": "DISTRIBUTED for Conference of February 21, 2025."}
+    ]
+    assert kept["docket_entries"] == [
+        {"date_filed": "2025-02-07", "description": "Petition filed."}
+    ]
+
+
+def test_a_rest_shaped_payload_truncates_on_its_own_date_key() -> None:
+    """Both shapes must truncate; only the live one was covered."""
+    payload = {
+        "docket_number": "24-12",
+        "docket_entries": [
+            {"date_filed": "2025-01-05", "description": "Petition filed."},
+            {"date_filed": "2025-03-10", "description": "Petition DENIED."},
+        ],
+    }
+    kept, dropped = truncate_snapshot(payload, date(2025, 2, 25))
+    assert [e["description"] for e in kept["docket_entries"]] == ["Petition filed."]
+    assert dropped == 1
+
+
+def test_the_report_carries_the_provisioning_mix() -> None:
+    """Three provenances are three information sets, and a blind cell cannot see
+    its own relist history at all. A score over their union is a score over a
+    mixture, so the mix has to be readable beside it."""
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        [_item("scotus/1", Disposition.denied)],
+        provisioning={"truncated": 7, "blind": 2},
+    )
+    assert report.provisioning == {"truncated": 7, "blind": 2}
+    # Absent rather than fabricated where no replay ran.
+    assert run_cert_backtest([], []).provisioning == {}

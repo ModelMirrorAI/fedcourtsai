@@ -8,12 +8,12 @@
   "source": "410 U.S. 113",
   "votes": [
     {
-      "judge": "berzon",
-      "vote": "granted"
+      "justice": "berzon",
+      "vote": "grant"
     },
     {
-      "judge": "smith",
-      "vote": "denied"
+      "justice": "smith",
+      "vote": "deny"
     }
   ]
 }

@@ -30,15 +30,26 @@ import sqlite3
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# `CorpusBackend` is defined in `config` because this module imports that one,
+# and re-exported here because `corpus.CorpusBackend` is where every caller
+# reaches for it. One definition, so the setting, the annotations, and the CLI
+# help cannot drift apart. The `as` spelling is mypy's explicit re-export under
+# --strict; ruff reads it as a redundant alias, which is exactly what it is.
+from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
 from .schemas import Disposition, EventKind
-from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
+from .supremecourt import (
+    IFP_SERIAL_BASE,
+    parse_scotus_application_number,
+    parse_scotus_docket_number,
+)
 
 CORPUS_DB_FILENAME = "corpus.db"
 
@@ -143,6 +154,47 @@ class PanelMember(BaseModel):
     seniority: str | None = None
 
 
+class CounselRole(StrEnum):
+    """Which side of the caption a counsel entry sits on."""
+
+    petitioner = "petitioner"
+    respondent = "respondent"
+    other = "other"
+
+
+class CounselEntry(BaseModel):
+    """One party/attorney pairing on a SCOTUS docket, with the side it appears for.
+
+    Stands to the flat ``parties`` / ``attorneys`` lists as ``panel`` stands to
+    ``judges``: the flat lists drive retrieval overlap, this carries the structure
+    a name string cannot. The side is the part that matters and the part the flat
+    lists destroy — "the Solicitor General is on this docket" is nearly
+    uninformative, because the SG appears as counsel for the *respondent* on a
+    large share of criminal petitions, opposing cert. "The United States is the
+    petitioner" is a different fact entirely, and only the role separates them.
+
+    The role also separates a stable fact from a moving one, which the flat lists
+    silently mix. ``petitioner`` and ``respondent`` blocks are set when the petition
+    is docketed and do not move as the docket progresses — unlike
+    ``distribution_count`` and ``cvsg_date``, they are **arrival-time**, which is
+    what makes them usable in a prospective score. ``other`` is the opposite: it
+    accumulates amici over the docket's life and overwhelmingly *after* a grant (a
+    merits case carries dozens where a denied petition carries none), so it is as
+    outcome-correlated as a relist count and must never be read as arrival-time.
+    Counting ``other`` on a decided docket is a grant oracle.
+
+    Empty off the SCOTUS live/historical channel: the CourtListener REST path
+    reports no role, exactly as it reports no ``seniority``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    party: str
+    attorney: str | None = None
+    role: CounselRole = CounselRole.other
+    counsel_of_record: bool = False
+
+
 class CorpusRow(BaseModel):
     """One normalized, labeled raw-fact record in the corpus.
 
@@ -190,6 +242,13 @@ class CorpusRow(BaseModel):
     )
     attorneys: list[str] = Field(
         default_factory=list, description="Attorney names of record on the docket."
+    )
+    counsel: list[CounselEntry] = Field(
+        default_factory=list,
+        description="Structured counsel (party + attorney + side + counsel-of-record) from the "
+        "SCOTUS docket's per-side blocks; the joined detail behind the flat `parties` and "
+        "`attorneys` names, and the only place the petitioner/respondent side survives. "
+        "Empty off the SCOTUS live/historical channel.",
     )
     topic: str | None = Field(default=None, description="Nature of suit / subject-matter topic.")
     citations: list[str] = Field(default_factory=list)
@@ -244,11 +303,49 @@ class CorpusRow(BaseModel):
         "military courts — stay identifiable where `originating_court` (the "
         "tracked-court id linkage) is None. Only the live channel supplies it.",
     )
+    application_kind: str | None = Field(
+        default=None,
+        description="What an interim-docket application asks the Court for "
+        "(`extension` | `substantive` | `unknown`), read from the application's "
+        "own ask clause by the live channel's application branch. None means the "
+        "proceedings were never application-parsed — the same "
+        "never-parsed sentinel `distribution_count` carries — while `unknown` "
+        "asserts they were parsed and the ask could not be read. The upsert "
+        "keeps a real reading over an `unknown` (a degraded payload parses "
+        "confidently to `unknown`, the interim twin of the confident 0).",
+    )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the Court (or a Circuit Justice) requested a "
+        "response to an interim application — the interim analogue of a CVSG. "
+        "None = never application-parsed; the upsert max-latches it (the Court "
+        "does not un-request a response, so a degraded parse's confident False "
+        "never regresses a stored True). Live application branch only.",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether an interim application was referred to the full "
+        "Court rather than decided by a Circuit Justice alone — the signal the "
+        "interim aggregation rule turns on. None = never application-parsed; "
+        "max-latched like `response_requested` (a referral is never undone). "
+        "Live application branch only.",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        description="How many amicus briefs an interim application's docket "
+        "records (counted per entry naming amicus curiae — a stakes proxy, and "
+        "an approximation: a multi-filer entry counts once, a motion reciting "
+        "the phrase counts alongside the brief, and the max-latch makes any "
+        "overcount permanent; see `interim_signals.amicus_briefs`). None = "
+        "never application-parsed; the upsert max-latches it (filings are "
+        "append-only, so the count only ever grows and a degraded parse's "
+        "confident 0 never regresses it). Live application branch only.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
         "construction: 1 for every row its channel includes with certainty, "
-        "`denial_sample_every` for a denial the historical walker kept by its "
+        "the legacy sampling interval for a denial the earlier historical walker kept by its "
         "systematic serial sample — so a weighted aggregate can multiply by it "
         "and count sampled denials at full strength. None means no channel "
         "asserted a weight: permanent on rows the live channel never wrote, "
@@ -435,6 +532,7 @@ CREATE TABLE IF NOT EXISTS cases (
     disposition         TEXT,
     judges              TEXT NOT NULL DEFAULT '[]',
     panel               TEXT NOT NULL DEFAULT '[]',
+    counsel             TEXT NOT NULL DEFAULT '[]',
     parties             TEXT NOT NULL DEFAULT '[]',
     attorneys           TEXT NOT NULL DEFAULT '[]',
     topic               TEXT,
@@ -472,7 +570,15 @@ CREATE TABLE IF NOT EXISTS cases (
     predict_queued_at   TEXT,
     -- The last date the evaluate backlog deriver queued evaluate. Owned the same
     -- way; the deriver's daily-retry debounce reads it.
-    evaluate_queued_at  TEXT
+    evaluate_queued_at  TEXT,
+    -- Interim-docket signals (see CorpusRow and pipeline/interim_signals.py):
+    -- the application's ask and the three escalation-ladder signals, written by
+    -- the live channel's application branch. NULL = never application-parsed —
+    -- the conditioning set a future interim base rate accumulates over.
+    application_kind    TEXT,
+    response_requested  INTEGER,
+    referred_to_court   INTEGER,
+    amicus_briefs       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -578,6 +684,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "disposition": "TEXT",
     "judges": "TEXT NOT NULL DEFAULT '[]'",
     "panel": "TEXT NOT NULL DEFAULT '[]'",
+    "counsel": "TEXT NOT NULL DEFAULT '[]'",
     "parties": "TEXT NOT NULL DEFAULT '[]'",
     "attorneys": "TEXT NOT NULL DEFAULT '[]'",
     "topic": "TEXT",
@@ -605,6 +712,10 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
     "predict_queued_at": "TEXT",
     "evaluate_queued_at": "TEXT",
+    "application_kind": "TEXT",
+    "response_requested": "INTEGER",
+    "referred_to_court": "INTEGER",
+    "amicus_briefs": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -638,6 +749,11 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
+# A display annotation the Court appends to some docket numbers, most often
+# "*** CAPITAL CASE ***". It is a flag on the case, not part of its number, and
+# the two upstream channels do not agree on carrying it — so leaving it in makes
+# the same docket normalize two ways and the identity join miss.
+_DN_ANNOTATION = re.compile(r"\*{2,}[^*]*\*{2,}")
 # Typographic dashes (en U+2013 / em U+2014) that stand in for a plain hyphen in a
 # docket number, folded so a dash-variant reads as the modern Term-year form.
 _DN_DASHES = {0x2013: "-", 0x2014: "-"}
@@ -647,11 +763,19 @@ def normalize_docket_number(raw: str | None) -> str | None:
     """Canonicalize a docket-number string for the lower-court join, or ``None``.
 
     Upper-cases, drops a leading ``No.`` label, folds a typographic en/em dash to a
-    plain hyphen, and removes all whitespace, so two spellings of the *same* number
-    compare equal (``"No. 21-35466"`` == ``"21-35466"``, and a dash-variant Term
-    docket reads like ``"01-7700"``). Deliberately a light, lossless normalization
-    that yields no false matches: a consolidated / multi-number string
-    (``"21-1, 21-2"``) keeps
+    plain hyphen, strips a bracketing ``*** … ***`` annotation, and removes all
+    whitespace, so two spellings of the *same* number compare equal
+    (``"No. 21-35466"`` == ``"21-35466"``, a dash-variant Term docket reads like
+    ``"01-7700"``, and ``"25-5184 *** CAPITAL CASE ***"`` == ``"25-5184"``).
+
+    The annotation is a flag on the case, not part of its number, and the two
+    upstream channels disagree about carrying it — CourtListener discovers the
+    plain number while supremecourt.gov serves the annotated one. Leaving it in
+    made the same docket normalize two ways, so the identity join missed and both
+    channels minted a row.
+
+    Deliberately a light, lossless normalization that yields no false matches: a
+    consolidated / multi-number string (``"21-1, 21-2"``) keeps
     its punctuation and so will not match a single tracked docket — a miss, never a
     wrong link. Blank input (and a string that normalizes to empty) returns
     ``None``. Registered as the SQLite ``norm_dn`` function so the join can compare
@@ -659,7 +783,8 @@ def normalize_docket_number(raw: str | None) -> str | None:
     """
     if raw is None:
         return None
-    text = _DN_WHITESPACE.sub("", _DN_LABEL.sub("", raw.strip().upper().translate(_DN_DASHES)))
+    stripped = _DN_ANNOTATION.sub("", raw.strip().upper().translate(_DN_DASHES))
+    text = _DN_WHITESPACE.sub("", _DN_LABEL.sub("", stripped.strip()))
     return text or None
 
 
@@ -682,9 +807,6 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         yield conn
     finally:
         conn.close()
-
-
-CorpusBackend = Literal["local", "ranged", "casestore", "service"]
 
 
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
@@ -771,6 +893,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "disposition": row.disposition,
         "judges": json.dumps(row.judges, sort_keys=True),
         "panel": json.dumps([m.model_dump() for m in row.panel], sort_keys=True),
+        "counsel": json.dumps([c.model_dump(mode="json") for c in row.counsel], sort_keys=True),
         "parties": json.dumps(row.parties, sort_keys=True),
         "attorneys": json.dumps(row.attorneys, sort_keys=True),
         "topic": row.topic,
@@ -802,6 +925,14 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "evaluate_queued_at": (
             row.evaluate_queued_at.isoformat() if row.evaluate_queued_at else None
         ),
+        "application_kind": row.application_kind,
+        "response_requested": (
+            int(row.response_requested) if row.response_requested is not None else None
+        ),
+        "referred_to_court": (
+            int(row.referred_to_court) if row.referred_to_court is not None else None
+        ),
+        "amicus_briefs": row.amicus_briefs,
     }
 
 
@@ -837,6 +968,17 @@ def _optional_str(record: RecordRow, column: str) -> str | None:
     return raw if raw else None
 
 
+def _optional_bool(record: RecordRow, column: str) -> bool | None:
+    """Read a nullable-boolean column an older remote blob lacks (see ``_optional_date``).
+
+    ``None`` (missing column or NULL) stays ``None`` — the never-parsed
+    sentinel — rather than collapsing to ``False``, which would assert a parse
+    that never happened.
+    """
+    raw = _optional_int(record, column)
+    return bool(raw) if raw is not None else None
+
+
 def _optional_float(record: RecordRow, column: str) -> float | None:
     """Read a real column an older remote blob lacks (see ``_optional_date``)."""
     try:
@@ -859,6 +1001,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         disposition=record["disposition"],
         judges=json.loads(record["judges"]),
         panel=[PanelMember(**m) for m in json.loads(record["panel"])],
+        counsel=[CounselEntry(**c) for c in json.loads(_optional_str(record, "counsel") or "[]")],
         parties=json.loads(record["parties"]),
         attorneys=json.loads(record["attorneys"]),
         topic=record["topic"],
@@ -886,6 +1029,10 @@ def _from_record(record: RecordRow) -> CorpusRow:
         salience_selected=bool(_optional_int(record, "salience_selected")),
         predict_queued_at=_optional_date(record, "predict_queued_at"),
         evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
+        application_kind=_optional_str(record, "application_kind"),
+        response_requested=_optional_bool(record, "response_requested"),
+        referred_to_court=_optional_bool(record, "referred_to_court"),
+        amicus_briefs=_optional_int(record, "amicus_briefs"),
     )
 
 
@@ -893,10 +1040,15 @@ def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
     Most columns take the incoming value (``excluded``). Five latch families are
-    special: channel-supplied facts (``last_pulled``, the live-parsed signals)
+    special: channel-supplied facts (``last_pulled`` and the fill-in slice of
+    the live-parsed signals)
     only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count`` is a max-latch (proceedings
-    are append-only, so the count only ever grows); ``sample_weight`` is a
+    another channel stamped; ``distribution_count`` and the interim escalation
+    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``)
+    are max-latches (proceedings are append-only and the signals monotone, so
+    each only ever grows — and ``application_kind`` gets the same protection in
+    TEXT form: a real reading is never wiped by a degraded parse's confident
+    ``unknown``); ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
@@ -917,17 +1069,38 @@ def _update_clause(column: str) -> str:
         # conference parse) must not wipe what another channel stamped. Safe for
         # exactly the columns whose degraded parse yields NULL.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
-    if column == "distribution_count":
+    if column in ("distribution_count", "response_requested", "referred_to_court", "amicus_briefs"):
         # A fill-in latch is not enough here: a degraded live parse (a payload
         # served with its proceedings missing) yields a confident 0 — not NULL —
         # and 0 asserts "parsed, never distributed", so COALESCE would let it
         # wipe a stored count. Proceedings are append-only upstream: the count
         # only ever legitimately grows, so the max-latch takes every real
-        # advance and rejects the regression.
+        # advance and rejects the regression. The interim escalation signals
+        # share the property exactly (the Court does not un-request a response,
+        # un-refer an application, or un-file an amicus brief), so the boolean
+        # flags max-latch as 0/1 integers and the amicus count as a count.
         return (
             f"{column}=MAX("
             f"COALESCE(excluded.{column}, cases.{column}), "
             f"COALESCE(cases.{column}, excluded.{column}))"
+        )
+    if column == "application_kind":
+        # The TEXT twin of the max-latch above: a degraded application parse
+        # (proceedings missing) reads a confident 'unknown' — not NULL — so a
+        # plain fill-in would let it wipe a real reading. 'unknown' only ever
+        # fills a gap, and a writer with nothing to assert (NULL — a cert-form
+        # or CourtListener write) keeps what the application branch stamped. A
+        # real reading ('extension' / 'substantive') deliberately overwrites a
+        # stored real reading: the ask clause is normally the first proceedings
+        # entry of an append-only list, so a flip is rare — a parser fix, or a
+        # payload served with its head entries missing whose surviving text
+        # recites a companion application's ask — and letting the fresh parse
+        # win is what lets a wrong stored reading self-heal.
+        return (
+            f"{column}=CASE "
+            f"WHEN excluded.{column} IS NULL OR excluded.{column} = 'unknown' "
+            f"THEN COALESCE(cases.{column}, excluded.{column}) "
+            f"ELSE excluded.{column} END"
         )
     if column == "sample_weight":
         # An inclusion probability can only be learned upward (toward certainty):
@@ -939,23 +1112,22 @@ def _update_clause(column: str) -> str:
             f"COALESCE(excluded.{column}, cases.{column}), "
             f"COALESCE(cases.{column}, excluded.{column}))"
         )
-    if column == "predict_excluded":
-        # The scope reconcile owns this flag (it is not an ingestion fact and is not
-        # monotonic), so a re-ingest must never clobber it — keep the stored value.
-        return f"{column}=cases.{column}"
     if column in (
+        "predict_excluded",
         "salience_score",
         "salience_version",
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
     ):
-        # The salience selection pass owns the salience columns and the queue
-        # routing owns the `*_queued_at` stamps (none are ingestion facts): the pass
-        # recomputes score/version and maintains the one-way `salience_selected`
-        # latch, and clearing a queue stamp on re-ingest would let a deriver's
-        # daily-retry debounce re-queue a case every cycle its rotation poll touches
-        # it. Keep the stored values, exactly like `predict_excluded`.
+        # Owned elsewhere, so an ingestion upsert keeps the stored value: the
+        # scope reconcile owns `predict_excluded` (not an ingestion fact, not
+        # monotonic), the salience selection pass owns the salience columns
+        # (the pass recomputes score/version and maintains the one-way
+        # `salience_selected` latch), and the queue routing owns the
+        # `*_queued_at` stamps — clearing one on re-ingest would let a
+        # deriver's daily-retry debounce re-queue a case every cycle its
+        # rotation poll touches it.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -1002,13 +1174,15 @@ def _mirror_sink() -> MirrorSink | None:
 
 # --- payload read source (dependency-inverted, symmetric to the mirror sink) --
 #
-# Under the corpus split the bulk payloads (snapshots, documents) live only in the
-# content store, not the blob — so the payload *reads* must come from the store
-# too: change detection and document dedup in the writer, and provisioning /
-# back-test replay in the readers. casestore registers a read source here with the
-# same inversion as the mirror sink (corpus never imports casestore). The snapshot
-# / document read functions consult it ONLY when `corpus_split` is on, so with the
-# mode off every read is the byte-for-byte SQLite path it is today.
+# Under the corpus split the bulk payloads (snapshots, documents, the opinion
+# body) live only in the content store, not the blob — so the payload *reads* must
+# come from the store too: change detection and document dedup in the writer,
+# provisioning / back-test replay in the readers, and the opinion body that
+# `query --full` emits (the one consumer that is a query-output field rather than a
+# snapshot or document). casestore registers a read source here with the same
+# inversion as the mirror sink (corpus never imports casestore). Every consulting
+# reader checks it ONLY when `corpus_split` is on, so with the mode off every read
+# is the byte-for-byte SQLite path it is today.
 
 
 class PayloadReadSource(Protocol):
@@ -1016,9 +1190,13 @@ class PayloadReadSource(Protocol):
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, Any]] | None: ...
+
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
+
+    def opinion_text(self, case_id: str) -> str | None: ...
 
 
 _READ_SOURCE: dict[str, PayloadReadSource] = {}
@@ -1365,12 +1543,43 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
 # can never reach it). Typographic dashes are already folded to a hyphen by
 # :func:`normalize_docket_number` before these regexes see the string.
 _SCOTUS_FORM_SUFFIX = r"(?:\([^()]+\))?\.?$"
-_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+|\d+A)" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_ORIGINAL_RE = re.compile(r"^(?:\d{2}O\d+|\d+O)" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+|\d+M)" + _SCOTUS_FORM_SUFFIX)
+# The serial may itself carry hyphens ("A-0245-12", "A14-662") and may end in a
+# letter ("18A142T"). Both are real spellings on the application docket, and an
+# end-anchored `\d+` misses them — which let five application rows past this rule
+# and into predict scope. The letter after (or before) the digits is still what
+# discriminates: a modern cert number is `YY-NNNN` with no letter anywhere, so
+# widening the serial cannot reach one. Trailing digit required, so a dangling
+# hyphen does not satisfy the serial.
+_SCOTUS_FORM_SERIAL = r"[\d-]*\d[A-Z]?"
+_SCOTUS_APPLICATION_RE = re.compile(
+    r"^(?:\d{2}A"
+    + _SCOTUS_FORM_SERIAL
+    + r"|A-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+A)"
+    + _SCOTUS_FORM_SUFFIX
+)
+_SCOTUS_ORIGINAL_RE = re.compile(
+    r"^(?:\d{2}O" + _SCOTUS_FORM_SERIAL + r"|\d+O)" + _SCOTUS_FORM_SUFFIX
+)
+_SCOTUS_MISCELLANEOUS_RE = re.compile(
+    r"^(?:\d{2}M"
+    + _SCOTUS_FORM_SERIAL
+    + r"|M-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+M)"
+    + _SCOTUS_FORM_SUFFIX
+)
 # SCOTUS disbarment ("D-2464", Term-prefixed "16D2924" / "16D02977") — the
 # attorney-discipline docket, same tolerances as the sibling letter forms.
-_SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+|\d+D)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_DISBARMENT_RE = re.compile(
+    r"^(?:\d{2}D"
+    + _SCOTUS_FORM_SERIAL
+    + r"|D-?"
+    + _SCOTUS_FORM_SERIAL
+    + r"|\d+D)"
+    + _SCOTUS_FORM_SUFFIX
+)
 # The spelled-out original-jurisdiction ("No. 155, Orig." / "155, Original.") and
 # miscellaneous ("No. 33, Misc." — the pre-1971 separate docket, merged into the
 # unified numbering at OT1970) markers — the text-form counterparts of the numeric
@@ -1877,12 +2086,27 @@ def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     stored; carrying it on each prior makes relevance judgeable without
     re-deriving), with ``opinion_text`` omitted unless ``full``. Shared by the
     CLI's local/ranged path and the corpus query service's handler, so every
-    backend emits byte-identical rows.
+    backend emits byte-identical rows — which is why the split-mode opinion
+    hydration below lives here and not at either call site.
+
+    Under the corpus-split mode the body is not in the blob (the ``cases`` column
+    is NULL; the content store holds it), so ``full`` would otherwise emit an
+    empty body. The hydration is narrowly gated to keep the default path exactly
+    as it was and to spend no request it does not have to: only when ``full`` is
+    asked for, only when the row's retained ``has_opinion`` bit says a body
+    exists, and only when the column is actually empty. With the mode off, or no
+    store built, nothing here runs.
     """
     payload = row.model_dump(mode="json")
     payload["era"] = case_era(row)
     if not full:
         payload.pop("opinion_text", None)
+    elif (
+        row.opinion_text is None
+        and row.has_opinion
+        and (source := _payload_read_source()) is not None
+    ):
+        payload["opinion_text"] = source.opinion_text(row.case_id)
     return payload
 
 
@@ -2096,7 +2320,8 @@ def rotation_for_pull(
 # SQL October-Term-year expression over the modern Term-prefixed docket form,
 # with the same century pivot as `scotus_term_year` (>= 30 -> 19xx). Requires
 # the GLOB prefilter so the leading two characters are digits; candidates are
-# re-verified in Python with `is_modern_cert`.
+# re-verified in Python by each rotation's own form check (`is_modern_cert` for
+# the cert rotation, the strict application-number parser for the interim one).
 _TERM_YEAR_SQL = (
     "CASE WHEN CAST(substr(docket_number, 1, 2) AS INTEGER) >= 30 "
     "THEN 1900 + CAST(substr(docket_number, 1, 2) AS INTEGER) "
@@ -2137,6 +2362,46 @@ def live_rotation(
     # docket-number spellings the raw GLOB admits but `is_modern_cert` rejects).
     cur = conn.execute(sql, (term_floor_year, limit * 2))
     picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+    return picked[:limit]
+
+
+def application_rotation(
+    conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
+) -> list[CorpusRow]:
+    """The next ``limit`` unresolved applications the live poller should re-poll.
+
+    The interim docket's counterpart of :func:`live_rotation`, which the
+    ``'[0-9][0-9]-*'`` cert GLOB can never reach (an application docket is
+    ``24A1099``): unresolved applications (no disposition, no termination) from
+    ``term_floor_year`` forward — the cert streams' reachability floor, applied
+    here by inference since both forms ride the same upstream JSON endpoint
+    (the probe's stated conclusions cover the petition streams; extend it to
+    the application sequence when it is next re-run). Recent Terms first, then never-polled
+    before stale, then ``case_id`` for determinism; no conference ordering,
+    because an application is never distributed. Rotates on ``last_live_polled``
+    exactly as the cert rotation does, sharing the stamp — an application is
+    only ever polled by the live channel, so the shared key costs nothing and
+    keeps one staleness clock per row.
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND docket_number GLOB '[0-9][0-9]A*' "
+        f"AND {_TERM_YEAR_SQL} >= ? "
+        f"ORDER BY {_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
+        "last_live_polled ASC, case_id ASC LIMIT ?"
+    )
+    # Over-fetch to cover candidates the Python re-verification drops (spellings
+    # the raw GLOB admits but the strict application-number parser — the form
+    # the upstream endpoint can actually be addressed by — rejects).
+    cur = conn.execute(sql, (term_floor_year, limit * 2))
+    picked = [
+        row
+        for record in cur
+        if parse_scotus_application_number((row := _from_record(record)).docket_number) is not None
+    ]
     return picked[:limit]
 
 
@@ -2408,6 +2673,33 @@ def get_live_frontier(conn: sqlite3.Connection, term: int, stream: str) -> int |
     return int(record["frontier_serial"])
 
 
+def clear_live_cursor(conn: sqlite3.Connection, term: int, stream: str) -> bool:
+    """Drop a (Term, stream) cursor so the next walk re-covers it from the base.
+
+    The deliberate exception to :func:`set_live_cursor`'s forward-only rule, and
+    the reason it is a separate function rather than a lower write: rewinding is
+    never something a *walk* may do — a degraded run that rewound its own cursor
+    would silently re-onboard a whole Term — but it is exactly what a maintainer
+    must be able to do when the pipeline starts capturing something the last pass
+    did not record. Deleting rather than zeroing keeps one meaning for an absent
+    row: never probed, start at the numbering base.
+
+    Returns whether a cursor was actually removed, so a caller can tell "reset" from
+    "there was nothing to reset" instead of reporting both as success.
+
+    Re-walking **adds**; it never deletes. Every re-served docket upserts onto its
+    existing row through the same latches (``distribution_count`` max, ``sample_weight``
+    min), so a refreshed row keeps every fact the first pass captured and gains the
+    ones it did not. ``case_id`` is unaffected, which is what makes this safe to
+    re-run: identity is resolved from the docket number, not from walk order.
+    """
+    with conn:
+        cur = conn.execute(
+            "DELETE FROM live_discovery_cursors WHERE term = ? AND stream = ?", (term, stream)
+        )
+    return cur.rowcount > 0
+
+
 def set_live_frontier(conn: sqlite3.Connection, term: int, stream: str, serial: int) -> None:
     """Stamp where a walk observed the (Term, stream) frontier.
 
@@ -2530,6 +2822,42 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
         "SELECT snapshot_date, payload FROM snapshots WHERE case_id = ? "
         "ORDER BY snapshot_date DESC LIMIT 1",
         (case_id,),
+    )
+    record = cur.fetchone()
+    if record is None:
+        return None
+    payload: dict[str, Any] = json.loads(record["payload"])
+    return date.fromisoformat(record["snapshot_date"]), payload
+
+
+def snapshot_at(
+    conn: ReadConnection, case_id: str, *, before: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest dated snapshot strictly before ``before``, or ``None``.
+
+    Exclusive, matching the truncation cutoff it is used with: a snapshot pulled
+    *on* the cutoff day may already carry that day's entries, which truncation
+    would have dropped. Inclusive would make the two provenances two different
+    instants while claiming to be one.
+
+    A genuine point-in-time read, which is strictly better than reconstructing one
+    by truncating a later payload: it is what the docket *actually* served then,
+    including whatever had not yet been added. Truncation can only remove entries
+    dated after a cutoff; it cannot know that an entry dated before the cutoff was
+    back-filled later, which is the residual a replay carries when no real
+    snapshot exists for the moment it wants.
+
+    Under corpus-split mode the payloads live in the content store, where every
+    dated snapshot is its own addressable object, so the read is served from
+    there (``conn`` is unused) — see :func:`_payload_read_source`.
+    """
+    if (source := _payload_read_source()) is not None:
+        return source.snapshot_at(case_id, before=before)
+    cur = conn.execute(
+        "SELECT snapshot_date, payload FROM snapshots "
+        "WHERE case_id = ? AND snapshot_date < ? "
+        "ORDER BY snapshot_date DESC LIMIT 1",
+        (case_id, before.isoformat()),
     )
     record = cur.fetchone()
     if record is None:

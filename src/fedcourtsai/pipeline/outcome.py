@@ -19,7 +19,7 @@ conservative:
 - **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
   no decision date, or more than one open event the case-level disposition cannot
   be attributed to — produces an :class:`UnrecordedOutcome`, surfaced on the
-  run's daily log for maintainer triage. Nothing is written on a guess.
+  pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -36,18 +36,25 @@ from typing import Any, Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome, PredictableEvent
+from ..schemas import Disposition, Outcome, PredictableEvent, ResolutionSignals
 from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
 
 # Dispositions that count as a granted (1) binary outcome; a partial grant still
-# granted relief, and a GVR grants the petition (it is a grant/vacate/remand), so
-# both land on the granted side of the binary target — which keeps `actual_granted`
-# and the Brier score comparable across the introduction of the `gvr` label.
+# granted relief, a GVR grants the petition (it is a grant/vacate/remand), and a
+# summary reversal is the Court granting review and deciding the merits in one
+# order — all land on the granted side of the binary target, which keeps
+# `actual_granted` and the Brier score comparable across each label's
+# introduction.
 _GRANTED: frozenset[Disposition] = frozenset(
-    {Disposition.granted, Disposition.granted_in_part, Disposition.gvr}
+    {
+        Disposition.granted,
+        Disposition.granted_in_part,
+        Disposition.gvr,
+        Disposition.summary_reversal,
+    }
 )
 
 
@@ -236,11 +243,11 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
 class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
 
-    Carried out of the library so the workflow can surface it on the run's
-    daily log; ``reason`` explains why automatic recording was declined.
-    ``reason`` must stay a fixed-vocabulary string (the literals in
+    Carried out of the library so the workflow can surface it on the
+    pipeline-runs dashboard; ``reason`` explains why automatic recording was
+    declined. ``reason`` must stay a fixed-vocabulary string (the literals in
     :func:`detect_resolution`, interpolating only closed-enum values): it is
-    rendered into a GitHub issue comment, so raw docket text — e.g.
+    rendered into a GitHub issue body, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """
 
@@ -286,6 +293,25 @@ def disposition_basis(docket: Mapping[str, Any]) -> Literal["standard", "mootnes
     return "standard"
 
 
+def resolution_signals(
+    distribution_count: int | None, cvsg_date: date | None
+) -> ResolutionSignals | None:
+    """The live-parsed docket signals to freeze onto a resolving event's outcome.
+
+    Takes the two values rather than a row: the ingest-stage and the persisted row
+    are different models and both reach this, so passing the fields keeps one rule
+    in one place without coupling it to either.
+
+    ``None`` when the proceedings were never live-parsed, which is exactly what an
+    absent ``distribution_count`` means — the corpus treats it as the coverage
+    sentinel for the whole live-signal family, so emitting a block there would
+    assert an observation nobody made.
+    """
+    if distribution_count is None:
+        return None
+    return ResolutionSignals(distribution_count=distribution_count, cvsg_date=cvsg_date)
+
+
 def _build_outcome(
     row: CorpusRow, event_id: str, basis: Literal["standard", "mootness"]
 ) -> Outcome:
@@ -303,6 +329,7 @@ def _build_outcome(
         resolved_at=resolved_at,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
+        signals=resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )

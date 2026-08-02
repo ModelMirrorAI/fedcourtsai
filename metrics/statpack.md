@@ -83,22 +83,22 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 | ca1 | 847 | 839 | 8 | denied 95.1%, granted 2.7%, dismissed 1.7%, gvr 0.5% |
 | cadc | 586 | 570 | 16 | denied 88.4%, granted 6.8%, dismissed 3.5%, gvr 1.2% |
 
-## Cert petitions by relist count
+## Cert petitions by relist count (paid scored segment)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 36076 | 35537 | 539 | denied 97.3%, dismissed 2.0%, granted 0.4%, gvr 0.3% |
-| 1 | 6619 | 6572 | 47 | denied 90.4%, granted 4.1%, gvr 2.8%, dismissed 2.6% |
-| 2 | 867 | 861 | 6 | denied 69.2%, granted 20.3%, gvr 9.5%, dismissed 0.9% |
-| 3+ | 805 | 800 | 5 | denied 68.2%, granted 18.2%, gvr 12.2%, dismissed 1.2% |
+| 0 | 9904 | 9697 | 207 | denied 97.1%, granted 1.3%, dismissed 1.2%, gvr 0.4% |
+| 1 | 2531 | 2505 | 26 | denied 86.2%, granted 9.5%, gvr 3.4%, dismissed 0.8% |
+| 2 | 499 | 497 | 2 | denied 59.8%, granted 32.0%, gvr 7.6%, dismissed 0.6% |
+| 3+ | 441 | 436 | 5 | denied 60.1%, granted 26.8%, gvr 11.5%, dismissed 1.6% |
 
-## Cert petitions by CVSG status
+## Cert petitions by CVSG status (paid scored segment)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 44193 | 43606 | 587 | denied 95.3%, dismissed 2.0%, granted 1.6%, gvr 1.1% |
+| none | 13201 | 12971 | 230 | denied 92.7%, granted 4.5%, gvr 1.6%, dismissed 1.1% |
 | cvsg | 174 | 164 | 10 | denied 62.2%, granted 31.1%, gvr 4.3%, dismissed 2.4% |
 
 ## Cert petitions by salience band
@@ -158,18 +158,18 @@ _Live/historical slice; denial-reweighted estimates. Most recent 9 of 9 Term(s);
 | 2017 | 1718/4595 | 878 | 6260 | denied 95.5%, dismissed 1.9%, gvr 1.4%, granted 1.3% | 2.6% | 164 | 67 | ✓/✓ |
 
 ### Segment base rate by salience band (sal-v1)
-_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator._
+_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator. The bracketed `reached` figure is the same band on a **risk-set** denominator — every petition that ever reached the band, not only those that ended in it — which is the rate a live petition actually faces, since a band only ever strengthens. **Which figure is scored depends on how the band was obtained**: a cell carrying a band frozen at prediction is scored against the bracketed one, because that is the population it was in; a cell without one falls back to its terminal band and the leading figure, which at least agrees with it. The risk sets are **nested**, so the bracketed denominators are cumulative across a row rather than a partition of it; the strongest band's two figures coincide because nothing sits above it, and the weakest band's risk set is the whole scored segment, so its bracketed figure is the paid segment's own grant rate rather than a band effect. Most recent 9 of 9 Term(s) — pooling a band over the rows below is bounded by what this table renders._
 
 | Term | high | elevated | baseline |
 | --- | --- | --- | --- |
-| 2025 | 44.4% (n=72) | 8.7% (n=229) | 1.4% (n=875) |
-| 2024 | 40.5% (n=121) | 10.4% (n=259) | 1.5% (n=925) |
-| 2023 | 25.8% (n=163) | 17.8% (n=259) | 2.0% (n=904) |
-| 2022 | 37.5% (n=112) | 13.7% (n=211) | 2.1% (n=909) |
-| 2021 | 29.6% (n=142) | 11.9% (n=353) | 1.6% (n=1125) |
-| 2020 | 44.3% (n=97) | 18.8% (n=292) | 1.7% (n=1358) |
-| 2019 | 47.5% (n=61) | 14.3% (n=280) | 2.6% (n=1123) |
-| 2018 | 31.0% (n=116) | 10.7% (n=272) | 1.7% (n=1202) |
-| 2017 | 48.0% (n=123) | 10.1% (n=278) | 0.9% (n=1274) |
+| 2025 | 44.4% (n=72) [reached 44.4%, n=72] | 8.7% (n=229) [reached 17.3%, n=301] | 1.4% (n=875) [reached 5.4%, n=1176] |
+| 2024 | 40.5% (n=121) [reached 40.5%, n=121] | 10.4% (n=259) [reached 20.0%, n=380] | 1.5% (n=925) [reached 6.9%, n=1305] |
+| 2023 | 25.8% (n=163) [reached 25.8%, n=163] | 17.8% (n=259) [reached 20.9%, n=422] | 2.0% (n=904) [reached 8.0%, n=1326] |
+| 2022 | 37.5% (n=112) [reached 37.5%, n=112] | 13.7% (n=211) [reached 22.0%, n=323] | 2.1% (n=909) [reached 7.3%, n=1232] |
+| 2021 | 29.6% (n=142) [reached 29.6%, n=142] | 11.9% (n=353) [reached 17.0%, n=495] | 1.6% (n=1125) [reached 6.3%, n=1620] |
+| 2020 | 44.3% (n=97) [reached 44.3%, n=97] | 18.8% (n=292) [reached 25.2%, n=389] | 1.7% (n=1358) [reached 6.9%, n=1747] |
+| 2019 | 47.5% (n=61) [reached 47.5%, n=61] | 14.3% (n=280) [reached 20.2%, n=341] | 2.6% (n=1123) [reached 6.7%, n=1464] |
+| 2018 | 31.0% (n=116) [reached 31.0%, n=116] | 10.7% (n=272) [reached 16.8%, n=388] | 1.7% (n=1202) [reached 5.3%, n=1590] |
+| 2017 | 48.0% (n=123) [reached 48.0%, n=123] | 10.1% (n=278) [reached 21.7%, n=401] | 0.9% (n=1274) [reached 5.9%, n=1675] |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._

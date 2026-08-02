@@ -23,10 +23,10 @@ Two transports, one manifest:
   emitted configs carry only the localhost URL — no token in any file an
   agent can read, and one server per cell instead of one per client spawn.
 
-Either way an unset token only degrades the cell: on this pinned release the
-server starts and its CourtListener tool calls error (the client refuses to
-run tokenless), so the agent falls back to corpus tooling per the prompt
-contract — a degraded upstream degrades the cell, never blocks it.
+Either way an unset token only degrades the cell: the server starts and its
+CourtListener tool calls error (the client refuses to run tokenless), so the
+agent falls back to corpus tooling per the prompt contract — a degraded
+upstream degrades the cell, never blocks it.
 """
 
 from __future__ import annotations
@@ -46,75 +46,23 @@ GEMINI_SETTINGS_FILENAME = "settings.json"
 MCP_SIDECAR_DEFAULT_PORT = 8378
 
 
-# WORKAROUND for two bugs in courtlistener-api-client 1.0.0 (its only
-# release), both keyed to the exact broken release so bumping the manifest pin
-# self-retires the shim back to the plain entry point — delete this block once
-# a fixed release is pinned.
+# The HTTP sidecar cannot use the release's own HTTP entry point.
+# ``create_http_app()`` hard-raises without ``REDIS_URL`` and forces its OAuth
+# provider (``auth=build_auth()``), neither of which fits a loopback sidecar that
+# authenticates to CourtListener with the token in its own env while localhost
+# clients send no credential at all. So the sidecar builds the FastMCP server
+# directly — ``create_mcp_server(auth=None)`` — and serves streamable HTTP on a
+# loopback port itself, sidestepping both. Keyed to the pinned release, because
+# it depends on that release's internals: a manifest bump must re-check whether
+# the constructor still accepts this shape, and whether HTTP mode has grown a
+# configuration that no longer needs the bypass.
 #
-# 1. Missing assets: `create_mcp_server()` reads bundled icon files from
-#    `courtlistener/mcp/assets/`, but neither the wheel nor the sdist ships
-#    that directory, so the `courtlistener-mcp` entry point crashes on startup
-#    with FileNotFoundError — on every engine ("MCP issues detected" in
-#    Gemini, silently zero MCP tools in Claude/Codex). The shim writes
-#    placeholder icon bytes (they are only base64-embedded into the server's
-#    icon metadata) before calling the same `main()`.
-# 2. Redis-only session store: the `search` and `call_endpoint` tools
-#    unconditionally store pagination state (the query_id resume mechanism)
-#    through `tools.utils.get_redis()`, which raises "REDIS_URL is not set;
-#    cannot access session store." when no Redis is configured. HTTP mode
-#    requires REDIS_URL at startup, but stdio mode — what the cells use —
-#    starts cleanly and then fails on every retrieval call. The shim pre-seeds
-#    the module-level client with an in-process fakeredis instance
-#    (`--with` below), which is the right scope for a single-cell stdio
-#    session: the store only ever holds this one session's resume state.
-_BROKEN_COURTLISTENER_RELEASE = "courtlistener-api-client[mcp]==1.0.0"
-_COURTLISTENER_FAKEREDIS_PIN = "fakeredis==2.36.2"
-_COURTLISTENER_MCP_SHIM = (
-    "import pathlib\n"
-    "import courtlistener.mcp\n"
-    "assets = pathlib.Path(courtlistener.mcp.__file__).parent / 'assets'\n"
-    "assets.mkdir(exist_ok=True)\n"
-    "for name, blob in (\n"
-    "    ('favicon.svg', b\"<svg xmlns='http://www.w3.org/2000/svg'/>\"),\n"
-    "    ('apple-touch-icon.png', b'\\x89PNG\\r\\n\\x1a\\n'),\n"
-    "    ('favicon.ico', b''),\n"
-    "):\n"
-    "    path = assets / name\n"
-    "    if not path.exists():\n"
-    "        path.write_bytes(blob)\n"
-    "import courtlistener.mcp.tools.utils as utils\n"
-    "import fakeredis.aioredis\n"
-    "utils.redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)\n"
-    "from courtlistener.mcp.server import main\n"
-    "main()\n"
-)
-
-
-# The HTTP-mode variant of the shim, for the tokenless sidecar (CI cells).
-# Same asset placeholders and in-process fakeredis preseed (per-process state
-# is the right scope for one cell's single session), but instead of the stdio
-# entry point it builds the FastMCP server directly via
-# ``create_mcp_server(auth=None)`` — which sidesteps ``create_http_app()``'s
-# hard REDIS_URL requirement and its OAuth default (the sidecar authenticates
-# to CourtListener with the token in its own env; localhost clients send no
-# credential) — and serves streamable HTTP on a loopback port. The trailing
-# ``{port}`` placeholder is formatted in by :func:`http_sidecar_launch`.
+# The *stdio* launch needs no such treatment: the ``courtlistener-mcp`` entry
+# point starts cleanly and its session store falls back to an in-process
+# TTL dict when ``REDIS_URL`` is unset, which is the right scope for one cell's
+# single session.
+_HTTP_BYPASS_RELEASE = "courtlistener-api-client[mcp]==1.1.0"
 _COURTLISTENER_MCP_HTTP_SHIM_TEMPLATE = (
-    "import pathlib\n"
-    "import courtlistener.mcp\n"
-    "assets = pathlib.Path(courtlistener.mcp.__file__).parent / 'assets'\n"
-    "assets.mkdir(exist_ok=True)\n"
-    "for name, blob in (\n"
-    "    ('favicon.svg', b\"<svg xmlns='http://www.w3.org/2000/svg'/>\"),\n"
-    "    ('apple-touch-icon.png', b'\\x89PNG\\r\\n\\x1a\\n'),\n"
-    "    ('favicon.ico', b''),\n"
-    "):\n"
-    "    path = assets / name\n"
-    "    if not path.exists():\n"
-    "        path.write_bytes(blob)\n"
-    "import courtlistener.mcp.tools.utils as utils\n"
-    "import fakeredis.aioredis\n"
-    "utils.redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)\n"
     "from courtlistener.mcp.server import create_mcp_server\n"
     "mcp = create_mcp_server(auth=None)\n"
     "mcp.run(transport='http', host='127.0.0.1', port={port}, stateless_http=True)\n"
@@ -128,21 +76,6 @@ def _launch(server: McpServerConfig) -> tuple[str, list[str], dict[str, str]]:
         token = os.environ.get(server.token_env, "")
         if token:
             env[server.token_env] = token
-    if server.package == _BROKEN_COURTLISTENER_RELEASE:
-        # The two-bug workaround above; same pinned package, same env.
-        return (
-            "uvx",
-            [
-                "--with",
-                _COURTLISTENER_FAKEREDIS_PIN,
-                "--from",
-                server.package,
-                "python",
-                "-c",
-                _COURTLISTENER_MCP_SHIM,
-            ],
-            env,
-        )
     return "uvx", ["--from", server.package, server.command], env
 
 
@@ -153,15 +86,16 @@ def http_sidecar_launch(
 
     The env carries the server's API token (read from this process's
     environment, exactly like the stdio launch) — the caller runs the sidecar
-    in a step whose env holds it, and no client config ever does. Keyed to
-    the pinned broken release like the shim above: the HTTP bypass is
-    release-specific by construction, so a manifest bump must revisit it
-    (a fixed release presumably serves HTTP through its own entry point).
+    in a step whose env holds it, and no client config ever does. Keyed to the
+    pinned release like the bypass above, because it reaches into that release's
+    internals: a bump must re-check that the constructor still takes this shape
+    and that HTTP mode still needs the bypass at all.
     """
-    if server.package != _BROKEN_COURTLISTENER_RELEASE:
+    if server.package != _HTTP_BYPASS_RELEASE:
         raise ValueError(
-            f"the HTTP sidecar launch is built for {_BROKEN_COURTLISTENER_RELEASE}; "
-            f"revisit it for {server.package} (a fixed release may serve HTTP natively)"
+            f"the HTTP sidecar launch is built for {_HTTP_BYPASS_RELEASE}; "
+            f"revisit it for {server.package} — check whether create_http_app still "
+            f"requires Redis and OAuth, and whether create_mcp_server still accepts auth=None"
         )
     env: dict[str, str] = {}
     if server.token_env:
@@ -169,14 +103,12 @@ def http_sidecar_launch(
         if token:
             env[server.token_env] = token
     # Not a secret: the release's HMAC key only namespaces this process's
-    # in-process fakeredis keys, which never leave it. Setting it explicitly
-    # quiets the release's insecure-default warning in every cell log.
-    env["MCP_SECRET_KEY"] = "cell-local-fakeredis-namespace"
+    # in-memory session keys, which never leave it. Setting it explicitly quiets
+    # the release's insecure-default warning in every cell log.
+    env["MCP_SECRET_KEY"] = "cell-local-session-namespace"
     return (
         "uvx",
         [
-            "--with",
-            _COURTLISTENER_FAKEREDIS_PIN,
             "--from",
             server.package,
             "python",
@@ -278,3 +210,15 @@ def gemini_mcp_settings(
 def manifest_labels(servers: list[McpServerConfig]) -> list[str]:
     """The attribution strings recorded per cell: ``<id>=<pinned package>``."""
     return [f"{server.id}={server.package}" for server in servers]
+
+
+def manifest_tools(servers: list[McpServerConfig]) -> list[str]:
+    """The tool names those pinned servers advertise — a cell's OFFERED set.
+
+    Qualified ``<server id>.<tool>`` so two servers advertising the same bare
+    name stay distinct, and sorted for a stable record. Servers whose ``tools``
+    is unrecorded contribute nothing, which reads as offered-unknown rather than
+    nothing-offered — the caller cannot tell the two apart from this list alone,
+    which is why the manifest records the list rather than deriving it.
+    """
+    return sorted(f"{server.id}.{tool}" for server in servers for tool in server.tools)

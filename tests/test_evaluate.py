@@ -12,13 +12,19 @@ from datetime import date, datetime
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline.evaluate import brier_skill_score, segment_base_rate
+from fedcourtsai.pipeline.evaluate import (
+    brier_skill_score,
+    prediction_base_rate,
+    segment_base_rate,
+)
+from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
     Engine,
     Outcome,
     Prediction,
+    PredictionContext,
     StatPack,
     StatPackTerm,
     StatPackTermSegment,
@@ -26,12 +32,25 @@ from fedcourtsai.schemas import (
 
 
 def _term(year: int, band_rates: dict[str, tuple[float, int]]) -> StatPackTerm:
+    """A Term whose bands carry ``(rate, weighted_resolved)``.
+
+    The rate is written to **both** the terminal and the risk-set field, so these
+    fixtures exercise the pooling arithmetic without also encoding a
+    prefix-versus-terminal gap. `test_the_baseline_reads_the_risk_set_rate` is
+    where the two are deliberately set apart.
+    """
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
         salience_version="sal-v1",
         segments=[
-            StatPackTermSegment(band=band, weighted_resolved=n, est_grant_rate=rate)
+            StatPackTermSegment(
+                band=band,
+                weighted_resolved=n,
+                est_grant_rate=rate,
+                prefix_weighted_resolved=n,
+                prefix_est_grant_rate=rate,
+            )
             for band, (rate, n) in band_rates.items()
         ],
     )
@@ -119,6 +138,68 @@ def test_segment_base_rate_skips_bands_with_nothing_resolved() -> None:
     assert segment_base_rate(_row("24-100"), pack) is None
 
 
+# --- the lookback window: `salience.base_rate_lookback_terms` --------------------
+
+
+def test_the_default_lookback_pools_every_prior_term() -> None:
+    # The shipped default is unbounded, and it must stay that way silently: this
+    # pins that the bare call and an explicit 0 agree, and that both reach the
+    # oldest Term in the pack.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (0.20, 100)}),
+        _term(2018, {"high": (0.60, 100)}),  # six Terms back — still pooled
+    )
+    unbounded = segment_base_rate(_row("25-100"), pack)
+    assert unbounded == pytest.approx(0.40)  # (0.40 + 0.20 + 0.60) * 100 / 300
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=0) == unbounded
+
+
+def test_the_lookback_window_bounds_the_pool() -> None:
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (0.20, 100)}),
+        _term(2022, {"high": (0.90, 100)}),  # outside a 2-Term window
+    )
+    # OT25 case, lookback 2 -> OT24 + OT23 only: (0.40 + 0.20) * 100 / 200 = 0.30.
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.30)
+
+
+def test_the_lookback_is_a_term_year_band_not_a_rank_slice() -> None:
+    # OT2023 is absent from the pack. A rank slice would take the two most recent
+    # prior *rows* (OT24 + OT22) and quietly reach outside the stated window; the
+    # year band takes OT24 alone and shrinks the sample honestly. Published skill
+    # numbers must not move because the walker's coverage changed.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2022, {"high": (0.90, 100)}),
+        _term(2021, {"high": (0.90, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.40)
+
+
+def test_a_zero_row_cursor_term_inside_the_window_does_not_extend_it() -> None:
+    # Cursor-only Terms appear in the pack for every band with no resolved rows.
+    # One inside the window contributes no weight and must not push the floor back
+    # to admit an older Term — the failure mode a rank slice would have.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (None, 0)}),  # type: ignore[dict-item]
+        _term(2022, {"high": (0.90, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.40)
+
+
+def test_the_window_never_reaches_the_cases_own_term() -> None:
+    # The leakage guard is not a lookback bound and cannot be widened past it.
+    pack = _statpack(
+        _term(2026, {"high": (0.99, 100)}),  # later than the case: excluded
+        _term(2025, {"high": (0.99, 100)}),  # the case's own Term: excluded
+        _term(2024, {"high": (0.40, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=50) == pytest.approx(0.40)
+
+
 # --- brier_skill_score: lift over the naive base-rate forecaster -----------------
 
 
@@ -146,3 +227,125 @@ def test_brier_skill_none_without_a_base_rate_or_on_a_perfect_baseline() -> None
     # A base rate that already resolved the outcome exactly (1.0 on a grant) makes
     # the baseline Brier zero -> skill undefined -> None (no divide-by-zero).
     assert brier_skill_score(_prediction(0.9), _outcome(1), base_rate=1.0) is None
+
+
+def test_the_baseline_matches_the_band_it_is_grouped_by() -> None:
+    """Baseline and grouping have to agree, and today both are terminal.
+
+    `segment_base_rate` derives the band from the row as it stands now — for a
+    resolved case, its terminal band — so it must read the rate over rows that
+    *ended* in that band. The risk-set rate is published beside it and is several
+    times higher in the weak bands, but reading it against a terminal band would
+    overstate the baseline for exactly the petitions whose band moved. Switching
+    the read requires pinning the band as at prediction; the two go together.
+    """
+    term = StatPackTerm(
+        term=2024,
+        base_rates=BaseRateBucket(),
+        salience_version="sal-v1",
+        segments=[
+            StatPackTermSegment(
+                band="baseline",
+                weighted_resolved=900,
+                est_grant_rate=0.015,  # ended at baseline
+                prefix_weighted_resolved=1300,
+                prefix_est_grant_rate=0.069,  # ever reached baseline
+            )
+        ],
+    )
+    row = _row("25-100", distribution_count=1)  # OT2025, so OT2024 is prior
+    assert salience_band(row) == "baseline"
+    assert segment_base_rate(row, _statpack(term)) == pytest.approx(0.015)
+
+
+def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
+    """A Term contributes at the weight belonging to the rate being pooled. Mixing
+    a terminal rate with a risk-set denominator (or the reverse) drifts the pooled
+    figure without failing anything."""
+    terms = [
+        StatPackTerm(
+            term=year,
+            base_rates=BaseRateBucket(),
+            salience_version="sal-v1",
+            segments=[
+                StatPackTermSegment(
+                    band="baseline",
+                    weighted_resolved=n,
+                    est_grant_rate=rate,
+                    prefix_weighted_resolved=1,  # decoy: wrong denominator if read
+                    prefix_est_grant_rate=0.99,
+                )
+            ],
+        )
+        for year, rate, n in ((2022, 0.04, 100), (2023, 0.08, 300))
+    ]
+    # (0.04*100 + 0.08*300) / 400 = 0.07
+    row = _row("25-100", distribution_count=1)
+    assert segment_base_rate(row, _statpack(*terms)) == pytest.approx(0.07)
+
+
+def _context(
+    band: str | None, term: int | None = 2025, *, signals_observable: bool = True
+) -> PredictionContext:
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2025, 3, 1),
+        signals_observable=signals_observable,
+        band=band,
+        term=term,
+    )
+
+
+def _split_term(year: int, *, terminal: float, risk_set: float) -> StatPackTerm:
+    """A Term whose two published rates disagree, so reading the wrong one fails."""
+    return StatPackTerm(
+        term=year,
+        base_rates=BaseRateBucket(),
+        salience_version="sal-v1",
+        segments=[
+            StatPackTermSegment(
+                band="baseline",
+                weighted_resolved=900,
+                est_grant_rate=terminal,
+                prefix_weighted_resolved=1300,
+                prefix_est_grant_rate=risk_set,
+            )
+        ],
+    )
+
+
+def test_a_frozen_band_reads_the_risk_set_rate() -> None:
+    """The pairing this change exists for: band as at prediction, rate over the
+    population that had reached it. A cell at `baseline` may still relist, so the
+    petitions it belongs with are everyone who reached `baseline`."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    assert prediction_base_rate(_context("baseline"), pack) == pytest.approx(0.069)
+
+
+def test_a_row_derived_band_keeps_the_terminal_rate() -> None:
+    """The other half of the pairing. `segment_base_rate` reads the band off the
+    row, which for a resolved case is terminal — so it must pool the terminal
+    rate. Mixing the two is what would overstate the baseline for exactly the
+    petitions whose band moved."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    row = _row("25-100", distribution_count=1)
+    assert segment_base_rate(row, pack) == pytest.approx(0.015)
+
+
+def test_an_unobservable_band_yields_no_frozen_rate() -> None:
+    """A replay snapshot with its proceedings stripped discloses no band. Falling
+    back is honest; guessing `baseline` from the absence would invent a posture."""
+    pack = _statpack(_split_term(2024, terminal=0.015, risk_set=0.069))
+    assert prediction_base_rate(_context(None, signals_observable=False), pack) is None
+    assert prediction_base_rate(None, pack) is None
+
+
+def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
+    """Freezing the band must not loosen the leakage control: a cell's own Term
+    and every later one still contribute nothing."""
+    pack = _statpack(
+        _split_term(2026, terminal=0.99, risk_set=0.99),  # later than the cell
+        _split_term(2025, terminal=0.99, risk_set=0.99),  # the cell's own Term
+        _split_term(2024, terminal=0.015, risk_set=0.069),
+    )
+    assert prediction_base_rate(_context("baseline", term=2025), pack) == pytest.approx(0.069)

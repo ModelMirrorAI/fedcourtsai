@@ -10,19 +10,23 @@ the ingestion/prediction scope split this refines see the *Scope* section of
 [budget.md](budget.md); for where the board lands on the roadmap see
 [milestones.md](milestones.md).
 
-This doc fixes vocabulary and seams. It is the design; the implementation follows
-it without further design decisions.
+This doc fixes the vocabulary and the seams and describes the gate as it runs;
+its knobs are the `salience:` block of `config/tracking.yaml`. Where a piece is
+still ahead of the implementation, it says so in place.
 
 ## Why salience
 
-Today prediction scope is a hard court predicate (`court == "scotus"`) plus the
-shared exclusion rules, and **every** in-scope cert petition runs the full
-predict/evaluate tournament equally. The agentic stages cost one to two orders of
-magnitude more than ingestion, and predicting the whole cert denominator equally
-spends that budget on thousands of petitions that will be denied as a matter of
-course. A salience-ordered scope keeps the hard eligibility filters, then **ranks**
-eligible petitions by a cheap deterministic score and spends the tournament on the
-most salient slice up to a fundable **capacity `N`**.
+The agentic stages cost one to two orders of magnitude more than ingestion, so
+running the tournament over the whole cert denominator would spend that budget
+on thousands of petitions denied as a matter of course. Prediction scope is
+therefore **salience-ordered**: the hard eligibility filters run first, then a
+cheap deterministic score **ranks** the surviving petitions and the
+predict/evaluate tournament runs only on the most salient slice, up to a
+fundable **capacity `N`**.
+
+The gate is live. The selection pass runs inside every live-channel cycle, its
+decision is carried by the `salience_selected` corpus latch, and both the
+predict matrix and the pull queue read that latch (*Selection* below).
 
 Two scores fall out, and they are deliberately distinct:
 
@@ -39,16 +43,17 @@ Two scores fall out, and they are deliberately distinct:
 
 Selection is a funnel, cheap filters first:
 
-- **Tier 0 — hard eligibility (deterministic, at the row).** The existing
-  `corpus.OUT_OF_SCOPE_RULES`, evaluated through `out_of_scope_reason_full`, plus
-  one new rule: exclude **pro se / in-forma-pauperis** petitions. Fee class is
-  derivable — IFP serials start at `IFP_SERIAL_BASE` (`5001`) in the SCOTUS docket
-  number (`supremecourt.parse_scotus_docket_number`), so the rule is a row-only
-  predicate needing no new column. This is a **documented scope decision** — a
-  named rule in `OUT_OF_SCOPE_RULES`, surfaced on the salience board (below), not a
-  silent drop: IFP grants are rare but non-zero (Gideon arrived IFP), so excluding
-  them is a deliberate, recorded choice, not a claim that IFP cases never matter. A Tier-0 exclusion means *never predict, and prune
-  any prediction already committed* — the same destructive-on-purpose semantics
+- **Tier 0 — hard eligibility (deterministic, at the row).**
+  `corpus.OUT_OF_SCOPE_RULES`, evaluated through `out_of_scope_reason_full`,
+  including the rule excluding **pro se / in-forma-pauperis** petitions. Fee
+  class is derivable — IFP serials start at `IFP_SERIAL_BASE` (`5001`) in the
+  SCOTUS docket number (`supremecourt.parse_scotus_docket_number`), so the rule
+  is a row-only predicate needing no new column. This is a **documented scope
+  decision** — a named rule in `OUT_OF_SCOPE_RULES` carrying its own reason
+  string, not a silent drop: IFP grants are rare but non-zero (Gideon arrived
+  IFP), so excluding them is a deliberate, recorded choice, not a claim that
+  IFP cases never matter. A Tier-0 exclusion means *never predict, and prune any
+  prediction already committed* — the same destructive-on-purpose semantics
   every hard-scope rule already carries.
 - **Tier 1 — salience scoring (cheap, over all eligible).** A deterministic score
   over every Tier-0 survivor, from features the corpus already carries. This is a
@@ -209,6 +214,42 @@ after its first prediction, the observed failure mode — while a relist the
 next day or later queues normally. Only applies under the gated scope with a
 salience config in force (capacity actually enforced); `0` disables it.
 
+## Replaying the gate
+
+Because `sal-v1` scoring is a pure function of a row's features — and
+selection a pure function of a cohort's — the frozen gate can be **replayed
+over past Terms at reconstructed moments**: `fedcourts salience-replay`
+projects each of a named Term's resolved, live-slice, paid modern-cert
+petitions to the state its docket disclosed at a chosen cutoff
+— petition **arrival**, the **first distribution**, or the **last
+pre-resolution distribution** — and runs the same selection core the live pass
+runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+
+The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
+time-invariant identity (docket number, fee class, originating court, sampling
+weight) is copied from the row, the docket-acquired signals (relists, CVSG,
+the conference cohort) are re-derived from a point-in-time payload via the
+same parsers the predict cell's conditioning context uses, and every outcome
+and latch field is nulled. A payload that discloses no proceedings projects as
+**unobservable** — unknown posture, never banded, never selected — and the
+reconstruction reuses the cert back-test's leakage machinery (redaction,
+date-keyed truncation, the dated-snapshot preference, the fail-closed
+disposition scan), so the two replays share one definition of a
+point-in-time docket.
+
+What the report shows, per (Term, policy): the would-have-been selection
+split into carve-outs and rank fill, where capacity actually bit, the band and
+provenance mix, and sample-weighted precision/recall of the selection against
+the realized grant-family outcomes. The arrival cells quantify the gate's
+structural degeneracy — the primary signals the score turns on are
+docket-acquired (the circuit rides only as a bounded nudge that can never move
+a band or clear the floor), so at arrival every observable projection reads
+baseline and nothing is selected — and the
+resolution cells bound what the carve-outs would have caught. The same
+population frame and cutoffs are what a full predict/evaluate backtest over a
+past Term inherits. What the numbers may and may not be read as:
+`metrics/README.md`.
+
 ## Capacity `N` — the funding knob
 
 `N` is the single parameter that scales inference cost, and the mechanism the
@@ -216,10 +257,13 @@ budget's "more funding = more cases" equation and the milestones' funding milest
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine long-conference
-release fits the ~$10K envelope (~$5K inference at the measured
-~$25/fully-tournamented-case): **~150 per regular conference and ~200 for the long
-conference** (which clears the summer backlog of 1,000+ petitions at once). A
-per-conference cap
+release fits the ~$10K envelope (~$5K inference at the ~$13/fully-tournamented-case
+planning rate, ~$11 measured): **~150 per regular conference and ~200 for the long
+conference** (which clears the summer backlog of 1,000+ petitions at once). Those
+caps leave headroom inside the same envelope, deliberately — the long conference is
+the one cohort whose realized size has never been observed, so the default funds it
+plus the Term's first regular conferences rather than spending the envelope on a
+single guess. A per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -283,8 +327,124 @@ prediction's timing contract:
 - **Evaluator** — scores a **Brier skill score / lift vs the segment base rate**,
   so a prediction that merely parrots the base rate earns ~zero skill and a genuine
   edge shows as positive lift. The leaderboard carries the aggregated
-  skill-vs-baseline column; the ops dashboard reports the selected segment's size,
-  its base grant rate, and predictions-vs-baseline.
+  skill-vs-baseline column, **per stratum** — so a forward cell's skill lands
+  there. The ops dashboard reports the selected segment's size and its base grant
+  rate, and compares predictions to that baseline **for the replay stratum
+  only**: its calibration block filters to retrospective cells before averaging,
+  so no volume of forward grading ever fills that line. Replay cells come from
+  the cert back-test, not the evaluate channel.
+
+**The lookback window is a stated choice, not a default.** The band rate is pooled
+over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
+anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) run
+**25.8%–48.0%**, nearly 2×; elevated runs 16.8%–25.2% on the **risk-set** rate a
+forecast is scored against (8.7%–18.8% on the terminal rate the same table shows
+in the lead column — see below). Anchored at an OT2026
+petition, the high band reads roughly **37% (n≈1000)** pooling every prior Term,
+**34% (n≈610)** over the last five, and **44% (n≈70)** over the last one — recompute
+from the statpack's per-Term band table rather than quoting these. That is a
+~10-point spread in the number a forecast's Brier skill is scored against, and in
+the prior a cell is told to start from, turning on a parameter — so the parameter
+is stated rather than left to a default.
+
+**Two rates per band, and which one is scored depends on how the band was
+obtained.** A band only ever strengthens — the distribution count is max-latched
+and a CVSG date, once set, stays set — so a band re-derived at evaluation is the
+band a petition *ended* at, while the band frozen on the prediction is the one
+the cell faced. The statpack publishes both rates against each band: the terminal
+one over petitions that ended there, and the **risk-set** one over every petition
+that ever reached it. A cell carrying a frozen band is scored against the
+risk-set rate, because that is the population it belonged to; a cell without one
+falls back to the terminal band and the terminal rate, which at least agree with
+each other. Reading either rate against the other kind of band is the error the
+pairing exists to prevent — the risk-set rate against a terminal band overstates
+the baseline for exactly the petitions whose band moved, and the terminal rate
+against a frozen band understates it several-fold in the weak bands. The top band
+has nothing above it, so its two rates coincide exactly.
+
+The tension is bias against variance, and it has no free answer. Per-Term
+high-band samples are small (61–163 weighted-resolved petitions), so a short
+window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
+stable estimate, but assumes the Court's grant behaviour is stationary across the
+whole range, which the spread above suggests it is not. Two second-order effects
+push the same way. The bands are frozen at `sal-v1`, so a long window also assumes
+band *semantics* are stable across every Term pooled — each per-Term entry carries
+its own `salience_version` for exactly this reason, and a bounded window would
+limit that exposure as a side effect. And the pooling weights are
+`weighted_resolved`, not `resolved` (OT2024's high band is `resolved=58`,
+`weighted_resolved=121`), so a long window compounds Terms whose walk coverage
+differs.
+
+So the window is **config, not a constant**: `salience.base_rate_lookback_terms`
+in `config/tracking.yaml`, where `0` means every prior Term. It ships at **0**, the
+pre-registered behaviour, so that the choice is on the record and a change to it is
+a reviewable diff rather than an invisible shift in every published
+skill number. It is counted in Term *years*, not statpack rows: a Term absent from
+the pack, or present only as a zero-row cursor entry, shortens the sample rather
+than pulling an older Term in to refill the slot, so the window cannot move as the
+walker's coverage changes. Moving it off `0` is an evidence-led call worth making
+before the process-version freeze ([milestones.md](milestones.md)), since it
+re-bases every forward skill number at once.
+
+**The scored baseline and the anchor an agent reads do not share the window.** The
+baseline is computed in code
+(`fedcourtsai.pipeline.evaluate.segment_base_rate`) and honours
+`salience.base_rate_lookback_terms`. No agent runs that code: every agent that
+needs a prior — the forward predictor and evaluator, and the cert back-test's
+replayed predictors, which run the same prompt — reads the band table in
+`metrics/statpack.md`, so its window is whatever that table renders, capped by
+`statpack.markdown_terms` (default 10). The bound is conventional, not a capability
+limit: `statpack.json` sits in the same checkout and carries every Term, and the
+prompts are what direct anchoring at the table.
+
+With the walked range at OT2017–OT2025 the pack holds nine Terms, nothing is
+truncated, and the two windows **coincide**. They part the first season the pack
+passes ten Terms — and the sharpest consequence is inside a single back-test run,
+where a replayed agent would be scored against a Term it was never shown. Both
+knobs are stated for that reason, so the pair is reconciled — or deliberately left
+apart — as one decision rather than two accidents. Both per-Term captions in
+`statpack.md` state the rendered window, so a truncation is visible to the agent
+reading the table rather than silent.
+
+The ops dashboard's segment rate is a **third, different number**: pack-wide,
+blended across every Term and unmasked by any clock (`fedcourtsai.ops`). It is an
+operational statistic for the human board, never the scored baseline, so neither
+knob applies to it.
+
+### Scope: SCOTUS cert only, deliberately
+
+The segment baseline is **not** generalised to other courts, and that is a
+decision rather than an omission. Circuit rows are ingested for retrieval context
+and never predicted; when they enter prediction scope they will need a skill
+baseline, and this one does not translate. Three of its four load-bearing parts
+are SCOTUS-cert-shaped by construction:
+
+- **The Term is the leakage control**, not a label. Pooling Terms strictly before
+  the case's own is what makes the anchor replay-safe, and `segment_base_rate`
+  returns `None` without one. A circuit docket has no Term, so an equivalent
+  guard has to be built from something else — a rolling window on the decision
+  date is the nearest candidate, and a calendar year is not a natural unit of
+  appellate practice the way a Term is for the Court.
+- **The `sal-v1` bands do not generalise at all.** Relist count, CVSG presence,
+  originating circuit and fee class have no circuit analogues — there is no
+  relist, no CVSG, no court below in the same sense, and no IFP serial convention
+  to read a fee class from. A circuit band function is a new scorer over
+  different features, not a re-parameterisation.
+- **The outcome is a different act.** `granted` means cert was granted on a
+  SCOTUS row and a motion was granted on a circuit one. A circuit baseline has to
+  choose which binary it estimates before it can estimate a rate, and the useful
+  one is probably affirm/reverse — which no column carries cleanly today.
+
+What *does* generalise is the **per-court always-deny floor**, which
+`metrics/backtest.json` already reports per court. That is the reason the cut is
+per-court rather than SCOTUS-only: a circuit predictor gets an interpretable
+floor the day it runs, with no new machinery.
+
+So the near-term position is that circuits are covered by the floor and by
+nothing else. Publishing a cross-court "segment base rate" would produce a number
+that looks comparable between courts and is not, which is worse than reporting
+none — the same reasoning the generic back-test applies in declining a segment
+baseline of its own.
 
 ## GVR as a first-class label
 
@@ -323,6 +483,67 @@ rather than folding it into an undifferentiated "granted."
   score captures the stakes — with deterministic mootness-proneness deferred to a
   possible `sal-v2` feature.
 
+## The interim docket (designed, not measured)
+
+The cert program above selects petitions. The interim docket — stays,
+injunctions, vacaturs pending certiorari — needs its own, because none of
+`sal-v1`'s features exists there: an application is not distributed for
+conference, and a CVSG is a cert-stage act. Reusing the band would be the
+conditioning mismatch this document spends its length warning about.
+
+**Most of the docket is not the thing predicted.** Over a spread sample of 26
+OT2023–OT2024 applications, **85%** are requests to extend the time to file:
+granted by a single Justice as a matter of course, with nothing about the case
+moving the answer. 12% are substantive. Admitting the whole docket would hand a
+predictor a base rate it beats by answering "granted" every time — the IFP
+problem in a sharper form. `interim_signals.is_predictable_application` keeps only
+the substantive ones, and excludes an unreadable ask with them: that is a parser
+gap, and shrinking coverage visibly is better than admitting a matter of unknown
+character into a scored population.
+
+**The escalation ladder is the salience structure.** Three signals are readable
+from the proceedings before an application resolves:
+
+| signal | what it is |
+| --- | --- |
+| the Court **requests** a response | an affirmative act of attention — the interim analogue of a CVSG, and *not* the same event as a response arriving uninvited |
+| the application is **referred to the Court** | the full bench takes it, rather than a Circuit Justice acting alone — which is also what selects the aggregation rule |
+| **amicus briefs** filed | a proxy for stakes, counted rather than flagged |
+
+The three sampled substantive applications separate on exactly that ladder — a
+two-entry summary denial with no signals, a referred denial with a response
+filed, and a granted application that drew a requested response, an amicus brief
+and oral argument. That is a suggestive shape and **not a base rate**: three
+observations cannot support a rate, and none is published or scored against.
+
+**The two traps transfer unchanged.** All three signals are monotone over an
+application's life — the Court does not un-request a response, un-refer an
+application, or un-file a brief. So the band derived at resolution is the band the
+application *ended* at rather than the one a cell faced, and a rate conditioned on
+the ending band understates what a live application faces. Those are the same two
+defects the cert program corrected, and the answers carry over: freeze the band as
+at prediction, and pool the rate over a risk set.
+
+**What is missing is the rate; the cohort is being accumulated.** The live
+cycle re-polls unresolved applications up to a small per-cycle cap
+(`live.max_applications_per_run`) with prediction queueing off — ground-truth
+collection only. Each poll persists the ask (`application_kind` — arrival-time,
+so safe to condition on) and the three ladder signals as latched corpus
+columns, so an interim cohort can be assembled from the index: which
+applications, which asks, how far each had escalated by resolution. The latched
+signals are the *ending* band — the thing the two traps above forbid
+conditioning a rate on directly — while the as-at-prediction values a valid
+rate needs stay recoverable from the per-poll dated snapshots, whose entry
+dates carry each signal's onset. One caveat bounds the accumulation itself: an
+application counts as resolved only when the interim disposition vocabulary
+matches its disposing entry, so the resolved set is selected for
+machine-matchable resolution text (an unmatched resolution stays in the
+rotation as a visibly long-unresolved residue rather than silently counting).
+The rate itself stays unpublished: predict scope and a base rate for the
+interim segment remain unspecified until enough substantive applications have
+resolved to support one — the same posture the merits stage takes, and for the
+same reason.
+
 ## Shared discipline: leakage / timing
 
 The deterministic salience features and the predictor's big-case score both rest on
@@ -341,20 +562,22 @@ statpack Term rows behind the `DECIDED_BEFORE` clock.
   `salience_selected` as the published transparency artifact — but only for cases
   that already have a committed `data/cases` directory (its enumerate-from-the-tree
   invariant; it never scans the corpus). It is a *record*, not an input: no pipeline
-  seam reads it back to drive selection. The **full candidate pool** — including
-  Tier-0-excluded and below-cap cases that have no committed directory — lives on
-  the `metrics/salience` board, not here.
+  seam reads it back to drive selection. The **full candidate pool** —
+  including Tier-0-excluded and below-cap cases that have no committed
+  directory — belongs on the salience board (below), not here.
 - **The selection is driven by the `salience_selected` corpus latch**, not by
   reading `scope.json`. `predict-matrix`'s scope filter consumes the latch
   directly, the same way it consumes `predict_excluded` and the court predicate
   today.
 - **Hard eligibility** stays in `corpus.OUT_OF_SCOPE_RULES` /
-  `out_of_scope_reason_full` (the IFP rule joins here). Below-cap selection is a
+  `out_of_scope_reason_full` (the IFP rule among them). Below-cap selection is a
   **separate** latch and never enters this evaluator.
-- **The salience ranking** is published as a deterministic board under
-  `metrics/salience.{json,md}`, regenerated like the other roll-ups — the
-  pre-registered big-case board, carrying the ranking, the selected set, and the
-  segment base rate.
+- **The salience ranking** has no published board yet: the scores and the latch
+  live in the corpus and reach git only through `scope.json`. The planned
+  artifact is a deterministic board under `metrics/salience.{json,md}`,
+  regenerated like the other roll-ups — the pre-registered big-case board,
+  carrying the ranking, the full candidate pool, the selected set, and the
+  segment base rate ([milestones.md](milestones.md)).
 
 ## Ratified decisions (config, tunable)
 
@@ -363,7 +586,16 @@ config edit, not a redesign. `N` **is a guaranteed floor, not a hard ceiling** �
 the posture below keeps selection additive and never destructive:
 
 - **Capacity `N`** — per-conference, OT2026 default ~150 / regular conference and
-  ~200 / long conference (the bootstrapping envelope above).
+  ~200 / long conference (the bootstrapping envelope above). **Whether the cap
+  binds at all depends on the Tier-0 IFP filter, which is larger than it sounds.**
+  Measured on the accumulating OT2026 long-conference cohort: of the petitions
+  distributed for it, **roughly two thirds are IFP** and leave at Tier 0, so the
+  eligible pool is about a third of the raw distribution volume. At that ratio the
+  200-case cap starts binding only once the conference draws more than ~600
+  petitions; below that every eligible petition is funded and `N` is inert. Read a
+  raw distribution count as a *ceiling* on the funded slice, never an estimate of
+  it — and re-measure the ratio rather than assuming it holds, since it is a
+  property of who files, not of the pipeline.
 - **Carve-outs sit above `N`** (not consuming it): CVSG and above-floor cases are
   guaranteed in, and `N` still fills with the next-best ranked cases, so no major
   case is ever crowded out.
@@ -375,5 +607,16 @@ the posture below keeps selection additive and never destructive:
 - **`sal-v1` weights are fit to the empirical per-bucket grant rates** (above); the
   salience floor sits at the relist-2 / CVSG grant-rate band (~25%+). Exact
   coefficients are pinned in the implementing change.
+- **The segment base rate's lookback is unbounded** —
+  `salience.base_rate_lookback_terms: 0`, every Term strictly before the case's
+  own, preserving the pre-registered behaviour exactly. The agent-facing window is
+  `statpack.markdown_terms: 10`. Both are stated so the pair can be moved
+  together, on evidence, in one reviewable diff (*Base rates & baselines for the
+  predicted segment* above).
+- **The segment baseline stays SCOTUS-cert-only** — the Term is its leakage
+  control, the `sal-v1` bands have no circuit analogue, and `granted` names a
+  different act on a circuit docket. Other courts are covered by the per-court
+  always-deny floor and nothing else, because a cross-court "segment base rate"
+  would look comparable between courts without being so (*Scope* above).
 - **The `big_case` grade is rank-agreement across the cohort** (bigness is
   comparative), with a per-case absolute delta kept only as a secondary diagnostic.

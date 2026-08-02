@@ -9,14 +9,13 @@
     "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
   "onCreateCommand": "uv sync",
-  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && bash .devcontainer/setup-corpus-access.sh",
-  "postCreateCommand": "bash .devcontainer/setup-corpus-access.sh",
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && bash .devcontainer/setup-claude-package-ownership.sh && bash .devcontainer/setup-corpus-access.sh",
   "postStartCommand": "bash .devcontainer/check-corpus-session.sh",
   "waitFor": "postCreateCommand",
   "userEnvProbe": "loginInteractiveShell",
   "secrets": {
     "CLAUDE_CODE_OAUTH_TOKEN": {
-      "description": "Claude Code OAuth token from `claude setup-token`; skips interactive login (user-scoped, optional)"
+      "description": "Claude Code OAuth token from `claude setup-token`; skips interactive login (user-scoped, optional). Set this and do NOT run an interactive `claude` login in the container: a stored credential from one shadows this token once it expires, and `claude` then fails 401 at startup while `claude -p` still works. Recovery: move ~/.claude/.credentials.json aside."
     },
     "FEDCOURTS_COURTLISTENER_API_TOKEN": {
       "description": "CourtListener REST API token, required by `fedcourts pull` (user-scoped, optional)"

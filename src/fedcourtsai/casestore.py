@@ -613,6 +613,26 @@ def read_latest_snapshot(
     return latest, json.loads(body)
 
 
+def read_snapshot_at(
+    transport: ObjectTransport, case_id: str, *, before: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest dated snapshot strictly before ``before``, or ``None``.
+
+    Mirrors ``corpus.snapshot_at`` (the exclusive bound and all): the store
+    keys every dated snapshot under ``snapshots/``, so unlike the split-mode
+    blob every historical date is addressable, and a point-in-time read costs
+    one key listing plus one get.
+    """
+    dates = [d for d in _snapshot_dates(transport, case_id) if d < before]
+    if not dates:
+        return None
+    latest = max(dates)
+    body = transport.get(snapshot_key(case_id, latest))
+    if body is None:
+        return None
+    return latest, json.loads(body)
+
+
 def read_latest_live_snapshot(
     transport: ObjectTransport, case_id: str
 ) -> tuple[date, dict[str, Any]] | None:
@@ -659,6 +679,28 @@ def read_events(transport: ObjectTransport, case_id: str) -> list[CorpusEvent]:
     return [CorpusEvent.model_validate(entry) for entry in json.loads(body)]
 
 
+def read_opinion_text(transport: ObjectTransport, case_id: str) -> str | None:
+    """The case's opinion body from its ``case.json``, or ``None`` if absent.
+
+    Reads **only** the opinion body out of the stored row, deliberately: the
+    direct-``UPDATE`` writers listed in this module's header do not re-mirror, so
+    a stored ``case.json`` can lag the corpus row on the tracking columns. The
+    body is safe to read because it is written *only* through ``upsert_rows``,
+    which always re-mirrors — no direct-``UPDATE`` writer touches ``opinion_text``
+    — so for this one field the store is never staler than the blob. Whole-row
+    reconstitution has no such guarantee, which is why this returns a field
+    rather than a :class:`~fedcourtsai.corpus.CorpusRow`.
+
+    A stored body that is empty collapses to ``None``, so callers see one
+    "no body" answer rather than distinguishing empty from absent.
+    """
+    body = transport.get(case_key(case_id))
+    if body is None:
+        return None
+    text = json.loads(body).get("opinion_text")
+    return text if isinstance(text, str) and text else None
+
+
 class _CasestoreReadSource:
     """``corpus.PayloadReadSource`` over the process (active) transport.
 
@@ -671,6 +713,10 @@ class _CasestoreReadSource:
         transport = active_transport()
         return None if transport is None else read_latest_snapshot(transport, case_id)
 
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, Any]] | None:
+        transport = active_transport()
+        return None if transport is None else read_snapshot_at(transport, case_id, before=before)
+
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
         transport = active_transport()
         return None if transport is None else read_latest_live_snapshot(transport, case_id)
@@ -678,6 +724,22 @@ class _CasestoreReadSource:
     def documents_for_case(self, case_id: str) -> list[CaseDocument]:
         transport = active_transport()
         return [] if transport is None else read_documents(transport, case_id)
+
+    def opinion_text(self, case_id: str) -> str | None:
+        # Broad by design, mirroring `_best_effort` on the write side. This read
+        # serves `query --full`, whose caller shapes and prints one row at a time,
+        # so a raising transport — `get` re-raises everything but a missing key,
+        # including AccessDenied, SlowDown, and expired credentials — would abort
+        # mid-stream and leave a half-written JSON-lines result on stdout. An
+        # unreadable body degrades to no body, the same as an unmirrored case.
+        transport = active_transport()
+        if transport is None:
+            return None
+        try:
+            return read_opinion_text(transport, case_id)
+        except Exception as exc:  # broad by design: a body read may not break a query
+            logger.warning("casestore: opinion body read failed (%s): %s", case_id, exc)
+            return None
 
 
 # --- dual-write sink registration ---------------------------------------------

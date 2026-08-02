@@ -10,25 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..paths import CasePaths
 from ..schemas import Prediction
 from ..serialize import read_model
-
-
-def prediction_targets(
-    data_root: Path,
-    court_id: str,
-    docket_id: int,
-    event_id: str,
-    predictor_id: str,
-    run_id: str,
-) -> tuple[Path, Path]:
-    """Return ``(prediction.json, reasoning.md)`` paths an agent should write."""
-    event = CasePaths(data_root, court_id, docket_id).event(event_id)
-    return (
-        event.prediction(predictor_id, run_id),
-        event.reasoning(predictor_id, run_id),
-    )
 
 
 def validate_prediction(path: Path) -> Prediction:

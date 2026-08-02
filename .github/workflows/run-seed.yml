@@ -1,7 +1,7 @@
 name: run-seed
 
-# The historical Term walker (docs/live-sources.md), split out of run-pull so
-# the backfill runs on its own schedule instead of a single buried daily slot.
+# The historical Term walker (docs/live-sources.md). It carries the backfill on
+# its own schedule, separate from run-pull's forward windows.
 # It walks October Terms' docket serials newest-first over the supremecourt.gov
 # docket JSON and ingests the sampled decided set — every decided petition except
 # denials, which are systematically sampled per config/tracking.yaml's committed
@@ -12,23 +12,45 @@ name: run-seed
 # It is a corpus writer like run-pull's jobs, so it shares the repo-level
 # `corpus-write` concurrency group: the corpus is a single blob (pull → mutate →
 # push → commit corpus/corpus.db.ref to main), so only one writer runs at a time
-# regardless of workflow. The split does not change that — it decouples the
-# schedule. The windows sit in the dead zones between run-pull's forward windows
-# (`:17` pull, `:47` live) and yield the lock before the next one fires.
+# regardless of workflow. The windows sit in the dead zones between run-pull's
+# forward windows (`:17` pull, `:47` live) and yield the lock before the next
+# one fires.
 #
-# Simpler than the old in-run-pull job: each window is a bounded ~40-min chunk
-# that fits inside one App installation token's 1h life, so there is no
-# self-refreshing-token loop — one token up front covers the walk and the
-# trailing steps.
+# Each window is a bounded ~40-min chunk that fits inside one App installation
+# token's 1h life, so there is no self-refreshing-token loop — one token up
+# front covers the walk and the trailing steps.
 on:
   schedule:
-    # Four dead-zone windows/day (up from one), each after a pull and before the
-    # next live, so a chunk clears the lock before forward work needs it.
+    # Four dead-zone windows/day, each after a pull and before the next live,
+    # so a chunk clears the lock before forward work needs it.
     - cron: "31 2 * * *"
     - cron: "31 8 * * *"
     - cron: "31 14 * * *"
     - cron: "31 20 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      refresh_terms:
+        description: >-
+          Re-open past Terms before walking: space-separated two-digit October
+          Terms (e.g. "17 18 19"), or "all" for every configured Term. Leave
+          blank — the default, and what every scheduled run uses — to resume
+          normally. Clears the walk cursors so the Terms are re-covered from the
+          numbering base; re-walking adds through the corpus latches and deletes
+          nothing.
+        required: false
+        default: ""
+      refresh_streams:
+        description: >-
+          Which numbering stream the refresh re-opens. IFP is ~70% of the probe
+          cost and feeds no scored segment, so prefer paid when the goal is the
+          predicted population. Ignored when refresh_terms is blank.
+        required: false
+        default: historical-paid
+        type: choice
+        options:
+          - historical-paid
+          - historical-ifp
+          - both
 
 permissions: {}
 
@@ -46,10 +68,11 @@ jobs:
     # The checkpointed loop caps each chunk to its remaining LOOP_BUDGET_SECONDS
     # (--max-run-seconds), stopping itself at the soft budget; this hard cap is
     # the backstop headroom above it — setup + the final checkpoint + the
-    # trailing maintenance steps, NOT room for another chunk. A hit here means
-    # the walk overran and the run is cancelled; the guard job turns that into a
-    # loud escalation. Kept well under the App token's 1h life so one token
-    # covers the whole run.
+    # trailing maintenance steps, NOT room for another chunk. A hit here cancels
+    # the run, and the guard job turns that into a loud escalation naming the
+    # step that stopped it — usually the walk overrunning, but a job can also be
+    # killed here while still in setup, which is a different problem. Kept well
+    # under the App token's 1h life so one token covers the whole run.
     timeout-minutes: 55
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
@@ -64,9 +87,9 @@ jobs:
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       # One token up front: a ≤40-min walk plus the trailing steps stay inside
-      # its 1h life, so unlike the old run-pull historical job there is no mid-loop
-      # re-mint. Scoped to contents:write only (the corpus pushes) — progress goes
-      # to the Actions step summary, not an issue, so no issues:write is needed;
+      # its 1h life, so no mid-loop re-mint is needed. Scoped to contents:write
+      # only (the corpus pushes) — progress goes to the Actions step summary,
+      # not an issue, so no issues:write is needed;
       # the guard job files its escalation on the ambient token instead.
       - name: Mint app token
         id: app-token
@@ -112,6 +135,13 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
           role-duration-seconds: 3600 # 1h
+          # Bound the assume-role wall clock: unbounded, its 12 retries over a
+          # multi-minute connect timeout outlast every job budget here (see the
+          # workflow-traps list in docs/pipeline.md). Note the cost this buys —
+          # the action does not clear its timer on the error path, so ANY failing
+          # assume-role now burns the full 120s and ends on "Action timed out"
+          # rather than its own message; the real cause is earlier in the log.
+          action-timeout-s: 120
 
       - name: Pull the current corpus from the remote
         env:
@@ -121,6 +151,34 @@ jobs:
           # prior corpus state, so it must be restored; a first run has no
           # committed pointer yet — warn and start fresh. Checksum-verified.
           uv run fedcourts corpus-pull --missing-pointer warn
+
+      - name: Re-open the requested Terms for a full re-walk
+        # Dispatch-only and blank by default, so a scheduled window can never
+        # reset a cursor. Runs after the pull and before the loop, under the
+        # shared corpus-write lock, so the reset and the re-walk it implies are
+        # one serialized operation rather than a local edit racing a cron window.
+        # The mutation reaches the remote only through the loop's checkpoint
+        # push, so a failure before the first checkpoint leaves the cursors
+        # untouched upstream — it fails closed.
+        if: inputs.refresh_terms != ''
+        env:
+          REFRESH_TERMS: ${{ inputs.refresh_terms }}
+          REFRESH_STREAMS: ${{ inputs.refresh_streams }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$REFRESH_TERMS" != "all" ]; then
+            for t in $REFRESH_TERMS; do
+              case "$t" in
+                [0-9][0-9]) args+=(--term "$t") ;;
+                *) echo "::error::refresh_terms must be two-digit Terms or 'all'; got '$t'"; exit 1 ;;
+              esac
+            done
+          fi
+          if [ "$REFRESH_STREAMS" != "both" ]; then
+            args+=(--stream "$REFRESH_STREAMS")
+          fi
+          uv run fedcourts refresh-historical "${args[@]}" --apply
 
       - name: Walk the Terms in checkpointed chunks until done or out of time
         env:
@@ -219,6 +277,39 @@ jobs:
           PY
           cat historical-summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      # Merge and drop the live-minted duplicate SCOTUS rows on the now-current
+      # corpus, before the scope reconcile so the latch pass always weighs the
+      # deduped rows. A standing sweep of the one-petition-one-row invariant
+      # across the id ranges: any docket-number spelling that defeats the
+      # channels' identity join leaves this pair shape, and the sweep merges it
+      # away on the next window. Idempotent — a clean corpus finds nothing and
+      # persists nothing — so riding every gated window is safe. Same
+      # one-window/day gate and NON-BLOCKING contract as the reconcile below.
+      - name: Dedupe live-minted duplicate rows
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to dedupe.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping dedupe"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts dedupe-live-rows --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "No duplicate pairs to persist."
+            exit 0
+          fi
+          git commit -m "seed: dedupe live-minted duplicate rows"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "dedupe pointer"
+
       # Reconcile predict scope on the now-current corpus: latch the out-of-scope
       # cases so `open_events` drops them at the source, and clear the latch on any
       # back in scope. Gated to one window/day (02:31) so the sweep keeps its
@@ -261,23 +352,25 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
   # Safety net for the walker. Its own summary step cannot run when the job is
-  # cancelled — e.g. the hard timeout-minutes kill, or an OOM — so a cancelled or
-  # failed walk would otherwise pass silently (it commits directly to main; there
-  # is no PR gate to redden). This job DEPENDS on seed but is not cancelled with
-  # it, so it can read the result and raise ONE long-lived escalation issue — and
-  # clear it when a later walk finishes clean. Mirrors run-ops' escalation idiom.
+  # cancelled — the hard timeout-minutes kill, an OOM, or a setup step that hangs
+  # until the budget is gone — so a cancelled or failed run would otherwise pass
+  # silently (it commits directly to main; there is no PR gate to redden). This
+  # job DEPENDS on seed but is not cancelled with it, so it can read the result,
+  # name the step that stopped the run, and raise ONE long-lived escalation issue
+  # — clearing it when a later walk finishes clean. Mirrors run-ops' idiom.
   guard:
     needs: [seed]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # This job only reads the needs result and writes a NON-triggering issue — no
-    # checkout, no corpus, no contents. Per docs/security.md that is exactly the
-    # ambient-GITHUB_TOKEN-with-job-scoped-issues:write case; the data App token is
-    # reserved for the contents:write the walker's own steps need, and deliberately
-    # does NOT carry issue-write.
+    # This job reads the needs result plus the run's own step outcomes, and writes
+    # a NON-triggering issue — no checkout, no corpus, no contents. Per
+    # docs/security.md that is exactly the ambient-GITHUB_TOKEN case; the data App
+    # token is reserved for the contents:write the walker's own steps need, and
+    # deliberately does NOT carry issue-write.
     permissions:
       issues: write
+      actions: read # this run's job list (repo-wide read; the guard runs no agent code)
     steps:
       - name: Escalate a cancelled or failed seed walk
         env:
@@ -303,7 +396,25 @@ jobs:
             fi
             exit 0
           fi
-          body="⚠️ The seed (historical) walk ended \`${RESULT}\` — it commits directly to main with no PR gate, so this needs a look: ${RUN_URL}"
+          # Name the step that actually stopped the run. `cancelled` is ambiguous
+          # on its own — it covers a walk that overran the job budget AND a job
+          # killed while still in setup, which are different problems with
+          # different fixes. The run's own job list distinguishes them, and
+          # getting it wrong sends triage at the walker when the walk never ran.
+          # Keyed on the job id `seed` (the job declares no `name:`); giving it
+          # one would degrade this to the unnamed branch below, never break it.
+          # A failed lookup only costs the step name, so it stays non-fatal — but
+          # it is NOT silenced, so a 403/404 is in the log for whoever triages.
+          step=$(gh api "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+            --jq '[.jobs[] | select(.name == "seed") | .steps[]
+                   | select(.conclusion != "success" and .conclusion != "skipped")][0].name' \
+            || true)
+          if [ -n "$step" ] && [ "$step" != "null" ]; then
+            where="stopped at step \`${step}\`"
+          else
+            where="stopped before any step reported"
+          fi
+          body="⚠️ The seed (historical) run ended \`${RESULT}\` — ${where}. It commits directly to main with no PR gate, so this needs a look: ${RUN_URL}"
           if [ -n "$num" ]; then
             gh issue comment "$num" --repo "$REPO" --body "$body"
           else

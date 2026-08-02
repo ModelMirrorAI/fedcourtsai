@@ -69,6 +69,7 @@ source.
 | `panel`               | json array      | structured panel: `{name, seniority}` per judge |
 | `parties`             | json array      | party names on the docket                     |
 | `attorneys`           | json array      | attorney names of record                      |
+| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only |
 | `topic`               | text            | nature of suit / subject-matter topic         |
 | `citations`           | json array      |                                              |
 | `citation_count`      | integer         | times the decision has been cited            |
@@ -87,13 +88,35 @@ source.
 | `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty; the sampling interval for a walker-kept denial); null = no channel asserted a weight |
+| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty, which is every row the walk now writes; 10 on a denial kept by the earlier sampled walk); null = no channel asserted a weight |
+| `application_kind`    | text            | what an interim application asks for (`extension` / `substantive` / `unknown`); null = never application-parsed |
+| `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
+| `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
+| `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
-The multi-valued sibling facts (`panel`, `parties`, `attorneys`) are filled by
-whichever channel carries them; a bulk-shaped source supplies them through the
-shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`.
+`counsel` stands to `parties`/`attorneys` as `panel` stands to `judges`, and it
+carries the one fact the flat lists cannot: which side each name appears for. The
+flat lists are deduplicated and sorted, so an attorney's side is unrecoverable
+from them — and the side is what separates opposite signals. The Solicitor
+General appears as counsel for the *respondent* on a large share of criminal
+petitions, opposing certiorari; "the United States is the petitioner" is a
+different fact.
+
+The role also separates a stable fact from a moving one. The `petitioner` and
+`respondent` blocks are fixed when the petition is docketed and do not move as
+the docket progresses — unlike `distribution_count` and `cvsg_date` they are
+arrival-time, which is what makes them usable in a prospective score. `other` is
+the opposite: it accumulates amici over the docket's life and overwhelmingly
+after a grant, so counting it on a decided docket is a grant oracle. The flat
+`attorneys` list mixes the two with nothing to tell them apart.
+
+The multi-valued sibling facts (`panel`, `parties`, `attorneys`, `counsel`) are
+filled by whichever channel carries them; a bulk-shaped source supplies them
+through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. The
+CourtListener REST path reports no side, so `counsel` is empty there, exactly as
+`seniority` is.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
@@ -107,10 +130,22 @@ the supremecourt.gov channel; every other writer preserves the stored values
 (fill-in latches, except `distribution_count`, which max-latches — proceedings
 are append-only, so the count only grows). `distribution_count` doubles as the
 family's parse-coverage sentinel: null means the proceedings were never
-live-parsed, 0 asserts *parsed and never distributed*. `sample_weight` is
+live-parsed, 0 asserts *parsed and never distributed*. The interim-application
+family (`application_kind`, `response_requested`, `referred_to_court`,
+`amicus_briefs`) is the same shape for the live channel's application branch:
+supplied only there, null everywhere else (the never-application-parsed
+sentinel, with `application_kind` playing `distribution_count`'s coverage
+role). The three escalation signals max-latch — each is monotone over an
+application's life, so a degraded parse's confident 0 never regresses a stored
+value — and `application_kind` gets the TEXT twin of that latch: a real reading
+(`extension` / `substantive`) is never wiped by a degraded parse's confident
+`unknown`, which only ever fills a genuine gap. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
-so a weighted aggregate can multiply by it and count a walker-sampled denial at
-full strength; null means no channel asserted a weight.
+so a weighted aggregate can multiply by it and count a denial the earlier
+sampled walk kept at full strength; null means no channel asserted a weight. The
+walk now keeps every decided petition, so the weight it writes is always 1 and
+the column's remaining job is to keep those legacy rows honest until a re-walk
+re-serves them.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so

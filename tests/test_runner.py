@@ -7,13 +7,14 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import date
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.paths import CasePaths
+from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.runner import (
     ClaudeCodeRunner,
     CodexRunner,
@@ -28,6 +29,7 @@ from fedcourtsai.pipeline.runner import (
     _run_subprocess,
     get_runner,
 )
+from fedcourtsai.process_version import ENGINE_RETRIEVAL
 from fedcourtsai.schemas import (
     Disposition,
     Engine,
@@ -82,6 +84,17 @@ def _predict_request(data_root: Path, *, run: str = RUN, actor: str = PREDICTOR)
         run_id=run,
         prompt=Path(".github/prompts/predict.md"),
         data_root=data_root,
+    )
+
+
+def _predict_artifacts(events: EventPaths, actor: str = PREDICTOR) -> list[Path]:
+    """The three documents a predict cell leaves, in the sorted order runners report."""
+    return sorted(
+        [
+            events.prediction(actor, RUN),
+            events.reasoning(actor, RUN),
+            events.predicted_reasoning(actor, RUN),
+        ]
     )
 
 
@@ -153,7 +166,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = ClaudeCodeRunner(command_runner=recorder)
 
-    # The agent "writes" the prediction pair the runner then reports.
+    # The agent "writes" the prediction documents the runner then reports.
     request = _predict_request(tmp_path / "data")
     StubRunner().run(request)
     written = runner.run(request)
@@ -177,7 +190,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_replay_request_exports_the_decided_before_clock(tmp_path: Path) -> None:
@@ -235,7 +248,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
     assert recorder.env["MODEL_ID"] == "gemini-3.1-pro-preview"
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:
@@ -250,7 +263,7 @@ def test_missing_binary_raises_engine_unavailable() -> None:
         _run_subprocess(["fedcourts-no-such-binary-xyz"], {})
 
 
-# --- transient-retry-with-backoff (issue #788 part 1) --------------------------
+# --- transient-retry-with-backoff --------------------------
 #
 # A cell that fails on a transient fault (429 / quota / 5xx / timeout) is retried
 # with exponential backoff + jitter; a permanent fault (content filter, context
@@ -289,7 +302,7 @@ def test_transient_failure_retries_then_succeeds(tmp_path: Path) -> None:
     assert seq.calls == 2  # failed once (transient), retried, succeeded
     assert len(sleeps) == 1  # exactly one backoff wait between the two tries
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_permanent_failure_is_not_retried(tmp_path: Path) -> None:
@@ -427,13 +440,13 @@ def test_backoff_delay_prefers_a_capped_retry_after() -> None:
 # --- predict -------------------------------------------------------------------
 
 
-def test_predict_writes_a_schema_valid_prediction_pair(tmp_path: Path) -> None:
+def test_predict_writes_the_schema_valid_prediction_documents(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     events = CasePaths(data_root, COURT, DOCKET).event(EVENT)
 
     written = StubRunner().run(_predict_request(data_root))
 
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
     assert all(p.is_file() for p in written)
 
     prediction = read_model(events.prediction(PREDICTOR, RUN), Prediction)
@@ -449,6 +462,25 @@ def test_predict_writes_a_schema_valid_prediction_pair(tmp_path: Path) -> None:
         f"data/cases/{COURT}/{DOCKET}/record/snapshots/2026-06-28.json"
     )
     assert events.reasoning(PREDICTOR, RUN).read_text().endswith("\n")
+    # Both prose pointers name a document that is actually beside the prediction.
+    assert prediction.reasoning_doc == "reasoning.md"
+    assert prediction.predicted_reasoning_doc == "predicted_reasoning.md"
+    assert events.predicted_reasoning(PREDICTOR, RUN).read_text().endswith("\n")
+
+
+def test_predict_prose_documents_are_distinct(tmp_path: Path) -> None:
+    # The split's point: the forecast of the court's reasoning is its own document,
+    # not a copy of the predictor's rationale for its number.
+    data_root = tmp_path / "data"
+    events = CasePaths(data_root, COURT, DOCKET).event(EVENT)
+    StubRunner().run(_predict_request(data_root))
+
+    rationale = events.reasoning(PREDICTOR, RUN).read_text()
+    forecast = events.predicted_reasoning(PREDICTOR, RUN).read_text()
+    assert rationale != forecast
+    # The forecast speaks to what the court will do; the rationale to the number.
+    assert "Solicitor General" in forecast
+    assert "P(granted)" in rationale
 
 
 def test_predict_is_deterministic(tmp_path: Path) -> None:
@@ -581,15 +613,47 @@ def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
         assert recorder.env["COURT_ID"] == COURT
 
 
+def _codex_overrides(argv: list[str]) -> set[str]:
+    # Each `-c` carries its own value, so pair them off rather than indexing a
+    # single occurrence.
+    return {value for flag, value in pairwise(argv) if flag == "-c"}
+
+
 def test_codex_runner_grants_subprocess_network(tmp_path: Path) -> None:
     # The workspace-write sandbox denies network to spawned commands by
     # default; the runner mirrors the live codex step's grant so replay and
     # cascade cells can reach the corpus surface like the other engines.
     recorder = _Recorder()
     CodexRunner(command_runner=recorder).run(_predict_request(tmp_path / "data"))
-    flag = recorder.argv.index("-c")
-    assert recorder.argv[flag + 1] == "sandbox_workspace_write.network_access=true"
+    assert "sandbox_workspace_write.network_access=true" in _codex_overrides(recorder.argv)
     assert "workspace-write" in recorder.argv  # the sandbox mode itself stays on
+
+
+def test_codex_runner_selects_live_web_search(tmp_path: Path) -> None:
+    # `exec` has no `--search` flag and the default `cached` mode registers a
+    # search tool that cannot reach the open web, so the runner selects `live`
+    # through config: a codex cell that cannot reach the open web is scored on
+    # a smaller information set than claude and gemini. The mode is
+    # load-bearing — `web_search=true` parses but is discarded by the CLI.
+    recorder = _Recorder()
+    CodexRunner(command_runner=recorder).run(_predict_request(tmp_path / "data"))
+    assert "web_search=live" in _codex_overrides(recorder.argv)
+    assert recorder.argv.count("-c") == 2  # each override keeps its own flag
+
+
+def test_codex_retrieval_surface_matches_the_process_digest_declaration(tmp_path: Path) -> None:
+    # The digest hashes a declared capability list, so a change to what codex
+    # can reach must move it. If these drift apart, two different processes
+    # share one process version and the pre-registration record stops meaning
+    # what it says.
+    recorder = _Recorder()
+    CodexRunner(command_runner=recorder).run(_predict_request(tmp_path / "data"))
+    overrides = _codex_overrides(recorder.argv)
+    declared = ENGINE_RETRIEVAL["codex"]
+    assert ("web" in declared) == ("web_search=live" in overrides)
+    assert ("subprocess-network" in declared) == (
+        "sandbox_workspace_write.network_access=true" in overrides
+    )
 
 
 def test_codex_runner_logs_in_with_the_env_api_key_before_exec(

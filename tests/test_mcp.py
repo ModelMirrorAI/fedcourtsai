@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import (
-    _COURTLISTENER_MCP_SHIM,
+    _COURTLISTENER_MCP_HTTP_SHIM_TEMPLATE,
     claude_mcp_config,
     codex_mcp_config,
     gemini_mcp_settings,
@@ -25,7 +25,7 @@ runner = CliRunner()
 
 _SERVER = McpServerConfig(
     id="courtlistener",
-    package="courtlistener-api-client[mcp]==1.0.0",
+    package="courtlistener-api-client[mcp]==1.1.0",
     command="courtlistener-mcp",
     token_env="COURTLISTENER_API_TOKEN",
 )
@@ -54,37 +54,29 @@ def test_claude_config_pins_uvx_launch_and_injects_token(
     doc = json.loads(claude_mcp_config([_SERVER]))
     server = doc["mcpServers"]["courtlistener"]
     assert server["command"] == "uvx"
-    # The broken-release shim: same pinned package, launched through python -c,
-    # with an exact-pinned fakeredis for the in-process session store.
-    assert server["args"][:6] == [
-        "--with",
-        "fakeredis==2.36.2",
+    # stdio runs the release's own entry point: exact-pinned package, no shim,
+    # no extra dependency. Exact equality, so any future argv addition lands here.
+    assert server["args"] == [
         "--from",
-        "courtlistener-api-client[mcp]==1.0.0",
-        "python",
-        "-c",
+        "courtlistener-api-client[mcp]==1.1.0",
+        "courtlistener-mcp",
     ]
-    # Exact equality: the constant is the ONLY thing in the -c slot, so any
-    # future interpolation into the payload fails here.
-    assert server["args"][6] == _COURTLISTENER_MCP_SHIM
     assert server["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
 
 
-def test_courtlistener_shim_works_around_both_release_bugs() -> None:
-    # courtlistener-api-client 1.0.0 ships no mcp/assets directory (the entry
-    # point crashes at startup) and its search/call_endpoint tools require a
-    # Redis session store that stdio mode never configures (every retrieval
-    # call fails with "REDIS_URL is not set"). The shim must create the icon
-    # files and pre-seed the module-level redis client with fakeredis before
-    # handing over to the same main().
-    shim = _COURTLISTENER_MCP_SHIM
-    assert "favicon.svg" in shim
-    assert "apple-touch-icon.png" in shim
-    # The fakeredis pre-seed must land on the module global get_redis() reads,
-    # and must come before the server starts.
-    assert "utils.redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)" in shim
-    assert shim.index("redis_client") < shim.index("from courtlistener.mcp.server import main")
-    assert shim.rstrip().endswith("main()")
+def test_the_http_bypass_is_the_only_shim_and_stays_minimal() -> None:
+    # The pinned release's `create_http_app()` requires a Redis URL and forces
+    # its OAuth provider, so the sidecar builds the server itself instead. That
+    # bypass is the ONLY launch-time shim left: the stdio path runs the release's
+    # entry point directly (asserted above), and nothing pre-seeds a session
+    # store — the release falls back to an in-process TTL dict on its own.
+    shim = _COURTLISTENER_MCP_HTTP_SHIM_TEMPLATE.format(port=8378)
+    assert "create_mcp_server(auth=None)" in shim
+    assert "transport='http'" in shim and "port=8378" in shim
+    # No asset placeholders and no session-store patching: the release ships its
+    # icons and handles a missing Redis URL itself.
+    assert "favicon" not in shim
+    assert "redis" not in shim.lower()
     compile(shim, "<shim>", "exec")  # stays valid python
 
 
@@ -107,9 +99,12 @@ def test_codex_config_is_valid_toml_tables(monkeypatch: pytest.MonkeyPatch) -> N
     doc = tomllib.loads(codex_mcp_config([_SERVER]))
     table = doc["mcp_servers"]["courtlistener"]
     assert table["command"] == "uvx"
-    # The multi-line shim must round-trip byte-exact through the JSON-escaped
-    # TOML string (quotes, \x/\r\n byte escapes and all).
-    assert table["args"][-1] == _COURTLISTENER_MCP_SHIM
+    # The pinned launch must round-trip through the JSON-escaped TOML string.
+    assert table["args"] == [
+        "--from",
+        "courtlistener-api-client[mcp]==1.1.0",
+        "courtlistener-mcp",
+    ]
     assert table["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
 
 
@@ -122,7 +117,7 @@ def test_gemini_settings_merge_preserves_telemetry(monkeypatch: pytest.MonkeyPat
 
 
 def test_manifest_labels_are_pinned_attribution_strings() -> None:
-    assert manifest_labels([_SERVER]) == ["courtlistener=courtlistener-api-client[mcp]==1.0.0"]
+    assert manifest_labels([_SERVER]) == ["courtlistener=courtlistener-api-client[mcp]==1.1.0"]
 
 
 def test_mcp_config_cli_unknown_actor_exits_nonzero() -> None:
@@ -188,25 +183,26 @@ def test_http_sidecar_launch_builds_the_http_shim(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("COURTLISTENER_API_TOKEN", "tok-agent")
     command, args, env = http_sidecar_launch(_SERVER, port=8378)
     assert command == "uvx"
-    assert args[:4] == ["--with", "fakeredis==2.36.2", "--from", _SERVER.package]
+    assert args[:2] == ["--from", _SERVER.package]  # no extra dependency
     shim = args[-1]
     compile(shim, "<mcp-http-shim>", "exec")  # the inline program must parse
-    # The release-specific HTTP bypass: build the server directly (skipping
-    # create_http_app's hard REDIS_URL/OAuth requirements), preseed fakeredis,
+    # The release-specific HTTP bypass: build the server directly, skipping
+    # create_http_app's hard REDIS_URL requirement and its OAuth default, and
     # serve streamable HTTP on the loopback port.
     assert "create_mcp_server(auth=None)" in shim
     assert "transport='http'" in shim and "port=8378" in shim
-    assert shim.index("fakeredis") < shim.index("create_mcp_server")
     assert env["COURTLISTENER_API_TOKEN"] == "tok-agent"
     # The HMAC namespace key is set explicitly (a non-secret constant) to
     # quiet the release's insecure-default warning in the replayed cell log.
-    assert env["MCP_SECRET_KEY"] == "cell-local-fakeredis-namespace"
+    assert env["MCP_SECRET_KEY"] == "cell-local-session-namespace"
 
 
 def test_http_sidecar_launch_refuses_other_releases() -> None:
+    # The bypass reaches into the pinned release's internals, so an unpinned bump
+    # must fail loudly at launch rather than serve a server built the wrong way.
     other = McpServerConfig(
         id="courtlistener",
-        package="courtlistener-api-client[mcp]==1.1.0",
+        package="courtlistener-api-client[mcp]==2.0.0",
         command="courtlistener-mcp",
         token_env="COURTLISTENER_API_TOKEN",
     )

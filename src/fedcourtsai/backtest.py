@@ -8,6 +8,18 @@ the prediction against the known label. The result rolls up into
 ``metrics/backtest.json`` (git-tracked) so its reviewed diffs track predictor
 quality on history alongside the live leaderboard.
 
+Every entry carries the **always-deny floor** and the lift over it, per court and
+overall, because raw accuracy on this set is close to meaningless alone: a constant
+predictor scores its slice's base rate exactly, so a high accuracy here can be
+arithmetic rather than skill. The **per-court** cut is the one to read — the pooled
+figure is dominated by whichever court supplies the most resolved events, whose
+floor may be near zero, and it mixes outcome vocabularies (``granted`` is cert
+granted on a SCOTUS row, a motion granted on a circuit docket). Lift is therefore
+presentational: entries rank on accuracy then Brier, never on a pooled floor that
+spans those vocabularies. Skill against a leakage-safe, salience-adjusted baseline
+belongs to :mod:`fedcourtsai.cert_backtest`, scoped to the population actually
+predicted.
+
 The scoring half here is deterministic and offline — a pure function of the
 corpus, with no clock or randomness — so the same corpus always yields
 byte-identical output. The *predictor* half is a seam: a :class:`Backtester`
@@ -29,7 +41,7 @@ from typing import Protocol
 from . import corpus
 from .corpus import CorpusRow
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .schemas import Backtest, BacktestEntry, Disposition
+from .schemas import Backtest, BacktestCourtScore, BacktestEntry, Disposition
 
 # Brier scores are bounded in [0, 1]; a predictor that reported none sorts after
 # every one that did, without colliding with a real worst score (mirrors the
@@ -167,17 +179,32 @@ class PriorIndex:
 
     :func:`corpus.retrieve_priors` scans and scores its court's resolved rows on
     **every call**; replayed once per back-test trial that is O(trials x resolved
-    rows) and cannot finish over the full corpus. This index makes the same
-    retrieval O(1)-ish per trial: one pass over the resolved slice builds, per
+    rows) and cannot finish over the full corpus. This index removes the
+    per-trial SQL scan and row hydration entirely — a trial costs one pass over
+    its court's in-memory candidate list, so a replay pays one resolved-slice
+    scan rather than one per trial. (That pass is linear in the court's history,
+    and an uncapped vote walks all of it, so a replay is quadratic in a single
+    court's resolved rows. Comfortable at today's SCOTUS slice; if that slice
+    grows an order of magnitude, the no-overlap branch wants cumulative
+    label-counts-by-year precomputed at build time, which makes it O(1).) One
+    pass over the resolved slice builds, per
     court, the candidate list in the zero-score rank order (most recent decision
     first, then ``case_id`` — :func:`corpus.recency_key`'s order) plus inverted
     judge/citation postings, and :meth:`top` reproduces ``retrieve_priors``'
-    semantics over the **disposition-labeled subset** of its results (overlap
-    filters required when given; rank by overlap score, then the candidate
-    order). The subset is deliberate: ``retrieve_priors`` also returns decided
-    rows whose disposition was never machine-labeled, but the prior-vote
-    baseline needs a label to vote with, so the index feeds from the labeled
-    slice only. Parity against that subset is pinned by tests.
+    semantics over the **votable subset** of its results (overlap filters
+    required when given; rank by overlap score, then the candidate order).
+
+    The subset is deliberate, and it is the same bar
+    :func:`select_backtest_set` applies to the scored set: a candidate must
+    carry a **machine-readable** disposition. That excludes two classes
+    ``retrieve_priors`` itself returns — rows never disposition-labeled (a
+    decision date closes a case without classifying it) and rows labeled
+    ``other`` (decided but unclassified). Both are unvotable for opposite
+    reasons: the first gives the baseline nothing to vote with, and the second
+    lets it vote for a label the scored set defines as unscoreable, so every
+    such prediction is wrong by construction. Keeping the pool and the scored
+    set on one bar is what makes the vote answerable. Parity against that
+    subset is pinned by tests.
     """
 
     def __init__(self) -> None:
@@ -191,6 +218,12 @@ class PriorIndex:
         rows_by_court: defaultdict[str, list[CorpusRow]] = defaultdict(list)
         for row in corpus.iter_rows(conn, resolved=True):
             if row.disposition is None:  # unreachable under resolved=True; narrows the type
+                continue
+            disposition = Disposition(row.disposition)
+            # The scored set's bar, applied to the pool it is scored against:
+            # `other` is decided-but-unclassified, so a vote for it can never be
+            # correct (see the class docstring).
+            if not is_machine_readable(disposition):
                 continue
             rows_by_court[row.court].append(row)
         index = cls()
@@ -223,11 +256,16 @@ class PriorIndex:
         court: str,
         judges: tuple[str, ...],
         citations: tuple[str, ...],
-        limit: int,
+        limit: int | None,
         *,
         decided_before: int | None = None,
     ) -> list[_PriorCandidate]:
         """Up to ``limit`` priors, most relevant first — ``retrieve_priors`` semantics.
+
+        ``limit`` of ``None`` returns every qualifying candidate, which is what a
+        base-rate estimator wants: the ranking below is a *relevance* order, so
+        truncating it samples the most recent decisions rather than the
+        population.
 
         Overlap filters are required when given (a candidate sharing no judge, or
         no citation, is skipped); rank is overlap score descending, then the
@@ -285,11 +323,30 @@ class PriorVoteBacktester:
     matching prior, so it always returns a prediction. Retrieval runs against a
     :class:`PriorIndex` built lazily on the first trial, so a full replay pays
     one resolved-slice scan rather than one per trial.
+
+    **It votes over the whole eligible history, uncapped** (``limit`` of
+    ``None``). This is a base-rate estimator, so a cap is the wrong shape: the
+    index ranks by relevance, which falls back to most-recent-decision order
+    when a trial shares no judge to overlap on, and truncating that order
+    samples recent decisions rather than the population. On a court whose
+    judges are largely unrecorded — SCOTUS — nearly every trial takes that
+    fallback, so a capped vote reads the most recent N decisions and inherits
+    their composition rather than the court's. Where judges *are* recorded the
+    overlap filter still does the selecting, and the uncap only widens the tail
+    it votes over.
+
+    **Read its SCOTUS number with that in mind.** Where the fallback dominates,
+    the vote is the whole-history majority, which on cert is ``denied`` for
+    every trial — so its disposition head duplicates the always-deny floor and
+    its lift is structurally ~zero on any SCOTUS-only set, including the
+    lift-ranked cert back-test. That is the honest reading of a court with no
+    judges to retrieve on, not a regression: the signal it still carries is
+    calibration, in P(granted) and the Brier score, not the label.
     """
 
     conn: sqlite3.Connection
     id: str = "prior-vote"
-    limit: int = corpus.DEFAULT_PRIOR_LIMIT
+    limit: int | None = None
     _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
@@ -328,26 +385,68 @@ def default_backtesters(conn: sqlite3.Connection) -> list[Backtester]:
     ]
 
 
+@dataclass
+class _Tally:
+    """Running scores for one predictor over one slice (a court, or the whole set)."""
+
+    n: int = 0
+    correct: int = 0
+    granted_correct: int = 0
+    brier_sum: float = 0.0
+    denied_actual: int = 0
+
+    def add(self, *, correct: bool, granted_correct: bool, brier: float, denied: bool) -> None:
+        self.n += 1
+        self.correct += correct
+        self.granted_correct += granted_correct
+        self.brier_sum += brier
+        self.denied_actual += denied
+
+    @property
+    def floor(self) -> float:
+        """The always-deny floor over this slice: the fraction whose label is `denied`.
+
+        The base rate a constant predictor scores exactly, and therefore the number
+        that says whether an accuracy is skill or arithmetic.
+        """
+        return self.denied_actual / self.n
+
+
 def _score_one(backtester: Backtester, items: list[BacktestItem]) -> BacktestEntry:
-    correct = 0
-    granted_correct = 0
-    brier_sum = 0.0
+    overall = _Tally()
+    per_court: dict[str, _Tally] = defaultdict(_Tally)
     for item in items:
         prediction = backtester.predict(item.features)
-        if prediction.predicted_disposition == item.actual_disposition:
-            correct += 1
         actual_granted = granted_flag(item.actual_disposition)
-        if granted_flag(prediction.predicted_disposition) == actual_granted:
-            granted_correct += 1
-        brier_sum += (prediction.probability_granted - actual_granted) ** 2
-    n = len(items)
+        scored = {
+            "correct": prediction.predicted_disposition == item.actual_disposition,
+            "granted_correct": granted_flag(prediction.predicted_disposition) == actual_granted,
+            "brier": (prediction.probability_granted - actual_granted) ** 2,
+            "denied": item.actual_disposition == Disposition.denied,
+        }
+        overall.add(**scored)  # type: ignore[arg-type]
+        per_court[item.features.court].add(**scored)  # type: ignore[arg-type]
     return BacktestEntry(
         predictor_id=backtester.id,
         rank=1,  # provisional; assigned after sorting
-        events_scored=n,
-        accuracy=correct / n,
-        granted_accuracy=granted_correct / n,
-        mean_brier_score=brier_sum / n,
+        events_scored=overall.n,
+        accuracy=overall.correct / overall.n,
+        granted_accuracy=overall.granted_correct / overall.n,
+        mean_brier_score=overall.brier_sum / overall.n,
+        always_denied_accuracy=overall.floor,
+        lift_over_always_denied=overall.correct / overall.n - overall.floor,
+        courts=[
+            BacktestCourtScore(
+                court=court,
+                events_scored=tally.n,
+                accuracy=tally.correct / tally.n,
+                granted_accuracy=tally.granted_correct / tally.n,
+                mean_brier_score=tally.brier_sum / tally.n,
+                always_denied_accuracy=tally.floor,
+                lift_over_always_denied=tally.correct / tally.n - tally.floor,
+            )
+            for court, tally in sorted(per_court.items())
+        ],
     )
 
 

@@ -7,18 +7,25 @@ name: run-analytics
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
 #                      question. Reads the corpus read-only via a full pull.
-#   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
-#                      backtest / statpack) and land any change as a **reviewed**
+#   - metrics-refresh: regenerate the committed deterministic artifacts
+#                      (leaderboard / backtest / statpack, plus the scope
+#                      manifest) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
+#   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
+#                      report (`fedcourts tool-usage`) — which configured MCP
+#                      tools cells actually call. Reads `data/` only, so unlike
+#                      its siblings it needs no corpus and no credential at all.
 #
-# The analysis mode is strictly read-only: it writes neither the corpus, `data/`,
-# the corpus remote, nor git, opens no PR, and files no issue — every result goes to the Actions
+# The analysis modes are strictly read-only: they write neither the corpus, `data/`,
+# the corpus remote, nor git, open no PR, and file no issue — every result goes to the Actions
 # step summary and the run log.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats holds only the read-only S3 role, and metrics-refresh alone
-# mints the dev App token (contents + PR write) to open its review PR.
+# corpus-stats holds only the read-only S3 role, metrics-refresh alone
+# mints the dev App token (contents + PR write) to open its review PR, and
+# tool-usage binds no environment and assumes no role — there is nothing for it
+# to reach.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -34,8 +41,9 @@ on:
         options:
           - corpus-stats
           - metrics-refresh
+          - tool-usage
         default: corpus-stats
-      # corpus-stats inputs (ignored by metrics-refresh). All are optional; an
+      # corpus-stats inputs (ignored by metrics-refresh and tool-usage). All are optional; an
       # empty value means "no filter" / "no grouping".
       court:
         description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts."
@@ -50,7 +58,7 @@ on:
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court. Empty = overall only."
+        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court / era / relist_bucket / cvsg / fee_class / salience_band. Empty = overall only."
         type: string
         default: ""
       term:
@@ -115,6 +123,32 @@ jobs:
             --group-by "$GROUP_BY" \
             --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
+
+  tool-usage:
+    # Which configured MCP tools cells actually call. Reads `data/` only — no
+    # corpus, no network, no credentials — so unlike the sibling jobs it binds
+    # no environment and assumes no role: there is nothing for it to reach.
+    if: ${{ inputs.mode == 'tool-usage' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: run-analytics-tool-usage
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Roll up offered-vs-called tool usage
+        run: |
+          set -euo pipefail
+          # Markdown to the step summary and to the run log. Writes nothing to
+          # git: this is a read of the committed ledger, not an artifact.
+          uv run fedcourts tool-usage --markdown-out "$GITHUB_STEP_SUMMARY"
 
   metrics-refresh:
     # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —
@@ -183,6 +217,14 @@ jobs:
           if [ -f corpus/corpus.db ]; then
             uv run fedcourts backtest
             uv run fedcourts statpack
+            # The scope manifest is the same kind of artifact — deterministic,
+            # offline, git-tracked, a pure function of the corpus plus the
+            # committed case tree. It publishes the salience decision for the
+            # public set, so when it drifts a claim in README.md stops being true,
+            # which is worse than a stale number. Corpus-gated with the others:
+            # without one it writes an empty `skipped` manifest, which would
+            # replace the real record.
+            uv run fedcourts scope-manifest
           fi
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
@@ -198,8 +240,8 @@ jobs:
           gh auth setup-git
           # Stage first, then diff the index: a plain `git diff` sees only tracked
           # files, so a future brand-new artifact under metrics/ would be missed.
-          git add -A metrics/
-          git diff --cached --name-only -- metrics/ > changed.txt
+          git add -A metrics/ data/scope/
+          git diff --cached --name-only -- metrics/ data/scope/ > changed.txt
           plan=$(uv run fedcourts metrics-refresh-plan --changed-file changed.txt \
             --run-id "$GITHUB_RUN_ID")
           if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then

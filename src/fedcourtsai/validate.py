@@ -18,8 +18,9 @@ Two layers of checks:
   snapshot, or whitespace-variant id is duplicated.
 * **referential integrity** — the cross-store checks nothing else does: every
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
-  event that exist in the corpus (no orphan judgments); and every evaluation
-  targets a predictor that actually produced a prediction for that event.
+  event that exist in the corpus (no orphan judgments); every evaluation
+  targets a predictor that actually produced a prediction for that event; and every
+  prose document a ``prediction.json`` names resolves to a file beside it.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -40,8 +41,10 @@ from datetime import date
 from pathlib import Path
 
 import yaml
+from pydantic import ValidationError
 
 from . import corpus
+from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     FILENAME_MODELS,
     CorpusCheck,
@@ -50,6 +53,7 @@ from .schemas import (
     Disposition,
     EventKind,
     LedgerValidation,
+    Prediction,
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
@@ -80,6 +84,7 @@ CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
+CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -275,10 +280,16 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     """Coded columns must hold values from their declared vocabulary.
 
     A case ``disposition`` (when set) must be a :class:`~fedcourtsai.schemas.Disposition`,
+    an ``application_kind`` (when set) an
+    :class:`~fedcourtsai.pipeline.interim_signals.ApplicationKind`,
     an event ``kind`` an :class:`~fedcourtsai.schemas.EventKind`, and every case and
-    event ``court`` one of the tracked courts. The pydantic enums enforce this at
-    write time, so a violation means a corpus rebuilt from a source that bypassed
-    them — defensive, like the duplicate check. The tracked-court half is skipped
+    event ``court`` one of the tracked courts. The pydantic enums enforce most of
+    this at write time, so a violation means a corpus rebuilt from a source that
+    bypassed them — defensive, like the duplicate check. ``application_kind`` is
+    typed as text on the row models, so this check is its only vocabulary
+    enforcement — and its storage latch compares the literal ``'unknown'``, so an
+    off-vocabulary value would latch as if it were a real reading. The
+    tracked-court half is skipped
     when no court set is supplied, keeping the verdict a pure function of its inputs.
     """
     checked = corpus.count(conn) + corpus.event_count(conn)
@@ -291,6 +302,16 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
         (*dispositions, _MAX_PROBLEMS),
     ):
         problems.append(f"case {r['case_id']!r} has unknown disposition {r['disposition']!r}")
+    application_kinds = sorted(k.value for k in ApplicationKind)
+    kind_values_ph = ", ".join("?" for _ in application_kinds)
+    for r in conn.execute(
+        f"SELECT case_id, application_kind FROM cases WHERE application_kind IS NOT NULL "
+        f"AND application_kind NOT IN ({kind_values_ph}) ORDER BY case_id LIMIT ?",
+        (*application_kinds, _MAX_PROBLEMS),
+    ):
+        problems.append(
+            f"case {r['case_id']!r} has unknown application_kind {r['application_kind']!r}"
+        )
     kinds = sorted(k.value for k in EventKind)
     kind_ph = ", ".join("?" for _ in kinds)
     for r in conn.execute(
@@ -469,6 +490,53 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
     return _check(CHECK_EVALUATION_TARGETS, problems, checked=checked)
 
 
+def check_prediction_docs(data_root: Path) -> CorpusCheck:
+    """Every prose document a prediction names must exist beside the prediction.
+
+    ``prediction.json`` points at its prose by filename — ``reasoning_doc`` (the
+    predictor's rationale for its numbers) and ``predicted_reasoning_doc`` (its
+    forecast of the court's reasoning). Schema conformance only checks the pointer
+    is a string, so a cell that names a document it never wrote passes ``validate``
+    with a dangling pointer, and every later reader — an evaluator, a scorer — finds
+    nothing where the prediction promised prose. This check resolves the pointers.
+
+    A pointer must also be a plain filename in the prediction's own directory: a
+    document named through a separator or ``..`` would reach outside the cell's lane,
+    so it is flagged rather than followed.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/predictions/*/*/prediction.json"):
+        # Parsed through the model so an omitted `reasoning_doc` resolves to its
+        # declared default rather than reading as "no document named". A file that
+        # does not parse is `validate_ledger`'s concern (schema law), so it is
+        # skipped here rather than double-reported.
+        try:
+            prediction = Prediction.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        for field_name, doc in (
+            ("reasoning_doc", prediction.reasoning_doc),
+            ("predicted_reasoning_doc", prediction.predicted_reasoning_doc),
+        ):
+            if doc is None:
+                continue
+            checked += 1
+            if not doc or Path(doc).name != doc or doc in (".", ".."):
+                problems.append(
+                    f"prediction {path}: {field_name} {doc!r} is not a plain filename "
+                    "beside the prediction"
+                )
+            elif (path.parent / doc).is_symlink():
+                problems.append(
+                    f"prediction {path}: {field_name} {doc!r} is a symlink; a "
+                    "document must be a real file in the cell's own directory"
+                )
+            elif not (path.parent / doc).is_file():
+                problems.append(f"prediction {path}: {field_name} {doc!r} does not exist")
+    return _check(CHECK_PREDICTION_DOCS, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -525,11 +593,16 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     """The git-only referential checks the PR gate runs (no corpus, no network).
 
     The subset of layer-C checks that need only the git ledger under ``data/``:
-    every judgment references an event defined in git, and every evaluation targets
-    a prediction that exists. The corpus-dependent referential checks (which need
+    every judgment references an event defined in git, every evaluation targets
+    a prediction that exists, and every prose document a prediction names is there.
+    The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
-    return [check_ledger_events_in_git(data_root), check_evaluation_targets(data_root)]
+    return [
+        check_ledger_events_in_git(data_root),
+        check_evaluation_targets(data_root),
+        check_prediction_docs(data_root),
+    ]
 
 
 # --- orchestration -------------------------------------------------------------
@@ -554,6 +627,7 @@ def _run_checks(
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
+        check_prediction_docs(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

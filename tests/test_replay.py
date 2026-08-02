@@ -61,7 +61,7 @@ def test_replay_predict_keeps_the_forecast_and_rebinds_identity(tmp_path: Path) 
     # The recorded forecast is kept verbatim...
     assert prediction.probability == _RECORDED_PROBABILITY
     assert prediction.predicted_disposition == Disposition.granted
-    assert [v.judge for v in prediction.votes] == ["berzon", "smith"]
+    assert [v.justice for v in prediction.votes] == ["berzon", "smith"]
     # ...while the cell identity is rebound to the request (here a different actor).
     assert prediction.predictor_id == "codex-baseline"
     assert prediction.case_id == "ca9/101"

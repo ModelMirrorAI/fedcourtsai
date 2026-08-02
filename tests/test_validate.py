@@ -1,5 +1,6 @@
 """Corpus-integrity + referential validation: the checks, the library, and the CLI."""
 
+import json
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     CellFailure,
+    CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
@@ -34,6 +36,7 @@ from fedcourtsai.validate import (
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
     CHECK_NO_DUPLICATES,
+    CHECK_PREDICTION_DOCS,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
     CHECK_SNAPSHOT_NOT_FUTURE,
@@ -242,21 +245,43 @@ def _write_outcome(data_root: Path, court: str, docket: int, event: str) -> Path
     return ep.outcome
 
 
-def _write_prediction(data_root: Path, court: str, docket: int, event: str, predictor: str) -> None:
+def _write_prediction(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event: str,
+    predictor: str,
+    *,
+    forecast: bool = True,
+    docs: bool = True,
+) -> Prediction:
+    """A prediction with the prose documents its pointers name.
+
+    ``forecast`` controls whether it names a ``predicted_reasoning.md`` at all (a
+    prediction that names none is a valid shape); ``docs`` writes only the JSON, for
+    the dangling-pointer case.
+    """
     ep = CasePaths(data_root, court, docket).event(event)
+    run = "2026-01-01T00-00-00Z"
     prediction = Prediction(
         case_id=f"{court}/{docket}",
         event_id=event,
         predictor_id=predictor,
         engine=Engine.claude_code,
-        run_id="2026-01-01T00-00-00Z",
+        run_id=run,
         created_at=datetime(2026, 1, 1),
         input_snapshot="record/snapshots/2026-01-01.json",
         granted=1,
         probability=0.9,
         predicted_disposition=Disposition.granted,
+        predicted_reasoning_doc="predicted_reasoning.md" if forecast else None,
     )
-    write_json(ep.prediction(predictor, "2026-01-01T00-00-00Z"), prediction)
+    write_json(ep.prediction(predictor, run), prediction)
+    if docs:
+        ep.reasoning(predictor, run).write_text("why this number\n")
+        if forecast:
+            ep.predicted_reasoning(predictor, run).write_text("what the court will do\n")
+    return prediction
 
 
 def _write_evaluation(
@@ -477,6 +502,20 @@ def test_unknown_disposition_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is False
 
 
+def test_unknown_application_kind_fails(tmp_path: Path) -> None:
+    # `application_kind` is typed as text on the row models (no enum at write
+    # time) and its storage latch compares the literal 'unknown', so this check
+    # is the only vocabulary enforcement it gets.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET application_kind = 'Unknown' WHERE case_id = 'ca9/1'")
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is False
+
+
 def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_corpus(db)  # corpus court is ca9
@@ -603,8 +642,111 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     _write_evaluation(data_root, "ca9", 1, "evt-motion-stay", "p1", "e1")
     checks = run_ledger_referential_checks(data_root)
     names = {c.name for c in checks}
-    assert names == {CHECK_LEDGER_EVENTS_IN_GIT, CHECK_EVALUATION_TARGETS}
+    assert names == {CHECK_LEDGER_EVENTS_IN_GIT, CHECK_EVALUATION_TARGETS, CHECK_PREDICTION_DOCS}
     assert all(c.passed for c in checks)
+
+
+# --- C: a prediction's prose pointers resolve ---------------------------------
+
+
+def _docs_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_PREDICTION_DOCS
+    )
+
+
+def test_prediction_naming_a_document_it_never_wrote_fails(tmp_path: Path) -> None:
+    # The pointer is the whole value of the field: a prediction that names prose it
+    # did not write leaves every later reader nothing to read.
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", docs=False)
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("reasoning_doc 'reasoning.md' does not exist" in p for p in check.problems)
+    assert any("predicted_reasoning_doc" in p for p in check.problems)
+
+
+def test_a_record_written_before_the_field_existed_still_resolves(tmp_path: Path) -> None:
+    """The real backward-compatibility shape: the key is **absent**, not null.
+
+    Every committed prediction predates `predicted_reasoning_doc`, so its payload
+    has no such key at all — and `reasoning_doc` is likewise often absent and
+    resolved from its default. Writing an explicit `null` is a different payload
+    and does not exercise this: with an explicit null the whole suite stays green
+    even if the forecast field gains a non-None default, while `validate data`
+    fails on every committed record. So this test reads a payload with both keys
+    omitted, which is the only shape that catches that.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    run = "2026-01-01T00-00-00Z"
+    directory = CasePaths(data_root, "ca9", 1).event("evt-motion-stay").prediction_dir("p1", run)
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "1.0",
+        "case_id": "ca9/1",
+        "event_id": "evt-motion-stay",
+        "predictor_id": "p1",
+        "run_id": run,
+        "created_at": "2026-01-01T00:00:00Z",
+        "engine": "claude-code",
+        "granted": 0,
+        "probability": 0.1,
+        "predicted_disposition": "denied",
+        "input_snapshot": "record/snapshots/2026-01-01.json",
+    }
+    assert "reasoning_doc" not in payload and "predicted_reasoning_doc" not in payload
+    (directory / "prediction.json").write_text(json.dumps(payload) + "\n")
+    (directory / "reasoning.md").write_text("rationale\n")
+
+    parsed = Prediction.model_validate(payload)
+    assert parsed.reasoning_doc == "reasoning.md"  # resolved from its default
+    assert parsed.predicted_reasoning_doc is None  # absent, not merely null
+
+    check = _docs_check(data_root)
+    assert check.passed
+    assert check.checked == 1  # the defaulted rationale pointer only
+
+
+def test_prediction_without_a_forecast_document_passes(tmp_path: Path) -> None:
+    # `predicted_reasoning_doc` is optional: a prediction that names no forecast
+    # document is a valid cell, and nothing is checked for it.
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    prediction = _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=False)
+    assert prediction.predicted_reasoning_doc is None
+    check = _docs_check(data_root)
+    assert check.passed
+    assert check.checked == 1  # the rationale pointer only
+
+
+def test_prediction_document_pointing_outside_its_directory_fails(tmp_path: Path) -> None:
+    # A pointer is a filename beside the prediction, never a path: following one out
+    # of the cell's own directory would read another agent's output.
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    path = (
+        CasePaths(data_root, "ca9", 1)
+        .event("evt-motion-stay")
+        .prediction("p1", "2026-01-01T00-00-00Z")
+    )
+    data = json.loads(path.read_text())
+    data["reasoning_doc"] = "../../other/reasoning.md"
+    path.write_text(json.dumps(data))
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("is not a plain filename" in p for p in check.problems)
+
+
+def test_validate_cli_reports_a_dangling_document_pointer(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", docs=False)
+    result = runner.invoke(app, ["validate", str(data_root)])
+    assert result.exit_code == 1
+    assert "reasoning.md" in result.output
 
 
 # --- corpus that does not open ------------------------------------------------

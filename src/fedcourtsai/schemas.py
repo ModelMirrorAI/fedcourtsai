@@ -58,9 +58,84 @@ class Disposition(StrEnum):
     denied = "denied"
     granted_in_part = "granted-in-part"
     gvr = "gvr"
+    summary_reversal = "summary-reversal"
     dismissed = "dismissed"
     withdrawn = "withdrawn"
     other = "other"
+
+
+#: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
+#: only statutory numbers in the decision model; every vote threshold is Court
+#: practice instead (``pipeline.aggregation``).
+SEATS = 9
+QUORUM = 6
+
+
+class VoteValue(StrEnum):
+    """How one Justice voted. Distinct from :class:`Disposition`, which is what the
+    *Court* did — a vocabulary with no member for joining a majority or dissenting,
+    and so unable to express a vote at all.
+
+    Spans every stage, because the model does: ``grant``/``deny`` are the cert and
+    interim vocabulary, the rest are merits. A vote that does not exist is not a
+    vote — ``recused`` and ``did_not_participate`` are recorded so the aggregation
+    denominator is legible, since a threshold counts *participating* Justices.
+    """
+
+    grant = "grant"
+    deny = "deny"
+    majority = "majority"
+    concur_in_judgment = "concur-in-judgment"
+    concur_in_part = "concur-in-part-dissent-in-part"
+    dissent = "dissent"
+    recused = "recused"
+    did_not_participate = "did-not-participate"
+
+
+class WritingRole(StrEnum):
+    """What a Justice wrote, if anything.
+
+    ``none`` is a real observation, not a gap: once an order list or an opinion is
+    final, every participating Justice is observed either to have written or not
+    to have. A record that simply does not address writing leaves the field null
+    instead, so silence is never read as an observed absence.
+
+    That asymmetry is what makes "does Justice j write here" forecastable where an
+    individual cert *vote* is not — a cert vote becomes public only when a Justice
+    chooses to note it, so the visible ones are selected on the outcome.
+
+    ``statement`` covers a statement respecting the denial of certiorari, which is
+    the commonest non-``none`` value at the cert stage.
+    """
+
+    none = "none"
+    majority = "majority"
+    plurality = "plurality"
+    concurrence = "concurrence"
+    concurrence_in_judgment = "concurrence-in-judgment"
+    dissent = "dissent"
+    statement = "statement"
+
+
+class Judgment(StrEnum):
+    """What the Court did to the judgment below — the **merits** axis.
+
+    Deliberately not members of :class:`Disposition`. A dismissal as improvidently
+    granted has no coherent value on the cert binary: certiorari *was* granted, and
+    the merits event resolved to nothing. Forcing it onto that axis would corrupt
+    the comparability anchor every grant-rate figure in this project rests on.
+
+    ``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the
+    same reason mootness practice does: scoring them as merits calls would
+    conflate a prediction about the law with one about the Court's housekeeping.
+    """
+
+    affirmed = "affirmed"
+    reversed = "reversed"
+    vacated = "vacated"
+    affirmed_in_part = "affirmed-in-part-reversed-in-part"
+    dig = "dismissed-as-improvidently-granted"
+    equally_divided = "affirmed-by-an-equally-divided-court"
 
 
 class EventKind(StrEnum):
@@ -68,6 +143,28 @@ class EventKind(StrEnum):
     petition = "petition"
     appeal = "appeal"
     order = "order"
+
+
+class Stage(StrEnum):
+    """Which decision standard governs an event — the parameter that selects an
+    aggregation rule (:mod:`fedcourtsai.pipeline.aggregation`) and an observation
+    mask (``docs/decision-model.md``).
+
+    Orthogonal to :class:`EventKind`, which names the *filing that opened* an
+    event. A merits decision is not a filing, so it is a stage rather than a
+    kind. Stage is also the within-SCOTUS analogue of a caution
+    ``metrics/README.md`` already carries across courts: ``granted`` denotes cert
+    on a petition and relief on a stay application, and carrying the stage in the
+    record says so where prose otherwise has to.
+
+    Where an event declares no stage the rule lookup yields nothing rather than
+    guessing — true of a circuit motion, which has no Supreme Court decision
+    standard at all.
+    """
+
+    cert = "cert"
+    interim = "interim"
+    merits = "merits"
 
 
 class GroupBy(StrEnum):
@@ -167,18 +264,69 @@ class PredictableEvent(_Strict):
     resolved: bool = False
 
 
-class JudgeVote(_Strict):
-    judge: str
-    vote: Disposition
+class JusticeVote(_Strict):
+    """One Justice's vote, and whether they wrote.
+
+    The vote is a :class:`VoteValue`, not a :class:`Disposition`: a disposition is
+    what the *Court* did, and has no member for joining a majority or dissenting.
+    """
+
+    justice: str = Field(description="The Justice's name, as the vote source spells it")
+    vote: VoteValue
+    writing: WritingRole | None = Field(
+        default=None,
+        description="What this Justice wrote. Null means not stated — the record "
+        "was written without addressing writing at all. `none` is the opposite: an "
+        "affirmative observation that this Justice wrote nothing, which is what a "
+        "final order list or opinion discloses about every participating Justice. "
+        "Defaulting to `none` would turn every silent record into that claim",
+    )
+
+
+class VoteProvenance(_Strict):
+    """Where a vote list came from, and how much of it is there.
+
+    **Presence carries meaning**, the discipline ``ResolutionSignals`` established.
+    Absent, nobody looked. Present with ``complete=false`` and two votes beside it,
+    exactly two are on the public record and the other seven genuinely are not —
+    which is the ordinary state at the cert stage, where a vote surfaces only when
+    a Justice notes it. Collapse that distinction and no import can restore it,
+    and no evaluator can tell an unobserved vote from an unrecorded one.
+
+    Scoped to the Supreme Court: the bounds below are its nine seats and its
+    six-Justice quorum, so this does not describe a circuit panel, which has
+    neither. Circuit events carry no vote record.
+
+    It sits beside the votes rather than containing them: ``votes`` is a committed
+    field on every outcome and these models reject unknown keys, so a block that
+    swallowed the list would fail every artifact already written.
+    """
+
+    source: str = Field(
+        description="Where the votes were read from, e.g. 'scdb:2024-001', "
+        "'order-list:2025-03-10', 'opinion'. Free text, because the sources are "
+        "not yet an enumerable set"
+    )
+    participating: int = Field(
+        ge=QUORUM,
+        le=SEATS,
+        description="Justices who took part — the aggregation denominator a "
+        "threshold counts against, which recusals move",
+    )
+    complete: bool = Field(
+        description="Whether every participating Justice's vote is present. False "
+        "means the rest are unobserved, NOT that they abstained"
+    )
 
 
 class ProcessVersion(_Strict):
     """Harness-written stamp of the process that produced a prediction/evaluation.
 
     Hybrid identity. ``digest`` is a content hash of the *actual* process inputs
-    — the prompt-template bytes plus the resolved registry config for this actor
-    (engine, resolved model, pinned MCP manifest) — so a silent prompt or config
-    change is automatically a distinct version. ``label`` is human-readable sugar
+    — the prompt-template bytes plus the resolved configuration for this actor
+    (engine, resolved model, pinned MCP manifest, and the engine's retrieval
+    surface) — so a silent prompt or config change is automatically a distinct
+    version. ``label`` is human-readable sugar
     for a digest. The frozen/shakedown partition keys on ``digest``, never the
     label, so two different processes cannot hide behind one label.
 
@@ -205,6 +353,95 @@ class ProcessVersion(_Strict):
     stamped_at: datetime = Field(description="When the harness stamped the cell (UTC)")
 
 
+class PredictionContext(_Strict):
+    """The conditioning state a predict cell actually ran against.
+
+    **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
+    prediction by ``stamp-cell``, exactly like ``process_version`` and
+    ``usage.json`` — never the agent's word. That matters here more than
+    elsewhere: ``input_snapshot`` is the agent's own string and is written four
+    different ways across the committed set, with some cells naming no path at
+    all, so it cannot carry a scoring input.
+
+    It exists because the salience band moves. ``distribution_count`` is
+    max-latched and a ``cvsg_date``, once set, stays set, so a petition's band
+    only ever strengthens — and a band re-derived at evaluation is the band the
+    petition *ended* at, not the one the cell faced. Scoring against that
+    conditions a forecast's baseline on its own future. Freezing the band here is
+    what lets the evaluator read the risk-set rate
+    (``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition
+    at this band actually faces.
+
+    Derived from the **provisioned snapshot payload**, not from the corpus row.
+    The row holds current values; the payload is what the cell could read, which
+    is the thing a baseline has to be conditioned on. It also makes the record
+    reproducible — an auditor re-parses the dated snapshot and recovers the same
+    band — and makes forward and replay cells identical by construction, since
+    both go through the same derivation.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    mode: str = Field(description="The cell's mode: forward or replay")
+    snapshot_date: date = Field(description="Date of the provisioned snapshot the cell read")
+    snapshot_provenance: Literal["as-stored", "dated", "truncated", "blind"] = Field(
+        default="as-stored",
+        description="How the provisioned snapshot was obtained. 'as-stored' is the "
+        "corpus payload unmodified, which is every forward cell. 'dated' is a "
+        "snapshot the docket really served at or before the replay cutoff — the "
+        "strongest point-in-time evidence, because it also reflects what had not "
+        "yet been filed. 'truncated' is a later payload with its post-cutoff "
+        "entries removed, which cannot know that a pre-cutoff entry was "
+        "back-filled later. 'blind' is neither: no forward moment could be "
+        "identified, so the proceedings were removed outright and the cell saw no "
+        "trajectory at all. Recorded so the three can be separated; a figure "
+        "pooling them is pooling three different information sets",
+    )
+    cutoff: date | None = Field(
+        default=None,
+        description="The instant this cell was placed at: entries filed strictly "
+        "before it are what the snapshot carries. Null on a forward cell, whose "
+        "snapshot is simply the latest. This is the date leakage is judged against "
+        "— material about this case dated at or after it postdates what the cell "
+        "was allowed to see, and no other recorded date stands in for it",
+    )
+    decided_before: str | None = Field(
+        default=None,
+        description="The replay clock: retrieval about this case must not postdate "
+        "it. Null on a forward cell, whose outcome does not exist yet",
+    )
+    signals_observable: bool = Field(
+        description="Whether the payload disclosed a proceedings list at all. False "
+        "means the docket-progress signals below are UNOBSERVABLE from what the cell "
+        "saw, not that they are zero — a redacted replay snapshot drops the "
+        "proceedings wholesale, and reading that absence as 'never distributed' "
+        "would invent a fact"
+    )
+    distribution_count: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct conferences the snapshot showed this petition distributed "
+        "for, as at provisioning; None when unobservable",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="CVSG invitation date the snapshot showed, or None for no CVSG — "
+        "ambiguous unless signals_observable is true",
+    )
+    band: str | None = Field(
+        default=None,
+        description="The sal-v1 salience band as at prediction, derived from the "
+        "signals above. None when they were unobservable, which is the honest "
+        "answer for a cell whose snapshot carried no proceedings — the evaluator "
+        "then falls back to the terminal band rather than guessing",
+    )
+    salience_version: str | None = Field(
+        default=None, description="Version of the scorer that produced band"
+    )
+    term: int | None = Field(
+        default=None, description="The case's October Term, the leakage guard's key"
+    )
+
+
 class Prediction(_Strict):
     """``prediction.json`` — one predictor's quantitative output for an event."""
 
@@ -224,7 +461,7 @@ class Prediction(_Strict):
     granted: int = Field(ge=0, le=1, description="Binary outcome prediction, 1=granted")
     probability: float = Field(ge=0.0, le=1.0, description="P(granted)")
     predicted_disposition: Disposition
-    votes: list[JudgeVote] = Field(default_factory=list)
+    votes: list[JusticeVote] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     big_case_score: float | None = Field(
         default=None,
@@ -242,11 +479,74 @@ class Prediction(_Strict):
         max_length=500,
         description="Optional one-line rationale for `big_case_score`; null if none",
     )
-    reasoning_doc: str = "reasoning.md"
+    reasoning_doc: str = Field(
+        default="reasoning.md",
+        description="Filename, beside this prediction, of the predictor's own "
+        "rationale for its numbers: why this probability, what in the snapshot "
+        "drove it, which base rates it consulted, where it is uncertain. "
+        "Self-justification — it resolves against nothing.",
+    )
+    predicted_reasoning_doc: str | None = Field(
+        default=None,
+        description="Filename, beside this prediction, of the forecast of the "
+        "*Court's* own reasoning — claims about the future that resolve against "
+        "the docket (relists, a CVSG, which question presented is taken, a "
+        "summary disposition). Distinct from `reasoning_doc`, which justifies the "
+        "number rather than predicting the Court. Optional (defaults None) so "
+        "records written before the field existed still validate.",
+    )
     process_version: ProcessVersion | None = Field(
         default=None,
         description="Harness-stamped process version (absent on shakedown cells "
         "written before the stamp existed); the frozen-headline partition key.",
+    )
+    context: PredictionContext | None = Field(
+        default=None,
+        description="The conditioning state this cell ran against, frozen at "
+        "provisioning. Harness-written like process_version — anything an agent "
+        "puts here is overwritten. Absent on predictions written before the block "
+        "existed, and on cells that ran without a provisioned snapshot.",
+    )
+
+
+class ResolutionSignals(_Strict):
+    """The docket-progress signals as at resolution, frozen into the outcome.
+
+    The corpus carries these as live-parsed columns, but a corpus column holds the
+    *current* value, not the value at any fixed moment. A forecast about them —
+    whether the petition would be relisted, whether the Court would call for the
+    Solicitor General's views — therefore has nothing immutable to resolve
+    against: re-scoring the same cell later reads a column that has moved on, and
+    a pre-registration record cannot rest on that. Copying them onto the outcome
+    at resolution fixes the *resolution* end of that comparison, and makes it
+    reproducible.
+
+    It is not sufficient on its own. These signals only ever grow, so a forecast
+    about them is a forecast about an increment, and an increment needs both ends
+    — the value as at prediction as well as as at resolution. Nothing committed
+    carries the prediction-time end today, so a claim resting on this block alone
+    can only be specified as an absolute level, which is trivially true wherever
+    the signal had already fired when the cell ran. See
+    ``docs/outcome-decomposition.md``.
+
+    The block is present only when the proceedings were live-parsed. That is the
+    same coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the
+    sentinel for the whole live-signal family, so where it is absent nothing here
+    was observed. Absent block means *not observed*; present block means observed,
+    and inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no
+    record — which is the distinction a claim has to be able to make.
+    """
+
+    distribution_count: int = Field(
+        ge=0,
+        description="Distinct conferences the petition was distributed for as at "
+        "resolution; relists are this minus one, floored at 0",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="Date the Court called for the Solicitor General's views, or "
+        "None for no CVSG — unambiguous here, because the block exists only where "
+        "the proceedings were parsed",
     )
 
 
@@ -259,7 +559,30 @@ class Outcome(_Strict):
     resolved_at: date
     actual_disposition: Disposition
     actual_granted: int = Field(ge=0, le=1)
-    votes: list[JudgeVote] = Field(default_factory=list)
+    votes: list[JusticeVote] = Field(default_factory=list)
+    signals: ResolutionSignals | None = Field(
+        default=None,
+        description="Docket-progress signals frozen as at resolution, fixing the "
+        "resolution end of a forecast about them rather than leaving it on a "
+        "corpus column that keeps moving. These signals only grow, so resolving "
+        "an increment also needs the value as at prediction, which nothing "
+        "committed carries. Absent on outcomes written before the block existed, "
+        "and on events whose proceedings were never live-parsed",
+    )
+    vote_provenance: VoteProvenance | None = Field(
+        default=None,
+        description="Where `votes` came from and how much of it is there. Absent "
+        "means nobody looked, which is the state of every outcome today; present "
+        "with complete=false means the missing votes are unobserved rather than "
+        "absent. Without it a short vote list cannot be told from an unexamined one",
+    )
+    judgment: Judgment | None = Field(
+        default=None,
+        description="What the Court did to the judgment below — the merits axis, "
+        "kept off the cert disposition vocabulary because a DIG has no coherent "
+        "value on the grant binary. Null on a cert-stage outcome, which has no "
+        "judgment to record",
+    )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
         default="standard",
@@ -379,10 +702,23 @@ class Evaluation(_Strict):
         le=1.0,
         description="The leakage-safe salience-segment base rate for this case — its "
         "sal-v1 band's grant rate pooled over statpack Terms strictly before the "
-        "case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive "
+        "case's Term. Which band, and therefore which of the two published rates, "
+        "is recorded in base_rate_basis below. The naive "
         "baseline the prediction's skill is scored against; null on offline evaluator "
         "outputs, when no prior-Term band data exists, and on records written before "
         "the field existed.",
+    )
+    base_rate_basis: Literal["risk_set", "terminal"] | None = Field(
+        default=None,
+        description="Which population segment_base_rate was taken over. 'risk_set' "
+        "pools across every petition that had REACHED the prediction's frozen band — "
+        "the population a live cell was actually in, and the right basis wherever the "
+        "prediction carries a frozen band. 'terminal' pools across petitions that "
+        "ENDED in the band derived from the row now, the fallback where no frozen "
+        "band exists (an older cell, or one whose snapshot disclosed no proceedings). "
+        "The two differ several-fold in the weak bands, so a skill score is only "
+        "comparable within one basis; absent on evaluations written before the "
+        "distinction existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,
@@ -630,6 +966,14 @@ class RetrievalLog(_Strict):
         default_factory=list,
         description="Pinned manifest entries the cell was configured with (id==version strings)",
     )
+    mcp_tools: list[str] = Field(
+        default_factory=list,
+        description="Tool names those pinned servers advertise — the cell's OFFERED set, "
+        "snapshotted from the manifest so an offered-vs-called comparison has a "
+        "denominator. `mcp_servers` names servers, not tools, so it cannot supply one. "
+        "Empty on records written before the field existed: offered-unknown, not "
+        "nothing-offered.",
+    )
     calls: list[RetrievalCall] = Field(
         default_factory=list,
         max_length=500,
@@ -670,6 +1014,43 @@ class LeaderboardStratum(_Strict):
     )
     mean_reasoning_quality: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"
+    )
+
+
+class EvaluatorAgreement(_Strict):
+    """How far one evaluator's big-case reads track the rest of the panel's.
+
+    The check on grader latitude. An evaluator with room to judge can be
+    systematically generous or strict, and nothing in a per-predictor score would
+    show it — the distortion is spread evenly across everyone that evaluator
+    scored. Comparing each grader against its peers is what makes it visible.
+
+    Computed **leave-one-out**: the evaluator's ordering against the mean of the
+    *other* evaluators' reads on the events they share. Including the evaluator in
+    the panel it is scored against would correlate it partly with itself, and with
+    a three-judge panel that self-term is a third of the comparison.
+
+    A rank correlation for the same reason the predictor-side agreement is one:
+    bigness is comparative, so what matters is whether two graders order cases the
+    same way, not whether they pick the same numbers. Read it with ``events``
+    beside it — with a panel this small and few shared events, tau-b is noisy, and
+    a single disagreement moves it far.
+    """
+
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b between this evaluator's big-case ordering and "
+        "the mean of the other evaluators' reads, over the events they share "
+        "(+1 = same order, -1 = reversed); null with fewer than 2 shared events, "
+        "or when every pair ties on one side",
+    )
+    events: int = Field(
+        default=0,
+        ge=0,
+        description="Events this evaluator and at least one peer both read — the "
+        "sample the correlation rests on, and small enough to matter",
     )
 
 
@@ -777,7 +1158,56 @@ class Leaderboard(_Strict):
     retrospective_evaluations: int = Field(
         default=0, ge=0, description="Evaluations of retrospective (leakage-suspect) cells"
     )
+    evaluator_agreement: dict[str, EvaluatorAgreement] = Field(
+        default_factory=dict,
+        description="Per evaluator, how far its big-case reads track the rest of "
+        "the panel's — the check on grader latitude, keyed by evaluator_id. "
+        "Orthogonal to the ranking and never part of it: it describes the judges, "
+        "not the competitors",
+    )
     entries: list[LeaderboardEntry] = Field(default_factory=list)
+
+
+class BacktestCourtScore(_Strict):
+    """One predictor's standings over a single court's slice of the back-test set.
+
+    The per-court cut exists because the pooled figure is not interpretable on its
+    own: ``granted`` means cert granted on a SCOTUS row and a motion granted on a
+    court-of-appeals docket, and each court carries its own outcome skew. Reading
+    accuracy against the court's own always-deny floor is what separates skill from
+    the base rate — a constant predictor scores the floor exactly, so a lift of zero
+    is the signal that it learned nothing.
+    """
+
+    court: str
+    events_scored: int = Field(ge=0, description="Events replayed for this predictor in this court")
+    accuracy: float = Field(
+        ge=0.0, le=1.0, description="Fraction whose predicted disposition matched the known label"
+    )
+    granted_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction whose binary granted/denied projection matched the outcome",
+    )
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+    always_denied_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="This court's always-deny floor — the fraction of its scored events whose "
+        "disposition is `denied`. The base rate that makes the accuracy above readable",
+    )
+    lift_over_always_denied: float = Field(
+        ge=-1.0,
+        le=1.0,
+        description="Disposition accuracy minus this court's always-deny floor. Zero means the "
+        "predictor matched the base rate and added nothing; the same convention the cert "
+        "back-test uses, so the two instruments are read the same way",
+    )
 
 
 class BacktestEntry(_Strict):
@@ -801,6 +1231,113 @@ class BacktestEntry(_Strict):
         ge=0.0,
         le=1.0,
         description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+    always_denied_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The always-deny floor over the whole scored set. Reported for context only: "
+        "the set spans courts whose `denied` labels are different acts, so this is a reference "
+        "point rather than a comparable skill baseline — read the per-court cut for that. `null` "
+        "on an artifact written before the floor was computed, like `mean_brier_score`",
+    )
+    lift_over_always_denied: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Disposition accuracy minus the pooled always-deny floor. Presentational: "
+        "entries rank on raw accuracy and Brier, not on this, because the pooled floor mixes "
+        "outcome vocabularies. `null` when the floor was not computed",
+    )
+    courts: list[BacktestCourtScore] = Field(
+        default_factory=list,
+        description="Per-court breakdown, court-id ordered — the grain at which the floor and "
+        "the lift are actually comparable",
+    )
+
+
+class ToolUsageEntry(_Strict):
+    """One MCP tool's offered-vs-called record, qualified ``<server>.<tool>``."""
+
+    tool: str = Field(description="Server-qualified tool name, e.g. `courtlistener.search`")
+    offered_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Cells whose manifest advertised this tool — the denominator. 0 means "
+        "no cell recorded it as offered, which on logs predating the offered-tools "
+        "record means unknown rather than not-offered",
+    )
+    called_cells: int = Field(
+        default=0, ge=0, description="Cells that called it at least once (not total calls)"
+    )
+    calls: int = Field(default=0, ge=0, description="Total invocations across every cell")
+    engines: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls per engine — a tool used by one engine and not another is "
+        "usually a prompt or sandbox difference, not a tool problem",
+    )
+    actors: dict[str, int] = Field(
+        default_factory=dict, description="Calls per predictor/evaluator id"
+    )
+
+
+class ToolUsage(_Strict):
+    """The offered-vs-called tool rollup over every committed retrieval log.
+
+    Answers which configured tools are actually earning their place. A zero in
+    ``calls`` means **never called** — not useless: the prompt may never mention
+    the tool, or a sandbox may have blocked it, and this data cannot separate
+    those from genuine uselessness. Read it beside ``offered_cells``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    logs: int = Field(default=0, ge=0, description="Retrieval logs rolled up")
+    logs_without_offered_record: int = Field(
+        default=0,
+        ge=0,
+        description="Logs carrying no `mcp_tools` (written before the field existed), so "
+        "they contribute calls but no offered denominator",
+    )
+    pins: dict[str, int] = Field(
+        default_factory=dict,
+        description="Logs per `<id>=<pinned package>` the cells actually ran under. Read it "
+        "beside `offered_now`: when they name different versions, the offered set is "
+        "today's and the calls are from an older server",
+    )
+    offered_now: list[str] = Field(
+        default_factory=list,
+        description="What the CURRENT manifest advertises, server-qualified. Supplies a "
+        "denominator for logs written before per-cell `mcp_tools` existed; a tool listed "
+        "here with no calls is genuinely never-called, while one called but absent here "
+        "ran under an older pin",
+    )
+    web_calls: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls to each engine's open-web tools, counted under that engine's own "
+        "tool names; a zero is not by itself evidence a cell chose not to search — check the "
+        "retrieval surface its process version records",
+    )
+    cells_with_mcp: int = Field(
+        default=0, ge=0, description="Cells that called at least one MCP tool"
+    )
+    cells_with_web: int = Field(
+        default=0, ge=0, description="Cells that reached the open web at least once"
+    )
+    web_without_mcp_by_engine: dict[str, int] = Field(
+        default_factory=dict,
+        description="Cells that searched the web and called NO MCP tool, per engine — the "
+        "MCP-gap signal. Suggestive, not proof: forward cells are explicitly allowed to "
+        "use public context, so this flags candidates to inspect, not failures",
+    )
+    entries: list[ToolUsageEntry] = Field(
+        default_factory=list,
+        description="Offered-but-never-called first, then by descending calls — the "
+        "actionable rows lead",
+    )
+    builtin_calls: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls to engine built-ins (shell, file IO, web search), counted "
+        "separately because they are not what the manifest offers",
     )
 
 
@@ -955,8 +1492,17 @@ class CertBacktest(_Strict):
 
     The standing instrument for vetting cert predictors and prompt changes:
     replay over a curated set of resolved modern discretionary-cert petitions
-    (outcome hidden — the replay provisions a redacted snapshot), scored against
-    the realized grant/deny. Produced by the maintainer-triggered
+    (outcome hidden — the replay provisions the docket as it stood before a
+    cutoff, with the decision-only fields redacted), scored against the realized
+    grant/deny.
+
+    **Its band mix is not the forward channel's.** One cell per petition, placed
+    at the *last* distribution before resolution, so the replay population sits in
+    stronger bands than the forward trigger produces — that fires on any
+    distribution transition, most often the first. So the always-deny floor here
+    is lower than the forward stratum's, and neither the top line nor the band mix
+    estimates forward performance. ``metrics/README.md``'s stratum rule bars the
+    pooled comparison regardless. Produced by the maintainer-triggered
     ``run-backtest`` workflow via ``fedcourts cert-backtest``
     (it spends tokens when agentic engines are replayed), never by a schedule.
     """
@@ -977,6 +1523,18 @@ class CertBacktest(_Strict):
         le=1.0,
         description="The always-deny floor's disposition accuracy over this set "
         "(the denial base rate every lift figure is measured against)",
+    )
+    provisioning: dict[str, int] = Field(
+        default_factory=dict,
+        description="How many replayed cells were provisioned under each "
+        "snapshot_provenance — 'dated' (a snapshot the docket really served before "
+        "the cutoff), 'truncated' (a later payload with its post-cutoff entries "
+        "removed), 'blind' (no forward moment identifiable, so no trajectory was "
+        "shown). These are three different information sets, and a figure over "
+        "their union is a figure over a mixture: a blind cell cannot observe its "
+        "own relist history at all, which is most of what a cert forecast turns "
+        "on. Read the mix before reading the scores. Empty on reports written "
+        "before the split existed",
     )
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 
@@ -1340,12 +1898,15 @@ class AnalyticsReport(_Strict):
 
 
 class StatPackSection(_Strict):
-    """One named base-rate breakdown in the statpack: a dimension and its buckets.
+    """One named base-rate breakdown: a dimension, its population, and its buckets.
 
-    ``court`` records the court filter the section was computed under (``None`` = all
-    courts), so the artifact is self-describing — e.g. a SCOTUS-only Term breakdown vs
-    an all-courts view. ``buckets`` is the per-group base-rate breakdown, most cases
-    first (the same shape ``fedcourts stats --group-by`` produces).
+    The section shape both published base-rate artifacts are built from —
+    :class:`StatPack` and :class:`DocketPack` — so a cut computed for both carries
+    identical scope flags in each. ``court`` records the court filter the section
+    was computed under (``None`` = all courts), so the artifact is self-describing
+    — e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the
+    per-group base-rate breakdown, most cases first (the same shape ``fedcourts
+    stats --group-by`` produces).
     """
 
     title: str = Field(description="Human title of the breakdown, e.g. 'Cases by court'")
@@ -1444,8 +2005,9 @@ class StatPackTermClass(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share (granted + gvr) of resolved; "
-        "None when nothing resolved",
+        description="Weighted grant-family (granted + gvr pooled) share of "
+        "resolved — pooled, so comparable across Terms where the `dispositions` "
+        "split is not; None when nothing resolved",
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,
@@ -1471,6 +2033,23 @@ class StatPackTermSegment(_Strict):
     replay cell reads only Terms strictly before its clock, so the rate never leaks
     the current Term. Estimates are sample-weighted (each row counted
     ``sample_weight`` times), matching the Term's other weighted cuts.
+
+    **Two rates, answering two different questions.** A band is monotone
+    non-decreasing over a petition's life — the distribution count is max-latched
+    and a CVSG date, once set, stays set — so a petition passes *through* the
+    weaker bands on its way to the one it ends in.
+
+    ``est_grant_rate`` conditions on the band a petition **ended** in. It is the
+    descriptive cut: of the petitions that finished at one distribution, how many
+    were granted.
+
+    ``prefix_est_grant_rate`` conditions on having **reached** the band, which is
+    the same event as "ended here or stronger". That is the forecast baseline,
+    because a cell is scored at the band it sat in when it ran, and from there the
+    petition may still relist. Conditioning a live forecast on the terminal rate
+    would ask it to beat a number computed with knowledge of its own future, and
+    understates the honest baseline several-fold in the weaker bands (the
+    strongest band has nothing above it, so the two coincide there exactly).
     """
 
     band: str = Field(
@@ -1489,8 +2068,34 @@ class StatPackTermSegment(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share (granted + gvr) of the band's resolved "
-        "rows — the segment base rate; None when nothing in the band resolved",
+        description="Weighted grant-family (granted + gvr pooled) share of the "
+        "rows that ENDED in this band — a descriptive rate, not a forecast "
+        "baseline; None when nothing in the band resolved",
+    )
+    prefix_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Rows in the band's risk set carrying a disposition (raw count) — "
+        "the observed rows behind the weighted estimate beside it",
+    )
+    prefix_weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Sample-weighted resolved estimate over the band's risk set — "
+        "every row that ever reached this band, not only those that ended in it. "
+        "Risk sets are nested, so this contains every stronger band's",
+    )
+    prefix_est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted grant-family (granted + gvr pooled) share over the "
+        "band's risk set: "
+        "P(grant | the petition has REACHED this band). The forecast baseline — "
+        "this is what a predictor is asked to beat, because a cell is scored at "
+        "the band it sat in when it ran, not the one it ended in. Identical to "
+        "est_grant_rate for the strongest band, which has nothing above it; "
+        "None when the risk set is empty",
     )
 
 
@@ -1517,6 +2122,20 @@ class StatPackTerm(_Strict):
     )
     base_rates: BaseRateBucket = Field(
         description="This Term's live-slice counts and weighted base rates"
+    )
+    est_grant_family_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted grant-family share of this Term's resolved "
+        "live-slice rows — granted + gvr today, and the vocabulary's "
+        "`summary-reversal` label pools in too if a resolver ever produces it. "
+        "The only disposition series comparable "
+        "across Terms. The `gvr` label is a forward convention: a Term resolved "
+        "into the corpus before it existed carries its GVRs as plain `granted` "
+        "(OT2023-24 carry zero), so the split inside `base_rates.dispositions` is "
+        "safe within a Term and meaningless between them — anchor any cross-Term "
+        "comparison on this field. None when nothing resolved",
     )
     timing: TimingStats = Field(
         default_factory=TimingStats,
@@ -1624,6 +2243,134 @@ class StatPack(_Strict):
     )
 
 
+class DocketPackTerm(_Strict):
+    """One October Term's census in the court-facing docket pack.
+
+    The whole-docket view of a Term: how many petitions were docketed, how many
+    of them this project has ingested, and how the ingested ones came out. It
+    pools the paid and IFP streams that :class:`StatPackTerm` keeps apart, and
+    carries no salience segmentation — which petitions a model was pointed at is
+    a fact about the project, not about the Court.
+    """
+
+    term: int = Field(description="The October-Term year, e.g. 2024")
+    filings: int | None = Field(
+        default=None,
+        ge=0,
+        description="Docketed serials this Term across both fee streams, from the "
+        "discovery cursors; None when no stream has been probed",
+    )
+    complete: bool = Field(
+        default=False,
+        description="True when every probed stream was walked to its observed "
+        "frontier; False = the counts describe the walked prefix only",
+    )
+    ingested: int = Field(default=0, ge=0, description="Petitions present in the corpus")
+    resolved: int = Field(
+        default=0, ge=0, description="Ingested petitions carrying a disposition (raw count)"
+    )
+    weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Denial-reweighted resolved estimate — the sample size behind "
+        "`est_grant_rate` and `dispositions`",
+    )
+    est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Denial-reweighted grant-family (granted + gvr pooled) share "
+        "of the resolved petitions — always equal to `est_grant_family_rate`, "
+        "which carries the same series under the name the statpack's per-Term "
+        "entries share; None when nothing resolved",
+    )
+    est_grant_family_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Denial-reweighted grant-family share of the resolved "
+        "petitions — granted + gvr today, and the vocabulary's `summary-reversal` "
+        "label pools in too if a resolver ever produces it. The only disposition "
+        "series comparable "
+        "across Terms, under the one field name both packs' per-Term entries "
+        "share. The `gvr` label is a forward convention: a Term resolved into the "
+        "corpus before it existed carries its GVRs as plain `granted` (OT2023-24 "
+        "carry zero), so the split inside `dispositions` is safe within a Term "
+        "and meaningless between them — anchor any cross-Term comparison here. "
+        "None when nothing resolved",
+    )
+    dispositions: list[DispositionShare] = Field(
+        default_factory=list,
+        description="Denial-reweighted disposition estimates over the resolved petitions",
+    )
+    grants: int = Field(
+        default=0, ge=0, description="Cert grants observed this Term (raw, not reweighted)"
+    )
+    median_days_to_grant: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Nearest-rank median days filing → cert grant over this Term's "
+        "granted petitions; None when none carry both dates",
+    )
+    dated_grants: int = Field(
+        default=0,
+        ge=0,
+        description="Granted petitions carrying both a filing and a cert-grant date — "
+        "the denominator `median_days_to_grant` is computed over, which is a subset "
+        "of `grants`",
+    )
+
+
+class DocketPack(_Strict):
+    """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
+
+    Facts about the dockets themselves: what the Supreme Court is asked to take,
+    from which court below, on what fee stream, after how many relists, and how it
+    disposes of the petitions. Deliberately **free of any claim about this
+    project's predictions** — no accuracy, no leaderboard, no salience — so it is
+    readable and citable by someone with no interest in whether the models are any
+    good. That exclusion is the artifact's contract, not a coincidence of what has
+    been built.
+
+    A pure function of the corpus (no clock, no network), so reruns over an
+    unchanged corpus reproduce it byte for byte; git-tracked and rendered to a
+    companion Markdown document. Every rate carries its scope and its denominator,
+    and each section states whether its counts are denial-reweighted: the
+    historical walk samples denials on a committed frame, so every cert cut is
+    reweighted and its counts are population *estimates* rather than rows on
+    hand. That distinction is why a reweighted denominator is not a sample size:
+    the observed row count behind it is smaller. A breakdown bucket carries no
+    raw view of its own; the per-Term entries carry both, so the gap between the
+    two is legible there. Starts empty (zero counts, scaffolded sections) until a
+    corpus is present.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    corpus_through: date | None = Field(
+        default=None,
+        description="The newest `last_pulled` date in the corpus — the vintage of "
+        "the rows behind every figure here, so a citation can name what it read. "
+        "Derived from the corpus rather than a clock, which keeps the artifact a "
+        "pure function of its input; None when no row carries the date",
+    )
+    corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
+    resolved: int = Field(default=0, ge=0, description="Cases carrying a realized disposition")
+    open: int = Field(default=0, ge=0, description="Cases still unresolved")
+    coverage: StatPackCoverage = Field(
+        default_factory=StatPackCoverage,
+        description="The pack's own denominators: live-slice rows/resolved and the "
+        "cursor-derived filings census backing the cert sections",
+    )
+    sections: list[StatPackSection] = Field(
+        default_factory=list, description="Curated docket-composition breakdowns"
+    )
+    terms: list[DocketPackTerm] = Field(
+        default_factory=list,
+        description="Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), "
+        "most recent Term first",
+    )
+
+
 class ScopeReconcileResult(_Strict):
     """``reconcile-scope`` result: what the corpus scope reconcile changed.
 
@@ -1678,6 +2425,173 @@ class SalienceSelectionResult(_Strict):
         description="Cases newly latched selected (the one-way latch never removes)",
     )
     sample_selected: list[str] = Field(default_factory=list)
+
+
+class SalienceReplayCell(_Strict):
+    """One (Term, cutoff policy) cell of the salience-gate replay.
+
+    The current frozen salience code run over one past Term's resolved paid
+    modern-cert petitions, each projected to the state its docket disclosed as
+    at the policy's cutoff (see ``fedcourtsai.pipeline.asof``). Selection here
+    is what the gate *would have* latched at that moment; precision/recall
+    score that selection against the realized grant-family outcomes.
+    """
+
+    term: int = Field(description="The October Term whose resolved petitions were replayed")
+    policy: str = Field(
+        description="The reconstruction moment: 'arrival' (day after the earliest "
+        "dated docket entry), 'distribution-1' (day after the first DISTRIBUTED "
+        "entry), or 'resolution' (the last distribution before the realized "
+        "resolution — the latest posture a forward cell would have seen)"
+    )
+    eligible: int = Field(
+        ge=0,
+        description="Resolved, live-slice, paid modern-cert petitions of the Term "
+        "(the time-invariant eligibility bar; a Tier-0 predicate that depends on "
+        "post-arrival state is deliberately not applied)",
+    )
+    skipped_no_snapshot: int = Field(
+        ge=0,
+        description="Eligible petitions with no held snapshot to reconstruct from; "
+        "outside every count below",
+    )
+    cohorts: int = Field(
+        ge=0, description="Distinct as-of conference cohorts the capacity was applied within"
+    )
+    selected: int = Field(
+        ge=0, description="Petitions the gate would have latched selected at this moment"
+    )
+    selected_carve_out: int = Field(
+        ge=0,
+        description="Selected via the always-include carve-outs (a CVSG on file, or a "
+        "score at/above the salience floor) — the capacity-independent core",
+    )
+    selected_rank_fill: int = Field(
+        ge=0,
+        description="Selected by the rank-to-N capacity fill; with capacity above "
+        "every cohort's size this equals every non-carve-out cohort member",
+    )
+    capacity_bound_cohorts: int = Field(
+        ge=0,
+        description="Cohorts whose non-carve-out membership exceeded the capacity, "
+        "so the rank fill actually cut (elsewhere N is inert). Counted over the "
+        "walked sample's cohorts: under legacy denial weights a replayed cohort "
+        "holds ~1/weight of the real cohort's non-carve-out members, so capacity "
+        "that would have bound over the Term's real cohort can read as inert here "
+        "— compare largest_weighted_cohort against the capacity before trusting "
+        "the rank-fill figures",
+    )
+    largest_weighted_cohort: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="The largest cohort's sample_weight-weighted non-carve-out "
+        "mass — the reader's check on the rank fill: a value above the "
+        "per-conference capacity where the raw cohort size sat below it means "
+        "the real cohort could have been cut where the replayed sample was not, "
+        "and the rank-fill and capacity figures are then sample statistics, not "
+        "population estimates. 0 when the cell formed no cohort",
+    )
+    bands: dict[str, int] = Field(
+        default_factory=dict,
+        description="Petitions per as-of sal-v1 band (high / elevated / baseline), "
+        "plus 'unobservable' for a projection whose payload disclosed no "
+        "proceedings — unknown posture, never banded, never selected",
+    )
+    provenance: dict[str, int] = Field(
+        default_factory=dict,
+        description="Projections per snapshot provenance: 'dated' (a snapshot the "
+        "docket really served before the cutoff), 'truncated' (a later payload "
+        "with post-cutoff entries removed — it cannot detect an entry back-filled "
+        "later but dated earlier, an accepted residual), and the two blind cases, "
+        "proceedings removed outright: 'blind-no-moment' (no cutoff exists — the "
+        "live gate would also never have cohorted this petition, a faithful gate "
+        "miss) vs 'blind-untrusted-cutoff' (a disposition survived truncation, so "
+        "a really-distributed petition is unselectable here only because its "
+        "reconstruction could not be trusted). Different information sets; read "
+        "the mix before the counts",
+    )
+    selected_granted: int = Field(
+        ge=0,
+        description="Raw count of selected petitions whose realized disposition is "
+        "in the grant family (granted / granted-in-part / GVR / summary reversal)",
+    )
+    realized_granted: int = Field(
+        ge=0,
+        description="Raw count of grant-family outcomes over every projected "
+        "petition — recall's raw denominator",
+    )
+    weighted_selected: float = Field(
+        ge=0.0,
+        description="Selected petitions weighted by sample_weight (inverse "
+        "inclusion probability, 1 where unasserted), so the figure estimates the "
+        "Term's population rather than counting the walked sample's rows",
+    )
+    weighted_selected_granted: float = Field(
+        ge=0.0, description="Grant-family selected petitions, sample_weight-weighted"
+    )
+    weighted_granted: float = Field(
+        ge=0.0,
+        description="Grant-family outcomes over every projected petition, "
+        "sample_weight-weighted — recall's weighted denominator",
+    )
+    weighted_population: float = Field(
+        ge=0.0, description="Every projected petition, sample_weight-weighted"
+    )
+    precision: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="weighted_selected_granted / weighted_selected — the realized "
+        "grant rate inside the would-have-been-selected slice; null when nothing "
+        "was selected (an undefined rate, not zero)",
+    )
+    recall: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="weighted_selected_granted / weighted_granted — the share of "
+        "the Term's realized grants (among projected petitions) the selection "
+        "would have covered; null when the projected petitions show no weighted "
+        "grant. The denominator includes blind projections, which can never be "
+        "selected — for a 'blind-untrusted-cutoff' row that is a reconstruction "
+        "failure, not a gate miss, so read the provenance mix beside a low recall",
+    )
+
+
+class SalienceReplay(_Strict):
+    """``metrics/salience-replay.json`` — the salience gate replayed over past Terms.
+
+    The current frozen selection code (``salience_version``) run over
+    point-in-time reconstructed dockets at successive moments, one cell per
+    (Term, cutoff policy). It answers "what would the gate have done then" —
+    e.g. that at petition arrival every projected row sits in the baseline band
+    and nothing is selected (the gate is degenerate before the docket moves) —
+    and gives a full predict/evaluate backtest its population frame. Numbers
+    here describe the *gate*, never a predictor: no model ran, so nothing in
+    this report is forecasting skill, and the retrospective stratum rule
+    applies on top (see ``metrics/README.md``).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed petition had already resolved when the replay "
+        "ran, so the figures measure how the gate would have behaved over known "
+        "history, never ex-ante selection quality",
+    )
+    salience_version: str = Field(
+        default="",
+        description="The frozen salience-function version whose scoring, banding, "
+        "and selection the replay ran (e.g. sal-v1)",
+    )
+    terms: list[int] = Field(default_factory=list, description="The October Terms replayed")
+    policies: list[str] = Field(
+        default_factory=list, description="The cutoff policies replayed, one cell per Term each"
+    )
+    cells_evaluated: int = Field(
+        default=0, ge=0, description="(Term, policy) cells the replay produced"
+    )
+    cells: list[SalienceReplayCell] = Field(default_factory=list)
 
 
 class LedgerValidation(_Strict):
@@ -2059,9 +2973,15 @@ class McpServerConfig(_Strict):
     (``fedcourts mcp-serve`` + ``mcp-config --http-url``).
     """
 
-    id: str = Field(description="Manifest key, e.g. `courtlistener`")
+    id: str = Field(
+        pattern=r"^[a-z0-9]+$",
+        description="Manifest key, e.g. `courtlistener`. Lowercase alphanumeric: the "
+        "tool-usage normalizer splits engine-spelled call names (`mcp__<id>__<tool>`) "
+        "on this, and an id carrying an underscore or a capital would be mis-split "
+        "or missed entirely.",
+    )
     package: str = Field(
-        description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` — "
+        description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.1.0` — "
         "launched via `uvx --from <package> <command>` so no separate install step runs"
     )
     command: str = Field(description="The stdio server entrypoint, e.g. `courtlistener-mcp`")
@@ -2069,6 +2989,14 @@ class McpServerConfig(_Strict):
         default=None,
         description="Environment variable carrying the server's API token. Unset/empty "
         "at runtime degrades to anonymous rate limits rather than failing the cell.",
+    )
+    tools: list[str] = Field(
+        default_factory=list,
+        description="Tool names this pinned version advertises over `tools/list` — the "
+        "OFFERED set, recorded because a cell's log can only show what it called. "
+        "Belongs with `package` because it is a property of the pin: a version bump "
+        "may add or drop tools, so the two move together. Empty means unrecorded, "
+        "never 'offers nothing'.",
     )
     description: str | None = None
 
@@ -2132,7 +3060,9 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "leaderboard": Leaderboard,
     "backtest": Backtest,
+    "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
+    "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
@@ -2141,6 +3071,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
+    "docket": DocketPack,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
     "cell_failure": CellFailure,

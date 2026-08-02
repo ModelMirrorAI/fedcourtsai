@@ -107,11 +107,11 @@ def test_build_statpack_weighted_circuit_cut(fixture_corpus: FixtureCorpus) -> N
 
 def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
-    relists = _section(pack, "Cert petitions by relist count")
+    relists = _section(pack, "Cert petitions by relist count (paid scored segment)")
     # scotus/304: two distributions = one relist (weight 5); scotus/305: one
     # distribution = zero relists (weight 1).
     assert {(b.key, b.cases) for b in relists.buckets} == {("1", 5), ("0", 1)}
-    cvsg = _section(pack, "Cert petitions by CVSG status")
+    cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     # scotus/305 carries the SG invitation; scotus/304 was parsed and has none.
     assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 5)}
 
@@ -229,11 +229,63 @@ def test_gvr_counts_as_a_grant_in_the_term_grant_rate(tmp_path: Path) -> None:
     pack = analytics.build_statpack(corpus_db_path=db)
     term = next(t for t in pack.terms if t.term == 2024)
     assert term.grants == 1  # the gvr row counts as a grant
+    # The Term-level pooled series counts the gvr as a grant too.
+    assert term.est_grant_family_rate == 1.0
     # The per-fee-class grant rate sums the grant family, so a lone gvr reads 100%.
     paid = next(c for c in term.classes if c.fee_class == "paid")
     assert paid.est_grant_rate == 1.0
     # gvr is tracked as its own disposition bucket, distinct from granted.
     assert {d.disposition for d in term.base_rates.dispositions} == {"gvr"}
+
+
+def test_term_grant_family_rate_pools_the_split(tmp_path: Path) -> None:
+    # `est_grant_family_rate` is the pooled granted+gvr series — the one per-Term
+    # disposition figure comparable across Terms — and it must equal the sum of
+    # the split's own shares, so the JSON's `dispositions` and the pooled field
+    # can never disagree.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-10",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-11",
+                    disposition=Disposition.gvr,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-12",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=5,
+                    distribution_count=1,
+                ),
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    term = _term(pack, 2025)
+    # granted 1 + gvr 1 over a weighted resolved of 7 (the denial stands in for 5).
+    assert term.est_grant_family_rate == pytest.approx(2 / 7)
+    assert term.est_grant_family_rate == sum(
+        d.share for d in term.base_rates.dispositions if d.disposition in ("granted", "gvr")
+    )
+    # And the rendered Term row prints the field itself, not a recomputation.
+    assert "28.6%" in analytics.render_statpack_markdown(pack)
 
 
 def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
@@ -255,8 +307,8 @@ def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
             ],
         )
     pack = analytics.build_statpack(corpus_db_path=db)
-    relists = _section(pack, "Cert petitions by relist count")
-    cvsg = _section(pack, "Cert petitions by CVSG status")
+    relists = _section(pack, "Cert petitions by relist count (paid scored segment)")
+    cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     assert [(b.key, b.cases) for b in relists.buckets] == [("(unknown)", 1)]
     assert [(b.key, b.cases) for b in cvsg.buckets] == [("(unknown)", 1)]
 
@@ -300,6 +352,8 @@ def test_per_term_entries_carry_census_classes_and_estimates(
     assert resolved_term.timing.cases == 5
     assert resolved_term.timing.median_days == 168.0
     assert resolved_term.grants == 0 and resolved_term.median_days_to_grant is None
+    # All resolved rows are denials, so the pooled grant-family series is a real 0%.
+    assert resolved_term.est_grant_family_rate == 0.0
     paid, ifp = resolved_term.classes
     assert (paid.fee_class, paid.filings, paid.complete) == (FeeClass.paid, 850, True)
     assert (paid.ingested, paid.resolved, paid.weighted_resolved) == (1, 1, 5)
@@ -309,6 +363,7 @@ def test_per_term_entries_carry_census_classes_and_estimates(
 
     open_term = _term(pack, 2024)
     assert (open_term.base_rates.cases, open_term.base_rates.open) == (1, 1)
+    assert open_term.est_grant_family_rate is None  # nothing resolved: no rate, not 0%
     assert open_term.timing.cases == 0  # nothing resolved yet
     paid, ifp = open_term.classes
     assert (paid.filings, paid.complete, paid.ingested) == (12, False, 1)
@@ -595,6 +650,14 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
     # The replay self-selection rule rides under the Term table, verbatim.
     assert "anchor only on Term rows strictly preceding your clock" in md
+    # The grant-family comparability caveat rides directly under the Term table —
+    # the table whose base-rate column prints the `granted` / `gvr` split — before
+    # the segment section begins.
+    term_section = md.split("## SCOTUS cert petitions by Term")[1]
+    assert (
+        "**The `granted` / `gvr` split is not comparable across Terms.**"
+        in term_section.split("### Segment base rate")[0]
+    )
 
 
 def test_render_statpack_markdown_renders_the_segment_base_rate(
@@ -605,8 +668,17 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     assert "## Cert petitions by salience band" in md
     assert "### Segment base rate by salience band (sal-v1)" in md
     assert "| Term | high | elevated | baseline |" in md
-    # OT22's lone elevated petition is a weight-5 denial: 0.0% over n=5, other bands —.
-    assert "| 2022 | — | 0.0% (n=5) | — |" in md
+    # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
+    # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
+    # nothing reached it. `baseline` carries ONLY a bracket: no row ended there,
+    # but this petition passed through it, so it is in that band's risk set. That
+    # asymmetry is the whole point of publishing both.
+    assert "| 2022 | — | 0.0% (n=5) [reached 0.0%, n=5] | [reached 0.0%, n=5] |" in md
+    # The band table states its own rendered window. The predict/evaluate prompts
+    # tell agents that this caption is how they detect truncation, so the count has
+    # to sit on THIS table — the parent Term table's caption is a different section.
+    band_caption = md.split("### Segment base rate by salience band")[1].split("\n\n")[0]
+    assert "Term(s)" in band_caption
 
 
 def test_render_statpack_markdown_caps_long_sections() -> None:
@@ -629,6 +701,38 @@ def test_render_statpack_markdown_caps_long_sections() -> None:
     assert "| court-000 |" in md and "| court-024 |" in md
     assert "| court-025 |" not in md
     assert "5 more bucket(s) in the JSON" in md
+
+
+def _terms_pack(*years: int) -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        overall=BaseRateBucket(cases=1),
+        terms=[StatPackTerm(term=y, base_rates=BaseRateBucket()) for y in years],
+    )
+
+
+def test_render_statpack_markdown_caps_the_term_table() -> None:
+    # The per-Term cap is the forward stratum's segment base-rate lookback: the
+    # predict/evaluate agents can anchor only on Terms this table renders.
+    pack = _terms_pack(*range(2026, 2014, -1))  # 12 Terms
+    md = analytics.render_statpack_markdown(pack)
+    assert md.count("Most recent 10 of 12 Term(s)") == 2  # the Term table and the band table
+    assert "| 2017 |" in md  # the 10th most recent
+    assert "| 2016 |" not in md
+
+
+def test_render_statpack_markdown_zero_markdown_terms_shows_every_term() -> None:
+    # `0` means unbounded, as everywhere else in the config; `terms[:0]` would be
+    # the empty slice, so the sentinel has to branch.
+    md = analytics.render_statpack_markdown(_terms_pack(*range(2026, 2014, -1)), markdown_terms=0)
+    assert "Most recent 12 of 12 Term(s)" in md
+    assert "| 2015 |" in md
+
+
+def test_render_statpack_markdown_honours_an_explicit_markdown_terms() -> None:
+    md = analytics.render_statpack_markdown(_terms_pack(2025, 2024, 2023), markdown_terms=2)
+    assert "Most recent 2 of 3 Term(s)" in md
+    assert "| 2023 |" not in md
 
 
 def test_render_statpack_markdown_empty() -> None:
@@ -664,3 +768,103 @@ def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:
     era = _section(_pack(fixture_corpus), "SCOTUS cases by era")
     # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers.
     assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 2)]
+
+
+def test_the_risk_set_rate_nests_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
+    """The structural invariant behind the forecast baseline.
+
+    A band is monotone non-decreasing over a petition's life, so "has reached band
+    b" is the same event as "ended at b or stronger". Two consequences that must
+    hold on every Term, and would catch a mis-ordered or mis-indexed risk set:
+
+    * the strongest band has nothing above it, so its risk set IS its terminal
+      set — the two rates and denominators coincide exactly;
+    * a weaker band's risk set is a superset of its terminal set, so its
+      denominator can only grow.
+    """
+    pack = _pack(fixture_corpus)
+    strongest = _BANDS[0]
+    for term in pack.terms:
+        by_band = {s.band: s for s in term.segments}
+        top = by_band[strongest]
+        assert top.prefix_weighted_resolved == top.weighted_resolved, term.term
+        assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
+        for band in _BANDS[1:]:
+            seg = by_band[band]
+            assert seg.prefix_weighted_resolved >= seg.weighted_resolved, (term.term, band)
+
+
+def test_the_risk_set_rate_lifts_a_weak_band_that_a_stronger_grant_passed_through(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The defect in one assertion: a petition that ends `elevated` was `baseline`
+    when it was first distributed, so it belongs in `baseline`'s risk set. The
+    terminal cut drops it, which is what understated that band several-fold."""
+    term = _term(_pack(fixture_corpus), 2022)
+    by_band = {s.band: s for s in term.segments}
+    # OT2022's only scored row is the weight-5 elevated denial (see the segment
+    # test above). It ended `elevated`, so `baseline` holds no row that ended
+    # there — but the petition passed through `baseline`, so the risk set has it.
+    assert by_band["baseline"].weighted_resolved == 0
+    assert by_band["baseline"].est_grant_rate is None
+    assert by_band["baseline"].prefix_weighted_resolved == 5
+    assert by_band["baseline"].prefix_est_grant_rate == 0.0
+
+
+def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
+    """The structural claims, against real bands rather than the 6-row fixture.
+
+    The fixture corpus has no resolved `high` row, so the strongest-band identity
+    is vacuous there (0 == 0, None == None). It is the claim the rendered caption
+    and both prompts rest on, so it is checked here on the committed artifact,
+    which carries every band across nine Terms. These are invariants of the
+    construction, not of the current data, so a refresh cannot falsify them.
+    """
+    pack = StatPack.model_validate_json(Path("metrics/statpack.json").read_text())
+    bands = list(_BANDS)
+    saw_populated_top = False
+    for term in pack.terms:
+        by_band = {s.band: s for s in term.segments}
+        top = by_band[bands[0]]
+        # Nothing sits above the strongest band, so its risk set IS its terminal set.
+        assert top.prefix_weighted_resolved == top.weighted_resolved, term.term
+        assert top.prefix_resolved == top.resolved, term.term
+        assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
+        if top.weighted_resolved:
+            saw_populated_top = True
+        # Risk sets nest downward, so each denominator contains every stronger one.
+        running = 0
+        for band in bands:
+            seg = by_band[band]
+            running += seg.weighted_resolved
+            assert seg.prefix_weighted_resolved == running, (term.term, band)
+    assert saw_populated_top, "the identity would be vacuous without a resolved top band"
+
+
+def test_the_predictor_facing_cuts_are_paid_only(fixture_corpus: FixtureCorpus) -> None:
+    """A predict cell's petition is always paid — IFP is excluded at Tier 0 — so a
+    cut that pools IFP hands it a level it is never in. IFP petitions relist far
+    less often and have never drawn a CVSG, so the pooled level sits below the one
+    a selected petition faces, and a cell reading it anchors low."""
+    titles = [s.title for s in _pack(fixture_corpus).sections]
+    assert "Cert petitions by relist count (paid scored segment)" in titles
+    assert "Cert petitions by CVSG status (paid scored segment)" in titles
+    # The pooled versions stay off the predictor-facing pack; the court-facing
+    # docket pack keeps them, where describing the whole docket is the point.
+    assert "Cert petitions by relist count" not in titles  # the pooled cut
+    assert "Cert petitions by CVSG status" not in titles
+
+
+def test_the_docket_pack_warns_that_the_gvr_split_is_not_cross_term_comparable(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The `gvr` label is a forward convention, so two Terms resolved inside the
+    window where it did not yet exist carry zero GVRs against 30-59% either side.
+    A reader comparing the split across Terms would be reading ingestion history
+    as if it were the Court, so the artifact has to say so where it publishes it."""
+    md = analytics.render_docket_markdown(
+        analytics.build_docket_pack(corpus_db_path=fixture_corpus.db_path)
+    )
+    assert "not comparable across Terms" in md
+    assert "forward convention" in md
+    assert "OT2023 and OT2024" in md

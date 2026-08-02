@@ -1,0 +1,182 @@
+name: sync-staging
+
+# Keeps `staging` continuously containing `main`, so a promotion never begins by
+# invalidating its own evidence.
+#
+# `main` receives two kinds of commit that never ride staging: the deterministic
+# writers' data commits and the bot lanes (collect run branches, the cleanup
+# sweep, metrics refresh, cert back-test). staging carries code and config only.
+# So staging falls behind main daily, and `promote`'s sync gate refuses a batch
+# until it catches up.
+#
+# Doing that catch-up *at* promotion time is what costs: the merge moves
+# staging's head, and integration-test freshness is per-SHA, so every scenario
+# green at the old head is instantly stale and all of them must be re-dispatched
+# — a full re-dispatch cycle for a merge whose content is, by construction,
+# already-gated main history joined with already-gated staging history. Syncing on a schedule
+# moves that cost off the promotion path: at batch time staging already contains
+# main, its head has not just moved, and the freshness evidence still stands.
+#
+# Its own workflow file rather than a job on `promote`: promote is deliberately
+# and documentedly READ-ONLY (its header explains why both promotion writes are
+# the maintainer's own), and it is dispatch-only. A scheduled job that opens and
+# auto-merges a PR is a different trigger class and a different risk class —
+# exactly the case where a task earns its own surface rather than eroding a
+# property another workflow was built to have.
+#
+# What it does NOT do: land the merge itself. The PR goes through the staging
+# ruleset like any other — `gate` and `paths` must pass — so the sync is gated,
+# not bypassed. A conflicting merge simply fails to auto-merge and sits open as
+# the signal; nobody has to be told, because the PR is the notification.
+
+on:
+  schedule:
+    # Daily, in the dead zone between run-seed's 02:31 window and run-pull's
+    # 04:47 live window, so the sync PR's `gate` run does not compete with a
+    # corpus writer for runners.
+    - cron: "13 3 * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+# One sync attempt at a time; a queued run waits rather than racing to open a
+# second PR for the same divergence.
+concurrency:
+  group: sync-staging
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The App credentials live on the prod environment, like every other
+    # App-minting job. Its deployment-branch policy is `main`-only, which is also
+    # why this workflow does nothing until it is promoted (see the header).
+    environment: prod
+    permissions:
+      contents: read # ancestry check only; the PR is opened on the App token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # The App token, not the ambient GITHUB_TOKEN: a PR opened with
+      # GITHUB_TOKEN triggers no `pull_request` workflows, so its required
+      # checks would never report and it could never merge. The same reason
+      # `promote` leaves the promotion PR to the maintainer — here an App
+      # installation supplies an identity whose PR does trigger them.
+      #
+      # The DEV App, deliberately, not the data App: the data App is a bypass
+      # actor on `main: require PR`, and a scheduled unattended job must not
+      # hold the one identity that can push to main without review — it needs
+      # no main write at all. The dev App is the reviewed-PR opener
+      # (metrics-refresh, cert back-test) and bypasses nothing.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open or refresh the main -> staging sync PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags -q origin main staging
+
+          # Already synced: the common case on any day main saw no writer
+          # commits, and the whole point of running daily is that this is
+          # usually what happens.
+          if git merge-base --is-ancestor origin/main origin/staging; then
+            echo "staging already contains main; nothing to sync."
+            echo "staging already contains main — nothing to sync." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          behind=$(git rev-list --count origin/staging..origin/main)
+
+          # Never sync into a promotion in flight. Freshness is per-SHA, so
+          # moving staging's head under an open promotion PR would invalidate
+          # the very scenario runs that batch is waiting on — the exact failure
+          # this workflow exists to prevent, but unattended.
+          if [ -n "$(gh pr list --repo "$REPO" --base main --head staging \
+                       --state open --json number --jq '.[0].number // empty')" ]; then
+            echo "promotion PR in flight; deferring the sync so its freshness evidence stands."
+            echo "Promotion PR in flight — sync deferred so its per-SHA freshness evidence stands." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # A PR between the two long-lived branches, not a throwaway topic
+          # branch: it tracks main as main advances, so a run that finds one
+          # already open has nothing to update.
+          existing=$(gh pr list --repo "$REPO" --base staging --head main \
+            --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            # Loud, not green: a sync that has sat through a daily tick means its
+            # gate is red or auto-merge never armed, and staging is drifting. Silent
+            # success here would hide that until `promote` complained. Re-arm on the
+            # way past, since an unarmed PR is the likeliest cause.
+            gh pr merge "$existing" --repo "$REPO" --auto --merge || true
+            echo "::warning::sync PR #${existing} is still open (staging is ${behind} commit(s) behind main); its gate may be red or the merge may conflict"
+            {
+              echo "### Sync PR already open"
+              echo ""
+              echo "[#${existing}](https://github.com/${REPO}/pull/${existing}) covers this"
+              echo "divergence (staging is **${behind}** commit(s) behind main). If it has not"
+              echo "merged, its checks are still running or the merge conflicts — resolve it"
+              echo "in the PR."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # The body stays short on purpose: the reasoning lives in this
+          # workflow's header, and a heredoc cannot be used here — its
+          # terminator would have to sit at column 0, which ends the YAML block
+          # scalar. printf with single-quoted lines keeps it readable and safe.
+          body=$(printf '%s\n' \
+            'Routine catch-up so **staging keeps containing main**, opened by the scheduled' \
+            '`sync-staging` workflow. See that workflow header for why this runs on a' \
+            'schedule rather than at promotion time.' \
+            '' \
+            "main is **${behind}** commit(s) ahead: the deterministic writers and the bot" \
+            'lanes commit there directly and never ride staging.' \
+            '' \
+            '**Merge with a merge commit, never a squash** — the promotion gate asserts that' \
+            'main is an ancestor of staging, and a squash would rewrite the merged history' \
+            'and break that. Auto-merge is armed to do exactly that once `gate` and `paths`' \
+            'pass; if it never fires, this merge conflicts and needs resolving here.')
+
+          # `gh pr create` prints the PR URL and has no --json, so the number
+          # comes from a follow-up list rather than from parsing that output.
+          gh pr create --repo "$REPO" --base staging --head main \
+            --title "chore: sync main into staging" --body "$body"
+          num=$(gh pr list --repo "$REPO" --base staging --head main \
+            --state open --json number --jq '.[0].number // empty')
+          if [ -z "$num" ]; then
+            echo "::error::opened a sync PR but could not resolve its number; check open PRs into staging"
+            exit 1
+          fi
+
+          # Merge commit, never squash: the promotion gate asserts main is an
+          # ancestor of staging, which a squash would break by rewriting the
+          # merged history into a new single commit.
+          # `--auto` errors when the PR is *already* mergeable, which happens
+          # here more often than usual: the head sha is main's own, so it may
+          # already carry a green `gate` from the push-to-main run. Fall back to
+          # merging outright — the ruleset is enforced server-side, so an
+          # unsatisfied check refuses the merge rather than letting it through.
+          gh pr merge "$num" --repo "$REPO" --auto --merge \
+            || gh pr merge "$num" --repo "$REPO" --merge \
+            || echo "::warning::sync PR #${num} opened but neither auto-merge nor a direct merge took; resolve it there"
+          echo "opened sync PR #${num} (staging was ${behind} commit(s) behind)."
+          {
+            echo "### Sync PR opened"
+            echo ""
+            echo "[#${num}](https://github.com/${REPO}/pull/${num}) merges **${behind}**"
+            echo "commit(s) of \`main\` into \`staging\`, with auto-merge armed (merge commit,"
+            echo "never squash). It lands on its own once \`gate\` and \`paths\` pass."
+          } >> "$GITHUB_STEP_SUMMARY"

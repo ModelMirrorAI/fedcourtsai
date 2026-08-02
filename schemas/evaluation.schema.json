@@ -99,7 +99,7 @@
     },
     "ProcessVersion": {
       "additionalProperties": false,
-      "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved registry config for this actor\n(engine, resolved model, pinned MCP manifest) \u2014 so a silent prompt or config\nchange is automatically a distinct version. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is provenance only and is deliberately **not** folded into\n``digest``: the checkout commit changes on every unrelated pipeline edit, and\nfolding it in would break the frozen set every time predict/evaluate resume at\na newer HEAD. The digest captures what defines the process; the sha records\nwhich commit ran it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
+      "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved configuration for this actor\n(engine, resolved model, pinned MCP manifest, and the engine's retrieval\nsurface) \u2014 so a silent prompt or config change is automatically a distinct\nversion. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is provenance only and is deliberately **not** folded into\n``digest``: the checkout commit changes on every unrelated pipeline edit, and\nfolding it in would break the frozen set every time predict/evaluate resume at\na newer HEAD. The digest captures what defines the process; the sha records\nwhich commit ran it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
       "properties": {
         "algo": {
           "const": "sha256",
@@ -149,6 +149,23 @@
   "additionalProperties": false,
   "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
   "properties": {
+    "base_rate_basis": {
+      "anyOf": [
+        {
+          "enum": [
+            "risk_set",
+            "terminal"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Which population segment_base_rate was taken over. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings). The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
+      "title": "Base Rate Basis"
+    },
     "big_case": {
       "anyOf": [
         {
@@ -311,7 +328,7 @@
         }
       ],
       "default": null,
-      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
+      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term. Which band, and therefore which of the two published rates, is recorded in base_rate_basis below. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
       "title": "Segment Base Rate"
     },
     "vote_accuracy": {

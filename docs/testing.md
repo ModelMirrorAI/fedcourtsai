@@ -54,8 +54,10 @@ manual workflow dispatch, never on every iteration.
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
 dispatch, read-only role — the collect scenario none at all — strictly
-side-effect free) runs one scenario per
-dispatch. `ranged-reads` is the tested `fedcourts corpus-integration-check`
+side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
+promotion gate's whole required suite as one matrix run (every scenario but
+collect, with engine-smoke once per engine, so three cells' token spend).
+`ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
@@ -78,8 +80,8 @@ queued-cell census the never-uploaded cell, and both withhold the
 trigger-issue close; the salvage cell
 rides the draft; a rerun updates in place) with no App token, no PR, and no
 matrix spend. It is the one scenario whose job binds no deployment
-environment at all — it needs no role variables and no secret — so it
-dispatches from any branch without the approval gate.
+environment at all — it needs no role variables and no secret — so it is the
+one scenario that still dispatches from any branch.
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which; one predict cell's spend
 against the default open-event case — a resolved event also replays
@@ -97,11 +99,25 @@ jobs that call it**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the
-role and remote variables: main dispatches use `prod`, and the
-maintainer-approval-gated `staging` environment (deployment-branch policy open,
-required reviewer) lets a PR branch's changed read seams run against real
-infrastructure before merge — the capability the trigger path structurally
-cannot provide.
+role and remote variables, and by default resolves from the dispatching branch:
+`main` dispatches use `prod`, and dispatches from `staging` use the `staging`
+environment, which holds the same read-only role and remote variables plus its
+own engine keys; any other branch resolves its own name — an unconfigured,
+empty environment with no role variables and no keys — and an explicit choice
+(the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
+environment stays pinned to its one branch.
+That is what lets a change's read seams run against real infrastructure once it
+is on `staging` and before it is promoted — the capability the trigger path
+structurally cannot provide. Changed seams are therefore validated after the
+merge to `staging` rather than on the PR branch; nothing broken reaches `main`
+regardless: the gate needs the seven required integration runs — five of the
+six real scenarios, with engine-smoke counted once per engine, or one green
+`scenario=all` run, which covers all seven because it succeeds only when every
+matrix leg does — green at exactly that
+staging head, and `promotion-gate` is a required check on `main`, so it is
+branch-protection-enforced rather than advisory. The collect scenario is outside
+the gate, and — binding no environment at all — is also the one scenario that
+succeeds from any branch.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
@@ -135,7 +151,10 @@ reuses the stub's deterministic evaluate path, so an evaluate cell computes a
 non-degenerate Brier score and vote accuracy, and the leaderboard rolls up real
 numbers — all offline and token-free. `tests/test_replay.py` drives that consume
 path over the cassette; capturing a fresh cassette is a record-once step (run a real
-cell, copy its `prediction.json` / `reasoning.md` under `tests/cassettes`).
+cell, copy its `prediction.json` / `reasoning.md` — and its `predicted_reasoning.md`
+if the cell wrote one — under `tests/cassettes`). A cassette carrying no
+`predicted_reasoning.md` replays as a prediction that names none, which is what makes
+the committed cassette double as the fixture for that valid shape.
 
 **A fixture corpus.** A tiny synthetic corpus, built deterministically by
 `fedcourts make-fixture-corpus`, stands in for the S3-hosted corpus so
@@ -200,6 +219,27 @@ at scale. The check is the same for both: before relying on new corpus-walking c
 or a new predicate, exercise it against the real corpus through a read-only
 analytics run and read the numbers it reports. The fixture proves the logic;
 only the corpus proves it at scale.
+
+## Investigating a real docket without credentials
+
+Diagnosing a provisioning or document-selection bug usually looks like it needs
+the remote corpus, and often it does not. Two facts make a specific docket
+investigable from a checkout with no S3 access and no CourtListener token:
+
+- **A local `corpus.db` carries `docket_number`**, so a case id
+  (`scotus/<internal id>`) resolves to the Court's own `<term>-<serial>` docket
+  number with a point query — no remote read.
+- **The supremecourt.gov per-docket JSON is publicly fetchable**, at
+  `https://www.supremecourt.gov/rss/cases/JSON/<term>-<serial>.json`
+  (`supremecourt.DOCKET_JSON_URL`). That is the authoritative record the live
+  channel ingests, so it answers what the pipeline *should* have seen: the
+  proceedings text, the distribution history, the filed-document links.
+
+Together those cover most "why did this cell get the wrong documents" questions
+directly against the real docket. Reach for a corpus pull only when the question
+is genuinely about the *stored* row rather than the upstream record — and
+remember the local blob is a snapshot, so its freshness is whatever the last
+pull left behind.
 
 ## The boundary that remains
 

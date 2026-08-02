@@ -20,12 +20,13 @@
       "title": "Description"
     },
     "id": {
-      "description": "Manifest key, e.g. `courtlistener`",
+      "description": "Manifest key, e.g. `courtlistener`. Lowercase alphanumeric: the tool-usage normalizer splits engine-spelled call names (`mcp__<id>__<tool>`) on this, and an id carrying an underscore or a capital would be mis-split or missed entirely.",
+      "pattern": "^[a-z0-9]+$",
       "title": "Id",
       "type": "string"
     },
     "package": {
-      "description": "Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` \u2014 launched via `uvx --from <package> <command>` so no separate install step runs",
+      "description": "Pinned installable, e.g. `courtlistener-api-client[mcp]==1.1.0` \u2014 launched via `uvx --from <package> <command>` so no separate install step runs",
       "title": "Package",
       "type": "string"
     },
@@ -41,6 +42,14 @@
       "default": null,
       "description": "Environment variable carrying the server's API token. Unset/empty at runtime degrades to anonymous rate limits rather than failing the cell.",
       "title": "Token Env"
+    },
+    "tools": {
+      "description": "Tool names this pinned version advertises over `tools/list` \u2014 the OFFERED set, recorded because a cell's log can only show what it called. Belongs with `package` because it is a property of the pin: a version bump may add or drop tools, so the two move together. Empty means unrecorded, never 'offers nothing'.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Tools",
+      "type": "array"
     }
   },
   "required": [

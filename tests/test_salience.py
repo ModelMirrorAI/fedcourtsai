@@ -11,6 +11,8 @@ from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
+    _selection_plan,
+    plan_cohorts,
     reconcile_salience_selection,
     salience_band,
     salience_bands,
@@ -256,6 +258,42 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert row is not None and row.salience_score is None and row.salience_selected is False
 
 
+def test_selection_plan_equals_wrapper_free_plan_cohorts(tmp_path: Path) -> None:
+    # The conn-free core must be bit-identical to the live pass over the same
+    # rows — including the scores dict's insertion order and to_select's cohort
+    # extension order — so a replay through `plan_cohorts` reproduces the gate.
+    rows = [
+        _petition("scotus/a", distribution_count=1),  # ranked, ties on score
+        _petition("scotus/b", distribution_count=1),
+        _petition("scotus/c", distribution_count=1, selected=True),  # already latched
+        _petition("scotus/hot", distribution_count=3),  # above-floor carve-out
+        _petition("scotus/cvsg", distribution_count=1, cvsg=True),  # CVSG carve-out
+        _petition("scotus/late", distribution_count=2, conference=date(2026, 2, 20)),
+        _petition("scotus/pending", distribution_count=2, conference=None),  # no cohort
+        _petition(  # decided: scored, never cohorted
+            "scotus/done", distribution_count=3, date_cert_denied=date(2026, 1, 12)
+        ),
+        _petition("scotus/app", docket="25A100"),  # Tier-0 out of scope: filtered
+        _petition("scotus/ifp", docket="25-5100"),  # Tier-0 IFP: filtered
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=1, floor=0.28)
+    with corpus.connect(db) as conn:
+        direct = _selection_plan(conn, config)
+        eligible = [
+            row
+            for row in corpus.iter_rows(conn, court="scotus")
+            if corpus.out_of_scope_reason_full(conn, row) is None
+        ]
+    assert plan_cohorts(eligible, config) == direct
+    scores, to_select, eligible_count, conferences = direct
+    assert eligible_count == 8  # the two Tier-0 rows never enter
+    assert conferences == 2
+    # The equivalence above is order-sensitive on both compound members.
+    assert list(plan_cohorts(eligible, config)[0]) == list(scores)
+    assert plan_cohorts(eligible, config)[1] == to_select
+
+
 # --- config --------------------------------------------------------------------
 
 
@@ -274,8 +312,142 @@ def test_load_salience_config_defaults_when_absent(tmp_path: Path) -> None:
     assert config.per_conference_capacity == 150
     assert config.long_conference_capacity == 200
     assert config.floor == 0.28
+    assert config.base_rate_lookback_terms == 0  # unbounded: every prior Term
+
+
+def test_load_salience_config_reads_the_base_rate_lookback(tmp_path: Path) -> None:
+    (tmp_path / "tracking.yaml").write_text("salience:\n  base_rate_lookback_terms: 5\n")
+    assert load_salience_config(tmp_path).base_rate_lookback_terms == 5
+
+
+def test_salience_config_rejects_a_negative_lookback() -> None:
+    with pytest.raises(ValueError):
+        SalienceConfig(base_rate_lookback_terms=-1)
 
 
 def test_salience_config_rejects_a_smaller_long_conference_cap() -> None:
     with pytest.raises(ValueError, match="long_conference_capacity must be >="):
         SalienceConfig(per_conference_capacity=200, long_conference_capacity=100)
+
+
+# --- the production caps under long-conference pressure -------------------------
+#
+# Every test above uses an artificial N of 1-3 over a handful of rows, which
+# proves the mechanics but never exercises the caps actually configured. The
+# September long conference is the first time the cap binds in production — it
+# distributes ~276 petitions at once against `long_conference_capacity`, and the
+# realized count is what the release costs. These tests pin that number and the
+# invariants that must hold when the cohort is far larger than N.
+
+# A long-conference composition. It clears the summer backlog, so newly-filed
+# first distributions dominate; a minority arrive already relisted from the prior
+# Term's close, and a handful carry a CVSG. Counts sum to 276, the observed
+# long-conference distribution volume recorded in `config/tracking.yaml`.
+_LC_RELIST_0 = 240  # first distribution — baseline band, score ~0.008 + circuit nudge
+_LC_RELIST_1 = 25  # elevated band (~0.078); still below the floor
+_LC_RELIST_2 = 8  # ~0.394 — at/above the floor, so a carve-out
+_LC_CVSG = 3  # carve-out by CVSG regardless of relist count
+_LC_TOTAL = _LC_RELIST_0 + _LC_RELIST_1 + _LC_RELIST_2 + _LC_CVSG
+_LC_CARVE_OUTS = _LC_RELIST_2 + _LC_CVSG
+
+
+def _long_conference_cohort() -> list[corpus.CorpusRow]:
+    """~276 petitions distributed for one long conference, realistically mixed."""
+    rows: list[corpus.CorpusRow] = []
+    # Zero-padded ids so the cap's lexical case_id tie-break is numeric order here,
+    # which is what makes the kept prefix predictable rather than incidental.
+    for i in range(_LC_RELIST_0):
+        rows.append(
+            _petition(f"scotus/r0-{i:04d}", distribution_count=1, conference=LONG_CONFERENCE)
+        )
+    for i in range(_LC_RELIST_1):
+        rows.append(
+            _petition(f"scotus/r1-{i:04d}", distribution_count=2, conference=LONG_CONFERENCE)
+        )
+    for i in range(_LC_RELIST_2):
+        rows.append(
+            _petition(f"scotus/r2-{i:04d}", distribution_count=3, conference=LONG_CONFERENCE)
+        )
+    for i in range(_LC_CVSG):
+        rows.append(
+            _petition(
+                f"scotus/cv-{i:04d}", distribution_count=1, cvsg=True, conference=LONG_CONFERENCE
+            )
+        )
+    return rows
+
+
+def test_long_conference_realized_count_is_n_plus_carveouts(tmp_path: Path) -> None:
+    """The number the September release costs: N ranked picks PLUS the carve-outs.
+
+    `N` is a guaranteed floor, not a ceiling, so the realized count is strictly
+    above it — the property that makes the budget a floor too. Pinned against the
+    configured caps rather than an artificial one, because a change to either the
+    cap or the carve-out rule should move this number visibly.
+    """
+    db = _seed(tmp_path, _long_conference_cohort())
+    config = load_salience_config(Path("config"))  # the caps actually in force
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, config, apply=True)
+
+    selected = _selected_ids(db)
+    assert result.eligible_cases == _LC_TOTAL
+    assert len(selected) == config.long_conference_capacity + _LC_CARVE_OUTS
+    assert result.newly_selected == len(selected)
+    # The whole cohort is scored even though most of it is not funded: the board
+    # publishes a ranking over the candidate pool, not just the selected slice.
+    assert result.scored == _LC_TOTAL
+    assert result.conferences == 1
+
+
+def test_every_carveout_survives_a_cohort_far_larger_than_n(tmp_path: Path) -> None:
+    """No case at or above the floor is ever below the capacity line.
+
+    The load-bearing promise of the design — "a major case can never fall below
+    the capacity line" — and the one that cannot be checked at fixture scale,
+    because the cap has to actually bite for the question to mean anything.
+    """
+    db = _seed(tmp_path, _long_conference_cohort())
+    config = load_salience_config(Path("config"))
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+
+    selected = _selected_ids(db)
+    assert all(f"scotus/r2-{i:04d}" in selected for i in range(_LC_RELIST_2))
+    assert all(f"scotus/cv-{i:04d}" in selected for i in range(_LC_CVSG))
+    # And the cap did bite, so the assertion above is not vacuous.
+    assert len(selected) < _LC_TOTAL
+
+
+def test_the_cap_prefers_higher_scores_before_it_fills_with_ties(tmp_path: Path) -> None:
+    """Ranking, not arrival order: every relisted petition is funded before any
+    first-distribution one, because the cohort is ranked by score before the fill."""
+    db = _seed(tmp_path, _long_conference_cohort())
+    config = load_salience_config(Path("config"))
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+
+    selected = _selected_ids(db)
+    # The 25 relist-1 petitions outrank all 240 relist-0 ones, so they are all in
+    # even though they are a minority of the cohort.
+    assert all(f"scotus/r1-{i:04d}" in selected for i in range(_LC_RELIST_1))
+    # The remaining capacity goes to relist-0 in case_id order, and the tail is cut.
+    funded_r0 = sum(1 for s in selected if s.startswith("scotus/r0-"))
+    assert funded_r0 == config.long_conference_capacity - _LC_RELIST_1
+    assert f"scotus/r0-{_LC_RELIST_0 - 1:04d}" not in selected  # the tail is not funded
+
+
+def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
+    """Two independent passes over identical input select an identical set.
+
+    Replay is a pure read of committed columns, which only holds if the ranking is
+    deterministic where scores tie — and at this scale almost everything ties.
+    """
+    config = load_salience_config(Path("config"))
+    runs = []
+    for name in ("a", "b"):
+        db = _seed(tmp_path / name, _long_conference_cohort())
+        with corpus.connect(db) as conn:
+            reconcile_salience_selection(conn, config, apply=True)
+        runs.append(_selected_ids(db))
+    assert runs[0] == runs[1]

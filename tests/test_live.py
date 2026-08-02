@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot
+from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import (
@@ -564,6 +564,96 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     assert relisted.distributed_for_conference == date(2026, 10, 10)
 
 
+def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
+    tmp_path: Path,
+) -> None:
+    """Interim acceptance: a discovered application is re-polled by the
+    application rotation until it resolves — through the interim vocabulary,
+    with the escalation signals latched onto its row — and nothing about it is
+    ever queued to predict."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    case_id = "scotus/9525000001"  # live_application_id(25, 1)
+
+    # Cycle 1: discovery's application stream onboards the pending stay.
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == [case_id]
+    assert queues.predict == [] and queues.evaluate == []
+    with corpus.connect(db) as conn:
+        onboarded = corpus.get_row(conn, case_id)
+    assert onboarded is not None
+    assert onboarded.disposition is None
+    assert onboarded.application_kind == "substantive"
+    assert onboarded.response_requested is False  # parsed, not yet requested
+    assert onboarded.referred_to_court is False
+    assert onboarded.amicus_briefs == 0
+
+    # Cycle 2: the docket has moved — response requested, an amicus brief, the
+    # referral, and the full-Court denial. The application rotation (not the
+    # cert one, whose GLOB can never match `25A1`) re-polls it.
+    served["25A1"]["ProceedingsandOrder"].extend(
+        [
+            {
+                "Date": "Jul 10 2026",
+                "Text": "Response to application (25A1) requested by The Chief Justice.",
+            },
+            {"Date": "Jul 12 2026", "Text": "Brief amicus curiae of Amicus Org filed."},
+            {"Date": "Jul 14 2026", "Text": "Application (25A1) referred to the Court."},
+            {
+                "Date": "Jul 18 2026",
+                "Text": "Application (25A1) for stay presented to The Chief Justice and "
+                "by him referred to the Court is denied.",
+            },
+        ]
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            # The production scope: applications are permanently out of predict
+            # scope, and the application routing is deliberately ungated, so the
+            # resolution must surface even under the gate.
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 19),
+        )
+    # Ground truth only: the resolution is recorded and surfaced (nothing
+    # predicted it, so it lands on evaluate_skipped), and predict stays empty.
+    assert queues2.predict == [] and queues2.evaluate == []
+    assert [q["docket"] for q in queues2.evaluate_skipped] == [9_525_000_001]
+    with corpus.connect(db) as conn:
+        resolved = corpus.get_row(conn, case_id)
+    assert resolved is not None
+    assert resolved.disposition == "denied"  # the interim vocabulary, not the cert one
+    assert resolved.date_decided == date(2026, 7, 18)
+    assert resolved.last_live_polled == date(2026, 7, 19)
+    assert resolved.application_kind == "substantive"
+    assert resolved.response_requested is True
+    assert resolved.referred_to_court is True
+    assert resolved.amicus_briefs == 1
+
+    # Cycle 3: resolved, so the rotation no longer re-polls it.
+    with corpus.connect(db) as conn:
+        assert corpus.application_rotation(conn, limit=10) == []
+
+
 def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:
     # A soft budget already spent: the cycle onboards nothing and polls nothing,
     # writing nothing — so a starved window is a no-op, never a partial-write mess.
@@ -721,10 +811,16 @@ def test_redact_snapshot_strips_live_outcome_keys() -> None:
     redacted = redact_snapshot(
         _payload(proceedings=[_DENIED_ENTRY]) | {"docket_entries": [{"id": 1}]}
     )
-    assert "ProceedingsandOrder" not in redacted
     assert "sJsonCreationDate" not in redacted
-    assert "docket_entries" not in redacted
     assert redacted["CaseNumber"] == "25-100 "
+    # The entries survive redaction and are removed by date instead; a cutoff of
+    # None keeps nothing, which is what a caller gets when it cannot date the
+    # replay at all.
+    assert "ProceedingsandOrder" in redacted
+    truncated, dropped = truncate_snapshot(redacted, None)
+    assert "ProceedingsandOrder" not in truncated
+    assert "docket_entries" not in truncated
+    assert dropped == 2
 
 
 # --- config -----------------------------------------------------------------------
@@ -738,6 +834,7 @@ def test_load_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
 
     defaults = load_live_config(tmp_path / "absent")
     assert defaults.max_new_cases_per_run == 25
+    assert defaults.max_applications_per_run == 10
     assert defaults.frontier_misses == 2
 
 
@@ -748,6 +845,7 @@ def test_repo_tracking_yaml_carries_live_section() -> None:
     # not an API budget.
     assert cfg.max_cases_per_run == 300
     assert cfg.max_new_cases_per_run == 100
+    assert cfg.max_applications_per_run == 10
     assert cfg.term_floor_year == 2017
 
 
@@ -963,7 +1061,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
         )
         conn.commit()
 
-    assert backfill_live_signals(db, denial_sample_every=10) == (4, 5)
+    assert backfill_live_signals(db) == (4, 5)
     with corpus.connect(db) as conn:
         row_a = corpus.get_row(conn, a.case_id)
         row_b = corpus.get_row(conn, b.case_id)
@@ -980,7 +1078,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
     assert row_e.distribution_count is None  # no live snapshot to parse
 
     # Idempotent: everything resolvable was resolved; the second run is a no-op.
-    assert backfill_live_signals(db, denial_sample_every=10) == (0, 0)
+    assert backfill_live_signals(db) == (0, 0)
 
 
 def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> None:
@@ -1645,3 +1743,84 @@ def test_relist_cooldown_does_not_suppress_a_first_distribution(tmp_path: Path) 
         )
     assert [q["docket"] for q in queues.predict] == [docket_id]
     assert queues.predict_skipped_relist_cooldown == []
+
+
+# --- counsel: the side of the caption, which the flat lists destroy ---------------
+
+
+def test_counsel_keeps_the_side_the_flat_lists_lose() -> None:
+    """Verbatim from 25-885, the case that motivates the column: the Solicitor
+    General is counsel of record for the *petitioner* (the United States), while
+    Skadden's appellate group appears for the respondent. Both land in the same
+    flat `attorneys` list, where "the SG is on this docket" cannot be told apart
+    from "the SG is opposing cert" — opposite signals about the same petition."""
+    payload = _payload()
+    payload["Petitioner"] = [
+        {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+    ]
+    payload["Respondent"] = [
+        {
+            "PartyName": "Donte J. Carter",
+            "Attorney": "Parker Andrew Rider-Longmaid",
+            "IsCounselofRecord": True,
+        },
+        {"PartyName": "Donte J. Carter", "Attorney": "Shay Dvoretzky", "IsCounselofRecord": False},
+    ]
+    row = from_live_docket(payload, live_docket_id(25, 885))
+
+    assert [(c.party, c.attorney, c.role, c.counsel_of_record) for c in row.counsel] == [
+        ("United States", "D. John Sauer", "petitioner", True),
+        ("Donte J. Carter", "Parker Andrew Rider-Longmaid", "respondent", True),
+        ("Donte J. Carter", "Shay Dvoretzky", "respondent", False),
+    ]
+    # The flat lists keep their contract: deduplicated and sorted, which is exactly
+    # why the side cannot be recovered from them — sorting destroys the block order
+    # that was the only trace of it.
+    assert row.parties == ["Donte J. Carter", "United States"]
+    assert row.attorneys == [
+        "D. John Sauer",
+        "Parker Andrew Rider-Longmaid",
+        "Shay Dvoretzky",
+    ]
+
+
+def test_counsel_of_record_defaults_false_when_upstream_is_silent() -> None:
+    """Absent is not False-as-observed, but a bare `party: attorney` block is all
+    the older Terms serve, and treating silence as "is counsel of record" would
+    invent the strongest form of the signal wherever the field is missing."""
+    payload = _payload()
+    payload["Petitioner"] = [{"PartyName": "Jane Doe", "Attorney": "A. Counsel"}]
+    payload["Respondent"] = []
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert [(c.role, c.counsel_of_record) for c in row.counsel] == [("petitioner", False)]
+
+
+def test_a_party_with_no_attorney_still_carries_its_side() -> None:
+    """A pro se party has a side and no counsel; dropping the entry for want of an
+    attorney would lose the party from the structured view entirely."""
+    payload = _payload()
+    payload["Petitioner"] = [{"PartyName": "Jane Doe"}]
+    payload["Respondent"] = []
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert [(c.party, c.attorney, c.role) for c in row.counsel] == [
+        ("Jane Doe", None, "petitioner")
+    ]
+
+
+def test_amicus_counsel_lands_under_other_and_is_not_arrival_time() -> None:
+    """The `other` side accumulates amici over the docket's life, overwhelmingly
+    after a grant — a merits case carries dozens where a denied petition carries
+    none. Structuring by role is what lets a consumer take the stable
+    petitioner/respondent blocks and refuse this one; the flat `attorneys` list
+    mixes them with nothing to tell them apart."""
+    payload = _payload()
+    payload["Other"] = [
+        {"PartyName": f"Amici {i}", "Attorney": f"Amicus Counsel {i}"} for i in range(3)
+    ]
+    row = from_live_docket(payload, live_docket_id(25, 451))
+
+    by_role = {r: [c.party for c in row.counsel if c.role == r] for r in ("petitioner", "other")}
+    assert by_role["petitioner"] == ["Jane Doe"]
+    assert by_role["other"] == ["Amici 0", "Amici 1", "Amici 2"]
+    # All of them reach the flat list undifferentiated — the exposure the role fixes.
+    assert len(row.attorneys) == 5

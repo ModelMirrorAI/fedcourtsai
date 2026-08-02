@@ -15,8 +15,9 @@ agent PR would never start CI.
 
 The token comes from one of **two Apps, split by trust** — mirroring the two S3
 roles. The split is what makes "data writes land directly, everything agentic
-lands via a reviewed PR" an *identity*-enforced invariant rather than a policy the
-agent is merely instructed to follow:
+lands via a PR" an *identity*-enforced invariant rather than a policy the
+agent is merely instructed to follow (that the PR is *reviewed* is a
+convention `AGENTS.md` carries, not something identity enforces):
 
 - **data App** — used by the deterministic writer `run-pull`. Its
   client id is the `DATA_APP_CLIENT_ID` variable and its private key the
@@ -28,7 +29,7 @@ agent is merely instructed to follow:
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
-  reviewed PR.
+  PR that satisfies the required checks.
 
 All four live on the `prod` environment (the two client ids as variables, the
 two keys as secrets). Each workflow mints a token scoped to only what it needs:
@@ -36,10 +37,11 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues; publish the verdict/frontier JSONs to `ops-metrics` |
-| `run-seed` | data | contents (walker steps); ambient issues (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
+| `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
+| `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
@@ -63,19 +65,40 @@ deterministic corpus pushes and agent PRs are visibly authored by different bots
 
 The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches:
+`staging` and `ops-metrics` branches. Both require-PR rulesets pin
+`allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
+promotion must keep `main` and `staging` sharing history, `squash` because the
+data-run `collect` PRs auto-merge with it, and no rebase because replaying
+commits onto either branch would break that shared history and rewrite the
+pre-registration record's commit ids.
 
-- **`main: require PR`** — requires a pull request plus the `gate` status check to
-  merge. **Bypass: the data App only**, so the deterministic
+- **`main: require PR`** — requires a pull request plus the status checks below
+  to merge. **Bypass: the data App only**, so the deterministic
   `run-pull` writer jobs push corpus facts (the corpus blob — rows and point-in-time
   snapshots — to the S3 corpus remote; its pointer and deterministic `outcome.json` to
   `main`) while all agent code changes — including anything the dev App holds —
-  go through a reviewed PR. The dev App is deliberately **absent** from this
-  bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
-  to `1` if a second reviewer exists.
-  - Required checks are `gate`, `paths`, and `promotion-gate` (which reports
-    `skipped` — satisfying the requirement — on every PR that is not the
-    staging→main promotion). **Not** `zizmor` — it is path-filtered
+  go through a PR gated on the required checks. The dev App is deliberately
+  **absent** from this bypass list. Required approvals are `0` — the maintainer
+  reviews at merge time by convention, not by rule; set to `1` if a second
+  reviewer exists.
+  - Required checks are exactly `gate`, `paths`, and `promotion-gate` (which
+    reports `skipped` — satisfying the requirement — on every PR that is not
+    the staging→main promotion). **`main-base` is not among them.** It is the
+    merge-routing jail: it runs — and fails — only on a PR to `main` whose head
+    is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
+    cannot ride around the promotion path by mistake. Rulesets cannot constrain
+    a PR's source branch, which is why it is a check rather than a rule. It
+    cannot be *required* yet: on a `pull_request` the workflow runs from the
+    merge ref, and every legitimate lane into `main` is cut **from** `main` —
+    the collect run branches, the cleanup sweep, the metrics-refresh and
+    cert-backtest PRs — so they run `main`'s own `ci.yml`, which carries no
+    `main-base` job. The context would never report, and an auto-merging
+    collect PR would hang pending forever. It becomes requireable once the job
+    definition promotes into `main`; until then routing rests on the promotion
+    convention and the maintainer's merge. `cleanup-paths` is
+    deliberately **not** in the required list — a cleanup PR is never
+    auto-merged, so it is review-time
+    defense-in-depth. **Not** `zizmor` — it is path-filtered
     to `.github/**`, so requiring it would hang any PR that does not touch workflows.
   - `paths` is the **auto-merge path jail**. The predict/evaluate
     collect jobs open one PR per run that auto-merges when green, opened with the
@@ -109,14 +132,27 @@ bypass list applies to the whole ruleset); further rulesets protect the
   and evaluations under `data/` cannot be rewritten or dropped, even by a
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
-  requires a pull request plus the same required checks as `main`. **Bypass:
-  the repository admin role only** — the maintainer's own main→staging sync
-  push at each promotion batch, whose content is by construction
-  already-gated `main` history merged with already-gated `staging` history.
+  requires a pull request plus the required checks that can report on a
+  staging-targeted PR: `gate` and `paths`. (`main`'s third, `promotion-gate`,
+  is structurally always-`skipped` here — it keys on a base of `main` — so
+  requiring it would add no signal. The same is true of the `main-base` job,
+  which is not a required context anywhere.) **Bypass: the repository
+  admin role only**, the escape hatch for a main→staging sync when the ordinary
+  PR path is unavailable; its content is by construction already-gated `main`
+  history merged with already-gated `staging` history.
   (The GitHub Actions app is not offered as a ruleset bypass actor, and the
-  `promote` workflow is deliberately read-only — no workflow holds a write
-  token to this branch.) **Neither App is a bypass actor here**, so the
-  identity-enforced "everything agentic lands via a reviewed PR" invariant
+  `promote` workflow is deliberately read-only.) The scheduled `sync-staging`
+  workflow does hold a write token to this branch — but it **bypasses
+  nothing**: it opens an ordinary PR that must satisfy the same required checks
+  as any other, and merges it only through them. Worth being precise about what
+  binds there, since the sync PR is a special shape: `paths` is a genuine no-op
+  for a head that is not a data-production branch, and the head sha may already
+  carry a green `gate` from its push-to-`main` run — so the real control is
+  `gate` re-running over the merged tree, which re-validates data and schemas.
+  That is adequate for content that is by construction already-gated `main`
+  history, and it is not the same as a human reading the diff.
+  **Neither App is a bypass actor here**, so the
+  identity-enforced "everything agentic lands via a PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
   runs has no zero-PR path onto the promotion train or onto the ref the
   staging-environment deployments execute.
@@ -140,10 +176,15 @@ the branch list clean. To reproduce the repo (or use it as a template), set:
 |---------|-------|-----|
 | **Allow auto-merge** | **on** | The `collect` job runs `gh pr merge --auto --squash`. With it off that call errors — the job degrades gracefully (logs a warning, leaves the PR open for a manual merge) but nothing auto-merges. |
 | **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
-| **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. |
+| **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
+| **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
-Merge-commit and rebase-merge are not used by the pipeline; leave them at
-whatever the repo prefers. Auto-merge does **not** weaken the gate: it is a
+Rebase-merge is not used by the pipeline, and both require-PR rulesets pin
+`allowed_merge_methods` to `merge, squash` — so it is refused on `main` and
+`staging` regardless of the repo-level toggle. A rebase-merge of either
+ancestry-critical merge would replay commits onto the target, breaking the
+shared history *and* rewriting the pre-registration record's commit ids; no
+lane needs it. Auto-merge does **not** weaken the gate: it is a
 deferred merge that still waits for the required `gate` + `paths` checks, and the
 dev App that opens these PRs is not a branch-protection bypass actor (above), so
 the checks bind. The append-only `data/` jail (`paths`) is what makes
@@ -158,7 +199,10 @@ is a non-triggering label), which is the only reason a workflow here ever reache
 for the App token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
 which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
-same way. The capability is therefore on the lower-trust, non-bypass token, scoped
+same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
+run-log issues ride the ambient token for the same reason (its App token is
+reserved for the writes that must trigger downstream: the corpus commits and
+the `run:predict` / `run:evaluate` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
@@ -187,7 +231,8 @@ carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
-them declares `environment: prod`.
+them declares an environment, and every job outside `integration-test` declares
+`prod`.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -220,23 +265,85 @@ Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `prod`). A branch dispatch naming `prod` is
-refused at its deployment-branch gate before any step runs; one naming the
-`staging` pre-merge environment (any-branch deployment policy) proceeds only
-after the required reviewer approves that specific deployment; and one naming
-anything else resolves no role variables — the AWS roles' trust policies pin
-the OIDC `sub` to the named environments, so an auto-created empty environment
-can assume nothing. `staging` pairs its **required-reviewer** rule with the
-read-only role's trust naming its `sub`; the rule is the gate and must exist
-before the trust does (trust without it would be decorative — rebuild in that
-order). The write role's trust never names `staging`.
+(`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
+branch resolution: a `main` dispatch resolves `prod`, a `staging` dispatch
+`staging`, and any other branch its own
+name; an explicit choice still wins). A dispatch whose job *binds* `prod` from
+anything but `main`, or binds `staging` from anything but `staging`, is refused
+at its deployment-branch gate before any step runs; one naming anything else
+auto-creates an unprotected, empty environment and resolves no role variables —
+the AWS roles' trust policies pin the OIDC `sub` to the named environments, so
+it can assume nothing. The refusal keys on binding, not on the input string: the
+collect scenario binds no environment and so dispatches from anywhere regardless
+of what its input says.
+
+**`staging` is restricted to the `staging` branch, and carries no reviewer
+rule** — the same shape as `prod`, one branch lower. The branch policy is the
+gate, and what it enforces is **code provenance**: only code that passed a pull
+request plus the `gate` and `paths` checks on the `staging` ruleset can bind the
+environment — with two carve-outs this document records above: the admin bypass
+on that ruleset, and the absence of `strict_required_status_checks_policy`, so a
+PR may be green against a stale base. It holds without a human present at
+dispatch time, and it is a property of the *code* — which a per-run approval
+does not assert, since the approval UI shows a workflow name and a ref, not a
+diff.
+
+A per-run approval is the stronger control against a *second* write-access
+human, who could otherwise merge to `staging` (the ruleset requires zero
+approving reviews) and reach the environment without the maintainer. It is
+redundant against the arrangement that exists: no workflow declares
+`actions: write`, neither App is granted an Actions scope, and the repo-scoped
+token agents hold is refused on `workflow_dispatch` — so dispatching is already
+a maintainer-only act, and with `prevent_self_review` off the approval is a
+second click on the same decision by the same person. **Revisit the moment any
+premise changes**: a second write-access collaborator; the first *token* that
+can dispatch, whether a workflow declaring `actions: write` or either App
+granted an Actions scope; or the first workflow that binds `staging` on a
+**non-dispatch trigger** — a `push` or `pull_request` filter naming the branch
+would bind the environment on the merge itself, and agents merge their own PRs
+to `staging`. No workflow filters on a staging ref today; every branch filter
+names `main`.
+
+What neither shape covers: the `staging` ruleset requires no workflow linter, so
+a workflow change that reads a secret is caught by no *required* check.
+`lint-actions` still runs zizmor and actionlint on any PR touching `.github/**`,
+non-blockingly, and the branch policy forces such a change to become a PR diff
+at all. The real control is `AGENTS.md`'s rule that `.github/workflows/**` and
+`.github/actions/**` — the permission surface, composites included, since a
+composite runs inside the job and reads the same secrets — wait for the
+maintainer even into `staging`. Convention, not ruleset, and recorded as such.
+
+Blast radius is bounded on **integrity**, not on confidentiality or spend:
+staging's engine keys are separate and independently revocable, and its AWS role
+is read-only with no write path to the corpus — but that role reads and lists
+the access-gated corpus and the per-case content store. So the exposure a
+workflow change at the staging head buys is corpus *read* and model *spend*,
+which is why the linter gap above is worth naming rather than glossing.
+
+The read-only role's trust names `staging`'s `sub` (the staging integration runs
+assume it, so this is observed, not assumed); the write role's trust never does.
+Restoring a lane for arbitrary branches, if one is ever wanted, means a
+**separate** environment — its own keys, its own trust statement, and a required
+reviewer, since arbitrary code is exactly what a human should see — not widening
+this one. It costs one workflow change: adding the environment's name to
+`deploy-environment`'s choice list, which is deliberately a closed vocabulary —
+run titles render the input verbatim and feed the promotion gate's freshness
+matching, so no dispatcher-controlled free text may reach a title.
+
+**The invariant behind the wiring order:** the environment must never be
+reachable from an arbitrary branch while the read-only role's trust names it.
+The trust is the standing fact, so the deployment-branch restriction is the
+piece that must be in place first, and any future loosening of that branch
+policy is a change to the trust statement too — not to the branch policy alone.
+An environment reachable from any branch, with no gate above it, hands the
+read-only role to whatever an agent last pushed.
 
 The workflow's collect scenario binds no environment at all: its job holds no
 secret and no role — the collect-run composite under test is handed a
 placeholder in place of the App token, a `gh` shim stubs its PR surface, and
 a git URL rewrite keyed on that placeholder diverts its branch push to a
-runner-local scratch remote — so a branch dispatch runs it without any
-approval, and there is nothing for an ungated dispatch to reach. Its only
+runner-local scratch remote — so it dispatches from any branch, and there is
+nothing for such a dispatch to reach. Its only
 real credential is the ambient read-only token that lists and fetches the
 run's own synthetic cell artifacts.
 
@@ -245,10 +352,11 @@ variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
-pre-merge smoke spends against staging's own keys (independently revocable,
-isolated from tournament spend) and only after the required reviewer approves
-the run, so the reviewer rule gates model spend exactly as it gates the
-read-only role. A dispatch naming an environment without the keys gets an
+smoke dispatched at the staging head spends against staging's own keys
+(independently revocable, isolated from tournament spend), so a promotion's
+freshness runs cannot touch the tournament's budget. Spend is gated the same way
+the read-only role is: by who may dispatch, and from which branch. A dispatch
+naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
 step ordering. A codex smoke additionally loosens the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
@@ -308,9 +416,11 @@ Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
 
-Both roles' OIDC trust is scoped to this repo's `prod` environment
-(`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only `prod`-
-environment jobs can assume them.
+Both roles' OIDC trust is scoped to named environments of this repo
+(`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
+one of those environments can assume them. The read-write role names `prod`
+alone; the read-only role also names `staging`, which is what lets the
+integration scenarios read the corpus from the staging branch.
 
 **Agent shells hold no cloud credential; the residual is a localhost query
 surface.** A predict/evaluate cell runs an agent over third-party snapshot

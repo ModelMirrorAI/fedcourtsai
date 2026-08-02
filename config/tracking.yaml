@@ -70,9 +70,16 @@ live:
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~276 over ~4
-  # cycles) rather than trickling it over a week at the old cap; the same soft
+  # cycles) rather than trickling it over a week; the same soft
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
+  # Unresolved interim applications re-polled per cycle (recent Terms first,
+  # then stalest) — ground-truth collection only; prediction queueing is off
+  # for applications. Small because each re-poll is one request at the polite
+  # ~1 req/s and applications resolve in days to weeks: the unresolved set
+  # stays a short list that drains across cycles like the sweep backlog, so a
+  # small cap keeps the interim tail cheap without ever starving it.
+  max_applications_per_run: 10
   # Oldest October Term the refresh rotation reaches — the reachability probe's
   # floor (docs/live-sources.md): full JSON coverage OT2017+.
   term_floor_year: 2017
@@ -88,15 +95,15 @@ live:
   # Predict timing is not configured here: the live channel queues run:predict
   # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
-  # pull.predict_on_change_only. It replaced the interim predict_on_refresh
-  # spend guard; max_cases_per_run above bounds the transition path's worst-case
-  # daily volume, and the sweep path is separately bounded at
-  # windows x salience.sweep_cases_per_cycle. WHICH transitioned petitions
-  # queue is the salience gate's decision: each cycle ends with the selection
-  # pass and that bounded sweep of selected petitions the transition trigger
-  # missed (see `salience:` below and docs/salience.md).
+  # pull.predict_on_change_only. No separate refresh-rate spend guard is needed
+  # because both queueing paths are already bounded: max_cases_per_run above
+  # bounds the transition path's worst-case daily volume, and the sweep path is
+  # separately bounded at windows x salience.sweep_cases_per_cycle. WHICH
+  # transitioned petitions queue is the salience gate's decision: each cycle
+  # ends with the selection pass and that bounded sweep of selected petitions
+  # the transition trigger missed (see `salience:` below and docs/salience.md).
 
-# historical = the historical Term walker (run-pull's historical job):
+# historical = the historical Term walker (the run-seed workflow's `seed` job):
 # accumulates resolved outcomes reverse-chronologically by Term — primarily
 # for the statpack's per-Term base rates, secondarily the cert back-test set —
 # by walking October Terms over the supremecourt.gov docket JSON: the same
@@ -115,12 +122,6 @@ historical:
   # forward poller also onboarded (OT2025+) carries poller-full coverage on
   # top of the walker's sample, so per-Term composition is not uniform there.
   terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
-  # The denial sample: a Term is overwhelmingly denials, so every decided
-  # petition is ingested EXCEPT denials, which are kept when their docket
-  # serial is a multiple of this (10 = a systematic ~10% slice, uniform over
-  # each Term's filing sequence and deterministic per serial, so a resumed run
-  # keeps the identical sample). 1 keeps every denial.
-  denial_sample_every: 10
   # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
   # document fetches ride on top). Trades crash-loss / corpus-push frequency,
@@ -143,9 +144,10 @@ historical:
   document_text_cap: 150000
 
 predict:
-  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
-  # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion
-  # stays full-coverage. Read at the pull-queue and matrix seams.
+  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md
+  # "Scope: the SCOTUS-docket gate"). Restricts only the agentic
+  # predict/evaluate stages; ingestion stays full-coverage. Read at the
+  # pull-queue and matrix seams.
   #   scotus_docket — only SCOTUS dockets (court == scotus); the cost gate.
   #                   Originating court-of-appeals dockets are ingested for
   #                   context and retrieval but not predicted.
@@ -214,9 +216,10 @@ evaluate:
 salience:
   # Bootstrapping-sized: the long-conference cap keeps the flagship three-engine
   # OT2026 release inside the ~$10K bootstrapping budget (~$5K inference at the
-  # measured ~$25/fully-tournamented-case, over the ~$5K non-inference floor);
-  # raised as funding lifts N (see docs/budget.md). The long conference (the
-  # Term's opening conference) clears the summer backlog at once, so it carries a
+  # ~$13/fully-tournamented-case planning rate, over the ~$5K non-inference
+  # floor), with headroom left for the Term's first regular conferences; raised
+  # as funding lifts N (see docs/budget.md). The long conference (the Term's
+  # opening conference) clears the summer backlog at once, so it carries a
   # larger cap than a regular conference.
   per_conference_capacity: 150
   long_conference_capacity: 200
@@ -234,6 +237,76 @@ salience:
   # treated as administrative churn rather than re-tournamented; 1 suppresses
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1
+  # Lookback window for the salience-band segment base rate — how many October
+  # Terms immediately before a case's own Term may contribute to the band grant
+  # rate the evaluator scores Brier skill against and `cert-backtest.json`
+  # reports per band. 0 = unbounded: every prior Term in the statpack, which is
+  # today's behaviour and stays the default so no published skill number moves.
+  # The tension is real and deliberate (docs/salience.md, *Base rates &
+  # baselines for the predicted segment*): per-Term high-band grant rates run
+  # 25.8%-48.0% across OT2017-OT2025, so a long window is stable but assumes the
+  # Court's grant behaviour is stationary, while a short one tracks the drift on
+  # only 61-163 weighted-resolved petitions per Term. Anchored at an OT2026
+  # petition the high band reads roughly 37% (n~1000) unbounded, 34% (n~610) at
+  # 5, and 44% (n~70) at 1 — a ~10-point spread in the number skill is measured
+  # against. Move it on evidence, and before the freeze rather than part-way
+  # through a Term. Counted in Term YEARS, not statpack rows: a Term missing
+  # from the pack shortens the sample rather than pulling an older Term in. See
+  # also `statpack.markdown_terms`, the same window for the forward (agent)
+  # stratum.
+  base_rate_lookback_terms: 0
+  # Placeholder cap on interim-docket tournament slots (stays, injunctions —
+  # docs/salience.md "The interim docket", docs/budget.md), carved from the
+  # same per-conference spend envelope rather than added to it, so target
+  # total spend stays as published. Inert: no enforcement code reads this key
+  # yet — it holds the knob's place until interim predict scope lands, and is
+  # sized only once a measured interim base rate exists.
+  interim_reserve_slots: 0
+
+# statpack = publication knobs for `metrics/statpack.md`
+# (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and
+# every bucket; this bounds only what the Markdown renders.
+statpack:
+  # How many recent Terms the two per-Term tables render. Load-bearing, not
+  # cosmetic: `metrics/statpack.md` is the surface the predict and evaluate
+  # prompts send agents to anchor on, so this bounds the agent stratum's
+  # base-rate window as instructed — the counterpart of
+  # `salience.base_rate_lookback_terms`, which bounds the same window for the
+  # in-code baseline those agents are scored against. (`statpack.json` sits in
+  # the same checkout and carries every Term, so the bound is conventional, not
+  # a capability limit; both per-Term captions state the rendered window so a
+  # truncation is visible where the agent reads.) The two defaults differ (10
+  # here, 0 = unbounded there) and that is stated rather than hidden. With the
+  # walked range at OT2017-OT2025 the pack holds 9 Terms, so nothing is truncated
+  # today and the two windows coincide; they diverge once the pack passes 10
+  # Terms, when the back-test would pool a Term the agents cannot see. 10 spans a
+  # decade of cert practice while keeping the document prompt-sized; 0 renders
+  # every Term.
+  markdown_terms: 10
+
+# spend = the EX-POST inference-spend backstop (see src/fedcourtsai/spend.py).
+# Every other cost control here is ex ante — it bounds one decision or one run
+# (salience capacity N, predict.max_predict_cells_per_run,
+# salience.sweep_cases_per_cycle, the per-cell attempt caps). None of them reads
+# what has actually been spent, so they compose into a per-run limit with no
+# per-period limit above it: across the day's scheduled windows, spend is bounded
+# only by how many cells happen to be owed — the quantity that becomes large at a
+# long conference. This section is the bound above them, read by the predict and
+# evaluate plan seams before either mints a matrix.
+spend:
+  # Trailing-window ceiling on measured spend, USD. 0 DISABLES the backstop (the
+  # convention the other caps use) and is the default: turning it on is a
+  # deliberate act, and a missing section can never wedge the pipeline. Reaching
+  # the ceiling DEFERS new cells — the predict queue and the evaluate backlog are
+  # untouched and re-derive next cycle — it never destroys queued work. Set it
+  # against the envelope in docs/budget.md, and leave room for the ledger lag
+  # below rather than at the exact figure you cannot afford to exceed.
+  ceiling_usd: 0.0
+  # The window the ceiling applies over, days. Sized to the billing period being
+  # protected, not to a run. NOTE the measurement lags: a cell's usage.json
+  # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
+  # on spend within the window, never a live figure.
+  window_days: 30
 
 # runner = the agentic predict/evaluate cell runner's retry governor (see
 # src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —

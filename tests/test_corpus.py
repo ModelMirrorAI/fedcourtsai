@@ -99,6 +99,7 @@ def test_connect_migrates_legacy_cases_table(tmp_path: Path) -> None:
         assert legacy_row is not None
         assert legacy_row.panel == []
         assert legacy_row.parties == []
+        assert legacy_row.counsel == []
         assert legacy_row.date_cert_granted is None and legacy_row.date_cert_denied is None
         assert corpus.rotation_for_pull(conn, limit=10) == [legacy_row]
         # And the enriched columns are now writable.
@@ -1344,6 +1345,156 @@ def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
     assert a_after_none is not None and a_after_none.sample_weight == 1
 
 
+# --- interim-application signal columns and rotation --------------------------------
+
+
+def test_interim_signal_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
+    # Round-trip through the normal API, and a DB created before the columns
+    # existed gains them on connect with the never-parsed NULL sentinel intact.
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/9500024001",
+        court="scotus",
+        docket_number="24A1099",
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=True,
+        amicus_briefs=2,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/9500024001")
+    assert fetched == row
+
+    # A pre-change DB: the current schema minus the four interim columns.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    interim = ("application_kind", "response_requested", "referred_to_court", "amicus_briefs")
+    columns = ",\n".join(
+        f"{name} {ddl}" for name, ddl in corpus._CASES_COLUMN_DDL.items() if name not in interim
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/9500024001', 'scotus', '24A1099');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert set(interim) <= cols
+        migrated = corpus.get_row(conn, "scotus/9500024001")
+    assert migrated is not None
+    assert migrated.application_kind is None  # never parsed, not 'unknown'
+    assert migrated.response_requested is None
+    assert migrated.referred_to_court is None
+    assert migrated.amicus_briefs is None
+
+
+def test_interim_escalation_signals_max_latch_and_never_regress(tmp_path: Path) -> None:
+    # The three ladder signals are monotone over an application's life (the
+    # Court does not un-request a response, un-refer an application, or un-file
+    # an amicus brief), so a degraded parse's confident False/0 — or a writer
+    # with nothing to assert (None) — must never regress a stored value, while a
+    # real advance still lands.
+    db = tmp_path / "corpus.db"
+    base = {"case_id": "scotus/9500024001", "court": "scotus", "docket_number": "24A1099"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [_row(**base, response_requested=True, referred_to_court=True, amicus_briefs=2)],
+        )
+        # A degraded parse: confidently absent signals.
+        corpus.upsert_rows(
+            conn,
+            [_row(**base, response_requested=False, referred_to_court=False, amicus_briefs=0)],
+        )
+        after_degraded = corpus.get_row(conn, "scotus/9500024001")
+        # A cert-form / CourtListener write: nothing to assert.
+        corpus.upsert_rows(conn, [_row(**base)])
+        after_none = corpus.get_row(conn, "scotus/9500024001")
+        # A fresh parse with a real advance still lands.
+        corpus.upsert_rows(conn, [_row(**base, amicus_briefs=5)])
+        after_advance = corpus.get_row(conn, "scotus/9500024001")
+    assert after_degraded is not None and after_none is not None and after_advance is not None
+    assert after_degraded.response_requested is True
+    assert after_degraded.referred_to_court is True
+    assert after_degraded.amicus_briefs == 2
+    assert after_none.response_requested is True
+    assert after_none.referred_to_court is True
+    assert after_none.amicus_briefs == 2
+    assert after_advance.amicus_briefs == 5
+
+
+def test_application_kind_keeps_a_real_reading_over_unknown(tmp_path: Path) -> None:
+    # A degraded application parse reads a confident 'unknown' — not NULL — so
+    # the latch must keep a real reading over it, let 'unknown' fill a genuine
+    # gap, and let a real reading land over anything.
+    db = tmp_path / "corpus.db"
+    base = {"case_id": "scotus/9500024001", "court": "scotus", "docket_number": "24A1099"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(**base, application_kind="substantive")])
+        corpus.upsert_rows(conn, [_row(**base, application_kind="unknown")])
+        after_unknown = corpus.get_row(conn, "scotus/9500024001")
+        corpus.upsert_rows(conn, [_row(**base)])  # nothing to assert (a cert write)
+        after_none = corpus.get_row(conn, "scotus/9500024001")
+        corpus.upsert_rows(conn, [_row(case_id="scotus/9500024002", court="scotus")])
+        corpus.upsert_rows(
+            conn, [_row(case_id="scotus/9500024002", court="scotus", application_kind="unknown")]
+        )
+        filled = corpus.get_row(conn, "scotus/9500024002")
+    assert after_unknown is not None and after_unknown.application_kind == "substantive"
+    assert after_none is not None and after_none.application_kind == "substantive"
+    assert filled is not None and filled.application_kind == "unknown"  # fills a real gap
+
+
+def test_application_rotation_selects_unresolved_applications_in_order(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # OT25 never-polled lead (case_id breaking the tie between the
+                # two); the OT25 polled row follows them.
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="25A2"),
+                corpus.CorpusRow(case_id="scotus/20", court="scotus", docket_number="25A20"),
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25A1",
+                    last_live_polled=date(2026, 7, 1),
+                ),
+                # Older Term follows the current one.
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24A3"),
+                # Below the Term floor -> excluded (unfetchable upstream).
+                corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="16A4"),
+                # Resolved application -> excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/5",
+                    court="scotus",
+                    docket_number="25A5",
+                    disposition="denied",
+                ),
+                # Terminated without a disposition label -> excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/6",
+                    court="scotus",
+                    docket_number="25A6",
+                    date_decided=date(2026, 7, 1),
+                ),
+                # Cert form -> excluded (the cert rotation's population).
+                corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="25-7"),
+                # A spelling the GLOB admits but the strict addressable-form
+                # parser rejects -> dropped by the Python re-verification.
+                corpus.CorpusRow(case_id="scotus/8", court="scotus", docket_number="25A8 (X)"),
+            ],
+        )
+        picked = [r.case_id for r in corpus.application_rotation(conn, limit=10)]
+        assert picked == ["scotus/2", "scotus/20", "scotus/1", "scotus/3"]
+        # The cap is a cap.
+        assert [r.case_id for r in corpus.application_rotation(conn, limit=1)] == ["scotus/2"]
+
+
 def test_salience_columns_roundtrip(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     row = _row(
@@ -1605,3 +1756,126 @@ def test_sparse_filter_coverage_names_the_data_gap(tmp_path: Path) -> None:
     assert "OWN reporter cites" in cites[0]
     assert len(topic) == 1 and "1 of 2 rows in scope (ca9)" in topic[0]
     assert "exact" in topic[0]
+
+
+def test_a_docket_annotation_does_not_change_a_docket_number() -> None:
+    """The bug this prevents: two channels spelling one docket differently.
+
+    CourtListener discovers the plain number while supremecourt.gov serves it with
+    a `*** CAPITAL CASE ***` flag appended. Left in, the two normalize differently,
+    the identity join misses, and both channels mint a row for the same petition —
+    which is how 22 duplicate SCOTUS rows reached the corpus.
+    """
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") == "25-5184"
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") == (
+        corpus.normalize_docket_number("25-5184")
+    )
+    # Whichever end it is appended to.
+    assert corpus.normalize_docket_number("*** CAPITAL CASE *** 25-5184") == "25-5184"
+
+
+def test_stripping_an_annotation_still_yields_no_false_matches() -> None:
+    """The normalization's standing promise: a miss, never a wrong link. Removing
+    a flag must not make two genuinely different dockets compare equal, and must
+    not turn a consolidated multi-number string into a single tracked docket."""
+    assert corpus.normalize_docket_number("21-1, 21-2") == "21-1,21-2"
+    assert corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") != (
+        corpus.normalize_docket_number("25-5185")
+    )
+    # An annotation is not a docket number, so a string that is only one is empty.
+    assert corpus.normalize_docket_number("*** CAPITAL CASE ***") is None
+
+
+def test_the_bare_number_test_is_unaffected_by_stripping() -> None:
+    """`is_historical_mandatory` keys on `.isdigit()` of the normalized value, so a
+    change here could silently reclassify rows into the out-of-scope regime.
+    Verified against the live corpus: 318 rows normalize differently and zero flip
+    this test."""
+    assert corpus.normalize_docket_number("No. 123") == "123"
+    assert (corpus.normalize_docket_number("No. 123") or "").isdigit()
+    assert not (corpus.normalize_docket_number("25-5184 *** CAPITAL CASE ***") or "").isdigit()
+
+
+def _scotus(docket_number: str) -> corpus.CorpusRow:
+    return corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=docket_number)
+
+
+def test_an_application_serial_may_carry_hyphens_or_a_trailing_letter() -> None:
+    """Real spellings on the application docket that an end-anchored `\\d+` missed,
+    which let five rows past the scope rule and into predict scope. An
+    application's disposition is a stay grant/deny, so one reaching a cert cell
+    would be scored against a target the model is not calibrated for."""
+    for dn in ("A14-662", "A-13-717", "A-0245-12", "A04-1646", "18A142T"):
+        assert corpus.is_non_cert_scotus_form(_scotus(dn)), dn
+
+
+def test_the_widened_serial_still_cannot_reach_a_cert_number() -> None:
+    """The letter is the whole discriminator: a modern cert number is `YY-NNNN`
+    with no letter anywhere, so widening what counts as a serial cannot catch one.
+    Verified over the corpus too — the widening excludes nine more rows and zero
+    of them is a modern cert petition."""
+    for dn in ("25-5184", "25-1", "24-12", "22-451"):
+        assert not corpus.is_non_cert_scotus_form(_scotus(dn)), dn
+
+
+def test_a_dangling_hyphen_is_not_a_serial() -> None:
+    """The serial has to end in a digit, or a bare letter-and-dash would read as
+    an application docket."""
+    assert not corpus.is_non_cert_scotus_form(_scotus("A-"))
+
+
+def test_the_sibling_letter_forms_take_the_same_tolerances() -> None:
+    """Original, miscellaneous and disbarment dockets carry the same spellings for
+    the same reason; the rule treats all of them as non-cert forms, so a tolerance
+    added to one belongs on the others."""
+    assert corpus.is_non_cert_scotus_form(_scotus("22O14-1"))
+    assert corpus.is_non_cert_scotus_form(_scotus("M-62-3"))
+    assert corpus.is_disbarment_docket(_scotus("16D02977"))
+
+
+def test_counsel_reads_empty_from_a_blob_that_predates_the_column(tmp_path: Path) -> None:
+    """The ranged and service backends read the published blob as-is — no
+    ``connect`` migration runs — so a column the blob predates must read as its
+    default through ``_from_record``, the same contract every ``_optional_*``
+    column honors."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/886")])
+
+    raw = sqlite3.connect(db)
+    try:
+        raw.execute("ALTER TABLE cases DROP COLUMN counsel")
+        raw.commit()
+        raw.row_factory = sqlite3.Row
+        record = raw.execute("SELECT * FROM cases WHERE case_id = 'scotus/886'").fetchone()
+        row = corpus._from_record(record)
+    finally:
+        raw.close()
+    assert row.counsel == []
+
+
+def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
+    """The side is the reason the column exists, so it is the thing that must
+    survive storage — a round trip that kept only the names would be the flat
+    `attorneys` list again, spelled more expensively."""
+    db = tmp_path / "corpus.db"
+    entries = [
+        corpus.CounselEntry(
+            party="United States",
+            attorney="D. John Sauer",
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=True,
+        ),
+        corpus.CounselEntry(
+            party="Donte J. Carter",
+            attorney="Shay Dvoretzky",
+            role=corpus.CounselRole.respondent,
+        ),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/885", counsel=entries)])
+        stored = corpus.get_row(conn, "scotus/885")
+    assert stored is not None
+    assert stored.counsel == entries
+    assert stored.counsel[0].counsel_of_record is True
+    assert stored.counsel[1].counsel_of_record is False

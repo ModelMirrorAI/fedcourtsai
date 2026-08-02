@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "ToolUsageEntry": {
+      "additionalProperties": false,
+      "description": "One MCP tool's offered-vs-called record, qualified ``<server>.<tool>``.",
+      "properties": {
+        "actors": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Calls per predictor/evaluator id",
+          "title": "Actors",
+          "type": "object"
+        },
+        "called_cells": {
+          "default": 0,
+          "description": "Cells that called it at least once (not total calls)",
+          "minimum": 0,
+          "title": "Called Cells",
+          "type": "integer"
+        },
+        "calls": {
+          "default": 0,
+          "description": "Total invocations across every cell",
+          "minimum": 0,
+          "title": "Calls",
+          "type": "integer"
+        },
+        "engines": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Calls per engine \u2014 a tool used by one engine and not another is usually a prompt or sandbox difference, not a tool problem",
+          "title": "Engines",
+          "type": "object"
+        },
+        "offered_cells": {
+          "default": 0,
+          "description": "Cells whose manifest advertised this tool \u2014 the denominator. 0 means no cell recorded it as offered, which on logs predating the offered-tools record means unknown rather than not-offered",
+          "minimum": 0,
+          "title": "Offered Cells",
+          "type": "integer"
+        },
+        "tool": {
+          "description": "Server-qualified tool name, e.g. `courtlistener.search`",
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "title": "ToolUsageEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The offered-vs-called tool rollup over every committed retrieval log.\n\nAnswers which configured tools are actually earning their place. A zero in\n``calls`` means **never called** \u2014 not useless: the prompt may never mention\nthe tool, or a sandbox may have blocked it, and this data cannot separate\nthose from genuine uselessness. Read it beside ``offered_cells``.",
+  "properties": {
+    "builtin_calls": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Calls to engine built-ins (shell, file IO, web search), counted separately because they are not what the manifest offers",
+      "title": "Builtin Calls",
+      "type": "object"
+    },
+    "cells_with_mcp": {
+      "default": 0,
+      "description": "Cells that called at least one MCP tool",
+      "minimum": 0,
+      "title": "Cells With Mcp",
+      "type": "integer"
+    },
+    "cells_with_web": {
+      "default": 0,
+      "description": "Cells that reached the open web at least once",
+      "minimum": 0,
+      "title": "Cells With Web",
+      "type": "integer"
+    },
+    "entries": {
+      "description": "Offered-but-never-called first, then by descending calls \u2014 the actionable rows lead",
+      "items": {
+        "$ref": "#/$defs/ToolUsageEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "logs": {
+      "default": 0,
+      "description": "Retrieval logs rolled up",
+      "minimum": 0,
+      "title": "Logs",
+      "type": "integer"
+    },
+    "logs_without_offered_record": {
+      "default": 0,
+      "description": "Logs carrying no `mcp_tools` (written before the field existed), so they contribute calls but no offered denominator",
+      "minimum": 0,
+      "title": "Logs Without Offered Record",
+      "type": "integer"
+    },
+    "offered_now": {
+      "description": "What the CURRENT manifest advertises, server-qualified. Supplies a denominator for logs written before per-cell `mcp_tools` existed; a tool listed here with no calls is genuinely never-called, while one called but absent here ran under an older pin",
+      "items": {
+        "type": "string"
+      },
+      "title": "Offered Now",
+      "type": "array"
+    },
+    "pins": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Logs per `<id>=<pinned package>` the cells actually ran under. Read it beside `offered_now`: when they name different versions, the offered set is today's and the calls are from an older server",
+      "title": "Pins",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "web_calls": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Calls to each engine's open-web tools, counted under that engine's own tool names; a zero is not by itself evidence a cell chose not to search \u2014 check the retrieval surface its process version records",
+      "title": "Web Calls",
+      "type": "object"
+    },
+    "web_without_mcp_by_engine": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Cells that searched the web and called NO MCP tool, per engine \u2014 the MCP-gap signal. Suggestive, not proof: forward cells are explicitly allowed to use public context, so this flags candidates to inspect, not failures",
+      "title": "Web Without Mcp By Engine",
+      "type": "object"
+    }
+  },
+  "title": "ToolUsage",
+  "type": "object"
+}

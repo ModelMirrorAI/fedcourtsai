@@ -14,10 +14,16 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     CertBacktest,
     CertBacktestEntry,
+    DocketPack,
+    DocketPackTerm,
+    GroupBy,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStratum,
+    ScopeManifest,
     StatPack,
+    StatPackCoverage,
+    StatPackSection,
 )
 from fedcourtsai.serialize import write_json, write_text
 
@@ -25,7 +31,11 @@ runner = CliRunner()
 
 
 def _metrics_dir(tmp_path: Path) -> Path:
-    """A metrics directory holding all four regenerated artifacts."""
+    """A metrics directory holding every regenerated artifact.
+
+    Returns the metrics directory itself; `render_refresh_pr` takes the repo root
+    (its parent), because the refresh now also carries `data/scope/scope.json`.
+    """
     metrics = tmp_path / "metrics"
     write_json(
         metrics / "leaderboard.json",
@@ -64,6 +74,8 @@ def _metrics_dir(tmp_path: Path) -> Path:
                     events_scored=1500,
                     accuracy=0.9,
                     granted_accuracy=0.9,
+                    always_denied_accuracy=0.9,
+                    lift_over_always_denied=0.0,
                 )
             ],
         ),
@@ -78,11 +90,23 @@ def _metrics_dir(tmp_path: Path) -> Path:
         ),
     )
     write_text(metrics / "statpack.md", "# Statpack\n")
+    write_json(
+        metrics / "docket.json",
+        DocketPack(
+            corpus_rows=80998,
+            resolved=60000,
+            open=20998,
+            coverage=StatPackCoverage(live_slice_rows=9924, live_slice_resolved=9327),
+            sections=[StatPackSection(title="Cases by court", group_by=GroupBy.court)],
+            terms=[DocketPackTerm(term=2025), DocketPackTerm(term=2024)],
+        ),
+    )
+    write_text(metrics / "docket.md", "# Docket pack\n")
     return metrics
 
 
 def test_no_changes_means_no_pr(tmp_path: Path) -> None:
-    assert render_refresh_pr([], _metrics_dir(tmp_path), "RID") is None
+    assert render_refresh_pr([], _metrics_dir(tmp_path).parent, "RID") is None
 
 
 def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
@@ -93,7 +117,7 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
         "metrics/statpack.json",
         "metrics/backtest.json",
     ]
-    pr = render_refresh_pr(changed, metrics, "RID")
+    pr = render_refresh_pr(changed, metrics.parent, "RID")
     assert pr is not None
     # Fixed branch: the next refresh force-pushes it, so an unmerged PR updates in
     # place instead of stacking one PR per schedule tick.
@@ -111,9 +135,21 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert "RID" in pr.body
 
 
+def test_pr_carries_the_docket_pack(tmp_path: Path) -> None:
+    # An artifact missing from the display order is silently absent from the
+    # refresh PR, so the court-facing pack has to be listed with its own headline.
+    pr = render_refresh_pr(
+        ["metrics/docket.md", "metrics/docket.json"], _metrics_dir(tmp_path).parent, "RID"
+    )
+    assert pr is not None
+    assert pr.title == "metrics: refresh docket"
+    assert "9924 live-slice case(s) (9327 resolved) over 2 Term(s)" in pr.body
+    assert "human-readable docket-pack companion" in pr.body
+
+
 def test_partial_refresh_lists_only_the_changed_artifacts(tmp_path: Path) -> None:
     metrics = _metrics_dir(tmp_path)
-    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics, "RID")
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
     assert pr is not None
     assert pr.title == "metrics: refresh leaderboard"
     assert "backtest" not in pr.body
@@ -122,7 +158,7 @@ def test_partial_refresh_lists_only_the_changed_artifacts(tmp_path: Path) -> Non
 
 def test_unrecognized_paths_alone_yield_no_pr(tmp_path: Path) -> None:
     # Only the known artifacts drive a refresh PR; a stray path is not a refresh.
-    assert render_refresh_pr(["metrics/other.json"], _metrics_dir(tmp_path), "RID") is None
+    assert render_refresh_pr(["metrics/other.json"], _metrics_dir(tmp_path).parent, "RID") is None
 
 
 def test_cli_plan_round_trips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -189,3 +225,41 @@ def test_render_backtest_pr_empty_set_still_renders(tmp_path: Path) -> None:
     (tmp_path / "cert-backtest.json").write_text(empty.model_dump_json())
     pr = render_backtest_pr(tmp_path, "RID", limit=25, engine="stub")
     assert pr is not None and "no predictors scored" in pr.body
+
+
+def test_the_refresh_carries_the_scope_manifest(tmp_path: Path) -> None:
+    """`data/scope/scope.json` is the one refreshed artifact outside `metrics/`.
+
+    It is deterministic and git-tracked like the rest, and it is the only surface
+    that publishes the salience decision — so drift in it falsifies a claim
+    `README.md` makes rather than merely aging a number. It has to be named in the
+    display order to appear in a refresh PR at all.
+    """
+    _metrics_dir(tmp_path)
+    write_json(
+        tmp_path / "data" / "scope" / "scope.json",
+        ScopeManifest(cases=3102, eligible=2900, excluded=202),
+    )
+    pr = render_refresh_pr(["data/scope/scope.json"], tmp_path, "RID")
+    assert pr is not None
+    assert "`data/scope/scope.json`" in pr.body
+    assert "3102 public case(s)" in pr.body
+    assert "2900 eligible" in pr.body
+
+
+def test_a_skipped_scope_manifest_says_so_rather_than_reporting_zero(tmp_path: Path) -> None:
+    """The command writes an empty `skipped` manifest when the corpus is absent.
+    A refresh PR that reported that as "0 public cases" would read as the public
+    set collapsing rather than as the corpus not being on disk."""
+    _metrics_dir(tmp_path)
+    write_json(tmp_path / "data" / "scope" / "scope.json", ScopeManifest(skipped=True))
+    pr = render_refresh_pr(["data/scope/scope.json"], tmp_path, "RID")
+    assert pr is not None
+    assert "skipped (no corpus" in pr.body
+
+
+def test_artifacts_are_matched_on_path_not_basename(tmp_path: Path) -> None:
+    """The display order carries directories now, so a same-named file elsewhere
+    cannot be mistaken for a refreshed artifact."""
+    _metrics_dir(tmp_path)
+    assert render_refresh_pr(["somewhere/else/leaderboard.json"], tmp_path, "RID") is None

@@ -7,6 +7,7 @@
         "denied",
         "granted-in-part",
         "gvr",
+        "summary-reversal",
         "dismissed",
         "withdrawn",
         "other"
@@ -14,23 +15,140 @@
       "title": "Disposition",
       "type": "string"
     },
-    "JudgeVote": {
+    "Judgment": {
+      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\n``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the\nsame reason mootness practice does: scoring them as merits calls would\nconflate a prediction about the law with one about the Court's housekeeping.",
+      "enum": [
+        "affirmed",
+        "reversed",
+        "vacated",
+        "affirmed-in-part-reversed-in-part",
+        "dismissed-as-improvidently-granted",
+        "affirmed-by-an-equally-divided-court"
+      ],
+      "title": "Judgment",
+      "type": "string"
+    },
+    "JusticeVote": {
       "additionalProperties": false,
+      "description": "One Justice's vote, and whether they wrote.\n\nThe vote is a :class:`VoteValue`, not a :class:`Disposition`: a disposition is\nwhat the *Court* did, and has no member for joining a majority or dissenting.",
       "properties": {
-        "judge": {
-          "title": "Judge",
+        "justice": {
+          "description": "The Justice's name, as the vote source spells it",
+          "title": "Justice",
           "type": "string"
         },
         "vote": {
-          "$ref": "#/$defs/Disposition"
+          "$ref": "#/$defs/VoteValue"
+        },
+        "writing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WritingRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What this Justice wrote. Null means not stated \u2014 the record was written without addressing writing at all. `none` is the opposite: an affirmative observation that this Justice wrote nothing, which is what a final order list or opinion discloses about every participating Justice. Defaulting to `none` would turn every silent record into that claim"
         }
       },
       "required": [
-        "judge",
+        "justice",
         "vote"
       ],
-      "title": "JudgeVote",
+      "title": "JusticeVote",
       "type": "object"
+    },
+    "ResolutionSignals": {
+      "additionalProperties": false,
+      "description": "The docket-progress signals as at resolution, frozen into the outcome.\n\nThe corpus carries these as live-parsed columns, but a corpus column holds the\n*current* value, not the value at any fixed moment. A forecast about them \u2014\nwhether the petition would be relisted, whether the Court would call for the\nSolicitor General's views \u2014 therefore has nothing immutable to resolve\nagainst: re-scoring the same cell later reads a column that has moved on, and\na pre-registration record cannot rest on that. Copying them onto the outcome\nat resolution fixes the *resolution* end of that comparison, and makes it\nreproducible.\n\nIt is not sufficient on its own. These signals only ever grow, so a forecast\nabout them is a forecast about an increment, and an increment needs both ends\n\u2014 the value as at prediction as well as as at resolution. Nothing committed\ncarries the prediction-time end today, so a claim resting on this block alone\ncan only be specified as an absolute level, which is trivially true wherever\nthe signal had already fired when the cell ran. See\n``docs/outcome-decomposition.md``.\n\nThe block is present only when the proceedings were live-parsed. That is the\nsame coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the\nsentinel for the whole live-signal family, so where it is absent nothing here\nwas observed. Absent block means *not observed*; present block means observed,\nand inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no\nrecord \u2014 which is the distinction a claim has to be able to make.",
+      "properties": {
+        "cvsg_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Date the Court called for the Solicitor General's views, or None for no CVSG \u2014 unambiguous here, because the block exists only where the proceedings were parsed",
+          "title": "Cvsg Date"
+        },
+        "distribution_count": {
+          "description": "Distinct conferences the petition was distributed for as at resolution; relists are this minus one, floored at 0",
+          "minimum": 0,
+          "title": "Distribution Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "distribution_count"
+      ],
+      "title": "ResolutionSignals",
+      "type": "object"
+    },
+    "VoteProvenance": {
+      "additionalProperties": false,
+      "description": "Where a vote list came from, and how much of it is there.\n\n**Presence carries meaning**, the discipline ``ResolutionSignals`` established.\nAbsent, nobody looked. Present with ``complete=false`` and two votes beside it,\nexactly two are on the public record and the other seven genuinely are not \u2014\nwhich is the ordinary state at the cert stage, where a vote surfaces only when\na Justice notes it. Collapse that distinction and no import can restore it,\nand no evaluator can tell an unobserved vote from an unrecorded one.\n\nScoped to the Supreme Court: the bounds below are its nine seats and its\nsix-Justice quorum, so this does not describe a circuit panel, which has\nneither. Circuit events carry no vote record.\n\nIt sits beside the votes rather than containing them: ``votes`` is a committed\nfield on every outcome and these models reject unknown keys, so a block that\nswallowed the list would fail every artifact already written.",
+      "properties": {
+        "complete": {
+          "description": "Whether every participating Justice's vote is present. False means the rest are unobserved, NOT that they abstained",
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "participating": {
+          "description": "Justices who took part \u2014 the aggregation denominator a threshold counts against, which recusals move",
+          "maximum": 9,
+          "minimum": 6,
+          "title": "Participating",
+          "type": "integer"
+        },
+        "source": {
+          "description": "Where the votes were read from, e.g. 'scdb:2024-001', 'order-list:2025-03-10', 'opinion'. Free text, because the sources are not yet an enumerable set",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "participating",
+        "complete"
+      ],
+      "title": "VoteProvenance",
+      "type": "object"
+    },
+    "VoteValue": {
+      "description": "How one Justice voted. Distinct from :class:`Disposition`, which is what the\n*Court* did \u2014 a vocabulary with no member for joining a majority or dissenting,\nand so unable to express a vote at all.\n\nSpans every stage, because the model does: ``grant``/``deny`` are the cert and\ninterim vocabulary, the rest are merits. A vote that does not exist is not a\nvote \u2014 ``recused`` and ``did_not_participate`` are recorded so the aggregation\ndenominator is legible, since a threshold counts *participating* Justices.",
+      "enum": [
+        "grant",
+        "deny",
+        "majority",
+        "concur-in-judgment",
+        "concur-in-part-dissent-in-part",
+        "dissent",
+        "recused",
+        "did-not-participate"
+      ],
+      "title": "VoteValue",
+      "type": "string"
+    },
+    "WritingRole": {
+      "description": "What a Justice wrote, if anything.\n\n``none`` is a real observation, not a gap: once an order list or an opinion is\nfinal, every participating Justice is observed either to have written or not\nto have. A record that simply does not address writing leaves the field null\ninstead, so silence is never read as an observed absence.\n\nThat asymmetry is what makes \"does Justice j write here\" forecastable where an\nindividual cert *vote* is not \u2014 a cert vote becomes public only when a Justice\nchooses to note it, so the visible ones are selected on the outcome.\n\n``statement`` covers a statement respecting the denial of certiorari, which is\nthe commonest non-``none`` value at the cert stage.",
+      "enum": [
+        "none",
+        "majority",
+        "plurality",
+        "concurrence",
+        "concurrence-in-judgment",
+        "dissent",
+        "statement"
+      ],
+      "title": "WritingRole",
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -63,6 +181,18 @@
       "title": "Event Id",
       "type": "string"
     },
+    "judgment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Judgment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the Court did to the judgment below \u2014 the merits axis, kept off the cert disposition vocabulary because a DIG has no coherent value on the grant binary. Null on a cert-stage outcome, which has no judgment to record"
+    },
     "resolved_at": {
       "format": "date",
       "title": "Resolved At",
@@ -73,6 +203,18 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "signals": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResolutionSignals"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Docket-progress signals frozen as at resolution, fixing the resolution end of a forecast about them rather than leaving it on a corpus column that keeps moving. These signals only grow, so resolving an increment also needs the value as at prediction, which nothing committed carries. Absent on outcomes written before the block existed, and on events whose proceedings were never live-parsed"
     },
     "source": {
       "anyOf": [
@@ -87,9 +229,21 @@
       "description": "Docket entry id or citation",
       "title": "Source"
     },
+    "vote_provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VoteProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where `votes` came from and how much of it is there. Absent means nobody looked, which is the state of every outcome today; present with complete=false means the missing votes are unobserved rather than absent. Without it a short vote list cannot be told from an unexamined one"
+    },
     "votes": {
       "items": {
-        "$ref": "#/$defs/JudgeVote"
+        "$ref": "#/$defs/JusticeVote"
       },
       "title": "Votes",
       "type": "array"

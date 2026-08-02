@@ -34,9 +34,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind
 from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
-from .cert_signals import match_disposition_signal
+from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
+from .interim_signals import application_kind, escalation_signals, match_interim_disposition
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
+
+# The denial-sampling interval the historical walker used before it began keeping
+# every decided petition. Not a knob: it is a fact about rows already in the corpus,
+# and the only thing that can read a pre-capture denial's inclusion probability back
+# off its serial. Changing it would silently re-weight history. It stops mattering
+# once every Term has been re-walked — each re-served denial upserts at weight 1,
+# and `sample_weight`'s min-latch takes it.
+LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
 
 
 class CorpusSource(StrEnum):
@@ -99,6 +108,31 @@ class CorpusRow(BaseModel):
         "carries — identifies state courts and other tribunals the tracked-court "
         "id mapping leaves out of `originating_court`. Live-channel only.",
     )
+    application_kind: str | None = Field(
+        default=None,
+        description="What an interim application asks the Court for (`extension` "
+        "| `substantive` | `unknown`), from its own ask clause. Live application "
+        "branch only; None elsewhere (never application-parsed) — the storage "
+        "latch keeps a real reading over a degraded parse's `unknown`.",
+    )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the Court requested a response to an interim "
+        "application (the interim CVSG-analogue). Live application branch only; "
+        "None elsewhere — the storage max-latch keeps a stored True.",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether an interim application was referred to the full "
+        "Court. Live application branch only; None elsewhere — the storage "
+        "max-latch keeps a stored True.",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        description="Amicus briefs recorded on an interim application's docket "
+        "(per-entry count). Live application branch only; None elsewhere — the "
+        "storage max-latch keeps the highest count ever parsed.",
+    )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
     panel: list[corpus.PanelMember] = Field(
@@ -106,6 +140,10 @@ class CorpusRow(BaseModel):
     )
     parties: list[str] = Field(default_factory=list, description="Party names on the docket")
     attorneys: list[str] = Field(default_factory=list, description="Attorney names of record")
+    counsel: list[corpus.CounselEntry] = Field(
+        default_factory=list,
+        description="Structured counsel (party + attorney + side) behind `parties`/`attorneys`",
+    )
     citations: list[str] = Field(default_factory=list)
     citation_count: int | None = Field(default=None, description="Times the decision was cited")
     precedential_status: str | None = Field(
@@ -185,6 +223,11 @@ def _date(value: Any) -> date | None:
     return date_parser.parse(text).date()
 
 
+def _as_flag(value: Any) -> bool | None:
+    """A nullable boolean, ``None`` preserved as the never-parsed sentinel."""
+    return bool(value) if value is not None else None
+
+
 def _as_count(value: Any) -> int | None:
     """Parse a non-negative integer count, or ``None`` for blanks/non-numeric."""
     text = _clean(value)
@@ -237,6 +280,26 @@ def _str_list(value: Any) -> list[str]:
         cleaned = _clean(name)
         if cleaned is not None and cleaned not in out:
             out.append(cleaned)
+    return out
+
+
+def _counsel_list(value: Any) -> list[corpus.CounselEntry]:
+    """Structured counsel entries from an already-mapped record, order-preserving.
+
+    Only the live/historical SCOTUS path supplies these — the mapper has already
+    read the per-side blocks — so this validates rather than parses. A malformed
+    entry is dropped rather than raised on: counsel is an enrichment, and a
+    single bad block must not cost the docket's whole row.
+    """
+    out: list[corpus.CounselEntry] = []
+    for item in _items(value):
+        if isinstance(item, corpus.CounselEntry):
+            out.append(item)
+        elif isinstance(item, Mapping):
+            try:
+                out.append(corpus.CounselEntry(**item))
+            except ValueError:
+                continue
     return out
 
 
@@ -357,11 +420,16 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         distribution_count=_as_count(record.get("distribution_count")),
         cvsg_date=_date(record.get("cvsg_date")),
         originating_court_name=_clean(record.get("originating_court_name")),
+        application_kind=_clean(record.get("application_kind")),
+        response_requested=_as_flag(record.get("response_requested")),
+        referred_to_court=_as_flag(record.get("referred_to_court")),
+        amicus_briefs=_as_count(record.get("amicus_briefs")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
         parties=sorted(_str_list(record.get("parties"))),
         attorneys=sorted(_str_list(record.get("attorneys"))),
+        counsel=_counsel_list(record.get("counsel")),
         citations=_str_list(record.get("citations")),
         citation_count=_as_count(record.get("citation_count")),
         precedential_status=_clean(record.get("precedential_status")),
@@ -416,7 +484,7 @@ _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appell
 # Conference membership rides in the proceedings as its own entry —
 # "DISTRIBUTED for Conference of 3/24/2023." — one entry per (re)distribution.
 # Anchored on the full phrase so a filing's "(Distributed)" suffix never matches.
-_LIVE_DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I)
+_LIVE_DISTRIBUTED_RE = DISTRIBUTED_RE  # the shared definition; see cert_signals
 
 
 def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
@@ -467,7 +535,7 @@ def _live_distribution_count(entries: list[dict[str, Any]]) -> int:
 # Solicitor General is invited to file a brief in this case expressing the
 # views of the United States." — with minor wording drift across eras, so the
 # anchor is the stable head of the phrase only.
-_LIVE_CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
+_LIVE_CVSG_RE = CVSG_RE  # the shared definition; see cert_signals
 
 
 def _live_cvsg_date(entries: list[dict[str, Any]]) -> date | None:
@@ -492,11 +560,28 @@ def _live_title(raw: Any) -> str | None:
     return _LIVE_TITLE_ROLE_RE.sub("", text) if text else None
 
 
-def _live_counsel(payload: Mapping[str, Any]) -> tuple[list[str], list[str]]:
-    """(parties, attorneys) from the JSON's counsel blocks, order-preserving."""
+_COUNSEL_SIDES: tuple[tuple[str, corpus.CounselRole], ...] = (
+    ("Petitioner", corpus.CounselRole.petitioner),
+    ("Respondent", corpus.CounselRole.respondent),
+    ("Other", corpus.CounselRole.other),
+)
+
+
+def _live_counsel(
+    payload: Mapping[str, Any],
+) -> tuple[list[str], list[str], list[corpus.CounselEntry]]:
+    """(parties, attorneys, counsel) from the JSON's per-side counsel blocks.
+
+    The flat lists stay de-duplicated, because retrieval overlap keys on them and
+    a name repeated across sides is one name; the normalizer then sorts them, which
+    is what leaves the side unrecoverable from them alone. ``counsel`` keeps every
+    block in served order — petitioner side first — so an attorney appearing for
+    both sides survives as two entries rather than collapsing to the first seen.
+    """
     parties: list[str] = []
     attorneys: list[str] = []
-    for side in ("Petitioner", "Respondent", "Other"):
+    counsel: list[corpus.CounselEntry] = []
+    for side, role in _COUNSEL_SIDES:
         blocks = payload.get(side)
         if not isinstance(blocks, list):
             continue
@@ -509,7 +594,16 @@ def _live_counsel(payload: Mapping[str, Any]) -> tuple[list[str], list[str]]:
                 parties.append(party)
             if attorney is not None and attorney not in attorneys:
                 attorneys.append(attorney)
-    return parties, attorneys
+            if party is not None:
+                counsel.append(
+                    corpus.CounselEntry(
+                        party=party,
+                        attorney=attorney,
+                        role=role,
+                        counsel_of_record=block.get("IsCounselofRecord") is True,
+                    )
+                )
+    return parties, attorneys, counsel
 
 
 def _live_entries(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -569,7 +663,37 @@ def _live_resolution(
     return None, None, None, None
 
 
-def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any]:
+def _interim_resolution(
+    entries: list[dict[str, Any]],
+) -> tuple[str | None, date | None]:
+    """(disposition, decided) for an application, from its proceedings.
+
+    The interim docket's own vocabulary, not the cert one: an application is
+    granted or denied, and the order says so in language the cert patterns do not
+    match at all — which is why an application ingested through the cert resolver
+    would sit unresolved forever.
+
+    The **last** disposing entry wins, unlike the cert side's first. An
+    application can be deferred pending argument and decided months later, and a
+    consolidated order can dispose of several applications at once; in both cases
+    the earlier entry is a step rather than the outcome.
+    """
+    resolved: tuple[str | None, date | None] = (None, None)
+    for entry in entries:
+        matched = match_interim_disposition(str(entry.get("description") or ""))
+        if matched is None:
+            continue
+        decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
+        resolved = (matched[0].value, decided)
+    return resolved
+
+
+def map_live_docket(
+    payload: Mapping[str, Any],
+    docket_id: int,
+    *,
+    form: Literal["cert", "application"] = "cert",
+) -> dict[str, Any]:
     """A supremecourt.gov docket JSON as an upstream-shaped ingestion record.
 
     The live channel's half of the guardrail "new upstream fields land as
@@ -583,11 +707,35 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
     entries = _live_entries(payload)
     conference = _live_conference_date(entries)
     cvsg = _live_cvsg_date(entries)
-    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+    ask: str | None = None
+    requested: bool | None = None
+    referred: bool | None = None
+    amici: int | None = None
+    if form == "application":
+        # An application has no cert stage: no conference, no CVSG, and a
+        # disposition its own vocabulary reads. Dating it as a termination rather
+        # than a cert grant/deny keeps the cert-stage date columns meaning one
+        # thing — `resolution_date` prefers them, and an application landing there
+        # would put a stay in the cert population's timing.
+        disposition, decided = _interim_resolution(entries)
+        cert_granted = cert_denied = None
+        terminated = decided
+        conference = None
+        cvsg = None
+        # The interim conditioning set: the ask (what kind of application this
+        # is) and the escalation-ladder signals, read from the proceedings text
+        # here because under the corpus split that text lives only in the
+        # content store — a column is the one place a cohort can be assembled
+        # from. Cert-form dockets leave all four None (never application-parsed).
+        texts = [str(entry.get("description") or "") for entry in entries]
+        ask = application_kind(texts).value
+        requested, referred, amici = escalation_signals(texts)
+    else:
+        disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
-    parties, attorneys = _live_counsel(payload)
+    parties, attorneys, counsel = _live_counsel(payload)
     lower_court = _clean(payload.get("LowerCourt"))
     lower_numbers = _clean(payload.get("LowerCourtCaseNumbers"))
     return {
@@ -600,12 +748,17 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
         "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
         "date_terminated": terminated.isoformat() if terminated else None,
         "distributed_for_conference": conference.isoformat() if conference else None,
-        "distribution_count": _live_distribution_count(entries),
+        "distribution_count": None if form == "application" else _live_distribution_count(entries),
         "cvsg_date": cvsg.isoformat() if cvsg else None,
         "originating_court_name": lower_court,
+        "application_kind": ask,
+        "response_requested": requested,
+        "referred_to_court": referred,
+        "amicus_briefs": amici,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
+        "counsel": [c.model_dump(mode="json") for c in counsel],
         "appeal_from_id": _LIVE_LOWER_COURT_IDS.get(lower_court.lower()) if lower_court else None,
         "originating_court_information": (
             # The JSON parenthesizes the lower-court numbers ("(21-5166)").
@@ -718,6 +871,7 @@ def to_corpus_row(
         judges=row.judges,
         panel=row.panel,
         parties=row.parties,
+        counsel=row.counsel,
         attorneys=row.attorneys,
         topic=row.nature_of_suit,
         citations=row.citations,
@@ -732,6 +886,10 @@ def to_corpus_row(
         distribution_count=row.distribution_count,
         cvsg_date=row.cvsg_date,
         originating_court_name=row.originating_court_name,
+        application_kind=row.application_kind,
+        response_requested=row.response_requested,
+        referred_to_court=row.referred_to_court,
+        amicus_briefs=row.amicus_briefs,
         sample_weight=sample_weight,
     )
 
@@ -767,7 +925,7 @@ def upsert_to_corpus(
         return corpus.upsert_rows(conn, store_rows)
 
 
-def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[int, int]:
+def backfill_live_signals(db_path: Path) -> tuple[int, int]:
     """Back-fill live-parsed signals and sample weights onto pre-capture rows.
 
     Rows the live channel wrote before the signal columns existed carry
@@ -786,9 +944,9 @@ def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[i
       that residue is a handful of rows, so the rescan stays cheap.
     - **Weights** (``sample_weight``): a denial the historical walker provably
       kept by its serial sample — the serial parses, lands on the sample grid
-      (``serial % denial_sample_every == 0``), and sits at or below the
+      (``serial % LEGACY_DENIAL_SAMPLE_EVERY == 0``), and sits at or below the
       walker's cursor for its (Term, stream) — back-fills to
-      ``denial_sample_every``; everything else live-written is weight 1.
+      ``LEGACY_DENIAL_SAMPLE_EVERY``; everything else live-written is weight 1.
       One documented residual: a poller-resolved denial inside a walker-covered
       range back-fills to the sampled weight rather than 1 (the rule cannot
       tell the channels apart after the fact) — bounded to the Terms both
@@ -835,12 +993,12 @@ def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[i
             weight = 1
             if record["disposition"] == Disposition.denied.value:
                 parsed = parse_scotus_docket_number(record["docket_number"])
-                if parsed is not None and parsed[1] % denial_sample_every == 0:
+                if parsed is not None and parsed[1] % LEGACY_DENIAL_SAMPLE_EVERY == 0:
                     term, serial = parsed
                     stream = "historical-ifp" if serial >= IFP_SERIAL_BASE else "historical-paid"
                     cursor = corpus.get_live_cursor(conn, term, stream)
                     if cursor is not None and cursor >= serial:
-                        weight = denial_sample_every
+                        weight = LEGACY_DENIAL_SAMPLE_EVERY
             conn.execute(
                 "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
                 (weight, str(record["case_id"])),

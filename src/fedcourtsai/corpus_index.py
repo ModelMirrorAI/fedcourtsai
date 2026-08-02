@@ -20,7 +20,10 @@ NULLed and tables emptied, never dropped), so read code does not error on the in
 
 **Drop-in scope.** The index is *result-identical* for the three **bulk
 consumers** — ``statpack``, ``backtest``, and ``query`` — which the parity gate in
-``tests/test_corpus_index.py`` proves byte-for-byte. The signal readers that keyed
+``tests/test_corpus_index.py`` proves byte-for-byte. The one exception is
+``query --full``, which asks for the stripped body itself: an index **alone** cannot
+serve it, and under the corpus-split mode it is served from the content store
+through the payload read source (parity likewise gated). The signal readers that keyed
 on a stripped field are handled by phase 4: scope reconcile / ``validate`` read the
 retained ``cases.has_opinion`` presence bit instead of the ``opinion_text`` body, and
 the snapshot readers (scope reconcile's bare-import rule and ``cert-backtest`` replay)

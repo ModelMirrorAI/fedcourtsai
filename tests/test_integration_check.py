@@ -35,6 +35,7 @@ from fedcourtsai.integration_check import (
     run_mcp_check,
     run_service_check,
 )
+from fedcourtsai.registry import load_mcp_servers
 
 REMOTE_URL = "s3://test-bucket/store"
 
@@ -335,8 +336,16 @@ def test_mcp_check_raises_when_the_sidecar_is_down() -> None:
 
 
 def test_mcp_cli_writes_summary_and_exits_by_verdict(tmp_path: Path) -> None:
+    # The CLI compares the server against the committed manifest, so the fake
+    # has to advertise what the manifest records or the run legitimately fails
+    # on drift. Deriving it here keeps the happy path honest AND covers the
+    # matching case; the drift case is the test below.
+    manifest = sorted(
+        {t for srv in load_mcp_servers(Path("config") / "predictors.yaml") for t in srv.tools}
+    )
+
     class Handler(_FakeMcpHandler):
-        pass
+        tools: ClassVar[list[dict[str, object]]] = [{"name": t} for t in manifest]
 
     summary_out = tmp_path / "summary.md"
     with _mcp_server(Handler) as url:
@@ -349,3 +358,21 @@ def test_mcp_cli_writes_summary_and_exits_by_verdict(tmp_path: Path) -> None:
 
     down = CliRunner().invoke(app, ["mcp-integration-check", "--url", "http://127.0.0.1:9/mcp"])
     assert down.exit_code == 2
+
+
+def test_mcp_cli_fails_when_the_server_has_drifted_from_the_manifest(tmp_path: Path) -> None:
+    # The manifest's tool list is the offered denominator every retrieval log
+    # snapshots, and it is captured by hand at pin time. Without this check a
+    # version bump that adds or drops a tool leaves it silently wrong and every
+    # later offered-vs-called rollup inherits the error.
+    class Handler(_FakeMcpHandler):
+        tools: ClassVar[list[dict[str, object]]] = [{"name": "search"}]
+
+    with _mcp_server(Handler) as url:
+        result = CliRunner().invoke(app, ["mcp-integration-check", "--url", url])
+    assert result.exit_code == 1
+    report = json.loads(result.stdout)
+    assert report["ok"] is False
+    drift = next(s for s in report["steps"] if s["name"] == "manifest tools")
+    assert not drift["ok"]
+    assert "recorded but not advertised" in drift["detail"]
