@@ -23,7 +23,9 @@ from .schemas import (
     EventKind,
     ModelUsage,
     Outcome,
+    PredictableEvent,
     Prediction,
+    Stage,
 )
 from .serialize import read_model
 
@@ -205,8 +207,8 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
 
 def iter_stratified_evaluations(
     data_root: Path, *, frozen_only: bool = True
-) -> list[tuple[Evaluation, Stratum]]:
-    """Every evaluation joined to its pre-registration stratum, in stable path order.
+) -> list[tuple[Evaluation, Stratum, Stage | None]]:
+    """Every evaluation joined to its stratum and its event's stage, in stable path order.
 
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
     the same event and the event's ``outcome.json`` — all committed artifacts, so
@@ -221,6 +223,13 @@ def iter_stratified_evaluations(
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
 
+    The third element is the event's decision **stage**, read off its committed
+    ``event.yaml`` and normalized for stratification: a petition/appeal-kind
+    event with no recorded stage reads as **cert** — the case-baseline kinds
+    resolve on the cert standard by construction — while a null stage on any
+    other kind stays ``None`` (no stage, never guessed into one). The
+    leaderboard segments its stage axis on this value.
+
     ``frozen_only`` (the default) keeps only cells whose latest prediction was
     produced by a **frozen** process (:func:`process_version.is_frozen`), so every
     surface built on this stream — the leaderboard and the ops dashboard both — is
@@ -233,7 +242,7 @@ def iter_stratified_evaluations(
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return []
-    cells: list[tuple[Evaluation, Stratum]] = []
+    cells: list[tuple[Evaluation, Stratum, Stage | None]] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -254,7 +263,15 @@ def iter_stratified_evaluations(
             if outcome.disposition_basis == "mootness"
             else classify_stratum(latest.created_at, outcome.resolved_at)
         )
-        cells.append((evaluation, stratum))
+        event = read_model(event_dir / "event.yaml", PredictableEvent)
+        # Stage normalization for stratification: a missing/null stage on a
+        # petition/appeal-kind event reads as cert — the case-baseline kinds
+        # resolve on the cert standard by construction — while a null stage on
+        # any other kind stays no-stage.
+        stage: Stage | None = event.stage
+        if stage is None and event.kind in _FORECASTABLE_KINDS:
+            stage = Stage.cert
+        cells.append((evaluation, stratum, stage))
     return cells
 
 

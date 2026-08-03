@@ -692,8 +692,10 @@ def leaderboard(
     Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
     each reported **per stratum** (forward forecasts vs retrospective cells vs
     procedural mootness-basis cells, never blended and with only the timing
-    strata ranked; see the ``Leaderboard`` schema) — and
-    writes it through the shared serializer for minimal diffs. Reruns over an
+    strata ranked; see the ``Leaderboard`` schema). The ranked board is the
+    **cert stage**; a non-cert stage's cells report in their own unranked
+    ``stages`` block, never pooled. The result
+    writes through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger reproduce the file byte for byte.
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
@@ -1709,8 +1711,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
-    # version-blind — it counts committed predictions, not scored cells.
-    stratified = iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions)
+    # version-blind — it counts committed predictions, not scored cells. The
+    # stage the join also carries is dropped here: the substance funnel is
+    # deliberately stage-blind throughput (a census over every scored cell,
+    # like the prediction counts beside it), so its counts pool stages by
+    # design; per-stage segmentation — and every claim that must not pool —
+    # is the leaderboard's job.
+    stratified = [
+        (ev, stratum)
+        for ev, stratum, _stage in iter_stratified_evaluations(
+            settings.data_root, frozen_only=not all_versions
+        )
+    ]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,

@@ -18,6 +18,12 @@ forward/retrospective enter the ranking. :func:`classify_stratum` is the single
 definition of the timing split, derivable offline from committed artifacts (the
 prediction's ``created_at`` vs the outcome's ``resolved_at``); the procedural
 override lives with the join in ``store.iter_stratified_evaluations``.
+
+Orthogonal to the strata runs the **stage axis**: the ranked board is the cert
+stage, and a cell whose event resolves on a different decision standard
+(interim, merits — the join normalizes the stage) aggregates into its own
+unranked ``stages`` block, never pooled with cert or another stage, because
+``granted`` answers a different question at each stage.
 """
 
 from __future__ import annotations
@@ -36,8 +42,11 @@ from .schemas import (
     EvaluatorAgreement,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardStage,
+    LeaderboardStageEntry,
     LeaderboardStratum,
     Prediction,
+    Stage,
 )
 from .serialize import read_model
 
@@ -49,6 +58,12 @@ RETROSPECTIVE: Stratum = "retrospective"
 # the ground-truth label tracks the Court's vacatur wording rather than
 # cert-worthiness, so these aggregate separately and never enter the ranking.
 PROCEDURAL: Stratum = "procedural"
+
+# The `stages` key a stage-less cell shares (a null-stage event of a
+# non-case-baseline kind — see `store.iter_stratified_evaluations`'s
+# normalization): the GroupBy dimensions' `(none)` convention, so coverage is
+# visible rather than silently dropped.
+NO_STAGE_KEY = "(none)"
 
 # Brier scores are bounded in [0, 1]; predictors that never reported one sort
 # after every predictor that did, without colliding with a real worst score.
@@ -78,14 +93,17 @@ def _aggregate(evals: Sequence[Evaluation]) -> LeaderboardStratum | None:
     """One stratum's aggregates, or ``None`` when the stratum has no evaluations."""
     if not evals:
         return None
+    # The skill mean's own denominator rides beside it (`skill_scored`): a cell
+    # scores skill only where a segment base rate exists, so the gap between it
+    # and `evaluations` must be visible rather than silent.
+    skills = [ev.brier_skill_score for ev in evals if ev.brier_skill_score is not None]
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
         evaluations=len(evals),
         accuracy=sum(ev.correct for ev in evals) / len(evals),
         mean_brier_score=_mean([ev.brier_score for ev in evals if ev.brier_score is not None]),
-        mean_brier_skill_score=_mean(
-            [ev.brier_skill_score for ev in evals if ev.brier_skill_score is not None]
-        ),
+        mean_brier_skill_score=_mean(skills),
+        skill_scored=len(skills),
         mean_vote_accuracy=_mean(
             [ev.vote_accuracy for ev in evals if ev.vote_accuracy is not None]
         ),
@@ -287,14 +305,75 @@ def evaluator_agreement(
     }
 
 
+def _group_by_predictor(
+    cells: Sequence[tuple[Evaluation, Stratum]],
+) -> dict[str, dict[Stratum, list[Evaluation]]]:
+    """Group one stage's cells by predictor, keeping the strata apart."""
+    by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
+        lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
+    )
+    for ev, stratum in cells:
+        by_predictor[ev.predictor_id][stratum].append(ev)
+    return by_predictor
+
+
+def _stratum_total(
+    by_predictor: Mapping[str, Mapping[Stratum, list[Evaluation]]], stratum: Stratum
+) -> int:
+    return sum(len(strata[stratum]) for strata in by_predictor.values())
+
+
+def _stage_board(cells: Sequence[tuple[Evaluation, Stratum]]) -> LeaderboardStage:
+    """One non-cert stage's unranked block: per-predictor aggregates plus counts.
+
+    The same per-stratum aggregation as the cert entries, but ordered by
+    ``predictor_id`` and never ranked — a stage resolves on its own decision
+    standard, so nothing here is comparable to the cert board or another stage.
+    """
+    by_predictor = _group_by_predictor(cells)
+    entries: list[LeaderboardStageEntry] = []
+    for predictor_id in sorted(by_predictor):
+        strata = by_predictor[predictor_id]
+        evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
+        entries.append(
+            LeaderboardStageEntry(
+                predictor_id=predictor_id,
+                evaluators=len({ev.evaluator_id for ev in evals}),
+                forward=_aggregate(strata[FORWARD]),
+                retrospective=_aggregate(strata[RETROSPECTIVE]),
+                procedural=_aggregate(strata[PROCEDURAL]),
+            )
+        )
+    return LeaderboardStage(
+        evaluations_total=sum(
+            _stratum_total(by_predictor, stratum)
+            for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
+        ),
+        forward_evaluations=_stratum_total(by_predictor, FORWARD),
+        retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
+        procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
+        entries=entries,
+    )
+
+
 def build_leaderboard(
-    cells: Iterable[tuple[Evaluation, Stratum]],
+    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
     big_case: Mapping[str, BigCaseLeaderboard] | None = None,
     *,
     evaluators: Mapping[str, EvaluatorAgreement] | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
+
+    The ranked board is the **cert stage**: only cells whose event's stage is
+    cert (as the join normalizes it — see
+    :func:`fedcourtsai.store.iter_stratified_evaluations`) enter the top-level
+    entries and counts. Any other stage aggregates alone into an unranked
+    ``stages`` block keyed by the stage value (:data:`NO_STAGE_KEY` for a
+    stage-less cell), because ``granted`` answers a different question at each
+    stage — no skill or count figure is ever pooled across stages. (The
+    ``big_case`` and ``evaluators`` maps the caller supplies are stage-blind by
+    contract: they describe stakes reads, not stage-scoped skill.)
 
     One entry per predictor, each carrying its **forward** and **retrospective**
     aggregates separately (a stratum with no cells is null, never zero-filled
@@ -310,12 +389,17 @@ def build_leaderboard(
     seam). Recording it makes the empty frozen headline self-explaining rather
     than reading as a regression.
     """
-    by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
-        lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
-    )
-    for ev, stratum in cells:
-        by_predictor[ev.predictor_id][stratum].append(ev)
+    cert_cells: list[tuple[Evaluation, Stratum]] = []
+    stage_cells: dict[str, list[tuple[Evaluation, Stratum]]] = defaultdict(list)
+    for ev, stratum, stage in cells:
+        if stage == Stage.cert:
+            cert_cells.append((ev, stratum))
+        else:
+            # str() yields the bare stage value ("interim") — Stage is a
+            # StrEnum, and a validated model hands back the plain string.
+            stage_cells[str(stage) if stage is not None else NO_STAGE_KEY].append((ev, stratum))
 
+    by_predictor = _group_by_predictor(cert_cells)
     entries: list[LeaderboardEntry] = []
     for predictor_id, strata in by_predictor.items():
         evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
@@ -335,18 +419,17 @@ def build_leaderboard(
     for position, entry in enumerate(entries, start=1):
         entry.rank = position
 
-    def _stratum_total(stratum: Stratum) -> int:
-        return sum(len(strata[stratum]) for strata in by_predictor.values())
-
     return Leaderboard(
         process_scope=process_scope,
         predictors_ranked=len(entries),
-        evaluations_total=(
-            _stratum_total(FORWARD) + _stratum_total(RETROSPECTIVE) + _stratum_total(PROCEDURAL)
+        evaluations_total=sum(
+            _stratum_total(by_predictor, stratum)
+            for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
         ),
-        forward_evaluations=_stratum_total(FORWARD),
-        retrospective_evaluations=_stratum_total(RETROSPECTIVE),
-        procedural_evaluations=_stratum_total(PROCEDURAL),
+        forward_evaluations=_stratum_total(by_predictor, FORWARD),
+        retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
+        procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         evaluator_agreement=dict(evaluators or {}),
         entries=entries,
+        stages={key: _stage_board(stage_cells[key]) for key in sorted(stage_cells)},
     )

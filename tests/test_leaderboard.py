@@ -10,6 +10,7 @@ from fedcourtsai import process_version as pv
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
+    NO_STAGE_KEY,
     PROCEDURAL,
     RETROSPECTIVE,
     Stratum,
@@ -26,15 +27,22 @@ from fedcourtsai.schemas import (
     Disposition,
     Engine,
     Evaluation,
+    EventKind,
     Leaderboard,
     Outcome,
+    PredictableEvent,
     Prediction,
     ProcessVersion,
+    Stage,
 )
-from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
 
 runner = CliRunner()
+
+# The stage-annotated cell shape `iter_stratified_evaluations` yields and
+# `build_leaderboard` consumes.
+Cell = tuple[Evaluation, Stratum, Stage | None]
 
 
 def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
@@ -55,12 +63,12 @@ def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
     return Evaluation.model_validate(base)
 
 
-def _forward(ev: Evaluation) -> tuple[Evaluation, Stratum]:
-    return (ev, FORWARD)
+def _forward(ev: Evaluation, stage: Stage | None = Stage.cert) -> Cell:
+    return (ev, FORWARD, stage)
 
 
-def _retro(ev: Evaluation) -> tuple[Evaluation, Stratum]:
-    return (ev, RETROSPECTIVE)
+def _retro(ev: Evaluation, stage: Stage | None = Stage.cert) -> Cell:
+    return (ev, RETROSPECTIVE, stage)
 
 
 def _write(data_root: Path, ev: Evaluation) -> None:
@@ -81,15 +89,30 @@ def _write_cell(
     resolved_at: date = date(2026, 6, 23),
     disposition_basis: str = "standard",
     process_version: ProcessVersion | None = None,
+    kind: EventKind = EventKind.petition,
+    stage: Stage | None = None,
 ) -> None:
-    """A full scored cell: evaluation plus the prediction and outcome it targets.
+    """A full scored cell: evaluation plus the event, prediction, and outcome it targets.
 
     ``process_version`` stamps the prediction, which is what the frozen filter
-    partitions on; ``None`` leaves it a shakedown cell.
+    partitions on; ``None`` leaves it a shakedown cell. ``kind``/``stage`` land
+    on the event.yaml the stratification join reads — the petition-kind default
+    with a null stage is the committed-ledger shape, which stratifies as cert.
     """
     _write(data_root, ev)
     court, _, docket = ev.case_id.partition("/")
     event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
+    write_yaml(
+        event.event_file,
+        PredictableEvent(
+            event_id=ev.event_id,
+            case_id=ev.case_id,
+            kind=kind,
+            stage=stage,
+            title="Test event",
+            resolved=True,
+        ),
+    )
     write_json(
         event.prediction(ev.predictor_id, "p1"),
         Prediction(
@@ -258,9 +281,36 @@ def test_iter_stratified_evaluations_joins_prediction_and_outcome(tmp_path: Path
     )
     strata = {
         ev.event_id: stratum
-        for ev, stratum in iter_stratified_evaluations(tmp_path, frozen_only=False)
+        for ev, stratum, _stage in iter_stratified_evaluations(tmp_path, frozen_only=False)
     }
     assert strata == {"evt-a": FORWARD, "evt-b": RETROSPECTIVE}
+
+
+def test_iter_stratified_evaluations_normalizes_the_event_stage(tmp_path: Path) -> None:
+    # The join reads each event's stage off its event.yaml, normalized for
+    # stratification: an explicit stage passes through; a null stage on a
+    # petition/appeal-kind event reads as cert (the case-baseline kinds resolve
+    # on the cert standard by construction); a null stage on any other kind
+    # stays no-stage, never guessed.
+    _write_cell(tmp_path, _evaluation("p", event_id="evt-a"), kind=EventKind.petition, stage=None)
+    _write_cell(tmp_path, _evaluation("p", event_id="evt-b"), kind=EventKind.appeal, stage=None)
+    _write_cell(
+        tmp_path,
+        _evaluation("p", event_id="evt-c"),
+        kind=EventKind.motion,
+        stage=Stage.interim,
+    )
+    _write_cell(tmp_path, _evaluation("p", event_id="evt-d"), kind=EventKind.motion, stage=None)
+    stages = {
+        ev.event_id: stage
+        for ev, _stratum, stage in iter_stratified_evaluations(tmp_path, frozen_only=False)
+    }
+    assert stages == {
+        "evt-a": Stage.cert,
+        "evt-b": Stage.cert,
+        "evt-c": Stage.interim,
+        "evt-d": None,
+    }
 
 
 def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
@@ -301,7 +351,7 @@ def test_mootness_outcome_routes_to_the_procedural_stratum(tmp_path: Path) -> No
         resolved_at=date(2026, 6, 23),  # timing alone would read forward
         disposition_basis="mootness",
     )
-    ((_, stratum),) = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    ((_, stratum, _stage),) = iter_stratified_evaluations(tmp_path, frozen_only=False)
     assert stratum == PROCEDURAL
 
 
@@ -311,8 +361,8 @@ def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) ->
     # and the totals must report the segmentation.
     board = build_leaderboard(
         [
-            (_evaluation("a", correct=1, brier_score=0.1), FORWARD),
-            (_evaluation("b", correct=1, brier_score=0.0), PROCEDURAL),
+            (_evaluation("a", correct=1, brier_score=0.1), FORWARD, Stage.cert),
+            (_evaluation("b", correct=1, brier_score=0.0), PROCEDURAL, Stage.cert),
         ]
     )
     assert [e.predictor_id for e in board.entries] == ["a", "b"]
@@ -323,6 +373,82 @@ def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) ->
     assert board.procedural_evaluations == 1
     assert board.evaluations_total == 2
     assert board.forward_evaluations == 1
+
+
+def test_non_cert_stages_report_separately_and_never_rank() -> None:
+    # The ranked board is the cert stage. An interim cell and a stage-less cell
+    # land in their own `stages` blocks — out of the entries, out of the
+    # top-level counts, never pooled with cert or with each other.
+    board = build_leaderboard(
+        [
+            (_evaluation("a", correct=1, brier_score=0.1), FORWARD, Stage.cert),
+            (_evaluation("b", correct=1, brier_score=0.0), FORWARD, Stage.interim),
+            (_evaluation("c", correct=0, brier_score=0.5), RETROSPECTIVE, None),
+        ]
+    )
+    assert [e.predictor_id for e in board.entries] == ["a"]
+    assert board.predictors_ranked == 1
+    assert board.evaluations_total == 1  # cert only; each stage carries its own
+    assert set(board.stages) == {"interim", NO_STAGE_KEY}
+    interim = board.stages["interim"]
+    assert interim.evaluations_total == 1
+    assert interim.forward_evaluations == 1
+    (b_entry,) = interim.entries
+    assert b_entry.predictor_id == "b"
+    assert b_entry.forward is not None and b_entry.forward.accuracy == 1.0
+    no_stage = board.stages[NO_STAGE_KEY]
+    assert no_stage.retrospective_evaluations == 1
+
+
+def test_the_empty_stage_axis_is_omitted_from_the_payload() -> None:
+    # The StatPack omit-when-absent rule: an all-cert board serializes with no
+    # `stages` key at all — which is also what keeps the committed
+    # metrics/leaderboard.json byte-identical.
+    all_cert = build_leaderboard([_forward(_evaluation("a"))])
+    assert "stages" not in all_cert.model_dump(mode="json")
+    with_stage = build_leaderboard([_forward(_evaluation("a"), stage=Stage.interim)])
+    assert "interim" in with_stage.model_dump(mode="json")["stages"]
+
+
+def test_skill_scored_counts_the_skill_means_denominator() -> None:
+    # The silent gap between the skill mean's denominator and `evaluations`
+    # must be visible: three cells, two carrying a skill score.
+    cells = [
+        _forward(_evaluation("alpha", brier_skill_score=0.4)),
+        _forward(_evaluation("alpha", brier_skill_score=-0.2)),
+        _forward(_evaluation("alpha", brier_skill_score=None)),
+    ]
+    stratum = build_leaderboard(cells).entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 3
+    assert stratum.skill_scored == 2
+    assert stratum.mean_brier_skill_score == pytest.approx(0.1)
+
+
+def test_the_committed_leaderboard_round_trips_byte_for_byte(tmp_path: Path) -> None:
+    """Byte-identity regression on the committed artifact: parsing
+    `metrics/leaderboard.json` under the current schema and re-serializing it
+    through `serialize.write_json` (how the metrics refresh writes it)
+    reproduces the committed bytes exactly — so this change requires no
+    regeneration of the committed board (the empty `stages` axis is omitted,
+    and `skill_scored` appears only in strata the new code builds). The board
+    carries no generated-at/timestamp field by contract (the `Leaderboard`
+    docstring — the same ledger must always serialize identically), so no
+    field needs normalizing before the comparison.
+
+    Deliberately *not* a rebuild from the committed `data/` tree: evaluations
+    land on `main` via collect PRs on a different cadence than the metrics
+    refresh regenerates this file, so a rebuild comparison would redden the
+    path-jailed collect PR that lands the first frozen evaluation. The
+    round-trip binds only the artifact to its own schema, which travels in the
+    same PR as any schema change — the drift this test exists to catch.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    committed = repo_root / "metrics" / "leaderboard.json"
+    board = read_model(committed, Leaderboard)
+    rewritten = tmp_path / "leaderboard.json"
+    write_json(rewritten, board)
+    assert rewritten.read_bytes() == committed.read_bytes()
 
 
 # --- big-case rank-agreement (Kendall's tau-b) -------------------------------------

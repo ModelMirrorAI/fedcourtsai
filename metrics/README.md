@@ -56,7 +56,14 @@ stays outside the gate:
   mean reasoning-quality summary, and counts (events scored, evaluations,
   evaluators), each reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
-  never blended into one number, with only the timing strata ranked. Each entry
+  never blended into one number, with only the timing strata ranked. Each
+  stratum block reports `skill_scored` beside `mean_brier_skill_score` — the
+  skill mean's true denominator (the cells carrying a non-null skill score),
+  which can sit far below `evaluations` because a cell scores skill only where
+  a segment base rate exists; read the mean against that count, never against
+  the stratum's evaluation total. The ranked board is the **cert stage** (see
+  the stage axis note below); a non-cert stage's cells report in their own
+  unranked `stages` block. Each entry
   also carries a `big_case` block — the predictor's `big_case_score`
   rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
   a second, orthogonal skill dimension that never affects the ranking.
@@ -96,6 +103,26 @@ regardless of timing (the outcome's `disposition_basis` marks it at
 resolution). Its aggregates are reported per predictor but never enter the
 ranking: scoring them as merits calls would conflate cert-worthiness
 calibration with vacatur-practice prediction.
+
+**The stage axis.** Orthogonal to the strata runs the event's decision
+**stage** (cert / interim / merits — the `event.yaml` vocabulary): `granted`
+answers a different question at each stage, so the ranked board — its entries
+and evaluation counts — is the **cert stage**, and any other stage
+reports its own unranked per-predictor block under `stages`, keyed by the
+stage value and **never blended** — no skill or count figure pools into the
+cert board, into another stage, or into any headline number. (The `big_case`
+and `evaluator_agreement` blocks are the deliberate exception: they describe
+stakes reads and grader latitude, not stage-scoped skill, and stay
+stage-blind.) A petition/appeal-kind event with no
+recorded stage reads as cert (the case-baseline kinds resolve on the cert
+standard by construction); a stage-less cell of any other kind shares one
+`(none)` bucket so coverage stays visible — that bucket's *counts* are the
+claimable part, while its means pool cells of unknown, possibly heterogeneous
+decision standards and support no cross-cell claim. Skill scores appear only
+where a scored segment base rate exists — the cert segment today — so a
+non-cert stage's block carries counts, accuracy, and Brier, with its skill
+mean null and `skill_scored` zero until a base rate for that stage is
+pre-registered.
 
 - `cert-backtest.json` — the cert-specific back-test (not on the scheduled
   refresh): predictors
