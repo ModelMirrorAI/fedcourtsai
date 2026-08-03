@@ -523,11 +523,11 @@ class ResolutionSignals(_Strict):
 
     It is not sufficient on its own. These signals only ever grow, so a forecast
     about them is a forecast about an increment, and an increment needs both ends
-    — the value as at prediction as well as as at resolution. Nothing committed
-    carries the prediction-time end today, so a claim resting on this block alone
-    can only be specified as an absolute level, which is trivially true wherever
-    the signal had already fired when the cell ran. See
-    ``docs/outcome-decomposition.md``.
+    — the value as at prediction as well as as at resolution. The prediction end
+    is ``Prediction.context`` (the harness-written ``PredictionContext``), so a
+    claim resting on this block alone can only be specified as an absolute
+    level, which is trivially true wherever the signal had already fired when
+    the cell ran. See ``docs/outcome-decomposition.md``.
 
     The block is present only when the proceedings were live-parsed. That is the
     same coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the
@@ -565,8 +565,9 @@ class Outcome(_Strict):
         description="Docket-progress signals frozen as at resolution, fixing the "
         "resolution end of a forecast about them rather than leaving it on a "
         "corpus column that keeps moving. These signals only grow, so resolving "
-        "an increment also needs the value as at prediction, which nothing "
-        "committed carries. Absent on outcomes written before the block existed, "
+        "an increment also needs the value as at prediction — the "
+        "`Prediction.context` block's half of the pair. Absent on outcomes "
+        "written before the block existed, "
         "and on events whose proceedings were never live-parsed",
     )
     vote_provenance: VoteProvenance | None = Field(
