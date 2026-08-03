@@ -1092,8 +1092,9 @@ def _update_clause(column: str) -> str:
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a
-        # stored True back to False and silently drop the case from `query
-        # --full` and every presence check — the max-latch keeps the bit
+        # stored True back to False, dropping the case's body from `query
+        # --full` hydration and weakening the presence checks that OR on the
+        # bit — the max-latch keeps the bit
         # monotonic in the store the way the model validator keeps it in memory.
         return (
             f"{column}=MAX("
