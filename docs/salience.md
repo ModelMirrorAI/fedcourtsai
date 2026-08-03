@@ -111,7 +111,7 @@ Deferred, each with a stated reason:
 ### The `sal-v2` intent (pre-registered)
 
 `sal-v1`'s features are docket-acquired — relists and CVSG accumulate over a
-petition's life — so at arrival every petition scores `baseline` and the gate
+petition's life — so at arrival every observable petition scores `baseline` and the gate
 is structurally inert at the one moment a truly prospective selection would
 have to act: no cohort forms, no band stratifies, recall over realized grants
 is zero by construction (the gate replay measures exactly this). The rework is

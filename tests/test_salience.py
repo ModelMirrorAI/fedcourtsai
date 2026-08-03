@@ -10,14 +10,7 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.pipeline.salience import (
-    _CIRCUIT_DEFAULT_RATE,
     _CIRCUIT_GRANT_RATE,
-    _CIRCUIT_WEIGHT,
-    _CVSG_GRANT_RATE,
-    _RELIST_GRANT_RATE,
-    _RELIST_HIGH_RATE,
-    _RELIST_UNKNOWN_RATE,
-    _SALIENCE_BANDS,
     SALIENCE_VERSION,
     _selection_plan,
     carve_out,
@@ -124,43 +117,30 @@ def test_the_carve_out_set_is_exactly_the_high_band() -> None:
     separate constants in separate files, and nothing but this test holds them
     aligned: a refit that put an achievable non-CVSG score inside
     [cutpoint, floor) would open a silent gap between "high band" and
-    "carved in". The achievable score lattice is small — every relist bucket
-    crossed with every circuit rate, with and without CVSG — so the identity
-    is checked exhaustively rather than sampled."""
+    "carved in". The enumeration drives the public scorer over constructed
+    rows — every relist state crossed with every circuit (known, unknown,
+    unlinked), with and without CVSG — so it spans the achievable score
+    lattice even if the scorer later gains a term; the private constant is
+    imported only to enumerate the circuit keys."""
     floor = load_salience_config(Path("config")).floor
-    cutpoint = dict(_SALIENCE_BANDS)["high"]
-    relist_signals = [
-        *_RELIST_GRANT_RATE.values(),
-        _RELIST_HIGH_RATE,
-        _RELIST_UNKNOWN_RATE,
-    ]
-    circuit_rates = [*_CIRCUIT_GRANT_RATE.values(), _CIRCUIT_DEFAULT_RATE]
-    for relist in relist_signals:
-        for circuit in circuit_rates:
+    circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
+    for distribution_count in (1, 2, 3, None):
+        for circuit in circuits:
             for cvsg in (False, True):
-                primary = max(relist, _CVSG_GRANT_RATE) if cvsg else relist
-                score = primary + _CIRCUIT_WEIGHT * circuit
-                in_high = score >= cutpoint
-                carved = cvsg or score >= floor
-                assert in_high == carved, (
-                    f"gap at relist={relist} circuit={circuit} cvsg={cvsg}: "
-                    f"score={score:.4f}, high={in_high}, carved={carved}"
+                row = _petition(
+                    "scotus/lattice",
+                    distribution_count=distribution_count,
+                    cvsg=cvsg,
+                    circuit=circuit,
                 )
-
-
-def test_carve_out_matches_the_selectors_own_predicate() -> None:
-    # The lattice test above reproduces the score arithmetic; this pins the
-    # public predicate to the same answer on real rows, so the two cannot
-    # drift apart.
-    floor = load_salience_config(Path("config")).floor
-    for row in (
-        _petition("scotus/h", distribution_count=3),
-        _petition("scotus/v", distribution_count=1, cvsg=True),
-        _petition("scotus/e", distribution_count=2),
-        _petition("scotus/b", distribution_count=1, circuit="cadc"),
-        _petition("scotus/u", distribution_count=None),
-    ):
-        assert carve_out(row, salience_score(row), floor) == (salience_band(row) == "high")
+                score = salience_score(row)
+                in_high = salience_band(row) == "high"
+                carved = carve_out(row, score, floor)
+                assert in_high == carved, (
+                    f"gap at distribution_count={distribution_count} "
+                    f"circuit={circuit} cvsg={cvsg}: score={score:.4f}, "
+                    f"high={in_high}, carved={carved}"
+                )
 
 
 def test_salience_bands_are_ordered_strongest_first() -> None:
