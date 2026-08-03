@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from ..corpus import CorpusRow, scotus_term_year
 from ..schemas import Outcome, Prediction, PredictionContext, StatPack
-from .salience import salience_band
+from .salience import SALIENCE_VERSION, salience_band
 
 
 def is_correct(prediction: Prediction, outcome: Outcome) -> int:
@@ -30,6 +30,7 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
 
 def _pooled_band_rate(
     band: str,
+    band_version: str,
     term: int,
     statpack: StatPack,
     *,
@@ -43,13 +44,17 @@ def _pooled_band_rate(
     resolved-weighted mean of the per-Term rates, which equals aggregate weighted
     grants over aggregate weighted resolved, so a Term contributes at the weight
     belonging to the rate being pooled.
+
+    ``band_version`` is the frozen salience version that produced ``band``, and
+    the pool is **version-pinned**: only Terms whose ``salience_version`` matches
+    contribute. A band name is meaningful only under the function that assigned
+    it — a sal-v2 ``high`` and a sal-v1 ``high`` are different populations that
+    happen to share a label, and pooling them would publish a number no version
+    ever defined. When no Term carries the band's version the pool is empty and
+    the result is ``None``, the already-contracted no-baseline answer — a
+    lagging statpack reads as "no honest baseline yet", never as a silently
+    blended one.
     """
-    # `band` and the statpack segments are both `sal-v1` today, so a plain name
-    # match is safe. When sal-v2 lands, reconcile the band version with each Term's
-    # `salience_version` here — a lagging statpack would otherwise miss silently. A
-    # bounded `lookback_terms` limits, but does not fix, that exposure: it caps how
-    # far back a stale version can reach, not whether the mismatch is noticed.
-    #
     # A Term-YEAR floor, not a row count — see the callers' docstrings. `0` means no
     # floor; `term - 0` would exclude every Term, so the sentinel must short-circuit.
     # A negative window would read as unbounded-plus-a-Term; `ge=0` guards the config
@@ -58,6 +63,8 @@ def _pooled_band_rate(
     weighted_grants = 0.0
     weighted_resolved = 0.0
     for entry in statpack.terms:
+        if entry.salience_version != band_version:
+            continue  # version pin: a band name only means something under its own scorer
         if entry.term >= term:
             continue  # leakage guard: the case's own and later Terms never contribute
         if oldest is not None and entry.term < oldest:
@@ -113,6 +120,7 @@ def segment_base_rate(
         return None
     return _pooled_band_rate(
         salience_band(row),
+        SALIENCE_VERSION,
         term,
         statpack,
         lookback_terms=lookback_terms,
@@ -138,13 +146,21 @@ def prediction_base_rate(
 
     ``None`` when there is no frozen context, when the snapshot disclosed no
     proceedings so no band could be derived, or when no prior Term carries the
-    band — the caller then falls back to :func:`segment_base_rate`, which is
-    honest rather than invented.
+    band **under the version that assigned it** (the harness stamps
+    ``salience_version`` whenever it derives a band, so a versionless band never
+    arrives from a cell) — the caller then falls back to
+    :func:`segment_base_rate`, which is honest rather than invented.
     """
-    if context is None or context.band is None or context.term is None:
+    if (
+        context is None
+        or context.band is None
+        or context.term is None
+        or context.salience_version is None
+    ):
         return None
     return _pooled_band_rate(
         context.band,
+        context.salience_version,
         context.term,
         statpack,
         lookback_terms=lookback_terms,

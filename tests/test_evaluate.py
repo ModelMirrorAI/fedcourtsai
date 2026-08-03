@@ -31,7 +31,9 @@ from fedcourtsai.schemas import (
 )
 
 
-def _term(year: int, band_rates: dict[str, tuple[float, int]]) -> StatPackTerm:
+def _term(
+    year: int, band_rates: dict[str, tuple[float, int]], *, version: str = "sal-v1"
+) -> StatPackTerm:
     """A Term whose bands carry ``(rate, weighted_resolved)``.
 
     The rate is written to **both** the terminal and the risk-set field, so these
@@ -42,7 +44,7 @@ def _term(year: int, band_rates: dict[str, tuple[float, int]]) -> StatPackTerm:
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v1",
+        salience_version=version,
         segments=[
             StatPackTermSegment(
                 band=band,
@@ -284,14 +286,27 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
     assert segment_base_rate(row, _statpack(*terms)) == pytest.approx(0.07)
 
 
+_DERIVE_FROM_BAND = object()
+
+
 def _context(
-    band: str | None, term: int | None = 2025, *, signals_observable: bool = True
+    band: str | None,
+    term: int | None = 2025,
+    *,
+    signals_observable: bool = True,
+    salience_version: str | object | None = _DERIVE_FROM_BAND,
 ) -> PredictionContext:
+    # The harness stamps `salience_version` whenever it derives a band
+    # (cell_context.build), so the fixture mirrors that pairing by default.
+    if salience_version is _DERIVE_FROM_BAND:
+        salience_version = "sal-v1" if band else None
+    assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
         snapshot_date=date(2025, 3, 1),
         signals_observable=signals_observable,
         band=band,
+        salience_version=salience_version,
         term=term,
     )
 
@@ -349,3 +364,39 @@ def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
         _split_term(2024, terminal=0.015, risk_set=0.069),
     )
     assert prediction_base_rate(_context("baseline", term=2025), pack) == pytest.approx(0.069)
+
+
+# --- version-pinned pooling: a band name only means something under its scorer ----
+
+
+def test_pooling_is_version_pinned_to_the_bands_scorer() -> None:
+    """A sal-v2 `high` and a sal-v1 `high` are different populations sharing a
+    label. A sal-v1 band must pool only the sal-v1 Terms — never a blend no
+    version ever defined."""
+    pack = _statpack(
+        _term(2023, {"high": (0.30, 100)}),
+        _term(2022, {"high": (0.60, 100)}, version="sal-v2"),
+    )
+    # Row-derived band: the live scorer is sal-v1, so only the sal-v1 Term pools.
+    assert segment_base_rate(_row("24-100"), pack) == pytest.approx(0.30)
+    # Frozen band: pinned to the version the cell actually froze.
+    assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)
+    v2 = _context("high", term=2024, salience_version="sal-v2")
+    assert prediction_base_rate(v2, pack) == pytest.approx(0.60)
+
+
+def test_a_fully_mismatched_pack_yields_none_not_a_blend() -> None:
+    """A statpack lagging the band's version has no honest baseline: the answer
+    is the contracted `None`, not a silently pooled number."""
+    pack = _statpack(_term(2023, {"high": (0.30, 100)}, version="sal-v0"))
+    assert segment_base_rate(_row("24-100"), pack) is None
+    assert prediction_base_rate(_context("high", term=2024), pack) is None
+
+
+def test_a_versionless_frozen_band_yields_no_baseline() -> None:
+    """The harness stamps `salience_version` whenever it derives a band, so a
+    band without a version never arrives from a cell — but a hand-built context
+    without one gets `None` rather than a guessed pool."""
+    pack = _statpack(_term(2023, {"high": (0.30, 100)}))
+    ctx = _context("high", term=2024, salience_version=None)
+    assert prediction_base_rate(ctx, pack) is None

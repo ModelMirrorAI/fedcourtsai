@@ -104,7 +104,13 @@ For each predictor you score, write to
     terminal. The band you want is on the prediction you are scoring. Pool every Term
     row that table shows that precedes the case's; its caption states how many of
     the pack's Terms are rendered, and where that is fewer than the pack holds, the
-    shown window *is* your window. Omit when the case has no Term or no prior-Term
+    shown window *is* your window. The table's heading also names the **salience
+    version** its bands were computed under; where that does not match the
+    prediction's `context.salience_version`, the table is no baseline for that
+    band — a band name only means something under the version that assigned it —
+    so omit `segment_base_rate` (and with it `brier_skill_score`) and record the
+    version mismatch in `flags.json`, with the detail in `evaluation.md`. Omit
+    likewise when the case has no Term or no prior-Term
     band resolved.
   - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
     the forecast's skill over the naive baseline that always predicts the segment base

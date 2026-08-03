@@ -362,15 +362,40 @@ the baseline for exactly the petitions whose band moved, and the terminal rate
 against a frozen band understates it several-fold in the weak bands. The top band
 has nothing above it, so its two rates coincide exactly.
 
+**The pool is version-pinned, and a lagging statpack yields no baseline rather
+than a blended one.** A band name is meaningful only under the salience version
+that assigned it — a hypothetical `sal-v2 high` and a `sal-v1 high` are
+different populations that happen to share a label. So both baseline entry
+points (`fedcourtsai.pipeline.evaluate.segment_base_rate` and
+`prediction_base_rate`, through their shared pooler) pool **only** the statpack
+Terms whose `salience_version` matches the version that produced the band
+(the frozen `PredictionContext.salience_version` on the risk-set path; the
+live scorer's version on the terminal path), and when no Term matches, the
+baseline is `None` — the same contracted no-baseline answer as a case with no
+prior-Term data. On a statpack that lags the band's version both paths are
+version-starved, so `brier_skill_score` is omitted rather than computed
+against a number no version ever defined; in the mirror case — a pack already
+re-rendered under a newer version while an old frozen-band cell is scored —
+the risk-set path yields `None` and the evaluator falls back to the terminal
+band under the live scorer, on the `terminal` basis it records. The evaluator
+prompt carries the agent-side half of the same rule: the rendered band table's
+heading names its salience version, and on a mismatch with the prediction's
+frozen version the agent omits the baseline and flags it rather than pooling
+from a table another version rendered. The
+operational consequence is deliberate: after a salience version ships, forward
+cells scored under it have no skill baseline until the statpack re-renders
+under the same version, and that gap is visible instead of silently papered
+over.
+
 The tension is bias against variance, and it has no free answer. Per-Term
 high-band samples are small (61–163 weighted-resolved petitions), so a short
 window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
 stable estimate, but assumes the Court's grant behaviour is stationary across the
 whole range, which the spread above suggests it is not. Two second-order effects
-push the same way. The bands are frozen at `sal-v1`, so a long window also assumes
-band *semantics* are stable across every Term pooled — each per-Term entry carries
-its own `salience_version` for exactly this reason, and a bounded window would
-limit that exposure as a side effect. And the pooling weights are
+push the same way. The bands are frozen at `sal-v1`, and each per-Term entry
+carries its own `salience_version` — the field the version pin above reads, so
+cross-version pooling is impossible at any window length and the window carries
+no versioning duty. And the pooling weights are
 `weighted_resolved`, not `resolved` (OT2024's high band is `resolved=58`,
 `weighted_resolved=121`), so a long window compounds Terms whose walk coverage
 differs.
