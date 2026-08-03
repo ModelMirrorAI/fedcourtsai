@@ -44,7 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
-from .schemas import Disposition, EventKind, Judgment, Stage
+from .schemas import GRANTED_DISPOSITIONS, Disposition, EventKind, Judgment, Stage
 from .supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -2484,32 +2484,61 @@ _TERM_YEAR_SQL = (
 )
 
 
+# SQL literal of `schemas.GRANTED_DISPOSITIONS`, built from the constant so the
+# rotation's granted-docket retention and `granted_flag` can never disagree on
+# membership. Deliberately the full granted set, though only the dispositions
+# that open a merits proceeding ever mint one: the open-merits-event EXISTS
+# beside it is what carries that subset distinction, so a GVR or summary
+# reversal (no merits event) still exits. Safe to inline: the values are
+# closed-enum code constants, never user input.
+_GRANTED_SQL = ", ".join(f"'{d.value}'" for d in sorted(GRANTED_DISPOSITIONS))
+
+# A pending petition's conference-proximity sort key: the distributed-leads
+# ordering exists because a distributed *pending* petition is days from its
+# order-list result. A granted docket retained for its merits proceeding still
+# carries the (past) conference that produced the grant, so keying it on that
+# date would park the whole granted cohort at the head of every cycle until
+# judgment; masking the date once a disposition lands returns those rows to the
+# staleness rotation.
+_PENDING_CONFERENCE_SQL = "(CASE WHEN disposition IS NULL THEN distributed_for_conference END)"
+
+
 def live_rotation(
     conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
 ) -> list[CorpusRow]:
-    """The next ``limit`` pending petitions the live poller should refresh.
+    """The next ``limit`` live petitions the live poller should refresh.
 
-    The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: pending
-    modern-cert petitions (no disposition, no termination, an open event) from
-    ``term_floor_year`` forward — the floor the reachability probe established
-    (docs/live-sources.md). **Distributed petitions lead** (nearest
+    The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: live
+    modern-cert dockets from ``term_floor_year`` forward — the floor the
+    reachability probe established (docs/live-sources.md). A docket is live
+    while it is **pending** (no disposition, no termination, an open event) or
+    **granted with its merits proceeding open** (a granted-set disposition, an
+    unresolved ``merits``-stage event — minted at the cert grant — and no
+    docket-level decision yet: the case stays on the merits docket until the
+    judgment). **Distributed pending petitions lead** (nearest
     conference first — they are days from resolution, the opposite of
     stalest-first; a past conference date sorts first of all, since that
-    petition is overdue for its order-list result), then recent Terms
-    first, then never-polled before stale, then ``case_id`` for determinism.
-    Rotates on ``last_live_polled``, never ``last_pulled``, so the CourtListener
-    enrichment rotation is undisturbed.
+    petition is overdue for its order-list result; a granted docket's stale
+    conference date is masked — :data:`_PENDING_CONFERENCE_SQL`), then recent
+    Terms first, then never-polled before stale, then ``case_id`` for
+    determinism. Rotates on ``last_live_polled``, never ``last_pulled``, so the
+    CourtListener enrichment rotation is undisturbed.
     """
     if limit <= 0:
         return []
     sql = (
         "SELECT * FROM cases WHERE court = 'scotus' "
-        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND date_decided IS NULL "
+        "AND (disposition IS NULL "
+        f"     OR (disposition IN ({_GRANTED_SQL}) "
+        "         AND EXISTS (SELECT 1 FROM events "
+        "                     WHERE events.case_id = cases.case_id "
+        "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
         "AND docket_number GLOB '[0-9][0-9]-*' "
         f"AND {_TERM_YEAR_SQL} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        "ORDER BY distributed_for_conference IS NULL, distributed_for_conference ASC, "
+        f"ORDER BY {_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC LIMIT ?"
     )

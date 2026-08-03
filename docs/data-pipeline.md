@@ -130,7 +130,7 @@ matters, while the shared `corpus-write` lock keeps at most one running at a tim
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
-| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications: discovery, watchlist, outcomes |
+| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           |
 | Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
@@ -556,7 +556,17 @@ or network.
      (ground-truth recording is ungated; the evaluator fan-out is). Anything
      ambiguous lands on the runner-local **unrecorded queue**, surfaced
      per-case on the pipeline-runs dashboard for maintainer triage; no issue
-     is filed.
+     is filed. A recorded cert **grant** that opens a merits proceeding —
+     `granted` / `granted-in-part`, not a GVR or summary reversal, which
+     terminate the case at the cert order — also mints the case's **open
+     merits event** (`evt-order-judgment`, kind `order`, stage `merits`,
+     opened on the grant date), so the granted docket stays in the live
+     rotation and keeps polling toward its judgment instead of exiting the
+     pipeline at the grant. The merits event is tracked ground truth only: it
+     is not a forecastable kind, so no predict cell fans out for it, and no
+     judgment detection resolves it yet. On every later re-poll the
+     already-attributed cert disposition is recognized as the record of the
+     petition's resolution — a clean no-op, not a triage entry.
 
 ## Event definition — deterministic, corpus-driven
 
@@ -590,8 +600,10 @@ and can never skip a real filing.
 History sits in the corpus, in the historical Term set the walker keeps growing
 newest-Term-first. **SCOTUS freshness is the live channel's**: frontier probing
 onboards new petitions within a cycle, the watchlist refresh catches
-distributions and resolutions within days of the conference, and the capped
-application rotation keeps re-polling unresolved interim applications until
+distributions and resolutions within days of the conference (and retains a
+granted docket, on its open merits event's account, until the judgment), and
+the capped application rotation keeps re-polling unresolved interim
+applications until
 their outcomes and escalation signals land; pull's windows
 spend the API budget on enrichment of the in-scope SCOTUS set. The
 *prediction-relevant* slice — every pending petition and its originating docket

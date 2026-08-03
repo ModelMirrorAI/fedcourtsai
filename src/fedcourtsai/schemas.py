@@ -64,6 +64,23 @@ class Disposition(StrEnum):
     other = "other"
 
 
+#: Dispositions that count as a granted (1) binary outcome — the single source
+#: for every granted-side membership test (`actual_granted`, the live rotation's
+#: granted-docket retention). A partial grant still granted relief, a GVR grants
+#: the petition (it is a grant/vacate/remand), and a summary reversal is the
+#: Court granting review and deciding the merits in one order — all land on the
+#: granted side of the binary target, which keeps `actual_granted` and the Brier
+#: score comparable across each label's introduction.
+GRANTED_DISPOSITIONS: frozenset[Disposition] = frozenset(
+    {
+        Disposition.granted,
+        Disposition.granted_in_part,
+        Disposition.gvr,
+        Disposition.summary_reversal,
+    }
+)
+
+
 #: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
 #: only statutory numbers in the decision model; every vote threshold is Court
 #: practice instead (``pipeline.aggregation``).

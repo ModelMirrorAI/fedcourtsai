@@ -100,8 +100,11 @@ outcome days later, all in the forward stratum.
 
 **Implemented:** the latest distribution entry per petition lands as the
 corpus's `distributed_for_conference` (a relist updates it; non-live writers
-preserve it); the refresh rotation leads with distributed petitions, nearest
-conference first; and **predict fires on the distribution transition** — a
+preserve it); the refresh rotation leads with distributed *pending* petitions,
+nearest conference first (a granted docket retained for its open merits event
+rotates on staleness instead — its latched conference date is the one that
+produced the grant, not a resolution about to happen); and **predict fires on
+the distribution transition** — a
 fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits (a
 deferred petition's transition only keeps it on the watchlist; the cycle-end
@@ -190,7 +193,11 @@ retention window), so it provisions replay cells like any other case. Decided
 history must never feed forward prediction: the loader files **no handoff
 queues at all**, records with no readable disposition are skipped (pending
 matters are the forward poller's charter), and resolved rows are structurally
-invisible to the pending refresh rotation.
+invisible to the live refresh rotation. (The one row that stays visible is
+the one whose ingest *itself* resolves a tracked open petition as granted:
+the grant mints the open merits event, exactly as the watchlist path would,
+and the rotation keeps that genuinely-live merits proceeding — see
+[data-pipeline.md](data-pipeline.md).)
 
 ## Later: push for the circuit courts
 

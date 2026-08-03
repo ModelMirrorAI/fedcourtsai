@@ -10,12 +10,16 @@ Deterministic, no agent. Each cycle:
   consecutive misses — and onboards each served petition, persisting a per-Term
   cursor (:func:`fedcourtsai.corpus.get_live_cursor`) so the next cycle resumes
   where this one stopped.
-- **Refresh** re-polls the pending modern-cert watchlist
-  (:func:`fedcourtsai.corpus.live_rotation` — recent Terms first, then stalest)
-  and detects resolution: the disposition orders ride in the proceedings text,
+- **Refresh** re-polls the live modern-cert watchlist
+  (:func:`fedcourtsai.corpus.live_rotation` — recent Terms first, then stalest;
+  pending petitions plus the granted dockets whose merits proceeding is still
+  open) and detects resolution: the disposition orders ride in the proceedings
+  text,
   machine-matchable per the reachability probe, so a decided petition lands its
   ``outcome.json`` deterministically through the same
-  :func:`~fedcourtsai.pipeline.outcome.resolve_case` seam pull uses.
+  :func:`~fedcourtsai.pipeline.outcome.resolve_case` seam pull uses — and a
+  cert grant mints the open merits event that keeps its docket in this
+  rotation until the judgment.
 - **The application rotation** re-polls unresolved interim applications
   (:func:`fedcourtsai.corpus.application_rotation`) under its own small
   per-cycle cap, resolving them through the interim vocabulary and persisting

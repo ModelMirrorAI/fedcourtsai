@@ -56,7 +56,9 @@ pull:
 # SCOTUS freshness. No API budget — these caps bound per-cycle wall clock and
 # upstream politeness (~1 req/s), not spend.
 live:
-  # Pending petitions re-polled per cycle (recent Terms first, then stalest).
+  # Live petitions re-polled per cycle (recent Terms first, then stalest):
+  # pending ones plus the granted dockets retained until their merits
+  # judgment (a cohort of roughly a Term's grants, small against this cap).
   # Sized to re-poll the whole pending watchlist each cycle even at its seasonal
   # peak — the September long conference distributes ~276 petitions at once
   # (regular conferences run a median ~11, p90 ~37). This is a coverage ceiling,
@@ -64,8 +66,9 @@ live:
   # also fetches up to two document PDFs, and those cluster exactly at that peak,
   # so cycle time is governed by the run-pull live job's `--max-run-seconds` soft
   # budget (which commits progress and resumes next cycle), not by this count.
-  # The poller only fetches what is actually pending, so off-peak cycles stay
-  # small; a high ceiling just stops the rotation from truncating coverage.
+  # The poller only fetches what is actually live — pending, or granted with
+  # the merits proceeding open — so off-peak cycles stay small; a high
+  # ceiling just stops the rotation from truncating coverage.
   max_cases_per_run: 300
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to

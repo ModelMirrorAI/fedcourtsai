@@ -170,7 +170,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions + applications
                                  │    (per-(Term, stream) cursors)
-                                 ├─ re-poll the pending cert watchlist (recent Terms first)
+                                 ├─ re-poll the live cert watchlist (recent Terms first)
                                  ├─ re-poll unresolved interim applications (capped;
                                  │    ground-truth only — no predict handoff)
                                  ├─ detect resolution from the proceedings text
