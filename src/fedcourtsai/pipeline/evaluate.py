@@ -105,10 +105,10 @@ def segment_base_rate(
     the rate never sees the case's own — or any later — Term. ``None`` when the
     case has no Term, no band data precedes it, or nothing in the band resolved.
 
-    ``lookback_terms`` bounds how far back the pool reaches;
-    ``0`` (the default, and ``salience.base_rate_lookback_terms``'s shipped value)
-    means unbounded — every prior Term, preserving the pre-registered behaviour
-    exactly. The bound is a **Term-year band**, ``term - lookback_terms <= entry
+    ``lookback_terms`` bounds how far back the pool reaches; ``0`` (the
+    argument default — the shipped config value is
+    ``salience.base_rate_lookback_terms``, which callers pass) means unbounded,
+    every prior Term. The bound is a **Term-year band**, ``term - lookback_terms <= entry
     < term``, not a slice of the pack's rows: a Term absent from the statpack, or
     present as a zero-row cursor entry, shortens the sample rather than pulling an
     older Term in to refill the slot. That keeps the window a claim about the

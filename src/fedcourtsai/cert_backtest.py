@@ -679,8 +679,9 @@ def build_segment_context(
     outside the population the salience gate predicts, so the per-band breakdown
     covers the same paid segment the statpack's segment rate is computed over.
 
-    ``lookback_terms`` bounds that pool; ``None`` takes
-    ``salience.base_rate_lookback_terms``'s default, ``0`` — every prior Term.
+    ``lookback_terms`` bounds that pool; ``None`` takes the field default
+    (``0``, the absent-file fallback — every prior Term), **not** the shipped
+    config value. Production passes the loaded config's window.
     """
     window = (
         lookback_terms if lookback_terms is not None else SalienceConfig().base_rate_lookback_terms

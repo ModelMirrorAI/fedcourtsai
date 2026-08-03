@@ -184,8 +184,9 @@ information at all**, reporting only the correct long-run rate for that claim
 type, collects `(pi - b)^2` per claim, every claim, forever. It grows linearly in
 the size of the claim set.
 
-That is not hypothetical here. This repo's baseline configuration pools every
-prior Term (`salience.base_rate_lookback_terms` ships at `0`), while the per-Term
+That is not hypothetical here. This repo's baseline configuration pools the
+last ten Terms (`salience.base_rate_lookback_terms`, matching the rendered
+table's window — every walked Term today), while the per-Term
 band rates span roughly 26%–48%. A predictor that reports the *recent* rate
 rather than the pooled one banks about `(0.40 - 0.30)^2 = 0.01` a claim, knowing
 nothing about the case. Where `b` is estimated from `n` prior observations at

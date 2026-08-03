@@ -411,8 +411,9 @@ class SalienceConfig(BaseModel):
     # The lookback window for the salience-band segment base rate
     # (``fedcourtsai.pipeline.evaluate.segment_base_rate``): how many October Terms
     # immediately preceding a case's own Term may contribute to its band's pooled
-    # grant rate. 0 = unbounded — every prior Term in the statpack, which is the
-    # pre-registered behaviour and the shipped default. A bound trades variance for
+    # grant rate. 0 = unbounded — every prior Term in the statpack — and is the
+    # absent-file fallback only; the shipped config value is 10, matching
+    # ``statpack.markdown_terms``. A bound trades variance for
     # bias: the high band carries only ~60-165 weighted-resolved petitions per Term,
     # so a short window is noisy, while a long one assumes the Court's grant
     # behaviour is stationary across the whole walked range (it visibly is not —
@@ -464,8 +465,9 @@ class StatpackConfig(BaseModel):
     in code for the baseline those agents are scored against. The bound is
     conventional rather than a capability limit: ``statpack.json`` sits in the
     same checkout and carries every Term. Separate fields with separate defaults
-    on purpose; ``docs/salience.md`` states when the two coincide and when they
-    part.
+    on purpose; ``docs/salience.md`` records that the two are configured to the
+    same window so the scored baseline and the rendered table cannot silently
+    diverge.
     """
 
     model_config = ConfigDict(extra="ignore")

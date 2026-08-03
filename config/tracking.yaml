@@ -253,7 +253,8 @@ salience:
   # stationary, while a short one tracks the drift on only 61-163
   # weighted-resolved petitions per Term. Counted in Term YEARS, not statpack
   # rows: a Term missing from the pack shortens the sample rather than pulling
-  # an older Term in.
+  # an older Term in. Move it between Terms, never part-way through one —
+  # a change re-bases every published skill number at once.
   base_rate_lookback_terms: 10
   # Placeholder cap on interim-docket tournament slots (stays, injunctions —
   # docs/salience.md "The interim docket", docs/budget.md), carved from the
