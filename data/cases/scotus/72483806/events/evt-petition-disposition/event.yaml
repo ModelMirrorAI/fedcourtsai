@@ -1,0 +1,11 @@
+case_id: scotus/72483806
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-26'
+resolved: true
+schema_version: '1.0'
+title: MSP Recovery Claims, Series LLC, a Delaware Series Limited Liability Company,
+  et al., Petitioners v. Lundbeck LLC, a Delaware Corporation, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72483776
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-13'
+resolved: true
+schema_version: '1.0'
+title: Jo-Ann Connelly, Petitioner v. Connecticut, ex rel. Jeremiah Dunn, Chief State
+  Animal Control Officer

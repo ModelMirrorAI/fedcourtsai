@@ -1,0 +1,11 @@
+case_id: scotus/72483833
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-30'
+resolved: true
+schema_version: '1.0'
+title: Spirit of Aloha Temple, a Hawaii Nonprofit Corporation, et al., Petitioners
+  v. Maui County, Hawaii, et al.

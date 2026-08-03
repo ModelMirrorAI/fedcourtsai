@@ -1,0 +1,11 @@
+case_id: scotus/72483786
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-16'
+resolved: true
+schema_version: '1.0'
+title: Eugene Dingle, Petitioner v. Leslie Armstrong, Individually and as Guardian
+  ad Litem of Dorchester County Family Court, et al.
