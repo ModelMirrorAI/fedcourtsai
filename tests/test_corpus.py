@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai import corpus, corpus_ranged
-from fedcourtsai.schemas import Disposition, EventKind, Stage
+from fedcourtsai.schemas import Disposition, EventKind, Judgment, Stage
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -828,6 +828,60 @@ def test_retrieve_priors_decided_before_is_exclusive_and_conservative(tmp_path: 
     assert len(unmasked) == 4
 
 
+def test_retrieve_priors_decided_before_strips_post_clock_merits(tmp_path: Path) -> None:
+    # The merits judgment on an admitted row is a later fact than the row's own
+    # year: a Term-1993 petition qualifies under a 1998 clock while its
+    # judgment may have issued afterwards. The pair survives the mask only when
+    # `merits_decided` provably precedes the cutoff too; an undated judgment
+    # fails closed. Unmasked (forward) retrieval keeps the columns whole.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(  # judgment provably pre-clock: survives the mask
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="93-7515",
+                    merits_judgment="reversed",
+                    merits_decided=date(1994, 6, 1),
+                ),
+                _row(  # judgment postdates the clock: stripped
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="93-7516",
+                    merits_judgment="affirmed",
+                    merits_decided=date(1999, 6, 1),
+                ),
+                _row(  # undated judgment cannot prove precedence: stripped
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="93-7517",
+                    merits_judgment="vacated",
+                    merits_decided=None,
+                ),
+            ],
+        )
+        masked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(
+                conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
+            )
+        }
+        unmasked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+        }
+    assert set(masked) == {"scotus/1", "scotus/2", "scotus/3"}
+    assert masked["scotus/1"].merits_judgment == "reversed"
+    assert masked["scotus/1"].merits_decided == date(1994, 6, 1)
+    assert masked["scotus/2"].merits_judgment is None
+    assert masked["scotus/2"].merits_decided is None
+    assert masked["scotus/3"].merits_judgment is None
+    assert unmasked["scotus/2"].merits_judgment == "affirmed"
+    assert unmasked["scotus/3"].merits_judgment == "vacated"
+
+
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
     """A bulk-import shell: SCOTUS with every predicate-keyed row field empty."""
     return corpus.CorpusRow.model_validate({"case_id": case_id, "court": "scotus", **kw})
@@ -1375,6 +1429,71 @@ def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
 
 
 # --- interim-application signal columns and rotation --------------------------------
+
+
+def test_merits_judgment_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
+    # Round-trip through the normal API, and a DB created before the columns
+    # existed gains them on connect with the never-parsed NULL sentinel intact.
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/24001",
+        court="scotus",
+        docket_number="23-101",
+        date_cert_granted=date(2024, 1, 12),
+        merits_judgment="reversed",
+        merits_decided=date(2024, 6, 27),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/24001")
+    assert fetched == row
+
+    # A pre-change DB: the current schema minus the two merits columns.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    merits = ("merits_judgment", "merits_decided")
+    columns = ",\n".join(
+        f"{name} {ddl}" for name, ddl in corpus._CASES_COLUMN_DDL.items() if name not in merits
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert set(merits) <= cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+    assert migrated is not None
+    assert migrated.merits_judgment is None  # never parsed, not an observed absence
+    assert migrated.merits_decided is None
+
+
+def test_from_record_tolerates_record_without_merits_columns() -> None:
+    """A ranged read of a remote blob packed before the merits columns existed."""
+    record = corpus._to_record(_row())
+    del record["merits_judgment"]
+    del record["merits_decided"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.merits_judgment is None and row.merits_decided is None
+    assert row == _row()
+
+
+def test_set_merits_judgment_stamps_and_overwrites_forward(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/24001", court="scotus")])
+        corpus.set_merits_judgment(conn, "scotus/24001", Judgment.vacated, date(2024, 6, 20))
+        first = corpus.get_row(conn, "scotus/24001")
+        # A corrected parse self-heals forward, an undated entry stores NULL.
+        corpus.set_merits_judgment(conn, "scotus/24001", Judgment.reversed, None)
+        second = corpus.get_row(conn, "scotus/24001")
+    assert first is not None
+    assert first.merits_judgment == "vacated" and first.merits_decided == date(2024, 6, 20)
+    assert second is not None
+    assert second.merits_judgment == "reversed" and second.merits_decided is None
 
 
 def test_interim_signal_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
