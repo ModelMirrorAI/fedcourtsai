@@ -213,6 +213,36 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     parties — never post-hoc press coverage). Optionally add a one-line
     `big_case_rationale`. It is judged later by an independent evaluator's
     agreement with its own read, never against a ground truth.
+  - `claims` — the **harness-declared claim set** for this event's kind, one
+    `{claim_id, probability}` entry per declared claim. The harness declares
+    the set (`fedcourtsai.pipeline.claims`); you state a probability for every
+    declared claim — no additions, no declining. For a cert petition the set is
+    exactly three:
+    - `disposition` — P(any grant). **Must equal your top-level `probability`**;
+      it is the same belief, restated so the claim set is complete and
+      self-describing. It resolves against `outcome.json`'s grant flag.
+    - `relist-increment` — P(the petition is **distributed at least once more**
+      after the distributions your snapshot already shows). An increment from
+      your vantage point, never the level: it resolves the resolution-time
+      distribution count against the count frozen in your cell's
+      harness-stamped context.
+    - `cvsg-increment` — P(a CVSG is **called for after prediction time**,
+      given none is on the docket yet). It resolves against the CVSG date
+      frozen at resolution. If the docket already shows a CVSG, still state a
+      probability — the harness resolves the claim as vacuous for your cell
+      and it goes unscored; the mask is the record's, never yours to apply.
+
+    There is no strategic angle. The scoring rule is proper, so your expected
+    score is maximized by the probability you actually hold; and each claim is
+    scored against a harness-computed baseline, so restating that baseline is
+    worth exactly zero — a no-view answer costs nothing and conceals nothing.
+    Anchor the increments on the state your docket actually shows, and read
+    the statpack's relist and CVSG cuts (below) for the population's shape
+    rather than as the answer — they bucket by *terminal* count and status, so
+    the forward hazard from your state is not a row you can look up; the
+    guidance under the forecast document below says what the shape does tell
+    you. Where your event's kind carries no declared set (a motion, an order —
+    only cert petitions declare one), write no `claims` field at all.
   - `reasoning_doc` — `reasoning.md` (the default).
   - `predicted_reasoning_doc` — `predicted_reasoning.md`. Always write the
     document and name it. The field is nullable only so records written before it

@@ -32,6 +32,136 @@
       "title": "BigCaseAssessment",
       "type": "object"
     },
+    "ClaimScore": {
+      "additionalProperties": false,
+      "description": "One declared claim's scored row inside ``Evaluation.claim_scores``.\n\nEverything here except ``probability`` is the harness's: the outcome is\nresolved in code from committed artifacts, and the baseline is computed\nfrom history strictly prior to the case's Term \u2014 never the predictor's\nword, never a corpus column that keeps moving. The scoring rule and its\nproperties are pre-registered in ``docs/outcome-decomposition.md``.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The harness-computed baseline: the claim's rate pooled over statpack Terms strictly before the case's Term, conditioned on the state the prediction's frozen context disclosed. None when the committed statpack publishes no cut that supports a strictly-prior, properly-conditioned rate for this claim \u2014 the claim then goes unscored rather than scored against an invented number",
+          "title": "Baseline"
+        },
+        "claim_id": {
+          "description": "The declared claim this row scores",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the claim resolved: 1 true, 0 false. None when the record does not disclose it \u2014 the availability mask, a property of the record and never of the predictor: an outcome without a signals block discloses no increment, a context whose signals were unobservable fixes no prediction-time value, and a CVSG already on the docket at prediction time makes the cvsg-increment claim vacuous",
+          "title": "Outcome"
+        },
+        "probability": {
+          "description": "The predictor's stated probability, copied from the prediction's claims block",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "(baseline - outcome)^2 - (probability - outcome)^2 \u2014 the baseline's Brier minus the forecast's (`pipeline.evaluate.claim_score`). None when outcome or baseline is None",
+          "title": "Score"
+        }
+      },
+      "required": [
+        "claim_id",
+        "probability"
+      ],
+      "title": "ClaimScore",
+      "type": "object"
+    },
+    "ClaimScoreBlock": {
+      "additionalProperties": false,
+      "description": "The harness-computed mechanical claim scores for one prediction.\n\nAdvisory and segmented, exactly like the leakage assessment: the block\ndescribes a cell without changing the numbers it is ranked on, and it never\nalters ``correct``, ``brier_score``, ``vote_accuracy``, or\n``brier_skill_score``. Computed end to end by\n``fedcourtsai.pipeline.claims.score_claims`` from committed artifacts \u2014 the\nprediction's frozen context, the outcome's signals block, and the committed\nstatpack \u2014 so re-scoring the same cell reproduces the same block. The\npublishing rules a total travels under (the floor beside it, the event\ncount, never pooled across strata) are ``docs/outcome-decomposition.md``'s.",
+      "properties": {
+        "claims": {
+          "description": "One row per declared claim, in the declaration's order",
+          "items": {
+            "$ref": "#/$defs/ClaimScore"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "declared_set_version": {
+          "description": "The claim-set declaration that produced this block's rows, e.g. 'cert-v1' \u2014 the versioned constant in `fedcourtsai.pipeline.claims`",
+          "title": "Declared Set Version",
+          "type": "string"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The realized total of the control conditioned the way the predictor is conditioned: it reports, for every scored claim, the harness baseline itself, so it is identically 0 over the scored claims (restating the baseline is worth exactly nothing, by propriety) \u2014 computed per block rather than asserted, so definition and number cannot drift apart. It prices baseline-restating and nothing else: the information-free expectation from base-rate drift (~(b - pi)^2 per claim, the dominant term) and from baseline estimation error (~pi(1-pi)/n, small at the pooled denominators) is not bounded by this number \u2014 the comparison that carries a skill claim is head-to-head at equal coverage, which cancels the baseline term entirely (docs/outcome-decomposition.md). None when no claim scored",
+          "title": "Floor"
+        },
+        "lift": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`total` minus `floor` \u2014 identical to the total while the floor is identically 0. Descriptive like the total; see the floor's description for what remains unpriced and which comparison carries a skill claim. None when no claim scored",
+          "title": "Lift"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sum of `score` over the scored claims only (those with both an outcome and a baseline); None when no claim scored. Descriptive, never a rank key, and not evidence of case-level skill on its own \u2014 it travels with the floor and lift beside it",
+          "title": "Total"
+        }
+      },
+      "required": [
+        "declared_set_version"
+      ],
+      "title": "ClaimScoreBlock",
+      "type": "object"
+    },
     "Engine": {
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
@@ -209,6 +339,18 @@
     "case_id": {
       "title": "Case Id",
       "type": "string"
+    },
+    "claim_scores": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClaimScoreBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The harness-computed mechanical claim scores over the prediction's declared claim set (`fedcourtsai.pipeline.claims`). Advisory: it segments and describes, and never alters `correct`, `brier_score`, `vote_accuracy`, or `brier_skill_score`. Never the evaluator's word \u2014 the harness computes the block from committed artifacts. Null on records written before the block existed and on predictions carrying no claims block."
     },
     "correct": {
       "description": "1 if disposition matched outcome",

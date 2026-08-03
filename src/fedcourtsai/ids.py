@@ -31,6 +31,21 @@ def event_id(kind: str, label: str) -> str:
     return f"evt-{slugify(kind)}-{slugify(label)}"
 
 
+def parse_event_kind(value: str) -> str | None:
+    """The kind slug of an ``evt-<kind>-<label>`` event id, or ``None``.
+
+    The partial inverse of :func:`event_id`, so a reader keys behaviour on an
+    event's kind without hand-parsing the id format. Every kind the pipeline
+    emits is a single token (``petition``, ``motion``, ``appeal``, ``order``),
+    so the first hyphen after the prefix is the kind/label boundary; a
+    hyphenated kind would need a delimiter change, not a smarter parse.
+    """
+    parts = value.split("-", 2)
+    if len(parts) < 3 or parts[0] != "evt" or not parts[1] or not parts[2]:
+        return None
+    return parts[1]
+
+
 def run_id(now: datetime | None = None) -> str:
     """UTC timestamp run id, e.g. ``20260624T103000Z``.
 
