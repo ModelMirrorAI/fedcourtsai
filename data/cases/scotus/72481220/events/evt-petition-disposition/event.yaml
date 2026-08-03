@@ -1,0 +1,10 @@
+case_id: scotus/72481220
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-12-05'
+resolved: true
+schema_version: '1.0'
+title: Jeffrey Gray Thomas, Petitioner v. California Department of Justice, et al.
