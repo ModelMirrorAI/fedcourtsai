@@ -108,6 +108,42 @@ Deferred, each with a stated reason:
   presented to sharpen the deterministic score — is **default off** for the first
   release, so `sal-v1` is fully deterministic and free.
 
+### The `sal-v2` intent (pre-registered)
+
+`sal-v1`'s features are docket-acquired — relists and CVSG accumulate over a
+petition's life — so at arrival every petition scores `baseline` and the gate
+is structurally inert at the one moment a truly prospective selection would
+have to act: no cohort forms, no band stratifies, recall over realized grants
+is zero by construction (the gate replay measures exactly this). The rework is
+pre-registered here so the shape is fixed before the evidence exists, and it
+is **two cohorts, never pooled**:
+
+- **The arrival cohort** — selected at docketing on arrival-time features
+  (originating court, party/counsel structure) **plus a random-sample
+  component**. The random slice is load-bearing, not a fallback: with no
+  strong arrival-time signal it is the only route to an unbiased selected
+  population, it makes the cohort's baseline exactly the unconditional grant
+  rate, and no selection rule can game it. This is the only cohort whose
+  skill numbers transfer to live prospective use.
+- **The escalation cohort** — re-selected as relist / CVSG / response signals
+  accumulate: `sal-v1`'s current behaviour, which remains the right way to
+  spend tournament budget on cases that have become interesting. It reports
+  against its own risk-set baselines and never against — or blended with —
+  the arrival cohort's.
+
+Three constraints carry over from the versioning discipline. `sal-v2` is a
+**new frozen version, never an in-place edit** — `sal-v1` rankings must replay
+under `sal-v1` forever. Its evidence base does not exist yet: arrival-time
+signals live in small subgroups, which the legacy denial subsampling cannot
+measure, so fitting waits for the denial-complete historical re-walk, and any
+candidate is judged by replaying the gate against the same corpus state as a
+fresh `sal-v1` run — the bar is the arrival population's own weighted grant
+rate at comparable recall, recomputed post-re-walk rather than quoted. And the
+carve-out/band alignment is pinned by test: the always-include floor and the
+`high` cutpoint are separate constants in separate files, and the identity
+between "carved in" and "high band" is checked exhaustively over the
+achievable score lattice, so a refit cannot open a silent gap between them.
+
 ## Selection — deterministic rank-and-cap, sticky per conference
 
 Selection ranks the scored set and caps it to `N`. **The enforcement mechanism is
