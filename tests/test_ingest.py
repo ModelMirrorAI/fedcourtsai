@@ -310,6 +310,49 @@ def test_to_corpus_row_projects_onto_store_schema() -> None:
     assert store_row.panel[0] == corpus.PanelMember(name="Jane Smith", seniority="active")
 
 
+def test_bulk_circuit_rows_drop_the_cluster_joined_fields() -> None:
+    """The bulk export's docket↔opinion-cluster join is misjoined on the circuit
+    slices (19th-century cluster text on 2018-19 dockets), so the projection
+    declines to store what the join cannot vouch for."""
+    store_row = to_corpus_row(from_bulk_row(BULK_ROW))
+    assert store_row.judges == []
+    assert store_row.panel == []
+    assert store_row.precedential_status is None
+    assert store_row.summary is None
+    # Docket-side facts are unaffected: they come from the docket row itself.
+    assert store_row.case_name == "Doe v. Roe"
+    assert store_row.parties == ["Jane Roe", "United States"]
+    assert store_row.disposition == Disposition.granted_in_part
+
+
+def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
+    # A bulk SCOTUS row keeps the cluster fields — the misjoin is observed only
+    # on the circuit slices — and the REST path keeps them on every court (the
+    # projection test above pins the api row).
+    scotus = to_corpus_row(from_bulk_row({**BULK_ROW, "court_id": "scotus"}))
+    assert scotus.judges == ["Alan Lee", "Jane Smith"]
+    assert scotus.precedential_status == "Published"
+    api = to_corpus_row(from_api_docket(API_DOCKET))
+    assert api.judges == ["Alan Lee", "Jane Smith"]
+    assert api.precedential_status == "Published"
+
+
+def test_a_reserved_bulk_row_clears_a_stored_misjoin(tmp_path: Path) -> None:
+    """``summary`` / ``precedential_status`` / ``judges`` take the incoming value
+    on upsert (no latch), so re-serving the bulk slice heals rows the misjoined
+    import wrote rather than leaving the garbage latched."""
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(db, [from_api_docket(API_DOCKET)])  # a row with the fields set
+    upsert_to_corpus(db, [from_bulk_row(BULK_ROW)])  # the same case, re-served by bulk
+    with corpus.connect(db) as conn:
+        fetched = corpus.get_row(conn, "ca9/64512345")
+    assert fetched is not None
+    assert fetched.summary is None
+    assert fetched.precedential_status is None
+    assert fetched.judges == []
+    assert fetched.panel == []
+
+
 def test_enriched_fields_round_trip_through_the_corpus(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     upsert_to_corpus(db, [from_api_docket(API_DOCKET)])
