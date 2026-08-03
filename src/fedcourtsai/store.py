@@ -87,8 +87,8 @@ def open_events(
     The event-state seam reads from the packed corpus, where the ingestion channels
     record predictable events as raw facts: a case enters the corpus with its
     event(s) open, and outcome detection flips each event's ``resolved`` flag when
-    it records that event's ``outcome.json``. These are the events ``run-predict``
-    should target. Empty (not created) if the local corpus does not exist yet;
+    it records that event's ``outcome.json``. ``run-predict`` targets the
+    case-baseline subset of these — see :func:`forecastable_events`. Empty (not created) if the local corpus does not exist yet;
     ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
 
     A case the scope reconcile has latched **out of scope** (``predict_excluded``)

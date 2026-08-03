@@ -246,7 +246,9 @@ class UnrecordedOutcome:
     Carried out of the library so the workflow can surface it on the
     pipeline-runs dashboard; ``reason`` explains why automatic recording was
     declined. ``reason`` must stay a fixed-vocabulary string (the literals in
-    :func:`detect_resolution`, interpolating only closed-enum values): it is
+    :func:`detect_resolution`, interpolating only closed-enum values and
+    event ids — slugified ``[a-z0-9._-]`` strings minted by
+    :func:`fedcourtsai.ids.event_id`, never raw text): it is
     rendered into a GitHub issue body, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """

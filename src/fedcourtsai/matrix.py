@@ -15,7 +15,8 @@ of the registry x every requested case x that case's events (narrowed per case
 by an optional ``predictors`` filter — the engine-backfill path). The
 ``strategy.max-parallel`` cap in the workflow then throttles the whole fan-out,
 and resolved events are still skipped because the caller resolves each case's
-default event list (open events for predict, resolved events for evaluate).
+default event list (open case-baseline events for predict, resolved events for
+evaluate).
 
 Keeping this in the library (rather than inline YAML/JS) makes the routing
 testable and keeps the registry the single source of truth for which agents
@@ -44,7 +45,7 @@ class CaseRequest:
     """One case to fan out over: a court/docket and the events to target.
 
     ``events`` may be empty, meaning "resolve the case's default events" — open
-    events for predict, resolved events for evaluate. The CLI does that
+    case-baseline events for predict, resolved events for evaluate. The CLI does that
     data-directory lookup; the matrix builders take fully-resolved entries.
 
     ``predictors`` narrows the predict fan-out to the named registry ids —

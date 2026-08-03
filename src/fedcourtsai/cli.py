@@ -3860,12 +3860,14 @@ def predict_matrix_cmd(
         int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
     ] = None,
     event: Annotated[
-        list[str] | None, typer.Option(help="Single-case event id(s); default: all open events.")
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: open case-baseline events."),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
-    A case with no listed ``events`` defaults to that case's open events.
+    A case with no listed ``events`` defaults to that case's open case-baseline
+    (petition/appeal-kind) events.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
