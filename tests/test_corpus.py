@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, corpus_ranged
 from fedcourtsai.schemas import Disposition, EventKind, Stage
 
 
@@ -1961,8 +1961,6 @@ def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
     """The ranged backend serves the remote blob as-is, so an events row from a
     blob written before the column existed must read with no stage rather than
     failing the SELECT wholesale."""
-    from fedcourtsai import corpus_ranged
-
     columns = [
         "case_id",
         "event_id",
