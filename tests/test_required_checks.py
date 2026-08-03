@@ -190,7 +190,7 @@ def test_main_currently_requires_only_contexts_it_can_produce() -> None:
     required may lack a producer. A promotion that renamed or deleted one of
     these jobs would hang every PR into `main`, and this fails first."""
     workflows = Path(".github") / "workflows"
-    assert unproduced_contexts(["gate", "paths", "promotion-gate"], workflows) == []
+    assert unproduced_contexts(["gate", "paths", "promotion-gate", "main-base"], workflows) == []
 
 
 def test_odd_shapes_degrade_rather_than_raise(tmp_path: Path) -> None:

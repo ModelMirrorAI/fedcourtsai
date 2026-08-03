@@ -81,18 +81,17 @@ pre-registration record's commit ids.
   **absent** from this bypass list. Required approvals are `0` — the maintainer
   reviews at merge time by convention, not by rule; set to `1` if a second
   reviewer exists.
-  - Required checks are exactly `gate`, `paths`, and `promotion-gate` (which
-    reports `skipped` — satisfying the requirement — on every PR that is not
-    the staging→main promotion). **`main-base` is not among them.** It is the
-    merge-routing jail: it runs — and fails — only on a PR to `main` whose head
+  - Required checks are exactly `gate`, `paths`, `promotion-gate`, and
+    `main-base` (the latter two report `skipped` — satisfying the requirement —
+    on every PR they do not gate). `main-base` is the merge-routing jail: it
+    runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
-    every lane into `main`; making it required is a pending ruleset change
-    that goes through the *Adding a required status check* procedure in
-    [pipeline.md](pipeline.md) — until it lands, routing rests on the
-    promotion convention and the maintainer's merge. `cleanup-paths` is
+    every lane into `main`; adding a context like it goes through the *Adding
+    a required status check* procedure in
+    [pipeline.md](pipeline.md). `cleanup-paths` is
     deliberately **not** in the required list — a cleanup PR is never
     auto-merged, so it is review-time
     defense-in-depth. **Not** `zizmor` — it is path-filtered
@@ -130,10 +129,10 @@ pre-registration record's commit ids.
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
   requires a pull request plus the required checks that can report on a
-  staging-targeted PR: `gate` and `paths`. (`main`'s third, `promotion-gate`,
-  is structurally always-`skipped` here — it keys on a base of `main` — so
-  requiring it would add no signal. The same is true of the `main-base` job,
-  which is not a required context anywhere.) **Bypass: the repository
+  staging-targeted PR: `gate` and `paths`. (`main`'s other two,
+  `promotion-gate` and `main-base`, are structurally always-`skipped` here —
+  each keys on a base of `main` — so requiring them would add no
+  signal.) **Bypass: the repository
   admin role only**, the escape hatch for a main→staging sync when the ordinary
   PR path is unavailable; its content is by construction already-gated `main`
   history merged with already-gated `staging` history.
@@ -436,9 +435,9 @@ job-env export disabled) and they appear only pre-agent — in the composite's
 launch step, whose env the background `corpus-serve` process inherits, and in
 the deterministic provisioning steps' step-scoped env. A guard step fails the job if any `AWS_*` credential is
 visible in the job env when the agent steps begin, and this also levels the
-engines: the Gemini sanitizer could never allowlist a credential, so corpus
-retrieval used to be an accident of harness — now every engine queries the
-same credential-free surface. What replaces the old residual: the sidecar is
+engines: the Gemini sanitizer could never allowlist a credential, so every
+engine queries the same credential-free surface rather than whichever one its
+harness happens to let credentials reach. What replaces the old residual: the sidecar is
 an **unauthenticated localhost HTTP surface**, so any process on the runner —
 including the injected agent itself, which is the *intended* client — can
 query the corpus and spend ranged-read egress through it. That is the same
