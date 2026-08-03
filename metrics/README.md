@@ -2,8 +2,9 @@
 
 Pipeline metrics: small, deterministic, git-tracked roll-ups whose reviewed
 diffs track predictor and corpus quality over time. The offline gate
-(`fedcourts corpus-status`) checks that the four gate-tracked artifacts —
-`leaderboard.json`, `backtest.json`, `statpack.json`, `statpack.md` — exist
+(`fedcourts corpus-status`) checks that the five gate-tracked artifacts —
+`leaderboard.json`, `claim-scores.json`, `backtest.json`, `statpack.json`,
+`statpack.md` — exist
 and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which is maintainer-triggered, `docket.{json,md}`,
 which is regenerated on demand by `fedcourts docket`, and
@@ -81,6 +82,88 @@ stays outside the gate:
   events moves a long way on one disagreement.
   `fedcourts leaderboard` produces it — a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
+- `claim-scores.json` — the mechanical claim-score surface: every
+  harness-computed `claim_scores` block in the evaluations ledger, rolled up
+  per predictor **per stratum** and published beside the leaderboard.
+  `fedcourts claim-scores` produces it, deterministic and offline, defaulting
+  to the same frozen process scope as the board; while no committed evaluation
+  carries a block it renders its honest suppressed state — zero counts, every
+  coefficient null, and a stratum with no cells at all carrying a null
+  agreement record rather than a zero-filled one. The scoring rule, the claim
+  declarations, and every
+  rule below are pre-registered in
+  [outcome-decomposition.md](../docs/outcome-decomposition.md); this section is
+  the reading contract.
+
+  **Advisory, never a rank key.** Nothing here alters or reorders the
+  leaderboard, and the artifact assigns no standings — entries are
+  alphabetical. A claim total's variance is unbounded above and a bold
+  uninformed spray has a fat right tail, so ranking on it would buy rank with
+  variance. The comparison that carries a skill claim is **head-to-head at
+  equal coverage**, which cancels the baseline term entirely; nothing in this
+  artifact is that comparison, so nothing in it is evidence of case-level
+  skill on its own.
+
+  **The total travels with its floor and lift.** Per predictor × stratum the
+  artifact reports the mean per-event claim total (Brier units — never bits),
+  the mean floor, and the mean lift. The floor is the realized total of the
+  baseline-restating control — identically zero by propriety, *computed*
+  per block rather than asserted — so it prices baseline-restating and
+  nothing else: the information-free expectation from base-rate drift and
+  baseline estimation error remains unpriced, which is why a positive total
+  or lift is not skill. The **largest single-claim contribution** is reported
+  beside the means because extreme baselines pay asymmetrically — one lucky
+  surprise can swamp dozens of honest calls, and a total that is one claim in
+  disguise must be visible in the same breath. Per-claim means are
+  diagnostic rows, never headlines: a claim singled out after the fact
+  describes that claim, not the predictor, and a declared claim that never
+  scored still appears with `scored: 0` so the coverage gap stays visible.
+
+  **Counts and comparability.** The population is the **cert-stage** cells —
+  only the cert-stage event kinds declare a claim set, so a cell on any other
+  stage is never owed a block and sits outside the surface (and outside its
+  absence counts) entirely. The reporting unit is the **event**: every
+  evaluator of the same prediction carries an identical harness block, so
+  blocks are deduplicated to one per event before averaging (the newest
+  evaluation's block wins where a statpack revision between evaluator stamps
+  ever made copies differ), and `cells` beside `events` is the raw evaluation
+  census. Strata are never pooled, and a total or pair set is never
+  comparable across process versions or across the frozen/all scope: the
+  artifact publishes its scope, keyed on the prediction's stamp exactly like
+  the leaderboard, and a scope that comes to hold more than one
+  claims-carrying process version must not be read as one population. A total
+  is likewise never comparable across claim-set declarations —
+  `declared_set_versions` lists what the means pool, and more than one entry
+  there demotes them to coverage figures. Retrospective aggregates are
+  iteration signal under the backtest-as-iteration doctrine below, never
+  claimable — a resolved case's claims are retrievable, not forecastable —
+  and procedural aggregates never carry a cert-forecasting claim of any kind,
+  for the stratum's own reason: a mootness-basis label tracks the Court's
+  vacatur practice, not cert-worthiness.
+
+  **The judge validation is the headline.** Per stratum, the pre-registered
+  Kendall tau-b between per-cell mechanical claim totals and
+  `reasoning_quality` grades, over the **intersection** population only —
+  cells carrying both numbers — with the intersection `n` printed beside the
+  coefficient and the coefficient **suppressed (null) below n = 10**, the `n`
+  still published. The `n` counts cells, the unit the pre-registration fixed
+  the threshold on, with the distinct-event count (`pair_events`) published
+  beside it because evaluator multiplicity repeats an identical mechanical
+  total against several grades. It validates the semantic grader against the
+  mechanical record, not the reverse: agreement says the judge tracks
+  something the ground truth also sees, disagreement says it grades prose,
+  and either result publishes. It says nothing about which predictor is
+  better, and a high tau does not certify the judge's *level* (a uniformly
+  shifted — generous but rank-preserving — judge is invisible to a rank
+  correlation) — grader level is `evaluator_agreement`'s job on the
+  leaderboard, which remains the sole inter-evaluator agreement number and is
+  deliberately not duplicated here. Operational absences (a cell missing a
+  block, or missing a grade) are counted beside the intersection because
+  differential absence selects the pair set on difficulty; the counts cover
+  committed cells only — a cell that failed outright commits nothing and
+  stays invisible, upstream of them; and a block whose every claim is masked
+  is the availability mask at work — a property of the record, never of the
+  predictor — counted separately.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved

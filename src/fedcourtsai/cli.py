@@ -57,6 +57,7 @@ from .cert_backtest import (
     run_cert_backtest,
     select_cert_backtest_set,
 )
+from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
     CellStatus,
     CollectPlan,
@@ -831,6 +832,52 @@ def leaderboard(
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
+    )
+
+
+@app.command("claim-scores")
+def claim_scores_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/claim-scores.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline "
+            "(the shakedown pooled view).",
+        ),
+    ] = False,
+) -> None:
+    """Roll the ledger's claim-score blocks into ``metrics/claim-scores.json``.
+
+    Deterministic and offline: aggregates every committed ``evaluation.json``
+    carrying a harness-computed ``claim_scores`` block into per-predictor,
+    per-stratum claim-total means (floor and lift beside them, per-claim means,
+    the largest single-claim contribution) plus the pre-registered **judge
+    validation** — Kendall tau-b between mechanical claim totals and
+    ``reasoning_quality`` grades, per stratum, suppressed below 10 pairs with
+    the counts still published. Advisory beside the leaderboard, never a rank
+    key; the interpretation contract is ``metrics/README.md``. Reruns over an
+    unchanged ledger reproduce the file byte for byte.
+
+    Defaults to the **frozen** headline exactly like ``leaderboard``; while no
+    committed evaluation carries a block the artifact renders its honest
+    fully-suppressed state (zero counts, every coefficient null).
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    board = build_claim_scores(
+        iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions),
+        process_scope=scope,
+    )
+    destination = out if out is not None else settings.metrics_root / "claim-scores.json"
+    write_json(destination, board)
+    typer.echo(
+        f"claim-scores [{scope}]: {board.cells_with_claims} of {board.evaluations_total} "
+        f"evaluation(s) carry a claim block; forward judge agreement: "
+        f"{agreement_summary(board.forward_agreement)} -> {destination}"
     )
 
 

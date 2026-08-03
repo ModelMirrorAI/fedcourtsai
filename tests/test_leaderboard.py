@@ -14,11 +14,11 @@ from fedcourtsai.leaderboard import (
     PROCEDURAL,
     RETROSPECTIVE,
     Stratum,
-    _kendall_tau_b,
     big_case_agreement,
     build_leaderboard,
     classify_stratum,
     evaluator_agreement,
+    kendall_tau_b,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
@@ -454,13 +454,13 @@ def test_the_committed_leaderboard_round_trips_byte_for_byte(tmp_path: Path) -> 
 # --- big-case rank-agreement (Kendall's tau-b) -------------------------------------
 
 
-def test_kendall_tau_b_perfect_and_reversed_and_ties() -> None:
-    assert _kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]) == 1.0  # concordant
-    assert _kendall_tau_b([(1.0, 3.0), (2.0, 2.0), (3.0, 1.0)]) == -1.0  # reversed
-    assert _kendall_tau_b([(1.0, 1.0)]) is None  # need >= 2 points
-    assert _kendall_tau_b([(1.0, 1.0), (1.0, 1.0)]) is None  # every pair ties → undefined
+def testkendall_tau_b_perfect_and_reversed_and_ties() -> None:
+    assert kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]) == 1.0  # concordant
+    assert kendall_tau_b([(1.0, 3.0), (2.0, 2.0), (3.0, 1.0)]) == -1.0  # reversed
+    assert kendall_tau_b([(1.0, 1.0)]) is None  # need >= 2 points
+    assert kendall_tau_b([(1.0, 1.0), (1.0, 1.0)]) is None  # every pair ties → undefined
     # A monotone set with one x-tie: tau-b's denominator drops the tied pair.
-    tau = _kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (2.0, 3.0)])
+    tau = kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (2.0, 3.0)])
     assert tau is not None and tau == pytest.approx(2 / (6**0.5))
 
 
