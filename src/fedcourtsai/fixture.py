@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from . import corpus, ids
-from .schemas import Disposition, EventKind
+from .schemas import Disposition, EventKind, Stage
 
 _COURT_URL = "https://www.courtlistener.com/api/rest/v4/courts/{court}/"
 
@@ -120,6 +120,7 @@ class FixtureCase:
             case_id=self.case_id,
             court=self.court,
             kind=self.kind,
+            stage=Stage.cert if self.court == "scotus" else None,
             title=self.case_name,
             decision_target="disposition",
             opened_at=self.date_filed,

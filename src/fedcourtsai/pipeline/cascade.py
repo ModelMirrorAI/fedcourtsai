@@ -145,6 +145,7 @@ def _event_definition(event: corpus.CorpusEvent) -> PredictableEvent:
         event_id=event.event_id,
         case_id=event.case_id,
         kind=event.kind,
+        stage=event.stage,
         title=event.title or event.case_id,
         description=event.description,
         docket_entry_id=event.docket_entry_id,

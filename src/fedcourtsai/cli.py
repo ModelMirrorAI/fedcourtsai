@@ -3167,6 +3167,7 @@ def materialize_event(
             event_id=match.event_id,
             case_id=match.case_id,
             kind=match.kind,
+            stage=match.stage,
             title=match.title,
             description=match.description,
             docket_entry_id=match.docket_entry_id,

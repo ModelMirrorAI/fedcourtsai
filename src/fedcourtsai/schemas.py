@@ -256,6 +256,13 @@ class PredictableEvent(_Strict):
     event_id: str
     case_id: str
     kind: EventKind
+    stage: Stage | None = Field(
+        default=None,
+        description="Which decision standard governs this event (cert / interim / "
+        "merits) — see the Stage vocabulary. Null where no Supreme Court decision "
+        "standard applies (e.g. a circuit motion) or on records written before "
+        "the field existed; consumers treat null as 'no rule', never as a guess.",
+    )
     title: str
     description: str | None = None
     docket_entry_id: int | None = None

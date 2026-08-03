@@ -34,7 +34,7 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
-from ..schemas import Disposition, EventKind
+from ..schemas import Disposition, EventKind, Stage
 from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 from .interim_signals import application_kind, escalation_signals, match_interim_disposition
@@ -793,11 +793,15 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     ``event_id``; richer, agent-defined events can be layered on top later.
     """
     kind = EventKind.petition if row.court == "scotus" else EventKind.appeal
+    # Only a SCOTUS petition carries a decision standard here: the cert vote.
+    # A circuit appeal has no Supreme Court stage, so it declares none.
+    stage = Stage.cert if row.court == "scotus" else None
     return corpus.CorpusEvent(
         event_id=ids.event_id(kind.value, "disposition"),
         case_id=row.case_id,
         court=row.court,
         kind=kind,
+        stage=stage,
         title=row.case_name or row.docket_number or row.case_id,
         decision_target="disposition",
         opened_at=row.date_filed,

@@ -389,6 +389,7 @@ def test_default_event_for_appeal() -> None:
     assert event.court == "ca9"
     assert event.kind == EventKind.appeal
     assert event.event_id == "evt-appeal-disposition"
+    assert event.stage is None  # a circuit appeal has no SCOTUS decision standard
     assert event.title == "Doe v. Roe"
     assert event.opened_at == date(2021, 3, 1)
     # API_DOCKET carries a disposition, so the event is already resolved.
@@ -399,6 +400,7 @@ def test_default_event_for_scotus_is_a_petition() -> None:
     event = default_event(from_bulk_row({"id": "5", "court_id": "scotus"}))
     assert event.kind == EventKind.petition
     assert event.event_id == "evt-petition-disposition"
+    assert event.stage == "cert"
     assert event.resolved is False  # no disposition yet
     assert event.title == "scotus/5"  # falls back to case_id when unnamed
 
