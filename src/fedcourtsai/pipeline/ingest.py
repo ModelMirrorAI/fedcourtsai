@@ -11,7 +11,9 @@ never on how a fact is shaped or stored (see ``docs/data-pipeline.md``).
   same :class:`CorpusRow`.
 
 Both delegate to one private normalizer, so equivalent inputs from the two
-sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`.
+sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`;
+the store projection then withholds the bulk-circuit cluster fields — see
+:func:`to_corpus_row`.
 
 Normalized rows are persisted into the single packed corpus — the SQLite store
 defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so every
@@ -856,7 +858,21 @@ def to_corpus_row(
     channel came to include this row (see the storage field's docstring) — not
     a payload fact; a writer with nothing to assert leaves it ``None`` and the
     upsert's min-latch preserves the stored value.
+
+    The bulk export's docket↔opinion-cluster join is misjoined on the circuit
+    slices (19th-century cluster text and OCR-garbled judge names on
+    2018-19 dockets — an id-space collision in the staged join), so the
+    cluster-derived fields — ``summary``, ``precedential_status``, ``judges``
+    and the ``panel`` behind them, and ``citations`` / ``citation_count``,
+    which the same join supplied — are dropped rather than stored for a bulk
+    circuit row. The projection, not ``_normalize``, is the seam because the
+    ingestion row faithfully records what upstream served; the store declines
+    to keep what the join cannot vouch for. These columns take the incoming
+    value on upsert (no latch), so a re-served bulk row also clears any stored
+    misjoin. SCOTUS bulk rows are untouched: the misjoin is observed only on
+    the circuit slices.
     """
+    cluster_join_unsound = row.source == CorpusSource.bulk and row.court != "scotus"
     return corpus.CorpusRow(
         case_id=row.case_id,
         court=row.court,
@@ -868,16 +884,16 @@ def to_corpus_row(
         date_cert_denied=row.date_cert_denied,
         disposition=row.disposition,
         distributed_for_conference=row.distributed_for_conference,
-        judges=row.judges,
-        panel=row.panel,
+        judges=[] if cluster_join_unsound else row.judges,
+        panel=[] if cluster_join_unsound else row.panel,
         parties=row.parties,
         counsel=row.counsel,
         attorneys=row.attorneys,
         topic=row.nature_of_suit,
-        citations=row.citations,
-        citation_count=row.citation_count,
-        precedential_status=row.precedential_status,
-        summary=row.summary,
+        citations=[] if cluster_join_unsound else row.citations,
+        citation_count=None if cluster_join_unsound else row.citation_count,
+        precedential_status=None if cluster_join_unsound else row.precedential_status,
+        summary=None if cluster_join_unsound else row.summary,
         last_pulled=last_pulled,
         last_live_polled=last_live_polled,
         predict_eligible=is_predict_eligible(row),

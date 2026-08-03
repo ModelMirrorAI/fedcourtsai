@@ -114,7 +114,14 @@ after a grant, so counting it on a decided docket is a grant oracle. The flat
 
 The multi-valued sibling facts (`panel`, `parties`, `attorneys`, `counsel`) are
 filled by whichever channel carries them; a bulk-shaped source supplies them
-through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. The
+through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. One
+carve-out at the storage seam: the bulk export's docket↔opinion-cluster join is
+misjoined on the circuit slices, so `to_corpus_row` withholds the
+cluster-derived fields (`summary`, `precedential_status`, `judges`, `panel`,
+`citations`, `citation_count`)
+from a bulk circuit row — a replica-shaped source with a sound join must
+revisit that predicate, which keys on the channel (`source == bulk`), not on
+any particular export. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
 `seniority` is. A historical row serialized before the column existed also stays
 empty until a re-walk re-serves it — the same legacy-row shape as
