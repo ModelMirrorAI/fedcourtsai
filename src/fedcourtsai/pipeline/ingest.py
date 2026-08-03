@@ -11,7 +11,9 @@ never on how a fact is shaped or stored (see ``docs/data-pipeline.md``).
   same :class:`CorpusRow`.
 
 Both delegate to one private normalizer, so equivalent inputs from the two
-sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`.
+sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`;
+the store projection then withholds the bulk-circuit cluster fields — see
+:func:`to_corpus_row`.
 
 Normalized rows are persisted into the single packed corpus — the SQLite store
 defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so every
@@ -868,6 +870,9 @@ def to_corpus_row(
     value on upsert (no latch), so a re-served bulk row also clears any stored
     misjoin. SCOTUS bulk rows are untouched: the misjoin is observed only on
     the circuit slices, and the SCOTUS fields feed the cert-stage artifacts.
+    ``citations`` / ``citation_count`` pass through deliberately: no channel
+    reads opinion clusters for them, so they are all but unpopulated in the
+    store and there is nothing misjoined to withhold.
     """
     cluster_join_unsound = row.source == CorpusSource.bulk and row.court != "scotus"
     return corpus.CorpusRow(
