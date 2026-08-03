@@ -13,9 +13,10 @@ What is live is narrow and worth naming, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice, feeding
 the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
-`stage` — stamped `cert` on the SCOTUS petition baseline event, absent
-everywhere the writers do not yet classify one — but no aggregation rule reads
-it from data. Everything else is unbuilt: no artifact carries a writing role, a
+`stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
+application docket's motion baseline and on SCOTUS entry-pinned
+stay/injunction motions, absent everywhere the writers do not classify one —
+but no aggregation rule reads it from data. Everything else is unbuilt: no artifact carries a writing role, a
 judgment, or a provenance block; no schema carries a vote *margin*; and no
 aggregation rule is applied to anything. That is pre-registration: the model is settled before
 there is data to fit it to, which is the only order in which the choice is

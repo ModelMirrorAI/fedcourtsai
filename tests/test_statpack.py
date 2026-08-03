@@ -1115,3 +1115,200 @@ def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:
     assert "**Substantive slice:** 3 resolved, 1 granted — grant rate 33.3% (n=3)." in md
     assert "| 2024 | 6 | 1 | 3 | 1 | 1 | 2 | 1 | 50.0% (n=2) | 1 | 1 | 1 |" in md
     assert "| 2023 | 1 | 0 | 1 | 0 | 0 | 1 | 0 | 0.0% (n=1) | 0 | 0 | 0 |" in md
+
+
+# --- The merits stage axis ---------------------------------------------------
+
+
+def _seed_granted_cohort(db_path: Path) -> None:
+    """Insert a known granted-merits cohort split across two grant Terms.
+
+    OT2023 (granted Jan 2024 -> Term 2023): a reversal, a vacatur, an
+    affirmance, a DIG, and a granted row with no parsed judgment (coverage
+    gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
+    equally-divided affirmance and one mixed in-part outcome. Plus a granted
+    row carrying an out-of-vocabulary judgment string (counts as unparsed, so
+    the distribution always sums to `parsed`) and a denial (never eligible).
+    """
+    ot23 = date(2024, 1, 12)
+    ot24 = date(2024, 10, 7)
+    rows = [
+        corpus.CorpusRow(
+            case_id="scotus/910000001",
+            court="scotus",
+            docket_number="23-201",
+            date_cert_granted=ot23,
+            merits_judgment="reversed",
+            merits_decided=date(2024, 6, 27),
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000002",
+            court="scotus",
+            docket_number="23-202",
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
+            merits_decided=date(2024, 6, 20),
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000003",
+            court="scotus",
+            docket_number="23-203",
+            date_cert_granted=ot23,
+            merits_judgment="affirmed",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000004",
+            court="scotus",
+            docket_number="23-204",
+            date_cert_granted=ot23,
+            merits_judgment="dismissed-as-improvidently-granted",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000005",
+            court="scotus",
+            docket_number="23-205",
+            date_cert_granted=ot23,
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000006",
+            court="scotus",
+            docket_number="24-101",
+            date_cert_granted=ot24,
+            merits_judgment="affirmed-by-an-equally-divided-court",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000007",
+            court="scotus",
+            docket_number="24-102",
+            date_cert_granted=ot24,
+            merits_judgment="affirmed-in-part-reversed-in-part",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000008",
+            court="scotus",
+            docket_number="24-103",
+            date_cert_granted=ot24,
+            merits_judgment="remanded-with-prejudice",  # out of vocabulary
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000009",
+            court="scotus",
+            docket_number="23-206",
+            disposition=Disposition.denied,
+            date_cert_denied=ot23,
+            merits_judgment="affirmed",  # never eligible: a denial has no merits stage
+        ),
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_merits_section_absent_without_parsed_judgments(fixture_corpus: FixtureCorpus) -> None:
+    # The stage section is shown only once its feed exists: no parsed judgment,
+    # no section — omitted from the serialized pack rather than emitted as null,
+    # so a pack built from a judgment-free corpus keeps its pre-axis bytes.
+    pack = _pack(fixture_corpus)
+    assert pack.merits is None
+    assert "merits" not in pack.model_dump(mode="json")
+    assert "The merits docket" not in analytics.render_statpack_markdown(pack)
+
+
+def test_merits_section_absent_when_granted_rows_carry_no_judgment(tmp_path: Path) -> None:
+    # A granted-but-unparsed cohort is a feed that does not exist yet: the
+    # section joins on the parsed judgment, not on the grant.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000001",
+                    court="scotus",
+                    docket_number="23-201",
+                    date_cert_granted=date(2024, 1, 12),
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.merits is None
+    assert "merits" not in pack.model_dump(mode="json")
+
+
+def test_merits_counts_distribution_and_rate_by_grant_term(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    # Pack-level coverage: 8 granted (the denial is not eligible), 6 parsed —
+    # the unparsed row and the out-of-vocabulary value are both coverage gaps.
+    assert (merits.granted, merits.parsed) == (8, 6)
+    assert (merits.affirmed, merits.reversed, merits.vacated) == (1, 1, 1)
+    assert (merits.affirmed_in_part, merits.dig, merits.equally_divided) == (1, 1, 1)
+    # Disturbed = reversed + vacated + in-part; DIG and equally divided leave
+    # the judgment below standing, so both sit in the denominator undisturbed.
+    assert merits.disturbed == 3
+    assert merits.disturbed_rate == pytest.approx(3 / 6)
+    # Per-grant-Term split, most recent first, October pivot: the Oct 2024
+    # grants are OT2024, the Jan 2024 grants OT2023.
+    assert [t.term for t in merits.terms] == [2024, 2023]
+    ot24, ot23 = merits.terms
+    assert (ot24.granted, ot24.parsed, ot24.disturbed) == (3, 2, 1)
+    assert ot24.disturbed_rate == pytest.approx(0.5)
+    assert (ot23.granted, ot23.parsed, ot23.disturbed) == (5, 4, 2)
+    assert ot23.disturbed_rate == pytest.approx(0.5)
+
+
+def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
+    # An all-affirmed parsed slice is a real 0% — distinct from the no-rate
+    # None an unparsed slice carries.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000001",
+                    court="scotus",
+                    docket_number="23-201",
+                    date_cert_granted=date(2024, 1, 12),
+                    merits_judgment="affirmed",
+                )
+            ],
+        )
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    assert merits.disturbed_rate == 0.0
+    assert merits.terms[0].disturbed_rate == 0.0
+
+
+def test_merits_rows_leave_live_slice_terms_and_interim_unchanged(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The merits axis is a projection over granted rows, not a new cert
+    # population: the seeded (non-live) cohort adds the merits section without
+    # moving the live-slice per-Term array or the interim stage section. The
+    # full-corpus overview sections legitimately grow — the seeded rows are
+    # real corpus rows — so they are deliberately not compared here.
+    before = _pack(fixture_corpus)
+    _seed_granted_cohort(fixture_corpus.db_path)
+    after = _pack(fixture_corpus)
+    assert before.merits is None and after.merits is not None
+    assert after.terms == before.terms
+    assert after.interim == before.interim
+
+
+def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    md = analytics.render_statpack_markdown(analytics.build_statpack(corpus_db_path=db))
+    assert "## The merits docket (granted cases)" in md
+    # The caption carries the interpretation contract with the figures.
+    merits_section = md.split("## The merits docket (granted cases)")[1]
+    assert "not yet a scored base rate" in merits_section
+    assert "undisturbed" in merits_section
+    assert "**8** granted case(s): 6 with a parsed judgment." in merits_section
+    # Rates print raw-count denominators beside them; per-Term rows carry the
+    # coverage pair, the six-way distribution, and the disturbed rate.
+    assert "disturbed rate 50.0% (n=6)." in merits_section
+    assert "| 2024 | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
+    assert "| 2023 | 5 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section

@@ -284,8 +284,8 @@ the rendered table) and
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
-  published artifact): two cert-era populations side by side, plus an
-  interim-docket stage section described below. The labeled full-corpus
+  published artifact): two cert-era populations side by side, plus the
+  interim-docket and merits stage sections described below. The labeled full-corpus
   overview (cases by court, SCOTUS by decade era — the frozen bulk import
   included) gives composition context. The **live/historical-slice cert
   statistics** are what predictor and evaluator cells anchor on: disposition
@@ -315,8 +315,8 @@ the rendered table) and
   **interim-docket section** (`interim`), present only once the corpus holds
   application rows (`YYAnnn` dockets — stays, injunctions, vacaturs, and the
   time-extension requests that dominate the docket), and omitted entirely —
-  not emitted as null — while it does not; a merits section would join the
-  same way once a merits judgment column exists to feed one. What it publishes,
+  not emitted as null — while it does not; the merits section below joins by
+  the same rule on its own feed. What it publishes,
   pack-level and per application-Term year: counts by parsed ask (extension /
   substantive / unknown, with never-parsed rows kept apart as a visible
   coverage gap), and — over the **substantive slice only** — the resolved and
@@ -338,6 +338,40 @@ the rendered table) and
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
   rule (anchor strictly before your clock).
+
+  The second stage section is the **merits section** (`merits`), present only
+  once a corpus row carries a parsed `merits_judgment` (the
+  `backfill-merits-judgments` pass reading granted cases' stored terminal
+  entries), and omitted entirely — not emitted as null — while none does. What
+  it publishes, pack-level and per grant-Term year (the October Term
+  certiorari was granted in — a grant-date-keyed axis that does **not** align
+  with the cert tables' docket-number Terms, since a petition docketed in Term
+  T is routinely granted in T+1; Terms with no parsed judgment are omitted
+  from the rendered table): the granted-cohort count, the parsed count
+  beside it (the backfill's own coverage — read `granted − parsed` as an upper
+  bound blending still-pending cases with genuine parse gaps, so a recent
+  Term's thin parse is mostly pendency), the six-way judgment distribution
+  (affirmed / reversed /
+  vacated / affirmed-in-part / DIG / equally divided), and the **disturbed
+  rate** — reversed + vacated + affirmed-in-part over parsed, raw `n` beside
+  it, with the two non-merits exits (DIG, equally divided) counted as
+  undisturbed because both leave the judgment below standing. The vacated
+  bucket — and therefore the disturbed rate — pools summary GVRs (near-certain
+  vacaturs decided without argument) with argued merits vacaturs, so the rate
+  describes **all grants**, not the argued docket. **What may be
+  claimed from it:** the counts and the disturbed rate are *descriptive* facts
+  about the parsed cohort, nothing more. The rate is the natural anchor for a
+  future merits Brier baseline, but that baseline — like merits predict scope
+  and scoring, and its own denominator (whether GVRs and the procedural exits
+  sit in it) — remains unspecified (`docs/outcome-decomposition.md`), so no
+  skill, calibration, or baseline claim may rest on it; and the parsed slice
+  is selected on parseability (a stored snapshot whose terminal entry matches
+  the deterministic shapes), so quote the `parsed`/`granted` coverage beside
+  any figure. It is unweighted and comparable to nothing the cert sections
+  publish; DIGs and equally divided affirmances route to the `procedural`
+  stratum for any eventual scoring, never blended into a merits call. The
+  section carries no salience version, and the per-Term rows share the cert
+  tables' replay self-selection rule (anchor strictly before your clock).
 
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's

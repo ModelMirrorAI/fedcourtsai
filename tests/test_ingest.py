@@ -405,6 +405,29 @@ def test_default_event_for_scotus_is_a_petition() -> None:
     assert event.title == "scotus/5"  # falls back to case_id when unnamed
 
 
+def test_default_event_for_scotus_application_is_a_motion() -> None:
+    # A `YYAnnn` application docket is a stay/injunction application — a motion
+    # under the interim standard, not a cert petition. Keyed on the docket
+    # number's form alone, so it holds even before the live channel's
+    # `application_kind` parse has run.
+    event = default_event(
+        from_bulk_row({"id": "6", "court_id": "scotus", "docket_number": "24A1099"})
+    )
+    assert event.kind == EventKind.motion
+    assert event.event_id == "evt-motion-disposition"
+    assert event.stage == "interim"
+    assert event.decision_target == "disposition"
+
+
+def test_default_event_application_form_outside_scotus_is_still_an_appeal() -> None:
+    # The application-number key is SCOTUS-only; a circuit docket that happens
+    # to parse as `YYAnnn` keeps the appeal baseline.
+    event = default_event(from_bulk_row({"id": "7", "court_id": "ca9", "docket_number": "24A109"}))
+    assert event.kind == EventKind.appeal
+    assert event.event_id == "evt-appeal-disposition"
+    assert event.stage is None
+
+
 def test_upsert_to_corpus_is_idempotent_by_case(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     upsert_to_corpus(db, [from_bulk_row({**BULK_ROW, "nature_of_suit": "old"})])
