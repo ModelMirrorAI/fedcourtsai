@@ -1,0 +1,11 @@
+case_id: scotus/72482868
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-01-11'
+resolved: true
+schema_version: '1.0'
+title: 0.12 Acres of Land, More or Less, in Washington County, Maryland, et al., Petitioners
+  v. Columbia Gas Transmission, LLC

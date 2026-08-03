@@ -1,0 +1,11 @@
+case_id: scotus/72483369
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-21'
+resolved: true
+schema_version: '1.0'
+title: John C. Frank, Petitioner v. Debra Lee, in Her Official Capacity as Laramie
+  County Clerk, et al.
