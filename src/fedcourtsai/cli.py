@@ -118,7 +118,11 @@ from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.live import live_poll_all
-from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
+from .pipeline.outcome import (
+    entry_descriptions,
+    interim_disposal_signal,
+    snapshot_shows_disposition,
+)
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection
@@ -2992,7 +2996,11 @@ def provision_snapshot(
     #     cert-before-judgment grant / merits judgment the resolver omits, are
     #     still caught;
     #   - the resolver (``match_disposition_signal``) over *every* entry, which
-    #     adds the plain cert grant/denial orders that are not terminal-shaped.
+    #     adds the plain cert grant/denial orders that are not terminal-shaped;
+    #   - on an application-form docket, the high-recall interim disposal scan
+    #     (``interim_disposal_signal``) — the cert-shaped checks above match no
+    #     application phrasing, and the interim resolver's exact vocabulary can
+    #     miss a disposal that names the relief instead of the application.
     # The pull-side routing skip and the resolver latch are the primary
     # protections; this refusal is defense-in-depth for cells fanned out
     # before the docket latched. Refuses before writing anything (no snapshot,
@@ -3004,6 +3012,13 @@ def provision_snapshot(
     # point-in-time itself.
     if refuse_terminal and mode == "forward":
         terminal = snapshot_shows_disposition(payload)
+        payload_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "")
+        if (
+            terminal is None
+            and court == "scotus"
+            and corpus.is_scotus_application_form(payload_number)
+        ):
+            terminal = interim_disposal_signal(payload)
         if terminal is None:
             for text in entry_descriptions(payload):
                 matched = match_disposition_signal(text)
@@ -3620,10 +3635,12 @@ def live_poll(
     application streams from the persisted per-(Term, stream) cursors and
     onboards each served petition or application; the refresh re-polls the pending
     modern-cert watchlist (recent Terms first), then the application rotation
-    re-polls unresolved interim applications under its own cap — ground-truth
-    only, with prediction queueing off. Resolution is detected from the
-    proceedings text, so a decided petition lands ``outcome.json``
-    deterministically. Writes the same three handoff queues as ``pull-all``.
+    re-polls unresolved interim applications under its own cap — queueing
+    predict for a changed, still-unresolved substantive application in scope
+    (daily-debounced), ground truth for the rest. Resolution is detected from
+    the proceedings text, so a decided petition or application lands
+    ``outcome.json`` deterministically. Writes the same three handoff queues
+    as ``pull-all``.
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)

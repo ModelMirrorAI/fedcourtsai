@@ -182,9 +182,12 @@ structurally analogous to the scope reconcile — carries the decision:
    documented **salience floor** — set at the grant-rate level of clearly
    cert-worthy cases, ≈ the relist-2 / CVSG band (~25%+ historical grant rate). A
    major case can never fall below the capacity line.
-4. **Rank the remainder** by score and fill to `N`. **Additive-above-N**: `N` is a
-   *guaranteed floor* of ranked picks; carve-outs and sticky latches may push the
-   realized count above `N`. This is the simplest policy and never destructive.
+4. **Rank the remainder** by score and fill to `N`, minus any **interim reserve
+   slots in use** in the current (latest) cohort — the one carve-*in*: a live
+   substantive application's slot displaces the lowest-ranked rank-fill pick,
+   never a carve-out (see *The interim docket* below). **Additive-above-N**
+   otherwise: carve-outs and sticky latches may push the realized count above
+   `N`. This is the simplest policy and never destructive.
 5. **Latch `salience_selected = 1`** for the union. The latch is **one-way
    (`0 → 1`, never `1 → 0`)**: once selected, a case stays selected for its
    lifetime. The score recomputes every pass on fresh features, and ranking uses
@@ -548,7 +551,7 @@ rather than folding it into an undifferentiated "granted."
   score captures the stakes — with deterministic mootness-proneness deferred to a
   possible `sal-v2` feature.
 
-## The interim docket (designed; published descriptively, not scored)
+## The interim docket (predicted, quota'd; published descriptively, not yet skill-scored)
 
 The cert program above selects petitions. The interim docket — stays,
 injunctions, vacaturs pending certiorari — needs its own, because none of
@@ -589,10 +592,47 @@ the ending band understates what a live application faces. Those are the same tw
 defects the cert program corrected, and the answers carry over: freeze the band as
 at prediction, and pool the rate over a risk set.
 
-**What is missing is the rate; the cohort is being accumulated.** The live
+**Predict scope is the substantive slice, funded by a bounded reserve inside
+`N`.** Only a substantive application
+(`interim_signals.is_predictable_application`) is ever predicted — the scope
+rules keep extensions and unreadable asks excluded, and the next run of the
+two-directional reconcile releases an application's latch once a poll has
+latched its substantive reading. Selection is a **quota, not a ranking**: `sal-v1`'s
+features do not exist here, so each selection pass fills up to
+`salience.interim_reserve_slots` (5) with pending substantive applications in
+**escalation-ladder order** — requested response first, then referral, then
+the amicus count, `case_id` for determinism. That order is a deterministic
+*pick sequence*, not a scored rate: choosing by the ladder asserts no grant
+probability. A selected application occupies its slot until it resolves (the
+sticky latch never de-selects), so the reserve bounds *concurrent* live
+interim predictions and a slot frees only on resolution — where "resolves"
+means the machine-matched resolution the accumulation rule below requires, so
+an application decided in language the vocabulary misses pins its slot (and
+its one displaced cert pick per pass) until a maintainer resolves the residue;
+it is visible as the application rotation's long-unresolved tail. The slots in
+use displace cert **rank-fill** capacity one-for-one in the **latest
+conference cohort of the pass** — never a carve-out — so the reserve trades
+slots inside `N` and target spend stays as [budget.md](budget.md) publishes;
+an unfilled reserve displaces nothing. The trade is prospective, pass by
+pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
+sticky picks, and an application queued in the fail-open window before its
+first scoring pass rides outside the quota for that cycle — both can push a
+conference's realized count transiently above `N`, the same drift-above-`N`
+the carve-outs and sticky latch already produce. The predict trigger is the
+interim analogue of the
+distribution transition: an application has no conference calendar, so any
+observed docket change on a still-unresolved substantive application in scope
+queues its motion/interim baseline forward, debounced to daily by the shared
+`predict_queued_at` stamp; the selection sweep addresses reserve-selected
+applications too, since a selection can postdate the application's last
+docket change. A machine-matched resolution then records the interim
+`outcome.json` on the same baseline — the interim disposition vocabulary,
+dated by the disposing entry, with no cert-only `signals` block.
+
+**What is still missing is the rate; the cohort keeps accumulating.** The live
 cycle re-polls unresolved applications up to a small per-cycle cap
-(`live.max_applications_per_run`) with prediction queueing off — ground-truth
-collection only. Each poll persists the ask (`application_kind` — arrival-time,
+(`live.max_applications_per_run`). Each poll persists the ask
+(`application_kind` — arrival-time,
 so safe to condition on) and the three ladder signals as latched corpus
 columns, so an interim cohort can be assembled from the index: which
 applications, which asks, how far each had escalated by resolution. The latched
@@ -604,14 +644,32 @@ application counts as resolved only when the interim disposition vocabulary
 matches its disposing entry, so the resolved set is selected for
 machine-matchable resolution text (an unmatched resolution stays in the
 rotation as a visibly long-unresolved residue rather than silently counting).
-The accumulating cohort itself is published descriptively — the statpack's
+The accumulating cohort is published descriptively — the statpack's
 interim section carries the counts by ask, the substantive slice's
 resolved/granted counts and raw grant rate, and the escalation-signal counts,
-pack-level and per application-Term — but the
-*scored* rate stays unspecified: predict scope and a segment base rate for the
-interim stage wait until enough substantive applications have resolved to
-support one — the same posture the merits stage takes, and for the same
-reason.
+pack-level and per application-Term — but **no interim skill is scored**:
+`segment_base_rate` yields nothing for an application docket, so an interim
+cell's evaluation carries a null skill, and the leaderboard segments the cell
+into its unranked `interim` stage block, never the cert board.
+**Pre-registered claimability rule:** the interim segment base rate publishes
+— and skill over the interim stage becomes claimable — once the statpack's
+substantive **resolved count reaches 25**; until then the stage reports
+counts and raw rates only. The estimator is pre-registered with the floor,
+because the forking paths close now or never: when it publishes, the rate is
+pooled over the **substantive resolved slice of application-Terms strictly
+before the case's own** (the same leakage rule the cert band rate uses),
+**unweighted raw counts** (the application stream has no denial sampling, so
+every row stands for itself), with withdrawn/dismissed counted as ungranted
+and the machine-matched-resolution selection caveat traveling with the number
+wherever it is quoted. Two collapses in the resolved labels are likewise
+recorded here rather than discovered later: an unmatched resolution never
+enters the denominator (the accumulation rule above), and a mixed partial
+disposition — "granted in part and denied in part", a real shadow-docket
+shape — currently reads **denial-first** through the interim vocabulary and
+lands as `denied` / ungranted; if that collapse proves material once volume
+exists, changing it is a new reading applied forward, never a silent
+relabel. The floor, the estimator, and the collapses are fixed here, before
+any interim cell has been scored, so none can be tuned to a result.
 
 ## Shared discipline: leakage / timing
 

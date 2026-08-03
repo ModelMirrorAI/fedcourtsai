@@ -165,3 +165,44 @@ def test_reconcile_apply_normalizes_stale_derived_columns(tmp_path: Path) -> Non
         assert applied.normalized == 1
         row = corpus.get_row(conn, "ca9/9")
     assert row is not None and row.predict_eligible is False
+
+
+def test_reconcile_releases_a_substantive_application_and_keeps_an_extension(
+    tmp_path: Path,
+) -> None:
+    # The interim gate opening rides the ordinary two-directional latch: an
+    # application first latched out (ask not yet parsed) is released once a
+    # later poll latches the substantive reading, while an extension — parsed,
+    # and permanently non-substantive — stays latched.
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/9525000001", court="scotus", docket_number="25A1"),
+                corpus.CorpusRow(
+                    case_id="scotus/9525000002",
+                    court="scotus",
+                    docket_number="25A2",
+                    application_kind="extension",
+                ),
+            ],
+        )
+        first = reconcile_predict_scope(conn, apply=True)
+        assert first.excluded == 2  # unparsed and extension both out
+        # The next poll reads the substantive ask; the latch releases.
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        second = reconcile_predict_scope(conn, apply=True)
+    assert second.released == 1 and second.excluded == 0
+    assert _excluded(db, "scotus/9525000001") is False  # substantive: in scope
+    assert _excluded(db, "scotus/9525000002") is True  # extension: stays out

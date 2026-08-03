@@ -21,12 +21,16 @@ conservative:
   attributed to one of — produces an :class:`UnrecordedOutcome`, surfaced on the
   pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
 
-Attribution is **stage-routed**: the case-level disposition the corpus row
-carries is the *cert*-stage decision, so it belongs to the open event whose
+Attribution is **stage-routed**, with the docket's form selecting the
+disposition's source and therefore its stage: on a cert docket the case-level
+disposition is the *cert*-stage decision, so it belongs to the open event whose
 ``stage`` is ``cert`` — even when other events (an interim motion) are open
-beside it, which then simply stay open. Stage-less events fall back to the
-case-baseline id-prefix rule, and anything the stage does not disambiguate is
-refused (:func:`_cert_disposition_target`).
+beside it, which then simply stay open — with stage-less events falling back to
+the case-baseline id-prefix rule (:func:`_cert_disposition_target`); on an
+application docket it is the *interim* disposition the interim vocabulary
+matched at ingest, so it belongs to the lone open ``interim``-stage event
+(:func:`_interim_disposition_target`). Anything the stage does not disambiguate
+is refused.
 
 A recorded cert **grant** is also a birth: it opens the merits proceeding, so
 :func:`resolve_case` mints the case's open merits event
@@ -259,6 +263,42 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
     return None
 
 
+# High-recall interim disposal shapes, for the routing and provisioning
+# backstops on APPLICATION-FORM dockets only. Deliberately wider than the
+# resolving vocabulary (`interim_signals.match_interim_disposition`), which
+# anchors on the word "application": a disposing order can name the relief
+# instead ("Stay granted pending disposition", "The motion for an injunction
+# ... is denied"), leaving the row unresolved while the outcome sits legible in
+# the snapshot — on the cert side that single point of failure is covered by
+# `_TERMINAL_ENTRY_RE`, which matches no application phrasing. A match here
+# never records an outcome; it only diverts the forward queue
+# (`predict_skipped_decided`) or refuses provisioning, so a false positive (a
+# recital of a lower court's stay denial) parks a cell — the cheap failure the
+# `_TERMINAL_ENTRY_RE` doctrine already endorses. Form-keyed by the callers, so
+# a cert docket's stay-order recital can never refuse a legitimate cert cell.
+_INTERIM_DISPOSAL_RE = re.compile(
+    r"\b(?:applications?|stays?|injunctions?|vacaturs?|motions?)\b[^.]{0,200}?"
+    r"\b(?:granted|denied|dismissed|withdrawn)\b",
+    re.IGNORECASE,
+)
+
+
+def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
+    """An interim disposal legible **anywhere** in an application docket's payload.
+
+    The application-form counterpart of :func:`snapshot_shows_disposition` —
+    leakage semantics, so it scans every entry and takes no reactivation
+    exception — used by the live routing's decided-guard and the forward-cell
+    provisioning refusal on application dockets only (the caller keys on
+    :func:`fedcourtsai.corpus.is_scotus_application_form`). Pure, over either
+    payload shape (:func:`entry_descriptions`).
+    """
+    for description in entry_descriptions(docket):
+        if _INTERIM_DISPOSAL_RE.search(description):
+            return f"snapshot entry reads as an interim disposal: {description!r}"
+    return None
+
+
 @dataclass(frozen=True)
 class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
@@ -335,13 +375,22 @@ def resolution_signals(
 
 
 def _build_outcome(
-    row: CorpusRow, event_id: str, basis: Literal["standard", "mootness"]
+    row: CorpusRow,
+    event_id: str,
+    basis: Literal["standard", "mootness"],
+    *,
+    interim: bool = False,
 ) -> Outcome:
     """Construct the ground-truth ``Outcome`` from a decided, machine-readable row.
 
     ``resolved_at`` is the :func:`corpus.resolution_date` — for a SCOTUS petition
     the cert-stage decision date, so a granted petition's outcome is stamped when
-    cert was granted, not at the merits termination.
+    cert was granted, not at the merits termination; for an application docket
+    the cert dates are empty by construction, so it is the disposing entry's
+    date the interim resolver latched at ingest. ``interim`` marks an
+    interim-stage recording, whose outcome never carries the ``signals`` block:
+    those are the cert docket's resolution signals (distribution count, CVSG),
+    observations nobody makes on an application.
     """
     resolved_at = corpus.resolution_date(row)
     assert row.disposition is not None and resolved_at is not None
@@ -351,7 +400,7 @@ def _build_outcome(
         resolved_at=resolved_at,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
-        signals=resolution_signals(row.distribution_count, row.cvsg_date),
+        signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )
@@ -365,9 +414,8 @@ def _build_outcome(
 # resolved-sequentially shape of exactly that failure sits in the committed
 # ledger. An application docket's motion/interim baseline is likewise
 # deliberately outside this tuple: its disposition resolves under the interim
-# standard, whose stage-keyed outcome routing ships with the interim predict
-# path, so until then a decided application routes to the unrecorded queue
-# rather than being recorded under the cert rule.
+# standard, routed by the explicit interim stage (`_interim_disposition_target`)
+# rather than by any id-prefix fallback, so it can never inherit the cert rule.
 _CASE_BASELINE_ID_PREFIXES = tuple(
     f"evt-{kind.value}-" for kind in (EventKind.petition, EventKind.appeal)
 )
@@ -378,13 +426,14 @@ def _cert_disposition_target(
 ) -> str | None:
     """The one open event the case-level disposition attributes to, or ``None``.
 
-    The corpus row carries exactly one case-level disposition today, and it is
-    the **cert**-stage decision (:func:`fedcourtsai.corpus.resolution_date` is
-    the petition-stage cert date on a SCOTUS docket), so cert is the only stage
-    routed here; an interim disposition has a different case-level source (the
-    application's own resolving entry), and when that path lands it slots in as
-    a sibling stage → disposition-source branch beside this one rather than a
-    rewrite of it.
+    The corpus row carries exactly one case-level disposition, and on a cert
+    docket it is the **cert**-stage decision
+    (:func:`fedcourtsai.corpus.resolution_date` is the petition-stage cert date
+    on a SCOTUS docket), so cert is the only stage routed here; an interim
+    disposition has a different case-level source (the application's own
+    resolving entry, matched by the interim vocabulary at ingest), and the
+    sibling stage → disposition-source branch that routes it is
+    :func:`_interim_disposition_target`.
 
     Stage first: the open event tagged ``cert`` claims the disposition outright,
     even with other (non-cert) events open beside it — those resolve on their
@@ -427,6 +476,28 @@ def _cert_already_attributed(
     )
 
 
+def _interim_disposition_target(
+    open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> str | None:
+    """The one open event an application's interim disposition attributes to, or ``None``.
+
+    The interim sibling of :func:`_cert_disposition_target`: on an application
+    docket the row's case-level disposition comes from the application's own
+    disposing entry (the interim vocabulary,
+    :func:`fedcourtsai.pipeline.interim_signals.match_interim_disposition`), so
+    it belongs to the open event whose ``stage`` is ``interim`` — the
+    motion-kind baseline the discovery mint stamps. Two events sharing the
+    stage is ambiguous, so nothing is attributed. There is deliberately **no
+    stage-less fallback** here: the only stage-less baseline an application
+    docket carries is a historical spelling's petition-kind event, whose
+    cert-shaped id must never receive an interim disposition.
+    """
+    interim_staged = [eid for eid in open_event_ids if stages.get(eid) == Stage.interim]
+    if len(interim_staged) == 1:
+        return interim_staged[0]
+    return None
+
+
 def detect_resolution(
     row: CorpusRow,
     court_id: str,
@@ -443,8 +514,11 @@ def detect_resolution(
     outcomes for the rest. An undecided docket, or one with no open events, resolves to an
     empty :class:`Resolution` (nothing to do). ``stages`` maps each event id
     to its recorded decision stage (from the corpus event rows) and drives the
-    stage-routed attribution (:func:`_cert_disposition_target`); omitted, every
-    event reads as stage-less and only the case-baseline prefix fallback applies.
+    stage-routed attribution — :func:`_cert_disposition_target` on a cert
+    docket, :func:`_interim_disposition_target` on an application docket;
+    omitted, every event reads as stage-less, so on a cert docket only the
+    case-baseline prefix fallback applies and on an application docket nothing
+    is ever attributed.
     When the stage identifies the target unambiguously *and* the disposition is
     recordable, the other open events are neither resolved nor surfaced for
     triage — they stay open on their own filings' terms, still tracked by the
@@ -472,15 +546,21 @@ def detect_resolution(
 
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
     # An application docket never takes the cert rule, whatever its baseline's
-    # current shape: its disposition resolves under the interim standard, whose
-    # stage-keyed outcome recording ships with the interim predict path. Keyed
-    # on the tolerant docket-form recognizer so every recorded application
-    # spelling is covered, not just the strict `YYAnnn` the baseline mint and
-    # the relabel migration key on.
+    # current shape: its disposition resolves under the interim standard, routed
+    # to the interim-stage baseline by the sibling target rule. Keyed on the
+    # tolerant docket-form recognizer so every recorded application spelling is
+    # covered, not just the strict `YYAnnn` the baseline mint and the relabel
+    # migration key on.
     application = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
-    target = _cert_disposition_target(open_event_ids, stages or {})
-    if readable and not application and target is not None:
-        return Resolution(outcomes={target: _build_outcome(row, target, disposition_basis)})
+    target = (
+        _interim_disposition_target(open_event_ids, stages or {})
+        if application
+        else _cert_disposition_target(open_event_ids, stages or {})
+    )
+    if readable and target is not None:
+        return Resolution(
+            outcomes={target: _build_outcome(row, target, disposition_basis, interim=application)}
+        )
 
     # A retained granted docket re-polls with its cert disposition already
     # attributed to the (resolved) cert event and only the merits event open:
@@ -495,11 +575,11 @@ def detect_resolution(
     ):
         return Resolution()
 
-    if application:
+    if application and readable:
         reason = (
-            f"decided application docket ({row.disposition}): an application resolves "
-            "under the interim standard, whose stage-keyed outcome recording is not "
-            "implemented — the resolution stays unrecorded by design"
+            f"decided application docket ({row.disposition}) but no lone open "
+            "interim-stage event to attribute the interim disposition to; an "
+            "application's disposition belongs to its interim baseline only"
         )
     elif not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"

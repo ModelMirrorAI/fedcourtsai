@@ -2713,8 +2713,9 @@ class _StatPackInterimCounts(_Strict):
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
     reweighted. Descriptive only — the substantive grant rate describes the
-    accumulated cohort, and is **not** a segment base rate: predict scope and a
-    scored base rate for the interim stage remain unspecified, so no skill or
+    accumulated cohort, and is **not** a segment base rate: the interim stage's
+    scored base rate publishes only at the pre-registered resolved-count floor
+    (``docs/salience.md``, *The interim docket*), so until then no skill or
     calibration claim rests on these figures. Extensions are counted so the
     docket's administrative dominance is visible, but they never pool into any
     rate — an extension is granted as a matter of course, and admitting it would

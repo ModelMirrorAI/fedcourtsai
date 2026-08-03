@@ -23,8 +23,10 @@ Deterministic, no agent. Each cycle:
 - **The application rotation** re-polls unresolved interim applications
   (:func:`fedcourtsai.corpus.application_rotation`) under its own small
   per-cycle cap, resolving them through the interim vocabulary and persisting
-  the escalation signals — ground-truth collection only, with prediction
-  queueing off unconditionally (applications are not predict-scoped).
+  the escalation signals. A changed, still-unresolved **substantive**
+  application in predict scope queues predict (the interim predict path, quota'd
+  by the salience reserve — see ``docs/salience.md``); everything else on the
+  rotation stays ground-truth collection only.
 
 Identity is reconciled before any row is minted: a petition already in the
 corpus (by normalized Term-form docket number) is **enriched** under its
@@ -69,7 +71,13 @@ from ..supremecourt import (
 from .documents import fetch_case_documents
 from .events import extract_events
 from .ingest import from_live_record, map_live_docket, upsert_to_corpus
-from .outcome import disposition_basis, resolve_case, termination_signal
+from .interim_signals import ApplicationKind
+from .outcome import (
+    disposition_basis,
+    interim_disposal_signal,
+    resolve_case,
+    termination_signal,
+)
 from .pull import PullQueues, _in_predict_scope
 from .salience import apply_salience_selection
 
@@ -201,7 +209,14 @@ def ingest_live_payload(
         unrecorded_events=[r.event_id for r in resolution.unrecorded],
         unrecorded_reason=resolution.unrecorded[0].reason if resolution.unrecorded else None,
         distributed=row.distributed_for_conference,
-        termination_signal=termination_signal(record),
+        # Form-keyed decided-guard: the cert scan on a cert docket, the
+        # high-recall interim disposal scan on an application — the interim
+        # resolver's vocabulary is exact-match, so a disposal it misses must
+        # still divert the forward queue rather than mint a cell whose
+        # snapshot shows the outcome.
+        termination_signal=(
+            interim_disposal_signal(record) if form == "application" else termination_signal(record)
+        ),
     )
 
 
@@ -452,36 +467,44 @@ def poll_applications(
     data_root: Path,
     due: list[corpus.CorpusRow],
     *,
+    document_text_cap: int = 150_000,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
-    """Refresh each due unresolved application; ground-truth recording only.
+    """Refresh each due unresolved application; queue the predictable slice forward.
 
-    The interim counterpart of :func:`poll_live_cases`, with the predict seam
-    closed: applications are not predict-scoped, so ``queue_predict`` is off
-    unconditionally and each poll exists to catch the entries filed since the
-    last one — a response request, a referral, an amicus brief, the disposition
-    itself — and land them as the latched corpus signals. Routing is likewise
-    **ungated** regardless of the cycle's predict scope: the scope gate
-    protects predict spend, and with the predict seam closed there is nothing
-    left for it to protect — while gating would hide every resolved
-    application from the run log (they are permanently out of predict scope),
-    leaving the stream's accumulation invisible. A resolved application never
-    receives a cert-rule ``outcome.json`` (the application guard in
-    :mod:`fedcourtsai.pipeline.outcome` keeps every application spelling out of
-    the cert rule; the stage-keyed interim recording ships with the interim
-    predict path, backfilling from the row's disposition — the baseline latches
-    ``resolved`` on re-extraction, so no open-event backlog accumulates). It
-    surfaces on ``unrecorded`` while its baseline is still open *and* its row
-    is not ``predict_excluded``; once the scope reconcile latches the row —
-    applications are a standing exclusion — ``open_events`` yields nothing and
-    the resolution lands silently as the row's latched disposition columns.
-    The same politeness applies (the
-    client paces every fetch) and the same soft budget: on expiry the polls
-    done so far are committed and the rotation resumes next cycle. A vanished
-    docket (404 on a previously served number) is stamped so it cannot pin the
-    rotation's front, exactly as in the cert refresh.
+    The interim counterpart of :func:`poll_live_cases`. Each poll catches the
+    entries filed since the last one — a response request, a referral, an
+    amicus brief, the disposition itself — and lands them as the latched corpus
+    signals; a machine-matched resolution records the interim ``outcome.json``
+    on the motion/interim baseline (:mod:`fedcourtsai.pipeline.outcome`'s
+    stage-keyed interim target).
+
+    An application has no distribution calendar, so there is no transition to
+    key the predict handoff on. The interim trigger is instead **any observed
+    docket change while the application is still unresolved**, on a
+    **substantive** application in predict scope — every filing on a live stay
+    application moves its posture, so change is the honest analogue of the cert
+    side's distribution transition — debounced to daily by the shared
+    ``predict_queued_at`` stamp (the same stamp the routing writes and the
+    selection sweep's retry compares), so a busy docket queues at most once a
+    day. The scope check is the shared :func:`_in_predict_scope` (row scope —
+    which spares only substantive applications — plus the salience latch,
+    fail-open until the reserve has scored the row); an extension, an
+    unknown-ask application, or a reserve-deferred one never queues. Routing
+    stays **ungated** by the cycle's predict scope: the per-row predicate above
+    already protects predict spend, while gating would hide out-of-scope
+    resolutions from the run log, leaving the stream's accumulation invisible.
+    A non-machine-matchable resolution surfaces on ``unrecorded`` while its
+    baseline is still open *and* its row is not ``predict_excluded``; once the
+    scope reconcile latches an out-of-scope row, ``open_events`` yields nothing
+    and the resolution lands silently as the row's latched disposition columns.
+    The same politeness applies (the client paces every fetch) and the same
+    soft budget: on expiry the polls done so far are committed and the rotation
+    resumes next cycle. A vanished docket (404 on a previously served number)
+    is stamped so it cannot pin the rotation's front, exactly as in the cert
+    refresh.
     """
     queues = PullQueues()
     for row in due:
@@ -517,8 +540,46 @@ def poll_applications(
         result = ingest_live_payload(
             corpus_db_path, data_root, payload, docket_id, today=today, form="application"
         )
+        # The interim predict trigger, on the post-poll row (the poll may have
+        # just latched the substantive ask — or the resolution, which closes
+        # the seam: a resolved application must never mint a forward cell its
+        # snapshot already answers). `row` is the pre-poll state, so its
+        # `predict_queued_at` carries the debounce.
+        with corpus.connect(corpus_db_path) as conn:
+            fresh = corpus.get_row(conn, result.case_id)
+        # Pending is the two-clause test the reserve uses (no disposition AND
+        # no resolution date): a dated resolution whose disposition text the
+        # vocabulary could not read is still resolved, never a forward cell.
+        queue_predict = (
+            result.changed
+            and fresh is not None
+            and fresh.disposition is None
+            and corpus.resolution_date(fresh) is None
+            and fresh.application_kind == ApplicationKind.substantive
+            and row.predict_queued_at != today
+            and _in_predict_scope(corpus_db_path, result.case_id)
+        )
+        if queue_predict:
+            # Predict is about to be queued — provision the application's
+            # documents on the same trigger, exactly as the cert refresh does.
+            # Idempotent per (kind, url), so a re-queue with unchanged filings
+            # costs nothing.
+            provision_documents(
+                client,
+                corpus_db_path,
+                result.case_id,
+                payload,
+                char_cap=document_text_cap,
+                today=today,
+            )
         _route_result(
-            queues, corpus_db_path, data_root, result, gated=False, queue_predict=False, today=today
+            queues,
+            corpus_db_path,
+            data_root,
+            result,
+            gated=False,
+            queue_predict=queue_predict,
+            today=today,
         )
     return queues
 
@@ -638,7 +699,7 @@ def _predict_cell_capped(
     )
 
 
-def salience_sweep(  # noqa: PLR0913,PLR0912 - cycle args (deadline/clock) + the per-cell owed fallback branch
+def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/clock) + the per-cell owed fallback branch + the dual-form addressing
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -662,8 +723,13 @@ def salience_sweep(  # noqa: PLR0913,PLR0912 - cycle args (deadline/clock) + the
     transitions all predate the first applied pass (the catch-up backlog), and a
     selected petition whose queued run left a ``(predictor, event)`` cell without
     a committed prediction (the retry). The sweep closes all three: every latched
-    petition with an open event still *owed* a prediction is re-polled,
+    case with an open event still *owed* a prediction is re-polled,
     provisioned, and queued, up to ``cap`` fetches per cycle, stalest first.
+    A reserve-selected **application** is swept on identical terms (addressed
+    through the application form of the docket JSON): the interim analogue of
+    the same-cycle gap is structural there — an application has no distribution
+    transition at all — so the sweep is the path that queues one whose
+    selection postdates its last docket change.
 
     **Owed is per ``(predictor, event)`` cell**, mirroring
     :func:`fedcourtsai.pipeline.pull.evaluate_backlog`: with ``predictors_path``
@@ -746,13 +812,21 @@ def salience_sweep(  # noqa: PLR0913,PLR0912 - cycle args (deadline/clock) + the
             for pid in predictor_ids
         ):
             continue
+        # The sweep addresses both docket forms: a reserve-selected application
+        # is only ever reachable here (it has no distribution transition, and
+        # its selection may postdate its last docket change), so the cert-only
+        # parse would strand exactly the cases the reserve funds.
+        form: Literal["cert", "application"] = "cert"
         parsed = parse_scotus_docket_number(row.docket_number)
+        if parsed is None:
+            parsed = parse_scotus_application_number(row.docket_number)
+            form = "application"
         if parsed is None:
             continue
         term, serial = parsed
         fetches += 1
         try:
-            payload = client.get_docket(term, serial)
+            payload = client.get_docket(term, serial, form=form)
         except httpx.HTTPError as exc:
             queues.failed.append(
                 {"court": "scotus", "docket": docket_id, "reason": f"{type(exc).__name__}: {exc}"}
@@ -763,7 +837,9 @@ def salience_sweep(  # noqa: PLR0913,PLR0912 - cycle args (deadline/clock) + the
                 {"court": "scotus", "docket": docket_id, "reason": "docket JSON no longer served"}
             )
             continue
-        result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
+        result = ingest_live_payload(
+            corpus_db_path, data_root, payload, docket_id, today=today, form=form
+        )
         # Ground-truth routing first: the re-poll may have caught a resolution,
         # in which case there is nothing left to predict.
         _route_result(
@@ -816,8 +892,9 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     it would only spend cadence), and its result is routed through the identical
     queue logic instead. After the cert polls, up to
     ``config.max_applications_per_run`` unresolved interim applications are
-    re-polled (:func:`poll_applications`) — ground-truth collection only, with
-    the predict seam closed unconditionally.
+    re-polled (:func:`poll_applications`): a changed, unresolved substantive
+    application in predict scope queues forward under the change-trigger
+    debounce; everything else on the rotation is ground-truth collection.
 
     Predict timing is the distribution trigger everywhere: a freshly
     onboarded petition queues predict only if it is already distributed for a
@@ -902,10 +979,11 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     queues.failed.extend(refreshed.failed)
 
     # The application rotation, after the cert polls: unresolved interim
-    # applications under their own cap, ground-truth only (poll_applications
-    # keeps the predict seam closed). A case discovery's application stream
-    # just onboarded is excluded exactly as the cert refresh excludes fresh
-    # petitions — its poll is seconds old.
+    # applications under their own cap. A changed, unresolved substantive
+    # application in scope queues predict (poll_applications' per-row
+    # predicate); the rest is ground-truth collection. A case discovery's
+    # application stream just onboarded is excluded exactly as the cert
+    # refresh excludes fresh petitions — its poll is seconds old.
     max_applications = config.max_applications_per_run
     with corpus.connect(corpus_db_path) as conn:
         applications_due = [
@@ -922,10 +1000,13 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         corpus_db_path,
         data_root,
         applications_due,
+        document_text_cap=config.document_text_cap,
         today=today,
         deadline=deadline,
         time_fn=time_fn,
     )
+    queues.predict.extend(application_results.predict)
+    queues.predict_skipped_decided.extend(application_results.predict_skipped_decided)
     queues.evaluate.extend(application_results.evaluate)
     queues.evaluate_skipped.extend(application_results.evaluate_skipped)
     queues.unrecorded.extend(application_results.unrecorded)

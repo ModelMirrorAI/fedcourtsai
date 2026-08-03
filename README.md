@@ -146,9 +146,12 @@ discretionary-cert docket and off everything that does not fit it:
 - **Pro se / in-forma-pauperis petitions** — a deliberate choice to spend the
   fundable slice on the paid cert docket (IFP grants are rare but real, so this is
   a recorded decision, not a claim they never matter).
-- **Non-cert docket forms** — stay and emergency applications, and
-  original-jurisdiction matters, which resolve as stays or merits rulings rather
-  than a cert grant/deny.
+- **Non-cert docket forms** — original-jurisdiction and miscellaneous matters,
+  which resolve as merits rulings or procedural leave rather than a cert
+  grant/deny, and the non-substantive slice of the application docket (time
+  extensions, unreadable asks). A **substantive** stay/injunction application
+  is predicted — under the interim stage and a bounded reserve quota, not the
+  cert model (see [`docs/salience.md`](docs/salience.md)).
 - **Attorney-discipline and other non-cert dockets**, and cases whose outcome is
   not machine-readable (a published opinion with no clean disposition).
 

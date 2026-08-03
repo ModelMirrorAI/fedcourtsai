@@ -9,6 +9,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
+from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
     _CIRCUIT_GRANT_RATE,
     SALIENCE_VERSION,
@@ -484,3 +485,166 @@ def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
             reconcile_salience_selection(conn, config, apply=True)
         runs.append(_selected_ids(db))
     assert runs[0] == runs[1]
+
+
+# --- the interim reserve --------------------------------------------------------
+
+
+def _application(  # a keyword-only test fixture builder, one arg per row feature
+    case_id: str,
+    docket: str,
+    *,
+    kind: str | None = "substantive",
+    requested: bool = False,
+    referred: bool = False,
+    amici: int = 0,
+    selected: bool = False,
+    disposition: str | None = None,
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow.model_validate(
+        {
+            "case_id": case_id,
+            "court": "scotus",
+            "docket_number": docket,
+            "application_kind": kind,
+            "response_requested": requested,
+            "referred_to_court": referred,
+            "amicus_briefs": amici,
+            "salience_selected": selected,
+            "disposition": disposition,
+            "date_decided": date(2026, 1, 20) if disposition else None,
+        }
+    )
+
+
+def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path: Path) -> None:
+    # Three below-floor petitions at N=2 beside one pending substantive
+    # application, reserve 1: the application is selected and the cert rank
+    # fill shrinks to 1 — the reserve trades inside N, never adds to it.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
+
+
+def test_reserve_never_displaces_a_carve_out(tmp_path: Path) -> None:
+    # Carve-outs sit above N, so the reserve displaces only the rank fill: a
+    # CVSG petition survives even when the reserve consumes the whole cap.
+    rows = [
+        _petition("scotus/cvsg", distribution_count=1, cvsg=True),
+        _petition("scotus/ranked", distribution_count=1),
+        _application("scotus/9525000001", "25A1"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=1, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/cvsg"}
+
+
+def test_unfilled_reserve_returns_to_cert(tmp_path: Path) -> None:
+    # Slots bound the reserve; only the slots actually in use displace. One
+    # pending application under a reserve of 5 shrinks the fill by exactly 1.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=3, floor=0.28, interim_reserve_slots=5)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a", "scotus/b"}
+
+
+def test_reserve_picks_climb_the_escalation_ladder(tmp_path: Path) -> None:
+    # Pick order is the ladder, strongest signal first — a requested response,
+    # then a referral, then amici — a deterministic ordering, not a scored rate.
+    rows = [
+        _application("scotus/9525000001", "25A1"),  # no signals
+        _application("scotus/9525000002", "25A2", requested=True),
+        _application("scotus/9525000003", "25A3", referred=True, amici=2),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # The requested-response application outranks the referred one; the
+    # signal-less one waits for a freed slot.
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
+
+
+def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
+    # A still-pending selected application keeps its slot (the sticky latch),
+    # so a newcomer waits; once the occupant resolves, the freed slot goes to
+    # the newcomer on the next pass — and the resolved one is never de-selected.
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True),
+            _application("scotus/9525000002", "25A2", requested=True),
+        ],
+    )
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        first = reconcile_salience_selection(conn, config, apply=True)
+    assert first.newly_selected == 0  # the slot is occupied
+    assert _selected_ids(db) == {"scotus/9525000001"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn, [_application("scotus/9525000001", "25A1", selected=True, disposition="denied")]
+        )
+        second = reconcile_salience_selection(conn, config, apply=True)
+    assert second.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
+
+
+def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
+    # The application is live in the cycle whose conference the pass is
+    # filling — the latest cohort — so an earlier conference's fill is intact.
+    earlier, later = date(2026, 1, 9), date(2026, 2, 20)
+    rows = [
+        _petition("scotus/e1", distribution_count=1, conference=earlier),
+        _petition("scotus/e2", distribution_count=1, conference=earlier),
+        _petition("scotus/l1", distribution_count=1, conference=later),
+        _petition("scotus/l2", distribution_count=1, conference=later),
+        _application("scotus/9525000001", "25A1"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # Earlier cohort keeps both; the later (current) one shrinks to 1.
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/e1", "scotus/e2", "scotus/l1"}
+
+
+def test_reserve_zero_keeps_applications_deferred_and_reserve_gates_predict_scope(
+    tmp_path: Path,
+) -> None:
+    # The quota is the whole gate: with slots 0 a substantive application is
+    # scored-and-deferred, and the shared predict-scope predicate drops it —
+    # while a selected one passes. Fail-open before any pass has scored it.
+    db = _seed(tmp_path, [_application("scotus/9525000001", "25A1")])
+    assert _in_predict_scope(db, "scotus/9525000001") is True  # unscored: fail-open
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=0), apply=True)
+    assert _selected_ids(db) == set()
+    assert _in_predict_scope(db, "scotus/9525000001") is False  # scored, deferred
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=1), apply=True)
+    assert _in_predict_scope(db, "scotus/9525000001") is True  # reserve-selected
+
+
+def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
+    # Convergence under the sticky latch: a second pass with no corpus change
+    # latches nothing new and keeps the same displacement.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "ab"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        first = reconcile_salience_selection(conn, config, apply=True)
+        again = reconcile_salience_selection(conn, config, apply=True)
+    assert first.newly_selected == 2  # the application + the one remaining fill
+    assert again.newly_selected == 0
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}

@@ -5,7 +5,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.ingest import from_api_docket
+from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
     _CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
@@ -14,6 +14,7 @@ from fedcourtsai.pipeline.outcome import (
     detect_resolution,
     disposition_basis,
     granted_flag,
+    interim_disposal_signal,
     is_machine_readable,
     merits_event_for,
     mint_merits_event,
@@ -124,34 +125,127 @@ def test_cert_dated_petition_resolves_at_the_petition_stage() -> None:
     assert outcome.resolved_at == date(2022, 10, 3)
 
 
-def test_decided_application_docket_stays_unrecorded_by_design() -> None:
-    # An application docket never takes the cert rule, whatever shape its
-    # baseline currently carries — the cert-shaped petition baseline or the
-    # motion/interim one. The interim outcome recording is stage-keyed and not
-    # yet implemented, so the resolution routes to unrecorded with a reason
-    # that says exactly that.
-    row = from_api_docket(
+def _application_docket(docket_number: str, disposition: str | None) -> CorpusRow:
+    return from_api_docket(
         {
             "id": 9001,
             "court": "https://www.courtlistener.com/api/rest/v4/courts/scotus/",
-            "docket_number": "24A1099",
+            "docket_number": docket_number,
             "date_filed": "2024-08-01",
             "date_terminated": "2024-08-15",
-            "disposition": "Petition denied",
+            "disposition": disposition,
         }
     )
+
+
+def test_decided_application_records_the_interim_outcome_on_the_interim_baseline() -> None:
+    # The interim path: a granted stay whose open event is the interim-stage
+    # motion baseline records the outcome from the row's interim-matched
+    # disposition — dated by the disposing entry the ingest latched
+    # (date_decided on an application docket), with no cert-only signals block.
+    row = _application_docket("24A1099", "granted")
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        9001,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    assert not resolution.unrecorded
+    outcome = resolution.outcomes["evt-motion-disposition"]
+    assert outcome.actual_disposition == Disposition.granted
+    assert outcome.actual_granted == 1
+    assert outcome.resolved_at == date(2024, 8, 15)
+    assert outcome.signals is None
+
+
+def test_interim_routing_never_touches_a_cert_docket() -> None:
+    # A cert docket with an interim-staged motion open beside its petition
+    # still routes the case-level disposition to the cert event only — the
+    # interim target rule is an application-docket branch, not a cert one.
+    row = from_api_docket(
+        {
+            "id": 22451,
+            "court_id": "scotus",
+            "docket_number": "22-451",
+            "date_cert_granted": "2022-10-03",
+        }
+    )
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        22451,
+        ["evt-motion-stay", "evt-petition-disposition"],
+        stages={"evt-petition-disposition": Stage.cert, "evt-motion-stay": Stage.interim},
+    )
+    assert set(resolution.outcomes) == {"evt-petition-disposition"}
+    assert resolution.outcomes["evt-petition-disposition"].actual_granted == 1
+
+
+def test_decided_application_without_an_interim_staged_event_stays_unrecorded() -> None:
+    # No stage-less fallback on an application docket: whatever shape the open
+    # baseline carries — the cert-shaped petition id or the motion id — without
+    # an explicit interim stage nothing is attributed, and the resolution
+    # surfaces for triage instead of guessing.
+    row = _application_docket("24A1099", "Petition denied")
     for baseline in ("evt-petition-disposition", "evt-motion-disposition"):
         resolution = detect_resolution(row, "scotus", 9001, [baseline])
         assert not resolution.outcomes
         (unrecorded,) = resolution.unrecorded
         assert unrecorded.event_id == baseline
-        assert "interim standard" in unrecorded.reason
+        assert "interim baseline" in unrecorded.reason
+
+
+def test_unreadable_application_resolution_stays_unrecorded() -> None:
+    # A decided-looking application whose disposition the vocabularies could
+    # not read is the unrecorded path with the machine-readability reason —
+    # nothing is written on a guess, exactly as on a cert docket.
+    row = _application_docket("24A1099", "vacated by consent")  # normalizes to `other`
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        9001,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    assert not resolution.outcomes
+    (unrecorded,) = resolution.unrecorded
+    assert "not machine-readable" in unrecorded.reason
+
+
+def test_interim_disposal_signal_reads_relief_named_disposals() -> None:
+    # The high-recall backstop must be wider than the resolving vocabulary: a
+    # disposal naming the relief instead of the application ("Stay ... granted")
+    # leaves the row unresolved while the outcome sits legible in the snapshot.
+    relief_named = {
+        "ProceedingsandOrder": [
+            {"Text": "Stay of execution granted by The Chief Justice pending further order."}
+        ]
+    }
+    assert interim_disposal_signal(relief_named) is not None
+    # It also subsumes the resolving vocabulary's own shapes.
+    vocabulary = {
+        "ProceedingsandOrder": [{"Text": "Application (24A650) denied by Justice Kagan."}]
+    }
+    assert interim_disposal_signal(vocabulary) is not None
+    # A live pending application's routine entries never match — a false
+    # "decided" would park every pending stay.
+    pending = {
+        "ProceedingsandOrder": [
+            {"Text": "Application (25A1) for a stay, submitted to The Chief Justice."},
+            {"Text": "Response to application (25A1) requested by The Chief Justice."},
+            {"Text": "Application (25A1) referred to the Court."},
+            {"Text": "Brief amicus curiae of Amicus Org filed."},
+        ]
+    }
+    assert interim_disposal_signal(pending) is None
 
 
 def test_tolerant_application_spelling_is_also_guarded() -> None:
     # The guard keys on the tolerant recognizer, so a historical spelling the
     # strict `YYAnnn` parser rejects (and the relabel migration therefore
-    # skips) still never receives a cert-rule outcome.
+    # skips) still never receives a cert-rule outcome — its stage-less
+    # petition-shaped baseline has no interim stage to attribute to.
     row = from_api_docket(
         {
             "id": 9002,
@@ -165,7 +259,7 @@ def test_tolerant_application_spelling_is_also_guarded() -> None:
     resolution = detect_resolution(row, "scotus", 9002, ["evt-petition-disposition"])
     assert not resolution.outcomes
     (unrecorded,) = resolution.unrecorded
-    assert "interim standard" in unrecorded.reason
+    assert "interim baseline" in unrecorded.reason
 
 
 def test_undecided_docket_is_a_noop() -> None:
