@@ -2505,7 +2505,9 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         event_id=record["event_id"],
         court=record["court"],
         kind=record["kind"],
-        stage=record["stage"],
+        # The ranged backend serves the remote blob as-is, so a blob written
+        # before the column existed must read as unset, not fail the row.
+        stage=_optional_str(record, "stage"),
         title=record["title"],
         description=record["description"],
         docket_entry_id=record["docket_entry_id"],

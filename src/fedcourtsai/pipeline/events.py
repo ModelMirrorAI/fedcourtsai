@@ -35,7 +35,7 @@ from datetime import date
 from typing import Any
 
 from .. import corpus, ids
-from ..schemas import EventKind
+from ..schemas import EventKind, Stage
 from .ingest import CorpusRow, default_event, from_api_docket
 
 # --- docket-entry classification ----------------------------------------------
@@ -272,6 +272,12 @@ def extract_events(
                 case_id=row.case_id,
                 court=row.court,
                 kind=kind,
+                # A SCOTUS motion that survived the substantive filter is a
+                # stay / injunction / emergency application — the interim
+                # decision standard. A circuit entry has no SCOTUS stage.
+                stage=(
+                    Stage.interim if kind == EventKind.motion and row.court == "scotus" else None
+                ),
                 title=row.case_name or row.docket_number or row.case_id,
                 description=entry.text or None,
                 docket_entry_id=entry.entry_id,

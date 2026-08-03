@@ -80,6 +80,9 @@ def test_scotus_petition_entry_collapses_into_the_baseline() -> None:
         "evt-motion-stay-pending-disposition",
     ]
     assert result.ambiguous == []
+    # The baseline carries the cert standard; the surviving substantive motion
+    # is a stay application, which the interim standard governs.
+    assert [e.stage for e in result.events] == ["cert", "interim"]
 
 
 def test_motion_entry_becomes_predictable_event() -> None:
@@ -94,6 +97,7 @@ def test_motion_entry_becomes_predictable_event() -> None:
     assert event.opened_at == date(2026, 6, 2)
     assert event.description.startswith("MOTION for stay")
     assert event.resolved is False  # no disposing order references it
+    assert event.stage is None  # a circuit motion has no SCOTUS decision standard
 
 
 def test_disposing_order_referencing_entry_number_resolves_it() -> None:

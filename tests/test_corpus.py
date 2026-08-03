@@ -1955,3 +1955,42 @@ def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
         events = corpus.events_for_case(conn, "scotus/7")
     assert len(events) == 1
     assert events[0].stage is None
+
+
+def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
+    """The ranged backend serves the remote blob as-is, so an events row from a
+    blob written before the column existed must read with no stage rather than
+    failing the SELECT wholesale."""
+    from fedcourtsai import corpus_ranged
+
+    columns = [
+        "case_id",
+        "event_id",
+        "court",
+        "kind",
+        "title",
+        "description",
+        "docket_entry_id",
+        "decision_target",
+        "opened_at",
+        "resolved",
+    ]
+    names = {name: i for i, name in enumerate(columns)}
+    record = corpus_ranged.Row(
+        names,
+        (
+            "scotus/7",
+            "evt-petition-disposition",
+            "scotus",
+            "petition",
+            "t",
+            None,
+            None,
+            "disposition",
+            None,
+            0,
+        ),
+    )
+    event = corpus._event_from_record(record)
+    assert event.stage is None
+    assert event.event_id == "evt-petition-disposition"
