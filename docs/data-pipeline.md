@@ -565,7 +565,10 @@ Defining the **predictable events** of a docket is its own stage
 an ingested docket regardless of channel. It is classification, not analysis:
 every event is pinned to a single docket entry with a closed `kind` enum
 (`motion` / `petition` / `appeal` / `order`), and every docket carries the
-**baseline** event — the disposition of the appeal, or the petition at SCOTUS —
+**baseline** event — the disposition of the appeal; at SCOTUS, of the cert
+petition (`stage = cert`) on a `YY-NNNN` docket or of the application on a
+`YYAnnn` interim docket (a stay/injunction application is a motion under the
+interim standard, so its baseline is `kind = motion` / `stage = interim`) —
 even when no entries are machine-readable. An event is
 **predictable/unresolved** while no later disposing order references its entry
 (with no citation the stage does not guess); an entry matching more than one

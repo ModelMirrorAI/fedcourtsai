@@ -43,6 +43,10 @@ from . import (
     tool_usage,
 )
 from .agent_feedback import post_agent_feedback, post_once
+from .application_migration import (
+    MOTION_BASELINE_EVENT_ID,
+    relabel_application_baseline_events,
+)
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
@@ -571,6 +575,55 @@ def migrate_gvr_labels_cmd(
     )
     if result.relabeled:
         typer.echo(", ".join(result.relabeled))
+
+
+@app.command("relabel-application-events")
+def relabel_application_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rename the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Relabel application dockets' baseline events to the motion/interim form.
+
+    A SCOTUS `YYAnnn` application docket's baseline event is
+    `evt-motion-disposition` (`kind = motion`, `stage = interim`) — a stay or
+    injunction application is a motion under the interim standard, not a cert
+    petition. This one-time, deterministic migration renames any cert-shaped
+    baseline (`evt-petition-disposition`) still sitting on an application docket
+    to that form, carrying every field and the `resolved` latch, atomically per
+    case. A case with committed ledger artifacts under the old identity, or
+    whose existing `evt-motion-disposition` row is entry-pinned, is skipped and
+    reported for triage rather than folded. Idempotent: a converged corpus
+    renames nothing. Dry-run by default; `--apply` writes. Run where the corpus
+    is pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
+    absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the relabel.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = relabel_application_baseline_events(conn, settings.data_root, apply=apply)
+    verb = "renamed" if apply else "would rename"
+    typer.echo(
+        f"relabel-application-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.renamed)} baseline event(s) to "
+        f"{MOTION_BASELINE_EVENT_ID}; "
+        f"{result.already_relabeled} application docket(s) already carried it; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    preview = result.renamed[:10]
+    if preview:
+        suffix = ", …" if len(result.renamed) > len(preview) else ""
+        typer.echo(f"  {', '.join(preview)}{suffix}")
+    for case_id, reason in result.skipped:
+        typer.echo(f"  skipped {case_id}: {reason}")
 
 
 @app.command("scope-manifest")

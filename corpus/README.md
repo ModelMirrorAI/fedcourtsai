@@ -175,6 +175,11 @@ The things the pipeline predicts about a case are raw facts too, so they live
 in the corpus, not as per-case files. The deterministic event-definition stage
 (`fedcourtsai.pipeline.events`) records one or more events per docket by
 classifying its entries; see [docs/data-pipeline.md](../docs/data-pipeline.md).
+Every docket carries a case-level **baseline** event: the appeal's disposition
+off SCOTUS; at SCOTUS, the cert petition's (`kind = petition`, `stage = cert`)
+on a `YY-NNNN` docket, or the application's (`kind = motion`, `stage =
+interim`) on a `YYAnnn` application docket — a stay or injunction application
+is a motion under the interim standard, not a cert petition.
 
 | Column            | Type        | Notes                                       |
 |-------------------|-------------|---------------------------------------------|
