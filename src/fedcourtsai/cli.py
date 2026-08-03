@@ -154,6 +154,7 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
+    forecastable_events,
     iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
@@ -3859,12 +3860,14 @@ def predict_matrix_cmd(
         int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
     ] = None,
     event: Annotated[
-        list[str] | None, typer.Option(help="Single-case event id(s); default: all open events.")
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: open case-baseline events."),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
-    A case with no listed ``events`` defaults to that case's open events.
+    A case with no listed ``events`` defaults to that case's open case-baseline
+    (petition/appeal-kind) events.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -3875,7 +3878,7 @@ def predict_matrix_cmd(
             settings.corpus_root,
             settings.corpus_backend,
         ),
-        lambda c, d: open_events(
+        lambda c, d: forecastable_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
     )

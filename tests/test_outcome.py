@@ -7,6 +7,7 @@ from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import from_api_docket
 from fedcourtsai.pipeline.outcome import (
+    _CASE_BASELINE_ID_PREFIXES,
     appears_decided,
     detect_resolution,
     disposition_basis,
@@ -20,6 +21,7 @@ from fedcourtsai.pipeline.outcome import (
 )
 from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
 from fedcourtsai.serialize import read_model
+from fedcourtsai.store import _FORECASTABLE_KINDS
 
 DECIDED_DOCKET = {
     "id": 64512345,
@@ -151,6 +153,38 @@ def test_multiple_open_events_land_unrecorded() -> None:
     assert not resolution.outcomes
     assert {r.event_id for r in resolution.unrecorded} == {"evt-motion-a", "evt-motion-b"}
     assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
+
+
+def test_a_lone_non_baseline_event_never_inherits_the_case_disposition() -> None:
+    # A decided docket whose only open event is a motion: the cert disposition
+    # belongs to the case-baseline event, and the motion resolves on its own
+    # filing's terms — attributing across would write the petition's outcome
+    # onto a stay.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row, "ca9", 64512345, ["evt-motion-construe-the-application-for-a-stay"]
+    )
+    assert not resolution.outcomes
+    (req,) = resolution.unrecorded
+    assert req.event_id == "evt-motion-construe-the-application-for-a-stay"
+    assert "forecasts a different filing" in req.reason
+
+
+def test_a_lone_baseline_event_still_resolves() -> None:
+    # The guard narrows attribution, never the baseline path itself: petition-
+    # and appeal-kind ids (any slug) keep resolving exactly as before.
+    row = from_api_docket(DECIDED_DOCKET)
+    for event_id in ("evt-petition-review", "evt-appeal-disposition"):
+        resolution = detect_resolution(row, "ca9", 64512345, [event_id])
+        assert not resolution.unrecorded
+        assert list(resolution.outcomes) == [event_id]
+
+
+def test_attribution_prefixes_and_forecastable_kinds_agree() -> None:
+    # Two encodings of "case-baseline" — the attribution guard keys on the id
+    # prefix, the queue filter on the corpus kind column — must name the same
+    # kinds, or targeting and attribution drift apart silently.
+    assert set(_CASE_BASELINE_ID_PREFIXES) == {f"evt-{kind}-" for kind in _FORECASTABLE_KINDS}
 
 
 # --- ledger write --------------------------------------------------------------

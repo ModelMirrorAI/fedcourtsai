@@ -31,7 +31,7 @@ from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import cell_failure_count, event_has_evaluations, event_has_predictions
 from ..registry import enabled_evaluators
-from ..store import open_events
+from ..store import forecastable_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import UnrecordedOutcome, disposition_basis, resolve_case, termination_signal
@@ -469,7 +469,7 @@ def pull_cases(
             continue
         consecutive_transient = 0
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
-        events = open_events(corpus_db_path, court, docket)
+        events = forecastable_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
             _queue_predict(queues, corpus_db_path, result, court, docket, events)
         if in_scope and result.resolved:

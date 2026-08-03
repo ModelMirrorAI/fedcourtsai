@@ -122,6 +122,27 @@ def test_refresh_extracts_a_post_onboarding_motion(tmp_path: Path) -> None:
     assert result.ambiguous == []
 
 
+def test_predict_queue_carries_only_case_baseline_events(tmp_path: Path) -> None:
+    # The seam the workflows' jq reads: a changed case with a stay motion open
+    # queues predict with the baseline event only — the motion is tracked
+    # (open_events serves it) but never earns a forecast cell.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    queues = pull_cases(
+        cast(
+            CourtListenerClient,
+            FakeClient(DOCKET, [{"id": 9, "description": "Motion to stay the mandate"}]),
+        ),
+        db,
+        tmp_path,
+        [("ca9", 64512345)],
+    )
+    assert set(open_events(db, "ca9", 64512345)) == {
+        "evt-appeal-disposition",
+        "evt-motion-stay-the-mandate",
+    }
+    assert [e["events"] for e in queues.predict] == [["evt-appeal-disposition"]]
+
+
 def test_refresh_event_extraction_is_idempotent(tmp_path: Path) -> None:
     # Re-extracting on every refresh must converge, not duplicate: a second
     # identical refresh leaves the same events.

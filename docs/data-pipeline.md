@@ -543,7 +543,7 @@ or network.
   the in-scope set rotates ahead of the much larger active set.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), queuing `run:predict` for
-     changed cases with open events — unless the refreshed docket already looks
+     changed cases with open case-baseline events — unless the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
      `predict_skipped_decided` list and surfaced on the job's Actions run log
