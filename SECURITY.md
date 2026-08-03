@@ -109,8 +109,7 @@ runbook, [docs/security.md](docs/security.md).
   all.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
-  is the sole
-  bypass actor, so the deterministic `run-pull` writers push corpus facts
+  is the sole bypass actor, so the deterministic `run-pull` writers push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
   non-bypass **dev App**. Both rulesets require **zero** approving reviews, so

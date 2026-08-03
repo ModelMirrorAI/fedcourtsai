@@ -83,8 +83,8 @@ pre-registration record's commit ids.
   reviewer exists.
   - Required checks are exactly `gate`, `paths`, `promotion-gate`, and
     `main-base` (the latter two report `skipped` — satisfying the requirement —
-    on every PR they do not gate). `main-base` is the
-    merge-routing jail: it runs — and fails — only on a PR to `main` whose head
+    on every PR they do not gate). `main-base` is the merge-routing jail: it
+    runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
@@ -435,9 +435,9 @@ job-env export disabled) and they appear only pre-agent — in the composite's
 launch step, whose env the background `corpus-serve` process inherits, and in
 the deterministic provisioning steps' step-scoped env. A guard step fails the job if any `AWS_*` credential is
 visible in the job env when the agent steps begin, and this also levels the
-engines: the Gemini sanitizer could never allowlist a credential, so corpus
-retrieval used to be an accident of harness — now every engine queries the
-same credential-free surface. What replaces the old residual: the sidecar is
+engines: the Gemini sanitizer could never allowlist a credential, so every
+engine queries the same credential-free surface rather than whichever one its
+harness happens to let credentials reach. What replaces the old residual: the sidecar is
 an **unauthenticated localhost HTTP surface**, so any process on the runner —
 including the injected agent itself, which is the *intended* client — can
 query the corpus and spend ranged-read egress through it. That is the same

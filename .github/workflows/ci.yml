@@ -167,20 +167,18 @@ jobs:
     # the staging→main promotion or a reviewed non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, and the metrics-refresh /
     # cert-backtest / salience-replay PRs. This job runs (and fails) only on a
-    # PR to `main` from
-    # any other head; every legitimate PR skips it, and the skipped run
-    # satisfies the requirement. It is among `main`'s required contexts
-    # (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs the
-    # workflow from the merge ref, the legitimate lanes are all cut from
+    # PR to `main` from any other head; every legitimate PR skips it, and the
+    # skipped run satisfies the requirement. It is among `main`'s required
+    # contexts (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs
+    # the workflow from the merge ref, the legitimate lanes are all cut from
     # `main`, and `main`'s own ci.yml carries this job, so the context reports
     # on every lane — and a mis-routed feature PR runs it, fails, and cannot
-    # merge. Fork
-    # heads never match the allowlist — outside contributions route through
-    # `staging` too. The
-    # emergency escape hatch is a repo admin editing the ruleset: deliberate
-    # and auditable. Expression `==`/`startsWith` compare case-insensitively,
-    # so a write-access branch named `Staging` skips the jail — a hygiene
-    # gap, not a hole: the PR still needs the human merge.
+    # merge. Fork heads never match the allowlist — outside contributions
+    # route through `staging` too. The emergency escape hatch is a repo admin
+    # editing the ruleset: deliberate and auditable. Expression
+    # `==`/`startsWith` compare case-insensitively, so a write-access branch
+    # named `Staging` skips the jail — a hygiene gap, not a hole: the PR still
+    # needs the human merge.
     if: >-
       github.event_name == 'pull_request' &&
       github.base_ref == 'main' &&

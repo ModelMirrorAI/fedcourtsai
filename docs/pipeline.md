@@ -310,8 +310,9 @@ The mechanics:
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
   definition. Dependabot targets `staging` for the same reason. The `staging`
   ruleset itself requires a pull request plus the status checks that can report
-  on a staging-targeted PR — `gate` and `paths`; `promotion-gate` keys on a
-  base of `main` and is always `skipped` here — with the **repository admin
+  on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
+  `promotion-gate` and `main-base`, key on a base of `main` and are always
+  `skipped` here — with the **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the admin role is the only identity that can land the sync
@@ -377,12 +378,12 @@ One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
 **repository admin role as the only bypass actor** (docs/security.md
-inventories it); and add `promotion-gate` and `main-base` to `main`'s required
-checks alongside `gate` and `paths` — each reports `skipped`, which satisfies
-the requirement, on every PR it does not gate. `main-base` joins the set only
-after the *Adding a required status check* procedure below clears it:
-requiring a context before its producing job reaches `main` strands every
-collect auto-merge PR.
+inventories it); and add `promotion-gate` — and, once the *Adding a required
+status check* procedure below clears it, `main-base` — to `main`'s required
+checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
+the requirement, on every PR it does not gate; requiring a context before its
+producing job reaches `main` strands every collect auto-merge PR, which is
+what the procedure's ordering prevents.
 
 The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
@@ -396,7 +397,7 @@ failing loudly: a context nothing on `main` produces leaves every PR into
 `main` pending forever, and the auto-merging collect PRs hang first.
 
 ```bash
-scripts/promotion-gate.sh contexts <candidate>   # e.g. main-base
+scripts/promotion-gate.sh contexts <candidate>   # the context you want to require
 ```
 
 It reads `main: require PR`'s live required contexts and `main`'s own workflow
@@ -410,8 +411,8 @@ report an advisory fact. Run it with your own token.
 2. `scripts/promotion-gate.sh contexts <candidate>` — proceed only on *ready to
    require*.
 3. Confirm a real PR of the kind you are gating reports the context. For a
-   context that gates the bot lanes, that means watching one of their PRs,
-   since those auto-merge and are what a mistake strands.
+   context that must report on the bot lanes, that means watching one of their
+   PRs, since those auto-merge and are what a mistake strands.
 4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
    context you just added.
 5. Update the surfaces that record the required set — the pinned list in
