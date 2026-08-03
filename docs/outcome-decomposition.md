@@ -487,6 +487,20 @@ Drawn from the above, and cheaper to apply than to rediscover:
    and a raw one plain `n`; `metrics/README.md` is the governing statement. The
    docket pack reweights every cert cut; the statpack keeps one raw reader cut on
    purpose, so read the scope line rather than assuming.
+8. **Is the baseline far enough from 0 (or 1) that a correct call is worth more
+   than a season of honest reporting?** The rule pays `(b − y)² − (p − y)²` per
+   claim, so at a baseline of half a percent an honest negative earns about
+   2×10⁻⁵ while one bold positive that lands earns ~0.74 — a thousand quiet
+   claims lose to a single lucky shout, and the shotgunning the rule defeats
+   head-on comes back in through the baseline. Tests 1–7 never look at the
+   *level* of the baseline, only at its conditioning, so this check is separate:
+   measure the realized base rate before declaring the claim, and where it is
+   within rounding of 0 or 1, either aggregate the claim upward (an "any
+   Justice writes" form rather than nine per-Justice forms) or leave it out.
+   Per-Justice dissent-from-denial notings are the live example: they appear on
+   about one percent of petitions, concentrated in two Justices, so the
+   per-Justice form fails this test on volume while the aggregated form may
+   pass.
 
 ## What is scoreable today
 
@@ -526,17 +540,17 @@ The reproducibility half is fixed, on the outcome rather than on the scoring:
 CVSG date **as at resolution**, beside the disposition it already records. That
 end is immutable and committed, so it scores the same way forever.
 
-The other end is missing. Nothing committed records the count as at prediction,
-so the increment is not computable and the claim can only be specified as a
-level — which is what sank the first set. Wherever a cell was provisioned and the
-store still holds the dated snapshot it named, the value is recoverable rather
-than lost: the snapshot carries the proceedings, and the ingest parser re-derives
-the count from them. That is not everywhere. Provisioning is `continue-on-error`,
-so a cell can run snapshot-less — 12 of the 410 committed predictions name no
-path at all — and `input_snapshot` is the agent's own string, written four
-different ways across the set and validated against nothing. A field the harness
-writes is what closes both gaps; until then a cert-stage increment claim has one
-end fixed and one end floating.
+The other end is committed too: `Prediction.context` is the harness-written
+`PredictionContext` block, derived from the provisioned snapshot — never the
+agent's word — carrying `distribution_count`, `cvsg_date`, the salience band
+and its version, and `signals_observable`, which is what keeps absence honest
+(a snapshot whose proceedings were never parsed reads as unobservable, not as
+zero). An increment claim is therefore computable end to end: the as-at-
+prediction value from the prediction's own context block, the as-at-resolution
+value from `Outcome.signals`. The block is nullable and the older committed
+predictions carry no context at all, so an increment claim scores only the
+cells that carry one — a coverage boundary the claim's declared population must
+state, not a defect.
 
 The block's *presence* carries meaning too. It is written only where the
 proceedings were live-parsed, mirroring the corpus's own coverage rule, so an
@@ -550,13 +564,19 @@ The merits half of this document is blocked on data that is not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
 why the taxonomy is pre-registered rather than implemented.
 
-The cert-stage half is blocked on neither data nor the resolution record —
-`Outcome.signals` already freezes what a cert-stage claim resolves *against*.
-What is missing is the other end: the signal values **as at prediction**, without
-which an increment cannot be computed and a claim about a growing column can only
-be specified as a level. That is one committed field away, not a research
-problem, and the seven tests above are what a replacement has to pass once it
-exists.
+The cert-stage half is blocked on nothing structural: `Outcome.signals`
+freezes what a cert-stage claim resolves *against*, and `Prediction.context`
+freezes what it resolves *from*, so an increment claim is specifiable today and
+the eight tests above are what a replacement set has to pass.
+
+No set is declared, and that is a **pre-registered scope decision, not a
+backlog item**: claim scoring sits outside the frozen process. The evaluator
+prompt's do-not-score rule is itself part of the digest-hashed prompt bytes, so
+the frozen process scores no claims by construction, and the first declared
+claim set — which must change both prompts — arrives as a deliberate new
+process version rather than as an edit to the frozen one. Until then the
+scoring rule, the tests, and the agreement pre-registration below are the
+contract a future set lands against.
 
 Two consequences worth stating plainly:
 
@@ -567,3 +587,32 @@ Two consequences worth stating plainly:
   resolve against fixed sources and the floor above is computed beside them.
   `metrics/README.md` governs what may be claimed from a number, and a claim
   total is not an exception to it.
+
+### The mechanical↔semantic agreement, pre-registered
+
+The semantic grader is validated against the mechanical record, not the other
+way round: where a cell carries both a mechanical claim total and a semantic
+grade, their association says whether the reader is measuring law or prose. So
+that defining the number after grades exist cannot be a judgment call, its
+definition is fixed now:
+
+- **Estimator: Kendall tau-b** over per-cell pairs (mechanical claim total,
+  semantic grade) — the same estimator the leaderboard's evaluator-agreement
+  number already uses, chosen for the same reasons: it is rank-based, so
+  neither scale's shape enters, and tau-b handles the ties a bounded grade
+  produces.
+- **Population: the intersection only.** A cell enters the pair set only where
+  **both** numbers exist, and the intersection's `n` is printed beside the
+  coefficient — a tau over 4 cells is a different fact from a tau over 400.
+  Below an intersection of **10** cells the coefficient is suppressed and only
+  the `n` is published.
+- **The availability mask is a property of the record, never of the
+  predictor.** A cell is excluded only where the *outcome record* does not
+  disclose what a family needs (no opinion body for the semantic side, no
+  disclosed level for a mechanical sub-claim) — never because a predictor
+  declined or hedged. Availability selected on predictor behaviour would let
+  the confident cells self-select the sample.
+- **Never pooled across strata or process versions, never a rank key.** The
+  pair set inherits every publishing rule a claim total already carries:
+  per-stratum, per-process-version, advisory beside the board rather than
+  inside it.
