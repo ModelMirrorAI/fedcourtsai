@@ -186,7 +186,8 @@ deferral check reads
 the *pre-pass* latch, so transition routing alone would silently drop a petition
 whose first transition and first selection land in the same cycle. The cycle
 therefore ends with a **selection sweep**: every selected petition with an open
-event still *owed* a prediction is re-polled, provisioned, and queued — stalest
+case-baseline (petition/appeal-kind) event still *owed* a prediction is
+re-polled, provisioned, and queued — stalest
 first, capped by `salience.sweep_cases_per_cycle` in `config/tracking.yaml`. Owed
 is per `(predictor, event)` cell — mirroring the evaluate backlog deriver — so a
 case where two of three engines landed and one quota-failed is still swept for

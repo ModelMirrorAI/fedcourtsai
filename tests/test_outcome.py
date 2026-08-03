@@ -178,6 +178,16 @@ def test_a_lone_baseline_event_still_resolves() -> None:
         assert list(resolution.outcomes) == [event_id]
 
 
+def test_attribution_prefixes_and_forecastable_kinds_agree() -> None:
+    # Two encodings of "case-baseline" — the attribution guard keys on the id
+    # prefix, the queue filter on the corpus kind column — must name the same
+    # kinds, or targeting and attribution drift apart silently.
+    from fedcourtsai.pipeline.outcome import _CASE_BASELINE_ID_PREFIXES
+    from fedcourtsai.store import _FORECASTABLE_KINDS
+
+    assert set(_CASE_BASELINE_ID_PREFIXES) == {f"evt-{kind}-" for kind in _FORECASTABLE_KINDS}
+
+
 # --- ledger write --------------------------------------------------------------
 
 
