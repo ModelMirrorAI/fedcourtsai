@@ -137,6 +137,110 @@
       "title": "LeaderboardEntry",
       "type": "object"
     },
+    "LeaderboardStage": {
+      "additionalProperties": false,
+      "description": "One non-cert stage's slice of the evaluations ledger, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary), and skill figures are only meaningful within one: `granted`\nanswers a different question at each stage and only the cert segment has a\nscored base rate today. So each stage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
+      "properties": {
+        "entries": {
+          "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
+          "items": {
+            "$ref": "#/$defs/LeaderboardStageEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "evaluations_total": {
+          "description": "Evaluations aggregated in this stage",
+          "minimum": 0,
+          "title": "Evaluations Total",
+          "type": "integer"
+        },
+        "forward_evaluations": {
+          "default": 0,
+          "description": "This stage's forward-forecast evaluations",
+          "minimum": 0,
+          "title": "Forward Evaluations",
+          "type": "integer"
+        },
+        "procedural_evaluations": {
+          "default": 0,
+          "description": "This stage's mootness-basis evaluations",
+          "minimum": 0,
+          "title": "Procedural Evaluations",
+          "type": "integer"
+        },
+        "retrospective_evaluations": {
+          "default": 0,
+          "description": "This stage's retrospective evaluations",
+          "minimum": 0,
+          "title": "Retrospective Evaluations",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluations_total"
+      ],
+      "title": "LeaderboardStage",
+      "type": "object"
+    },
+    "LeaderboardStageEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's aggregates within a single non-cert stage.\n\nThe same per-stratum aggregate shape as a ranked :class:`LeaderboardEntry`,\nminus the rank and the big-case dimension: a non-cert stage's cells resolve\non a different decision standard than the cert board's, so they report\nseparately and never rank \u2014 and never pool into any cert figure.",
+      "properties": {
+        "evaluators": {
+          "description": "Distinct evaluators that scored this predictor in this stage",
+          "minimum": 0,
+          "title": "Evaluators",
+          "type": "integer"
+        },
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's true forward forecasts; null when this predictor has none in the stage."
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "procedural": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's mootness-basis cells; null when this predictor has none in the stage."
+        },
+        "retrospective": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's retrospective cells; null when this predictor has none in the stage."
+        }
+      },
+      "required": [
+        "predictor_id",
+        "evaluators"
+      ],
+      "title": "LeaderboardStageEntry",
+      "type": "object"
+    },
     "LeaderboardStratum": {
       "additionalProperties": false,
       "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.",
@@ -218,6 +322,13 @@
           "default": null,
           "description": "Mean panel-vote accuracy where reported",
           "title": "Mean Vote Accuracy"
+        },
+        "skill_scored": {
+          "default": 0,
+          "description": "Evaluations contributing to mean_brier_skill_score \u2014 the cells carrying a non-null skill score. The skill mean's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the mean must be read beside this count",
+          "minimum": 0,
+          "title": "Skill Scored",
+          "type": "integer"
         }
       },
       "required": [
@@ -230,9 +341,10 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). The ranked board is the **cert stage**: the entries and the\nevaluation counts cover cert-stage cells only (the big-case and\nevaluator-agreement blocks are stage-blind \u2014 they describe stakes reads,\nnot stage-scoped skill), while any non-cert stage reports its own\nunranked block under ``stages`` (omitted entirely while none exist \u2014 see the\nserializer). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
   "properties": {
     "entries": {
+      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation",
       "items": {
         "$ref": "#/$defs/LeaderboardEntry"
       },
@@ -240,7 +352,7 @@
       "type": "array"
     },
     "evaluations_total": {
-      "description": "Total evaluations aggregated",
+      "description": "Total cert-stage evaluations aggregated; each `stages` block carries its own counts, never pooled into these",
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
@@ -255,20 +367,20 @@
     },
     "forward_evaluations": {
       "default": 0,
-      "description": "Evaluations of true forward forecasts",
+      "description": "Cert-stage evaluations of true forward forecasts",
       "minimum": 0,
       "title": "Forward Evaluations",
       "type": "integer"
     },
     "predictors_ranked": {
-      "description": "Number of predictors on the board (a procedural-only predictor still appears, sorted after every ranked one)",
+      "description": "Number of predictors on the cert board (a procedural-only predictor still appears, sorted after every ranked one)",
       "minimum": 0,
       "title": "Predictors Ranked",
       "type": "integer"
     },
     "procedural_evaluations": {
       "default": 0,
-      "description": "Evaluations segmented out for a mootness-basis outcome (never ranked)",
+      "description": "Cert-stage evaluations segmented out for a mootness-basis outcome (never ranked)",
       "minimum": 0,
       "title": "Procedural Evaluations",
       "type": "integer"
@@ -285,7 +397,7 @@
     },
     "retrospective_evaluations": {
       "default": 0,
-      "description": "Evaluations of retrospective (leakage-suspect) cells",
+      "description": "Cert-stage evaluations of retrospective (leakage-suspect) cells",
       "minimum": 0,
       "title": "Retrospective Evaluations",
       "type": "integer"
@@ -295,6 +407,14 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "stages": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LeaderboardStage"
+      },
+      "description": "Per-stage unranked blocks for the non-cert stages, keyed by the stage value (`interim` / `merits`; a cell whose event records no stage and is not a case-baseline kind shares one `(none)` bucket, so coverage stays visible). Each stage aggregates alone \u2014 never pooled across stages or into the cert board \u2014 and the key is omitted entirely while no non-cert cell exists.",
+      "title": "Stages",
+      "type": "object"
     }
   },
   "required": [

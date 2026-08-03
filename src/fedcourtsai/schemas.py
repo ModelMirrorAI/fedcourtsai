@@ -1160,6 +1160,14 @@ class LeaderboardStratum(_Strict):
         "negative = worse). Distinct from raw Brier: it credits beating the biased "
         "predicted-segment base rate, not the whole-docket rate",
     )
+    skill_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations contributing to mean_brier_skill_score — the cells "
+        "carrying a non-null skill score. The skill mean's true denominator, which "
+        "can be far below `evaluations` (a cell scores skill only where a segment "
+        "base rate exists), so the mean must be read beside this count",
+    )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
     )
@@ -1272,6 +1280,64 @@ class LeaderboardEntry(_Strict):
     )
 
 
+class LeaderboardStageEntry(_Strict):
+    """One predictor's aggregates within a single non-cert stage.
+
+    The same per-stratum aggregate shape as a ranked :class:`LeaderboardEntry`,
+    minus the rank and the big-case dimension: a non-cert stage's cells resolve
+    on a different decision standard than the cert board's, so they report
+    separately and never rank — and never pool into any cert figure.
+    """
+
+    predictor_id: str
+    evaluators: int = Field(
+        ge=0, description="Distinct evaluators that scored this predictor in this stage"
+    )
+    forward: LeaderboardStratum | None = Field(
+        default=None,
+        description="This stage's true forward forecasts; null when this "
+        "predictor has none in the stage.",
+    )
+    retrospective: LeaderboardStratum | None = Field(
+        default=None,
+        description="This stage's retrospective cells; null when this predictor "
+        "has none in the stage.",
+    )
+    procedural: LeaderboardStratum | None = Field(
+        default=None,
+        description="This stage's mootness-basis cells; null when this predictor "
+        "has none in the stage.",
+    )
+
+
+class LeaderboardStage(_Strict):
+    """One non-cert stage's slice of the evaluations ledger, aggregated per predictor.
+
+    A stage is a decision standard (cert / interim / merits — the event
+    vocabulary), and skill figures are only meaningful within one: `granted`
+    answers a different question at each stage and only the cert segment has a
+    scored base rate today. So each stage carries its own counts and entries,
+    listed by ``predictor_id`` (never ranked), and nothing here blends into the
+    cert board or another stage.
+    """
+
+    evaluations_total: int = Field(ge=0, description="Evaluations aggregated in this stage")
+    forward_evaluations: int = Field(
+        default=0, ge=0, description="This stage's forward-forecast evaluations"
+    )
+    retrospective_evaluations: int = Field(
+        default=0, ge=0, description="This stage's retrospective evaluations"
+    )
+    procedural_evaluations: int = Field(
+        default=0, ge=0, description="This stage's mootness-basis evaluations"
+    )
+    entries: list[LeaderboardStageEntry] = Field(
+        default_factory=list,
+        description="Per-predictor aggregates, ordered by predictor_id — an "
+        "ordering, not a ranking",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -1279,7 +1345,12 @@ class Leaderboard(_Strict):
     one entry per predictor, ranked best-first on the **forward** stratum (see
     :class:`LeaderboardStratum` — the strata are never blended into one number,
     and ``evaluations_total`` includes the procedural cells the ranking
-    excludes). Computed by ``fedcourts leaderboard``; carries no
+    excludes). The ranked board is the **cert stage**: the entries and the
+    evaluation counts cover cert-stage cells only (the big-case and
+    evaluator-agreement blocks are stage-blind — they describe stakes reads,
+    not stage-scoped skill), while any non-cert stage reports its own
+    unranked block under ``stages`` (omitted entirely while none exist — see the
+    serializer). Computed by ``fedcourts leaderboard``; carries no
     timestamp so the same ledger always serializes identically.
     """
 
@@ -1294,20 +1365,27 @@ class Leaderboard(_Strict):
     )
     predictors_ranked: int = Field(
         ge=0,
-        description="Number of predictors on the board (a procedural-only "
+        description="Number of predictors on the cert board (a procedural-only "
         "predictor still appears, sorted after every ranked one)",
     )
-    evaluations_total: int = Field(ge=0, description="Total evaluations aggregated")
+    evaluations_total: int = Field(
+        ge=0,
+        description="Total cert-stage evaluations aggregated; each `stages` block "
+        "carries its own counts, never pooled into these",
+    )
     procedural_evaluations: int = Field(
         default=0,
         ge=0,
-        description="Evaluations segmented out for a mootness-basis outcome (never ranked)",
+        description="Cert-stage evaluations segmented out for a mootness-basis "
+        "outcome (never ranked)",
     )
     forward_evaluations: int = Field(
-        default=0, ge=0, description="Evaluations of true forward forecasts"
+        default=0, ge=0, description="Cert-stage evaluations of true forward forecasts"
     )
     retrospective_evaluations: int = Field(
-        default=0, ge=0, description="Evaluations of retrospective (leakage-suspect) cells"
+        default=0,
+        ge=0,
+        description="Cert-stage evaluations of retrospective (leakage-suspect) cells",
     )
     evaluator_agreement: dict[str, EvaluatorAgreement] = Field(
         default_factory=dict,
@@ -1316,7 +1394,34 @@ class Leaderboard(_Strict):
         "Orthogonal to the ranking and never part of it: it describes the judges, "
         "not the competitors",
     )
-    entries: list[LeaderboardEntry] = Field(default_factory=list)
+    entries: list[LeaderboardEntry] = Field(
+        default_factory=list,
+        description="The ranked cert-stage board — one entry per predictor with a "
+        "cert-stage evaluation",
+    )
+    stages: dict[str, LeaderboardStage] = Field(
+        default_factory=dict,
+        description="Per-stage unranked blocks for the non-cert stages, keyed by "
+        "the stage value (`interim` / `merits`; a cell whose event records no "
+        "stage and is not a case-baseline kind shares one `(none)` bucket, so "
+        "coverage stays visible). Each stage aggregates alone — never pooled "
+        "across stages or into the cert board — and the key is omitted entirely "
+        "while no non-cert cell exists.",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_stage_axis(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop the ``stages`` block from the payload while no non-cert cell exists.
+
+        The StatPack stage sections' rule, applied here: a stage axis is shown
+        only once its cells do, and serializing an empty placeholder would both
+        misstate that contract and add byte noise to every board built from an
+        all-cert ledger, whose serialized form must carry no ``stages`` key.
+        """
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.stages:
+            payload.pop("stages", None)
+        return payload
 
 
 class BacktestCourtScore(_Strict):
