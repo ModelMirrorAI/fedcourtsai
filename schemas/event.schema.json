@@ -9,6 +9,16 @@
       ],
       "title": "EventKind",
       "type": "string"
+    },
+    "Stage": {
+      "description": "Which decision standard governs an event \u2014 the parameter that selects an\naggregation rule (:mod:`fedcourtsai.pipeline.aggregation`) and an observation\nmask (``docs/decision-model.md``).\n\nOrthogonal to :class:`EventKind`, which names the *filing that opened* an\nevent. A merits decision is not a filing, so it is a stage rather than a\nkind. Stage is also the within-SCOTUS analogue of a caution\n``metrics/README.md`` already carries across courts: ``granted`` denotes cert\non a petition and relief on a stay application, and carrying the stage in the\nrecord says so where prose otherwise has to.\n\nWhere an event declares no stage the rule lookup yields nothing rather than\nguessing \u2014 true of a circuit motion, which has no Supreme Court decision\nstandard at all.",
+      "enum": [
+        "cert",
+        "interim",
+        "merits"
+      ],
+      "title": "Stage",
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -77,6 +87,18 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Stage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Which decision standard governs this event (cert / interim / merits) \u2014 see the Stage vocabulary. Null means no stage is recorded: either no Supreme Court decision standard applies (a circuit appeal), or the writer does not classify one for this event; consumers treat null as 'no rule', never as a guess."
     },
     "title": {
       "title": "Title",

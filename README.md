@@ -182,6 +182,7 @@ State lives in two stores, split by **kind of data**:
 
 ```
 data/cases/<court_id>/<docket_id>/events/<event_id>/
+  event.yaml                     # what is predicted: kind, stage, decision target
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
     prediction.json              # quantitative: granted 1/0, P(granted), votes

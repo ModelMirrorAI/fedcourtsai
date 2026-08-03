@@ -62,6 +62,7 @@ def test_materialize_event_writes_event_yaml_from_corpus(fixture_corpus: Fixture
     assert event.event_id == "evt-petition-disposition"
     assert event.case_id == "scotus/305"
     assert event.kind == "petition"
+    assert event.stage == "cert"
     assert event.resolved is False
 
 

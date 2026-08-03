@@ -44,7 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
-from .schemas import Disposition, EventKind
+from .schemas import Disposition, EventKind, Stage
 from .supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -467,6 +467,12 @@ class CorpusEvent(BaseModel):
     case_id: str
     court: str
     kind: EventKind
+    stage: Stage | None = Field(
+        default=None,
+        description="Which decision standard governs this event (cert / interim / "
+        "merits); None where no stage is recorded — no Supreme Court standard "
+        "applies, or the writer does not classify one for this event.",
+    )
     title: str = ""
     description: str | None = None
     docket_entry_id: int | None = Field(
@@ -598,6 +604,7 @@ CREATE TABLE IF NOT EXISTS events (
     event_id        TEXT NOT NULL,
     court           TEXT NOT NULL,
     kind            TEXT NOT NULL,
+    stage           TEXT,
     title           TEXT NOT NULL DEFAULT '',
     description     TEXT,
     docket_entry_id INTEGER,
@@ -749,6 +756,18 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE live_discovery_cursors ADD COLUMN frontier_serial INTEGER")
 
 
+def _migrate_events(conn: sqlite3.Connection) -> None:
+    """Back-fill `events` columns added after table creation.
+
+    The events table's counterpart of :func:`_migrate_cases`. ``stage`` is
+    nullable with no DEFAULT — a pre-existing row simply carries no stage until
+    the next re-ingest stamps one. Idempotent on a current-schema table.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
+    if "stage" not in existing:
+        conn.execute("ALTER TABLE events ADD COLUMN stage TEXT")
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -806,6 +825,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.executescript(_SCHEMA)
         _migrate_cases(conn)
         _migrate_live_cursors(conn)
+        _migrate_events(conn)
         yield conn
     finally:
         conn.close()
@@ -2453,6 +2473,7 @@ _EVENT_COLUMNS = (
     "event_id",
     "court",
     "kind",
+    "stage",
     "title",
     "description",
     "docket_entry_id",
@@ -2468,6 +2489,7 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "event_id": event.event_id,
         "court": event.court,
         "kind": event.kind,
+        "stage": event.stage,
         "title": event.title,
         "description": event.description,
         "docket_entry_id": event.docket_entry_id,
@@ -2483,6 +2505,9 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         event_id=record["event_id"],
         court=record["court"],
         kind=record["kind"],
+        # The ranged backend serves the remote blob as-is, so a blob written
+        # before the column existed must read as unset, not fail the row.
+        stage=_optional_str(record, "stage"),
         title=record["title"],
         description=record["description"],
         docket_entry_id=record["docket_entry_id"],

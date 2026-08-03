@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import corpus
-from fedcourtsai.schemas import Disposition, EventKind
+from fedcourtsai import corpus, corpus_ranged
+from fedcourtsai.schemas import Disposition, EventKind, Stage
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -1896,3 +1896,99 @@ def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
     assert stored.counsel == entries
     assert stored.counsel[0].counsel_of_record is True
     assert stored.counsel[1].counsel_of_record is False
+
+
+def test_event_stage_round_trips_and_null_stays_null(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-appeal-disposition",
+                    case_id="ca9/2",
+                    court="ca9",
+                    kind=EventKind.appeal,
+                ),
+            ],
+        )
+        staged = corpus.events_for_case(conn, "scotus/1")
+        unstaged = corpus.events_for_case(conn, "ca9/2")
+    assert staged[0].stage == "cert"
+    assert unstaged[0].stage is None
+
+
+def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
+    """A corpus written before the column existed opens cleanly and reads
+    its pre-existing events with no stage, rather than failing the SELECT."""
+    db = tmp_path / "corpus.db"
+    raw = sqlite3.connect(db)
+    raw.executescript(
+        """
+        CREATE TABLE events (
+            case_id         TEXT NOT NULL,
+            event_id        TEXT NOT NULL,
+            court           TEXT NOT NULL,
+            kind            TEXT NOT NULL,
+            title           TEXT NOT NULL DEFAULT '',
+            description     TEXT,
+            docket_entry_id INTEGER,
+            decision_target TEXT NOT NULL DEFAULT 'disposition',
+            opened_at       TEXT,
+            resolved        INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (case_id, event_id)
+        );
+        INSERT INTO events (case_id, event_id, court, kind)
+        VALUES ('scotus/7', 'evt-petition-disposition', 'scotus', 'petition');
+        """
+    )
+    raw.commit()
+    raw.close()
+    with corpus.connect(db) as conn:
+        events = corpus.events_for_case(conn, "scotus/7")
+    assert len(events) == 1
+    assert events[0].stage is None
+
+
+def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
+    """The ranged backend serves the remote blob as-is, so an events row from a
+    blob written before the column existed must read with no stage rather than
+    failing the SELECT wholesale."""
+    columns = [
+        "case_id",
+        "event_id",
+        "court",
+        "kind",
+        "title",
+        "description",
+        "docket_entry_id",
+        "decision_target",
+        "opened_at",
+        "resolved",
+    ]
+    names = {name: i for i, name in enumerate(columns)}
+    record = corpus_ranged.Row(
+        names,
+        (
+            "scotus/7",
+            "evt-petition-disposition",
+            "scotus",
+            "petition",
+            "t",
+            None,
+            None,
+            "disposition",
+            None,
+            0,
+        ),
+    )
+    event = corpus._event_from_record(record)
+    assert event.stage is None
+    assert event.event_id == "evt-petition-disposition"

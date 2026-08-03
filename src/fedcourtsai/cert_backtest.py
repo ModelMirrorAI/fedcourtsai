@@ -578,6 +578,7 @@ def replay_predictors(
                 event_id=event.event_id,
                 case_id=event.case_id,
                 kind=event.kind,
+                stage=event.stage,
                 title=event.title or event.case_id,
                 description=event.description,
                 opened_at=event.opened_at,
