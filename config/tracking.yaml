@@ -241,21 +241,21 @@ salience:
   # Lookback window for the salience-band segment base rate — how many October
   # Terms immediately before a case's own Term may contribute to the band grant
   # rate the evaluator scores Brier skill against and `cert-backtest.json`
-  # reports per band. 0 = unbounded: every prior Term in the statpack, which is
-  # today's behaviour and stays the default so no published skill number moves.
-  # The tension is real and deliberate (docs/salience.md, *Base rates &
-  # baselines for the predicted segment*): per-Term high-band grant rates run
-  # 25.8%-48.0% across OT2017-OT2025, so a long window is stable but assumes the
-  # Court's grant behaviour is stationary, while a short one tracks the drift on
-  # only 61-163 weighted-resolved petitions per Term. Anchored at an OT2026
-  # petition the high band reads roughly 37% (n~1000) unbounded, 34% (n~610) at
-  # 5, and 44% (n~70) at 1 — a ~10-point spread in the number skill is measured
-  # against. Move it on evidence, and before the freeze rather than part-way
-  # through a Term. Counted in Term YEARS, not statpack rows: a Term missing
-  # from the pack shortens the sample rather than pulling an older Term in. See
-  # also `statpack.markdown_terms`, the same window for the forward (agent)
-  # stratum.
-  base_rate_lookback_terms: 0
+  # reports per band. Set to 10 to match `statpack.markdown_terms`: the scored
+  # baseline and the band table the agents anchor on then share one window by
+  # construction, so the two cannot silently diverge as walked Terms accumulate.
+  # With nine Terms walked (OT2017-OT2025) the bound excludes nothing today —
+  # every published skill number is unchanged — it only pins where the edge
+  # will sit. The bias/variance tension is real and deliberate
+  # (docs/salience.md, *Base rates & baselines for the predicted segment*):
+  # per-Term high-band grant rates run 25.8%-48.0% across OT2017-OT2025, so a
+  # long window is stable but assumes the Court's grant behaviour is
+  # stationary, while a short one tracks the drift on only 61-163
+  # weighted-resolved petitions per Term. Counted in Term YEARS, not statpack
+  # rows: a Term missing from the pack shortens the sample rather than pulling
+  # an older Term in. Move it between Terms, never part-way through one —
+  # a change re-bases every published skill number at once.
+  base_rate_lookback_terms: 10
   # Placeholder cap on interim-docket tournament slots (stays, injunctions —
   # docs/salience.md "The interim docket", docs/budget.md), carved from the
   # same per-conference spend envelope rather than added to it, so target

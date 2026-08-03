@@ -107,7 +107,8 @@ calibration with vacatur-practice prediction.
   base rate (each petition's own prior-Term band grant rate) and the mean Brier
   skill against it — so the back-test measures the same segment-baseline skill the
   forward stratum does, not just raw Brier. Comparable across the two strata while
-  `salience.base_rate_lookback_terms` (the in-code window, shipped unbounded) and
+  `salience.base_rate_lookback_terms` (the in-code window, shipped at 10 to match
+the rendered table) and
   `statpack.markdown_terms` (what the prompts' Term table renders, 10) agree; see
   [salience.md](../docs/salience.md). A replayed predictor's pre-registered
   **big-case-score distribution** (coverage + mean/min/max stakes) rides alongside
