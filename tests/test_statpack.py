@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import analytics, corpus
+from fedcourtsai import analytics, corpus, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import (
@@ -868,3 +868,250 @@ def test_the_docket_pack_warns_that_the_gvr_split_is_not_cross_term_comparable(
     assert "not comparable across Terms" in md
     assert "forward convention" in md
     assert "OT2023 and OT2024" in md
+
+
+# --- The interim stage axis --------------------------------------------------
+
+
+def _seed_applications(db_path: Path) -> None:
+    """Insert a known interim-docket cohort: OT2024-heavy, one OT2023 row.
+
+    OT2024: one granted extension, a granted substantive with every escalation
+    signal, a denied substantive with none, an open substantive, an
+    unknown-ask row, and a never-parsed row. OT2023: one dismissed substantive.
+    """
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="24A1",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000002",
+                    court="scotus",
+                    docket_number="24A2",
+                    application_kind="substantive",
+                    disposition=Disposition.granted,
+                    response_requested=True,
+                    referred_to_court=True,
+                    amicus_briefs=2,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000003",
+                    court="scotus",
+                    docket_number="24A3",
+                    application_kind="substantive",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000004",
+                    court="scotus",
+                    docket_number="24A4",
+                    application_kind="substantive",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000005",
+                    court="scotus",
+                    docket_number="24A5",
+                    application_kind="unknown",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000006",
+                    court="scotus",
+                    docket_number="24A6",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000007",
+                    court="scotus",
+                    docket_number="23A9",
+                    application_kind="substantive",
+                    disposition=Disposition.dismissed,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+            ],
+        )
+
+
+def test_interim_section_absent_without_application_rows(fixture_corpus: FixtureCorpus) -> None:
+    # The stage section is shown only once its feed exists: no application rows,
+    # no section — omitted from the serialized pack rather than emitted as null,
+    # so a pack built from an application-free corpus keeps its pre-axis bytes.
+    pack = _pack(fixture_corpus)
+    assert pack.interim is None
+    assert "interim" not in pack.model_dump(mode="json")
+    assert "The interim docket" not in analytics.render_statpack_markdown(pack)
+
+
+def test_the_committed_pack_reserializes_byte_identically(tmp_path: Path) -> None:
+    """The committed artifact must survive a parse → serialize round trip unchanged.
+
+    `write_json` is deterministic and the pack is a pure function of the corpus,
+    so this holds by construction — and it is exactly the property a model change
+    can silently break (a new field serializing as `null` would perturb every
+    rebuild whose corpus does not feed it). Pinned on the committed file, written
+    back through the real writer, so the schema and the artifact cannot drift
+    apart between refreshes.
+    """
+    committed = (Path(__file__).resolve().parents[1] / "metrics" / "statpack.json").read_text()
+    pack = StatPack.model_validate_json(committed)
+    rewritten = tmp_path / "statpack.json"
+    serialize.write_json(rewritten, pack)
+    assert rewritten.read_text() == committed
+
+
+def test_interim_counts_by_kind_and_term(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_applications(db)
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    # Pack-level kind counts: the never-parsed row is a coverage gap, kept apart
+    # from the parsed-but-unreadable `unknown` ask.
+    assert (interim.applications, interim.extension, interim.substantive) == (7, 1, 4)
+    assert (interim.unknown, interim.unparsed) == (1, 1)
+    # Substantive slice only: the granted extension never enters the rate, the
+    # open substantive row never enters the denominator, and a dismissal resolves
+    # without granting — so 1 granted of 3 resolved.
+    assert (interim.substantive_resolved, interim.substantive_granted) == (3, 1)
+    assert interim.substantive_grant_rate == pytest.approx(1 / 3)
+    # Escalation signals count substantive applications carrying each column.
+    assert (interim.response_requested, interim.referred_to_court, interim.with_amicus) == (1, 1, 1)
+    # Per-application-Term split, most recent first, read off the A-form number.
+    assert [t.term for t in interim.terms] == [2024, 2023]
+    ot24, ot23 = interim.terms
+    assert (ot24.applications, ot24.substantive_resolved, ot24.substantive_granted) == (6, 2, 1)
+    assert ot24.substantive_grant_rate == pytest.approx(0.5)
+    assert (ot23.applications, ot23.substantive, ot23.substantive_resolved) == (1, 1, 1)
+    assert ot23.substantive_grant_rate == 0.0  # a dismissal resolves, ungranted
+
+
+def test_interim_rate_is_substantive_only(tmp_path: Path) -> None:
+    # A docket of granted extensions has NO rate: extensions are counted so their
+    # dominance is visible, but they never pool into any rate (docs/salience.md).
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/90000000{i}",
+                    court="scotus",
+                    docket_number=f"25A{i}",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+                for i in range(1, 4)
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.applications, interim.extension) == (3, 3)
+    assert (interim.substantive_resolved, interim.substantive_granted) == (0, 0)
+    assert interim.substantive_grant_rate is None  # no rate, not 0% or 100%
+
+
+def test_interim_out_of_vocabulary_kind_counts_as_unknown(tmp_path: Path) -> None:
+    # The blob is external input: a kind string outside the vocabulary must not
+    # vanish from the kind split (which would break the sum-to-`applications`
+    # identity silently) — it counts with the unreadable asks.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="garbled",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.applications, interim.unknown) == (1, 1)
+    assert (
+        interim.extension + interim.substantive + interim.unknown + interim.unparsed
+        == interim.applications
+    )
+
+
+def test_interim_other_disposition_stays_out_of_the_denominator(tmp_path: Path) -> None:
+    # An `other` label means "decided, but we do not know how" — it can only
+    # reach an application row through a channel crossing, never through the
+    # interim vocabulary — so it joins the visibly unresolved residue instead of
+    # entering the rate as a silent denial.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="substantive",
+                    disposition=Disposition.other,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.substantive, interim.substantive_resolved) == (1, 0)
+    assert interim.substantive_grant_rate is None
+
+
+def test_application_rows_leave_the_cert_populations_unchanged(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The stage axis is disjoint from the cert one: an A-form docket defines no
+    # cert Term entry and joins no cert-stage section, so seeding applications
+    # changes only the full-corpus overview counts and adds the interim section.
+    before = _pack(fixture_corpus)
+    _seed_applications(fixture_corpus.db_path)
+    after = _pack(fixture_corpus)
+    assert after.terms == before.terms
+    for prior, current in zip(before.sections, after.sections, strict=True):
+        if prior.cert_stage:
+            assert current == prior
+    assert before.interim is None and after.interim is not None
+
+
+def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_applications(db)
+    md = analytics.render_statpack_markdown(analytics.build_statpack(corpus_db_path=db))
+    assert "## The interim docket (applications)" in md
+    # The caption carries the interpretation contract with the figures.
+    interim_section = md.split("## The interim docket (applications)")[1]
+    assert "resolved substantive" in interim_section
+    assert "not a segment base rate" in interim_section
+    assert "**7** application(s): 1 extension, 4 substantive" in interim_section
+    # Rates print raw-count denominators beside them; per-Term rows carry the
+    # kind counts, the substantive-only rate, and the escalation signals.
+    assert "**Substantive slice:** 3 resolved, 1 granted — grant rate 33.3% (n=3)." in md
+    assert "| 2024 | 6 | 1 | 3 | 1 | 1 | 2 | 1 | 50.0% (n=2) | 1 | 1 | 1 |" in md
+    assert "| 2023 | 1 | 0 | 1 | 0 | 0 | 1 | 0 | 0.0% (n=1) | 0 | 0 | 0 |" in md

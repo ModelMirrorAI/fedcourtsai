@@ -1388,6 +1388,23 @@ def scotus_term_year(docket_number: str) -> int | None:
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
+def scotus_application_term_year(docket_number: str) -> int | None:
+    """Parse the October-Term year from an interim application docket number.
+
+    ``"24A1099"`` -> ``2024``, under the same century pivot as
+    :func:`scotus_term_year` (a two-digit prefix >= 30 reads as 19xx). Keyed on
+    the strict A-form parser, so exactly the ``YYAnnn`` form the live channel can
+    address parses — historical spellings (``A-363``) return ``None`` and fall
+    outside any per-Term application cut, as they carry none of the
+    application-parsed columns anyway.
+    """
+    parsed = parse_scotus_application_number(docket_number)
+    if parsed is None:
+        return None
+    two_digit = parsed[0]
+    return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
+
+
 def is_modern_cert(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is a modern discretionary-cert petition, by form.
 

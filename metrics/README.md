@@ -174,7 +174,8 @@ the rendered table) and
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
-  published artifact), two populations side by side. The labeled full-corpus
+  published artifact): two cert-era populations side by side, plus an
+  interim-docket stage section described below. The labeled full-corpus
   overview (cases by court, SCOTUS by decade era — the frozen bulk import
   included) gives composition context. The **live/historical-slice cert
   statistics** are what predictor and evaluator cells anchor on: disposition
@@ -199,6 +200,34 @@ the rendered table) and
   rendered Markdown document — a
   deterministic, offline roll-up of the corpus — empty
   (zero counts, empty sections) until a corpus is present.
+
+  The pack also carries a **stage axis** beside the cert sections: an
+  **interim-docket section** (`interim`), present only once the corpus holds
+  application rows (`YYAnnn` dockets — stays, injunctions, vacaturs, and the
+  time-extension requests that dominate the docket), and omitted entirely —
+  not emitted as null — while it does not; a merits section would join the
+  same way once a merits judgment column exists to feed one. What it publishes,
+  pack-level and per application-Term year: counts by parsed ask (extension /
+  substantive / unknown, with never-parsed rows kept apart as a visible
+  coverage gap), and — over the **substantive slice only** — the resolved and
+  granted counts, a raw grant rate (resolved = a machine-matched interim
+  disposition, so an unmatched resolution stays visibly unresolved rather than
+  entering the denominator; withdrawn/dismissed resolutions count as
+  ungranted), and the escalation-signal counts (response requested, referred
+  to the Court, amicus on file — max-latched ending states, not
+  as-at-prediction values, and no rate here conditions on them). **What may be claimed
+  from it:** the counts and the substantive-application grant rate are
+  *descriptive* facts about the accumulated cohort, nothing more. The rate is
+  not a segment base rate — predict scope and a scored base rate for the
+  interim stage remain unspecified until enough substantive applications have
+  resolved to support one — so no skill, calibration, or baseline claim may
+  rest on it, and it is comparable to nothing the cert sections publish (a
+  different population resolving on a different standard, unweighted where the
+  cert cuts are denial-reweighted). Extensions are counted so the docket's
+  administrative dominance stays visible, but they never pool into any rate.
+  The section carries no salience version, because it is not a salience-band
+  product; the per-Term rows share the cert tables' replay self-selection
+  rule (anchor strictly before your clock).
 
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's
