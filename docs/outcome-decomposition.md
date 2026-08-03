@@ -489,18 +489,27 @@ Drawn from the above, and cheaper to apply than to rediscover:
    purpose, so read the scope line rather than assuming.
 8. **Is the baseline far enough from 0 (or 1) that a correct call is worth more
    than a season of honest reporting?** The rule pays `(b − y)² − (p − y)²` per
-   claim, so at a baseline of half a percent an honest negative earns about
-   2×10⁻⁵ while one bold positive that lands earns ~0.74 — a thousand quiet
-   claims lose to a single lucky shout, and the shotgunning the rule defeats
-   head-on comes back in through the baseline. Tests 1–7 never look at the
-   *level* of the baseline, only at its conditioning, so this check is separate:
-   measure the realized base rate before declaring the claim, and where it is
-   within rounding of 0 or 1, either aggregate the claim upward (an "any
-   Justice writes" form rather than nine per-Justice forms) or leave it out.
-   Per-Justice dissent-from-denial notings are the live example: they appear on
-   about one percent of petitions, concentrated in two Justices, so the
-   per-Justice form fails this test on volume while the aggregated form may
-   pass.
+   claim, so at a baseline of half a percent an honest confident negative
+   (`p ≈ 0`) earns `b²` ≈ 2.5×10⁻⁵ while a landed `p = 0.5` call earns ~0.74
+   (a maximally bold `p = 1`, ~0.99) — a thousand quiet claims earn ~0.025
+   against a single hit worth forty times that. The rule's expectation still
+   punishes a spray (propriety holds at any baseline), so the failure is not
+   the anti-shotgun defence giving way — it is the realized total collapsing
+   to a Bernoulli draw: near a degenerate baseline the season's number is
+   whichever single claim resolved positive, the *one claim can be the whole
+   total* hazard above taken to its limit, and it bites exactly when totals
+   are compared on point estimates. Tests 1–7 never look at the *level* of
+   the baseline, only at its conditioning, so this check is separate: measure
+   the realized base rate before declaring the claim, and where it is within
+   rounding of 0 or 1, either aggregate the claim upward (an "any Justice
+   writes" form rather than nine per-Justice forms) or leave it out. This is
+   the stated exception to the fineness preference above — where the fine
+   claim's base rate is within rounding of the boundary, the coarse claim is
+   the claim. Per-Justice dissent-from-denial notings are the live example
+   (from the public record, not a corpus field — nothing stored records one):
+   they appear on about one percent of petitions, concentrated in two
+   Justices, so the per-Justice form fails this test on volume while the
+   aggregated form may pass.
 
 ## What is scoreable today
 
@@ -549,8 +558,10 @@ zero). An increment claim is therefore computable end to end: the as-at-
 prediction value from the prediction's own context block, the as-at-resolution
 value from `Outcome.signals`. The block is nullable and the older committed
 predictions carry no context at all, so an increment claim scores only the
-cells that carry one — a coverage boundary the claim's declared population must
-state, not a defect.
+cells that carry one — a coverage boundary the claim's declared population
+must state, not a defect, and a **time-skewed** one: the block exists only
+where proceedings were live-parsed, so the covered cohort is the recent tail,
+and a coverage-limited total is not comparable to a full-set figure.
 
 The block's *presence* carries meaning too. It is written only where the
 proceedings were live-parsed, mirroring the corpus's own coverage rule, so an
@@ -605,7 +616,11 @@ definition is fixed now:
   **both** numbers exist, and the intersection's `n` is printed beside the
   coefficient — a tau over 4 cells is a different fact from a tau over 400.
   Below an intersection of **10** cells the coefficient is suppressed and only
-  the `n` is published.
+  the `n` is published. Cells excluded for *operational* absence — an
+  evaluator cell that never ran or failed, as opposed to a record that
+  discloses nothing — are counted and printed beside the intersection `n`,
+  because differential cell failure on hard cases selects the pair set on
+  difficulty, and a selected intersection must be visible.
 - **The availability mask is a property of the record, never of the
   predictor.** A cell is excluded only where the *outcome record* does not
   disclose what a family needs (no opinion body for the semantic side, no
