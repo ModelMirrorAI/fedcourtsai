@@ -35,12 +35,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 from typing import Literal
 
-from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, Stratum, _kendall_tau_b
+from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, Stratum, kendall_tau_b
 from .schemas import (
     ClaimJudgeAgreement,
     ClaimMeanScore,
+    ClaimScoreBlock,
     ClaimScoreBoard,
     ClaimScoreEntry,
     ClaimScoreStratum,
@@ -60,20 +62,44 @@ def _mean(values: Sequence[float]) -> float | None:
 
 
 def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
-    """One predictor-stratum's claim aggregates, or ``None`` without any block."""
-    blocks = [(ev, ev.claim_scores) for ev in evals if ev.claim_scores is not None]
-    if not blocks:
+    """One predictor-stratum's claim aggregates, or ``None`` without any block.
+
+    The reporting unit is the **event**, as the pre-registration fixes it: every
+    evaluator of the same prediction carries an identical harness-computed
+    block, so a cell-mean would weight an event by its evaluator count. Blocks
+    are therefore deduplicated to one per (case, event) — where copies could
+    ever differ (a statpack revision between evaluator stamps), the newest
+    evaluation's block wins, deterministically — and ``cells`` is published
+    beside ``events`` as the raw census of the collapsed multiplicity.
+    """
+    cells = 0
+    latest: dict[tuple[str, str], tuple[tuple[datetime, str, str], ClaimScoreBlock]] = {}
+    for ev in evals:
+        if ev.claim_scores is None:
+            continue
+        cells += 1
+        key = (ev.case_id, ev.event_id)
+        order = (ev.created_at, ev.evaluator_id, ev.run_id)
+        current = latest.get(key)
+        if current is None or order > current[0]:
+            latest[key] = (order, ev.claim_scores)
+    if not latest:
         return None
-    totals = [b.total for _, b in blocks if b.total is not None]
-    floors = [b.floor for _, b in blocks if b.floor is not None]
-    lifts = [b.lift for _, b in blocks if b.lift is not None]
+    blocks = [latest[key][1] for key in sorted(latest)]
+    # One denominator for the three means: the events whose block scored at
+    # all. `score_claims` sets total/floor/lift jointly, so the inner
+    # not-None filters are typing guards, never a second denominator.
+    scored = [b for b in blocks if b.total is not None]
+    totals = [b.total for b in scored if b.total is not None]
+    floors = [b.floor for b in scored if b.floor is not None]
+    lifts = [b.lift for b in scored if b.lift is not None]
 
     # Per-claim rows in first-seen (declaration) order; a never-scored claim
     # still appears with scored=0 so the coverage gap stays visible.
     per_claim: dict[str, list[float]] = {}
     largest_id: str | None = None
     largest_score: float | None = None
-    for _, block in blocks:
+    for block in blocks:
         for row in block.claims:
             scores = per_claim.setdefault(row.claim_id, [])
             if row.score is not None:
@@ -83,10 +109,10 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
                 if largest_score is None or abs(row.score) > abs(largest_score):
                     largest_id, largest_score = row.claim_id, row.score
     return ClaimScoreStratum(
-        events=len({(ev.case_id, ev.event_id) for ev, _ in blocks}),
-        cells=len(blocks),
-        scored_cells=len(totals),
-        declared_set_versions=sorted({b.declared_set_version for _, b in blocks}),
+        events=len(blocks),
+        cells=cells,
+        scored_events=len(scored),
+        declared_set_versions=sorted({b.declared_set_version for b in blocks}),
         mean_total=_mean(totals),
         mean_floor=_mean(floors),
         mean_lift=_mean(lifts),
@@ -107,20 +133,29 @@ def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
     coefficient is computed only at or above :data:`AGREEMENT_MIN_PAIRS`; below
     it the record still publishes the ``n`` and the absence counts, so a
     selected intersection is visible even while the number is withheld.
+
+    Two honesty limits travel with the record. The pairs are per **cell** (the
+    pre-registered unit the threshold keys on), so evaluator multiplicity
+    repeats an identical mechanical total against several grades —
+    ``pair_events`` beside ``pairs`` is what exposes it. And the absence
+    counts cover **committed** cells only: an evaluator cell that failed
+    outright commits nothing and is invisible here, so differential cell
+    failure still selects the pair set upstream of these counts.
     """
     if not evals:
         return None
-    points = [
-        (ev.claim_scores.total, ev.reasoning_quality)
-        for ev in evals
-        if ev.claim_scores is not None
-        and ev.claim_scores.total is not None
-        and ev.reasoning_quality is not None
-    ]
+    points: list[tuple[float, float]] = []
+    pair_events: set[tuple[str, str]] = set()
+    for ev in evals:
+        if ev.claim_scores is None or ev.claim_scores.total is None or ev.reasoning_quality is None:
+            continue
+        points.append((ev.claim_scores.total, ev.reasoning_quality))
+        pair_events.add((ev.case_id, ev.event_id))
     suppressed = len(points) < AGREEMENT_MIN_PAIRS
     return ClaimJudgeAgreement(
-        rank_agreement=None if suppressed else _kendall_tau_b(points),
+        rank_agreement=None if suppressed else kendall_tau_b(points),
         pairs=len(points),
+        pair_events=len(pair_events),
         suppressed=suppressed,
         missing_claim_block=sum(1 for ev in evals if ev.claim_scores is None),
         masked_claim_total=sum(

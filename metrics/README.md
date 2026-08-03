@@ -87,8 +87,10 @@ stays outside the gate:
   per predictor **per stratum** and published beside the leaderboard.
   `fedcourts claim-scores` produces it, deterministic and offline, defaulting
   to the same frozen process scope as the board; while no committed evaluation
-  carries a block it renders its honest fully-suppressed state (zero counts,
-  every coefficient null). The scoring rule, the claim declarations, and every
+  carries a block it renders its honest suppressed state — zero counts, every
+  coefficient null, and a stratum with no cells at all carrying a null
+  agreement record rather than a zero-filled one. The scoring rule, the claim
+  declarations, and every
   rule below are pre-registered in
   [outcome-decomposition.md](../docs/outcome-decomposition.md); this section is
   the reading contract.
@@ -103,7 +105,7 @@ stays outside the gate:
   skill on its own.
 
   **The total travels with its floor and lift.** Per predictor × stratum the
-  artifact reports the mean per-cell claim total (Brier units — never bits),
+  artifact reports the mean per-event claim total (Brier units — never bits),
   the mean floor, and the mean lift. The floor is the realized total of the
   baseline-restating control — identically zero by propriety, *computed*
   per block rather than asserted — so it prices baseline-restating and
@@ -120,34 +122,48 @@ stays outside the gate:
   **Counts and comparability.** The population is the **cert-stage** cells —
   only the cert-stage event kinds declare a claim set, so a cell on any other
   stage is never owed a block and sits outside the surface (and outside its
-  absence counts) entirely. Means are taken over evaluation cells;
-  `events` beside `cells` exposes the multiplicity (every evaluator of the
-  same prediction carries the same harness block, so a cell-mean weights an
-  event by its evaluator count). Strata are never pooled, the frozen/all
-  process scope is never crossed, and a total is never comparable across
-  claim-set declarations — `declared_set_versions` lists what the means pool,
-  and more than one entry there demotes them to coverage figures.
-  Retrospective and procedural aggregates are iteration signal under the
-  backtest-as-iteration doctrine below, never claimable: a resolved case's
-  claims are retrievable, not forecastable.
+  absence counts) entirely. The reporting unit is the **event**: every
+  evaluator of the same prediction carries an identical harness block, so
+  blocks are deduplicated to one per event before averaging (the newest
+  evaluation's block wins where a statpack revision between evaluator stamps
+  ever made copies differ), and `cells` beside `events` is the raw evaluation
+  census. Strata are never pooled, and a total or pair set is never
+  comparable across process versions or across the frozen/all scope: the
+  artifact publishes its scope, keyed on the prediction's stamp exactly like
+  the leaderboard, and a scope that comes to hold more than one
+  claims-carrying process version must not be read as one population. A total
+  is likewise never comparable across claim-set declarations —
+  `declared_set_versions` lists what the means pool, and more than one entry
+  there demotes them to coverage figures. Retrospective aggregates are
+  iteration signal under the backtest-as-iteration doctrine below, never
+  claimable — a resolved case's claims are retrievable, not forecastable —
+  and procedural aggregates never carry a cert-forecasting claim of any kind,
+  for the stratum's own reason: a mootness-basis label tracks the Court's
+  vacatur practice, not cert-worthiness.
 
   **The judge validation is the headline.** Per stratum, the pre-registered
   Kendall tau-b between per-cell mechanical claim totals and
   `reasoning_quality` grades, over the **intersection** population only —
   cells carrying both numbers — with the intersection `n` printed beside the
   coefficient and the coefficient **suppressed (null) below n = 10**, the `n`
-  still published. It validates the semantic grader against the mechanical
-  record, not the reverse: agreement says the judge tracks something the
-  ground truth also sees, disagreement says it grades prose, and either
-  result publishes. It says nothing about which predictor is better, and a
-  high tau does not certify the judge's *level* (a uniformly generous judge
-  correlates perfectly) — grader level is `evaluator_agreement`'s job on the
+  still published. The `n` counts cells, the unit the pre-registration fixed
+  the threshold on, with the distinct-event count (`pair_events`) published
+  beside it because evaluator multiplicity repeats an identical mechanical
+  total against several grades. It validates the semantic grader against the
+  mechanical record, not the reverse: agreement says the judge tracks
+  something the ground truth also sees, disagreement says it grades prose,
+  and either result publishes. It says nothing about which predictor is
+  better, and a high tau does not certify the judge's *level* (a uniformly
+  shifted — generous but rank-preserving — judge is invisible to a rank
+  correlation) — grader level is `evaluator_agreement`'s job on the
   leaderboard, which remains the sole inter-evaluator agreement number and is
   deliberately not duplicated here. Operational absences (a cell missing a
   block, or missing a grade) are counted beside the intersection because
-  differential absence selects the pair set on difficulty; a block whose
-  every claim is masked is the availability mask at work — a property of the
-  record, never of the predictor — and is counted separately.
+  differential absence selects the pair set on difficulty; the counts cover
+  committed cells only — a cell that failed outright commits nothing and
+  stays invisible, upstream of them; and a block whose every claim is masked
+  is the availability mask at work — a property of the record, never of the
+  predictor — counted separately.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved

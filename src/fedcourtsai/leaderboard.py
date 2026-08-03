@@ -140,7 +140,7 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
     )
 
 
-def _kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
+def kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
     """Kendall's tau-b rank correlation of the (x, y) points, or ``None``.
 
     Tau-b handles ties (big-case scores can repeat): the denominator excludes
@@ -183,7 +183,7 @@ def big_case_agreement(
     ``(predictor, case, event)`` an evaluator gave a big-case read on, pairs the
     predictor's latest ``big_case_score`` with the **mean** of the panel's
     independent reads for that event, then correlates the predictor's ordering
-    against the panel's with Kendall's tau-b (:func:`_kendall_tau_b`) across the
+    against the panel's with Kendall's tau-b (:func:`kendall_tau_b`) across the
     scored events (one per case in the current single-event model). Predictors
     with no comparable event are absent from the map (their ``big_case`` stays
     null).
@@ -216,7 +216,7 @@ def big_case_agreement(
         points[predictor_id].append((latest.big_case_score, panel_mean))
 
     return {
-        predictor_id: BigCaseLeaderboard(rank_agreement=_kendall_tau_b(pairs), cases=len(pairs))
+        predictor_id: BigCaseLeaderboard(rank_agreement=kendall_tau_b(pairs), cases=len(pairs))
         for predictor_id, pairs in points.items()
     }
 
@@ -300,7 +300,7 @@ def evaluator_agreement(
             points[evaluator].append((own, sum(peers) / len(peers)))
 
     return {
-        evaluator: EvaluatorAgreement(rank_agreement=_kendall_tau_b(pairs), events=len(pairs))
+        evaluator: EvaluatorAgreement(rank_agreement=kendall_tau_b(pairs), events=len(pairs))
         for evaluator, pairs in points.items()
     }
 

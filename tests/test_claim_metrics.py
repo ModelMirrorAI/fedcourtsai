@@ -170,7 +170,7 @@ def test_aggregates_per_predictor_per_stratum_and_never_pools() -> None:
     assert alpha.forward is not None
     assert alpha.forward.cells == 2
     assert alpha.forward.events == 2
-    assert alpha.forward.scored_cells == 2
+    assert alpha.forward.scored_events == 2
     assert alpha.forward.declared_set_versions == ["cert-v1"]
     assert alpha.forward.mean_total == pytest.approx(0.3)
     assert alpha.forward.mean_floor == 0.0
@@ -224,7 +224,7 @@ def test_masked_blocks_count_as_availability_not_scoring() -> None:
     stratum = board.entries[0].forward
     assert stratum is not None
     assert stratum.cells == 1
-    assert stratum.scored_cells == 0
+    assert stratum.scored_events == 0
     assert stratum.mean_total is None
     assert stratum.largest_claim_score is None
     agreement = board.forward_agreement
@@ -296,8 +296,41 @@ def test_agreement_counts_operational_absences_beside_the_intersection() -> None
     agreement = board.forward_agreement
     assert agreement is not None
     assert agreement.pairs == 4
+    assert agreement.pair_events == 4
     assert agreement.missing_claim_block == 1
     assert agreement.missing_reasoning_quality == 1
+
+
+def test_evaluator_multiplicity_collapses_to_the_event_unit() -> None:
+    # Three evaluators of the same prediction carry an identical harness block:
+    # the reporting unit is the event, so the means see one block while `cells`
+    # keeps the raw census and `pair_events` exposes the tau's multiplicity.
+    cells = _cells(
+        *(
+            (
+                _evaluation(
+                    "alpha", claim_scores=_block(0.4), evaluator_id=f"eval-{i}", run_id=f"r{i}"
+                ),
+                FORWARD,
+            )
+            for i in range(3)
+        ),
+        (_evaluation("alpha", claim_scores=_block(0.2), event_id="evt-b"), FORWARD),
+    )
+    board = build_claim_scores(cells, process_scope="all")
+    stratum = board.entries[0].forward
+    assert stratum is not None
+    assert stratum.cells == 4
+    assert stratum.events == 2
+    assert stratum.scored_events == 2
+    # An event-mean: (0.4 + 0.2) / 2, not the cell-mean (0.4*3 + 0.2) / 4.
+    assert stratum.mean_total == pytest.approx(0.3)
+    by_claim = {row.claim_id: row for row in stratum.claims}
+    assert by_claim["disposition"].scored == 2
+    agreement = board.forward_agreement
+    assert agreement is not None
+    assert agreement.pairs == 4  # per-cell, as the pre-registration fixes it
+    assert agreement.pair_events == 2
 
 
 def test_mixed_declarations_are_listed_so_pooling_is_visible() -> None:

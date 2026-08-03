@@ -1425,7 +1425,7 @@ class Leaderboard(_Strict):
 
 
 class ClaimMeanScore(_Strict):
-    """One declared claim's mean score over a claim-score stratum's cells.
+    """One declared claim's mean score over a claim-score stratum's events.
 
     A per-claim mean is **diagnostic**, never a headline: the reported unit is
     the total over the declared set, and a claim singled out afterwards
@@ -1439,14 +1439,14 @@ class ClaimMeanScore(_Strict):
     claim_id: str = Field(description="The declared claim this row averages")
     scored: int = Field(
         ge=0,
-        description="Cells whose block carries a score for this claim — the "
+        description="Events whose block carries a score for this claim — the "
         "mean's denominator. 0 wherever the availability mask or a missing "
-        "baseline left the claim unscored on every cell",
+        "baseline left the claim unscored on every event",
     )
     mean_score: float | None = Field(
         default=None,
-        description="Mean of the claim's per-cell scores over the `scored` "
-        "cells; null when none scored",
+        description="Mean of the claim's per-event scores over the `scored` "
+        "events; null when none scored",
     )
 
 
@@ -1456,25 +1456,28 @@ class ClaimScoreStratum(_Strict):
     Never pooled across strata and never a rank key: a claim total's variance
     is unbounded above and a bold uninformed spray has a fat right tail, so
     the defensible comparison is head-to-head at equal coverage — these
-    aggregates are descriptive (``docs/outcome-decomposition.md``). Means are
-    taken over evaluation cells; ``events`` beside ``cells`` exposes the
-    multiplicity, because every evaluator of the same prediction carries the
-    same harness-computed block, so a cell-mean weights an event by its
-    evaluator count.
+    aggregates are descriptive (``docs/outcome-decomposition.md``). The
+    reporting unit is the **event**, as the pre-registration fixes it: every
+    evaluator of the same prediction carries an identical harness-computed
+    block, so blocks are deduplicated to one per (case, event) before
+    averaging (the newest evaluation's block wins where a statpack revision
+    between evaluator stamps ever made copies differ) and ``cells`` beside
+    ``events`` is the raw census of the collapsed multiplicity.
     """
 
     events: int = Field(
         ge=0,
-        description="Distinct (case, event) pairs among the cells carrying a "
-        "block — the event count the publishing rules require beside a total",
+        description="Distinct (case, event) pairs carrying a block — the "
+        "reporting unit, and the event count the publishing rules require "
+        "beside a total",
     )
     cells: int = Field(
         ge=0, description="Evaluation cells carrying a claim-score block in this stratum"
     )
-    scored_cells: int = Field(
+    scored_events: int = Field(
         ge=0,
-        description="Cells whose block total is non-null (at least one claim "
-        "scored) — the denominator of the three means",
+        description="Events whose block total is non-null (at least one claim "
+        "scored) — the one denominator of the three means",
     )
     declared_set_versions: list[str] = Field(
         default_factory=list,
@@ -1485,20 +1488,20 @@ class ClaimScoreStratum(_Strict):
     )
     mean_total: float | None = Field(
         default=None,
-        description="Mean per-cell claim total (Brier units, never bits) over "
-        "the scored cells; null when none scored. Not evidence of case-level "
+        description="Mean per-event claim total (Brier units, never bits) over "
+        "the scored events; null when none scored. Not evidence of case-level "
         "skill on its own — it travels with the floor and lift beside it",
     )
     mean_floor: float | None = Field(
         default=None,
-        description="Mean per-cell floor over the scored cells — identically 0 "
-        "by propriety, computed rather than asserted so definition and number "
+        description="Mean per-event floor over the scored events — identically "
+        "0 by propriety, computed rather than asserted so definition and number "
         "cannot drift apart (see ClaimScoreBlock.floor for what stays unpriced)",
     )
     mean_lift: float | None = Field(
         default=None,
-        description="Mean per-cell lift (total minus floor) over the scored "
-        "cells — identical to mean_total while the floor is identically 0",
+        description="Mean per-event lift (total minus floor) over the scored "
+        "events — identical to mean_total while the floor is identically 0",
     )
     claims: list[ClaimMeanScore] = Field(
         default_factory=list,
@@ -1511,7 +1514,7 @@ class ClaimScoreStratum(_Strict):
     largest_claim_score: float | None = Field(
         default=None,
         description="The largest-magnitude single-claim score across the "
-        "stratum's cells — reported beside the means because extreme baselines "
+        "stratum's events — reported beside the means because extreme baselines "
         "pay asymmetrically, so one lucky surprise can swamp dozens of honest "
         "calls; a total that is one claim in disguise must be visible in the "
         "same breath. Null when no claim scored",
@@ -1528,6 +1531,11 @@ class ClaimJudgeAgreement(_Strict):
     says the judge tracks something the ground truth also sees; disagreement
     says it grades prose. Either result publishes. It says nothing about
     which predictor is better, and it is never a rank key.
+
+    The absence counts cover **committed** evaluation cells only: an evaluator
+    cell that never ran or failed outright commits nothing, so it is invisible
+    here and differential cell failure still selects the pair set upstream of
+    these counts.
     """
 
     rank_agreement: float | None = Field(
@@ -1544,7 +1552,16 @@ class ClaimJudgeAgreement(_Strict):
         description="The intersection population: cells carrying BOTH a scored "
         "claim total and a reasoning_quality grade — printed beside the "
         "coefficient because a tau over 4 cells is a different fact from a tau "
-        "over 400",
+        "over 400. A per-CELL count, as the pre-registration fixes it, so the "
+        "suppression rule keys on it; pair_events beside it exposes evaluator "
+        "multiplicity",
+    )
+    pair_events: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs behind `pairs`. Every "
+        "evaluator of the same prediction contributes a pair with an identical "
+        "mechanical total, so evaluator multiplicity inflates `pairs` with "
+        "tied-x replicates — this count is what makes that visible",
     )
     suppressed: bool = Field(
         description="True when `pairs` is below the pre-registered minimum of "
@@ -1616,7 +1633,10 @@ class ClaimScoreBoard(_Strict):
         description="Which process versions this surface covers, keyed on the "
         "prediction's stamp exactly like the leaderboard: `frozen` (the default "
         "headline) or `all` (every version, including the shakedown). A claim "
-        "total is never comparable across the scope boundary",
+        "total is never comparable across the scope boundary — nor across "
+        "process versions within a scope: a scope holding more than one "
+        "claims-carrying process version must not be read as one population "
+        "(docs/outcome-decomposition.md)",
     )
     evaluations_total: int = Field(
         ge=0,
@@ -1629,7 +1649,7 @@ class ClaimScoreBoard(_Strict):
     cells_with_claims: int = Field(
         ge=0,
         description="Evaluation cells carrying a claim-score block — 0 is the "
-        "honest state while no committed evaluation predates the claims "
+        "honest state while every committed evaluation predates the claims "
         "contract's first scored run, not a regression",
     )
     forward_agreement: ClaimJudgeAgreement | None = Field(

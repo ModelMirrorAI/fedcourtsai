@@ -71,6 +71,7 @@ def _metrics_dir(tmp_path: Path) -> Path:
             cells_with_claims=0,
             forward_agreement=ClaimJudgeAgreement(
                 pairs=0,
+                pair_events=0,
                 suppressed=True,
                 missing_claim_block=9,
                 masked_claim_total=0,

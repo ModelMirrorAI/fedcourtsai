@@ -2,7 +2,7 @@
   "$defs": {
     "ClaimJudgeAgreement": {
       "additionalProperties": false,
-      "description": "The mechanical\u2194semantic agreement over one stratum \u2014 the judge validation.\n\nThe pre-registered estimator (``docs/outcome-decomposition.md``, *The\nmechanical\u2194semantic agreement*): Kendall tau-b over per-cell pairs of\n(mechanical claim total, ``reasoning_quality``). It validates the semantic\ngrader against the mechanical record, not the other way round \u2014 agreement\nsays the judge tracks something the ground truth also sees; disagreement\nsays it grades prose. Either result publishes. It says nothing about\nwhich predictor is better, and it is never a rank key.",
+      "description": "The mechanical\u2194semantic agreement over one stratum \u2014 the judge validation.\n\nThe pre-registered estimator (``docs/outcome-decomposition.md``, *The\nmechanical\u2194semantic agreement*): Kendall tau-b over per-cell pairs of\n(mechanical claim total, ``reasoning_quality``). It validates the semantic\ngrader against the mechanical record, not the other way round \u2014 agreement\nsays the judge tracks something the ground truth also sees; disagreement\nsays it grades prose. Either result publishes. It says nothing about\nwhich predictor is better, and it is never a rank key.\n\nThe absence counts cover **committed** evaluation cells only: an evaluator\ncell that never ran or failed outright commits nothing, so it is invisible\nhere and differential cell failure still selects the pair set upstream of\nthese counts.",
       "properties": {
         "masked_claim_total": {
           "description": "Cells whose block is present but whose total is null \u2014 every claim masked or baseline-less, a property of the record and never of the predictor (the availability mask)",
@@ -22,8 +22,14 @@
           "title": "Missing Reasoning Quality",
           "type": "integer"
         },
+        "pair_events": {
+          "description": "Distinct (case, event) pairs behind `pairs`. Every evaluator of the same prediction contributes a pair with an identical mechanical total, so evaluator multiplicity inflates `pairs` with tied-x replicates \u2014 this count is what makes that visible",
+          "minimum": 0,
+          "title": "Pair Events",
+          "type": "integer"
+        },
         "pairs": {
-          "description": "The intersection population: cells carrying BOTH a scored claim total and a reasoning_quality grade \u2014 printed beside the coefficient because a tau over 4 cells is a different fact from a tau over 400",
+          "description": "The intersection population: cells carrying BOTH a scored claim total and a reasoning_quality grade \u2014 printed beside the coefficient because a tau over 4 cells is a different fact from a tau over 400. A per-CELL count, as the pre-registration fixes it, so the suppression rule keys on it; pair_events beside it exposes evaluator multiplicity",
           "minimum": 0,
           "title": "Pairs",
           "type": "integer"
@@ -51,6 +57,7 @@
       },
       "required": [
         "pairs",
+        "pair_events",
         "suppressed",
         "missing_claim_block",
         "masked_claim_total",
@@ -61,7 +68,7 @@
     },
     "ClaimMeanScore": {
       "additionalProperties": false,
-      "description": "One declared claim's mean score over a claim-score stratum's cells.\n\nA per-claim mean is **diagnostic**, never a headline: the reported unit is\nthe total over the declared set, and a claim singled out afterwards\ndescribes that claim rather than the predictor\n(``docs/outcome-decomposition.md``, *Reading a total honestly*). A claim\nwith ``scored == 0`` still appears \u2014 the declaration, not the data, fixes\nthe rows, so an unscored claim is a visible coverage gap rather than an\nabsent one.",
+      "description": "One declared claim's mean score over a claim-score stratum's events.\n\nA per-claim mean is **diagnostic**, never a headline: the reported unit is\nthe total over the declared set, and a claim singled out afterwards\ndescribes that claim rather than the predictor\n(``docs/outcome-decomposition.md``, *Reading a total honestly*). A claim\nwith ``scored == 0`` still appears \u2014 the declaration, not the data, fixes\nthe rows, so an unscored claim is a visible coverage gap rather than an\nabsent one.",
       "properties": {
         "claim_id": {
           "description": "The declared claim this row averages",
@@ -78,11 +85,11 @@
             }
           ],
           "default": null,
-          "description": "Mean of the claim's per-cell scores over the `scored` cells; null when none scored",
+          "description": "Mean of the claim's per-event scores over the `scored` events; null when none scored",
           "title": "Mean Score"
         },
         "scored": {
-          "description": "Cells whose block carries a score for this claim \u2014 the mean's denominator. 0 wherever the availability mask or a missing baseline left the claim unscored on every cell",
+          "description": "Events whose block carries a score for this claim \u2014 the mean's denominator. 0 wherever the availability mask or a missing baseline left the claim unscored on every event",
           "minimum": 0,
           "title": "Scored",
           "type": "integer"
@@ -148,7 +155,7 @@
     },
     "ClaimScoreStratum": {
       "additionalProperties": false,
-      "description": "One predictor's claim-score aggregates over one pre-registration stratum.\n\nNever pooled across strata and never a rank key: a claim total's variance\nis unbounded above and a bold uninformed spray has a fat right tail, so\nthe defensible comparison is head-to-head at equal coverage \u2014 these\naggregates are descriptive (``docs/outcome-decomposition.md``). Means are\ntaken over evaluation cells; ``events`` beside ``cells`` exposes the\nmultiplicity, because every evaluator of the same prediction carries the\nsame harness-computed block, so a cell-mean weights an event by its\nevaluator count.",
+      "description": "One predictor's claim-score aggregates over one pre-registration stratum.\n\nNever pooled across strata and never a rank key: a claim total's variance\nis unbounded above and a bold uninformed spray has a fat right tail, so\nthe defensible comparison is head-to-head at equal coverage \u2014 these\naggregates are descriptive (``docs/outcome-decomposition.md``). The\nreporting unit is the **event**, as the pre-registration fixes it: every\nevaluator of the same prediction carries an identical harness-computed\nblock, so blocks are deduplicated to one per (case, event) before\naveraging (the newest evaluation's block wins where a statpack revision\nbetween evaluator stamps ever made copies differ) and ``cells`` beside\n``events`` is the raw census of the collapsed multiplicity.",
       "properties": {
         "cells": {
           "description": "Evaluation cells carrying a claim-score block in this stratum",
@@ -173,7 +180,7 @@
           "type": "array"
         },
         "events": {
-          "description": "Distinct (case, event) pairs among the cells carrying a block \u2014 the event count the publishing rules require beside a total",
+          "description": "Distinct (case, event) pairs carrying a block \u2014 the reporting unit, and the event count the publishing rules require beside a total",
           "minimum": 0,
           "title": "Events",
           "type": "integer"
@@ -201,7 +208,7 @@
             }
           ],
           "default": null,
-          "description": "The largest-magnitude single-claim score across the stratum's cells \u2014 reported beside the means because extreme baselines pay asymmetrically, so one lucky surprise can swamp dozens of honest calls; a total that is one claim in disguise must be visible in the same breath. Null when no claim scored",
+          "description": "The largest-magnitude single-claim score across the stratum's events \u2014 reported beside the means because extreme baselines pay asymmetrically, so one lucky surprise can swamp dozens of honest calls; a total that is one claim in disguise must be visible in the same breath. Null when no claim scored",
           "title": "Largest Claim Score"
         },
         "mean_floor": {
@@ -214,7 +221,7 @@
             }
           ],
           "default": null,
-          "description": "Mean per-cell floor over the scored cells \u2014 identically 0 by propriety, computed rather than asserted so definition and number cannot drift apart (see ClaimScoreBlock.floor for what stays unpriced)",
+          "description": "Mean per-event floor over the scored events \u2014 identically 0 by propriety, computed rather than asserted so definition and number cannot drift apart (see ClaimScoreBlock.floor for what stays unpriced)",
           "title": "Mean Floor"
         },
         "mean_lift": {
@@ -227,7 +234,7 @@
             }
           ],
           "default": null,
-          "description": "Mean per-cell lift (total minus floor) over the scored cells \u2014 identical to mean_total while the floor is identically 0",
+          "description": "Mean per-event lift (total minus floor) over the scored events \u2014 identical to mean_total while the floor is identically 0",
           "title": "Mean Lift"
         },
         "mean_total": {
@@ -240,20 +247,20 @@
             }
           ],
           "default": null,
-          "description": "Mean per-cell claim total (Brier units, never bits) over the scored cells; null when none scored. Not evidence of case-level skill on its own \u2014 it travels with the floor and lift beside it",
+          "description": "Mean per-event claim total (Brier units, never bits) over the scored events; null when none scored. Not evidence of case-level skill on its own \u2014 it travels with the floor and lift beside it",
           "title": "Mean Total"
         },
-        "scored_cells": {
-          "description": "Cells whose block total is non-null (at least one claim scored) \u2014 the denominator of the three means",
+        "scored_events": {
+          "description": "Events whose block total is non-null (at least one claim scored) \u2014 the one denominator of the three means",
           "minimum": 0,
-          "title": "Scored Cells",
+          "title": "Scored Events",
           "type": "integer"
         }
       },
       "required": [
         "events",
         "cells",
-        "scored_cells"
+        "scored_events"
       ],
       "title": "ClaimScoreStratum",
       "type": "object"
@@ -263,7 +270,7 @@
   "description": "``metrics/claim-scores.json`` \u2014 the mechanical claim-score surface.\n\nA deterministic, offline roll-up of every ``claim_scores`` block in the\nevaluations ledger, advisory beside the leaderboard rather than inside it:\nnothing here alters or reorders the board. Aggregates live per predictor\nper pre-registration stratum, never pooled; the headline is the per-stratum\njudge validation (:class:`ClaimJudgeAgreement`). Computed by ``fedcourts\nclaim-scores``; carries no timestamp so the same ledger always serializes\nidentically. Interpretation contract: ``metrics/README.md`` and\n``docs/outcome-decomposition.md``.",
   "properties": {
     "cells_with_claims": {
-      "description": "Evaluation cells carrying a claim-score block \u2014 0 is the honest state while no committed evaluation predates the claims contract's first scored run, not a regression",
+      "description": "Evaluation cells carrying a claim-score block \u2014 0 is the honest state while every committed evaluation predates the claims contract's first scored run, not a regression",
       "minimum": 0,
       "title": "Cells With Claims",
       "type": "integer"
@@ -308,7 +315,7 @@
     },
     "process_scope": {
       "default": "frozen",
-      "description": "Which process versions this surface covers, keyed on the prediction's stamp exactly like the leaderboard: `frozen` (the default headline) or `all` (every version, including the shakedown). A claim total is never comparable across the scope boundary",
+      "description": "Which process versions this surface covers, keyed on the prediction's stamp exactly like the leaderboard: `frozen` (the default headline) or `all` (every version, including the shakedown). A claim total is never comparable across the scope boundary \u2014 nor across process versions within a scope: a scope holding more than one claims-carrying process version must not be read as one population (docs/outcome-decomposition.md)",
       "enum": [
         "frozen",
         "all"

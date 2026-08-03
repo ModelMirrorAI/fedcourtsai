@@ -72,8 +72,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   artifacts from drifting stale: `metrics/leaderboard.json` and
   `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
-  (input: the corpus) are deterministic stage commands that previously only
-  changed when someone reran them locally. It reruns those tested
+  (input: the corpus) are deterministic stage commands that otherwise change
+  only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
