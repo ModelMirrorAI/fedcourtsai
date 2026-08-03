@@ -1,0 +1,11 @@
+case_id: scotus/72483877
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-08-16'
+resolved: true
+schema_version: '1.0'
+title: Malcolm Johnson, et al., Petitioners v. Tina Kotek, Governor of Oregon, et
+  al.

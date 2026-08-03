@@ -1,0 +1,11 @@
+case_id: scotus/72483829
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-30'
+resolved: true
+schema_version: '1.0'
+title: Peter Kleidman, Petitioner v. Audrey B. Collins, Associate Justice, Court of
+  Appeal of California, Second Appellate District, et al.

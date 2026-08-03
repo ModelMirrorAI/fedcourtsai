@@ -1,0 +1,12 @@
+case_id: scotus/72479803
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-15'
+resolved: true
+schema_version: '1.0'
+title: Brigith Dayana Gomez Barco, et al., Petitioners v. Diane Witte, Field Office
+  Director, New Orleans District, Immigration and Customs Enforcement and Removal
+  Operations, et al.

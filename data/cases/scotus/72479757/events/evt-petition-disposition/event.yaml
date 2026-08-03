@@ -1,0 +1,11 @@
+case_id: scotus/72479757
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-06'
+resolved: true
+schema_version: '1.0'
+title: R.J. Reynolds Tobacco Company, et al., Petitioners v. Rob Bonta, Attorney General
+  of California, et al.

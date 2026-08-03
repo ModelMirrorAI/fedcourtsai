@@ -1,0 +1,10 @@
+case_id: scotus/72482242
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-12-27'
+resolved: true
+schema_version: '1.0'
+title: Samantha Taczak, et al., Petitioners v. Nicolette Cremeans, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72480004
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-10-26'
+resolved: true
+schema_version: '1.0'
+title: Eileen Mendez, Individually and as Legal Guardian of A. C., et al., Petitioners
+  v. David C. Banks, Chancellor, New York City Department of Education, et al.

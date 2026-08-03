@@ -1,0 +1,11 @@
+case_id: scotus/72479739
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-07-06'
+resolved: true
+schema_version: '1.0'
+title: Bird Industries, Inc., et al., Petitioners v. The Tribal Business Council of
+  the Three Affiliated Tribes of the Fort Berthold Indian Reservation

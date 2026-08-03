@@ -1,0 +1,11 @@
+case_id: scotus/72480477
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-11-20'
+resolved: true
+schema_version: '1.0'
+title: Kendall Merlo, Petitioner v. Ingrid Warren, Presiding Judge, Probate Court
+  No. 2, Dallas County, Texas

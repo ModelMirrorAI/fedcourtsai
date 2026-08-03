@@ -1,0 +1,11 @@
+case_id: scotus/72479805
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-15'
+resolved: true
+schema_version: '1.0'
+title: Sean Guilday, Petitioner v.  Crisis Center at Crozer-Chester Medical Center,
+  et al.

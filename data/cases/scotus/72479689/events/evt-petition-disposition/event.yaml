@@ -1,0 +1,11 @@
+case_id: scotus/72479689
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-08-15'
+resolved: true
+schema_version: '1.0'
+title: United States, ex rel. Shannon Martin, M.D., et al., Petitioners v. Darren
+  Hathaway, M.D., et al.

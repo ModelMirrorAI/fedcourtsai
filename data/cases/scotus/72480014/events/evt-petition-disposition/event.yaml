@@ -1,0 +1,11 @@
+case_id: scotus/72480014
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-10-26'
+resolved: true
+schema_version: '1.0'
+title: Jim Boydston, et al., Petitioners v. Shirley N. Weber, California Secretary
+  of State, et al.

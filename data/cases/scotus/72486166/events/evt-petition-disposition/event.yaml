@@ -1,0 +1,11 @@
+case_id: scotus/72486166
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-23'
+resolved: true
+schema_version: '1.0'
+title: Friends of George's, Inc., Petitioner v. Steven J. Mulroy, in His Official
+  and Individual Capacity as the District Attorney General of Shelby County, Tennessee

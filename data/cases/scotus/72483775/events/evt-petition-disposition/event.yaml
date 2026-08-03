@@ -1,0 +1,12 @@
+case_id: scotus/72483775
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-13'
+resolved: true
+schema_version: '1.0'
+title: R. Michael Cestaro, Petitioner v. Clarissa M. Rodriguez, in Her Individual
+  and Official Capacity as Chair of the New York State Workers' Compensation Board,
+  et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72483962
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-09-06'
+resolved: true
+schema_version: '1.0'
+title: Jason Doherty, Petitioner v. Patricia Bice, Individually and as Dean of Student
+  Affairs for Purchase College, State University of New York, et al.

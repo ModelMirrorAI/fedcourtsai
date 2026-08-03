@@ -1,0 +1,13 @@
+case_id: scotus/72483751
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-06'
+resolved: true
+schema_version: '1.0'
+title: 'Real Property commonly known as: 11475 NW Pike Road, Yamhill, Oregon, Yamhill
+  County and any residence, buildings, or storage facilities thereon, et al., Petitioners
+  v. Yamhill County, Oregon and forfeiting agency, on behalf of the YCINT seizing
+  agency'

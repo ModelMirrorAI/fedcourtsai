@@ -1,0 +1,11 @@
+case_id: scotus/72479826
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-20'
+resolved: true
+schema_version: '1.0'
+title: Southern-Owners Insurance Company, Petitioner v. American Builders Insurance
+  Company
