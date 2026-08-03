@@ -1,0 +1,11 @@
+case_id: scotus/72479860
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-26'
+resolved: true
+schema_version: '1.0'
+title: Thomas Neilsen, Petitioner v. John Kellner, in His Official Capacity as District
+  Attorney, et al.

@@ -1,0 +1,12 @@
+case_id: scotus/72480055
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-11-06'
+resolved: true
+schema_version: '1.0'
+title: Centinela Skilled Nursing & Wellness Centre West, LLC, et al., Petitioners
+  v. Shalimah Abdullah, as Legal Representative and Successor-in-Interest of Eric
+  Holloway, Deceased, et al.

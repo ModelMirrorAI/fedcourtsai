@@ -1,0 +1,11 @@
+case_id: scotus/72479864
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-26'
+resolved: true
+schema_version: '1.0'
+title: Paul Steelman, Individually and as Trustee of the Steelman Asset Protection
+  Trust, et al., Petitioners v. Ernest Bock LLC

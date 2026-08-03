@@ -1,0 +1,11 @@
+case_id: scotus/72479875
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-27'
+resolved: true
+schema_version: '1.0'
+title: Otis Crandel, as Dependent Administrator of and on Behalf of Billy Wayne Worl,
+  Jr., et al., Petitioners v. Dalena Hall, et al.
