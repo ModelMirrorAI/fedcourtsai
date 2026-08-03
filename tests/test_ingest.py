@@ -319,6 +319,8 @@ def test_bulk_circuit_rows_drop_the_cluster_joined_fields() -> None:
     assert store_row.panel == []
     assert store_row.precedential_status is None
     assert store_row.summary is None
+    assert store_row.citations == []
+    assert store_row.citation_count is None
     # Docket-side facts are unaffected: they come from the docket row itself.
     assert store_row.case_name == "Doe v. Roe"
     assert store_row.parties == ["Jane Roe", "United States"]
@@ -332,9 +334,11 @@ def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
     scotus = to_corpus_row(from_bulk_row({**BULK_ROW, "court_id": "scotus"}))
     assert scotus.judges == ["Alan Lee", "Jane Smith"]
     assert scotus.precedential_status == "Published"
+    assert scotus.citation_count == 5
     api = to_corpus_row(from_api_docket(API_DOCKET))
     assert api.judges == ["Alan Lee", "Jane Smith"]
     assert api.precedential_status == "Published"
+    assert api.citation_count == 5
 
 
 def test_a_reserved_bulk_row_clears_a_stored_misjoin(tmp_path: Path) -> None:
@@ -351,6 +355,8 @@ def test_a_reserved_bulk_row_clears_a_stored_misjoin(tmp_path: Path) -> None:
     assert fetched.precedential_status is None
     assert fetched.judges == []
     assert fetched.panel == []
+    assert fetched.citations == []
+    assert fetched.citation_count is None
 
 
 def test_enriched_fields_round_trip_through_the_corpus(tmp_path: Path) -> None:

@@ -106,7 +106,10 @@ Free Law Project offers **replication of the CourtListener Postgres database**
 current within replication lag, no request caps. The pivot swaps the
 **channels**, never the **corpus**: the replica arrives as one more source
 feeding the same normalized rows through the shared normalizer
-(`ingest.from_bulk_row`). Adoption also needs a terms review of the agreement;
+(`ingest.from_bulk_row`) — note the storage projection withholds the
+cluster-derived fields from bulk-sourced circuit rows (`to_corpus_row`; the
+predicate keys on the channel), so a replica with a sound cluster join must
+revisit that carve-out. Adoption also needs a terms review of the agreement;
 the access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches that shape. Until then, four guardrails keep interim work from
 blocking the pivot: ingestion stays channel-agnostic; the API budget governor

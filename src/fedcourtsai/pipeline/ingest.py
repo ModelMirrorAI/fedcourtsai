@@ -863,16 +863,14 @@ def to_corpus_row(
     slices (19th-century cluster text and OCR-garbled judge names on
     2018-19 dockets — an id-space collision in the staged join), so the
     cluster-derived fields — ``summary``, ``precedential_status``, ``judges``
-    and the ``panel`` behind them — are dropped rather than stored for a bulk
+    and the ``panel`` behind them, and ``citations`` / ``citation_count``,
+    which the same join supplied — are dropped rather than stored for a bulk
     circuit row. The projection, not ``_normalize``, is the seam because the
     ingestion row faithfully records what upstream served; the store declines
     to keep what the join cannot vouch for. These columns take the incoming
     value on upsert (no latch), so a re-served bulk row also clears any stored
     misjoin. SCOTUS bulk rows are untouched: the misjoin is observed only on
-    the circuit slices, and the SCOTUS fields feed the cert-stage artifacts.
-    ``citations`` / ``citation_count`` pass through deliberately: no channel
-    reads opinion clusters for them, so they are all but unpopulated in the
-    store and there is nothing misjoined to withhold.
+    the circuit slices.
     """
     cluster_join_unsound = row.source == CorpusSource.bulk and row.court != "scotus"
     return corpus.CorpusRow(
@@ -892,8 +890,8 @@ def to_corpus_row(
         counsel=row.counsel,
         attorneys=row.attorneys,
         topic=row.nature_of_suit,
-        citations=row.citations,
-        citation_count=row.citation_count,
+        citations=[] if cluster_join_unsound else row.citations,
+        citation_count=None if cluster_join_unsound else row.citation_count,
         precedential_status=None if cluster_join_unsound else row.precedential_status,
         summary=None if cluster_join_unsound else row.summary,
         last_pulled=last_pulled,
