@@ -362,6 +362,23 @@ the baseline for exactly the petitions whose band moved, and the terminal rate
 against a frozen band understates it several-fold in the weak bands. The top band
 has nothing above it, so its two rates coincide exactly.
 
+**The pool is version-pinned, and a lagging statpack yields no baseline rather
+than a blended one.** A band name is meaningful only under the salience version
+that assigned it — a hypothetical `sal-v2 high` and a `sal-v1 high` are
+different populations that happen to share a label, and the risk-set rates
+compound the hazard because the risk sets are nested: moving one cutpoint moves
+every rate below it, not just the changed tier. So
+`fedcourtsai.pipeline.evaluate._pooled_band_rate` pools **only** the statpack
+Terms whose `salience_version` matches the version that produced the band
+(the frozen `PredictionContext.salience_version` on the risk-set path; the
+live scorer's version on the terminal path), and when no Term matches, the
+baseline is `None` — the same contracted no-baseline answer as a case with no
+prior-Term data — so `brier_skill_score` is omitted rather than computed
+against a number no version ever defined. The operational consequence is
+deliberate: after a salience version ships, forward cells scored under it have
+no skill baseline until the statpack re-renders under the same version, and
+that gap is visible instead of silently papered over.
+
 The tension is bias against variance, and it has no free answer. Per-Term
 high-band samples are small (61–163 weighted-resolved petitions), so a short
 window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
