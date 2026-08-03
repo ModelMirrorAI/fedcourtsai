@@ -570,7 +570,10 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
     """Interim acceptance: a discovered application is re-polled by the
     application rotation until it resolves — through the interim vocabulary,
     with the escalation signals latched onto its row — and nothing about it is
-    ever queued to predict."""
+    ever queued to predict. Its baseline event is motion/interim, so the
+    resolution surfaces on the unrecorded queue (the case-baseline guard
+    records a case-level outcome only for a petition/appeal baseline; the
+    interim outcome routing ships with the interim predict path)."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     config = LiveConfig()
@@ -634,10 +637,16 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
             scope=PredictScope.scotus_docket,
             today=date(2026, 7, 19),
         )
-    # Ground truth only: the resolution is recorded and surfaced (nothing
-    # predicted it, so it lands on evaluate_skipped), and predict stays empty.
+    # Ground truth only: the row latches the resolution, and the run log
+    # surfaces it on `unrecorded` — the application guard keeps it out of the
+    # cert rule, so no cert-rule `outcome.json` is written. Predict and
+    # evaluate stay empty.
     assert queues2.predict == [] and queues2.evaluate == []
-    assert [q["docket"] for q in queues2.evaluate_skipped] == [9_525_000_001]
+    assert queues2.evaluate_skipped == []
+    (unrecorded,) = queues2.unrecorded
+    assert unrecorded["docket"] == 9_525_000_001
+    assert unrecorded["events"] == ["evt-motion-disposition"]
+    assert "interim standard" in str(unrecorded["reason"])
     with corpus.connect(db) as conn:
         resolved = corpus.get_row(conn, case_id)
     assert resolved is not None
@@ -652,6 +661,54 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
     # Cycle 3: resolved, so the rotation no longer re-polls it.
     with corpus.connect(db) as conn:
         assert corpus.application_rotation(conn, limit=10) == []
+
+
+def test_scope_latched_application_resolves_silently_into_the_row(tmp_path: Path) -> None:
+    """The visibility boundary of the application rotation: once the scope
+    reconcile latches `predict_excluded` (applications are a standing
+    exclusion), `open_events` yields nothing, so the resolution surfaces on no
+    queue at all — the ground truth lands only as the row's latched disposition
+    columns."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    case_id = "scotus/9525000001"  # live_application_id(25, 1)
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    # The scope reconcile's standing latch on application dockets.
+    with corpus.connect(db) as conn:
+        corpus.set_predict_excluded(conn, case_id, True)
+
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 18 2026",
+            "Text": "Application (25A1) for stay presented to The Chief Justice and "
+            "by him referred to the Court is denied.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 19)
+        )
+    assert queues2.predict == [] and queues2.evaluate == []
+    assert queues2.evaluate_skipped == [] and queues2.unrecorded == []
+    with corpus.connect(db) as conn:
+        resolved = corpus.get_row(conn, case_id)
+    assert resolved is not None
+    assert resolved.disposition == "denied"
+    assert resolved.date_decided == date(2026, 7, 18)
 
 
 def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:

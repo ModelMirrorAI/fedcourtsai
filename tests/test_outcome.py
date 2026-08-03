@@ -120,6 +120,50 @@ def test_cert_dated_petition_resolves_at_the_petition_stage() -> None:
     assert outcome.resolved_at == date(2022, 10, 3)
 
 
+def test_decided_application_docket_stays_unrecorded_by_design() -> None:
+    # An application docket never takes the cert rule, whatever shape its
+    # baseline currently carries — the cert-shaped petition baseline or the
+    # motion/interim one. The interim outcome recording is stage-keyed and not
+    # yet implemented, so the resolution routes to unrecorded with a reason
+    # that says exactly that.
+    row = from_api_docket(
+        {
+            "id": 9001,
+            "court": "https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+            "docket_number": "24A1099",
+            "date_filed": "2024-08-01",
+            "date_terminated": "2024-08-15",
+            "disposition": "Petition denied",
+        }
+    )
+    for baseline in ("evt-petition-disposition", "evt-motion-disposition"):
+        resolution = detect_resolution(row, "scotus", 9001, [baseline])
+        assert not resolution.outcomes
+        (unrecorded,) = resolution.unrecorded
+        assert unrecorded.event_id == baseline
+        assert "interim standard" in unrecorded.reason
+
+
+def test_tolerant_application_spelling_is_also_guarded() -> None:
+    # The guard keys on the tolerant recognizer, so a historical spelling the
+    # strict `YYAnnn` parser rejects (and the relabel migration therefore
+    # skips) still never receives a cert-rule outcome.
+    row = from_api_docket(
+        {
+            "id": 9002,
+            "court": "https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+            "docket_number": "A-363",
+            "date_filed": "1998-08-01",
+            "date_terminated": "1998-08-15",
+            "disposition": "Petition denied",
+        }
+    )
+    resolution = detect_resolution(row, "scotus", 9002, ["evt-petition-disposition"])
+    assert not resolution.outcomes
+    (unrecorded,) = resolution.unrecorded
+    assert "interim standard" in unrecorded.reason
+
+
 def test_undecided_docket_is_a_noop() -> None:
     row = from_api_docket({"id": 7, "court_id": "ca9", "date_filed": "2024-01-01"})
     resolution = detect_resolution(row, "ca9", 7, ["evt-petition-review"])

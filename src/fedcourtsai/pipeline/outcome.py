@@ -350,7 +350,11 @@ def _build_outcome(
 # docket) resolves on its own filing's terms, and letting it inherit the
 # docket's cert disposition writes the petition's outcome onto a motion — the
 # resolved-sequentially shape of exactly that failure sits in the committed
-# ledger.
+# ledger. An application docket's motion/interim baseline is likewise
+# deliberately outside this tuple: its disposition resolves under the interim
+# standard, whose stage-keyed outcome routing ships with the interim predict
+# path, so until then a decided application routes to the unrecorded queue
+# rather than being recorded under the cert rule.
 _CASE_BASELINE_ID_PREFIXES = tuple(
     f"evt-{kind.value}-" for kind in (EventKind.petition, EventKind.appeal)
 )
@@ -420,11 +424,24 @@ def detect_resolution(
         return Resolution()
 
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
+    # An application docket never takes the cert rule, whatever its baseline's
+    # current shape: its disposition resolves under the interim standard, whose
+    # stage-keyed outcome recording ships with the interim predict path. Keyed
+    # on the tolerant docket-form recognizer so every recorded application
+    # spelling is covered, not just the strict `YYAnnn` the baseline mint and
+    # the relabel migration key on.
+    application = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     target = _cert_disposition_target(open_event_ids, stages or {})
-    if readable and target is not None:
+    if readable and not application and target is not None:
         return Resolution(outcomes={target: _build_outcome(row, target, disposition_basis)})
 
-    if not is_machine_readable(row.disposition):
+    if application:
+        reason = (
+            f"decided application docket ({row.disposition}): an application resolves "
+            "under the interim standard, whose stage-keyed outcome recording is not "
+            "implemented — the resolution stays unrecorded by design"
+        )
+    elif not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
     elif corpus.resolution_date(row) is None:
         reason = "disposition is machine-readable but the docket carries no decision date"

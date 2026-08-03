@@ -46,6 +46,42 @@ def test_scotus_baseline_is_a_petition() -> None:
     assert result.events[0].event_id == "evt-petition-disposition"
 
 
+def test_scotus_application_docket_baseline_is_a_motion() -> None:
+    # A `YYAnnn` application docket's baseline is the application's disposition
+    # under the interim standard — motion-kind, never the cert-shaped petition.
+    docket = _docket(
+        [],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+        docket_number="24A1099",
+    )
+    result = extract_events(docket)
+    (baseline,) = result.events
+    assert baseline.event_id == "evt-motion-disposition"
+    assert EventKind(baseline.kind) == EventKind.motion
+    assert baseline.stage == "interim"
+
+
+def test_application_docket_entries_do_not_disturb_the_motion_baseline() -> None:
+    # The SCOTUS petition-dedup collapse keys on petition-kind entries, and the
+    # administrative-motion filter on non-substantive motion text — neither may
+    # swallow or duplicate an application docket's motion baseline. A
+    # substantive stay entry still earns its own entry-pinned event under a
+    # distinct id.
+    docket = _docket(
+        [
+            _entry(1, "Motion to extend the time to file a response filed.", number=1),
+            _entry(2, "Motion for a stay pending appeal filed.", number=2),
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+        docket_number="24A1099",
+    )
+    result = extract_events(docket)
+    event_ids = [e.event_id for e in result.events]
+    assert event_ids[0] == "evt-motion-disposition"  # the baseline survives
+    assert len(event_ids) == len(set(event_ids)) == 2  # stay entry, distinct id
+    assert all(EventKind(e.kind) == EventKind.motion for e in result.events)
+
+
 def test_scotus_administrative_motions_extract_no_event() -> None:
     # Extensions of time (and IFP/amicus leave) are filed on nearly every
     # petition and granted as a matter of course — an open event for each would

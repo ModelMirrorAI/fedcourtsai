@@ -1189,6 +1189,85 @@ def test_set_event_resolved_unknown_event_is_a_noop(tmp_path: Path) -> None:
     assert event.resolved is False
 
 
+def test_rename_event_moves_the_row_to_the_new_identity(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    new = _event(
+        event_id="evt-motion-disposition",
+        kind=EventKind.motion,
+        description="carried over",
+        docket_entry_id=42,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(description="carried over", docket_entry_id=42)])
+        corpus.rename_event(conn, "ca9/123", "evt-appeal-disposition", new)
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event == new  # exactly one row, under the new identity
+
+
+def test_rename_event_never_regresses_the_resolved_latch(tmp_path: Path) -> None:
+    # The rename carries resolution as MAX(old, new): renaming a closed event
+    # with a freshly-minted (resolved=False) replacement must not reopen it.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=True)])
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.event_id == "evt-motion-disposition"
+    assert event.resolved is True
+
+
+def test_rename_event_folds_onto_an_existing_new_row(tmp_path: Path) -> None:
+    # Where the new identity already exists (a re-extraction minted it before
+    # the rename ran), the rename folds onto that row instead of duplicating,
+    # and the latch still takes the MAX across all three.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                _event(resolved=False),
+                _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=True),
+            ],
+        )
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.resolved is True
+
+
+def test_rename_event_requires_the_old_row_and_a_matching_case(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event()])
+        with pytest.raises(ValueError, match="no event"):
+            corpus.rename_event(
+                conn, "ca9/123", "evt-nonexistent", _event(event_id="evt-motion-disposition")
+            )
+        with pytest.raises(ValueError, match="names case"):
+            corpus.rename_event(
+                conn,
+                "ca9/999",
+                "evt-appeal-disposition",
+                _event(event_id="evt-motion-disposition"),
+            )
+        # A same-identity call would upsert-then-delete the row — a silent
+        # event delete, which the corpus deliberately has no API for.
+        with pytest.raises(ValueError, match="same-identity"):
+            corpus.rename_event(conn, "ca9/123", "evt-appeal-disposition", _event())
+        # No failed call disturbed the stored row.
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.event_id == "evt-appeal-disposition"
+
+
 def test_watermark_set_and_get(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

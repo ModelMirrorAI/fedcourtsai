@@ -35,7 +35,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind, Stage
-from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
+from ..supremecourt import (
+    IFP_SERIAL_BASE,
+    parse_scotus_application_number,
+    parse_scotus_docket_number,
+)
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 from .interim_signals import application_kind, escalation_signals, match_interim_disposition
 
@@ -787,15 +791,32 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     """Derive the default predictable event for a freshly-onboarded docket.
 
     Every tracked appellate matter has at least one thing to predict — the
-    disposition of the appeal (or, at SCOTUS, the petition). Discovery records
-    this as a raw fact in the corpus, replacing the per-case ``event.yaml`` the
-    retired active tier used. Deterministic so a re-discovery reproduces the same
-    ``event_id``; richer, agent-defined events can be layered on top later.
+    disposition of the appeal or, at SCOTUS, of the docket's originating filing:
+    the cert petition on a ``YY-NNNN`` docket, the application on a ``YYAnnn``
+    interim docket. Discovery records this as a raw fact in the corpus,
+    replacing the per-case ``event.yaml`` the retired active tier used.
+    Deterministic so a re-discovery reproduces the same ``event_id``; richer,
+    agent-defined events can be layered on top later.
     """
-    kind = EventKind.petition if row.court == "scotus" else EventKind.appeal
-    # Only a SCOTUS petition carries a decision standard here: the cert vote.
-    # A circuit appeal has no Supreme Court stage, so it declares none.
-    stage = Stage.cert if row.court == "scotus" else None
+    if row.court == "scotus" and parse_scotus_application_number(row.docket_number) is not None:
+        # An interim application docket: a stay/injunction application is a
+        # motion governed by the interim standard, not a cert petition. Keyed
+        # on the docket number's form because a fresh discovery may not yet
+        # carry the live channel's `application_kind` parse — and on the
+        # *strict* `YYAnnn` parser deliberately: it is the same key the live
+        # channel addresses and the relabel migration converges on, so mint and
+        # migration always agree on one identity. Historical tolerant-only
+        # spellings (`A-9999`, …) keep the petition baseline; they are
+        # predict-excluded, and the form-keyed application guard in
+        # `pipeline.outcome` (tolerant recognizer) keeps them out of the cert
+        # rule regardless.
+        kind, stage = EventKind.motion, Stage.interim
+    elif row.court == "scotus":
+        # A SCOTUS cert docket's baseline carries the cert-vote standard.
+        kind, stage = EventKind.petition, Stage.cert
+    else:
+        # A circuit appeal has no Supreme Court stage, so it declares none.
+        kind, stage = EventKind.appeal, None
     return corpus.CorpusEvent(
         event_id=ids.event_id(kind.value, "disposition"),
         case_id=row.case_id,

@@ -1642,6 +1642,22 @@ _SCOTUS_ORIGINAL_TEXT_RE = re.compile(r"ORIG")
 _SCOTUS_MISC_TEXT_RE = re.compile(r"MISC")
 
 
+def is_scotus_application_form(docket_number: str | None) -> bool:
+    """Whether a SCOTUS docket number is an interim application, in any spelling.
+
+    The tolerant recognizer — ``22A123``, older ``A-9999`` / ``A-706 (98-1368)``,
+    trailing-letter serials — where
+    :func:`fedcourtsai.supremecourt.parse_scotus_application_number` is strict:
+    this has to *recognize* every spelling an application might carry so none is
+    ever treated as a cert docket (scope exclusion, and the cert-rule outcome
+    guard in :mod:`fedcourtsai.pipeline.outcome`), while the strict parser has
+    to *address* one on the upstream JSON endpoint. Callers gate on
+    ``court == "scotus"`` themselves — the form is meaningless elsewhere.
+    """
+    dn = normalize_docket_number(docket_number) or ""
+    return bool(_SCOTUS_APPLICATION_RE.match(dn))
+
+
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is an application or original-jurisdiction matter.
 
@@ -1664,16 +1680,16 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
 
     Conservative — it matches on format alone, so it never catches a modern cert
     petition (which carries a hyphen, no letter and no ``Orig``/``Misc`` marker).
-    If application *stays* are later modeled as their own motion events,
-    refine this to spare those rather than the whole case; today an
-    application docket carries only the mis-fit cert baseline, so excluding the
-    case loses nothing.
+    An application docket's baseline is a motion event under the interim
+    standard, which has no predict path yet, so excluding the case still loses
+    nothing; when the interim predict path opens, refine this to spare
+    applications rather than the whole letter-form family.
     """
     if row.court != "scotus":
         return False
     dn = normalize_docket_number(row.docket_number) or ""
     return bool(
-        _SCOTUS_APPLICATION_RE.match(dn)
+        is_scotus_application_form(row.docket_number)
         or _SCOTUS_ORIGINAL_RE.match(dn)
         or _SCOTUS_MISCELLANEOUS_RE.match(dn)
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
@@ -2549,6 +2565,18 @@ def _event_update_clause(column: str) -> str:
     return f"{column}=excluded.{column}"
 
 
+def _event_upsert_sql() -> str:
+    """The one events upsert statement, honoring each column's latch."""
+    placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
+    updates = ", ".join(
+        _event_update_clause(c) for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
+    )
+    return (
+        f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(case_id, event_id) DO UPDATE SET {updates}"
+    )
+
+
 def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     """Insert or replace predictable-event definitions by ``(case_id, event_id)``.
 
@@ -2558,17 +2586,10 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     one column a re-ingest cannot regress (see :func:`_event_update_clause`), so a
     re-discovery or reconcile never reopens an already-closed event.
     """
-    placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
-    updates = ", ".join(
-        _event_update_clause(c) for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
-    )
-    sql = (
-        f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "
-        f"ON CONFLICT(case_id, event_id) DO UPDATE SET {updates}"
-    )
     with conn:
         conn.executemany(
-            sql, [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events]
+            _event_upsert_sql(),
+            [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events],
         )
     # The mirror reads the full committed set back per case (guarded on the flag,
     # so this is a pure no-op when the store is off).
@@ -2642,6 +2663,60 @@ def set_event_resolved(
     # the case's events here too — otherwise the casestore events.json keeps the
     # stale resolved=0 until the next re-ingest, and a casestore-provisioned
     # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def rename_event(
+    conn: sqlite3.Connection, case_id: str, old_event_id: str, new_event: CorpusEvent
+) -> None:
+    """Move one predictable event to a new identity, atomically.
+
+    The relabel primitive: in a single transaction, writes ``new_event`` (through
+    the same upsert as :func:`upsert_events`, so it folds onto an existing row of
+    that id rather than duplicating it) and deletes the ``(case_id,
+    old_event_id)`` row — no reader ever sees the case carrying both identities
+    or neither. ``resolved`` keeps its latch across the rename: the new row takes
+    the MAX over the old row, ``new_event``, and any pre-existing row under the
+    new id, so a rename can never reopen an event a prior outcome closed.
+    Raises ``ValueError`` when ``new_event`` names a different case, keeps the
+    same event id (upsert-then-delete would silently *drop* the event — use
+    :func:`upsert_events` to rewrite in place), or the old row is absent — a
+    rename is deliberate surgery, so a degenerate subject is a caller bug, not
+    a no-op.
+    """
+    if new_event.case_id != case_id:
+        raise ValueError(
+            f"rename_event: new event names case {new_event.case_id!r}, expected {case_id!r}"
+        )
+    if new_event.event_id == old_event_id:
+        raise ValueError(
+            f"rename_event: new event keeps the id {old_event_id!r}; a same-identity "
+            "rewrite belongs to upsert_events"
+        )
+    with conn:
+        record = conn.execute(
+            "SELECT resolved FROM events WHERE case_id = ? AND event_id = ?",
+            (case_id, old_event_id),
+        ).fetchone()
+        if record is None:
+            raise ValueError(f"rename_event: no event {old_event_id!r} on {case_id!r} to rename")
+        carried = new_event.model_copy(
+            update={"resolved": bool(new_event.resolved or record["resolved"])}
+        )
+        conn.execute(
+            _event_upsert_sql(),
+            tuple(_event_to_record(carried)[c] for c in _EVENT_COLUMNS),
+        )
+        # The old identity's row is dropped here and only here — the corpus
+        # keeps no general event-delete API, because a predictable event is a
+        # raw fact that otherwise only ever accretes or resolves.
+        conn.execute(
+            "DELETE FROM events WHERE case_id = ? AND event_id = ?", (case_id, old_event_id)
+        )
+    # Re-mirror the case's committed event set, exactly as `upsert_events` does,
+    # so the casestore events.json reflects the rename rather than keeping the
+    # old identity until the next re-ingest.
     if (sink := _mirror_sink()) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 

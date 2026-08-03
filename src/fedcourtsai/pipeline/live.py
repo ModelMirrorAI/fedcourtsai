@@ -458,15 +458,22 @@ def poll_applications(
     closed: applications are not predict-scoped, so ``queue_predict`` is off
     unconditionally and each poll exists to catch the entries filed since the
     last one — a response request, a referral, an amicus brief, the disposition
-    itself — and land them as the latched corpus signals plus, on resolution,
-    the deterministic ``outcome.json``. Routing is likewise **ungated**
-    regardless of the cycle's predict scope: the scope gate protects predict
-    spend, and with the predict seam closed there is nothing left for it to
-    protect — while gating would hide every resolved application from the run
-    log (they are permanently out of predict scope), leaving the stream's
-    accumulation invisible. So a resolved application always surfaces on
-    ``evaluate_skipped`` (nothing predicted it, so there is never anything to
-    score). The same politeness applies (the
+    itself — and land them as the latched corpus signals. Routing is likewise
+    **ungated** regardless of the cycle's predict scope: the scope gate
+    protects predict spend, and with the predict seam closed there is nothing
+    left for it to protect — while gating would hide every resolved
+    application from the run log (they are permanently out of predict scope),
+    leaving the stream's accumulation invisible. A resolved application never
+    receives a cert-rule ``outcome.json`` (the application guard in
+    :mod:`fedcourtsai.pipeline.outcome` keeps every application spelling out of
+    the cert rule; the stage-keyed interim recording ships with the interim
+    predict path, backfilling from the row's disposition — the baseline latches
+    ``resolved`` on re-extraction, so no open-event backlog accumulates). It
+    surfaces on ``unrecorded`` while its baseline is still open *and* its row
+    is not ``predict_excluded``; once the scope reconcile latches the row —
+    applications are a standing exclusion — ``open_events`` yields nothing and
+    the resolution lands silently as the row's latched disposition columns.
+    The same politeness applies (the
     client paces every fetch) and the same soft budget: on expiry the polls
     done so far are committed and the rotation resumes next cycle. A vanished
     docket (404 on a previously served number) is stamped so it cannot pin the
