@@ -88,8 +88,9 @@ def open_events(
     record predictable events as raw facts: a case enters the corpus with its
     event(s) open, and outcome detection flips each event's ``resolved`` flag when
     it records that event's ``outcome.json``. ``run-predict`` targets the
-    case-baseline subset of these — see :func:`forecastable_events`. Empty (not created) if the local corpus does not exist yet;
-    ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
+    case-baseline subset of these — see :func:`forecastable_events`. Empty (not
+    created) if the local corpus does not exist yet; ``backend`` selects the
+    read backend (see :func:`corpus.connect_readonly`).
 
     A case the scope reconcile has latched **out of scope** (``predict_excluded``)
     yields no predictable events here — so a stale/unresolvable or
