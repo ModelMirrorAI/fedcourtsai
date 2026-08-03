@@ -694,3 +694,10 @@ definition is fixed now:
   pair set inherits every publishing rule a claim total already carries:
   per-stratum, per-process-version, advisory beside the board rather than
   inside it.
+
+`metrics/claim-scores.json` (`fedcourts claim-scores`, on the scheduled
+metrics refresh) publishes the estimator under exactly these rules, with the
+evaluator's `reasoning_quality` grade as the semantic side of each pair —
+the judge-graded number the ledger already carries — pending the semantic
+claim family itself, whose blinding precondition is not met. The reading
+contract for the artifact is `metrics/README.md`.

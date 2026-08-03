@@ -40,6 +40,7 @@ CORPUS_POINTER = corpus_remote.pointer_path_for(CORPUS_BLOB)
 # them; this gate fails when one is missing or uncommitted.
 METRICS_ARTIFACTS: tuple[Path, ...] = (
     Path("metrics") / "leaderboard.json",
+    Path("metrics") / "claim-scores.json",
     Path("metrics") / "backtest.json",
     Path("metrics") / "statpack.json",
     Path("metrics") / "statpack.md",

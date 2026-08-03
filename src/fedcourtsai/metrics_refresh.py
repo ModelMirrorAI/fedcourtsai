@@ -3,9 +3,10 @@
 The metrics artifacts are deterministic roll-ups whose inputs (the ``data/``
 evaluations ledger, the corpus) move without them. The ``run-analytics``
 workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
-``metrics/leaderboard.json``, ``metrics/backtest.json``, and
-``metrics/statpack.{json,md}`` — by rerunning the tested ``fedcourts`` commands
-(``leaderboard`` / ``backtest`` / ``statpack``) and, when anything changed,
+``metrics/leaderboard.json``, ``metrics/claim-scores.json``,
+``metrics/backtest.json``, and ``metrics/statpack.{json,md}`` — by rerunning
+the tested ``fedcourts`` commands
+(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack``) and, when anything changed,
 landing the result as a **reviewed** PR (never a direct commit to ``main``,
 never auto-merged). ``metrics/docket.{json,md}`` is committed alongside them but
 is regenerated on demand with ``fedcourts docket``, not on the schedule.
@@ -29,9 +30,11 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from .claim_metrics import agreement_summary
 from .schemas import (
     Backtest,
     CertBacktest,
+    ClaimScoreBoard,
     DocketPack,
     Leaderboard,
     ScopeManifest,
@@ -55,6 +58,7 @@ REFRESH_BRANCH = "metrics/refresh"
 # it falsifies a claim `README.md` makes rather than merely aging a number.
 _ARTIFACT_ORDER = (
     "metrics/leaderboard.json",
+    "metrics/claim-scores.json",
     "metrics/backtest.json",
     "metrics/statpack.json",
     "metrics/statpack.md",
@@ -102,43 +106,75 @@ _SPECIAL_HEADLINES: dict[str, Callable[[Path], str]] = {
 }
 
 
+def _leaderboard_headline(path: Path) -> str:
+    """The board's line. Naming the scope keeps a refresh PR that drops the
+    board to 0 during the shakedown reading as the frozen headline, not a
+    regression."""
+    board = read_model(path, Leaderboard)
+    return (
+        f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
+        f"{board.evaluations_total} evaluation(s) "
+        f"({board.forward_evaluations} forward / "
+        f"{board.retrospective_evaluations} retrospective / "
+        f"{board.procedural_evaluations} procedural)"
+    )
+
+
+def _claim_scores_headline(path: Path) -> str:
+    """The claim-score surface's line. The scope and the suppression state are
+    the headline while the ledger carries no blocks: "0 of 0 ... no cells" is
+    the honest empty state."""
+    claims = read_model(path, ClaimScoreBoard)
+    return (
+        f"[{claims.process_scope}] {claims.cells_with_claims} of "
+        f"{claims.evaluations_total} evaluation(s) carry claim scores; "
+        f"forward judge agreement: {agreement_summary(claims.forward_agreement)}"
+    )
+
+
+def _backtest_headline(path: Path) -> str:
+    bt = read_model(path, Backtest)
+    return (
+        f"{bt.predictors_evaluated} predictor(s) over {bt.events_scored} "
+        f"resolved event(s) (retrospective by construction)"
+    )
+
+
+def _statpack_headline(path: Path) -> str:
+    pack = read_model(path, StatPack)
+    return f"{pack.corpus_rows} corpus case(s): {pack.resolved} resolved / {pack.open} open"
+
+
+def _docket_headline(path: Path) -> str:
+    """The docket pack's line, led by the figures that move between refreshes:
+    the section count is a constant, so a row headlined by it would never show
+    what changed."""
+    docket = read_model(path, DocketPack)
+    return (
+        f"{docket.coverage.live_slice_rows} live-slice case(s) "
+        f"({docket.coverage.live_slice_resolved} resolved) over "
+        f"{len(docket.terms)} Term(s)"
+    )
+
+
+# The metrics-model artifacts, keyed by filename (they all live under
+# `metrics/`; anything path-ambiguous belongs in _SPECIAL_HEADLINES instead).
+_FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
+    "leaderboard.json": _leaderboard_headline,
+    "claim-scores.json": _claim_scores_headline,
+    "backtest.json": _backtest_headline,
+    "statpack.json": _statpack_headline,
+    "docket.json": _docket_headline,
+}
+
+
 def _headline(path: Path, relpath: str) -> str:
     """One human line summarizing a refreshed artifact, read from the artifact itself."""
     special = _SPECIAL_HEADLINES.get(relpath)
     if special is not None:
         return special(path)
-    filename = Path(relpath).name
-    metrics_root = path.parent
-    if filename == "leaderboard.json":
-        board = read_model(metrics_root / filename, Leaderboard)
-        # Name the scope, so a refresh PR that drops the board to 0 during the
-        # shakedown reads as the frozen headline, not a regression.
-        return (
-            f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
-            f"{board.evaluations_total} evaluation(s) "
-            f"({board.forward_evaluations} forward / "
-            f"{board.retrospective_evaluations} retrospective / "
-            f"{board.procedural_evaluations} procedural)"
-        )
-    if filename == "backtest.json":
-        bt = read_model(metrics_root / filename, Backtest)
-        return (
-            f"{bt.predictors_evaluated} predictor(s) over {bt.events_scored} "
-            f"resolved event(s) (retrospective by construction)"
-        )
-    if filename == "statpack.json":
-        pack = read_model(metrics_root / filename, StatPack)
-        return f"{pack.corpus_rows} corpus case(s): {pack.resolved} resolved / {pack.open} open"
-    if filename == "docket.json":
-        docket = read_model(metrics_root / filename, DocketPack)
-        # Lead with the figures that move between refreshes: the section count is
-        # a constant, so a row headlined by it would never show what changed.
-        return (
-            f"{docket.coverage.live_slice_rows} live-slice case(s) "
-            f"({docket.coverage.live_slice_resolved} resolved) over "
-            f"{len(docket.terms)} Term(s)"
-        )
-    return "refreshed"
+    reader = _FILENAME_HEADLINES.get(Path(relpath).name)
+    return reader(path) if reader is not None else "refreshed"
 
 
 def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> MetricsRefreshPr | None:

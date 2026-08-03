@@ -1319,6 +1319,232 @@ class Leaderboard(_Strict):
     entries: list[LeaderboardEntry] = Field(default_factory=list)
 
 
+class ClaimMeanScore(_Strict):
+    """One declared claim's mean score over a claim-score stratum's cells.
+
+    A per-claim mean is **diagnostic**, never a headline: the reported unit is
+    the total over the declared set, and a claim singled out afterwards
+    describes that claim rather than the predictor
+    (``docs/outcome-decomposition.md``, *Reading a total honestly*). A claim
+    with ``scored == 0`` still appears — the declaration, not the data, fixes
+    the rows, so an unscored claim is a visible coverage gap rather than an
+    absent one.
+    """
+
+    claim_id: str = Field(description="The declared claim this row averages")
+    scored: int = Field(
+        ge=0,
+        description="Cells whose block carries a score for this claim — the "
+        "mean's denominator. 0 wherever the availability mask or a missing "
+        "baseline left the claim unscored on every cell",
+    )
+    mean_score: float | None = Field(
+        default=None,
+        description="Mean of the claim's per-cell scores over the `scored` "
+        "cells; null when none scored",
+    )
+
+
+class ClaimScoreStratum(_Strict):
+    """One predictor's claim-score aggregates over one pre-registration stratum.
+
+    Never pooled across strata and never a rank key: a claim total's variance
+    is unbounded above and a bold uninformed spray has a fat right tail, so
+    the defensible comparison is head-to-head at equal coverage — these
+    aggregates are descriptive (``docs/outcome-decomposition.md``). Means are
+    taken over evaluation cells; ``events`` beside ``cells`` exposes the
+    multiplicity, because every evaluator of the same prediction carries the
+    same harness-computed block, so a cell-mean weights an event by its
+    evaluator count.
+    """
+
+    events: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs among the cells carrying a "
+        "block — the event count the publishing rules require beside a total",
+    )
+    cells: int = Field(
+        ge=0, description="Evaluation cells carrying a claim-score block in this stratum"
+    )
+    scored_cells: int = Field(
+        ge=0,
+        description="Cells whose block total is non-null (at least one claim "
+        "scored) — the denominator of the three means",
+    )
+    declared_set_versions: list[str] = Field(
+        default_factory=list,
+        description="Distinct claim-set declarations behind the blocks, sorted. "
+        "A total is never comparable across declarations, so more than one "
+        "entry here means the means pool incomparable sets and must be read "
+        "as coverage only",
+    )
+    mean_total: float | None = Field(
+        default=None,
+        description="Mean per-cell claim total (Brier units, never bits) over "
+        "the scored cells; null when none scored. Not evidence of case-level "
+        "skill on its own — it travels with the floor and lift beside it",
+    )
+    mean_floor: float | None = Field(
+        default=None,
+        description="Mean per-cell floor over the scored cells — identically 0 "
+        "by propriety, computed rather than asserted so definition and number "
+        "cannot drift apart (see ClaimScoreBlock.floor for what stays unpriced)",
+    )
+    mean_lift: float | None = Field(
+        default=None,
+        description="Mean per-cell lift (total minus floor) over the scored "
+        "cells — identical to mean_total while the floor is identically 0",
+    )
+    claims: list[ClaimMeanScore] = Field(
+        default_factory=list,
+        description="Per-claim mean scores, in the declarations' reporting order",
+    )
+    largest_claim_id: str | None = Field(
+        default=None,
+        description="The claim behind largest_claim_score; null when no claim scored",
+    )
+    largest_claim_score: float | None = Field(
+        default=None,
+        description="The largest-magnitude single-claim score across the "
+        "stratum's cells — reported beside the means because extreme baselines "
+        "pay asymmetrically, so one lucky surprise can swamp dozens of honest "
+        "calls; a total that is one claim in disguise must be visible in the "
+        "same breath. Null when no claim scored",
+    )
+
+
+class ClaimJudgeAgreement(_Strict):
+    """The mechanical↔semantic agreement over one stratum — the judge validation.
+
+    The pre-registered estimator (``docs/outcome-decomposition.md``, *The
+    mechanical↔semantic agreement*): Kendall tau-b over per-cell pairs of
+    (mechanical claim total, ``reasoning_quality``). It validates the semantic
+    grader against the mechanical record, not the other way round — agreement
+    says the judge tracks something the ground truth also sees; disagreement
+    says it grades prose. Either result publishes. It says nothing about
+    which predictor is better, and it is never a rank key.
+    """
+
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b between the cells' mechanical claim totals "
+        "and their reasoning_quality grades. Null while suppressed (see "
+        "`suppressed`), and null when undefined (fewer than 2 pairs, or every "
+        "pair tied on one axis)",
+    )
+    pairs: int = Field(
+        ge=0,
+        description="The intersection population: cells carrying BOTH a scored "
+        "claim total and a reasoning_quality grade — printed beside the "
+        "coefficient because a tau over 4 cells is a different fact from a tau "
+        "over 400",
+    )
+    suppressed: bool = Field(
+        description="True when `pairs` is below the pre-registered minimum of "
+        "10 — the coefficient is withheld (null) and only the counts publish",
+    )
+    missing_claim_block: int = Field(
+        ge=0,
+        description="Cells in this stratum with no claim-score block at all — "
+        "the operational absences (a prediction predating the claims contract, "
+        "a malformed claims block), counted because differential absence "
+        "selects the pair set and a selected intersection must be visible",
+    )
+    masked_claim_total: int = Field(
+        ge=0,
+        description="Cells whose block is present but whose total is null — "
+        "every claim masked or baseline-less, a property of the record and "
+        "never of the predictor (the availability mask)",
+    )
+    missing_reasoning_quality: int = Field(
+        ge=0,
+        description="Cells without a reasoning_quality grade — the semantic "
+        "side's operational absences, counted for the same selection reason",
+    )
+
+
+class ClaimScoreEntry(_Strict):
+    """One predictor's claim-score aggregates, per stratum, in id order.
+
+    Entries carry no rank on purpose: a claim total is never a rank key, so
+    the artifact orders predictors alphabetically and assigns no standings.
+    """
+
+    predictor_id: str
+    forward: ClaimScoreStratum | None = Field(
+        default=None,
+        description="Aggregates over true forward forecasts; null until this "
+        "predictor has a forward cell carrying a block",
+    )
+    retrospective: ClaimScoreStratum | None = Field(
+        default=None,
+        description="Aggregates over retrospective cells — iteration signal "
+        "only, never claimable (a resolved case's claims are retrievable, not "
+        "forecastable); null when none carry a block",
+    )
+    procedural: ClaimScoreStratum | None = Field(
+        default=None,
+        description="Aggregates over mootness-basis cells, segmented out of "
+        "both timing strata exactly as the leaderboard segments them; null "
+        "when none carry a block",
+    )
+
+
+class ClaimScoreBoard(_Strict):
+    """``metrics/claim-scores.json`` — the mechanical claim-score surface.
+
+    A deterministic, offline roll-up of every ``claim_scores`` block in the
+    evaluations ledger, advisory beside the leaderboard rather than inside it:
+    nothing here alters or reorders the board. Aggregates live per predictor
+    per pre-registration stratum, never pooled; the headline is the per-stratum
+    judge validation (:class:`ClaimJudgeAgreement`). Computed by ``fedcourts
+    claim-scores``; carries no timestamp so the same ledger always serializes
+    identically. Interpretation contract: ``metrics/README.md`` and
+    ``docs/outcome-decomposition.md``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions this surface covers, keyed on the "
+        "prediction's stamp exactly like the leaderboard: `frozen` (the default "
+        "headline) or `all` (every version, including the shakedown). A claim "
+        "total is never comparable across the scope boundary",
+    )
+    evaluations_total: int = Field(
+        ge=0, description="Evaluation cells in scope (with or without a claim block)"
+    )
+    cells_with_claims: int = Field(
+        ge=0,
+        description="Evaluation cells carrying a claim-score block — 0 is the "
+        "honest state while no committed evaluation predates the claims "
+        "contract's first scored run, not a regression",
+    )
+    forward_agreement: ClaimJudgeAgreement | None = Field(
+        default=None,
+        description="The judge validation over the forward stratum — the only "
+        "stratum whose mechanical totals are forecasts; null when the stratum "
+        "has no cells in scope",
+    )
+    retrospective_agreement: ClaimJudgeAgreement | None = Field(
+        default=None,
+        description="The judge validation over the retrospective stratum "
+        "(iteration signal); null when the stratum has no cells in scope",
+    )
+    procedural_agreement: ClaimJudgeAgreement | None = Field(
+        default=None,
+        description="The judge validation over the procedural stratum; null "
+        "when the stratum has no cells in scope",
+    )
+    entries: list[ClaimScoreEntry] = Field(
+        default_factory=list,
+        description="One entry per predictor with at least one block-carrying "
+        "cell, ordered by predictor_id — never ranked",
+    )
+
+
 class BacktestCourtScore(_Strict):
     """One predictor's standings over a single court's slice of the back-test set.
 
@@ -3338,6 +3564,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "outcome.json": Outcome,
     "evaluation.json": Evaluation,
     "leaderboard.json": Leaderboard,
+    "claim-scores.json": ClaimScoreBoard,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
@@ -3357,6 +3584,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
     "leaderboard": Leaderboard,
+    "claim_score_board": ClaimScoreBoard,
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
