@@ -1,0 +1,10 @@
+case_id: scotus/72483407
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-28'
+resolved: true
+schema_version: '1.0'
+title: Cynthia Wheeler, et al., Petitioners v. Orange County, California, et al.

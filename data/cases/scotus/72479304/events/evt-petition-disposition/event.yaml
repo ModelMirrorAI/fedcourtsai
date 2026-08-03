@@ -1,0 +1,13 @@
+case_id: scotus/72479304
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-03-14'
+resolved: true
+schema_version: '1.0'
+title: Philip C. James, et al., Petitioners v. Glenn Allen Hegar, Jr., Individually
+  and in His Official Capacities as Comptroller of Texas, Chairman of the Texas Treasury
+  Safekeeping Trust Company, and Administrator of Texas Unclaimed Property Funds,
+  et al.

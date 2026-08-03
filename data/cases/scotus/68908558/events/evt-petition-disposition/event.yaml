@@ -1,0 +1,11 @@
+case_id: scotus/68908558
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-03-05'
+resolved: true
+schema_version: '1.0'
+title: John Doe, Through Next Friend Jane Roe, Petitioner v. Snap, Inc., dba Snapchat,
+  L.L.C., dba Snap, L.L.C.
