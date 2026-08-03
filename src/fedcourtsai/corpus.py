@@ -470,7 +470,8 @@ class CorpusEvent(BaseModel):
     stage: Stage | None = Field(
         default=None,
         description="Which decision standard governs this event (cert / interim / "
-        "merits); None where no Supreme Court decision standard applies.",
+        "merits); None where no stage is recorded — no Supreme Court standard "
+        "applies, or the writer does not classify one for this event.",
     )
     title: str = ""
     description: str | None = None

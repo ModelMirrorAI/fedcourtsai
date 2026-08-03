@@ -259,9 +259,10 @@ class PredictableEvent(_Strict):
     stage: Stage | None = Field(
         default=None,
         description="Which decision standard governs this event (cert / interim / "
-        "merits) — see the Stage vocabulary. Null where no Supreme Court decision "
-        "standard applies (e.g. a circuit motion) or on records written before "
-        "the field existed; consumers treat null as 'no rule', never as a guess.",
+        "merits) — see the Stage vocabulary. Null means no stage is recorded: "
+        "either no Supreme Court decision standard applies (a circuit appeal), or "
+        "the writer does not classify one for this event; consumers treat null as "
+        "'no rule', never as a guess.",
     )
     title: str
     description: str | None = None

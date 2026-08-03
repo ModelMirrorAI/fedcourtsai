@@ -177,6 +177,7 @@ classifying its entries; see [docs/data-pipeline.md](../docs/data-pipeline.md).
 | `event_id`        | text (PK)   | `evt-<kind>-<slug>`; unique within a case    |
 | `court`           | text        | CourtListener court id                       |
 | `kind`            | text        | motion / petition / appeal / order          |
+| `stage`           | text        | decision standard (cert / interim / merits); null where none is recorded |
 | `title`           | text        |                                             |
 | `description`     | text        |                                             |
 | `docket_entry_id` | integer     | docket entry the event is pinned to; null for case-level |

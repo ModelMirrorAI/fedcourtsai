@@ -12,9 +12,12 @@ how much of a vote record is there.
 What is live is narrow and worth naming, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice, feeding
-the leaderboard's `mean_vote_accuracy`. Everything else is unbuilt: no artifact
-carries a stage, a writing role, a judgment, or a provenance block; no schema
-carries a vote *margin*; and no aggregation rule is applied to anything. That is pre-registration: the model is settled before
+the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
+`stage` — stamped `cert` on the SCOTUS petition baseline event, absent
+everywhere the writers do not yet classify one — but no aggregation rule reads
+it from data. Everything else is unbuilt: no artifact carries a writing role, a
+judgment, or a provenance block; no schema carries a vote *margin*; and no
+aggregation rule is applied to anything. That is pre-registration: the model is settled before
 there is data to fit it to, which is the only order in which the choice is
 credible. `docs/outcome-decomposition.md` is the companion — it defines what a
 scoreable claim is and the rule that scores one, and its tests govern anything

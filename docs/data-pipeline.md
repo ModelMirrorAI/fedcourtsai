@@ -634,7 +634,9 @@ into its ledger directory (`fedcourts materialize-event`) so the judgment PR
 carries it — and the deterministic outcome writer materializes it beside every
 `outcome.json` it writes, refusing to write an outcome whose event the corpus
 does not hold. An event definition also names its **stage** — the decision
-standard that governs it (cert, interim, or merits; null where none applies,
-as on a circuit motion) — carried from the corpus row into `event.yaml` so a
-cell and its consumers read the standard from the record rather than inferring
-it from the event id.
+standard that governs it (cert, interim, or merits) — carried from the corpus
+row into `event.yaml` so a cell and its consumers read the standard from the
+record rather than inferring it from the event id. The field is nullable and
+null means **no stage recorded**: either no Supreme Court standard governs the
+event (a circuit appeal), or the writer does not classify one there yet;
+consumers treat null as "no rule", never as a guess.
