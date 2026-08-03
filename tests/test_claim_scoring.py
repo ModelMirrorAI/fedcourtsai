@@ -1,10 +1,9 @@
 """The per-claim scoring rule.
 
-Pre-registered in ``docs/outcome-decomposition.md``. Only the rule itself is
-built: the claim *set* it was to be applied to turned out not to be forecastable,
-so nothing calls this yet. The rule survives that because it is independent of
-which claims are eventually declared — and its properties are what the
-decomposition rests on, so they are pinned here rather than left in prose.
+Pre-registered in ``docs/outcome-decomposition.md`` and consumed by the declared
+claim sets (``pipeline.claims`` — exercised in ``test_claims.py``). The rule is
+independent of which claims are declared against it, and its properties are what
+the decomposition rests on, so they are pinned here rather than left in prose.
 """
 
 from __future__ import annotations

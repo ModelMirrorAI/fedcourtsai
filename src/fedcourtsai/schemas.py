@@ -450,6 +450,29 @@ class PredictionContext(_Strict):
     )
 
 
+class ClaimProbability(_Strict):
+    """One declared claim's stated probability, inside ``Prediction.claims``.
+
+    The claim *set* is the harness's, never the predictor's: per event kind the
+    declaration table in ``fedcourtsai.pipeline.claims`` fixes exactly which
+    claims a prediction carries, and the predictor states a probability for
+    every one of them — no additions, no declining (the mandatory-set rationale
+    is in ``docs/outcome-decomposition.md``). This record carries only the
+    predictor's number; the resolution, the baseline, and the score are
+    harness-computed at evaluation time, never stated here.
+    """
+
+    claim_id: str = Field(
+        description="The declared claim this probability answers, e.g. "
+        "'disposition', 'relist-increment', 'cvsg-increment'"
+    )
+    probability: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The predictor's probability that the claim resolves true",
+    )
+
+
 class Prediction(_Strict):
     """``prediction.json`` — one predictor's quantitative output for an event."""
 
@@ -514,6 +537,16 @@ class Prediction(_Strict):
         "provisioning. Harness-written like process_version — anything an agent "
         "puts here is overwritten. Absent on predictions written before the block "
         "existed, and on cells that ran without a provisioned snapshot.",
+    )
+    claims: list[ClaimProbability] | None = Field(
+        default=None,
+        description="Per-claim probabilities over the harness-declared claim set "
+        "for this event's kind (`fedcourtsai.pipeline.claims`; for a cert-stage "
+        "petition: disposition, relist-increment, cvsg-increment). The set is "
+        "fixed and mandatory — the harness declares it, the predictor states a "
+        "probability for every declared claim, and it can neither add claims nor "
+        "skip them. Optional (defaults None) only so predictions written before "
+        "the field existed still validate.",
     )
 
 
@@ -663,6 +696,105 @@ class BigCaseAssessment(_Strict):
     )
 
 
+class ClaimScore(_Strict):
+    """One declared claim's scored row inside ``Evaluation.claim_scores``.
+
+    Everything here except ``probability`` is the harness's: the outcome is
+    resolved in code from committed artifacts, and the baseline is computed
+    from history strictly prior to the case's Term — never the predictor's
+    word, never a corpus column that keeps moving. The scoring rule and its
+    properties are pre-registered in ``docs/outcome-decomposition.md``.
+    """
+
+    claim_id: str = Field(description="The declared claim this row scores")
+    probability: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The predictor's stated probability, copied from the prediction's claims block",
+    )
+    baseline: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The harness-computed baseline: the claim's rate pooled over "
+        "statpack Terms strictly before the case's Term, conditioned on the "
+        "state the prediction's frozen context disclosed. None when the "
+        "committed statpack publishes no cut that supports a strictly-prior, "
+        "properly-conditioned rate for this claim — the claim then goes "
+        "unscored rather than scored against an invented number",
+    )
+    outcome: int | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="How the claim resolved: 1 true, 0 false. None when the "
+        "record does not disclose it — the availability mask, a property of the "
+        "record and never of the predictor: an outcome without a signals block "
+        "discloses no increment, a context whose signals were unobservable "
+        "fixes no prediction-time value, and a CVSG already on the docket at "
+        "prediction time makes the cvsg-increment claim vacuous",
+    )
+    score: float | None = Field(
+        default=None,
+        description="(baseline - outcome)^2 - (probability - outcome)^2 — the "
+        "baseline's Brier minus the forecast's (`pipeline.evaluate.claim_score`). "
+        "None when outcome or baseline is None",
+    )
+
+
+class ClaimScoreBlock(_Strict):
+    """The harness-computed mechanical claim scores for one prediction.
+
+    Advisory and segmented, exactly like the leakage assessment: the block
+    describes a cell without changing the numbers it is ranked on, and it never
+    alters ``correct``, ``brier_score``, ``vote_accuracy``, or
+    ``brier_skill_score``. Computed end to end by
+    ``fedcourtsai.pipeline.claims.score_claims`` from committed artifacts — the
+    prediction's frozen context, the outcome's signals block, and the committed
+    statpack — so re-scoring the same cell reproduces the same block. The
+    publishing rules a total travels under (the floor beside it, the event
+    count, never pooled across strata) are ``docs/outcome-decomposition.md``'s.
+    """
+
+    declared_set_version: str = Field(
+        description="The claim-set declaration that produced this block's rows, "
+        "e.g. 'cert-v1' — the versioned constant in `fedcourtsai.pipeline.claims`"
+    )
+    claims: list[ClaimScore] = Field(
+        default_factory=list,
+        description="One row per declared claim, in the declaration's order",
+    )
+    total: float | None = Field(
+        default=None,
+        description="Sum of `score` over the scored claims only (those with both "
+        "an outcome and a baseline); None when no claim scored. Descriptive, "
+        "never a rank key, and not evidence of case-level skill on its own — it "
+        "travels with the floor and lift beside it",
+    )
+    floor: float | None = Field(
+        default=None,
+        description="The realized total of the control conditioned the way the "
+        "predictor is conditioned: it reports, for every scored claim, the "
+        "harness baseline itself, so it is identically 0 over the scored claims "
+        "(restating the baseline is worth exactly nothing, by propriety) — "
+        "computed per block rather than asserted, so definition and number "
+        "cannot drift apart. It prices baseline-restating and nothing else: the "
+        "information-free expectation from base-rate drift (~(b - pi)^2 per "
+        "claim, the dominant term) and from baseline estimation error "
+        "(~pi(1-pi)/n, small at the pooled denominators) is not bounded by this "
+        "number — the comparison that carries a skill claim is head-to-head at "
+        "equal coverage, which cancels the baseline term entirely "
+        "(docs/outcome-decomposition.md). None when no claim scored",
+    )
+    lift: float | None = Field(
+        default=None,
+        description="`total` minus `floor` — identical to the total while the "
+        "floor is identically 0. Descriptive like the total; see the floor's "
+        "description for what remains unpriced and which comparison carries a "
+        "skill claim. None when no claim scored",
+    )
+
+
 class Evaluation(_Strict):
     """``evaluation.json`` — one evaluator scoring one predictor's prediction."""
 
@@ -738,6 +870,16 @@ class Evaluation(_Strict):
         "when `segment_base_rate` is null, when the baseline is already exact (the "
         "base rate matched the outcome), and on records written before the field "
         "existed.",
+    )
+    claim_scores: ClaimScoreBlock | None = Field(
+        default=None,
+        description="The harness-computed mechanical claim scores over the "
+        "prediction's declared claim set (`fedcourtsai.pipeline.claims`). "
+        "Advisory: it segments and describes, and never alters `correct`, "
+        "`brier_score`, `vote_accuracy`, or `brier_skill_score`. Never the "
+        "evaluator's word — the harness computes the block from committed "
+        "artifacts. Null on records written before the block existed and on "
+        "predictions carrying no claims block.",
     )
     notes_doc: str = "evaluation.md"
     process_version: ProcessVersion | None = Field(

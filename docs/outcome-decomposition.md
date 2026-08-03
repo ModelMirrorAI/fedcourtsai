@@ -7,13 +7,16 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-**Only the scoring rule is implemented** (`pipeline.evaluate.claim_score`). No
-schema carries a claim, no prompt asks for one, and no claim set is declared —
-because the first set proposed for it was specified in a way that did not
-resolve. *A claim set that failed* records why, in detail, because the failure is
-the most useful thing this document currently contains. The events those claims
-named are forecastable; the claims about them were not, which is a different and
-more recoverable problem.
+**The mechanical cert-stage family is implemented; everything else here is
+pre-registration.** The scoring rule is `pipeline.evaluate.claim_score`; the
+declared cert-stage set — three claims under the `cert-v1` declaration — lives
+in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
+availability mask beside it; `Prediction.claims` carries the predictor's
+probabilities and `Evaluation.claim_scores` the harness-computed block. The
+first set proposed against the rule was specified in a way that did not
+resolve, and *A claim set that failed* records why, in detail, because its
+tests are what the declared set was chosen against. The merits claims and the
+whole semantic family remain pre-registered only.
 
 The rest is pre-registration: the decomposition and the rule are settled before
 there is data to fit them to, which is the only order in which the choice of rule
@@ -66,9 +69,9 @@ decided case.
 
 | Claim | Resolves against |
 | --- | --- |
-| Disposition | `Outcome.actual_disposition` |
-| The petition is relisted at least once | `distribution_count` past its value at prediction time |
-| The Court calls for the Solicitor General's views | `cvsg_date` becoming non-null |
+| Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution no schema field carries |
+| The petition is distributed at least once more (`relist-increment`) | `Outcome.signals.distribution_count` past `Prediction.context.distribution_count` |
+| The Court calls for the Solicitor General's views (`cvsg-increment`) | `Outcome.signals.cvsg_date` becoming non-null, from null (and observable) at prediction |
 
 These are the ones worth attention, because their signals are already populated:
 `distribution_count` is set on every live SCOTUS row and `cvsg_date` on the
@@ -88,9 +91,13 @@ is committed.
 Disposition is **one** claim, not two. `Outcome.actual_granted` is a pure
 function of `actual_disposition` (`pipeline.outcome.granted_flag`), so scoring
 both would score one belief twice — see *No claim may be derived from another*.
-It is also the one multi-class claim here: the disposition vocabulary has seven
-values, so it takes a multi-class proper score (the sum of per-value Brier terms)
-rather than the binary form below. The binary form covers every other claim.
+It is also the set's one candidate for a multi-class score: the disposition
+vocabulary has seven values, so its full-resolution form is the sum of
+per-value Brier terms, which has the same properties as the binary rule. The
+**declared** form is nonetheless binary — the grant projection — because a
+multi-class claim needs a per-label distribution and no schema field carries
+one; when such a field exists, the fineness preference below points at the
+multi-class form. The binary form covers every declared claim.
 
 ### Semantic claims
 
@@ -142,8 +149,9 @@ under the same strictly-prior-Term guard `segment_base_rate` uses, pinned before
 the outcome exists, and stamped into the evaluation like `usage.json` and the
 process version: a harness field, not an agent's word.
 
-Disposition is the one multi-class claim; it takes the sum of per-value Brier
-terms, which has the same properties. Everything else is binary.
+A multi-class disposition claim would take the sum of per-value Brier terms,
+which has the same properties; the declared disposition claim is binary (see
+*Mechanical claims*), so today every claim takes the binary form.
 
 ### What the rule does and does not protect against
 
@@ -200,19 +208,40 @@ Because information-free volume pays, a claim total is unreadable alone. It
 travels with a **floor** and the **lift** over it, exactly as an accuracy figure
 travels with the always-deny floor:
 
-- the **floor** is the total earned by a control that reports, for every claim,
-  the unconditional rate for that claim type over a recent window;
-- the **lift** is the predictor's total minus that floor.
+- the **floor** is the realized total of the control conditioned the way the
+  predictor is conditioned: it reports, for every scored claim, the harness
+  baseline itself. That control's total is identically zero — restating the
+  baseline is worth exactly nothing, by propriety — and the zero is *computed*
+  per block rather than asserted, so the definition and the published number
+  cannot drift apart. Test 4 below is why the control is the conditioned one:
+  any computable nonzero control (a recent-window rate, an unconditional rate)
+  measures window drift or a conditioning mismatch rather than
+  information-free score, and can sit below zero in expectation — the failure
+  *The floor priced none of it* records.
+- the **lift** is the predictor's total minus that floor — identical to the
+  total while the floor is identically zero.
 
-The lift is the number that carries a claim about skill. The raw total is
-descriptive. Publishing the total without the floor beside it would repeat, on a
-new surface, the mistake `metrics/README.md` already forbids for accuracy.
+What the floor prices, then, is exactly baseline-restating and no more. The
+information-free score that remains unpriced is the expectation from base-rate
+drift — the `(b − pi)²` worked example above, about 0.01 a claim where per-Term
+rates move as these do, and the dominant term — plus baseline estimation
+error, about `pi(1−pi)/n`, small at the pooled denominators. So neither the
+total nor the lift is evidence of case-level skill on its own, and neither is
+a rank key: the comparison that carries a skill claim is head-to-head at equal
+coverage, which cancels the baseline term entirely (*Why the difference form*,
+below). Publishing the total without the floor beside it would still repeat,
+on a new surface, the mistake `metrics/README.md` already forbids for accuracy
+— the floor's presence is what states, in the artifact itself, which control
+was priced.
 
 Two supporting requirements: each claim's baseline needs a stated minimum
-observation count and a smoothing rule, since the free expectation is largest
-exactly where the history is thinnest; and the baseline's lookback window has to
-be stated with the figure, because moving it re-bases every claim score at once
-and a comparison across the change is not a comparison.
+observation count and a smoothing rule, since the unpriced free expectation is
+largest exactly where the history is thinnest — the declared set defers both,
+tolerable only because its one live baseline pools band denominators in the
+weighted hundreds to thousands, and a thin-history baseline must land them
+before it lands; and the baseline's lookback window has to be stated with the
+figure, because moving it re-bases every claim score at once and a comparison
+across the change is not a comparison.
 
 ### Why the set is mandatory
 
@@ -336,9 +365,11 @@ surface can produce — an impressive figure manufactured entirely by retrieval.
 
 Replay claim totals are iteration instruments only, and never claimable, on the
 same footing as every other back-test number. The leakage grading also has to
-reach claim level before the block is populated: it currently grades
-outcome-revealing retrieval for the disposition, and a claim set widens what
-"the outcome" means.
+reach claim level before an *increment* claim scores: it grades
+outcome-revealing retrieval for the disposition, which covers the one claim
+that scores today, and a scoring increment claim widens what "the outcome"
+means — that widening is due with the per-Term cuts that give the increments a
+baseline.
 
 ## Advisory, and segmented
 
@@ -419,12 +450,13 @@ applies. They are also resolved-only, which understates slightly because
 relisting delays resolution — under a point pooled, but roughly ten points wide
 in an open Term.
 
-Neither figure is published. The statpack's relist cut pools IFP petitions, which
-relist far less often, and no paid-only relist cut exists — so both were computed
-directly over the corpus for this document. A figure with no artifact behind it
-is the same maintenance hazard as a constant in a prompt; adding
-`row_filter=_is_scored_segment_row` to the relist cut, as the salience-band cut
-already carries, is what would fix it.
+Neither figure is published as such: both were computed directly over the
+corpus for this document. The statpack's relist and CVSG cuts do carry the
+paid-scored-segment conditioning (`row_filter=_is_scored_segment_row`), so the
+population matches — but they publish terminal-bucket shares pooled across
+every Term, not the per-count forward hazard, so the hazard figures here still
+have no committed artifact behind them: the same maintenance hazard as a
+constant in a prompt, and the per-Term hazard cut is what would retire it.
 
 A base rate far enough from 0 to be worth forecasting leaves room for a forecast
 to move it; whether the docket and the briefs support *skill* over that base rate
@@ -516,25 +548,44 @@ Drawn from the above, and cheaper to apply than to rediscover:
 
 ## What is scoreable today
 
-**Nothing, yet.** The signals are recorded and the rule exists, but the two
-claims that looked scoreable are withdrawn for the reasons above, and no
-replacement set is declared. Withdrawn **as specified**, not as unforecastable:
-both name events that are genuinely uncertain at prediction time, and both are
-resolvable as increments now that `Prediction.context` carries the signal
-values as at prediction — what is missing is a declared replacement set, not
-an artifact.
-Disposition remains the only claim whose resolution and baseline both exist — and
-it is deliberately not a claim here, because it already has `segment_base_rate`
-and the headline Brier path, so scoring it again would pay one belief twice.
+**The declared cert-stage set: `cert-v1`.** A petition-kind event carries
+exactly three claims, declared in `pipeline.claims` and answered in full by
+every predictor (`Prediction.claims`); the harness scores them into
+`Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
+beside the process version — never the evaluator's word, and an
+evaluator-authored block does not survive the stamp) from committed artifacts
+only: the prediction's frozen `context`, the outcome's `signals` block, and
+the committed statpack. The same committed inputs — statpack revision
+included — reproduce the same block. A claim scores only where its outcome is
+disclosed **and** a strictly-prior baseline exists; each gap is recorded on
+the claim's row rather than papered over, and the total sums the scored
+claims alone. Until the per-Term cuts below land, the one claim that scores
+is `disposition` — on this advisory surface, a re-expression of the headline
+Brier path — so the block's incremental content today is the committed
+increment probabilities themselves, banked from the first claiming cell so
+they are there to score once their baselines exist.
 
-| Claim | State |
-| --- | --- |
-| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
-| Relisted at least once | **Withdrawn as specified** — its specification resolved an absolute level, trivially true wherever the petition was already relisted; an increment respecification is possible now that `Prediction.context` records the count as at prediction, over the (currently empty) population of cells that carry the block. The underlying event is forecastable: about 26% of paid petitions at a single distribution draw a first relist (denial-reweighted, est. n≈13,100) |
-| CVSG | **Withdrawn as specified** — same level-versus-increment defect, and its per-Term rate is censored in any open Term |
-| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome and nothing populates it, so the blocker is data rather than schema — the vote vocabulary and the provenance block that says how much of a record is there both exist |
-| Majority author, concurrence, dissent | `JusticeVote.writing` records these per Justice, but nothing populates it and nothing on the corpus row carries authorship for a modern case |
-| All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
+| Claim | Resolver | Baseline |
+| --- | --- | --- |
+| `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a schema field carrying a per-label distribution | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
+| `relist-increment` | 1 iff `Outcome.signals.distribution_count` rose past `Prediction.context.distribution_count`; masked where either end is undisclosed | None yet. The honest baseline is the per-count risk-set hazard over strictly-prior Terms — and the hazard moves steeply in the count (≈26% at one distribution, 27% at two, 47% at three, 71% at four, denial-reweighted), so nothing coarser is properly conditioned. The pack's relist cut pools every Term, the case's own included, and its per-Term surface carries no relist cut — so the claim goes unscored until a per-Term relist-bucket cut over the scored segment lands |
+| `cvsg-increment` | 1 iff `Outcome.signals.cvsg_date` is non-null, given null — and observable — at prediction; masked as **vacuous** where a CVSG already sat on the docket, there being nothing left to forecast | None yet, for the same strictly-prior gap — and the future per-Term cut must correct for the CVSG censoring recorded above, since a resolved-only rate in an open Term runs at a fraction of the true one |
+
+**The availability mask is a property of the record, never of the predictor.**
+A claim is unresolvable — `outcome: null` on its row, excluded from the total —
+only where the committed record does not disclose what it needs: an outcome
+without a `signals` block, a context whose signals were unobservable, a CVSG
+already on the docket making the increment vacuous. A predictor cannot decline
+its way into the mask, and every declared claim is answered regardless of
+whether it will resolve.
+
+**What stays out, and why.** The merits claims wait for the merits stage:
+`Outcome.votes` is `[]` in every committed outcome, and nothing records
+authorship or separate writings for a modern case — so the merits set is
+deliberately **not** declared here; it arrives with the merits stage, against
+the record that stage actually produces. All semantic claims wait on opinion
+ingestion (`has_opinion` is 0 on every corpus row) and on the blinding
+precondition above.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
 
@@ -583,27 +634,29 @@ never-parsed.
 
 The merits half of this document is blocked on data that is not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
-why the taxonomy is pre-registered rather than implemented.
+why that half of the taxonomy is pre-registered rather than implemented.
 
-The cert-stage half is blocked on nothing structural: `Outcome.signals`
-freezes what a cert-stage claim resolves *against*, and `Prediction.context`
-freezes what it resolves *from*, so an increment claim is specifiable today and
-the eight tests above are what a replacement set has to pass.
+The cert-stage half is declared: `Outcome.signals` freezes what a cert-stage
+claim resolves *against*, `Prediction.context` freezes what it resolves *from*,
+and `cert-v1` above is the set the eight tests were applied to. A change to
+what the set carries is a new declaration version, never an in-place edit —
+the same discipline the salience function keeps.
 
-No set is declared, and that is a **pre-registered scope decision, not a
-backlog item**: claim scoring sits outside the frozen process. The evaluator
-prompt's do-not-score rule is itself part of the digest-hashed prompt bytes, so
-the frozen process scores no claims by construction, and the first declared
-claim set — which must change both prompts — arrives as a deliberate new
-process version rather than as an edit to the frozen one. Until then the
-scoring rule, the tests, and the agreement pre-registration below are the
-contract a future set lands against.
+Claim scoring still sits outside any earlier frozen process, by construction:
+both prompts carry the claim contract in their digest-hashed bytes, so the
+process version that asks for claims is distinct from every process that did
+not, and a cell run under an earlier digest carries no claims block and scores
+none. A claim total is never comparable across that boundary — the time-skewed
+coverage note above is the same fact seen from the data side.
 
 Two consequences worth stating plainly:
 
 - **Disposition alone is not worth a schema.** It would duplicate `brier_score`
   under a new name and report one claim as a "claim set". A cert-stage set of
-  three, or a merits per-justice vote set, is the unit that earns the block.
+  three, or a merits per-justice vote set, is the unit that earns the block —
+  and the declared set keeps all three even while the increments await their
+  baselines, because what the block collects meanwhile is their probabilities,
+  which would otherwise be lost to the wait.
 - **Nothing here may be published as a result** until the claims it scores
   resolve against fixed sources and the floor above is computed beside them.
   `metrics/README.md` governs what may be claimed from a number, and a claim

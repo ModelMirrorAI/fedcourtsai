@@ -185,7 +185,7 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
   event.yaml                     # what is predicted: kind, stage, decision target
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
-    prediction.json              # quantitative: granted 1/0, P(granted), votes
+    prediction.json              # quantitative: granted 1/0, P(granted), votes, claim probabilities
     reasoning.md                 # qualitative: why this number
     predicted_reasoning.md       # qualitative: what the court will do, and why
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
@@ -247,7 +247,7 @@ docs/               design & operations references (see Documentation below)
 - [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
-- [Outcome decomposition](docs/outcome-decomposition.md) (pre-registered scoring of predicted reasoning)
+- [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
 - [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)

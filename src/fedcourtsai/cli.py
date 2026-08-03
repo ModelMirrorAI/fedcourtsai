@@ -69,6 +69,7 @@ from .collect import (
 from .config import (
     CorpusBackend,
     PredictScope,
+    Settings,
     get_settings,
     load_courts,
     load_evaluate_config,
@@ -103,11 +104,12 @@ from .ops import (
     summarize_substance,
     summarize_trigger_issues,
 )
-from .paths import CasePaths
+from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe
 from .pipeline.asof import CutoffPolicy
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
+from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
@@ -130,6 +132,7 @@ from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
     CellFailure,
+    ClaimScoreBlock,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -140,6 +143,7 @@ from .schemas import (
     LiveFrontier,
     ModelUsage,
     OpsReport,
+    Outcome,
     PredictableEvent,
     Prediction,
     PredictionContext,
@@ -1316,7 +1320,11 @@ def stamp_cell(
     unstamped-but-frozen-looking prediction.
 
     For ``--role evaluator`` a single cell writes one ``evaluation.json`` per
-    scored predictor, so every one under this evaluator+event+run is stamped.
+    scored predictor, so every one under this evaluator+event+run is stamped —
+    and each also gets its ``claim_scores`` block computed and written here
+    (:func:`fedcourtsai.pipeline.claims.score_claims`, over the committed
+    prediction, outcome, and statpack), so the block is the harness's word and
+    an evaluator-authored one never survives the stamp.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -1362,13 +1370,50 @@ def stamp_cell(
         if not path.is_file():
             continue
         record = read_model(path, model_cls)
-        write_json(path, record.model_copy(update=update))
+        cell_update = dict(update)
+        if isinstance(record, Evaluation):
+            # Assigned unconditionally, like `context` above: the claim block is
+            # the harness's word (docs/outcome-decomposition.md), so an
+            # evaluator-authored one is replaced — with the computed block where
+            # the committed inputs support one, with nothing otherwise.
+            cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
+        write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
     if stamped == 0:
         typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
         return
     typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+
+
+def _claim_scores_for(
+    event_paths: EventPaths, evaluation: Evaluation, settings: Settings
+) -> ClaimScoreBlock | None:
+    """The harness-computed claim block for one evaluation, or ``None``.
+
+    The join rule matches the leaderboard's: the scored prediction is the
+    predictor's **latest** for this event (an evaluation records its predictor,
+    not a prediction run id). Tolerant like the context stamp, because this
+    runs as a post-agent step: a missing outcome, statpack, or prediction is a
+    recorded gap — the stamp then clears the field rather than failing a cell
+    that already produced its output. The lookback is the same
+    ``salience.base_rate_lookback_terms`` the headline segment baseline uses,
+    so the block and the skill score answer to one window.
+    """
+    outcome_path = event_paths.outcome
+    statpack_path = settings.metrics_root / "statpack.json"
+    if not outcome_path.is_file() or not statpack_path.is_file():
+        return None
+    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    if not predictions:
+        return None
+    return score_claims(
+        max(predictions, key=lambda p: p.created_at),
+        read_model(outcome_path, Outcome),
+        read_model(statpack_path, StatPack),
+        lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+    )
 
 
 @app.command("process-digest")
