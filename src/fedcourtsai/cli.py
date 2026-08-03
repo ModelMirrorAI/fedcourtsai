@@ -111,6 +111,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
+from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
@@ -489,6 +490,59 @@ def dedupe_live_rows_cmd(
             "  content-store objects under the dropped ids are left in place "
             "(no-delete store; nothing resolves a dropped id, so they are inert)"
         )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("backfill-merits-judgments")
+def backfill_merits_judgments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the parsed judgments; omit for a dry-run that only counts."
+        ),
+    ] = False,
+) -> None:
+    """Parse each granted SCOTUS case's stored snapshot for its merits judgment.
+
+    Over the rows with `date_cert_granted` set, read the latest stored snapshot
+    (SQLite, or the per-case content store under the corpus-split mode — the
+    same offline path the salience replay reads), parse the last
+    judgment-shaped terminal entry (`pipeline/judgment.py`), and stamp
+    `merits_judgment` / `merits_decided` — the feed behind the statpack's
+    merits stage section and, eventually, a merits base rate. Idempotent; a row
+    whose snapshot is unreachable is counted `no_snapshot` and left as it is.
+    Dry-run by default; `--apply` writes (run where the corpus is pulled,
+    `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
+    corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_merits_judgments(conn, apply=apply)
+    verb = "stamped" if apply else "would stamp"
+    distribution = (
+        ", ".join(f"{value}: {count}" for value, count in result.judgments.items()) or "none"
+    )
+    typer.echo(
+        f"backfill-merits-judgments ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} granted case(s) — {result.parsed} parsed "
+        f"({result.unchanged} already stored, {verb} {result.updated}), "
+        f"{result.no_snapshot} without a reachable snapshot, "
+        f"{result.no_match} with no judgment-shaped entry"
+    )
+    if result.stale:
+        typer.echo(
+            f"  STALE: {result.stale} row(s) carry a stored judgment this pass could not "
+            "re-derive (never cleared automatically — triage them)"
+        )
+    typer.echo(f"  judgments: {distribution}")
     typer.echo(result.model_dump_json())
 
 

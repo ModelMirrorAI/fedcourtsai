@@ -152,7 +152,7 @@
     },
     "StatPackInterim": {
       "additionalProperties": false,
-      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the accumulating cohort that\nwill eventually ground an interim segment base rate, published descriptively\nuntil then. A stage section exists only once its corpus feed does: the pack\nomits it entirely while the corpus holds no application rows, and a merits\nsibling would join the same way once a merits judgment column exists to feed\none.",
+      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the accumulating cohort that\nwill eventually ground an interim segment base rate, published descriptively\nuntil then. A stage section exists only once its corpus feed does: the pack\nomits it entirely while the corpus holds no application rows \u2014 the same\njoining rule the merits sibling (:class:`StatPackMerits`) follows on the\n``merits_judgment`` column.",
       "properties": {
         "applications": {
           "default": 0,
@@ -350,6 +350,194 @@
         "term"
       ],
       "title": "StatPackInterimTerm",
+      "type": "object"
+    },
+    "StatPackMerits": {
+      "additionalProperties": false,
+      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the accumulating cohort whose disturbed rate will eventually\nanchor a merits Brier baseline, published descriptively until that baseline\nis specified.",
+      "properties": {
+        "affirmed": {
+          "default": 0,
+          "description": "Judgments affirmed outright",
+          "minimum": 0,
+          "title": "Affirmed",
+          "type": "integer"
+        },
+        "affirmed_in_part": {
+          "default": 0,
+          "description": "Mixed outcomes: affirmed in part and reversed (or vacated) in part",
+          "minimum": 0,
+          "title": "Affirmed In Part",
+          "type": "integer"
+        },
+        "dig": {
+          "default": 0,
+          "description": "Writs dismissed as improvidently granted \u2014 a non-merits exit that leaves the judgment below standing (undisturbed)",
+          "minimum": 0,
+          "title": "Dig",
+          "type": "integer"
+        },
+        "disturbed": {
+          "default": 0,
+          "description": "Parsed judgments that disturbed the decision below (reversed + vacated + affirmed-in-part)",
+          "minimum": 0,
+          "title": "Disturbed",
+          "type": "integer"
+        },
+        "disturbed_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "disturbed / parsed \u2014 a descriptive rate over the parsed slice; the two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "title": "Disturbed Rate"
+        },
+        "equally_divided": {
+          "default": 0,
+          "description": "Affirmances by an equally divided Court \u2014 affirmed by operation of law, undisturbed, and precedent-free",
+          "minimum": 0,
+          "title": "Equally Divided",
+          "type": "integer"
+        },
+        "granted": {
+          "default": 0,
+          "description": "Granted SCOTUS cases (`date_cert_granted` set) in this slice \u2014 the cohort the merits backfill walks, parsed or not",
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "parsed": {
+          "default": 0,
+          "description": "Granted cases carrying a parsed `merits_judgment` \u2014 the denominator of every figure here, and the coverage numerator against `granted`",
+          "minimum": 0,
+          "title": "Parsed",
+          "type": "integer"
+        },
+        "reversed": {
+          "default": 0,
+          "description": "Judgments reversed",
+          "minimum": 0,
+          "title": "Reversed",
+          "type": "integer"
+        },
+        "terms": {
+          "description": "Per-grant-Term detail (Terms with at least one parsed judgment), most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackMeritsTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "vacated": {
+          "default": 0,
+          "description": "Judgments vacated (GVRs parse here \u2014 a vacate-and-remand disturbs the judgment below whether or not argument was heard)",
+          "minimum": 0,
+          "title": "Vacated",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackMerits",
+      "type": "object"
+    },
+    "StatPackMeritsTerm": {
+      "additionalProperties": false,
+      "description": "One grant-Term's slice of the merits docket.\n\nThe Term is the October Term certiorari was **granted** in, read from\n`date_cert_granted` (October pivot) \u2014 the one date every eligible row\ncarries by construction, where the judgment's own `merits_decided` date is\nnullable (a judgment parsed from an undated entry) and so cannot key the\nsplit. This grant-date axis does **not** align with the cert tables'\ndocket-number Terms: a petition docketed in Term T is routinely granted in\nT+1, so identically labeled rows across the two tables cover different\ncohorts. Like the cert Term entries, the array is a replay self-selection\nsurface: a time-masked cell anchors only on Term rows strictly preceding\nits clock.",
+      "properties": {
+        "affirmed": {
+          "default": 0,
+          "description": "Judgments affirmed outright",
+          "minimum": 0,
+          "title": "Affirmed",
+          "type": "integer"
+        },
+        "affirmed_in_part": {
+          "default": 0,
+          "description": "Mixed outcomes: affirmed in part and reversed (or vacated) in part",
+          "minimum": 0,
+          "title": "Affirmed In Part",
+          "type": "integer"
+        },
+        "dig": {
+          "default": 0,
+          "description": "Writs dismissed as improvidently granted \u2014 a non-merits exit that leaves the judgment below standing (undisturbed)",
+          "minimum": 0,
+          "title": "Dig",
+          "type": "integer"
+        },
+        "disturbed": {
+          "default": 0,
+          "description": "Parsed judgments that disturbed the decision below (reversed + vacated + affirmed-in-part)",
+          "minimum": 0,
+          "title": "Disturbed",
+          "type": "integer"
+        },
+        "disturbed_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "disturbed / parsed \u2014 a descriptive rate over the parsed slice; the two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "title": "Disturbed Rate"
+        },
+        "equally_divided": {
+          "default": 0,
+          "description": "Affirmances by an equally divided Court \u2014 affirmed by operation of law, undisturbed, and precedent-free",
+          "minimum": 0,
+          "title": "Equally Divided",
+          "type": "integer"
+        },
+        "granted": {
+          "default": 0,
+          "description": "Granted SCOTUS cases (`date_cert_granted` set) in this slice \u2014 the cohort the merits backfill walks, parsed or not",
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "parsed": {
+          "default": 0,
+          "description": "Granted cases carrying a parsed `merits_judgment` \u2014 the denominator of every figure here, and the coverage numerator against `granted`",
+          "minimum": 0,
+          "title": "Parsed",
+          "type": "integer"
+        },
+        "reversed": {
+          "default": 0,
+          "description": "Judgments reversed",
+          "minimum": 0,
+          "title": "Reversed",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year certiorari was granted in",
+          "title": "Term",
+          "type": "integer"
+        },
+        "vacated": {
+          "default": 0,
+          "description": "Judgments vacated (GVRs parse here \u2014 a vacate-and-remand disturbs the judgment below whether or not argument was heard)",
+          "minimum": 0,
+          "title": "Vacated",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "StatPackMeritsTerm",
       "type": "object"
     },
     "StatPackSection": {
@@ -761,6 +949,18 @@
       "minimum": 0,
       "title": "Machine Readable Resolved",
       "type": "integer"
+    },
+    "merits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackMerits"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The merits stage section (granted cases' judgment distribution and descriptive disturbed rate); None \u2014 and omitted from the serialized pack \u2014 while no row carries a parsed merits judgment"
     },
     "open": {
       "default": 0,

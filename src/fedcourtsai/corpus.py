@@ -44,7 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
-from .schemas import Disposition, EventKind, Stage
+from .schemas import Disposition, EventKind, Judgment, Stage
 from .supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -437,6 +437,26 @@ class CorpusRow(BaseModel):
         "losing this stamp costs at most a duplicate trigger issue, never a "
         "grading.",
     )
+    merits_judgment: str | None = Field(
+        default=None,
+        description="What the Court did to the judgment below on this granted "
+        "case — the merits axis, a `Judgment` value stored as text (the same "
+        "blob-tolerant TEXT pattern as `application_kind`: readers re-validate "
+        "against the vocabulary rather than failing the row). Parsed "
+        "deterministically from the stored snapshot's disposition entry by the "
+        "merits backfill pass (`pipeline/judgment.py`), never an ingestion "
+        "channel. None = no parsed judgment: the case is pending, unsnapshotted, "
+        "or its terminal entry matched no judgment shape — a coverage gap, "
+        "never an observed absence. Feeds the statpack's merits stage section "
+        "and, eventually, a merits base rate.",
+    )
+    merits_decided: date | None = Field(
+        default=None,
+        description="The docket date of the disposition entry `merits_judgment` "
+        "was parsed from, or None when that entry carries no fully specified "
+        "date (a judgment may be parsed from an undated entry). Meaningful only "
+        "beside a non-None `merits_judgment`; owned by the same backfill pass.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -586,7 +606,15 @@ CREATE TABLE IF NOT EXISTS cases (
     application_kind    TEXT,
     response_requested  INTEGER,
     referred_to_court   INTEGER,
-    amicus_briefs       INTEGER
+    amicus_briefs       INTEGER,
+    -- The merits judgment (see CorpusRow and pipeline/judgment.py): what the
+    -- Court did to the judgment below on a granted case, parsed
+    -- deterministically from the stored snapshot's disposition entry, plus that
+    -- entry's own date. Owned by the merits backfill pass
+    -- (`backfill-merits-judgments`), never an ingestion channel; NULL = no
+    -- parsed judgment (pending, no snapshot, or no matching entry).
+    merits_judgment     TEXT,
+    merits_decided      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -725,6 +753,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "response_requested": "INTEGER",
     "referred_to_court": "INTEGER",
     "amicus_briefs": "INTEGER",
+    "merits_judgment": "TEXT",
+    "merits_decided": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -955,6 +985,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             int(row.referred_to_court) if row.referred_to_court is not None else None
         ),
         "amicus_briefs": row.amicus_briefs,
+        "merits_judgment": row.merits_judgment,
+        "merits_decided": row.merits_decided.isoformat() if row.merits_decided else None,
     }
 
 
@@ -1055,6 +1087,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         response_requested=_optional_bool(record, "response_requested"),
         referred_to_court=_optional_bool(record, "referred_to_court"),
         amicus_briefs=_optional_int(record, "amicus_briefs"),
+        merits_judgment=_optional_str(record, "merits_judgment"),
+        merits_decided=_optional_date(record, "merits_decided"),
     )
 
 
@@ -1076,8 +1110,9 @@ def _update_clause(column: str) -> str:
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
-    it to the model default; and the ``salience_*`` columns are owned by the
-    salience selection pass on the same keep-stored rationale. ``predict_eligible``
+    it to the model default; and the ``salience_*`` columns (the salience
+    selection pass) and ``merits_*`` columns (the merits backfill pass) are
+    owned on the same keep-stored rationale. ``predict_eligible``
     deliberately takes the incoming value: it is a derived mirror of the court
     predicate, so a re-ingest self-heals a stale value rather than latching it.
     """
@@ -1156,15 +1191,18 @@ def _update_clause(column: str) -> str:
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
+        "merits_judgment",
+        "merits_decided",
     ):
         # Owned elsewhere, so an ingestion upsert keeps the stored value: the
         # scope reconcile owns `predict_excluded` (not an ingestion fact, not
         # monotonic), the salience selection pass owns the salience columns
         # (the pass recomputes score/version and maintains the one-way
-        # `salience_selected` latch), and the queue routing owns the
+        # `salience_selected` latch), the queue routing owns the
         # `*_queued_at` stamps — clearing one on re-ingest would let a
         # deriver's daily-retry debounce re-queue a case every cycle its
-        # rotation poll touches it.
+        # rotation poll touches it — and the merits backfill pass owns the
+        # `merits_*` pair (parsed from stored snapshots, not an ingestion fact).
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -2034,6 +2072,26 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
         )
 
 
+def set_merits_judgment(
+    conn: sqlite3.Connection, case_id: str, judgment: Judgment, decided: date | None
+) -> None:
+    """Stamp the parsed merits judgment (and its entry date) on one granted case.
+
+    The merits backfill pass's sole writer. Owned here rather than through
+    ``upsert_rows`` so ingestion never disturbs the columns (the upsert keeps
+    the stored value — see :func:`_update_clause`): the judgment is parsed from
+    a stored snapshot's disposition entry, not supplied by a channel. Overwrites
+    forward — a re-run with a corrected parser self-heals a stored reading —
+    and never clears: the pass simply does not call this for a case whose
+    snapshot no longer matches.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET merits_judgment = ?, merits_decided = ? WHERE case_id = ?",
+            (judgment.value, decided.isoformat() if decided else None, case_id),
+        )
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
 
@@ -2120,7 +2178,11 @@ class PriorQuery(BaseModel):
         default=None,
         description="Exclusive year cutoff: keep only priors whose best-known year "
         "(`case_year`) strictly precedes it. Rows with no derivable year are "
-        "excluded — a prior qualifies only when it provably came first. This is "
+        "excluded — a prior qualifies only when it provably came first. The "
+        "merits columns on a qualifying row are held to the same bar "
+        "separately: a merits judgment is a later fact than the row's own year, "
+        "so the pair is stripped unless `merits_decided` also provably precedes "
+        "the cutoff. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -2179,6 +2241,28 @@ def recency_key(row: CorpusRow) -> tuple[int, int]:
     return (1, 0)
 
 
+def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
+    """Strip a masked prior's merits columns unless they provably precede the clock.
+
+    The ``decided_before`` mask admits a *row* by its best-known year, but the
+    merits judgment on an admitted row is a later fact: a petition docketed in
+    Term Y-1 qualifies under a clock of Y while its judgment issued a year or
+    two afterwards, and the ``query`` output row dumps every column
+    (:func:`prior_payload`) — so without this the one retrieval surface a
+    replay cell leans on would quietly carry post-clock outcome facts. Fail
+    closed at the mask's own year granularity, the same provably-came-first bar
+    the row filter applies: the pair survives only when ``merits_decided`` is
+    present and its year strictly precedes the cutoff — an undated judgment
+    cannot prove precedence, so it is stripped (mirroring the snapshot
+    truncation's fail-closed treatment of undated entries).
+    """
+    if row.merits_judgment is None and row.merits_decided is None:
+        return row
+    if row.merits_decided is not None and row.merits_decided.year < decided_before:
+        return row
+    return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -2228,6 +2312,7 @@ def retrieve_priors(
             year = case_year(row)
             if year is None or year >= query.decided_before:
                 continue
+            row = _mask_post_clock_merits(row, query.decided_before)
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.

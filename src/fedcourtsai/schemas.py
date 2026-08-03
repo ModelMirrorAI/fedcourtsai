@@ -2542,14 +2542,122 @@ class StatPackInterim(_StatPackInterimCounts):
     counts with a per-application-Term breakdown; the accumulating cohort that
     will eventually ground an interim segment base rate, published descriptively
     until then. A stage section exists only once its corpus feed does: the pack
-    omits it entirely while the corpus holds no application rows, and a merits
-    sibling would join the same way once a merits judgment column exists to feed
-    one.
+    omits it entirely while the corpus holds no application rows — the same
+    joining rule the merits sibling (:class:`StatPackMerits`) follows on the
+    ``merits_judgment`` column.
     """
 
     terms: list[StatPackInterimTerm] = Field(
         default_factory=list,
         description="Per-application-Term detail, most recent Term first",
+    )
+
+
+class _StatPackMeritsCounts(_Strict):
+    """The count block one merits slice carries (the pack, or one grant Term).
+
+    Raw counts throughout: every granted case is walked, none stands in for
+    another, and nothing here is reweighted (the denial-sampling frame covers
+    the cert stage, and a grant is always ingested with certainty). Descriptive
+    only — the disturbed rate describes the parsed cohort and is **not** yet a
+    scored base rate: the merits Brier baseline it will anchor remains
+    unspecified (``docs/outcome-decomposition.md``), so no skill or calibration
+    claim rests on these figures. ``parsed`` against ``granted`` is the
+    backfill's own coverage statement, so a thin parse never masquerades as a
+    thin docket — read the gap as an upper bound that blends still-pending
+    cases (granted, not yet decided) with genuine parse gaps.
+    """
+
+    granted: int = Field(
+        default=0,
+        ge=0,
+        description="Granted SCOTUS cases (`date_cert_granted` set) in this slice "
+        "— the cohort the merits backfill walks, parsed or not",
+    )
+    parsed: int = Field(
+        default=0,
+        ge=0,
+        description="Granted cases carrying a parsed `merits_judgment` — the "
+        "denominator of every figure here, and the coverage numerator against "
+        "`granted`",
+    )
+    affirmed: int = Field(default=0, ge=0, description="Judgments affirmed outright")
+    reversed: int = Field(default=0, ge=0, description="Judgments reversed")
+    vacated: int = Field(
+        default=0,
+        ge=0,
+        description="Judgments vacated (GVRs parse here — a vacate-and-remand "
+        "disturbs the judgment below whether or not argument was heard)",
+    )
+    affirmed_in_part: int = Field(
+        default=0,
+        ge=0,
+        description="Mixed outcomes: affirmed in part and reversed (or vacated) in part",
+    )
+    dig: int = Field(
+        default=0,
+        ge=0,
+        description="Writs dismissed as improvidently granted — a non-merits exit "
+        "that leaves the judgment below standing (undisturbed)",
+    )
+    equally_divided: int = Field(
+        default=0,
+        ge=0,
+        description="Affirmances by an equally divided Court — affirmed by "
+        "operation of law, undisturbed, and precedent-free",
+    )
+    disturbed: int = Field(
+        default=0,
+        ge=0,
+        description="Parsed judgments that disturbed the decision below "
+        "(reversed + vacated + affirmed-in-part)",
+    )
+    disturbed_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="disturbed / parsed — a descriptive rate over the parsed "
+        "slice; the two non-merits exits (DIG, equally divided) sit in the "
+        "denominator as undisturbed, since both leave the judgment below "
+        "intact. None when nothing has parsed (no rate, not 0%)",
+    )
+
+
+class StatPackMeritsTerm(_StatPackMeritsCounts):
+    """One grant-Term's slice of the merits docket.
+
+    The Term is the October Term certiorari was **granted** in, read from
+    `date_cert_granted` (October pivot) — the one date every eligible row
+    carries by construction, where the judgment's own `merits_decided` date is
+    nullable (a judgment parsed from an undated entry) and so cannot key the
+    split. This grant-date axis does **not** align with the cert tables'
+    docket-number Terms: a petition docketed in Term T is routinely granted in
+    T+1, so identically labeled rows across the two tables cover different
+    cohorts. Like the cert Term entries, the array is a replay self-selection
+    surface: a time-masked cell anchors only on Term rows strictly preceding
+    its clock.
+    """
+
+    term: int = Field(description="The October-Term year certiorari was granted in")
+
+
+class StatPackMerits(_StatPackMeritsCounts):
+    """The statpack's merits stage section: what happened to granted cases' judgments.
+
+    The second stage axis beside the cert sections, joining exactly as
+    :class:`StatPackInterim` did: a stage section exists only once its corpus
+    feed does, so the pack omits this one entirely while no row carries a
+    parsed `merits_judgment`, and it carries no ``salience_version`` because it
+    is not a salience-band product. Pack-level counts with a per-grant-Term
+    breakdown; the accumulating cohort whose disturbed rate will eventually
+    anchor a merits Brier baseline, published descriptively until that baseline
+    is specified.
+    """
+
+    terms: list[StatPackMeritsTerm] = Field(
+        default_factory=list,
+        description="Per-grant-Term detail (Terms with at least one parsed "
+        "judgment), most recent Term first",
     )
 
 
@@ -2630,6 +2738,12 @@ class StatPack(_Strict):
         "with the substantive slice's descriptive grant rate); None — and omitted "
         "from the serialized pack — while the corpus holds no application rows",
     )
+    merits: StatPackMerits | None = Field(
+        default=None,
+        description="The merits stage section (granted cases' judgment "
+        "distribution and descriptive disturbed rate); None — and omitted from "
+        "the serialized pack — while no row carries a parsed merits judgment",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -2637,12 +2751,15 @@ class StatPack(_Strict):
 
         A stage section is shown only once its corpus feed exists; serializing a
         ``null`` placeholder would both misstate that contract and add byte
-        noise to every pack built from a corpus with no application rows, whose
-        serialized form must carry no ``interim`` key at all.
+        noise to every pack built from a corpus that does not feed the section,
+        whose serialized form must carry no key for it at all.
         """
         payload = handler(self)
-        if isinstance(payload, dict) and self.interim is None:
-            payload.pop("interim", None)
+        if isinstance(payload, dict):
+            if self.interim is None:
+                payload.pop("interim", None)
+            if self.merits is None:
+                payload.pop("merits", None)
         return payload
 
 
