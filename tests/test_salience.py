@@ -10,8 +10,10 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.pipeline.salience import (
+    _CIRCUIT_GRANT_RATE,
     SALIENCE_VERSION,
     _selection_plan,
+    carve_out,
     plan_cohorts,
     reconcile_salience_selection,
     salience_band,
@@ -108,6 +110,37 @@ def test_circuit_nudge_never_carries_a_petition_across_a_band_boundary() -> None
             "elevated"
         )
         assert salience_band(_petition("scotus/2", distribution_count=3, circuit=circuit)) == "high"
+
+
+def test_the_carve_out_set_is_exactly_the_high_band() -> None:
+    """The always-include floor (config) and the high cutpoint (code) are
+    separate constants in separate files, and nothing but this test holds them
+    aligned: a refit that put an achievable non-CVSG score inside
+    [cutpoint, floor) would open a silent gap between "high band" and
+    "carved in". The enumeration drives the public scorer over constructed
+    rows — every relist state crossed with every circuit (known, unknown,
+    unlinked), with and without CVSG — so it spans the achievable score
+    lattice even if the scorer later gains a term; the private constant is
+    imported only to enumerate the circuit keys."""
+    floor = load_salience_config(Path("config")).floor
+    circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
+    for distribution_count in (1, 2, 3, None):
+        for circuit in circuits:
+            for cvsg in (False, True):
+                row = _petition(
+                    "scotus/lattice",
+                    distribution_count=distribution_count,
+                    cvsg=cvsg,
+                    circuit=circuit,
+                )
+                score = salience_score(row)
+                in_high = salience_band(row) == "high"
+                carved = carve_out(row, score, floor)
+                assert in_high == carved, (
+                    f"gap at distribution_count={distribution_count} "
+                    f"circuit={circuit} cvsg={cvsg}: score={score:.4f}, "
+                    f"high={in_high}, carved={carved}"
+                )
 
 
 def test_salience_bands_are_ordered_strongest_first() -> None:
