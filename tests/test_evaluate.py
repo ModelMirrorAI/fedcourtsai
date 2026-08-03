@@ -286,17 +286,21 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
     assert segment_base_rate(row, _statpack(*terms)) == pytest.approx(0.07)
 
 
+_DERIVE_FROM_BAND = object()
+
+
 def _context(
     band: str | None,
     term: int | None = 2025,
     *,
     signals_observable: bool = True,
-    salience_version: str | None = "unset",
+    salience_version: str | object | None = _DERIVE_FROM_BAND,
 ) -> PredictionContext:
     # The harness stamps `salience_version` whenever it derives a band
     # (cell_context.build), so the fixture mirrors that pairing by default.
-    if salience_version == "unset":
+    if salience_version is _DERIVE_FROM_BAND:
         salience_version = "sal-v1" if band else None
+    assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
         snapshot_date=date(2025, 3, 1),
