@@ -371,9 +371,11 @@ carries the docket's proceedings intact, so distributions already recorded are
 readable; for a petition already relisted when it is predicted, "will be relisted
 at least once" is trivially true and a predictor writing `1.0` scores near the
 maximum without forecasting anything. Fixing this needs the value **as at
-prediction** on a committed artifact, which nothing carries — the corpus column is
-mutable and `Outcome.signals` freezes only the resolution-time value. The
-provisioned snapshot does hold it, but `record/` is never committed.
+prediction** on a committed artifact — the corpus column is mutable and
+`Outcome.signals` freezes only the resolution-time value. `Prediction.context`
+is that artifact now (*Why a cert-stage claim resolves against the outcome*,
+below); the withdrawn set was specified before it existed, against a record
+whose only prediction-time holder was the uncommitted `record/` snapshot.
 
 **Two figures that argued the withdrawal are retracted.** The first: that
 `salience_band` determines "relisted at least once" for 9,919 of 9,924 rows,
@@ -516,8 +518,10 @@ Drawn from the above, and cheaper to apply than to rediscover:
 **Nothing, yet.** The signals are recorded and the rule exists, but the two
 claims that looked scoreable are withdrawn for the reasons above, and no
 replacement set is declared. Withdrawn **as specified**, not as unforecastable:
-both name events that are genuinely uncertain at prediction time, and both become
-resolvable once a committed artifact carries the signal values as at prediction.
+both name events that are genuinely uncertain at prediction time, and both are
+resolvable as increments now that `Prediction.context` carries the signal
+values as at prediction — what is missing is a declared replacement set, not
+an artifact.
 Disposition remains the only claim whose resolution and baseline both exist — and
 it is deliberately not a claim here, because it already has `segment_base_rate`
 and the headline Brier path, so scoring it again would pay one belief twice.
@@ -525,7 +529,7 @@ and the headline Brier path, so scoring it again would pay one belief twice.
 | Claim | State |
 | --- | --- |
 | Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
-| Relisted at least once | **Withdrawn as specified** — resolved as an absolute level while no committed artifact records the count as at prediction, so the claim is trivially true wherever the petition was already relisted. The underlying event is forecastable: about 26% of paid petitions at a single distribution draw a first relist (denial-reweighted, est. n≈13,100) |
+| Relisted at least once | **Withdrawn as specified** — its specification resolved an absolute level, trivially true wherever the petition was already relisted; an increment respecification is possible now that `Prediction.context` records the count as at prediction, over the (currently empty) population of cells that carry the block. The underlying event is forecastable: about 26% of paid petitions at a single distribution draw a first relist (denial-reweighted, est. n≈13,100) |
 | CVSG | **Withdrawn as specified** — same level-versus-increment defect, and its per-Term rate is censored in any open Term |
 | Each justice's vote | `Outcome.votes` is `[]` in every committed outcome and nothing populates it, so the blocker is data rather than schema — the vote vocabulary and the provenance block that says how much of a record is there both exist |
 | Majority author, concurrence, dissent | `JusticeVote.writing` records these per Justice, but nothing populates it and nothing on the corpus row carries authorship for a modern case |
@@ -554,20 +558,25 @@ The other end is committed too: `Prediction.context` is the harness-written
 agent's word — carrying `distribution_count`, `cvsg_date`, the salience band
 and its version, and `signals_observable`, which is what keeps absence honest
 (a snapshot whose proceedings were never parsed reads as unobservable, not as
-zero). An increment claim is therefore computable end to end: the as-at-
-prediction value from the prediction's own context block, the as-at-resolution
-value from `Outcome.signals`. The block is nullable and the older committed
-predictions carry no context at all, so an increment claim scores only the
-cells that carry one — a coverage boundary the claim's declared population
-must state, not a defect, and a **time-skewed** one: the block exists only
-where proceedings were live-parsed, so the covered cohort is the recent tail,
-and a coverage-limited total is not comparable to a full-set figure.
+zero). An increment claim is therefore computable end to
+end: the prediction-time value from the prediction's own context block, the
+resolution-time value from `Outcome.signals`. The block is nullable, and
+**every committed prediction predates it** — the field and the harness path
+are committed, no committed data yet exercises them — so an increment claim
+scores only the cells that carry the block: a coverage boundary the claim's
+declared population must state, not a defect, and a **time-skewed** one (the
+covered cohort is whatever runs after the field landed, so a coverage-limited
+total is not comparable to a full-set figure).
 
-The block's *presence* carries meaning too. It is written only where the
-proceedings were live-parsed, mirroring the corpus's own coverage rule, so an
-absent block means nothing was observed while a present one means it was — and
-inside it a null CVSG date says no CVSG was called for rather than that nobody
-looked. A claim cannot resolve against a field that conflates those two.
+The `Outcome.signals` block's *presence* carries meaning too. It is written
+only where the proceedings were live-parsed, mirroring the corpus's own
+coverage rule, so an absent signals block means nothing was observed while a
+present one means it was — and inside it a null CVSG date says no CVSG was
+called for rather than that nobody looked. A claim cannot resolve against a
+field that conflates those two. `Prediction.context` draws the same line
+differently: the block is written on every provisioned cell, and
+`signals_observable` inside it is what separates observed-absent from
+never-parsed.
 
 ### What that adds up to
 
