@@ -12,7 +12,10 @@ N-unweighted point estimates variance-seeking would buy rank). Aggregates are
 per predictor per pre-registration stratum — the same stratification the
 leaderboard uses, via the same ``store.iter_stratified_evaluations`` join and
 the same frozen-scope default — and are never pooled across strata or across
-process-version scope.
+process-version scope. The population is the **cert-stage** cells, because
+only the cert-stage event kinds declare a claim set (``pipeline.claims``): a
+cell on any other stage is never owed a block, so it belongs outside the
+surface rather than inside its absence counts.
 
 The headline is the **judge validation**, pre-registered in
 ``docs/outcome-decomposition.md`` (*The mechanical↔semantic agreement*):
@@ -42,6 +45,7 @@ from .schemas import (
     ClaimScoreEntry,
     ClaimScoreStratum,
     Evaluation,
+    Stage,
 )
 
 # The pre-registered suppression threshold for the judge-validation tau-b: below
@@ -142,7 +146,7 @@ def agreement_summary(agreement: ClaimJudgeAgreement | None) -> str:
 
 
 def build_claim_scores(
-    cells: Iterable[tuple[Evaluation, Stratum]],
+    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
     *,
     process_scope: Literal["frozen", "all"] = "frozen",
 ) -> ClaimScoreBoard:
@@ -151,11 +155,16 @@ def build_claim_scores(
     ``cells`` is the same stratified stream the leaderboard consumes
     (``store.iter_stratified_evaluations``), already filtered to
     ``process_scope`` by the caller — recording the scope makes the empty
-    frozen headline self-explaining rather than reading as a regression. One
-    entry per predictor with at least one block-carrying cell, ordered by
-    ``predictor_id``; the per-stratum judge validation is computed over every
-    cell in the stratum, block-carrying or not, so the absence counts describe
-    the whole population the intersection was drawn from.
+    frozen headline self-explaining rather than reading as a regression. The
+    surface's population is the **cert-stage** cells only: the declared claim
+    sets are keyed on event kind and only the cert-stage kinds declare one, so
+    a non-cert cell structurally cannot carry a block — counting it as an
+    "absence" would dilute the operational-absence counts with cells that were
+    never owed a block. One entry per predictor with at least one
+    block-carrying cell, ordered by ``predictor_id``; the per-stratum judge
+    validation is computed over every in-population cell, block-carrying or
+    not, so the absence counts describe the whole population the intersection
+    was drawn from.
     """
     by_stratum: dict[Stratum, list[Evaluation]] = {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
@@ -163,7 +172,9 @@ def build_claim_scores(
     )
     total = 0
     with_claims = 0
-    for ev, stratum in cells:
+    for ev, stratum, stage in cells:
+        if stage != Stage.cert:
+            continue
         total += 1
         if ev.claim_scores is not None:
             with_claims += 1

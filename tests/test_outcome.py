@@ -19,7 +19,7 @@ from fedcourtsai.pipeline.outcome import (
     snapshot_shows_disposition,
     termination_signal,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
+from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent, Stage
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import _FORECASTABLE_KINDS
 
@@ -39,13 +39,19 @@ def _db(tmp_path: Path) -> Path:
     return corpus.corpus_db_path(tmp_path / "corpus")
 
 
-def _open_event(tmp_path: Path, event_id: str = "evt-petition-review") -> None:
+def _open_event(
+    tmp_path: Path,
+    event_id: str = "evt-petition-review",
+    kind: EventKind = EventKind.petition,
+    stage: Stage | None = None,
+) -> None:
     """Record an open predictable event in the corpus for the canned docket."""
     event = corpus.CorpusEvent(
         event_id=event_id,
         case_id="ca9/64512345",
         court="ca9",
-        kind=EventKind.petition,
+        kind=kind,
+        stage=stage,
         title="Petition for review",
     )
     with corpus.connect(_db(tmp_path)) as conn:
@@ -180,6 +186,105 @@ def test_a_lone_baseline_event_still_resolves() -> None:
         assert list(resolution.outcomes) == [event_id]
 
 
+def test_stage_routes_the_cert_disposition_past_an_open_motion() -> None:
+    # A cert petition and an interim motion both open on a decided docket: the
+    # stage identifies the target unambiguously, so the cert-stage event gets
+    # the case-level disposition and the motion stays open — neither resolved
+    # nor surfaced for triage (it resolves on its own filing's terms).
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-petition-disposition", "evt-motion-stay"],
+        stages={"evt-petition-disposition": Stage.cert, "evt-motion-stay": Stage.interim},
+    )
+    assert list(resolution.outcomes) == ["evt-petition-disposition"]
+    assert not resolution.unrecorded  # the motion is not an ambiguity — it stays open
+
+
+def test_stage_routing_works_beside_a_stage_less_motion_too() -> None:
+    # The disambiguation needs only the cert event's own stage: a stage-less
+    # motion beside it (a pre-vocabulary row) changes nothing.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-petition-disposition", "evt-motion-stay"],
+        stages={"evt-petition-disposition": Stage.cert, "evt-motion-stay": None},
+    )
+    assert list(resolution.outcomes) == ["evt-petition-disposition"]
+    assert not resolution.unrecorded
+
+
+def test_two_stage_less_events_still_refuse() -> None:
+    # No stage disambiguates, so the multi-open refusal holds verbatim.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-motion-a", "evt-motion-b"],
+        stages={"evt-motion-a": None, "evt-motion-b": None},
+    )
+    assert not resolution.outcomes
+    assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
+
+
+def test_two_events_sharing_the_cert_stage_refuse() -> None:
+    # The stage must identify the target *unambiguously*: two cert-staged
+    # events (a data defect worth a human look) refuse rather than guess.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-petition-a", "evt-petition-b"],
+        stages={"evt-petition-a": Stage.cert, "evt-petition-b": Stage.cert},
+    )
+    assert not resolution.outcomes
+    assert {r.event_id for r in resolution.unrecorded} == {"evt-petition-a", "evt-petition-b"}
+    assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
+
+
+def test_an_unreadable_disposition_still_surfaces_every_open_event() -> None:
+    # Stage routing narrows attribution, not triage: with nothing recordable
+    # (the disposition normalizes to `other`), whole-docket triage is the
+    # conservative call, so even a cert-staged event's interim sibling is
+    # surfaced rather than silently left behind an unrecordable decision.
+    row = from_api_docket({**DECIDED_DOCKET, "disposition": "affirmed"})
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-petition-disposition", "evt-motion-stay"],
+        stages={"evt-petition-disposition": Stage.cert, "evt-motion-stay": Stage.interim},
+    )
+    assert not resolution.outcomes
+    assert {r.event_id for r in resolution.unrecorded} == {
+        "evt-petition-disposition",
+        "evt-motion-stay",
+    }
+    assert all("not machine-readable" in r.reason for r in resolution.unrecorded)
+
+
+def test_a_lone_interim_staged_event_never_inherits_the_cert_disposition() -> None:
+    # An explicit non-cert stage opts the event out of the stage-less prefix
+    # fallback: the cert disposition is not its outcome, whatever its id.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        ["evt-motion-stay"],
+        stages={"evt-motion-stay": Stage.interim},
+    )
+    assert not resolution.outcomes
+    (req,) = resolution.unrecorded
+    assert "forecasts a different filing" in req.reason
+
+
 def test_attribution_prefixes_and_forecastable_kinds_agree() -> None:
     # Two encodings of "case-baseline" — the attribution guard keys on the id
     # prefix, the queue filter on the corpus kind column — must name the same
@@ -218,6 +323,23 @@ def test_resolve_case_end_to_end(tmp_path: Path) -> None:
     resolution = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert "evt-petition-review" in resolution.outcomes
     assert CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review").outcome.exists()
+
+
+def test_resolve_case_routes_by_the_corpus_stage_and_leaves_the_motion_open(
+    tmp_path: Path,
+) -> None:
+    # End-to-end stage plumb-through: the corpus holds a cert-staged petition
+    # and an interim motion, both open. The refresh resolves the petition and
+    # leaves the motion open in the corpus — no refusal, no motion outcome.
+    _open_event(tmp_path, "evt-petition-disposition", stage=Stage.cert)
+    _open_event(tmp_path, "evt-motion-stay", kind=EventKind.motion, stage=Stage.interim)
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
+    assert list(resolution.outcomes) == ["evt-petition-disposition"]
+    assert not resolution.unrecorded
+    with corpus.connect(_db(tmp_path)) as conn:
+        state = {e.event_id: e.resolved for e in corpus.events_for_case(conn, "ca9/64512345")}
+    assert state == {"evt-petition-disposition": True, "evt-motion-stay": False}
 
 
 def test_resolve_case_is_idempotent(tmp_path: Path) -> None:

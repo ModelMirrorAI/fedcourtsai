@@ -21,10 +21,13 @@ from fedcourtsai.schemas import (
     Disposition,
     Engine,
     Evaluation,
+    EventKind,
     Outcome,
+    PredictableEvent,
     Prediction,
+    Stage,
 )
-from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_stratified_evaluations
 
 runner = CliRunner()
@@ -102,8 +105,11 @@ def _evaluation(
     return Evaluation.model_validate(base)
 
 
-def _cells(*items: tuple[Evaluation, Stratum]) -> list[tuple[Evaluation, Stratum]]:
-    return list(items)
+def _cells(
+    *items: tuple[Evaluation, Stratum], stage: Stage | None = Stage.cert
+) -> list[tuple[Evaluation, Stratum, Stage | None]]:
+    """Stage-annotate fixture cells the way the stratified join yields them."""
+    return [(ev, stratum, stage) for ev, stratum in items]
 
 
 def test_empty_stream_is_the_fully_suppressed_board() -> None:
@@ -134,6 +140,20 @@ def test_blockless_cells_publish_counts_and_suppress_the_coefficient() -> None:
     assert agreement.missing_claim_block == 3
     assert agreement.masked_claim_total == 0
     assert agreement.missing_reasoning_quality == 0
+
+
+def test_non_cert_stage_cells_sit_outside_the_population() -> None:
+    # Only the cert-stage event kinds declare a claim set, so a cell on any
+    # other stage (or with no stage) is never owed a block — it must not
+    # inflate the population or the operational-absence counts.
+    in_population = _cells((_evaluation("alpha"), FORWARD))
+    outside = _cells((_evaluation("alpha", event_id="evt-i"), FORWARD), stage=Stage.interim)
+    stageless = _cells((_evaluation("alpha", event_id="evt-n"), FORWARD), stage=None)
+    board = build_claim_scores(in_population + outside + stageless, process_scope="all")
+    assert board.evaluations_total == 1
+    agreement = board.forward_agreement
+    assert agreement is not None
+    assert agreement.missing_claim_block == 1
 
 
 def test_aggregates_per_predictor_per_stratum_and_never_pools() -> None:
@@ -216,20 +236,22 @@ def test_masked_blocks_count_as_availability_not_scoring() -> None:
 
 def _pair_cells(
     predictor: str, stratum: Stratum, totals_and_grades: list[tuple[float, float]]
-) -> list[tuple[Evaluation, Stratum]]:
+) -> list[tuple[Evaluation, Stratum, Stage | None]]:
     """One intersection pair per (total, reasoning_quality), distinct events."""
-    return [
-        (
-            _evaluation(
-                predictor,
-                claim_scores=_block(total),
-                reasoning_quality=grade,
-                event_id=f"evt-{stratum}-{i}",
-            ),
-            stratum,
+    return _cells(
+        *(
+            (
+                _evaluation(
+                    predictor,
+                    claim_scores=_block(total),
+                    reasoning_quality=grade,
+                    event_id=f"evt-{stratum}-{i}",
+                ),
+                stratum,
+            )
+            for i, (total, grade) in enumerate(totals_and_grades)
         )
-        for i, (total, grade) in enumerate(totals_and_grades)
-    ]
+    )
 
 
 def test_agreement_below_the_preregistered_minimum_is_suppressed() -> None:
@@ -318,9 +340,23 @@ def _write_cell(
     predicted_at: datetime = datetime(2026, 6, 20, tzinfo=UTC),
     resolved_at: date = date(2026, 6, 23),
 ) -> None:
-    """A full scored cell on disk: evaluation plus the prediction and outcome."""
+    """A full scored cell on disk: evaluation plus the event, prediction, and outcome.
+
+    The petition kind with a null stage is the committed-ledger shape, which
+    the stratification join normalizes to the cert stage.
+    """
     court, _, docket = ev.case_id.partition("/")
     event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
+    write_yaml(
+        event.event_file,
+        PredictableEvent(
+            event_id=ev.event_id,
+            case_id=ev.case_id,
+            kind=EventKind.petition,
+            title="Test event",
+            resolved=True,
+        ),
+    )
     write_json(event.evaluation(ev.evaluator_id, ev.predictor_id, ev.run_id), ev)
     write_json(
         event.prediction(ev.predictor_id, "p1"),

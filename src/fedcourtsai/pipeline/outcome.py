@@ -17,9 +17,16 @@ conservative:
   has exactly **one** open event, the event's outcome is unambiguous: write
   ``outcome.json`` and mark the event resolved.
 - **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
-  no decision date, or more than one open event the case-level disposition cannot
-  be attributed to — produces an :class:`UnrecordedOutcome`, surfaced on the
+  no decision date, or open events the case-level disposition cannot be
+  attributed to one of — produces an :class:`UnrecordedOutcome`, surfaced on the
   pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
+
+Attribution is **stage-routed**: the case-level disposition the corpus row
+carries is the *cert*-stage decision, so it belongs to the open event whose
+``stage`` is ``cert`` — even when other events (an interim motion) are open
+beside it, which then simply stay open. Stage-less events fall back to the
+case-baseline id-prefix rule, and anything the stage does not disambiguate is
+refused (:func:`_cert_disposition_target`).
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -36,7 +43,7 @@ from typing import Any, Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, EventKind, Outcome, PredictableEvent, ResolutionSignals
+from ..schemas import Disposition, EventKind, Outcome, PredictableEvent, ResolutionSignals, Stage
 from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
@@ -349,30 +356,73 @@ _CASE_BASELINE_ID_PREFIXES = tuple(
 )
 
 
+def _cert_disposition_target(
+    open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> str | None:
+    """The one open event the case-level disposition attributes to, or ``None``.
+
+    The corpus row carries exactly one case-level disposition today, and it is
+    the **cert**-stage decision (:func:`fedcourtsai.corpus.resolution_date` is
+    the petition-stage cert date on a SCOTUS docket), so cert is the only stage
+    routed here; an interim disposition has a different case-level source (the
+    application's own resolving entry), and when that path lands it slots in as
+    a sibling stage → disposition-source branch beside this one rather than a
+    rewrite of it.
+
+    Stage first: the open event tagged ``cert`` claims the disposition outright,
+    even with other (non-cert) events open beside it — those resolve on their
+    own filings' terms and simply stay open. Two events sharing the cert stage
+    is ambiguous, so nothing is attributed. Where no event carries the cert
+    stage, the stage-less fallback is the case-baseline id-prefix rule: a
+    *lone* open event with no recorded stage and a petition/appeal id prefix.
+    An event carrying an explicit non-cert stage never inherits the cert
+    disposition, whatever its id.
+    """
+    cert_staged = [eid for eid in open_event_ids if stages.get(eid) == Stage.cert]
+    if len(cert_staged) == 1:
+        return cert_staged[0]
+    if cert_staged:
+        return None  # two events share the cert stage: no unambiguous target
+    if (
+        len(open_event_ids) == 1
+        and stages.get(open_event_ids[0]) is None
+        and open_event_ids[0].startswith(_CASE_BASELINE_ID_PREFIXES)
+    ):
+        return open_event_ids[0]
+    return None
+
+
 def detect_resolution(
     row: CorpusRow,
     court_id: str,
     docket_id: int,
     open_event_ids: list[str],
     disposition_basis: Literal["standard", "mootness"] = "standard",
+    *,
+    stages: Mapping[str, Stage | None] | None = None,
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
     Pure: no I/O. Returns deterministic outcomes to write and unrecorded
     outcomes for the rest. An undecided docket, or one with no open events, resolves to an
-    empty :class:`Resolution` (nothing to do).
+    empty :class:`Resolution` (nothing to do). ``stages`` maps each open event id
+    to its recorded decision stage (from the corpus event rows) and drives the
+    stage-routed attribution (:func:`_cert_disposition_target`); omitted, every
+    event reads as stage-less and only the case-baseline prefix fallback applies.
+    When the stage identifies the target unambiguously *and* the disposition is
+    recordable, the other open events are neither resolved nor surfaced for
+    triage — they stay open on their own filings' terms, still tracked by the
+    corpus open-event reads rather than silently dropped. An unreadable or
+    undated disposition still surfaces **every** open event: with nothing
+    recordable, whole-docket triage is the conservative call.
     """
     if not open_event_ids or not appears_decided(row):
         return Resolution()
 
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
-    if (
-        readable
-        and len(open_event_ids) == 1
-        and open_event_ids[0].startswith(_CASE_BASELINE_ID_PREFIXES)
-    ):
-        event_id = open_event_ids[0]
-        return Resolution(outcomes={event_id: _build_outcome(row, event_id, disposition_basis)})
+    target = _cert_disposition_target(open_event_ids, stages or {})
+    if readable and target is not None:
+        return Resolution(outcomes={target: _build_outcome(row, target, disposition_basis)})
 
     if not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
@@ -475,12 +525,23 @@ def resolve_case(
 ) -> Resolution:
     """Detect and record resolution for one freshly-refreshed case.
 
-    Reads the case's open events from the corpus (:func:`open_events`), decides
+    Reads the case's open events from the corpus (:func:`open_events`) along with
+    their recorded decision stages (which route the case-level disposition —
+    see :func:`_cert_disposition_target`), decides
     each (:func:`detect_resolution`), writes the deterministic outcomes and closes
     their corpus events (:func:`record_outcomes`), and returns the full
     :class:`Resolution` so the caller can surface the unrecorded rest.
     """
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
-    resolution = detect_resolution(row, court_id, docket_id, open_event_ids, disposition_basis)
+    stages: dict[str, Stage | None] = {}
+    if open_event_ids:  # the corpus exists — open_events read from it
+        with corpus.connect(corpus_db_path) as conn:
+            stages = {
+                event.event_id: event.stage
+                for event in corpus.events_for_case(conn, ids.case_id(court_id, docket_id))
+            }
+    resolution = detect_resolution(
+        row, court_id, docket_id, open_event_ids, disposition_basis, stages=stages
+    )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     return resolution

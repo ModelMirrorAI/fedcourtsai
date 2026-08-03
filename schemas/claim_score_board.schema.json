@@ -277,7 +277,7 @@
       "type": "array"
     },
     "evaluations_total": {
-      "description": "Evaluation cells in scope (with or without a claim block)",
+      "description": "Cert-stage evaluation cells in scope, with or without a claim block \u2014 the surface's whole population, cert-stage because only the cert-stage event kinds declare a claim set, so a cell on any other stage is never owed a block and belongs outside the absence counts",
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
