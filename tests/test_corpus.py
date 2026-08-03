@@ -1324,6 +1324,23 @@ def test_distribution_count_never_regresses_on_a_degraded_parse(tmp_path: Path) 
     assert stored is not None and stored.distribution_count == 3
 
 
+def test_has_opinion_survives_a_reingest_without_the_body(tmp_path: Path) -> None:
+    # The presence bit is monotone (an opinion once linked is never unlinked)
+    # and every writer asserts it (NOT NULL, default False), so a channel that
+    # does not carry the body — a docket-only re-ingest — must not flip a
+    # stored True back to False; a genuine first link still lands.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="ca9/77")])  # opinion_text set → bit True
+        corpus.upsert_rows(conn, [_row(case_id="ca9/77", opinion_text=None, summary=None)])
+        survived = corpus.get_row(conn, "ca9/77")
+        corpus.upsert_rows(conn, [_row(case_id="ca9/78", opinion_text=None, summary=None)])
+        corpus.upsert_rows(conn, [_row(case_id="ca9/78")])  # the first link still lands
+        linked = corpus.get_row(conn, "ca9/78")
+    assert survived is not None and survived.has_opinion is True
+    assert linked is not None and linked.has_opinion is True
+
+
 def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
     # Weight 1 means "included with certainty"; once known, a walker re-serve
     # of the sampled serial (weight N) must not regress it — and the other

@@ -387,7 +387,9 @@ class CorpusRow(BaseModel):
         "lives only in the opinion text). Derived from `opinion_text` at "
         "construction, but stored as its own column so it survives the corpus "
         "split: under the split, the heavy `opinion_text` body moves to the "
-        "content store and the corpus keeps only this bit.",
+        "content store and the corpus keeps only this bit. The upsert "
+        "max-latches it: a writer that does not carry the body cannot flip a "
+        "stored True back to False.",
     )
     salience_score: float | None = Field(
         default=None,
@@ -1043,9 +1045,11 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled`` and the fill-in slice of
     the live-parsed signals)
     only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count`` and the interim escalation
-    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``)
-    are max-latches (proceedings are append-only and the signals monotone, so
+    another channel stamped; ``distribution_count``, the interim escalation
+    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    and the ``has_opinion`` presence bit
+    are max-latches (proceedings are append-only and the signals monotone —
+    an opinion once linked is never unlinked — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
     ``unknown``); ``sample_weight`` is a
@@ -1069,7 +1073,13 @@ def _update_clause(column: str) -> str:
         # conference parse) must not wipe what another channel stamped. Safe for
         # exactly the columns whose degraded parse yields NULL.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
-    if column in ("distribution_count", "response_requested", "referred_to_court", "amicus_briefs"):
+    if column in (
+        "distribution_count",
+        "response_requested",
+        "referred_to_court",
+        "amicus_briefs",
+        "has_opinion",
+    ):
         # A fill-in latch is not enough here: a degraded live parse (a payload
         # served with its proceedings missing) yields a confident 0 — not NULL —
         # and 0 asserts "parsed, never distributed", so COALESCE would let it
@@ -1079,6 +1089,12 @@ def _update_clause(column: str) -> str:
         # share the property exactly (the Court does not un-request a response,
         # un-refer an application, or un-file an amicus brief), so the boolean
         # flags max-latch as 0/1 integers and the amicus count as a count.
+        # `has_opinion` is the same shape again: an opinion once linked is never
+        # unlinked, and every writer asserts the bit (NOT NULL, default False),
+        # so a channel that does not carry the body would otherwise flip a
+        # stored True back to False and silently drop the case from `query
+        # --full` and every presence check — the max-latch keeps the bit
+        # monotonic in the store the way the model validator keeps it in memory.
         return (
             f"{column}=MAX("
             f"COALESCE(excluded.{column}, cases.{column}), "
