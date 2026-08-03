@@ -591,6 +591,18 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("No. 93" + chr(0x2013) + "7515.") == 1993
 
 
+def test_scotus_application_term_year_parses_the_strict_a_form_only() -> None:
+    # The interim docket's Term key, under the same century pivot as
+    # `scotus_term_year`; only the live channel's addressable `YYAnnn` form
+    # parses — historical spellings and cert-form numbers fall through.
+    assert corpus.scotus_application_term_year("24A1099") == 2024
+    assert corpus.scotus_application_term_year("29A1") == 2029
+    assert corpus.scotus_application_term_year("30A1") == 1930
+    assert corpus.scotus_application_term_year("A-363") is None
+    assert corpus.scotus_application_term_year("22-451") is None
+    assert corpus.scotus_application_term_year("22O141") is None
+
+
 def test_is_date_inconsistent_flags_decided_before_filed() -> None:
     # Decided before filed — court-agnostic, excluded from prediction.
     bad = corpus.CorpusRow(

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Final, Literal
+from typing import Any, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
 
 SCHEMA_VERSION: Final = "1.0"
 
@@ -2179,6 +2179,133 @@ class StatPackTerm(_Strict):
     )
 
 
+class _StatPackInterimCounts(_Strict):
+    """The count block one interim-docket slice carries (the pack, or one Term).
+
+    Raw counts throughout: the live channel polls every application it discovers
+    (no denial sampling, so every row stands only for itself) and nothing here is
+    reweighted. Descriptive only — the substantive grant rate describes the
+    accumulated cohort, and is **not** a segment base rate: predict scope and a
+    scored base rate for the interim stage remain unspecified, so no skill or
+    calibration claim rests on these figures. Extensions are counted so the
+    docket's administrative dominance is visible, but they never pool into any
+    rate — an extension is granted as a matter of course, and admitting it would
+    hand the rate the Court's calendar rather than its judgment
+    (``docs/salience.md``, *The interim docket*).
+    """
+
+    applications: int = Field(
+        default=0,
+        ge=0,
+        description="Application dockets (strict `YYAnnn` form — the live channel's "
+        "addressable population) in this slice",
+    )
+    extension: int = Field(
+        default=0,
+        ge=0,
+        description="Applications whose parsed ask is an extension of time — the "
+        "administrative majority, counted but never pooled into a rate",
+    )
+    substantive: int = Field(
+        default=0,
+        ge=0,
+        description="Applications whose parsed ask is substantive (a stay, an "
+        "injunction, a vacatur) — the interim docket proper, and the only slice "
+        "any rate here is computed over",
+    )
+    unknown: int = Field(
+        default=0,
+        ge=0,
+        description="Applications whose proceedings were parsed but whose ask "
+        "could not be read — a parser gap, folded into neither kind. Also "
+        "absorbs any out-of-vocabulary kind value, so the four kind counts "
+        "always sum to `applications`",
+    )
+    unparsed: int = Field(
+        default=0,
+        ge=0,
+        description="Applications never application-parsed at all (a NULL "
+        "`application_kind`) — a coverage gap, distinct from `unknown`, which "
+        "asserts a parse happened",
+    )
+    substantive_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Substantive applications carrying a machine-readable interim "
+        "disposition — the raw denominator behind `substantive_grant_rate`. An "
+        "application whose disposing entry the interim vocabulary never matched "
+        "stays out of the denominator, visibly unresolved, so the resolved set "
+        "is selected for machine-matchable resolution text",
+    )
+    substantive_granted: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved substantive applications whose disposition lands on "
+        "the granted side of the binary outcome mapping",
+    )
+    substantive_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="substantive_granted / substantive_resolved — a descriptive "
+        "rate over the resolved substantive slice only, never over extensions; "
+        "withdrawn/dismissed resolutions count as ungranted. None when nothing "
+        "substantive has resolved (no rate, not 0%)",
+    )
+    response_requested: int = Field(
+        default=0,
+        ge=0,
+        description="Substantive applications where the Court (or a Circuit "
+        "Justice) requested a response — the interim analogue of a CVSG",
+    )
+    referred_to_court: int = Field(
+        default=0,
+        ge=0,
+        description="Substantive applications referred to the full Court rather "
+        "than decided by a Circuit Justice alone",
+    )
+    with_amicus: int = Field(
+        default=0,
+        ge=0,
+        description="Substantive applications whose docket records at least one "
+        "amicus brief — a stakes proxy, flagged here rather than summed",
+    )
+
+
+class StatPackInterimTerm(_StatPackInterimCounts):
+    """One application-Term's slice of the interim docket.
+
+    The Term is read from the application's own docket number (``24A1099`` ->
+    OT2024), so the split needs no dates. Like the cert Term entries, the array
+    is a replay self-selection surface: a time-masked cell anchors only on Term
+    rows strictly preceding its clock.
+    """
+
+    term: int = Field(description="The October-Term year the application was docketed in")
+
+
+class StatPackInterim(_StatPackInterimCounts):
+    """The statpack's interim-docket stage section: SCOTUS applications, by ask.
+
+    The stage axis beside the cert sections: applications (stays, injunctions,
+    vacaturs — and the extension requests that dominate the docket) are a
+    different population resolving on a different standard, so they get their own
+    section rather than a salience band — this section deliberately carries no
+    ``salience_version``, because it is not a salience-band product. Pack-level
+    counts with a per-application-Term breakdown; the accumulating cohort that
+    will eventually ground an interim segment base rate, published descriptively
+    until then. A stage section exists only once its corpus feed does: the pack
+    omits it entirely while the corpus holds no application rows, and a merits
+    sibling would join the same way once a merits judgment column exists to feed
+    one.
+    """
+
+    terms: list[StatPackInterimTerm] = Field(
+        default_factory=list,
+        description="Per-application-Term detail, most recent Term first",
+    )
+
+
 class StatPackCoverage(_Strict):
     """The statpack's own denominators: how much trustworthy data backs it.
 
@@ -2250,6 +2377,26 @@ class StatPack(_Strict):
         description="Per-SCOTUS-Term live-slice detail (weighted base rates, timing, "
         "per-fee-class census), most recent Term first",
     )
+    interim: StatPackInterim | None = Field(
+        default=None,
+        description="The interim-docket stage section (SCOTUS applications by ask, "
+        "with the substantive slice's descriptive grant rate); None — and omitted "
+        "from the serialized pack — while the corpus holds no application rows",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop a stage section from the payload while its feed does not exist.
+
+        A stage section is shown only once its corpus feed exists; serializing a
+        ``null`` placeholder would both misstate that contract and add byte
+        noise to every pack built from a corpus with no application rows, whose
+        serialized form must carry no ``interim`` key at all.
+        """
+        payload = handler(self)
+        if isinstance(payload, dict) and self.interim is None:
+            payload.pop("interim", None)
+        return payload
 
 
 class DocketPackTerm(_Strict):

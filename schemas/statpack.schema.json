@@ -150,6 +150,208 @@
       "title": "StatPackCoverage",
       "type": "object"
     },
+    "StatPackInterim": {
+      "additionalProperties": false,
+      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the accumulating cohort that\nwill eventually ground an interim segment base rate, published descriptively\nuntil then. A stage section exists only once its corpus feed does: the pack\nomits it entirely while the corpus holds no application rows, and a merits\nsibling would join the same way once a merits judgment column exists to feed\none.",
+      "properties": {
+        "applications": {
+          "default": 0,
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "minimum": 0,
+          "title": "Applications",
+          "type": "integer"
+        },
+        "extension": {
+          "default": 0,
+          "description": "Applications whose parsed ask is an extension of time \u2014 the administrative majority, counted but never pooled into a rate",
+          "minimum": 0,
+          "title": "Extension",
+          "type": "integer"
+        },
+        "referred_to_court": {
+          "default": 0,
+          "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
+          "minimum": 0,
+          "title": "Referred To Court",
+          "type": "integer"
+        },
+        "response_requested": {
+          "default": 0,
+          "description": "Substantive applications where the Court (or a Circuit Justice) requested a response \u2014 the interim analogue of a CVSG",
+          "minimum": 0,
+          "title": "Response Requested",
+          "type": "integer"
+        },
+        "substantive": {
+          "default": 0,
+          "description": "Applications whose parsed ask is substantive (a stay, an injunction, a vacatur) \u2014 the interim docket proper, and the only slice any rate here is computed over",
+          "minimum": 0,
+          "title": "Substantive",
+          "type": "integer"
+        },
+        "substantive_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "substantive_granted / substantive_resolved \u2014 a descriptive rate over the resolved substantive slice only, never over extensions; withdrawn/dismissed resolutions count as ungranted. None when nothing substantive has resolved (no rate, not 0%)",
+          "title": "Substantive Grant Rate"
+        },
+        "substantive_granted": {
+          "default": 0,
+          "description": "Resolved substantive applications whose disposition lands on the granted side of the binary outcome mapping",
+          "minimum": 0,
+          "title": "Substantive Granted",
+          "type": "integer"
+        },
+        "substantive_resolved": {
+          "default": 0,
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "minimum": 0,
+          "title": "Substantive Resolved",
+          "type": "integer"
+        },
+        "terms": {
+          "description": "Per-application-Term detail, most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackInterimTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "unknown": {
+          "default": 0,
+          "description": "Applications whose proceedings were parsed but whose ask could not be read \u2014 a parser gap, folded into neither kind. Also absorbs any out-of-vocabulary kind value, so the four kind counts always sum to `applications`",
+          "minimum": 0,
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "unparsed": {
+          "default": 0,
+          "description": "Applications never application-parsed at all (a NULL `application_kind`) \u2014 a coverage gap, distinct from `unknown`, which asserts a parse happened",
+          "minimum": 0,
+          "title": "Unparsed",
+          "type": "integer"
+        },
+        "with_amicus": {
+          "default": 0,
+          "description": "Substantive applications whose docket records at least one amicus brief \u2014 a stakes proxy, flagged here rather than summed",
+          "minimum": 0,
+          "title": "With Amicus",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackInterim",
+      "type": "object"
+    },
+    "StatPackInterimTerm": {
+      "additionalProperties": false,
+      "description": "One application-Term's slice of the interim docket.\n\nThe Term is read from the application's own docket number (``24A1099`` ->\nOT2024), so the split needs no dates. Like the cert Term entries, the array\nis a replay self-selection surface: a time-masked cell anchors only on Term\nrows strictly preceding its clock.",
+      "properties": {
+        "applications": {
+          "default": 0,
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "minimum": 0,
+          "title": "Applications",
+          "type": "integer"
+        },
+        "extension": {
+          "default": 0,
+          "description": "Applications whose parsed ask is an extension of time \u2014 the administrative majority, counted but never pooled into a rate",
+          "minimum": 0,
+          "title": "Extension",
+          "type": "integer"
+        },
+        "referred_to_court": {
+          "default": 0,
+          "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
+          "minimum": 0,
+          "title": "Referred To Court",
+          "type": "integer"
+        },
+        "response_requested": {
+          "default": 0,
+          "description": "Substantive applications where the Court (or a Circuit Justice) requested a response \u2014 the interim analogue of a CVSG",
+          "minimum": 0,
+          "title": "Response Requested",
+          "type": "integer"
+        },
+        "substantive": {
+          "default": 0,
+          "description": "Applications whose parsed ask is substantive (a stay, an injunction, a vacatur) \u2014 the interim docket proper, and the only slice any rate here is computed over",
+          "minimum": 0,
+          "title": "Substantive",
+          "type": "integer"
+        },
+        "substantive_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "substantive_granted / substantive_resolved \u2014 a descriptive rate over the resolved substantive slice only, never over extensions; withdrawn/dismissed resolutions count as ungranted. None when nothing substantive has resolved (no rate, not 0%)",
+          "title": "Substantive Grant Rate"
+        },
+        "substantive_granted": {
+          "default": 0,
+          "description": "Resolved substantive applications whose disposition lands on the granted side of the binary outcome mapping",
+          "minimum": 0,
+          "title": "Substantive Granted",
+          "type": "integer"
+        },
+        "substantive_resolved": {
+          "default": 0,
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "minimum": 0,
+          "title": "Substantive Resolved",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year the application was docketed in",
+          "title": "Term",
+          "type": "integer"
+        },
+        "unknown": {
+          "default": 0,
+          "description": "Applications whose proceedings were parsed but whose ask could not be read \u2014 a parser gap, folded into neither kind. Also absorbs any out-of-vocabulary kind value, so the four kind counts always sum to `applications`",
+          "minimum": 0,
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "unparsed": {
+          "default": 0,
+          "description": "Applications never application-parsed at all (a NULL `application_kind`) \u2014 a coverage gap, distinct from `unknown`, which asserts a parse happened",
+          "minimum": 0,
+          "title": "Unparsed",
+          "type": "integer"
+        },
+        "with_amicus": {
+          "default": 0,
+          "description": "Substantive applications whose docket records at least one amicus brief \u2014 a stakes proxy, flagged here rather than summed",
+          "minimum": 0,
+          "title": "With Amicus",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "StatPackInterimTerm",
+      "type": "object"
+    },
     "StatPackSection": {
       "additionalProperties": false,
       "description": "One named base-rate breakdown: a dimension, its population, and its buckets.\n\nThe section shape both published base-rate artifacts are built from \u2014\n:class:`StatPack` and :class:`DocketPack` \u2014 so a cut computed for both carries\nidentical scope flags in each. ``court`` records the court filter the section\nwas computed under (``None`` = all courts), so the artifact is self-describing\n\u2014 e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the\nper-group base-rate breakdown, most cases first (the same shape ``fedcourts\nstats --group-by`` produces).",
@@ -540,6 +742,18 @@
       "minimum": 0,
       "title": "Dated Resolved",
       "type": "integer"
+    },
+    "interim": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackInterim"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The interim-docket stage section (SCOTUS applications by ask, with the substantive slice's descriptive grant rate); None \u2014 and omitted from the serialized pack \u2014 while the corpus holds no application rows"
     },
     "machine_readable_resolved": {
       "default": 0,

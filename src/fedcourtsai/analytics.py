@@ -21,14 +21,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
-from .pipeline.outcome import is_machine_readable
+from .pipeline.interim_signals import ApplicationKind
+from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
 from .schemas import (
     AnalyticsReport,
@@ -41,6 +42,8 @@ from .schemas import (
     GroupBy,
     StatPack,
     StatPackCoverage,
+    StatPackInterim,
+    StatPackInterimTerm,
     StatPackSection,
     StatPackTerm,
     StatPackTermClass,
@@ -709,6 +712,142 @@ class _TermAcc:
                     self.grant_days.append(days)
 
 
+# The parsed-ask vocabulary, as stored strings — the membership check that keeps
+# a corrupt kind value from silently escaping the published kind split.
+_APPLICATION_KINDS = frozenset(kind.value for kind in ApplicationKind)
+
+
+class _InterimAcc:
+    """Streaming accumulator for one slice of the interim application docket.
+
+    Counts are raw throughout — the live channel polls every application it
+    discovers, so no row stands in for another and nothing here is reweighted
+    (``sample_weight`` is deliberately unread; the denial-sampling frame covers
+    cert petitions only, and every application row is written at weight 1 — if
+    a sampling design ever reaches applications, this accumulator must learn
+    to weight).
+    The kind tally keeps ``unknown`` (parsed, ask unreadable) apart from
+    ``unparsed`` (never application-parsed), so a coverage gap never masquerades
+    as a value; the resolved/granted counters and the escalation signals read the
+    **substantive** slice only, because that is the only slice any published rate
+    or ladder claim may be computed over.
+    """
+
+    __slots__ = (
+        "applications",
+        "kinds",
+        "referred_to_court",
+        "response_requested",
+        "substantive_granted",
+        "substantive_resolved",
+        "unparsed",
+        "with_amicus",
+    )
+
+    def __init__(self) -> None:
+        self.applications = 0
+        self.kinds: Counter[str] = Counter()
+        self.unparsed = 0
+        self.substantive_resolved = 0
+        self.substantive_granted = 0
+        self.response_requested = 0
+        self.referred_to_court = 0
+        self.with_amicus = 0
+
+    def add(self, row: CorpusRow) -> None:
+        self.applications += 1
+        if row.application_kind is None:
+            self.unparsed += 1
+            return
+        # The blob is external input to this pure function: a kind string
+        # outside the vocabulary counts with the unreadable asks rather than
+        # vanishing, so the kind split always sums to `applications`.
+        kind = (
+            row.application_kind
+            if row.application_kind in _APPLICATION_KINDS
+            else ApplicationKind.unknown.value
+        )
+        self.kinds[kind] += 1
+        if kind != ApplicationKind.substantive.value:
+            return
+        if row.disposition is not None:
+            disposition = Disposition(row.disposition)
+            # Machine-readable labels only, as the cert accumulators count and
+            # docs/salience.md states the interim rule: an application counts as
+            # resolved only when the interim vocabulary matched its disposing
+            # entry, so an `other` (or channel-crossed) label joins the visibly
+            # unresolved residue instead of entering the rate as a silent denial.
+            # The binary outcome mapping owns "what counts as granted"; the
+            # interim vocabulary (granted / denied / withdrawn / dismissed)
+            # projects through the same function as cert scoring.
+            if is_machine_readable(disposition):
+                self.substantive_resolved += 1
+                self.substantive_granted += granted_flag(disposition)
+        if row.response_requested:
+            self.response_requested += 1
+        if row.referred_to_court:
+            self.referred_to_court += 1
+        if row.amicus_briefs is not None and row.amicus_briefs > 0:
+            self.with_amicus += 1
+
+    def merge(self, other: _InterimAcc) -> None:
+        """Fold another slice's counters into this one (for the pack-level totals)."""
+        self.applications += other.applications
+        self.kinds.update(other.kinds)
+        self.unparsed += other.unparsed
+        self.substantive_resolved += other.substantive_resolved
+        self.substantive_granted += other.substantive_granted
+        self.response_requested += other.response_requested
+        self.referred_to_court += other.referred_to_court
+        self.with_amicus += other.with_amicus
+
+
+def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
+    """One interim slice's shared count block, keyed by the model's field names.
+
+    ``dict`` rather than a model so the same roll-up feeds both
+    :class:`StatPackInterim` and :class:`StatPackInterimTerm` without a copy that
+    could drift. The rate divides raw counts and exists only where something
+    substantive resolved — an all-denied slice has a real 0%, an unresolved one
+    no rate at all.
+    """
+    return {
+        "applications": acc.applications,
+        "extension": acc.kinds[ApplicationKind.extension.value],
+        "substantive": acc.kinds[ApplicationKind.substantive.value],
+        "unknown": acc.kinds[ApplicationKind.unknown.value],
+        "unparsed": acc.unparsed,
+        "substantive_resolved": acc.substantive_resolved,
+        "substantive_granted": acc.substantive_granted,
+        "substantive_grant_rate": (
+            acc.substantive_granted / acc.substantive_resolved if acc.substantive_resolved else None
+        ),
+        "response_requested": acc.response_requested,
+        "referred_to_court": acc.referred_to_court,
+        "with_amicus": acc.with_amicus,
+    }
+
+
+def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
+    """Roll the per-application-Term accumulators into the interim stage section.
+
+    ``None`` when the corpus holds no application rows: a stage section is shown
+    only once its feed exists, so the pack omits it entirely rather than emitting
+    an empty scaffold — and the serializer drops the absent section, so such a
+    pack carries no ``interim`` key at all.
+    """
+    if not accs:
+        return None
+    total = _InterimAcc()
+    for acc in accs.values():
+        total.merge(acc)
+    terms = [
+        StatPackInterimTerm(term=year, **_interim_counts(accs[year]))
+        for year in sorted(accs, reverse=True)
+    ]
+    return StatPackInterim(terms=terms, **_interim_counts(total))
+
+
 # How each (Term, stream) cursor contributes to its fee class's census: the count
 # of docketed serials from the stream's base through the cursor. The forward
 # poller's and the historical walker's cursors cover the same serial space, so a
@@ -833,7 +972,9 @@ class _CorpusScan:
     cleanly and publish a section's buckets under another's title — which in the
     docket pack would mean rendering the salience band the artifact exists to
     exclude. ``terms`` and ``cursor_rows`` back the per-Term census, which both
-    published artifacts carry.
+    published artifacts carry. ``interim`` holds the application-docket
+    accumulators (keyed by application-Term year); only the statpack rolls them
+    into a section — the docket pack ignores them by design.
     """
 
     specs: tuple[_SectionSpec, ...]
@@ -841,8 +982,32 @@ class _CorpusScan:
     live_slice: _Slice
     sections: tuple[defaultdict[str, _Slice], ...]
     terms: dict[int, _TermAcc]
+    interim: dict[int, _InterimAcc]
     cursor_rows: list[tuple[int, str, int, int | None]]
     corpus_through: date | None
+
+
+def _accumulate_scotus_terms(
+    row: CorpusRow,
+    row_is_live: bool,
+    term_accs: dict[int, _TermAcc],
+    interim_accs: dict[int, _InterimAcc],
+) -> None:
+    """Offer one SCOTUS row to the per-Term accumulators of both stage axes.
+
+    A docket number parses as the cert ``YY-NNNN`` form or the application
+    ``YYAnnn`` form, never both, so a row contributes to at most one stage
+    population. The cert entries keep their live-slice restriction; the interim
+    axis keys on the form alone, which is the live channel's addressable
+    population either way.
+    """
+    if row_is_live:
+        year = corpus.scotus_term_year(row.docket_number)
+        if year is not None:
+            term_accs.setdefault(year, _TermAcc()).add(row)
+    application_year = corpus.scotus_application_term_year(row.docket_number)
+    if application_year is not None:
+        interim_accs.setdefault(application_year, _InterimAcc()).add(row)
 
 
 def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _CorpusScan:
@@ -860,6 +1025,7 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
     corpus_through: date | None = None
     section_slices: tuple[defaultdict[str, _Slice], ...] = tuple(defaultdict(_Slice) for _ in specs)
     term_accs: dict[int, _TermAcc] = {}
+    interim_accs: dict[int, _InterimAcc] = {}
     with corpus.connect(corpus_db_path) as conn:
         cursor_rows = corpus.live_cursor_rows(conn)
         for row in corpus.iter_rows(conn):
@@ -887,10 +1053,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
                 )
                 for key in keys:
                     slices[key].add(row)
-            if row_is_live and row.court == "scotus":
-                year = corpus.scotus_term_year(row.docket_number)
-                if year is not None:
-                    term_accs.setdefault(year, _TermAcc()).add(row)
+            if row.court == "scotus":
+                _accumulate_scotus_terms(row, row_is_live, term_accs, interim_accs)
     return _CorpusScan(
         specs=specs,
         corpus_through=corpus_through,
@@ -898,6 +1062,7 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
         live_slice=live_slice_totals,
         sections=section_slices,
         terms=term_accs,
+        interim=interim_accs,
         cursor_rows=cursor_rows,
     )
 
@@ -949,6 +1114,9 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     cuts + per-Term entries the predict/evaluate prompts anchor on. The ``terms``
     array iterates the union of row-derived Terms and cursor-table Terms, so a
     Term the walkers have probed but not yet populated still shows its census.
+    A third population rides beside them as its own stage section: the interim
+    application docket (``interim``), present only once the corpus holds
+    application rows.
     """
     if not corpus_db_path.exists():
         return StatPack(sections=_sections(_STATPACK_SECTIONS))
@@ -977,6 +1145,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         ),
         sections=sections,
         terms=[_term_entry(year, term_accs.get(year), census) for year in term_years],
+        interim=_interim_section(scan.interim),
     )
 
 
@@ -1111,8 +1280,9 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
     Leads with headline counts, the overall base rate, coverage, and decision
     timing; then one table per curated breakdown (capped per section — the JSON
     carries every bucket) and the per-Term live-slice detail table for the most
-    recent Terms. Deterministic; safe on the empty pack (renders a one-line
-    note).
+    recent Terms, with the interim-docket stage section last — rendered only
+    when the pack carries one. Deterministic; safe on the empty pack (renders a
+    one-line note).
 
     ``markdown_terms`` caps that per-Term detail; ``0`` renders every Term, and
     ``None`` takes :class:`~fedcourtsai.config.StatpackConfig`'s *field* default —
@@ -1219,7 +1389,76 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
                 "post-date what you are allowed to know._"
             ),
         ]
+    if pack.interim is not None:
+        lines += _interim_lines(pack.interim)
     return "\n".join(lines) + "\n"
+
+
+def _interim_lines(interim: StatPackInterim) -> list[str]:
+    """The interim-docket section of the statpack Markdown.
+
+    Rendered only when the pack carries the section, i.e. once the corpus holds
+    application rows. Raw counts with the substantive-only rate discipline the
+    schema states; the caption carries the interpretation contract so a quoted
+    figure cannot shed it.
+    """
+    lines = [
+        "",
+        "## The interim docket (applications)",
+        (
+            "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
+            "time-extension requests that dominate the docket), split by application-Term "
+            "year; raw counts, never reweighted. Descriptive only: the grant rate is "
+            "computed over **resolved substantive** applications alone — extensions are "
+            "counted so their dominance stays visible, but they never pool into any rate — "
+            "and it is not a segment base rate: predict scope and a scored interim base "
+            "rate remain unspecified, so no skill or calibration claim rests on these "
+            "figures. Resolved means a machine-matched interim disposition — an unmatched "
+            "resolution stays visibly unresolved rather than entering any denominator — "
+            "and withdrawn/dismissed resolutions count as ungranted. This is not a "
+            "salience-band product and carries no salience version. "
+            "The escalation-signal columns count substantive applications only, and carry "
+            "max-latched ending states rather than as-at-prediction values — no rate here "
+            "conditions on them. "
+            "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
+            "too — anchor only on Term rows strictly preceding your clock._"
+        ),
+        "",
+        f"**{interim.applications}** application(s): {interim.extension} extension, "
+        f"{interim.substantive} substantive, {interim.unknown} unknown ask, "
+        f"{interim.unparsed} never parsed.",
+        "",
+        f"**Substantive slice:** {interim.substantive_resolved} resolved, "
+        f"{interim.substantive_granted} granted — grant rate {_interim_rate(interim)}. "
+        f"Escalation signals: response requested {interim.response_requested}, "
+        f"referred to the Court {interim.referred_to_court}, "
+        f"with amicus {interim.with_amicus}.",
+        "",
+        (
+            "| Term | applications | extension | substantive | unknown | unparsed "
+            "| resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |"
+        ),
+        "| --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |",
+    ]
+    lines += [_interim_term_row(entry) for entry in interim.terms]
+    return lines
+
+
+def _interim_rate(entry: StatPackInterim | StatPackInterimTerm) -> str:
+    """The substantive grant rate with its raw denominator beside it, or a dash."""
+    if entry.substantive_grant_rate is None:
+        return "—"
+    return f"{_pct(entry.substantive_grant_rate)} (n={entry.substantive_resolved})"
+
+
+def _interim_term_row(entry: StatPackInterimTerm) -> str:
+    """One application-Term's row in the interim docket table."""
+    return (
+        f"| {entry.term} | {entry.applications} | {entry.extension} | {entry.substantive} "
+        f"| {entry.unknown} | {entry.unparsed} | {entry.substantive_resolved} "
+        f"| {entry.substantive_granted} | {_interim_rate(entry)} | {entry.response_requested} "
+        f"| {entry.referred_to_court} | {entry.with_amicus} |"
+    )
 
 
 def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:

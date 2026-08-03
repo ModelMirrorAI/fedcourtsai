@@ -548,7 +548,7 @@ rather than folding it into an undifferentiated "granted."
   score captures the stakes — with deterministic mootness-proneness deferred to a
   possible `sal-v2` feature.
 
-## The interim docket (designed, not measured)
+## The interim docket (designed; published descriptively, not scored)
 
 The cert program above selects petitions. The interim docket — stays,
 injunctions, vacaturs pending certiorari — needs its own, because none of
@@ -604,10 +604,14 @@ application counts as resolved only when the interim disposition vocabulary
 matches its disposing entry, so the resolved set is selected for
 machine-matchable resolution text (an unmatched resolution stays in the
 rotation as a visibly long-unresolved residue rather than silently counting).
-The rate itself stays unpublished: predict scope and a base rate for the
-interim segment remain unspecified until enough substantive applications have
-resolved to support one — the same posture the merits stage takes, and for the
-same reason.
+The accumulating cohort itself is published descriptively — the statpack's
+interim section carries the counts by ask, the substantive slice's
+resolved/granted counts and raw grant rate, and the escalation-signal counts,
+pack-level and per application-Term — but the
+*scored* rate stays unspecified: predict scope and a segment base rate for the
+interim stage wait until enough substantive applications have resolved to
+support one — the same posture the merits stage takes, and for the same
+reason.
 
 ## Shared discipline: leakage / timing
 
