@@ -299,6 +299,164 @@ def test_live_rotation_orders_recent_term_then_staleness(tmp_path: Path) -> None
         # A case with no open event (scotus/6 above) never enters the rotation.
 
 
+def test_live_rotation_keeps_a_granted_docket_with_an_open_merits_event(tmp_path: Path) -> None:
+    """A granted docket carrying the open merits event stays in the rotation.
+
+    The cert grant latches the row's disposition, but the merits proceeding is
+    live until the judgment — only the merits-stage open event (minted at the
+    grant) re-admits it. A granted docket without one (a GVR, a summary
+    reversal, or history from before minting) still exits, as does any granted
+    docket once `date_decided` lands.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Granted, open merits event -> retained.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                ),
+                # Granted-set, no merits event (a GVR terminates at the cert
+                # order, so none was minted) -> excluded, even though an open
+                # interim motion (below) rides the docket.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-2",
+                    disposition="gvr",
+                    date_cert_granted=date(2026, 1, 12),
+                ),
+                # Granted with a merits event but the docket-level decision has
+                # landed -> the matter is over, excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    disposition="granted",
+                    date_cert_granted=date(2025, 10, 6),
+                    date_decided=date(2026, 6, 29),
+                ),
+                # Denied -> excluded, exactly as before.
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="25-4",
+                    disposition="denied",
+                ),
+                # Pending -> in, exactly as before.
+                corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="25-5"),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title=f"scotus/{n}",
+                    decision_target="judgment",
+                )
+                for n in (1, 3)
+            ]
+            + [
+                # The GVR docket also carries an *open* interim motion: retention
+                # requires an open MERITS-stage event specifically, so mere
+                # open-ness on a granted-set row must not re-admit it.
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay",
+                    case_id="scotus/2",
+                    court="scotus",
+                    kind="motion",
+                    stage="interim",
+                    title="scotus/2",
+                )
+            ]
+            + [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="petition",
+                    title=f"scotus/{n}",
+                    # The granted rows' petition events are already resolved; only
+                    # scotus/5's stays open.
+                    resolved=n != 5,
+                )
+                for n in (1, 2, 3, 4, 5)
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    # Both survivors are never-polled same-Term rows, so case_id breaks the tie.
+    assert picked == ["scotus/1", "scotus/5"]
+
+
+def test_live_rotation_granted_docket_never_leads_on_its_stale_conference_date(
+    tmp_path: Path,
+) -> None:
+    """A retained granted docket rotates on staleness, not its old distribution.
+
+    The distributed-petitions-lead ordering exists because a distributed pending
+    petition is days from its order-list result; a granted docket's latched
+    `distributed_for_conference` is the conference that produced the grant, so
+    letting it sort on that (always past) date would park the granted cohort at
+    the head of every cycle for the life of the merits proceeding.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Granted at its (past) conference, merits pending.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                    distributed_for_conference=date(2026, 1, 9),
+                ),
+                # Pending, distributed for an upcoming conference -> leads.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-2",
+                    distributed_for_conference=date(2026, 9, 29),
+                ),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title="scotus/1",
+                    decision_target="judgment",
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/2",
+                    court="scotus",
+                    kind="petition",
+                    title="scotus/2",
+                ),
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    assert picked == ["scotus/2", "scotus/1"]
+
+
 def test_last_live_polled_is_stamped_and_latched(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     row = from_live_docket(_payload(), live_docket_id(25, 100))
@@ -343,6 +501,57 @@ def test_ingest_live_payload_pending_then_decided(tmp_path: Path) -> None:
         snap = corpus.latest_snapshot(conn, first.case_id)
     assert stored is not None and stored.disposition == "denied"
     assert snap is not None and snap[1] == decided_payload  # raw JSON is the snapshot
+
+
+def test_a_tracked_petition_grant_mints_the_merits_event_and_stays_in_rotation(
+    tmp_path: Path,
+) -> None:
+    """The forward shape end to end: pending onboard, then the grant order lands.
+
+    Resolution (before re-extraction) records the petition outcome, minting
+    rides the same pass, and the granted docket — its petition closed — stays
+    in the live rotation on the open merits event's account.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 100)
+
+    ingest_live_payload(db, data_root, _payload(), docket_id, today=date(2026, 7, 9))
+    granted_payload = _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    granted = ingest_live_payload(
+        db, data_root, granted_payload, docket_id, today=date(2026, 7, 10)
+    )
+    assert granted.resolved == ["evt-petition-disposition"]
+    assert granted.unrecorded_events == []
+    with corpus.connect(db) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, granted.case_id)}
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    assert events["evt-petition-disposition"].resolved is True
+    merits = events["evt-order-judgment"]
+    assert merits.resolved is False and merits.stage == "merits"
+    assert picked == [granted.case_id]
+
+
+def test_a_brand_new_decided_grant_ingest_mints_nothing(tmp_path: Path) -> None:
+    """The historical-walker shape: a grant ingested with no tracked open events.
+
+    Resolution runs before re-extraction and sees no open events, so no outcome
+    is recorded and no merits event is minted; extraction then latches the
+    petition event closed, and the decided row stays out of the rotation.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 100)
+
+    granted_payload = _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    result = ingest_live_payload(db, data_root, granted_payload, docket_id, today=date(2026, 7, 10))
+    assert result.resolved == []
+    with corpus.connect(db) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, result.case_id)}
+        picked = corpus.live_rotation(conn, limit=10)
+    assert "evt-order-judgment" not in events
+    assert events["evt-petition-disposition"].resolved is True
+    assert picked == []
 
 
 # --- discovery: frontier probing + identity reconciliation ------------------------

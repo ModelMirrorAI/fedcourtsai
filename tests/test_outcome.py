@@ -8,11 +8,15 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import from_api_docket
 from fedcourtsai.pipeline.outcome import (
     _CASE_BASELINE_ID_PREFIXES,
+    MERITS_EVENT_ID,
+    Resolution,
     appears_decided,
     detect_resolution,
     disposition_basis,
     granted_flag,
     is_machine_readable,
+    merits_event_for,
+    mint_merits_event,
     record_outcomes,
     resolution_signals,
     resolve_case,
@@ -394,6 +398,238 @@ def test_resolve_case_is_idempotent(tmp_path: Path) -> None:
     again = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert not again.outcomes
     assert not again.unrecorded
+
+
+# --- merits event minting ------------------------------------------------------
+
+GRANTED_SCOTUS_DOCKET = {
+    "id": 22451,
+    "court_id": "scotus",
+    "docket_number": "22-451",
+    "case_name": "Doe v. Roe",
+    "date_cert_granted": "2022-10-03",
+}
+
+
+def _scotus_event(
+    tmp_path: Path,
+    event_id: str = "evt-petition-disposition",
+    kind: EventKind = EventKind.petition,
+    stage: Stage | None = Stage.cert,
+    resolved: bool = False,
+) -> None:
+    event = corpus.CorpusEvent(
+        event_id=event_id,
+        case_id="scotus/22451",
+        court="scotus",
+        kind=kind,
+        stage=stage,
+        title="Doe v. Roe",
+        resolved=resolved,
+    )
+    with corpus.connect(_db(tmp_path)) as conn:
+        corpus.upsert_events(conn, [event])
+
+
+def test_cert_grant_mints_the_open_merits_event(tmp_path: Path) -> None:
+    """A recorded grant opens `evt-order-judgment`, after the attribution pass.
+
+    The same pass that resolves the petition never sees the merits event among
+    the open set — the outcomes carry the petition only, nothing lands
+    unrecorded — and the minted event reaches both stores: an open corpus row
+    (kind order, stage merits, opened at the grant) and its ledger event.yaml.
+    """
+    _scotus_event(tmp_path)
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    assert list(resolution.outcomes) == ["evt-petition-disposition"]
+    assert not resolution.unrecorded
+    with corpus.connect(_db(tmp_path)) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/22451")}
+    merits = events[MERITS_EVENT_ID]
+    assert merits.resolved is False
+    assert merits.kind == EventKind.order
+    assert merits.stage == Stage.merits
+    assert merits.decision_target == "judgment"
+    assert merits.opened_at == date(2022, 10, 3)  # the grant date
+    assert merits.title == "Doe v. Roe"
+    assert events["evt-petition-disposition"].resolved is True
+    ledger = read_model(
+        CasePaths(tmp_path, "scotus", 22451).event(MERITS_EVENT_ID).event_file,
+        PredictableEvent,
+    )
+    assert ledger.resolved is False
+    assert ledger.stage == Stage.merits.value
+    assert ledger.decision_target == "judgment"
+
+
+def test_gvr_and_summary_reversal_mint_no_merits_event() -> None:
+    # Both terminate the case at the cert order itself — a GVR vacates and
+    # remands in the grant order, a summary reversal decides the merits there —
+    # so no merits proceeding follows and nothing is minted.
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+
+    def resolution_with(disposition: Disposition) -> Resolution:
+        return Resolution(
+            outcomes={
+                "evt-petition-disposition": Outcome(
+                    case_id="scotus/22451",
+                    event_id="evt-petition-disposition",
+                    resolved_at=date(2022, 10, 3),
+                    actual_disposition=disposition,
+                    actual_granted=granted_flag(disposition),
+                )
+            }
+        )
+
+    assert merits_event_for(row, resolution_with(Disposition.gvr)) is None
+    assert merits_event_for(row, resolution_with(Disposition.summary_reversal)) is None
+    assert merits_event_for(row, resolution_with(Disposition.denied)) is None
+    minted = merits_event_for(row, resolution_with(Disposition.granted))
+    assert minted is not None and minted.event_id == MERITS_EVENT_ID
+    partial = merits_event_for(row, resolution_with(Disposition.granted_in_part))
+    assert partial is not None
+
+
+def test_minting_never_reopens_a_resolved_merits_event(tmp_path: Path) -> None:
+    # Re-detection after the judgment has closed the merits event must not
+    # reopen it: the events upsert MAX-latches `resolved`, and the ledger
+    # event.yaml is written from the post-upsert state so it honours the same
+    # latch rather than regressing the committed definition to open.
+    _scotus_event(tmp_path)
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    with corpus.connect(_db(tmp_path)) as conn:
+        corpus.set_event_resolved(conn, "scotus/22451", MERITS_EVENT_ID)
+    mint_merits_event(_db(tmp_path), tmp_path, "scotus", 22451, row, resolution)
+    with corpus.connect(_db(tmp_path)) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/22451")}
+    assert events[MERITS_EVENT_ID].resolved is True
+    ledger = read_model(
+        CasePaths(tmp_path, "scotus", 22451).event(MERITS_EVENT_ID).event_file,
+        PredictableEvent,
+    )
+    assert ledger.resolved is True
+
+
+def test_minting_is_scotus_only() -> None:
+    # The shared resolution seam also records granted dispositions on circuit
+    # dockets; those open no merits proceeding before the Court, so no
+    # cert-vocabulary merits event may be minted for them.
+    row = from_api_docket(
+        {
+            "id": 64512345,
+            "court": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
+            "docket_number": "21-55555",
+            "case_name": "Doe v. Roe",
+            "date_terminated": "2022-06-15",
+            "disposition": "Petition granted",
+        }
+    )
+    resolution = Resolution(
+        outcomes={
+            "evt-petition-review": Outcome(
+                case_id="ca9/64512345",
+                event_id="evt-petition-review",
+                resolved_at=date(2022, 6, 15),
+                actual_disposition=Disposition.granted,
+                actual_granted=1,
+            )
+        }
+    )
+    assert merits_event_for(row, resolution) is None
+
+
+def test_granted_docket_repoll_is_a_clean_noop(tmp_path: Path) -> None:
+    """The re-poll shape a retained granted docket presents, end to end.
+
+    The petition event is resolved, the merits event open with stage merits,
+    and the row still carries the granted disposition and cert date. Nothing is
+    recorded (the cert disposition already has its resolved home), nothing is
+    surfaced for triage, and the merits event neither resolves nor duplicates.
+    """
+    _scotus_event(tmp_path)
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    again = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    assert not again.outcomes
+    assert not again.unrecorded
+    with corpus.connect(_db(tmp_path)) as conn:
+        events = corpus.events_for_case(conn, "scotus/22451")
+    assert {e.event_id: e.resolved for e in events} == {
+        "evt-petition-disposition": True,
+        MERITS_EVENT_ID: False,
+    }
+
+
+def test_decided_row_beside_a_resolved_cert_event_is_a_noop() -> None:
+    # The pure form of the re-poll guard: the case-level disposition belongs to
+    # the already-resolved cert event, so the open merits event is not triaged.
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    stages: dict[str, Stage | None] = {
+        "evt-petition-disposition": Stage.cert,
+        MERITS_EVENT_ID: Stage.merits,
+    }
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=stages,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert not resolution.outcomes
+    assert not resolution.unrecorded
+    # A stage-less resolved baseline event carries the disposition just the same.
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages={MERITS_EVENT_ID: Stage.merits, "evt-petition-disposition": None},
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert not resolution.outcomes and not resolution.unrecorded
+    # Without a resolved home for the disposition the conservative surface stays.
+    resolution = detect_resolution(
+        row, "scotus", 22451, [MERITS_EVENT_ID], stages={MERITS_EVENT_ID: Stage.merits}
+    )
+    assert resolution.unrecorded
+
+
+def test_the_noop_guard_yields_to_news_the_row_carries() -> None:
+    """A docket-level decision date or a mutated disposition re-opens triage.
+
+    The no-op covers exactly the retained-granted re-poll shape. When
+    `date_decided` latches (the merits judgment arriving upstream, which no
+    detection rule reads yet) or the disposition stops telling the recorded
+    grant's story (a DIG relabeled `dismissed`), the poll is news, and the
+    conservative surface must carry it to the maintainer.
+    """
+    stages: dict[str, Stage | None] = {
+        "evt-petition-disposition": Stage.cert,
+        MERITS_EVENT_ID: Stage.merits,
+    }
+    decided = from_api_docket(GRANTED_SCOTUS_DOCKET | {"date_terminated": "2023-06-30"})
+    resolution = detect_resolution(
+        decided,
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=stages,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert resolution.unrecorded
+    mutated = from_api_docket(GRANTED_SCOTUS_DOCKET | {"disposition": "Petition dismissed"})
+    resolution = detect_resolution(
+        mutated,
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=stages,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert resolution.unrecorded
 
 
 def test_record_outcomes_refuses_an_orphaned_outcome(tmp_path: Path) -> None:

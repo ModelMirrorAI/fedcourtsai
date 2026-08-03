@@ -12,8 +12,9 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai.analytics import _GRANT_LABELS
-from fedcourtsai.pipeline.outcome import _GRANTED, granted_flag
+from fedcourtsai.pipeline.outcome import granted_flag
 from fedcourtsai.schemas import (
+    GRANTED_DISPOSITIONS,
     Disposition,
     Judgment,
     JusticeVote,
@@ -93,7 +94,9 @@ def test_the_grant_family_has_one_definition() -> None:
     pack, so two enumerations of "what counts as a grant" would diverge somewhere
     visible. The scoring target and the analytics family must agree member for
     member."""
-    assert {d.value for d in _GRANTED if d is not Disposition.granted_in_part} == set(_GRANT_LABELS)
+    assert {d.value for d in GRANTED_DISPOSITIONS if d is not Disposition.granted_in_part} == set(
+        _GRANT_LABELS
+    )
     assert Disposition.summary_reversal.value in _GRANT_LABELS
 
 

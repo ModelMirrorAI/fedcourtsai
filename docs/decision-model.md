@@ -15,8 +15,15 @@ scores it against `Outcome.votes` wherever both name the same Justice, feeding
 the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
 application docket's motion baseline and on SCOTUS entry-pinned
-stay/injunction motions, absent everywhere the writers do not classify one —
-but no aggregation rule reads it from data. Everything else is unbuilt: no artifact carries a writing role, a
+stay/injunction motions, `merits` on the minted merits event, absent
+everywhere the writers do not classify one — but no aggregation rule reads
+it from data. The merits **event** exists as an artifact: a cert grant that
+opens a merits proceeding mints an open `evt-order-judgment` (kind `order`,
+stage `merits`, target the judgment) so the granted docket keeps polling
+toward its decision — but it is unscored and unpredicted: not a forecastable
+kind, so no cell fans out for it, no judgment detection resolves it, and no
+aggregation rule reads it. Everything else is unbuilt: no artifact carries a
+writing role, a
 judgment, or a provenance block; no schema carries a vote *margin*; and no
 aggregation rule is applied to anything. That is pre-registration: the model is settled before
 there is data to fit it to, which is the only order in which the choice is
