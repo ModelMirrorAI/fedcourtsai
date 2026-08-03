@@ -153,6 +153,31 @@ def test_multiple_open_events_land_unrecorded() -> None:
     assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
 
 
+def test_a_lone_non_baseline_event_never_inherits_the_case_disposition() -> None:
+    # A decided docket whose only open event is a motion: the cert disposition
+    # belongs to the case-baseline event, and the motion resolves on its own
+    # filing's terms — attributing across would write the petition's outcome
+    # onto a stay.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row, "ca9", 64512345, ["evt-motion-construe-the-application-for-a-stay"]
+    )
+    assert not resolution.outcomes
+    (req,) = resolution.unrecorded
+    assert req.event_id == "evt-motion-construe-the-application-for-a-stay"
+    assert "forecasts a different filing" in req.reason
+
+
+def test_a_lone_baseline_event_still_resolves() -> None:
+    # The guard narrows attribution, never the baseline path itself: petition-
+    # and appeal-kind ids (any slug) keep resolving exactly as before.
+    row = from_api_docket(DECIDED_DOCKET)
+    for event_id in ("evt-petition-review", "evt-appeal-disposition"):
+        resolution = detect_resolution(row, "ca9", 64512345, [event_id])
+        assert not resolution.unrecorded
+        assert list(resolution.outcomes) == [event_id]
+
+
 # --- ledger write --------------------------------------------------------------
 
 

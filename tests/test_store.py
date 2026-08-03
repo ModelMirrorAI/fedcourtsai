@@ -15,6 +15,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.store import (
     cases_due_for_pull,
+    forecastable_events,
     iter_flags,
     iter_tooling,
     iter_tracked_cases,
@@ -161,6 +162,47 @@ def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> Non
     # The corpus resolved flag is the single source of truth for event state.
     assert open_events(db, "ca9", 7) == ["evt-appeal-disposition"]
     assert resolved_events(db, "ca9", 7) == ["evt-motion-stay"]
+
+
+def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> None:
+    """A substantive motion event on a cert docket is tracked but never earns a
+    forecast cell — its ground truth still flows through `open_events`."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/9", court="scotus")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/9",
+                    court="scotus",
+                    kind=EventKind.petition,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay-pending-appeal",
+                    case_id="scotus/9",
+                    court="scotus",
+                    kind=EventKind.motion,
+                ),
+            ],
+        )
+    assert forecastable_events(db, "scotus", 9) == ["evt-petition-disposition"]
+    # The unfiltered seam keeps serving the motion: evaluate/outcome still track it.
+    assert set(open_events(db, "scotus", 9)) == {
+        "evt-petition-disposition",
+        "evt-motion-stay-pending-appeal",
+    }
+
+
+def test_forecastable_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn, [corpus.CorpusRow(case_id="ca9/7", court="ca9", predict_excluded=True)]
+        )
+        corpus.upsert_events(conn, [_event("evt-appeal-disposition", resolved=False)])
+    assert forecastable_events(db, "ca9", 7) == []
 
 
 def test_open_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:

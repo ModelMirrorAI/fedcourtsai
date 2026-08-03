@@ -154,6 +154,7 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
+    forecastable_events,
     iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
@@ -3875,7 +3876,7 @@ def predict_matrix_cmd(
             settings.corpus_root,
             settings.corpus_backend,
         ),
-        lambda c, d: open_events(
+        lambda c, d: forecastable_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
     )

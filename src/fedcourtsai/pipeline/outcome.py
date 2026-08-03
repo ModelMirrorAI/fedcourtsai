@@ -36,7 +36,7 @@ from typing import Any, Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome, PredictableEvent, ResolutionSignals
+from ..schemas import Disposition, EventKind, Outcome, PredictableEvent, ResolutionSignals
 from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
@@ -335,6 +335,18 @@ def _build_outcome(
     )
 
 
+# The event kinds the case-level disposition may resolve: the case-baseline
+# petition/appeal events (`evt-<kind>-<slug>`, so the kind is the id's first
+# segment). An entry-pinned event of another kind (a stay motion on a cert
+# docket) resolves on its own filing's terms, and letting it inherit the
+# docket's cert disposition writes the petition's outcome onto a motion — the
+# resolved-sequentially shape of exactly that failure sits in the committed
+# ledger.
+_CASE_BASELINE_ID_PREFIXES = tuple(
+    f"evt-{kind.value}-" for kind in (EventKind.petition, EventKind.appeal)
+)
+
+
 def detect_resolution(
     row: CorpusRow,
     court_id: str,
@@ -352,7 +364,11 @@ def detect_resolution(
         return Resolution()
 
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
-    if readable and len(open_event_ids) == 1:
+    if (
+        readable
+        and len(open_event_ids) == 1
+        and open_event_ids[0].startswith(_CASE_BASELINE_ID_PREFIXES)
+    ):
         event_id = open_event_ids[0]
         return Resolution(outcomes={event_id: _build_outcome(row, event_id, disposition_basis)})
 
@@ -360,6 +376,12 @@ def detect_resolution(
         reason = "docket appears decided but its disposition is not machine-readable"
     elif corpus.resolution_date(row) is None:
         reason = "disposition is machine-readable but the docket carries no decision date"
+    elif len(open_event_ids) == 1:
+        reason = (
+            f"docket decided ({row.disposition}) but the one open event "
+            f"({open_event_ids[0]}) forecasts a different filing; the case-level "
+            "disposition belongs to the case-baseline event only"
+        )
     else:
         reason = (
             f"docket decided ({row.disposition}) but {len(open_event_ids)} events are open; "

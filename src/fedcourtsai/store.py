@@ -16,7 +16,15 @@ from pydantic import BaseModel
 from . import corpus, ids
 from .leaderboard import PROCEDURAL, Stratum, classify_stratum
 from .process_version import is_frozen
-from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage, Outcome, Prediction
+from .schemas import (
+    AgentFlags,
+    AgentToolingFeedback,
+    Evaluation,
+    EventKind,
+    ModelUsage,
+    Outcome,
+    Prediction,
+)
 from .serialize import read_model
 
 
@@ -108,6 +116,51 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
         return []
     events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if not event.resolved]
+
+
+# The event kinds the forward tournament forecasts: the case-baseline
+# disposition events. A substantive motion event on a cert docket is recorded
+# and tracked but never queued for prediction — the prompt contract, the
+# salience band, and the segment base rate are all conditioned on the cert
+# petition, so a cell minted for a motion would be forecast and scored against
+# a population it does not belong to.
+_FORECASTABLE_KINDS = frozenset({EventKind.petition, EventKind.appeal})
+
+
+def forecastable_events(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_id: int,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> list[str]:
+    """The subset of :func:`open_events` the predict fan-out may target.
+
+    Filters to the case-baseline disposition kinds (petition, appeal). Every
+    predict queue and the predict matrix's default-event resolution read this
+    seam; evaluate, outcome detection, the rotation, and the corpus service
+    keep the unfiltered :func:`open_events`, because an open motion event still
+    needs its ground truth tracked — it just never earns a forecast cell.
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return []
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        return forecastable_event_ids(conn, court_id, docket_id)
+
+
+def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
+    """:func:`forecastable_events` over an already-open connection."""
+    case_id = ids.case_id(court_id, docket_id)
+    row = corpus.get_row(conn, case_id)
+    if row is not None and row.predict_excluded:
+        return []
+    events = corpus.events_for_case(conn, case_id)
+    return [
+        event.event_id
+        for event in events
+        if not event.resolved and event.kind in _FORECASTABLE_KINDS
+    ]
 
 
 def resolved_events(
