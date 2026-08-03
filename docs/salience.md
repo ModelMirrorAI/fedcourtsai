@@ -401,17 +401,20 @@ no versioning duty. And the pooling weights are
 differs.
 
 So the window is **config, not a constant**: `salience.base_rate_lookback_terms`
-in `config/tracking.yaml`, where `0` means every prior Term. It ships at **0**, the
-pre-registered behaviour, so that the choice is on the record and a change to it is
+in `config/tracking.yaml`, where `0` would mean every prior Term. It is set to
+**10**, matching `statpack.markdown_terms`, so the scored baseline and the band
+table the agents anchor on share one window by construction and cannot silently
+diverge as walked Terms accumulate; with nine Terms walked the bound excludes
+nothing, so every published skill number is what the unbounded pool produced.
+The choice is on the record and a change to it is
 a reviewable diff rather than an invisible shift in every published
 skill number. It is counted in Term *years*, not statpack rows: a Term absent from
 the pack, or present only as a zero-row cursor entry, shortens the sample rather
 than pulling an older Term in to refill the slot, so the window cannot move as the
-walker's coverage changes. Moving it off `0` is an evidence-led call worth making
-before the process-version freeze ([milestones.md](milestones.md)), since it
-re-bases every forward skill number at once.
+walker's coverage changes.
 
-**The scored baseline and the anchor an agent reads do not share the window.** The
+**The scored baseline and the anchor an agent reads share the window by
+configuration, not by mechanism.** The
 baseline is computed in code
 (`fedcourtsai.pipeline.evaluate.segment_base_rate`) and honours
 `salience.base_rate_lookback_terms`. No agent runs that code: every agent that
@@ -423,11 +426,11 @@ limit: `statpack.json` sits in the same checkout and carries every Term, and the
 prompts are what direct anchoring at the table.
 
 With the walked range at OT2017–OT2025 the pack holds nine Terms, nothing is
-truncated, and the two windows **coincide**. They part the first season the pack
-passes ten Terms — and the sharpest consequence is inside a single back-test run,
-where a replayed agent would be scored against a Term it was never shown. Both
-knobs are stated for that reason, so the pair is reconciled — or deliberately left
-apart — as one decision rather than two accidents. Both per-Term captions in
+truncated, and the two windows **coincide** — and because both knobs read `10`,
+they keep coinciding when the pack passes ten Terms, instead of parting inside a
+single back-test run where a replayed agent would be scored against a Term it
+was never shown. Both knobs are stated so the pair is moved — or deliberately
+split — as one decision rather than two accidents. Both per-Term captions in
 `statpack.md` state the rendered window, so a truncation is visible to the agent
 reading the table rather than silent.
 
@@ -632,12 +635,12 @@ the posture below keeps selection additive and never destructive:
 - **`sal-v1` weights are fit to the empirical per-bucket grant rates** (above); the
   salience floor sits at the relist-2 / CVSG grant-rate band (~25%+). Exact
   coefficients are pinned in the implementing change.
-- **The segment base rate's lookback is unbounded** —
-  `salience.base_rate_lookback_terms: 0`, every Term strictly before the case's
-  own, preserving the pre-registered behaviour exactly. The agent-facing window is
-  `statpack.markdown_terms: 10`. Both are stated so the pair can be moved
-  together, on evidence, in one reviewable diff (*Base rates & baselines for the
-  predicted segment* above).
+- **The segment base rate's lookback matches the agent-facing window** —
+  `salience.base_rate_lookback_terms: 10` equals `statpack.markdown_terms: 10`,
+  so the scored baseline and the band table the agents anchor on share one
+  window; with nine Terms walked the bound excludes nothing. Both are stated so
+  the pair can be moved together, on evidence, in one reviewable diff (*Base
+  rates & baselines for the predicted segment* above).
 - **The segment baseline stays SCOTUS-cert-only** — the Term is its leakage
   control, the `sal-v1` bands have no circuit analogue, and `granted` names a
   different act on a circuit docket. Other courts are covered by the per-court
