@@ -377,7 +377,11 @@ version-starved, so `brier_skill_score` is omitted rather than computed
 against a number no version ever defined; in the mirror case — a pack already
 re-rendered under a newer version while an old frozen-band cell is scored —
 the risk-set path yields `None` and the evaluator falls back to the terminal
-band under the live scorer, on the `terminal` basis it records. The
+band under the live scorer, on the `terminal` basis it records. The evaluator
+prompt carries the agent-side half of the same rule: the rendered band table's
+heading names its salience version, and on a mismatch with the prediction's
+frozen version the agent omits the baseline and flags it rather than pooling
+from a table another version rendered. The
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered
