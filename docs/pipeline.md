@@ -296,18 +296,15 @@ below describes the damage). The promotion gates target exactly those two.
 
 The mechanics:
 
-- **Feature PRs target `staging`** (AGENTS.md), and the routing rests on that
-  convention plus the maintainer's merge: `main`'s required checks are exactly
-  `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
-  mis-route — it runs, and fails, only on a PR to `main` whose head is not
-  `staging` or a reviewed non-feature lane (the collect run branches, the
-  maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
-  salience-replay PRs) —
-  but it is **not** a required context, so it goes red without being able to
-  block the merge. Its definition lives in `main`'s own ci.yml, so the context
-  reports on every lane into `main`; making it required is a pending ruleset
-  change that goes through the *Adding a required status check* procedure
-  below (docs/security.md inventories this).
+- **Feature PRs target `staging`** (AGENTS.md), and the routing is enforced:
+  `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
+  **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
+  only on a PR to `main` whose head is not `staging` or a reviewed non-feature
+  lane (the collect run branches, the maintainer's cleanup sweep, the
+  metrics-refresh, cert-backtest, and salience-replay PRs); on those
+  legitimate lanes it reports `skipped`, which satisfies the requirement. Its
+  definition lives in `main`'s own ci.yml, so the context reports on every
+  lane into `main` (docs/security.md inventories this).
   Rulesets cannot constrain a PR's source branch, which is why the routing
   lives as a check at all, and why the check deters mistakes while the human
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
@@ -380,12 +377,12 @@ One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
 **repository admin role as the only bypass actor** (docs/security.md
-inventories it); and add `promotion-gate` to `main`'s required checks
-alongside `gate` and `paths` — it reports `skipped`, which satisfies the
-requirement, on every PR that is not the promotion. `main-base` stays
-**unrequired** until the *Adding a required status check* procedure below
-clears it, because requiring a context before that procedure confirms its
-producing job strands every collect auto-merge PR.
+inventories it); and add `promotion-gate` and `main-base` to `main`'s required
+checks alongside `gate` and `paths` — each reports `skipped`, which satisfies
+the requirement, on every PR it does not gate. `main-base` joins the set only
+after the *Adding a required status check* procedure below clears it:
+requiring a context before its producing job reaches `main` strands every
+collect auto-merge PR.
 
 The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
@@ -412,9 +409,9 @@ report an advisory fact. Run it with your own token.
 1. Land the job on `staging` and let it promote to `main` in an ordinary batch.
 2. `scripts/promotion-gate.sh contexts <candidate>` — proceed only on *ready to
    require*.
-3. Confirm a real PR of the kind you are gating reports the context. For
-   `main-base` that means watching one collect PR, since those auto-merge and
-   are what a mistake strands.
+3. Confirm a real PR of the kind you are gating reports the context. For a
+   context that gates the bot lanes, that means watching one of their PRs,
+   since those auto-merge and are what a mistake strands.
 4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
    context you just added.
 5. Update the surfaces that record the required set — the pinned list in

@@ -9,8 +9,8 @@ on:
     # `edited` re-evaluates the base-sensitive checks (main-base,
     # promotion-gate, paths, cleanup-paths) when a PR is retargeted. For the
     # required contexts a stale `skipped` run would satisfy the requirement
-    # outright; main-base is not required, so there the stale run instead
-    # leaves a mis-route unsignalled.
+    # outright; cleanup-paths is review-time defense rather than required, so
+    # there the stale run instead misleads the reviewer.
     types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
@@ -168,13 +168,13 @@ jobs:
     # run branches, the maintainer's cleanup sweep, and the metrics-refresh /
     # cert-backtest / salience-replay PRs. This job runs (and fails) only on a
     # PR to `main` from
-    # any other head; every legitimate PR skips it. It is not among `main`'s
-    # required contexts (`gate`, `paths`, `promotion-gate`) and cannot be yet: a
-    # `pull_request` runs the workflow from the merge ref, and the legitimate
-    # lanes are cut from `main`, whose own ci.yml has no `main-base` job — the
-    # context would never report and an auto-merging collect PR would hang
-    # pending forever. Requireable once this definition promotes into `main`;
-    # until then it goes red on a mis-route without blocking the merge. Fork
+    # any other head; every legitimate PR skips it, and the skipped run
+    # satisfies the requirement. It is among `main`'s required contexts
+    # (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs the
+    # workflow from the merge ref, the legitimate lanes are all cut from
+    # `main`, and `main`'s own ci.yml carries this job, so the context reports
+    # on every lane — and a mis-routed feature PR runs it, fails, and cannot
+    # merge. Fork
     # heads never match the allowlist — outside contributions route through
     # `staging` too. The
     # emergency escape hatch is a repo admin editing the ruleset: deliberate

@@ -108,7 +108,8 @@ runbook, [docs/security.md](docs/security.md).
   — only a maintainer-installed App can apply a label that fires a workflow at
   all.
 - **Branch protection and the deployment boundary.** `main` requires a PR
-  passing `gate`, `paths`, and `promotion-gate`; the **data App** is the sole
+  passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
+  is the sole
   bypass actor, so the deterministic `run-pull` writers push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
