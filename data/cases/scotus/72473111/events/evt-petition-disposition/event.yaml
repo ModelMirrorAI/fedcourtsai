@@ -1,0 +1,11 @@
+case_id: scotus/72473111
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-04'
+resolved: true
+schema_version: '1.0'
+title: City of Eugene, Oregon, et al., Petitioners v. Federal Communications Commission,
+  et al.

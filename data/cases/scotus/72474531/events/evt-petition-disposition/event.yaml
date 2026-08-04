@@ -1,0 +1,11 @@
+case_id: scotus/72474531
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-29'
+resolved: true
+schema_version: '1.0'
+title: Apartment Association of Los Angeles County, Inc., dba Apartment Association
+  of Greater Los Angeles, Petitioner v. City of Los Angeles, California, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72472125
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-10-20'
+resolved: true
+schema_version: '1.0'
+title: John L. Roseman, Sr., Petitioner v. International Union, United Automobile,
+  Aerospace and Agricultural Implement Workers of America, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72473971
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-18'
+resolved: true
+schema_version: '1.0'
+title: Hotze Health Wellness Center International One, LLC, et al., Petitioners v.
+  Environmental Research Center, Inc.
