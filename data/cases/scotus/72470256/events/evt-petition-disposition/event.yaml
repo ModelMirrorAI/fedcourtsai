@@ -1,0 +1,11 @@
+case_id: scotus/72470256
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-01-14'
+resolved: true
+schema_version: '1.0'
+title: Angela Thigpen, Petitioner v. Board of Trustees of the Local 807 Labor-Management
+  Pension Fund

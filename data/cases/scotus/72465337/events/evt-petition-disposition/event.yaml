@@ -1,0 +1,10 @@
+case_id: scotus/72465337
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-03-19'
+resolved: true
+schema_version: '1.0'
+title: Douglas J. Holdings, Inc., et al., Petitioners v. Joy Eberline, et al.

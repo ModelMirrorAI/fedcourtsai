@@ -1,0 +1,11 @@
+case_id: scotus/72465167
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-02-23'
+resolved: true
+schema_version: '1.0'
+title: Libertarian Party of Erie County, et al., Petitioners v. Andrew M. Cuomo, Individually
+  and as Governor of the State of New York, et al.
