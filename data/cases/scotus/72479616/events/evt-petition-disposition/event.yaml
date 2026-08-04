@@ -1,0 +1,12 @@
+case_id: scotus/72479616
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-06-14'
+resolved: true
+schema_version: '1.0'
+title: Daniel Phillips, as Administrator of the Estate of Melvin L. Phillips, Sr.
+  and as Successor Trustee of Melvin Phillips, Sr./Orchard Party Trust, Petitioner
+  v. Oneida Indian Nation

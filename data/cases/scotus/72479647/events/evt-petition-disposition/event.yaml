@@ -1,0 +1,11 @@
+case_id: scotus/72479647
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-06-25'
+resolved: true
+schema_version: '1.0'
+title: Frank R. DiFranco, Petitioner v. Patricia M. Fallon, Circuit Judge, Circuit
+  Court of Illinois, Cook County, et al.
