@@ -1,0 +1,11 @@
+case_id: scotus/72475726
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-10-27'
+resolved: true
+schema_version: '1.0'
+title: Eric Brown, et al., Petitioners v. American Federation of State, County, and
+  Municipal Employees, Council 5, AFL-CIO, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72475753
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-11-02'
+resolved: true
+schema_version: '1.0'
+title: Gary Metzgar, et al., Petitioners v. U.A. Plumbers and Steamfitters Local No.
+  22 Pension Fund, et al.

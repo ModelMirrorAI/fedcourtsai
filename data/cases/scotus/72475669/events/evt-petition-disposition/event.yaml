@@ -1,0 +1,11 @@
+case_id: scotus/72475669
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-10-13'
+resolved: true
+schema_version: '1.0'
+title: Nebraska, ex rel. Timothy L. Ashford, P.C. L.L.O., et al., Petitioners v. Donald
+  Kleine, et al.
