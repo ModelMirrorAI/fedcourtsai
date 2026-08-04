@@ -78,7 +78,7 @@
       "problems": []
     },
     {
-      "checked": 5383,
+      "checked": 5490,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
