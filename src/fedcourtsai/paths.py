@@ -91,6 +91,11 @@ class EventPaths:
         # The harness-captured tool-call transcript, beside usage.json.
         return self.prediction_dir(predictor_id, run_id) / "retrieval_log.json"
 
+    @property
+    def evaluations_dir(self) -> Path:
+        # Every evaluator's output for the event, the sibling of predictions_dir.
+        return self.base / "evaluations"
+
     def evaluation_cell_dir(self, evaluator_id: str, run_id: str) -> Path:
         # One evaluate cell's own run-keyed files, a level above the per-predictor
         # evaluation directories: a single cell scores every predictor for the

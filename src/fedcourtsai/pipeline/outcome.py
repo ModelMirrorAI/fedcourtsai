@@ -535,7 +535,7 @@ def build_merits_outcome(
 # deliberately outside this tuple: its disposition resolves under the interim
 # standard, routed by the explicit interim stage (`_interim_disposition_target`)
 # rather than by any id-prefix fallback, so it can never inherit the cert rule.
-_CASE_BASELINE_ID_PREFIXES = tuple(
+CASE_BASELINE_ID_PREFIXES = tuple(
     f"evt-{kind.value}-" for kind in (EventKind.petition, EventKind.appeal)
 )
 
@@ -571,7 +571,7 @@ def _cert_disposition_target(
     if (
         len(open_event_ids) == 1
         and stages.get(open_event_ids[0]) is None
-        and open_event_ids[0].startswith(_CASE_BASELINE_ID_PREFIXES)
+        and open_event_ids[0].startswith(CASE_BASELINE_ID_PREFIXES)
     ):
         return open_event_ids[0]
     return None
@@ -590,7 +590,7 @@ def _cert_already_attributed(
     """
     return any(
         stages.get(event_id) == Stage.cert
-        or (stages.get(event_id) is None and event_id.startswith(_CASE_BASELINE_ID_PREFIXES))
+        or (stages.get(event_id) is None and event_id.startswith(CASE_BASELINE_ID_PREFIXES))
         for event_id in resolved_event_ids
     )
 
