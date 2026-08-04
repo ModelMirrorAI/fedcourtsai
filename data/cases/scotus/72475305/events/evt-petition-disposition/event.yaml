@@ -1,0 +1,11 @@
+case_id: scotus/72475305
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-05-18'
+resolved: true
+schema_version: '1.0'
+title: Richard J. Peltz-Steele, Petitioner v. UMass Faculty Federation, Local 1895
+  American Federation of Teachers, AFL-CIO, et al.
