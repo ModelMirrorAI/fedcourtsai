@@ -171,7 +171,10 @@ predictor:
 1. Read its `predictions/<predictor_id>/<run_id>/retrieval_log.json` — the
    tool-call transcript the harness captured from the engine's own log (never
    the agent's word): tool names, query slices, and `retrieved_doc_date` where
-   a document date was legible. Its `mode` field tells you whether the
+   a document date was legible. A `[redacted:…]` marker in a tool name or
+   query slice is ordinarily the harness removing a credential-shaped run at
+   capture: read it as removed text rather than as outcome material, and never
+   as evidence of leakage on its own. Its `mode` field tells you whether the
    prediction ran forward or as a replay; a missing log or mode grades as `unknown` (assess from
    `reasoning.md` / `predicted_reasoning.md` / `retrieval.md` alone).
 2. **`forward`** → the case was open when predicted, so ordinary retrieval could

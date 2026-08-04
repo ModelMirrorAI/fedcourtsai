@@ -111,7 +111,12 @@ pre-registration record's commit ids.
     scan-diff-for-secrets`) over the run's changed files and its PR prose — a hit
     **withholds the branch** (nothing pushed, no PR; a redacted file/rule/line
     report goes to the trigger issue) because pushing would itself publish the
-    secret. The scan has no merge-time counterpart by design: its job is to act
+    secret. Earlier still, capture-time redaction rewrites credential-shaped
+    runs in the harness-captured tool-call transcript (`retrieval_log.json`) to
+    a `[redacted:…]` marker rather than withholding the run over them: that
+    text is whatever a tool call carried, not something the agent chose to
+    write. It names only the shapes it recognizes, so what it misses still
+    meets the scan. The scan has no merge-time counterpart by design: its job is to act
     before the push, and it needs a live token env that the merge-time check —
     running on PR branches without the `prod` environment — cannot hold.
   - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That

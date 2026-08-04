@@ -12,7 +12,7 @@
     },
     "RetrievalCall": {
       "additionalProperties": false,
-      "description": "One tool invocation harvested from the engine's own transcript.\n\nCaptured by the harness from the engine log \u2014 never the agent's word \u2014 so\nthe evaluator's leakage grading can see what a cell actually\nretrieved. Long parameters and results are digested, not stored: the log\nis an audit trail, not a content mirror.",
+      "description": "One tool invocation harvested from the engine's own transcript.\n\nCaptured by the harness from the engine log \u2014 never the agent's word \u2014 so\nthe evaluator's leakage grading can see what a cell actually\nretrieved. Long parameters and results are digested, not stored: the log\nis an audit trail, not a content mirror. A transcript records whatever a\ntool call carried, so every string captured here (``tool``, ``query``,\n``timestamp``) is credential-redacted first: a run shaped like a token is\nreplaced by a ``[redacted:rule]`` marker naming the shape. Read a marker as\na redaction rather than as retrieved content \u2014 though nothing stops an\nagent typing the literal string into a tool call, so it is a reading aid,\nnot provenance. The digests cover the payload before redaction.",
       "properties": {
         "params_digest": {
           "anyOf": [
@@ -38,7 +38,7 @@
             }
           ],
           "default": null,
-          "description": "The human-legible query/params slice (truncated), where extractable",
+          "description": "The human-legible query/params slice, where extractable \u2014 credential-redacted at capture, then truncated",
           "title": "Query"
         },
         "result_digest": {
@@ -77,11 +77,11 @@
             }
           ],
           "default": null,
-          "description": "Engine-logged wall-clock time of the call, verbatim",
+          "description": "Engine-logged wall-clock time of the call, redacted at capture",
           "title": "Timestamp"
         },
         "tool": {
-          "description": "Tool name as the engine logged it, e.g. mcp__courtlistener__search",
+          "description": "Tool name as the engine logged it (redacted at capture), e.g. mcp__courtlistener__search",
           "title": "Tool",
           "type": "string"
         }

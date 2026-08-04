@@ -62,7 +62,14 @@ runbook, [docs/security.md](docs/security.md).
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
   branch is likewise withheld, with a misconfiguration note on the trigger
-  issue in place of a findings report. The scan is a heuristic and the cell's
+  issue in place of a findings report. One surface is handled a layer earlier
+  instead: the harness-captured tool-call transcript (`retrieval_log.json`)
+  records whatever a tool call carried, which is not the agent's choice, so
+  credential-shaped runs there are **redacted at capture** — rewritten to a
+  `[redacted:…]` marker and the run allowed through, rather than costing a
+  whole fan-out's model spend to a withheld branch. Redaction is not a gate:
+  it spares only the shapes it can name, and anything it leaves still meets
+  the scan. The scan is a heuristic and the cell's
   uploaded artifacts remain downloadable from the Actions run by logged-in
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**

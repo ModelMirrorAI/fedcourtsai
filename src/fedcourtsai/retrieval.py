@@ -26,6 +26,13 @@ truncated human-legible ``query`` slice kept where one is extractable — the
 log is an audit trail, not a content mirror. Deliberately tolerant, exactly
 like the usage parsers: an unreadable or unrecognized log yields ``[]``,
 because capture is instrumentation that must never fail a real run.
+
+A transcript is not trusted text: it records whatever a tool call carried,
+including a credential the agent never chose to write. Every string harvested
+here therefore passes through
+:func:`~fedcourtsai.secretscan.redact_credentials` on its way into a row, and
+does so *before* truncation, so a token cannot survive by sitting past the
+cut. The log is a committed artifact; it must not be able to carry one.
 """
 
 from __future__ import annotations
@@ -38,10 +45,19 @@ from pathlib import Path
 from typing import Any
 
 from .schemas import RetrievalCall
+from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
 
-# The human-legible query slice kept verbatim (the rest is digested).
+# The human-legible query slice kept (redacted; the rest is digested).
 _QUERY_CAP = 500
+# How much of a params payload is redacted before that slice is cut. A tool
+# call's arguments are unbounded — a file write carries its whole body — and
+# scanning all of it per call is work an agent chooses the size of, so the
+# redactor sees a fixed window instead. Two orders of magnitude past the cap,
+# which is what makes the cut safe: replacements only ever shorten the text,
+# and no plausible payload shrinks 16 KiB below 500 chars, so nothing from
+# beyond the window can slide into the kept slice.
+_REDACT_WINDOW = 16 * 1024
 # Keys that carry the query-ish part of a tool's params, most specific first.
 _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "endpoint")
 # A document/decision date in a result payload — the leakage grading's timing signal. The
@@ -66,18 +82,54 @@ def _digest(payload: Any) -> str | None:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
+def carries_redaction(call: RetrievalCall) -> bool:
+    """Whether capture rewrote credential-shaped text anywhere in this row.
+
+    Reads the marker back out of the fields redaction covers, so the count a
+    run reports needs no second channel. Advisory: an agent can type the marker
+    into a tool call itself, which inflates the count but cannot suppress it.
+    """
+    return any(
+        REDACTION_MARKER_PREFIX in field
+        for field in (call.tool, call.query or "", call.timestamp or "")
+    )
+
+
+def _tool_name(value: Any) -> str:
+    """A transcript-harvested tool name, bounded and redacted like any capture."""
+    return redact_credentials(str(value)[:_REDACT_WINDOW])
+
+
+def _text(value: Any) -> str | None:
+    """A transcript-harvested scalar as a redacted string, or ``None`` for empty."""
+    if not value:
+        return None
+    return redact_credentials(str(value)[:_REDACT_WINDOW])
+
+
 def _query_slice(params: Any) -> str | None:
-    """The human-legible query portion of a call's params, truncated."""
+    """The human-legible query portion of a call's params: redacted, then truncated.
+
+    Redaction runs ahead of the cut rather than over the kept slice, so a
+    credential cannot survive by sitting past it.
+    """
+    candidate = _query_candidate(params)
+    if not candidate:
+        return None
+    return redact_credentials(candidate[:_REDACT_WINDOW])[:_QUERY_CAP]
+
+
+def _query_candidate(params: Any) -> str | None:
+    """The untruncated, unredacted query portion of a call's params."""
     if isinstance(params, str):
-        text = params.strip()
-        return text[:_QUERY_CAP] or None
+        return params.strip() or None
     if isinstance(params, dict):
         for key in _QUERY_KEYS:
             value = params.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip()[:_QUERY_CAP]
+                return value.strip()
         try:
-            return json.dumps(params, sort_keys=True, default=str)[:_QUERY_CAP]
+            return json.dumps(params, sort_keys=True, default=str)
         except (TypeError, ValueError):
             return None
     return None
@@ -113,11 +165,13 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
             result = results.get(str(block.get("id", "")))
             calls.append(
                 RetrievalCall(
-                    tool=str(block["name"]),
+                    tool=_tool_name(block["name"]),
                     query=_query_slice(params),
                     params_digest=_digest(params),
-                    timestamp=str(timestamp) if timestamp else None,
+                    timestamp=_text(timestamp),
                     result_digest=_digest(result),
+                    # A date the `\d{4}-\d{2}-\d{2}` capture produced; it has no
+                    # room to carry anything else, so it needs no redaction.
                     retrieved_doc_date=_doc_date(result) if result is not None else None,
                 )
             )
@@ -188,10 +242,10 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         result = outputs.get(str(payload.get("call_id", "")))
         calls.append(
             RetrievalCall(
-                tool=str(payload.get("name") or payload.get("tool") or payload["type"]),
+                tool=_tool_name(payload.get("name") or payload.get("tool") or payload["type"]),
                 query=_query_slice(params),
                 params_digest=_digest(params),
-                timestamp=str(record.get("timestamp")) if record.get("timestamp") else None,
+                timestamp=_text(record.get("timestamp")),
                 result_digest=_digest(result),
                 retrieved_doc_date=_doc_date(result) if result is not None else None,
             )
@@ -251,10 +305,10 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
             timestamp = attrs.get("event.timestamp") or node.get("event.timestamp")
             calls.append(
                 RetrievalCall(
-                    tool=str(name),
+                    tool=_tool_name(name),
                     query=_query_slice(params),
                     params_digest=_digest(params),
-                    timestamp=str(timestamp) if timestamp else None,
+                    timestamp=_text(timestamp),
                 )
             )
             continue

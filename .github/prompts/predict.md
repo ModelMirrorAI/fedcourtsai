@@ -78,8 +78,9 @@ the workflow places them for your run:
 **Retrieval — the leakage doctrine: timing is the control.** Your cell is
 configured with the official **CourtListener MCP server** (search, endpoint
 access, citation tools). Every tool call you make is logged harness-side from
-the engine transcript to `retrieval_log.json` — you don't write it, and the
-cross-evaluator reads it.
+the engine transcript to `retrieval_log.json` — you don't write it, the
+cross-evaluator reads it, and credential-shaped runs in it are redacted at
+capture.
 
 - **`forward` mode** (a genuinely pending case): retrieval is **unrestricted**
   — the outcome does not exist yet, so nothing you can find leaks it. Use what
