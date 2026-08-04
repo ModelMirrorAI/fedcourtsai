@@ -48,7 +48,10 @@ from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
 )
-from .attribution_migration import reopen_misattributed_outcomes
+from .attribution_migration import (
+    remove_unmintable_baseline_events,
+    reopen_misattributed_outcomes,
+)
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
@@ -687,6 +690,50 @@ def reopen_misattributed_outcomes_cmd(
         f"skipped {len(result.skipped)} for triage"
     )
     for ref in result.reopened:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-unmintable-events")
+def remove_unmintable_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Drop entry-pinned SCOTUS events carrying a case-baseline id, in both stores.
+
+    A SCOTUS docket carries its petition and appeal request kinds only as the
+    case-level baseline — `extract_events` mints no entry-pinned event for
+    either — so an entry-pinned row whose id carries a case-baseline prefix is
+    one no re-ingest reproduces. It is also the shape that makes the case-level
+    disposition ambiguous, since `_cert_disposition_target`'s stage-less
+    fallback keys on a *lone* open baseline. Removal rather than a reopen: the
+    event names nothing the docket supports, and leaving it open would park a
+    permanent phantom on the case and keep it forecastable. An event carrying
+    committed predict/evaluate output is skipped and reported instead.
+    Idempotent. Dry-run by default; `--apply` writes. Run where the corpus is
+    pulled; the corpus row goes first, then the ledger directory. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the removal.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = remove_unmintable_baseline_events(conn, settings.data_root, apply=apply)
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-unmintable-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} event(s); skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.removed:
         typer.echo(f"  {verb} {ref}")
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")

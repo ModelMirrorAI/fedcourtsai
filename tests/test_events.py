@@ -121,6 +121,39 @@ def test_scotus_petition_entry_collapses_into_the_baseline() -> None:
     assert [e.stage for e in result.events] == ["cert", "interim"]
 
 
+def test_scotus_appeal_entry_collapses_into_the_baseline() -> None:
+    # The "notice of appeal" wording reaches a SCOTUS docket inside a
+    # record-transmittal line from the court below, weeks after the petition.
+    # Minting on it would produce a second case-baseline id beside
+    # evt-petition-disposition — the shape the cert router cannot disambiguate,
+    # since its stage-less fallback keys on a *lone* open baseline.
+    docket = _docket(
+        [
+            _entry(
+                24,
+                "The record received from the Court of Appeals of Texas 13th District is "
+                "electronic and located on the Court of Appeals of Texas web site.  Also one "
+                "envelope containing the Notice of Appeal, Clerk's Record, and Reporter's "
+                "Record.",
+                number=24,
+            )
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+    )
+    result = extract_events(docket)
+    assert [e.event_id for e in result.events] == ["evt-petition-disposition"]
+    assert result.ambiguous == []
+
+
+def test_a_circuit_appeal_entry_still_extracts() -> None:
+    # The collapse is SCOTUS-only: at a circuit court a notice of appeal is a
+    # real filing, and evt-appeal-disposition there is the case-level baseline
+    # produced by default_event rather than by this loop.
+    result = extract_events(_docket([_entry(3, "NOTICE OF APPEAL filed by Appellant", number=3)]))
+    assert "evt-appeal-disposition" in [e.event_id for e in result.events]
+    assert len(result.events) > 1
+
+
 def test_motion_entry_becomes_predictable_event() -> None:
     result = extract_events(
         _docket([_entry(10, "MOTION for stay pending appeal filed by Appellant", number=10)])

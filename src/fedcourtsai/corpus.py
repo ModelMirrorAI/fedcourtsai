@@ -2885,15 +2885,40 @@ def rename_event(
             _event_upsert_sql(),
             tuple(_event_to_record(carried)[c] for c in _EVENT_COLUMNS),
         )
-        # The old identity's row is dropped here and only here — the corpus
-        # keeps no general event-delete API, because a predictable event is a
-        # raw fact that otherwise only ever accretes or resolves.
+        # The old identity's row is dropped as half of the rename. A predictable
+        # event is a raw fact that otherwise only ever accretes or resolves, so
+        # the corpus exposes no general delete; the one standalone drop is
+        # :func:`delete_event`, for an event the extraction rules can no longer
+        # mint at all.
         conn.execute(
             "DELETE FROM events WHERE case_id = ? AND event_id = ?", (case_id, old_event_id)
         )
     # Re-mirror the case's committed event set, exactly as `upsert_events` does,
     # so the casestore events.json reflects the rename rather than keeping the
     # old identity until the next re-ingest.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def delete_event(conn: sqlite3.Connection, case_id: str, event_id: str) -> None:
+    """Drop one predictable event outright — deliberate surgery, not a write path.
+
+    A predictable event otherwise only accretes or resolves, so the corpus keeps
+    no general delete: an event that turned out to be wrong is normally
+    *reopened* or *renamed* (:func:`rename_event`), because it still names
+    something the docket really carries. This exists for the case where it does
+    not — an event the extraction rules can no longer mint, so re-ingesting its
+    docket reproduces the corpus without it and leaving the row would keep a
+    fact no source supports. Raises ``ValueError`` when the row is absent, so a
+    caller cannot mistake a typo for a completed removal.
+    """
+    with conn:
+        deleted = conn.execute(
+            "DELETE FROM events WHERE case_id = ? AND event_id = ?", (case_id, event_id)
+        ).rowcount
+    if not deleted:
+        raise ValueError(f"delete_event: no event {event_id!r} on {case_id!r} to delete")
+    # Re-mirror as the rename does, so the casestore events.json drops it too.
     if (sink := _mirror_sink()) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
