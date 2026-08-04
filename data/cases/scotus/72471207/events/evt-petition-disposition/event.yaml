@@ -1,0 +1,11 @@
+case_id: scotus/72471207
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-09-13'
+resolved: true
+schema_version: '1.0'
+title: Sanford A. Mohr, et ux., Individually and as Co-Trustees of Their October 15,
+  1996 Unrecorded Revocable Trust, Petitioners v. MLB, SUB I, LLC

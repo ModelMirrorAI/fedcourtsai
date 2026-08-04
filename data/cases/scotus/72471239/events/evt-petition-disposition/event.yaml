@@ -1,0 +1,11 @@
+case_id: scotus/72471239
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-09-20'
+resolved: true
+schema_version: '1.0'
+title: KD, et ux., as Parents, Natural Guardians, and Next Friends of Minor LD, Petitioners
+  v. Douglas County School District No. 001, aka Omaha Public Schools, et al.

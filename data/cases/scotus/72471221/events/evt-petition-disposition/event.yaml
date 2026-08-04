@@ -1,0 +1,11 @@
+case_id: scotus/72471221
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-09-15'
+resolved: true
+schema_version: '1.0'
+title: James P. Mhina, Petitioner v. Beth Van Doren, Assistant District Attorney of
+  Onondaga County, New York, et al.
