@@ -532,7 +532,13 @@ class Prediction(_Strict):
     run_id: str
     created_at: datetime
     input_snapshot: str = Field(description="Repo-relative path to the snapshot used as input")
-    granted: int = Field(ge=0, le=1, description="Binary outcome prediction, 1=granted")
+    granted: int = Field(
+        ge=0,
+        le=1,
+        description="Binary outcome prediction on the stage's own axis: 1=granted "
+        "on a cert or interim event, 1=the judgment below is disturbed on a merits "
+        "event. The companion of `probability`, which states the same binary's P.",
+    )
     probability: float = Field(
         ge=0.0,
         le=1.0,
@@ -958,17 +964,24 @@ class Evaluation(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="The leakage-safe salience-segment base rate for this case — its "
-        "sal-v1 band's grant rate pooled over statpack Terms strictly before the "
-        "case's Term. Which band, and therefore which of the two published rates, "
-        "is recorded in base_rate_basis below. The naive "
+        description="The leakage-safe segment base rate for this case, on the stage's "
+        "own axis. On a cert cell that is its sal-v1 band's grant rate pooled over "
+        "statpack Terms strictly before the case's Term, and which band — therefore "
+        "which of the two published rates — is recorded in base_rate_basis below. On "
+        "a merits cell it is instead the statpack merits section's disturbed rate "
+        "pooled over grant Terms strictly before the case's "
+        "(`pipeline.evaluate.merits_base_rate`), which is not a salience-band product, "
+        "so base_rate_basis and base_rate_salience_version stay null there. An interim "
+        "cell has no published rate and omits the field. The naive "
         "baseline the prediction's skill is scored against; null on offline evaluator "
-        "outputs, when no prior-Term band data exists, and on records written before "
-        "the field existed.",
+        "outputs, when no prior-Term data exists for the stage's rate, and on records "
+        "written before the field existed.",
     )
     base_rate_basis: Literal["risk_set", "terminal"] | None = Field(
         default=None,
-        description="Which population segment_base_rate was taken over. 'risk_set' "
+        description="Which salience-band population segment_base_rate was taken over. "
+        "Null wherever the rate is not a band product — a merits cell's Term-pooled "
+        "disturbed rate, and an interim cell, which takes no rate at all. 'risk_set' "
         "pools across every petition that had REACHED the prediction's frozen band — "
         "the population a live cell was actually in, and the right basis wherever the "
         "prediction carries a frozen band. 'terminal' pools across petitions that "
@@ -988,7 +1001,9 @@ class Evaluation(_Strict):
         "value does not survive the stamp): on the `risk_set` path it is the "
         "scored prediction's frozen `context.salience_version`, on the "
         "`terminal` path the live scorer's version. Null when no basis is "
-        "recorded, and on records written before the field existed.",
+        "recorded — which includes every merits cell, whose baseline is not a "
+        "salience-band product and so has no scorer version to pin — and on "
+        "records written before the field existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,
@@ -1293,10 +1308,13 @@ class LeaderboardStratum(_Strict):
     mean_brier_skill_score: float | None = Field(
         default=None,
         le=1.0,
-        description="Mean Brier skill score vs the salience-segment base rate where "
-        "reported (higher is better; ~0 = no better than the segment's grant rate, "
+        description="Mean Brier skill score vs the stage's own segment base rate "
+        "where reported (higher is better; ~0 = no better than that baseline, "
         "negative = worse). Distinct from raw Brier: it credits beating the biased "
-        "predicted-segment base rate, not the whole-docket rate",
+        "predicted-segment base rate, not the whole-docket rate. On the cert board "
+        "the baseline is the salience segment's grant rate; a merits cell reports "
+        "no skill score at all while the merits pool's GVR guard is unbuilt "
+        "(docs/decision-model.md), so a merits stage block's mean is null",
     )
     skill_scored: int = Field(
         default=0,
@@ -1453,8 +1471,11 @@ class LeaderboardStage(_Strict):
 
     A stage is a decision standard (cert / interim / merits — the event
     vocabulary), and skill figures are only meaningful within one: `granted`
-    answers a different question at each stage and only the cert segment has a
-    scored base rate today. So each stage carries its own counts and entries,
+    answers a different question at each stage, and only the cert segment
+    reports a skill score today — the interim stage has no published base rate,
+    and the merits stage has a registered one whose skill number is suppressed
+    while the pool's GVR guard is unbuilt (docs/decision-model.md). So each
+    stage carries its own counts and entries,
     listed by ``predictor_id`` (never ranked), and nothing here blends into the
     cert board or another stage.
     """

@@ -69,7 +69,9 @@ model fits, the outcome is recoverable, and the forecast is worth its cost. The
 event model itself is general — cert petitions, emergency applications, and the
 merits events on a granted docket are all predictable *in principle* — but the
 funded scope narrows to the **cert docket** (the filters under *What's out of
-scope* draw that line). Everything outside the gate is still ingested for context
+scope* draw that line), plus two bounded additions: a **substantive** stay or
+injunction application under the interim stage, and the **merits judgment** of
+a docket whose cert grant opened a merits proceeding. Everything outside the gate is still ingested for context
 and retrieval — just not predicted.
 
 ### What triggers a prediction

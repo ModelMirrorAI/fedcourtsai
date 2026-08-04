@@ -404,7 +404,7 @@
       "type": "string"
     },
     "granted": {
-      "description": "Binary outcome prediction, 1=granted",
+      "description": "Binary outcome prediction on the stage's own axis: 1=granted on a cert or interim event, 1=the judgment below is disturbed on a merits event. The companion of `probability`, which states the same binary's P.",
       "maximum": 1,
       "minimum": 0,
       "title": "Granted",

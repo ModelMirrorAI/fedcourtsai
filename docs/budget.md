@@ -144,6 +144,21 @@ is predicted but not
 yet skill-scored: the interim segment base rate publishes only at the
 pre-registered resolved-count floor ([salience.md](salience.md)).
 
+**The merits docket: a second cell on a case already funded, unbounded by
+design.** A cert grant opens a merits event
+([decision-model.md](decision-model.md)), and that event is forecastable, so a
+granted docket buys one more predict cell per predictor and one more evaluate
+cell when the judgment lands — roughly a second `≈$13` case-equivalent on top of
+the cert cell already spent on it. Unlike the interim stream this carries **no
+reserve and no quota**: nothing in the selection pass bounds merits cells. That
+is deliberate rather than overlooked, and it rests on the population being
+self-limiting — the Court grants on the order of sixty cases a Term, each cell
+is minted once and occupies nothing until its judgment lands, and the grant is
+the outcome the whole cert tournament is ranked on, so declining to forecast it
+would be the odd choice. The per-run cell cap and the ex-post spend gate below
+still hold the fan-out, and if the grant cohort ever stops being self-limiting
+the honest fix is a reserve of its own, not a wider cap.
+
 **The controls, and the one that reads the bill.** Capacity `N`, the per-run cell
 cap (`predict.max_predict_cells_per_run`), the live cycle's sweep cap, and the
 per-cell attempt caps are all **ex ante** — each bounds one decision or one run,

@@ -14,6 +14,14 @@ This doc fixes the vocabulary and the seams and describes the gate as it runs;
 its knobs are the `salience:` block of `config/tracking.yaml`. Where a piece is
 still ahead of the implementation, it says so in place.
 
+**One predicted stream sits outside this gate entirely.** A cert grant opens a
+merits event, and that event is forecastable on its own terms — no salience
+score, no rank, and no reserve, because the case was already selected once as a
+petition and the grant cohort is self-limiting at the Court's own volume. The
+gate below governs which *petitions* and which *applications* earn cells; the
+merits cell rides the grant. Its cost is priced in [budget.md](budget.md) and
+its scoring contract in [decision-model.md](decision-model.md).
+
 ## Why salience
 
 The agentic stages cost one to two orders of magnitude more than ingestion, so

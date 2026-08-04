@@ -122,16 +122,15 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
 
 
 # The event kinds the forward tournament forecasts unconditionally: the
-# case-baseline disposition events. A motion event is forecastable only under
-# the interim stage on an in-scope application docket (see
-# `forecastable_event_ids`); a motion on a *cert* docket is recorded and
-# tracked but never queued for prediction — the prompt contract, the salience
-# band, and the segment base rate are all conditioned on the cert petition, so
-# a cell minted for it would be forecast and scored against a population it
-# does not belong to. The minted merits event (kind `order`) reaches neither
-# path, on purpose even though its scoring contract is registered end to end:
-# widening this set ships with the merits prompt sections, so a merits cell can
-# never fan out before its prompt contract exists.
+# case-baseline disposition events. Two stage-keyed admissions sit beside this
+# set in `forecastable_event_ids` — the interim-stage motion baseline of an
+# application docket, and the merits-stage order event a cert grant mints — and
+# both are conditional on the row, because the kind alone does not say which
+# population the cell would be scored against. A motion on a *cert* docket is
+# recorded and tracked but never queued for prediction: the prompt contract,
+# the salience band, and the segment base rate are all conditioned on the cert
+# petition, so a cell minted for it would be forecast and scored against a
+# population it does not belong to.
 _FORECASTABLE_KINDS = frozenset({EventKind.petition, EventKind.appeal})
 
 
@@ -144,9 +143,10 @@ def forecastable_events(
 ) -> list[str]:
     """The subset of :func:`open_events` the predict fan-out may target.
 
-    The case-baseline disposition kinds (petition, appeal), plus the
-    **interim-stage motion baseline** of an in-scope application docket — the
-    interim predict path's fan-out surface. Every predict queue and the predict
+    The case-baseline disposition kinds (petition, appeal), plus two stage-keyed
+    admissions: the **interim-stage motion baseline** of an in-scope application
+    docket, and the **merits-stage order event** a cert grant minted on a case
+    whose grant opened a merits proceeding. Every predict queue and the predict
     matrix's default-event resolution read this seam; evaluate, outcome
     detection, the rotation, and the corpus service keep the unfiltered
     :func:`open_events`, because an open motion event outside predict scope
@@ -193,6 +193,58 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
     )
 
 
+def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is the forecastable merits event of a granted case.
+
+    The merits admission: an **order-kind** event carrying the **merits
+    stage**, on a row whose cert grant actually opened a merits proceeding, whose
+    judgment is not already latched, and which the row-only scope rules keep in
+    scope. The stage carries the event test — an order event of any other sort
+    carries no stage at all — with the kind checked defensively beside it, since
+    only the merits mint produces an order-kind event today and a second one
+    would have to declare its own stage to reach here.
+
+    The latched-judgment check is not redundant with the event's open flag: a
+    parsed judgment whose entry carries no usable date surfaces for triage
+    rather than resolving the event, so the row knows the case is decided while
+    the event stays open. Without the check that docket mints a cell per
+    predictor, per day, that provisioning then refuses.
+
+    The row predicate is :func:`fedcourtsai.corpus.opens_merits_proceeding` —
+    the same rule that mints the event, that the judgment backfill parses, and
+    that the statpack merits section measures its disturbed rate over. Checking
+    it here rather than trusting the event's existence is what keeps the
+    forecast population and the baseline population one population when the two
+    could drift: a docket re-resolved to ``gvr`` after its merits event was
+    minted leaves the cert order carrying the disposition, so its judgment is a
+    cert-stage fact the merits baseline excludes, and a cell forecasting it
+    would be scored against a rate its own case is not in.
+
+    The scope rules narrow the forecast population *inside* the baseline's
+    rather than matching it exactly, and the gap is not small: predict scope
+    excludes IFP petitions, consolidated-out-of-scope members, and
+    date-inconsistent rows, while :func:`opens_merits_proceeding` — and so the
+    statpack merits section the baseline is pooled from — admits all of them.
+    The IFP slice alone is roughly an eighth of the committed pack's plain
+    grants, and it is the criminal/habeas end of the docket, whose disturbance
+    rate has no reason to match the paid cohort's. So the merits baseline is
+    measured over a population wider than the one forecast, which is the same
+    shape ``docs/decision-model.md`` invokes to exclude GVRs; the honest
+    resolution is a fee-class cut on the merits section, and until one lands
+    the residue is stated rather than bounded. Admitting the excluded dockets
+    instead is not the alternative — a merits cell on a docket the documented
+    predict-scope exclusion refuses is a scope decision, not a fix.
+    """
+    return (
+        event.kind == EventKind.order
+        and event.stage == Stage.merits
+        and row is not None
+        and row.merits_judgment is None
+        and corpus.opens_merits_proceeding(row)
+        and corpus.out_of_scope_reason(row) is None
+    )
+
+
 def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
     """Whether a case-baseline event is the forecastable baseline of its case.
 
@@ -229,7 +281,11 @@ def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id
         event.event_id
         for event in events
         if not event.resolved
-        and (_case_baseline_forecastable(event, row) or _interim_forecastable(event, row))
+        and (
+            _case_baseline_forecastable(event, row)
+            or _interim_forecastable(event, row)
+            or _merits_forecastable(event, row)
+        )
     ]
 
 

@@ -10,6 +10,7 @@ from fedcourtsai.schemas import (
     Disposition,
     EventKind,
     FlagCategory,
+    Judgment,
     Outcome,
     Stage,
     UsageRole,
@@ -196,27 +197,28 @@ def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> N
     }
 
 
-def test_forecastable_events_never_fans_out_the_merits_event(tmp_path: Path) -> None:
-    """The minted merits event is tracked ground truth, never a forecast cell.
-
-    Its scoring contract is registered end to end, but the fan-out waits on the
-    merits prompt sections, so a cell can never run ahead of the prompt that
-    defines it. Neither admission path reaches it: the case-baseline path is
-    keyed on the petition/appeal kinds and the interim path on a motion-kind,
-    interim-stage event — a merits event is an `order` carrying the merits
-    stage, so widening either path would have to be deliberate.
-    """
-    db = corpus.corpus_db_path(tmp_path)
+def _granted_case(
+    db: Path,
+    docket_id: int,
+    *,
+    disposition: Disposition,
+    stage: Stage | None = Stage.merits,
+    docket_number: str = "24-1234",
+    merits_judgment: Judgment | None = None,
+) -> None:
+    """A granted SCOTUS docket with its resolved cert baseline and merits event."""
+    case_id = f"scotus/{docket_id}"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn,
             [
                 corpus.CorpusRow(
-                    case_id="scotus/11",
+                    case_id=case_id,
                     court="scotus",
-                    docket_number="24-1234",
-                    disposition=Disposition.granted,
+                    docket_number=docket_number,
+                    disposition=disposition,
                     date_cert_granted=date(2025, 1, 10),
+                    merits_judgment=merits_judgment,
                 )
             ],
         )
@@ -225,7 +227,7 @@ def test_forecastable_events_never_fans_out_the_merits_event(tmp_path: Path) -> 
             [
                 corpus.CorpusEvent(
                     event_id="evt-petition-disposition",
-                    case_id="scotus/11",
+                    case_id=case_id,
                     court="scotus",
                     kind=EventKind.petition,
                     stage=Stage.cert,
@@ -233,17 +235,85 @@ def test_forecastable_events_never_fans_out_the_merits_event(tmp_path: Path) -> 
                 ),
                 corpus.CorpusEvent(
                     event_id="evt-order-judgment",
-                    case_id="scotus/11",
+                    case_id=case_id,
                     court="scotus",
                     kind=EventKind.order,
-                    stage=Stage.merits,
+                    stage=stage,
                 ),
             ],
         )
-    assert forecastable_events(db, "scotus", 11) == []
-    # The unfiltered seam still serves it: detection resolves it, and evaluate
-    # would score it — the fan-out is the only thing held back.
+
+
+def test_forecastable_events_fans_out_the_merits_event(tmp_path: Path) -> None:
+    """The merits admission: the minted merits event earns a forecast cell.
+
+    The order-kind, merits-stage event a cert grant mints is the merits path's
+    fan-out surface, so a granted docket queues its merits cell the way an
+    application docket queues its interim one. Neither of the other admissions
+    reaches it — the case-baseline path is keyed on the petition/appeal kinds
+    and the interim path on a motion — so this arm is load-bearing on its own.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 11, disposition=Disposition.granted)
+
+    assert forecastable_events(db, "scotus", 11) == ["evt-order-judgment"]
     assert open_events(db, "scotus", 11) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_refuses_a_merits_event_on_a_cert_order_grant(
+    tmp_path: Path,
+) -> None:
+    """A GVR's judgment rides in the cert order, so it earns no merits cell.
+
+    The row predicate, not the event, decides: `opens_merits_proceeding` is the
+    rule that mints the event *and* the population the statpack merits section
+    measures its disturbed rate over, so re-checking it here keeps the forecast
+    population and the baseline population one population where a re-resolved
+    docket leaves a stale merits event behind. Its ground truth still flows
+    through `open_events`.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 12, disposition=Disposition.gvr)
+
+    assert forecastable_events(db, "scotus", 12) == []
+    assert open_events(db, "scotus", 12) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_refuses_a_merits_event_out_of_predict_scope(
+    tmp_path: Path,
+) -> None:
+    # An IFP docket serial is a documented predict-scope exclusion, and a
+    # granted IFP petition opens a merits proceeding like any other — so the
+    # scope rules, not the merits predicate, are what keep its cell out.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 14, disposition=Disposition.granted, docket_number="24-5001")
+
+    assert forecastable_events(db, "scotus", 14) == []
+    assert open_events(db, "scotus", 14) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_refuses_a_merits_event_whose_judgment_is_latched(
+    tmp_path: Path,
+) -> None:
+    # A parsed judgment whose entry carries no usable date surfaces for triage
+    # rather than resolving the event, so the row reads decided while the event
+    # stays open. No cell: it would only be refused at provisioning, daily.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 15, disposition=Disposition.granted, merits_judgment=Judgment.reversed)
+
+    assert forecastable_events(db, "scotus", 15) == []
+    assert open_events(db, "scotus", 15) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_requires_the_merits_stage_on_an_order(tmp_path: Path) -> None:
+    # A stage-less order is never admitted: the stage is the decision standard,
+    # and an order event of any other sort — the kind carries no stage at all —
+    # would be forecast against no declared rule. Same shape as the motion path.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 13, disposition=Disposition.granted, stage=None)
+
+    assert forecastable_events(db, "scotus", 13) == []
+    assert open_events(db, "scotus", 13) == ["evt-order-judgment"]
 
 
 def _application_event(case_id: str, *, stage: Stage | None = Stage.interim) -> corpus.CorpusEvent:

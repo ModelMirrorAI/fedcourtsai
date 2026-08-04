@@ -41,8 +41,10 @@ cached prefix stays as long as possible (don't interleave case facts with them).
 `event.yaml`: its `stage` field names the decision standard the event resolved
 on and selects which scoring rules below govern — `cert` (a petition for
 certiorari; a petition/appeal-kind event that records no stage also reads as
-cert) or `interim` (a stay/injunction application; the interim rules sit under
-`evaluation.json` below). No other stage reaches a scored cell today. Then:
+cert), `interim` (a stay/injunction application) or `merits` (the judgment the
+Court entered after granting certiorari); the interim and merits rules sit
+under `evaluation.json` below. No other stage reaches a scored cell today.
+Then:
 
 3. `outcome.json` — the realized ground truth (`actual_disposition`,
    `actual_granted`, optional `votes`). The event must be resolved; if there is no
@@ -54,7 +56,8 @@ cert) or `interim` (a stay/injunction application; the interim rules sit under
    The two prose documents are different objects: `reasoning.md` is the predictor's
    rationale for its own number, while the forecast is its account of what the
    *Court* will do with the event — for a cert petition, relists, a CVSG, which
-   question presented, a summary disposition. Key on the pointer rather than on a
+   question presented, a summary disposition; for a merits event, the judgment
+   class and the vote lineup. Key on the pointer rather than on a
    file you happen to find: the pointer is the contract, and `validate` holds a
    cell to it. A prediction whose `predicted_reasoning_doc` is null predates the
    field — that is a valid record, not a defect, and you must not penalize it for
@@ -87,19 +90,31 @@ For each predictor you score, write to
   - `model` = `$MODEL_ID` — the model that produced this evaluation; copy the
     cell-identifier value verbatim, never guess.
   - `correct` (1/0) — did the prediction name the right outcome label on the
-    stage's own axis? On the cert and interim cells you are scoring, that is
+    stage's own axis? On a cert or interim cell that is
     `predicted_disposition` against `actual_disposition`, exact match on the
     label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
-    though both count as a grant on the binary axis. (A merits cell compares
-    `judgment` instead, and also records `judgment_correct`; no merits cell
-    reaches an evaluator until the merits prompt sections ship, so nothing
-    below conditions on it.)
+    though both count as a grant on the binary axis. On a **merits** cell the
+    axis is the `judgment` instead — a merits outcome's `actual_disposition`
+    is always the off-vocabulary `other`, so comparing dispositions there
+    would score every cell against a constant. Route on the **outcome**: an
+    outcome carrying a judgment takes the judgment comparison whatever the
+    prediction holds, so a judgment-less prediction scores 0 rather than
+    collecting a free `other == other` match.
+  - `judgment_correct` (1/0, **merits cells only**) — the same exact match on
+    the full six-label judgment vocabulary, recorded in its own field: a
+    `reversed` call against a `vacated` outcome is 0 even though both disturb.
+    Leave it null wherever either side records no judgment, which is every
+    non-merits cell. It is descriptive accuracy beside the scored Brier, never
+    a proper score, and on a merits cell `correct` already carries the same
+    comparison.
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
-    for a `gvr` outcome — a GVR is a grant).
+    for a `gvr` outcome — a GVR is a grant; on a merits outcome the same field
+    carries the disturbed binary, so one formula serves every stage).
   - `vote_accuracy` — fraction of predicted per-Justice votes that matched, over the Justices the prediction and the outcome both name (or omit if no
     votes were predicted).
-  - `segment_base_rate` — **cert-stage cells** (an interim cell omits it; see
-    the interim rules below): the case's **salience-band** grant rate over prior Terms
+  - `segment_base_rate` — **cert-stage cells** (an interim cell omits it and a
+    merits cell takes a different rate entirely; see the stage rules below):
+    the case's **salience-band** grant rate over prior Terms
     only, read from committed `metrics/statpack.md`. Take the band from the
     prediction's own `context.band` — the band frozen when that cell ran — and
     **do not re-derive it from the docket**: a band only ever strengthens, so a
@@ -152,6 +167,84 @@ For each predictor you score, write to
     cell is interim and the skill fields are omitted by rule. `claim_scores`
     stays absent as always: a motion-kind event declares no claim set, so the
     harness stamps nothing.
+  - **Merits-stage cells** (the event's stage is `merits` — the judgment the
+    Court entered after argument). `correct` is the judgment match and
+    `judgment_correct` records it in its own field, both as defined above.
+    `brier_score` is unchanged: the prediction's `probability` is P(disturbed)
+    and `outcome.actual_granted` carries the disturbed binary as recorded, so
+    you read it rather than re-deriving it from the judgment label.
+    `vote_accuracy` scores the prediction's mandatory vote block
+    intersection-only, over the Justices the outcome actually names — and the
+    merits outcome writer records **no** votes today, so a null there is the
+    record's silence, never the predictor's failure, and must not be scored as
+    a zero. Then:
+    - **`brier_skill_score` is omitted on every merits cell.** Not a judgment
+      call and not conditional on the pack: the merits pool's exclusion of
+      GVRs and summary reversals reads the row's cert disposition label, the
+      `gvr` label is a forward convention, and a grant Term resolved into the
+      corpus before it existed carries its GVRs as plain `granted` — so their
+      near-certain vacaturs sit inside that Term's disturbed rate and the
+      pooled rate is an **upper bound** rather than the rate argued cases face.
+      `docs/decision-model.md` pre-registers that no merits skill number may be
+      published against such a pool and that the fan-out owes a
+      label-independent guard first; that guard is not built, so the number is
+      suppressed outright rather than published behind a heuristic that cannot
+      tell a partly-labelled Term from a clean one. Leave the field null and
+      say in `evaluation.md` that it is omitted by rule. No flag: this is the
+      stage's standing rule, not a per-cell anomaly. `validate` enforces it, so
+      a merits cell that writes one fails the gate rather than reaching the
+      leaderboard.
+    - **`segment_base_rate` is still recorded, and it is the merits baseline,
+      not the cert band.** The pool the cell faced is a fact about the run
+      worth committing even while no skill number is scored against it. Read
+      the committed `metrics/statpack.md`'s **"The merits docket (granted
+      cases)"** section and pool its `disturbed` over its `parsed` across grant
+      Terms **strictly before** this case's — the October Term certiorari was
+      *granted* in, which you take from the event's `opened_at` (the grant
+      date) and never from the docket number, since a petition docketed into
+      the incoming Term and granted before it opens carries a docket Term one
+      later and would pull its own cohort into its own baseline. The window is
+      the ten Terms before it (`grant_term - 10 <= T < grant_term`), and here
+      you must count Terms rather than take what you are shown: unlike the cert
+      Term tables, the merits table renders **every** Term the pack holds, so
+      the rendered window is not the window. State the window with the figure,
+      and the `parsed`/`granted` coverage beside it — the nearest Term in the
+      pool is also the most censored, since an argued case's judgment lands six
+      to eighteen months after its grant, so a still-open Term contributes a
+      slice skewed toward the quicker dispositions.
+    - **Omit it where the pack cannot support it, and say so plainly.** Omit
+      `segment_base_rate` where the pack carries no merits section (it is
+      omitted entirely until a corpus row holds a parsed judgment — today that
+      is the ordinary case, not a broken cell), where no strictly-prior grant
+      Term carries a parsed judgment, or where the pooled `parsed` sample is
+      **below 30**. That minimum is pre-registered and its consequence is blunt
+      on purpose: below it there is no baseline and no substitute rate — not
+      the pack-level disturbed rate, not a single Term's, not a remembered
+      figure. Record which of the three applied in `evaluation.md`.
+    - **Leave `base_rate_basis` null.** Its two values both name salience-band
+      populations, and the merits pool is neither: it is a Term-pooled
+      disturbed rate over the grants that open a merits proceeding, carrying no
+      band and no salience version. That null is also what makes
+      `base_rate_salience_version` null at the stamp, which is right here —
+      there is no scorer version to pin. Do **not** reach for `risk_set`
+      because the prediction carries a frozen `context.band`: a merits cell's
+      prediction usually does, since its docket was a cert docket whose
+      petition was banded before the grant, but that band scores a grant
+      forecast that is already settled, and recording it as the basis would
+      stamp a cert salience version onto a merits cell. A merits cell carrying
+      a band is the normal shape and takes no flag.
+    - `claim_scores` stays absent, as always. The merits event declares the
+      `merits-v1` set — one claim, `judgment-disturbed`, restating the
+      prediction's headline probability — and the harness computes the block
+      from the prediction, the outcome, and the committed statpack, keyed on
+      the same grant Term. You neither fill nor correct it. Note for reading
+      the two together: the harness applies no GVR check of its own, so the
+      claim's baseline carries the same upper-bound caveat the suppressed skill
+      score does — which is a property of the pool, not of the predictor.
+
+    Say in `evaluation.md` that the cell is merits, which baseline you took or
+    why none was available, and what the vote block could and could not be
+    scored on.
   - `reasoning_quality` — your 0–1 qualitative judgment of the predictor's
     `reasoning.md` (soundness of the legal analysis given the outcome, not just
     whether it was right), and of that document only — not its
@@ -180,8 +273,9 @@ For each predictor you score, write to
     rank-agreement at leaderboard time; you only supply your independent read.
 
   The quantitative pieces are computed identically in code by
-  `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`,
-  `segment_base_rate`, `brier_skill_score`) — match those definitions. The
+  `fedcourtsai.pipeline.evaluate` (`is_correct`, `judgment_correct`,
+  `brier_score`, `vote_accuracy`, `segment_base_rate`, `merits_base_rate`,
+  `brier_skill_score`) — match those definitions. The
   per-claim scores are computed end to end by `fedcourtsai.pipeline.claims`
   (`score_claims`: resolvers, strictly-prior baselines, and the availability
   mask) and are the harness's alone — you neither match nor approximate them. One
