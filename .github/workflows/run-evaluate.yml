@@ -221,6 +221,22 @@ jobs:
           FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
+      # Blind grading: stage each predictor's latest prediction under an opaque
+      # alias so the grade is formed without the candidate's identity in view
+      # (docs/outcome-decomposition.md). The map that undoes the aliasing goes to
+      # the runner temp dir, never the checkout the agent browses.
+      - name: Stage the blinded candidates
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts provision-blinded-predictions \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --run-id "$RUN_ID" --map-dir "$RUNNER_TEMP/blinding"
+
       # Tokenless HTTP sidecar for the cell's CourtListener MCP retrieval; the
       # composite carries the launch/health rationale (token in its launch
       # step env only; warn-only health so a degraded upstream never blocks
@@ -607,6 +623,35 @@ jobs:
           fi
           uv run fedcourts "${args[@]}" \
             || echo "::warning::no retrieval log captured for ${EVENT_ID}"
+
+      # Un-alias between the retrieval capture and the stamp — both edges matter.
+      # After the capture, because the un-aliasing also resolves aliases inside
+      # this cell's retrieval_log.json, which the capture step writes; run first
+      # and alias strings would ship in the log. Before the stamp, because
+      # `stamp-cell --role evaluator` joins each evaluation to the prediction it
+      # scored on `predictor_id`, and under an alias that join misses and drops
+      # claim_scores and base_rate_salience_version silently. `validate` in
+      # "Record cell status" is the loud backstop.
+      # No success() guard on the provisioning step by design: gating this on
+      # step 1 would let a skipped un-aliasing pass quietly, which is the
+      # failure this whole design exists to prevent. When step 1 never ran
+      # there is no map and this fails loudly behind an already-failed cell.
+      # Not continue-on-error: the rename is deterministic over a map this same
+      # job wrote, and a silent skip is the failure this design exists to prevent.
+      - name: Un-alias the blinded evaluations
+        if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          EVALUATOR_ID: ${{ matrix.evaluator_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts unblind-evaluations \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --evaluator "$EVALUATOR_ID" --run-id "$RUN_ID" \
+            --map-dir "$RUNNER_TEMP/blinding"
 
       # Stamp every evaluation.json this cell wrote with the evaluator's process
       # version (see the predict workflow's step for the rationale). One evaluate
