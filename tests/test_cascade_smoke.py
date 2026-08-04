@@ -6,13 +6,14 @@ an artifact that stops validating, a corpus read seam that stops resolving — f
 here in seconds in ``pytest`` instead of in a labelled CI run.
 
 :mod:`tests.test_cascade` exercises ``run_cascade``'s behaviours case by case;
-this is the one compose check the documented gate points at: an open *and* a
-resolved case run into a single ledger that passes the same ``fedcourts validate``
-the PR gate runs.
+this is the one compose check the documented gate points at: an open, a
+resolved, *and* a decided merits case run into a single ledger that passes the
+same ``fedcourts validate`` the PR gate runs.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,7 @@ RUN = "20260628T120000Z"
 def test_stub_cascade_smoke(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     fixture.build_fixture_corpus(db)
+    merits_case = fixture.add_merits_fixture(db)
     data_root = tmp_path / "data"
 
     def _run(court: str, docket: int) -> CascadeReport:
@@ -52,16 +54,52 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
         )
 
     # ca9/101 is resolved → predict + materialize outcome + evaluate;
-    # ca9/103 is open → predict only, nothing to score.
+    # ca9/103 is open → predict only, nothing to score;
+    # scotus/306 is granted and judged → the merits cell contract end to end.
     resolved = _run("ca9", 101)
     open_case = _run("ca9", 103)
+    merits = _run("scotus", 306)
 
     assert resolved.valid, resolved.problems
     assert resolved.predictions and resolved.outcomes and resolved.evaluations
     assert open_case.valid, open_case.problems
     assert open_case.predictions and not open_case.outcomes and not open_case.evaluations
+    assert merits.valid, merits.problems
+    assert merits.predictions and merits.outcomes and merits.evaluations
 
-    # The compose check: both cases in one ledger pass the gate's own validate CLI.
+    # The merits ground truth took the judgment mapping, not the cert vocabulary
+    # (the fixture's cert baseline has no docket-level decision date, so the one
+    # outcome here is the merits event's) …
+    [merits_outcome_path] = merits.outcomes
+    outcome = json.loads(merits_outcome_path.read_text())
+    assert merits_outcome_path.parent.name == "evt-order-judgment"
+    assert outcome["judgment"] == "reversed"
+    assert outcome["actual_disposition"] == "other"
+    assert outcome["actual_granted"] == 1  # reversed => disturbed, the declared binary
+
+    # … the stub's merits prediction carried the mandatory judgment + votes pair,
+    # and the evaluation scored the merits axes deterministically: the stub's
+    # affirmed/0.0 floor against a reversed outcome is a full Brier miss and a
+    # judgment mismatch.
+    evaluation_path = next(
+        p
+        for p in merits.evaluations
+        if p.name == "evaluation.json" and "evt-order-judgment" in str(p)
+    )
+    evaluation = json.loads(evaluation_path.read_text())
+    assert evaluation["judgment_correct"] == 0
+    assert evaluation["brier_score"] == 1.0
+    prediction_path = next(
+        p
+        for p in merits.predictions
+        if p.name == "prediction.json" and "evt-order-judgment" in str(p)
+    )
+    prediction = json.loads(prediction_path.read_text())
+    assert prediction["judgment"] == "affirmed" and prediction["votes"]
+    assert merits_case.case_id == "scotus/306"
+
+    # The compose check: all cases in one ledger pass the gate's own validate CLI
+    # (the merits-contract check included, now that a merits event is in the tree).
     result = CliRunner().invoke(app, ["validate", str(data_root)])
 
     assert result.exit_code == 0, result.output

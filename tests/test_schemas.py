@@ -12,6 +12,7 @@ from fedcourtsai.schemas import (
     Evaluation,
     FlagCategory,
     FlagSeverity,
+    Judgment,
     JusticeVote,
     ModelUsage,
     Outcome,
@@ -267,3 +268,23 @@ def test_process_version_round_trips_when_stamped() -> None:
     assert pred.process_version.algo == "sha256"  # defaulted
     # Round-trips through the strict schema.
     assert Prediction.model_validate(pred.model_dump()).process_version == pred.process_version
+
+
+def test_a_predicted_judgment_requires_a_vote_block() -> None:
+    # The schema's half of the merits contract: "judgment set => votes
+    # non-empty" holds on every artifact, stage unseen (the validate gate
+    # holds the other half, "merits-stage event => judgment set").
+    with pytest.raises(ValidationError, match="non-empty `votes`"):
+        _prediction(judgment=Judgment.reversed)
+    prediction = _prediction(
+        judgment=Judgment.reversed,
+        votes=[{"justice": "roberts", "vote": "majority"}],
+        predicted_disposition=Disposition.other,
+    )
+    assert prediction.judgment == "reversed"
+
+
+def test_a_judgment_free_prediction_needs_no_votes() -> None:
+    # Every committed cert-stage prediction predates the field; both stay valid.
+    assert _prediction().judgment is None
+    assert _prediction(votes=[{"justice": "roberts", "vote": "grant"}]).judgment is None

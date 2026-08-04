@@ -29,7 +29,7 @@ from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.judgment import judgment_disturbed
+from .pipeline.judgment import grant_term_year, judgment_disturbed
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
 from .schemas import (
@@ -860,19 +860,6 @@ def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
 _JUDGMENT_VALUES = frozenset(judgment.value for judgment in Judgment)
 
 
-def _grant_term_year(granted: date) -> int:
-    """The October Term a cert-grant date falls in (a new Term opens in October).
-
-    The merits section's Term axis: keyed on the grant date rather than the
-    docket number because a case is often granted the Term after it was
-    docketed, and the merits cohort is defined by the grant. The pivot is the
-    calendar month, a deliberate convention: a late-September long-conference
-    grant order — issued for the *incoming* Term — lands in the outgoing Term's
-    row. Consistent and stated, so do not "fix" it in one caller.
-    """
-    return granted.year if granted.month >= 10 else granted.year - 1
-
-
 class _MeritsAcc:
     """Streaming accumulator for one slice of the granted-merits docket.
 
@@ -883,8 +870,13 @@ class _MeritsAcc:
     the published rate's coverage is visible beside it; the disturbed counter
     projects each judgment through
     :func:`fedcourtsai.pipeline.judgment.judgment_disturbed` — the single
-    definition of "disturbed" a merits baseline would share, if one is ever
-    specified (its denominator question stays open until then).
+    definition of "disturbed" the merits baseline shares
+    (:func:`fedcourtsai.pipeline.evaluate.merits_base_rate` pools exactly
+    these per-Term counts, strictly-prior). The cohort admitted here is the
+    scored population itself: the caller
+    (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants
+    that decide in the cert order, so no near-certain GVR vacatur reaches a
+    counter.
     """
 
     __slots__ = ("disturbed", "granted", "judgments", "parsed")
@@ -1123,8 +1115,8 @@ def _accumulate_scotus_terms(
     and a merits one, describing two different stages of the same case. A GVR
     or summary reversal is a grant that decides in the cert order itself, so it
     contributes no merits row: its vacatur is a cert-stage disposition, and
-    pooling it would count as a disturbed judgment a case that was never
-    forecast at the merits stage.
+    pooling it would put a near-certain disturbance into the rate that scores
+    merits forecasts, from a case no one was asked to predict.
     """
     if row_is_live:
         year = corpus.scotus_term_year(row.docket_number)
@@ -1134,7 +1126,7 @@ def _accumulate_scotus_terms(
     if application_year is not None:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
-        grant_year = _grant_term_year(row.date_cert_granted)
+        grant_year = grant_term_year(row.date_cert_granted)
         merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
 
 
@@ -1593,8 +1585,13 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         "",
         "## The merits docket (granted cases)",
         (
-            "_Granted SCOTUS cases (`date_cert_granted` set), split by the October Term "
-            "certiorari was granted in — a grant-date-keyed axis that does **not** align "
+            "_SCOTUS cases whose cert grant opened a merits proceeding — a plain or "
+            "partial grant; a GVR or summary reversal decides in the cert order itself, "
+            "so it is a cert-stage fact and is excluded by its disposition label (only "
+            "as exact as that label: a Term resolved before the `gvr` label existed "
+            "carries its GVRs as plain `granted`, so its rate here reads high) — split "
+            "by the October Term "
+            "certiorari was granted in: a grant-date-keyed axis that does **not** align "
             "with the cert tables' docket-number Terms (a petition docketed in Term T is "
             "routinely granted in T+1), and Terms with no parsed judgment are omitted "
             "from the table. Raw counts, never reweighted (a grant is always "
@@ -1603,15 +1600,18 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             "merits parser could read — and `parsed` against `granted` states that "
             "coverage; the gap blends still-pending cases (granted, not yet decided) "
             "with genuine parse gaps, so a recent Term's thin `parsed` is mostly "
-            "pendency, not parser failure. Descriptive "
-            "only: the disturbed rate (reversed + vacated + affirmed-in-part over parsed) "
-            "is not yet a scored base rate — no merits Brier baseline is specified — "
-            "so no skill or calibration claim rests on these "
-            "figures. The vacated bucket (and so the disturbed rate) pools summary GVRs "
-            "with argued merits vacaturs, so the rate describes **all grants**, not the "
-            "argued docket. A DIG or an equally divided affirmance counts as undisturbed (both "
-            "leave the judgment below standing) while remaining a procedural, not merits, "
-            "exit for scoring purposes. This is not a salience-band product and carries "
+            "pendency, not parser failure. The per-Term disturbed rates "
+            "(reversed + vacated + affirmed-in-part over parsed) are the committed "
+            "feed of the registered merits Brier baseline: a merits cell's skill is "
+            "scored against these rates pooled over grant Terms **strictly before** "
+            "the case's (docs/decision-model.md), so a skill claim exists only where "
+            "strictly-prior Terms carry parsed judgments — and the rate is measured "
+            "over exactly the population a merits cell is drawn from, which is why the "
+            "cert-order grants are excluded. "
+            "A DIG or an equally divided affirmance counts as undisturbed "
+            "(both leave the judgment below standing) and sits in the scored pool on "
+            "that footing, since the baseline's denominator counts it the same way. "
+            "This is not a salience-band product and carries "
             "no salience version. Replay/backtest cells: the cert Term tables' "
             "self-selection rule applies here too — anchor only on Term rows strictly "
             "preceding your clock._"

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from . import corpus, ids
-from .schemas import Disposition, EventKind, Stage
+from .schemas import Disposition, EventKind, Judgment, Stage
 
 _COURT_URL = "https://www.courtlistener.com/api/rest/v4/courts/{court}/"
 
@@ -78,6 +78,10 @@ class FixtureCase:
     response_requested: bool | None = None
     referred_to_court: bool | None = None
     amicus_briefs: int | None = None
+    # The merits pair a granted docket's judgment entry latches (see
+    # pipeline/judgment.py); set only on a granted case whose judgment landed.
+    merits_judgment: Judgment | None = None
+    merits_decided: date | None = None
 
     @property
     def case_id(self) -> str:
@@ -131,6 +135,8 @@ class FixtureCase:
             response_requested=self.response_requested,
             referred_to_court=self.referred_to_court,
             amicus_briefs=self.amicus_briefs,
+            merits_judgment=self.merits_judgment.value if self.merits_judgment else None,
+            merits_decided=self.merits_decided,
         )
 
     def event(self) -> corpus.CorpusEvent:
@@ -154,6 +160,36 @@ class FixtureCase:
             opened_at=self.date_filed,
             resolved=self.resolved,
         )
+
+    def events(self) -> list[corpus.CorpusEvent]:
+        """The case's predictable events: the baseline, plus the merits event.
+
+        A SCOTUS docket whose grant opens a merits proceeding carries the open
+        merits event the cert grant mints in production
+        (`pipeline.outcome.mint_merits_event`) — same id, kind, stage, and
+        target — resolved once the fixture states a parsed judgment, so the
+        offline cascade exercises the merits cell contract end to end. The
+        admission is `corpus.opens_merits_proceeding`, the production
+        predicate itself, so a fixture case can never carry an event the
+        pipeline would not mint for it.
+        """
+        events = [self.event()]
+        if corpus.opens_merits_proceeding(self.row()):
+            events.append(
+                corpus.CorpusEvent(
+                    event_id=ids.event_id(EventKind.order.value, "judgment"),
+                    case_id=self.case_id,
+                    court=self.court,
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    title=self.case_name,
+                    description="Disposition of the judgment below, following the cert grant.",
+                    decision_target="judgment",
+                    opened_at=self.date_cert_granted,
+                    resolved=self.merits_judgment is not None,
+                )
+            )
+        return events
 
     def snapshot_payload(self) -> dict[str, Any]:
         """The point-in-time docket JSON ``provision-snapshot`` materializes."""
@@ -355,7 +391,7 @@ def build_fixture_corpus(db_path: Path) -> Path:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.unlink(missing_ok=True)
     rows = [case.row() for case in FIXTURE_CASES]
-    events = [case.event() for case in FIXTURE_CASES]
+    events = [event for case in FIXTURE_CASES for event in case.events()]
     with corpus.connect(db_path) as conn:
         corpus.upsert_rows(conn, rows)
         corpus.upsert_events(conn, events)
@@ -370,3 +406,55 @@ def build_fixture_corpus(db_path: Path) -> Path:
         corpus.set_live_cursor(conn, 22, "historical-ifp", 5460)
         corpus.set_live_cursor(conn, 24, "paid", 12)
     return db_path
+
+
+# A granted-and-decided SCOTUS merits case, deliberately OUTSIDE `FIXTURE_CASES`:
+# the base corpus is a measured statistical surface (the statpack, back-test, and
+# retrieval tests assert its exact counts and rates), and folding a granted
+# merits row in would silently move every one of those figures. A test that
+# wants the merits cell contract opts in with :func:`add_merits_fixture`
+# instead. The docket carries the full trajectory in its entries — petition,
+# grant, argument, judgment — with the row's cert/merits columns stating the
+# same facts the live channel would latch from them.
+MERITS_FIXTURE_CASE = FixtureCase(
+    court="scotus",
+    docket=306,
+    docket_number="23-980",
+    case_name="Cascade Timber Co. v. United States",
+    date_filed=date(2024, 3, 4),
+    snapshot_date=date(2025, 6, 20),
+    disposition=Disposition.granted,
+    date_cert_granted=date(2025, 1, 10),
+    merits_judgment=Judgment.reversed,
+    merits_decided=date(2025, 6, 20),
+    originating_court="ca9",
+    originating_docket_number="23-35105",
+    last_live_polled=date(2026, 7, 1),
+    sample_weight=1,
+    distribution_count=2,
+    originating_court_name="United States Court of Appeals for the Ninth Circuit",
+    entries=(
+        ("2024-03-04", "Petition for writ of certiorari filed."),
+        ("2025-01-10", "Petition GRANTED."),
+        ("2025-04-21", "Argued. For petitioner: counsel of record."),
+        ("2025-06-20", "Judgment REVERSED and case REMANDED."),
+    ),
+)
+
+
+def add_merits_fixture(db_path: Path) -> FixtureCase:
+    """Write :data:`MERITS_FIXTURE_CASE` into an existing fixture corpus.
+
+    The opt-in half of the fixture: the same three stores
+    :func:`build_fixture_corpus` populates — the row (merits columns included),
+    the two events (the resolved cert baseline and the resolved merits event),
+    and the dated snapshot — through the same corpus write APIs, so the
+    offline cascade can run a merits cell end to end. Returns the case, so the
+    caller can address it without restating literals.
+    """
+    case = MERITS_FIXTURE_CASE
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, [case.row()])
+        corpus.upsert_events(conn, case.events())
+        corpus.upsert_snapshot(conn, case.case_id, case.snapshot_date, case.snapshot_payload())
+    return case

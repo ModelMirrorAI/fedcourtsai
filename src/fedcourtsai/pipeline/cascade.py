@@ -36,10 +36,11 @@ from typing import Literal
 from .. import corpus, ids
 from ..paths import CasePaths
 from ..registry import enabled_evaluators, enabled_predictors
-from ..schemas import Outcome, PredictableEvent, PredictorConfig, UsageRole
+from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from .outcome import (
+    build_merits_outcome,
     disposition_basis,
     granted_flag,
     is_machine_readable,
@@ -112,7 +113,7 @@ def _select_predictors(config_root: Path, predictor: str | None) -> list[Predict
 
 def _outcome_for_resolved(
     row: corpus.CorpusRow,
-    event_id: str,
+    event: corpus.CorpusEvent,
     basis: Literal["standard", "mootness"] = "standard",
 ) -> Outcome | None:
     """Ground-truth :class:`Outcome` for an already-resolved event, or ``None``.
@@ -120,10 +121,35 @@ def _outcome_for_resolved(
     ``pull``'s :func:`fedcourtsai.pipeline.outcome.detect_resolution` records an
     outcome for an event transitioning open→resolved; the cascade instead replays
     an event the corpus already marks resolved, so it builds the same outcome from
-    the stored row without that open-event gate. Returns ``None`` when the
-    disposition is not machine-readable or there is no decision date (the unrecorded
-    path), matching detection's rule so a guess is never recorded.
+    the stored row without that open-event gate — but under the same **stage
+    routing**: a merits-stage event takes the merits mapping from the row's
+    ``merits_*`` columns (:func:`fedcourtsai.pipeline.outcome.build_merits_outcome`
+    — the judgment axis, never the cert vocabulary), and every other event the
+    cert-vocabulary mapping. Returns ``None`` when the row cannot carry the
+    event's ground truth (an unreadable disposition, a missing decision date,
+    or a merits event with no dated parsed judgment) — the unrecorded path,
+    matching detection's rule so a guess is never recorded.
     """
+    if event.stage == Stage.merits:
+        if row.merits_judgment is None or row.merits_decided is None:
+            return None
+        try:
+            # The stored column is blob-tolerant TEXT whose readers re-validate
+            # against the vocabulary rather than failing the row (the field's
+            # own contract); an out-of-vocabulary value degrades to the
+            # unrecorded path, never a crash.
+            judgment = Judgment(row.merits_judgment)
+        except ValueError:
+            return None
+        return build_merits_outcome(
+            row.case_id,
+            event.event_id,
+            judgment,
+            row.merits_decided,
+            distribution_count=row.distribution_count,
+            cvsg_date=row.cvsg_date,
+            source=row.citations[0] if row.citations else None,
+        )
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):
         return None
     assert row.disposition is not None  # narrowed by is_machine_readable above
@@ -134,7 +160,7 @@ def _outcome_for_resolved(
     interim = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     return Outcome(
         case_id=row.case_id,
-        event_id=event_id,
+        event_id=event.event_id,
         resolved_at=row.date_decided,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
@@ -233,7 +259,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         events = case_paths.event(ev.event_id)
         write_yaml(events.event_file, _event_definition(ev))
         if ev.resolved:
-            outcome = _outcome_for_resolved(row, ev.event_id, basis)
+            outcome = _outcome_for_resolved(row, ev, basis)
             if outcome is not None:
                 write_json(events.outcome, outcome)
                 outcomes.append(events.outcome)

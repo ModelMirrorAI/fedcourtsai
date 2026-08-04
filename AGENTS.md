@@ -308,8 +308,8 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` |
-| How is a predicted outcome decomposed and scored? (mechanical cert claims implemented; merits and semantic pre-registered) | `docs/outcome-decomposition.md` |
-| How many votes decide this, and what can I ever observe? (pre-registered, not implemented) | `docs/decision-model.md` |
+| How is a predicted outcome decomposed and scored? (mechanical cert + merits-judgment claims implemented; vote/writing and semantic pre-registered) | `docs/outcome-decomposition.md` |
+| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; votes/margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | How do I test this, and what does CI run? | `docs/testing.md` |

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from . import (
     analytics,
@@ -116,7 +116,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.judgment import backfill_merits_judgments
+from .pipeline.judgment import backfill_merits_judgments, grant_term_year
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import (
     entry_descriptions,
@@ -161,6 +161,7 @@ from .schemas import (
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
+    Stage,
     StatPack,
     UsageRole,
 )
@@ -517,8 +518,10 @@ def backfill_merits_judgments_cmd(
     (SQLite, or the per-case content store under the corpus-split mode — the
     same offline path the salience replay reads), parse the last
     judgment-shaped terminal entry (`pipeline/judgment.py`), and stamp
-    `merits_judgment` / `merits_decided` — the feed behind the statpack's
-    merits stage section and, eventually, a merits base rate. Idempotent; a row
+    `merits_judgment` / `merits_decided` — the offline reconciler behind the
+    columns the live poll also latches at ingest, feeding the statpack's merits
+    stage section, the merits base rate pooled from it, and merits outcome
+    detection. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -1483,8 +1486,10 @@ def stamp_cell(
     scored predictor, so every one under this evaluator+event+run is stamped —
     and each also gets its ``claim_scores`` block computed and written here
     (:func:`fedcourtsai.pipeline.claims.score_claims`, over the committed
-    prediction, outcome, and statpack), so the block is the harness's word and
-    an evaluator-authored one never survives the stamp.
+    prediction, outcome, and statpack), plus its ``base_rate_salience_version``
+    derived from the recorded ``base_rate_basis`` and the scored prediction's
+    frozen context (:func:`_base_rate_salience_version_for`), so both are the
+    harness's word and an evaluator-authored value never survives the stamp.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -1537,6 +1542,13 @@ def stamp_cell(
             # evaluator-authored one is replaced — with the computed block where
             # the committed inputs support one, with nothing otherwise.
             cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
+            # The version half of the base-rate basis record, same discipline:
+            # derived deterministically from the basis the evaluation names and
+            # the same committed inputs, overwritten unconditionally so it is
+            # the harness's word and never the evaluator's.
+            cell_update["base_rate_salience_version"] = _base_rate_salience_version_for(
+                event_paths, record
+            )
         write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
@@ -1544,6 +1556,32 @@ def stamp_cell(
         typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
         return
     typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+
+
+def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluation) -> str | None:
+    """Which salience version the evaluation's segment base rate was read under.
+
+    Deterministic from the same inputs ``base_rate_basis`` names, so the stamp
+    records — never trusts — the evaluator: on the ``risk_set`` path the band
+    was the scored prediction's frozen one, so the version is that
+    prediction's ``context.salience_version`` (the latest prediction, the same
+    join every scoring surface uses); on the ``terminal`` path the band was
+    re-derived from the row under the live scorer, so the version is the live
+    ``SALIENCE_VERSION``. ``None`` where the evaluation records no basis (no
+    segment base rate was taken), or where the risk-set path's prediction or
+    frozen context cannot be resolved — a gap recorded as absence, never
+    guessed.
+    """
+    if evaluation.base_rate_basis == "terminal":
+        return SALIENCE_VERSION
+    if evaluation.base_rate_basis != "risk_set":
+        return None
+    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    if not predictions:
+        return None
+    latest = max(predictions, key=lambda p: p.created_at)
+    return latest.context.salience_version if latest.context is not None else None
 
 
 def _claim_scores_for(
@@ -1559,6 +1597,13 @@ def _claim_scores_for(
     that already produced its output. The lookback is the same
     ``salience.base_rate_lookback_terms`` the headline segment baseline uses,
     so the block and the skill score answer to one window.
+
+    The **grant Term** is read here rather than derived from the prediction:
+    the merits event's ``opened_at`` *is* the cert-grant date, and the merits
+    baseline is keyed on the Term of the grant (the statpack merits section's
+    own axis), which the frozen context's docket-number Term does not reliably
+    equal. Absent or unreadable, it stays ``None`` and the merits claim goes
+    unscored rather than anchoring to the wrong Term.
     """
     outcome_path = event_paths.outcome
     statpack_path = settings.metrics_root / "statpack.json"
@@ -1573,7 +1618,29 @@ def _claim_scores_for(
         read_model(outcome_path, Outcome),
         read_model(statpack_path, StatPack),
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+        grant_term=_grant_term_for(event_paths),
     )
+
+
+def _grant_term_for(event_paths: EventPaths) -> int | None:
+    """The October Term this event's cert grant fell in, or ``None``.
+
+    The merits event is minted with ``opened_at`` set to the grant date
+    (``pipeline.outcome.merits_event_for``), so its committed ``event.yaml`` is
+    the durable record of the grant Term the merits baseline keys on. ``None``
+    for any event that is not a dated merits event — every cert cell, and a
+    merits event whose definition is missing or unreadable.
+    """
+    event_file = event_paths.event_file
+    if not event_file.is_file():
+        return None
+    try:
+        event = read_model(event_file, PredictableEvent)
+    except (OSError, ValueError, ValidationError):
+        return None
+    if event.stage != Stage.merits or event.opened_at is None:
+        return None
+    return grant_term_year(event.opened_at)
 
 
 @app.command("process-digest")

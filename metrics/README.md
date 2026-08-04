@@ -119,10 +119,11 @@ stays outside the gate:
   describes that claim, not the predictor, and a declared claim that never
   scored still appears with `scored: 0` so the coverage gap stays visible.
 
-  **Counts and comparability.** The population is the **cert-stage** cells —
-  only the cert-stage event kinds declare a claim set, so a cell on any other
-  stage is never owed a block and sits outside the surface (and outside its
-  absence counts) entirely. The reporting unit is the **event**: every
+  **Counts and comparability.** The population is the **cert-stage** cells:
+  the board never blends stages, so although the minted merits event
+  declares its own set (`merits-v1` — one claim, restating the merits
+  headline), a non-cert cell's block sits outside this surface (and outside
+  its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
   evaluator of the same prediction carries an identical harness block, so
   blocks are deduplicated to one per event before averaging (the newest
   evaluation's block wins where a statpack revision between evaluator stamps
@@ -202,10 +203,45 @@ standard by construction); a stage-less cell of any other kind shares one
 `(none)` bucket so coverage stays visible — that bucket's *counts* are the
 claimable part, while its means pool cells of unknown, possibly heterogeneous
 decision standards and support no cross-cell claim. Skill scores appear only
-where a scored segment base rate exists — the cert segment today — so a
-non-cert stage's block carries counts, accuracy, and Brier, with its skill
-mean null and `skill_scored` zero until a base rate for that stage is
-pre-registered.
+where a scored base rate exists for the stage. The cert segment has one, and
+the **merits stage has a registered baseline** — the statpack merits section's
+`disturbed_rate`, pooled over grant Terms strictly before the case's
+(`pipeline.evaluate.merits_base_rate`; `docs/decision-model.md` is the
+registered design) — so a merits cell's Brier is `(P(disturbed) −
+disturbed)²` and its skill is claimable **only against that declared
+baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
+the evaluator's field and the leaderboard averages whatever it holds,
+stage-blind, so the merits fan-out owes that gate (next paragraph) — and only
+where the pooled prior-Term sample clears the baseline's
+stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
+there is no baseline,
+no skill score, and no substitute rate. Three things travel with any merits
+figure. The baseline's population is the section's population is the scored
+population: the grants that open a merits proceeding, with the two procedural
+exits counted as undisturbed (a DIG and an equally divided affirmance leave
+the judgment below standing) exactly as the outcome writer scores them, and
+with GVRs and summary reversals absent because they are cert-stage
+dispositions that mint no merits cell. That exclusion is only as good as the
+row's disposition label, and two classes escape it: the `gvr` label is a
+forward convention, so a Term resolved before it existed carries its GVRs as
+plain `granted`, and no resolver produces `summary-reversal` at all — both
+parse as near-certain vacaturs, so the rate over any Term with unlabelled GVRs
+is an **upper bound**, and no merits skill number may be published against a
+pool drawing on such a Term (`docs/decision-model.md` names the guard the
+merits fan-out owes). And the window is the same ten-Term
+band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
+with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
+exact-match on a merits cell, not the disposition match, since a merits
+outcome's `actual_disposition` is always the off-vocabulary `other`. The
+interim stage has no registered base rate, so its block carries counts,
+accuracy, and Brier with its skill mean null and `skill_scored` zero.
+
+Nothing writes a merits skill number yet: no merits cell fans out (the merits
+event is not a forecastable kind until its prompt contract ships), and the
+evaluator prompt defines `segment_base_rate` on the cert band only — so today
+the registered merits baseline is realized through the claim block's
+difference form alone, and a merits `brier_skill_score` would be anchored to
+the wrong rate if one were written before that prompt lands.
 
 - `cert-backtest.json` — the cert-specific back-test (not on the scheduled
   refresh): predictors
@@ -305,7 +341,11 @@ the rendered table) and
   second, since that is the population it was in when it ran; one without a frozen
   band falls back to the first, which matches the terminal band it has to be
   grouped by. Both are leakage-safe (strictly-prior-Term), and a skill score is
-  only comparable within one basis, which `Evaluation.base_rate_basis` records — the surface a time-masked replay cell self-selects pre-cutoff
+  only comparable within one basis, which `Evaluation.base_rate_basis` records
+  alongside `Evaluation.base_rate_salience_version` — the version the band was
+  read under, the other half of the same harness-stamped record, since two
+  bases agreeing under different scorer versions are not one comparison. Both
+  describe the surface a time-masked replay cell self-selects pre-cutoff
   Terms from. `fedcourts statpack` produces both the machine JSON and a
   rendered Markdown document — a
   deterministic, offline roll-up of the corpus — empty
@@ -343,7 +383,7 @@ the rendered table) and
 
   The second stage section is the **merits section** (`merits`), present only
   once a corpus row carries a parsed `merits_judgment` (the
-  `backfill-merits-judgments` pass reading granted cases' stored terminal
+  `backfill-merits-judgments` pass reading merits-bound cases' stored terminal
   entries), and omitted entirely — not emitted as null — while none does. What
   it publishes, pack-level and per grant-Term year (the October Term
   certiorari was granted in — a grant-date-keyed axis that does **not** align
@@ -361,19 +401,34 @@ the rendered table) and
   the grants that open a merits proceeding — the same rule that mints the event
   a merits forecast is made on — so GVRs and summary reversals, whose
   disposition rides in the cert order itself, are absent: their vacaturs are
-  cert-stage facts and would otherwise count as disturbed judgments in cases
-  no one forecast at the merits stage. **What may be
-  claimed from it:** the counts and the disturbed rate are *descriptive* facts
-  about the parsed cohort, nothing more. The rate is the natural anchor for a
-  future merits Brier baseline, but that baseline — like merits predict scope
-  and scoring, and its own denominator (whether the procedural exits sit in
-  it) — remains unspecified (`docs/outcome-decomposition.md`), so no
-  skill, calibration, or baseline claim may rest on it; and the parsed slice
-  is selected on parseability (a stored snapshot whose terminal entry matches
-  the deterministic shapes), so quote the `parsed`/`granted` coverage beside
-  any figure. It is unweighted and comparable to nothing the cert sections
-  publish; DIGs and equally divided affirmances route to the `procedural`
-  stratum for any eventual scoring, never blended into a merits call. The
+  cert-stage facts, already counted in the cert sections, and would otherwise
+  count as disturbed judgments in cases no one forecast at the merits stage.
+  The exclusion reads the row's cert disposition label, so it is exact only
+  where that label is (the `gvr`/`summary-reversal` caveat above the stage
+  blocks applies here too: over a Term whose GVRs are unlabelled the rate is an
+  upper bound).
+  **What may be
+  claimed from it:** the counts are *descriptive* facts about the parsed
+  cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of
+  the **registered merits Brier baseline**
+  (`pipeline.evaluate.merits_base_rate` pools them across grant Terms strictly
+  before a case's; `docs/decision-model.md` registers the design, denominator
+  included: the two procedural exits sit in it as undisturbed). A merits skill
+  claim exists only under that pooled strictly-prior baseline — never against a
+  single Term's rate, the pack-level `disturbed_rate`, or any
+  substitute — and only where the pool clears the baseline's stated minimum
+  sample. The parsed slice
+  is selected on parseability under **two** writers — a stored snapshot whose
+  terminal entry matches the deterministic shapes, or a live poll of a granted
+  docket, which reaches only rotation-eligible dockets and so covers recent
+  Terms better than old ones — so quote the `parsed`/`granted` coverage beside
+  any figure, and read a cross-Term coverage gradient as a writer artifact
+  before reading it as docket history. It is unweighted and comparable to nothing the cert sections
+  publish; DIGs and equally divided affirmances count as **undisturbed** and
+  stay in the scored pool on that footing — the baseline's denominator counts
+  them the same way, so scored population and baseline population remain the
+  same population (the `procedural` stratum is keyed on mootness practice,
+  which no merits outcome carries). The
   section carries no salience version, and the per-Term rows share the cert
   tables' replay self-selection rule (anchor strictly before your clock).
 

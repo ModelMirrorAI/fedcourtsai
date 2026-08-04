@@ -451,19 +451,24 @@ class CorpusRow(BaseModel):
         "case — the merits axis, a `Judgment` value stored as text (the same "
         "blob-tolerant TEXT pattern as `application_kind`: readers re-validate "
         "against the vocabulary rather than failing the row). Parsed "
-        "deterministically from the stored snapshot's disposition entry by the "
-        "merits backfill pass (`pipeline/judgment.py`), never an ingestion "
-        "channel. None = no parsed judgment: the case is pending, unsnapshotted, "
+        "deterministically from the docket's disposition entry by the shared "
+        "parser (`pipeline/judgment.py`), stamped by two writers: the live "
+        "poll at ingest on a granted docket, and the offline backfill pass "
+        "over stored snapshots; the upsert latch keeps a stored parse when a "
+        "writer carries none. None = no parsed judgment: the case is pending, "
+        "unsnapshotted, "
         "or its terminal entry matched no judgment shape — a coverage gap, "
-        "never an observed absence. Feeds the statpack's merits stage section "
-        "and, eventually, a merits base rate.",
+        "never an observed absence. Feeds the statpack's merits stage section, "
+        "the merits base rate pooled from it, and merits outcome detection "
+        "(`pipeline/outcome.py`).",
     )
     merits_decided: date | None = Field(
         default=None,
         description="The docket date of the disposition entry `merits_judgment` "
         "was parsed from, or None when that entry carries no fully specified "
         "date (a judgment may be parsed from an undated entry). Meaningful only "
-        "beside a non-None `merits_judgment`; owned by the same backfill pass.",
+        "beside a non-None `merits_judgment`, and latched as a pair with it; "
+        "the merits event's `resolved_at` when detection records the outcome.",
     )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
@@ -617,10 +622,12 @@ CREATE TABLE IF NOT EXISTS cases (
     amicus_briefs       INTEGER,
     -- The merits judgment (see CorpusRow and pipeline/judgment.py): what the
     -- Court did to the judgment below on a granted case, parsed
-    -- deterministically from the stored snapshot's disposition entry, plus that
-    -- entry's own date. Owned by the merits backfill pass
-    -- (`backfill-merits-judgments`), never an ingestion channel; NULL = no
-    -- parsed judgment (pending, no snapshot, or no matching entry).
+    -- deterministically from the docket's disposition entry, plus that
+    -- entry's own date. Stamped through the shared parser by the live poll at
+    -- ingest and by the offline backfill pass (`backfill-merits-judgments`);
+    -- the upsert latches the pair (a NULL incoming judgment keeps both stored
+    -- values). NULL = no parsed judgment (pending, no snapshot, or no
+    -- matching entry). Merits outcome detection reads these columns.
     merits_judgment     TEXT,
     merits_decided      TEXT
 );
@@ -1118,9 +1125,12 @@ def _update_clause(column: str) -> str:
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
-    it to the model default; and the ``salience_*`` columns (the salience
-    selection pass) and ``merits_*`` columns (the merits backfill pass) are
-    owned on the same keep-stored rationale. ``predict_eligible``
+    it to the model default; the ``salience_*`` columns (the salience
+    selection pass) are owned on the same keep-stored rationale; and the
+    ``merits_*`` pair latches as a pair — a writer with no parse (NULL
+    judgment) keeps both stored values, a fresh parse takes both, so the live
+    channel's ingest-time parse and the offline backfill converge on the same
+    columns without either wiping the other. ``predict_eligible``
     deliberately takes the incoming value: it is a derived mirror of the court
     predicate, so a re-ingest self-heals a stale value rather than latching it.
     """
@@ -1199,20 +1209,35 @@ def _update_clause(column: str) -> str:
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
-        "merits_judgment",
-        "merits_decided",
     ):
         # Owned elsewhere, so an ingestion upsert keeps the stored value: the
         # scope reconcile owns `predict_excluded` (not an ingestion fact, not
         # monotonic), the salience selection pass owns the salience columns
         # (the pass recomputes score/version and maintains the one-way
-        # `salience_selected` latch), the queue routing owns the
+        # `salience_selected` latch), and the queue routing owns the
         # `*_queued_at` stamps — clearing one on re-ingest would let a
         # deriver's daily-retry debounce re-queue a case every cycle its
-        # rotation poll touches it — and the merits backfill pass owns the
-        # `merits_*` pair (parsed from stored snapshots, not an ingestion fact).
+        # rotation poll touches it.
         return f"{column}=cases.{column}"
-    return f"{column}=excluded.{column}"
+    if column in ("merits_judgment", "merits_decided"):
+        # The merits pair moves as a PAIR, keyed on the incoming judgment: two
+        # writers stamp it through the shared parser (the live poll at ingest
+        # for a granted docket, and the offline backfill via
+        # `set_merits_judgment`), a writer with no parse (NULL judgment — a
+        # CourtListener enrichment, a bulk row, a degraded payload) keeps both
+        # stored values, and a fresh parse takes both — its `merits_decided`
+        # included even when that is NULL (an undated entry), because a date
+        # kept from a different entry's parse would fabricate a mismatched
+        # pair. A fresh parse overwrites a stored one deliberately: the docket's
+        # last judgment-shaped entry is the realized word (a granted-rehearing
+        # docket restates it), the same last-entry rule the backfill applies.
+        clause = (
+            f"{column}=CASE WHEN excluded.merits_judgment IS NULL "
+            f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    else:
+        clause = f"{column}=excluded.{column}"
+    return clause
 
 
 # --- dual-write sink (dependency-inverted) ------------------------------------

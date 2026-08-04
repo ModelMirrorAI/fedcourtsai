@@ -22,6 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.evaluate import merits_base_rate
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
@@ -1365,7 +1366,11 @@ def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
     assert "## The merits docket (granted cases)" in md
     # The caption carries the interpretation contract with the figures.
     merits_section = md.split("## The merits docket (granted cases)")[1]
-    assert "not yet a scored base rate" in merits_section
+    # The caption states the scored contract: the section's own disturbed rate
+    # is the registered baseline's feed, over the population it scores.
+    assert "registered merits Brier baseline" in merits_section
+    assert "excluded by its disposition label" in merits_section
+    assert "strictly before" in merits_section
     assert "undisturbed" in merits_section
     assert "**8** granted case(s): 6 with a parsed judgment." in merits_section
     # Rates print raw-count denominators beside them; per-Term rows carry the
@@ -1373,3 +1378,62 @@ def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
     assert "disturbed rate 50.0% (n=6)." in merits_section
     assert "| 2024 | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
     assert "| 2023 | 5 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section
+
+
+def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
+    """One grant Term holding a merits-bound cohort beside a GVR block.
+
+    The merits-bound rows (`granted` / `granted-in-part` — the dispositions
+    that mint a merits event) split 28 disturbed of 40, enough to clear the
+    baseline's minimum sample; the 40 GVRs are the near-certain vacaturs the
+    scored population is never drawn from.
+    """
+    granted = date(2024, 1, 12)
+    rows = [
+        corpus.CorpusRow(
+            case_id=f"scotus/9200{n:05d}",
+            court="scotus",
+            docket_number=f"23-3{n:02d}",
+            disposition=Disposition.granted_in_part if n == 0 else Disposition.granted,
+            date_cert_granted=granted,
+            merits_judgment="reversed" if n < 28 else "affirmed",
+        )
+        for n in range(40)
+    ] + [
+        corpus.CorpusRow(
+            case_id=f"scotus/9210{n:05d}",
+            court="scotus",
+            docket_number=f"23-4{n:02d}",
+            disposition=Disposition.gvr,
+            date_cert_granted=granted,
+            merits_judgment="vacated",
+        )
+        for n in range(40)
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> None:
+    """End to end: a GVR block cannot move the rate a merits cell is scored on.
+
+    A GVR mints no merits event, so no merits cell is ever drawn from one.
+    Pooling the near-certain GVR vacaturs would anchor every merits forecast
+    above the rate its own population faces — the
+    baseline-coarser-than-the-conditioning failure
+    `docs/outcome-decomposition.md`'s third test rules out — and would restate
+    a cert-stage disposition under a merits heading. Excluding them at the
+    population is what makes the section's own `disturbed_rate` the baseline's
+    feed.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_merits_and_gvr_cohort(db)
+    pack = analytics.build_statpack(corpus_db_path=db)
+    merits = pack.merits
+    assert merits is not None
+    assert (merits.granted, merits.parsed, merits.disturbed) == (40, 40, 28)
+    assert merits.disturbed_rate == pytest.approx(0.70)
+    assert merits.vacated == 0  # every vacatur in the corpus is a GVR's
+    # The baseline reads those counts on the grant-Term axis: 0.70, not the
+    # (28 + 40) / 80 = 0.85 a GVR-inclusive population would hand out.
+    assert merits_base_rate(2024, pack) == pytest.approx(0.70)

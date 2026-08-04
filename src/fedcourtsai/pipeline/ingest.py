@@ -34,7 +34,7 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
-from ..schemas import Disposition, EventKind, Stage
+from ..schemas import MERITS_PROCEEDING_DISPOSITIONS, Disposition, EventKind, Judgment, Stage
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -42,6 +42,7 @@ from ..supremecourt import (
 )
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 from .interim_signals import application_kind, escalation_signals, match_interim_disposition
+from .judgment import last_judgment_entry
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -52,6 +53,12 @@ CORPUS_SCHEMA_VERSION: Final = "1.0"
 # once every Term has been re-walked — each re-served denial upserts at weight 1,
 # and `sample_weight`'s min-latch takes it.
 LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
+
+# The cert dispositions that open a merits proceeding, as the strings
+# `_live_resolution` returns — the live latch's eligibility, matching the
+# population the offline backfill walks so `merits_judgment` means one thing
+# whichever writer filled it.
+_MERITS_PROCEEDING_VALUES: Final = frozenset(d.value for d in MERITS_PROCEEDING_DISPOSITIONS)
 
 
 class CorpusSource(StrEnum):
@@ -138,6 +145,21 @@ class CorpusRow(BaseModel):
         description="Amicus briefs recorded on an interim application's docket "
         "(per-entry count). Live application branch only; None elsewhere — the "
         "storage max-latch keeps the highest count ever parsed.",
+    )
+    merits_judgment: str | None = Field(
+        default=None,
+        description="What the Court did to the judgment below — a `Judgment` "
+        "value, parsed from the last judgment-shaped proceedings entry by the "
+        "shared parser (`pipeline.judgment`). Live cert branch only, and only "
+        "on a granted docket; None elsewhere — the storage latch keeps a "
+        "stored parse when a writer carries none, and it moves as a pair with "
+        "`merits_decided`.",
+    )
+    merits_decided: date | None = Field(
+        default=None,
+        description="The docket date of the entry `merits_judgment` was parsed "
+        "from — the merits event's resolution date; None for an undated entry, "
+        "and meaningful only beside a non-None `merits_judgment`.",
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
@@ -430,6 +452,8 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
         amicus_briefs=_as_count(record.get("amicus_briefs")),
+        merits_judgment=_clean(record.get("merits_judgment")),
+        merits_decided=_date(record.get("merits_decided")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -717,6 +741,7 @@ def map_live_docket(
     requested: bool | None = None
     referred: bool | None = None
     amici: int | None = None
+    merits: tuple[Judgment, date | None] | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -738,6 +763,20 @@ def map_live_docket(
         requested, referred, amici = escalation_signals(texts)
     else:
         disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+        if cert_granted is not None and disposition in _MERITS_PROCEEDING_VALUES:
+            # A grant that opens a merits proceeding keeps polling toward its
+            # judgment, and the terminal entry that states it is normalized
+            # nowhere else — so the live channel latches the merits pair at
+            # ingest through the shared parser, on the same last-entry rule the
+            # offline backfill applies. Outcome detection then reads the
+            # columns, keeping judgment detection deterministic and
+            # single-sourced. The eligibility is the same population predicate
+            # the backfill walks, so the column means one thing whichever writer
+            # filled it: a GVR's order text parses as a vacatur, but that
+            # vacatur is the cert-stage disposition, not a judgment on the
+            # merits, and this column is read as the latter — including on the
+            # agent-facing retrieval surface.
+            merits = last_judgment_entry({"docket_entries": entries})
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
@@ -761,6 +800,8 @@ def map_live_docket(
         "response_requested": requested,
         "referred_to_court": referred,
         "amicus_briefs": amici,
+        "merits_judgment": merits[0].value if merits else None,
+        "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
@@ -931,6 +972,8 @@ def to_corpus_row(
         response_requested=row.response_requested,
         referred_to_court=row.referred_to_court,
         amicus_briefs=row.amicus_briefs,
+        merits_judgment=row.merits_judgment,
+        merits_decided=row.merits_decided,
         sample_weight=sample_weight,
     )
 

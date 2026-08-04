@@ -4,32 +4,48 @@ Cert, interim relief, and merits look like three prediction problems. They are
 one, with two parameters. This document defines that model and pins the
 aggregation rules to sources.
 
-**Most of it is not implemented.** `pipeline/aggregation.py` carries the
+**Much of it is not implemented.** `pipeline/aggregation.py` carries the
 thresholds and their citations, and the vocabularies exist — `Stage`, the vote
 and writing values, the merits judgment axis, and the provenance block that says
 how much of a vote record is there.
 
-What is live is narrow and worth naming, because the rest of this document is
+What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice, feeding
 the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
 application docket's motion baseline and on SCOTUS entry-pinned
 stay/injunction motions, `merits` on the minted merits event, absent
-everywhere the writers do not classify one — but no aggregation rule reads
-it from data. The merits **event** exists as an artifact: a cert grant that
+everywhere the writers do not classify one. The merits **cell contract** is
+implemented end to end *in the pipeline* — everywhere but the prompts: a cert
+grant that
 opens a merits proceeding mints an open `evt-order-judgment` (kind `order`,
-stage `merits`, target the judgment) so the granted docket keeps polling
-toward its decision — but it is unscored and unpredicted: not a forecastable
-kind, so no cell fans out for it, no judgment detection resolves it, and no
-aggregation rule reads it. Everything else is unbuilt: no artifact carries a
-writing role, a
-judgment, or a provenance block; no schema carries a vote *margin*; and no
-aggregation rule is applied to anything. That is pre-registration: the model is settled before
-there is data to fit it to, which is the only order in which the choice is
-credible. `docs/outcome-decomposition.md` is the companion — it defines what a
-scoreable claim is and the rule that scores one, and its tests govern anything
-proposed here.
+stage `merits`, target the judgment); the granted docket keeps polling toward
+its decision; the live channel latches the parsed judgment onto the corpus
+row (`pipeline/judgment.py`, the shared parser the offline backfill also
+uses), and outcome detection resolves the merits event from those columns —
+`Outcome.judgment` carries the result, `actual_disposition` records `other`
+(no cert label applies, by the axis-separation rule below), and
+`actual_granted` carries the **declared merits binary**, whether the judgment
+below was disturbed. A merits *prediction* carries `judgment` plus a mandatory
+non-empty vote block (schema-enforced; the `validate` gate holds a
+merits-stage event's scored prediction to the judgment), and its
+`probability` is P(disturbed), scored by the same Brier formula against the
+strictly-prior pooled disturbed rate (*Scoring a merits forecast*, below).
+What remains unbuilt: no merits cell fans out yet (the merits event is not a
+forecastable kind — the fan-out ships with the merits prompt sections, so a
+cell never runs before its prompt contract exists), and those sections are
+owed on **both** prompts: today's evaluate prompt defines `correct` on the
+disposition and `segment_base_rate` on the cert band alone, which is the wrong
+axis and the wrong rate for a merits cell; no artifact carries a
+writing role or a real vote record with provenance (the outcome writer
+records no votes, for the reason given below); no schema carries a vote
+*margin*; and no aggregation rule is applied to anything. The scoring design
+was settled before any merits outcome existed to fit it to, which is the only
+order in which the choice is credible. `docs/outcome-decomposition.md` is the
+companion — it defines what a scoreable claim is and the rule that scores
+one, and its tests govern anything proposed here (the declared `merits-v1`
+claim set was chosen against them).
 
 ## What is predicted
 
@@ -40,10 +56,14 @@ rather than replacing it.
 Procedural outcomes (a dismissal as improvidently granted — a DIG — a dismissal
 as moot, an affirmance by an equally divided Court) are real and have to be
 handled for the methodology to be credible, but they are corner cases rather
-than the object. The design records them on their own axis and routes them to
-the `procedural` stratum, never blended into a cert-worthiness score. Today only
-mootness practice routes there, because `Outcome.disposition_basis` carries no
-other value; `metrics/README.md` governs the stratum.
+than the object. The design records them on their own axis, never blended into
+a cert-worthiness score. Mootness practice routes to the `procedural` stratum
+(`Outcome.disposition_basis` carries no other value; `metrics/README.md`
+governs the stratum); a DIG and an equally divided affirmance are recorded on
+the judgment axis and count as **undisturbed** on the merits binary — both
+leave the judgment below standing — staying in the scored merits pool because
+the pooled baseline's denominator includes them (the `Judgment` docstring
+carries the argument).
 
 ## The model
 
@@ -274,9 +294,10 @@ At merits the equally divided bin is exactly that case — it is not a "denial" 
 anything — so the complement of `p_implied` is not itself a claimable quantity
 there.
 
-**How such a forecast is scored is not settled, and is deliberately not
-pre-registered here.** Three requirements any design must meet, recorded because
-they are what a candidate design failed on. They **supplement** the tests in
+## Scoring a merits forecast — pre-registered
+
+Three requirements any design must meet, recorded because they are what an
+earlier candidate design failed on. They **supplement** the tests in
 `docs/outcome-decomposition.md` rather than standing in for them; a design must
 pass those too.
 
@@ -295,6 +316,176 @@ pass those too.
   between two submitted numbers additionally drives them toward equality, so any
   design carrying one must ship a test that distinguishes a genuinely coherent
   forecast from a field copied to avoid the penalty.
+
+The registered design, chosen against those constraints:
+
+**The scored axis is one probability: P(disturbed).** A merits prediction
+carries `judgment` (the full vocabulary, `Prediction.judgment` mirroring
+`Outcome.judgment`) and its headline `probability` denotes P(the judgment
+below is disturbed: reversed, vacated, or the mixed affirmed-in-part
+outcome) — the merits
+meaning of the field whose cert meaning is P(granted), exactly as `granted`
+already denotes cert on a petition and relief on an application, with the
+stage saying which. The outcome writer records the same binary in
+`actual_granted` (`pipeline.judgment.judgment_disturbed` is the single
+projection), so `(probability − actual_granted)²` is the Brier score at every
+stage, and one formula serves both. The binary is **declared over the full
+judgment vocabulary**, not derived from a two-outcome vote question: a DIG and
+an equally divided affirmance are declared *undisturbed* (both leave the
+judgment below standing), so the complement is well-defined even though it
+pools an affirmance with two procedural exits — the equally-divided caveat
+above is answered by declaration, not ignored. They stay in the scored pool
+because the baseline's denominator holds them too (next paragraph), keeping
+the scored population and its baseline the same population. The
+mechanical-claim mirror is the `merits-v1` set (`pipeline.claims`): one
+declared claim, `judgment-disturbed`, restating the headline probability the
+way the cert set's `disposition` claim does; the per-Justice vote, split, and
+authorship claims were tested against `docs/outcome-decomposition.md`'s eight
+tests and **failed** (no committed resolution channel, no conditioned
+strictly-prior baseline, and nine-to-one re-encoding of one correlated
+insight), so they are deliberately not declared.
+
+**The baseline is the strictly-prior pooled disturbed rate.** The statpack's
+merits section publishes per-grant-Term counts;
+`pipeline.evaluate.merits_base_rate` pools its `disturbed` over its `parsed`
+across Terms strictly before the case's, under the identical
+leakage rule the segment base rate applies (the case's own and later Terms
+never contribute), and it is **version-free** because the section is not a
+salience-band product: there is no scorer version to pin. Skill is
+`brier_skill` against that baseline, so parroting the historical disturbed
+rate earns ~0.
+
+The baseline's population is the scored population, and that is the first
+constraint doing real work rather than being recited. A merits cell exists
+only where the grant opened a merits proceeding
+(`corpus.opens_merits_proceeding` — the rule that mints the event); a GVR and
+a summary reversal terminate at the cert order and mint nothing, so the merits
+section does not admit them either. GVRs run at roughly forty percent of
+grants and are near-certain vacaturs, so a merits population holding them
+would sit well above the rate the scored cases actually face — a baseline
+coarser than the disclosed conditioning, which is exactly what
+`docs/outcome-decomposition.md`'s third test forbids, and it would manufacture
+apparent lift for a forecaster who knew only the argued rate. It would also
+double-count: a GVR's vacatur is a *cert*-stage disposition, already carried by
+the cert sections, and describing it again under a merits heading is the
+stage-axis confusion the axis exists to prevent. If a finer committed cut ever
+lands (originating circuit, question presented), the same constraint requires
+re-deriving the baseline at that conditioning before any skill number is
+published against it.
+
+**Where that exclusion is only as good as the label, and what is owed.** The
+predicate reads the row's cert `disposition`, and two classes escape it. The
+`gvr` label is a **forward convention** (the `Disposition` docstring): a Term
+resolved into the corpus before the label existed carries its GVRs as plain
+`granted`, so those rows pass `opens_merits_proceeding`, their cert-order
+"Judgment VACATED and case REMANDED" parses as `vacated`, and they enter the
+pooled rate at near-certain disturbance. `summary-reversal` is worse: no
+resolver produces it at all, so that class is excluded in name only. Both
+inflate the pooled rate over any grant Term whose GVRs are unlabelled, and
+differential parseability aggravates it — a cert-order vacatur parses the day
+it is granted, an argued judgment six to eighteen months later, so the
+*parsed* slice is enriched in the escapees beyond their population share. So:
+the section's rate over such a Term is an **upper bound**, no merits skill
+number may be published against a pool drawing on Terms whose GVRs are
+unlabelled, and the merits fan-out owes a label-independent guard first — the
+deterministic one available is the grant→judgment gap, since a disposition
+riding in the cert order carries the grant's own date.
+
+**Two guards on the pool, both stated rather than implicit.** The window is
+the same Term-year band and the same knob the cert baseline uses —
+`salience.base_rate_lookback_terms`, ten Terms as shipped — so the pool is
+`grant_term - 10 <= entry < grant_term`, and moving that knob re-bases every
+published skill number, cert and merits alike, at once; any merits figure is
+published with the window stated. And the pool must clear a **stated minimum
+sample** (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments as shipped)
+before it returns a rate at all. That
+floor is not decoration: the merits section exists from its first parsed
+judgment, so without it a single prior-Term row would hand out a degenerate
+0 or 1 baseline — and `brier_skill` returns `None` exactly where such a
+baseline was *right*, so a published mean would be taken only over the cells it
+got wrong. Below the floor there is no baseline, the claim goes unscored, and
+no substitute rate is invented.
+
+**The Term axis is the grant Term, on both sides.** The statpack merits
+section is keyed on the October Term certiorari was granted in, and so is the
+baseline lookup — read from the merits event's `opened_at`, which *is* the
+grant date. The docket-number Term is not a stand-in for it: the two disagree
+for a petition docketed into the incoming Term and granted before that Term
+opens, where the docket Term runs one *later* and would admit the case's own
+cohort into its own baseline. Keying both sides on the grant Term also keeps
+cohort-mates comparable — two cases granted in the same Term are scored
+against the same pool, which a docket-keyed lookup would not guarantee.
+
+**Censoring, which the fifth test requires answering.** An argued case's
+judgment lands six to eighteen months after the grant, so a recent, still-open
+grant Term contributes a slice skewed toward the quicker dispositions — its
+parsed rows are thinner and earlier-resolving than that Term's eventual
+cohort. Its sharpest version — a cert-order vacatur parsing the moment it is
+granted — is what the population predicate is meant to remove, and removes
+only where the label is present (above). The strictly-prior guard keeps a
+case's own Term out, the minimum-sample floor keeps a thin pool from scoring at
+all, and the statpack's `parsed`/`granted` coverage is published beside the
+rate so the residue stays visible rather than assumed away.
+
+**The vote block is mandatory, and scored intersection-only.** Every merits
+prediction must carry a non-empty per-Justice `votes` block — the schema
+enforces "judgment set ⇒ votes non-empty" on the artifact, and the `validate`
+gate enforces "merits-stage event ⇒ the scored prediction carries a judgment"
+from the committed `event.yaml`, the two halves meeting because a prediction
+does not carry its event's stage. The block is scored by `vote_accuracy`
+alone: over the Justices the outcome record actually names, under
+`vote_provenance` — never over what the predictor attempted, and never
+entering any total beyond that per-cell fraction. Today the merits outcome
+writer records **no** votes, deliberately: the terminal docket entry's
+authorship recital names at most the opinion's author and never the
+participating count `VoteProvenance` requires as the aggregation denominator,
+so no honest provenance block can be built from docket text, and a vote list
+without one is illegible. The mandatory block is therefore elicitation ahead
+of its observation channel — banked, unscored — until a real vote source (an
+order list, the opinion, SCDB) populates `Outcome.votes` with provenance.
+That is the permitted side of the second constraint's line, and the
+constraint's own prohibition stands untouched: a *cert*-stage vote is never
+scored.
+
+**What holds that prohibition today is an absent data source, not a check, and
+that is worth stating rather than implying.** `vote_accuracy` is stage-blind —
+it scores the intersection of whatever two vote lists it is handed — and
+`mean_vote_accuracy` is a cert-board aggregate. Nothing scores a cert vote
+now only because no writer puts votes on a cert outcome. So the first
+ingestion channel that populates `Outcome.votes` at the cert stage — noted
+dissents from denial are published on the order list and are the obvious
+candidate — would begin scoring a cert vote forecast into a ranked total
+silently, which this constraint exists to forbid. Whoever lands that channel
+owes the guard with it: gate `vote_accuracy` on the event's stage, and ship
+the test that fails when the gate is removed. The prohibition is
+pre-registered; the enforcement is not yet written, and no reader should infer
+otherwise from the constraint's presence here.
+
+**`judgment_correct` is descriptive, not a score.** The exact-match bit on the
+full vocabulary (`Evaluation.judgment_correct`) reports
+whether the predicted judgment label was the realized one — a `reversed` call
+against a `vacated` outcome is 0 even though both disturb. It carries no
+probability and is never presented as a proper score; the Brier on the
+disturbed binary is the scored quantity. It is also the merits accuracy axis
+outright: `correct` on a merits cell *is* this comparison
+(`pipeline.evaluate.is_correct`), because a merits outcome's
+`actual_disposition` is always the off-vocabulary `other` and comparing
+dispositions there would score every cell against a constant the merits
+contract never defines. Both are computed by the shared helpers, but on a real
+cell they are the evaluator's field to write, like `brier_score` — the harness
+stamps only `claim_scores` and the base-rate basis record.
+This keeps the third constraint trivially satisfied: the design's one scored
+rule is the Brier score on one submitted probability, proper over its whole
+domain, with no consistency term between submitted numbers anywhere (the
+`merits-v1` claim must *equal* the headline probability — a well-formedness
+check that voids a divergent block, not a penalty that shapes it).
+
+**What remains unbuilt, and stays outside every scored total.** No schema
+carries a margin distribution and none is scored; `p_implied` and the margin
+identity above remain analysis, and eliciting a margin in prose remains
+permitted and unscored. No merits cell fans out until the merits prompt
+sections ship the contract to the predictors. And the writing-role claims
+keep the conditions recorded under *Observation* above.
 
 [rules]: https://www.supremecourt.gov/filingandrules/2026RulesoftheCourt_WEB.pdf
 [fjc]: https://www.fjc.gov/history/spotlight-judicial-history/rule-four

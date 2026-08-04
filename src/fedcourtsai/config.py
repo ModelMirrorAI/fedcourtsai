@@ -387,7 +387,13 @@ class SalienceConfig(BaseModel):
     ``base_rate_lookback_terms`` is the one non-selection knob here: it bounds the
     segment base-rate window the evaluator and the cert back-test score skill
     against (``0`` = every prior Term). It lives beside the band knobs because the
-    band is what it conditions on.
+    band is what it conditions on — but it governs **two** baselines on two
+    different Term axes: the salience segment rate (docket-number Term) and the
+    merits disturbed rate (grant Term,
+    :func:`fedcourtsai.pipeline.evaluate.merits_base_rate`, which is not a
+    salience product at all). Ten Terms means a different window on each. Moving
+    this re-bases every published skill number on both stages at once, so a
+    change here is a reviewable diff for figures well beyond salience.
     """
 
     model_config = ConfigDict(extra="ignore")

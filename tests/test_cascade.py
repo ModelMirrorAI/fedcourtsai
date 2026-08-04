@@ -24,9 +24,11 @@ from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
+    EventKind,
     Outcome,
     PredictableEvent,
     Prediction,
+    Stage,
 )
 from fedcourtsai.serialize import read_model
 
@@ -253,11 +255,43 @@ def test_interim_outcome_carries_no_cert_signals_block() -> None:
             cvsg_date=date(2026, 5, 1),
         )
 
-    interim = _outcome_for_resolved(_row("26A11"), "evt-motion-disposition")
+    def _event(event_id: str, stage: Stage) -> corpus.CorpusEvent:
+        return corpus.CorpusEvent(
+            event_id=event_id,
+            case_id="scotus/306",
+            court="scotus",
+            kind=EventKind.motion if stage == Stage.interim else EventKind.petition,
+            stage=stage,
+            resolved=True,
+        )
+
+    interim = _outcome_for_resolved(_row("26A11"), _event("evt-motion-disposition", Stage.interim))
     assert interim is not None and interim.signals is None
 
     # The cert docket keeps the block, so the guard is a stage rule and not a
     # blanket suppression.
-    cert = _outcome_for_resolved(_row("24-1234"), "evt-petition-disposition")
+    cert = _outcome_for_resolved(_row("24-1234"), _event("evt-petition-disposition", Stage.cert))
     assert cert is not None and cert.signals is not None
     assert cert.signals.distribution_count == 2
+
+
+def test_a_corrupt_stored_judgment_degrades_to_no_outcome(corpus_db: Path, tmp_path: Path) -> None:
+    """The merits column is blob-tolerant TEXT, so its readers re-validate.
+
+    An out-of-vocabulary stored value must land on the unrecorded path — the
+    same contract the statpack's reader keeps — rather than crashing the whole
+    cascade run on an enum conversion.
+    """
+    case = fixture.add_merits_fixture(corpus_db)
+    with corpus.connect(corpus_db) as conn:
+        conn.execute(
+            "UPDATE cases SET merits_judgment = 'not-a-judgment' WHERE case_id = ?",
+            (case.case_id,),
+        )
+        conn.commit()
+
+    report = _run(corpus_db, tmp_path / "data", "scotus", case.docket, event="evt-order-judgment")
+
+    assert report.valid, report.problems
+    assert not report.outcomes  # no ground truth written from a value we cannot read
+    assert not report.evaluations  # and so nothing to score

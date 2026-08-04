@@ -20,11 +20,34 @@ from .salience import SALIENCE_VERSION, salience_band
 
 
 def is_correct(prediction: Prediction, outcome: Outcome) -> int:
+    """Did the prediction name the right outcome label — on the stage's own axis?
+
+    The cert/interim axis is the disposition label. The **merits** axis is the
+    judgment: a merits outcome's ``actual_disposition`` is always the
+    off-vocabulary ``other`` (the cert vocabulary has no member for a judgment),
+    so comparing dispositions there would score every merits cell against a
+    constant — a number the predictor sets by choosing what to write in a field
+    the merits contract does not define. The routing is on the **outcome**,
+    which is the harness's word: a merits outcome takes the judgment
+    comparison whatever the prediction carries, so a judgment-less prediction
+    scores 0 rather than collecting the free ``other == other`` match that
+    routing on both sides would hand it. (The ``validate`` gate refuses such a
+    prediction, but ``correct`` is computed before validate runs.) This keeps
+    the leaderboard's accuracy column meaningful at every stage instead of
+    publishing a constant for one of them.
+    """
+    if outcome.judgment is not None:
+        return int(prediction.judgment == outcome.judgment)
     return int(prediction.predicted_disposition == outcome.actual_disposition)
 
 
 def brier_score(prediction: Prediction, outcome: Outcome) -> float:
-    """Brier score for the binary granted/denied forecast (lower is better)."""
+    """Brier score for the stage's declared binary forecast (lower is better).
+
+    ``actual_granted`` carries the stage's binary — granted on a cert/interim
+    event, judgment-disturbed on a merits event — and ``probability`` states
+    the matching P, so one formula scores every stage.
+    """
     return (prediction.probability - outcome.actual_granted) ** 2
 
 
@@ -166,6 +189,93 @@ def prediction_base_rate(
         lookback_terms=lookback_terms,
         risk_set=True,
     )
+
+
+#: The smallest parsed sample a merits baseline may rest on. Below it the
+#: pooled rate is ``None`` (claim unscored, no skill score) rather than
+#: published: ``docs/outcome-decomposition.md`` requires a stated minimum
+#: observation count of any thin-history baseline before it ships, and the
+#: merits section exists from its very first parsed judgment — so without a
+#: floor a one-row prior Term would hand out a degenerate 0.0/1.0 baseline. In
+#: `claim_score`'s difference form — the consumer today — such a baseline
+#: produces a score of magnitude ~1 that swamps every other claim in a total;
+#: and `brier_skill`, the consumer once merits cells fan out, masks exactly the
+#: cells such a baseline got *right* (its Brier is 0 there), leaving a
+#: published mean taken only over the ones it got wrong.
+#: At a rate near 0.7 this bounds the standard error around 0.08, and the Court
+#: decides roughly sixty argued cases a Term. The pool takes whole Terms
+#: strictly prior, so within-Term accumulation never counts toward a case's own
+#: baseline: the floor clears on one prior grant Term of parsed judgments, or
+#: two thin ones. A stated pre-registration choice, not a knob.
+MERITS_BASE_RATE_MIN_PARSED = 30
+
+
+def merits_base_rate(
+    grant_term: int, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The historical disturbed rate a merits cell's skill is scored against.
+
+    Pools the statpack merits section's per-grant-Term counts — ``parsed`` and
+    ``disturbed`` — over Terms **strictly before** ``grant_term``, as aggregate
+    disturbed over aggregate parsed. The merits sibling of
+    :func:`segment_base_rate`, under the identical leakage rule, but
+    deliberately **version-free**: the section is not a salience-band product,
+    so there is no scorer version to pin (``docs/decision-model.md``
+    pre-registers this baseline).
+
+    **The baseline's population is the scored population.** The merits section
+    admits exactly the grants that open a merits proceeding
+    (:func:`fedcourtsai.corpus.opens_merits_proceeding`), which is where a
+    merits cell comes from: a GVR and a summary reversal terminate at the cert
+    order and never mint one, so their near-certain vacaturs — a cert-stage
+    fact the cert sections already carry — never anchor a merits forecast to a
+    rate its own population does not face.
+
+    ``grant_term`` is the October Term certiorari was **granted** in
+    (:func:`fedcourtsai.pipeline.judgment.grant_term_year` over the merits
+    event's ``opened_at``), the axis the statpack merits section is keyed on.
+    It must not be substituted with the docket-number Term: the two disagree
+    for a petition docketed into the incoming Term and granted before that Term
+    opens, and there the docket Term is one *later* than the grant Term, which
+    would admit the case's own cohort into its own baseline. Keying both on the
+    grant Term also keeps cohort-mates comparable — two cases granted in the
+    same Term are scored against the same pool.
+
+    ``lookback_terms`` bounds the pool as a Term-year band exactly as
+    :func:`segment_base_rate` does (``0`` = unbounded). ``None`` when the pack
+    carries no merits section, when no prior Term has a parsed judgment, or
+    when the pooled sample is below :data:`MERITS_BASE_RATE_MIN_PARSED` — the
+    already-contracted no-baseline answer, never an invented or degenerate rate.
+    """
+    if statpack.merits is None:
+        return None
+    oldest = grant_term - lookback_terms if lookback_terms > 0 else None
+    disturbed = 0
+    parsed = 0
+    for entry in statpack.merits.terms:
+        if entry.term >= grant_term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the configured lookback window
+        disturbed += entry.disturbed
+        parsed += entry.parsed
+    if parsed < MERITS_BASE_RATE_MIN_PARSED:
+        return None
+    return disturbed / parsed
+
+
+def judgment_correct(prediction: Prediction, outcome: Outcome) -> int | None:
+    """Exact-match of the predicted merits judgment, or ``None`` off the axis.
+
+    1 iff the prediction's ``judgment`` equals the outcome's on the full
+    Judgment vocabulary (a ``reversed`` call against a ``vacated`` outcome is
+    0); ``None`` wherever either side records no judgment — every non-merits
+    cell. Descriptive accuracy beside the scored disturbed-binary Brier, never
+    a proper score.
+    """
+    if prediction.judgment is None or outcome.judgment is None:
+        return None
+    return int(prediction.judgment == outcome.judgment)
 
 
 def brier_skill(brier: float, actual_granted: int, base_rate: float | None) -> float | None:

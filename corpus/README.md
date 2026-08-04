@@ -93,7 +93,7 @@ source.
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
-| `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the stored snapshot's terminal entry by the merits backfill pass; null = no parsed judgment |
+| `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
@@ -156,10 +156,15 @@ so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The
 walk now keeps every decided petition, so the weight it writes is always 1 and
 the column's remaining job is to keep those legacy rows honest until a re-walk
-re-serves them. The merits pair (`merits_judgment`, `merits_decided`) is owned
-by the `backfill-merits-judgments` pass the way `predict_excluded` is owned by
-the scope reconcile: parsed from stored snapshots rather than supplied by any
-channel, so an ingestion upsert always keeps the stored values.
+re-serves them. The merits pair (`merits_judgment`, `merits_decided`) moves as
+a **pair**, written by two writers through one parser: the live poll latches it
+at ingest on a granted cert docket, and `backfill-merits-judgments` reconciles
+offline over stored snapshots. The upsert keys both columns on the incoming
+judgment — a writer carrying no parse (a CourtListener enrichment, a bulk row,
+a degraded payload) keeps both stored values, while a fresh parse takes both,
+its null `merits_decided` included, since a date kept from a different entry's
+parse would fabricate a mismatched pair. Merits outcome detection reads these
+columns, so the pair is a scoring input, not only a statistic.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so
