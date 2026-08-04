@@ -109,6 +109,32 @@ def _check(name: str, problems: list[str], *, checked: int, detail: str = "") ->
 # --- schema conformance (layer A, git ledger only) -----------------------------
 
 
+def _in_provisioning_tree(file: Path, root: Path) -> bool:
+    """Whether ``file`` sits under a case's gitignored ``record/`` provisioning tree.
+
+    ``record/`` holds what a cell was *handed*, not what it produced: the corpus
+    snapshot, the fetched document text, the cell context, and the evaluate
+    cell's blinded candidate staging (:mod:`fedcourtsai.blinding`). None of it is
+    committed, so none of it is ledger. The distinction is load-bearing rather
+    than tidy-minded: a blinded candidate is a deliberately *masked* view of a
+    prediction — no engine, no model, no process version — so it is not a
+    ``Prediction`` and checking it against that schema would report a mask as a
+    defect. Nothing under ``record/`` carries a ledger filename today apart from
+    that staging, so this narrows the scan by exactly the tree it names.
+
+    Matched **positionally** against the case layout rather than by looking for a
+    ``record`` component anywhere in the path. An unanchored test would also fire
+    on a data root that happens to sit under a directory called ``record``, and
+    the failure would be a validation pass that checked nothing — the one shape a
+    gate must never have.
+    """
+    try:
+        parts = file.relative_to(root).parts
+    except ValueError:  # pragma: no cover - rglob yields paths under root
+        return False
+    return len(parts) > 4 and parts[0] == "cases" and parts[3] == "record"
+
+
 def validate_ledger(path: Path) -> LedgerValidation:
     """Validate every known artifact under ``path`` against its schema model.
 
@@ -117,12 +143,15 @@ def validate_ledger(path: Path) -> LedgerValidation:
     :class:`LedgerValidation` so the ops dashboard can present it alongside the
     corpus verdict. ``problems`` is capped like the corpus checks; ``invalid`` is
     the true failure count.
+
+    Scoped to the committed ledger: the gitignored ``record/`` provisioning trees
+    are skipped (:func:`_in_provisioning_tree`).
     """
     problems: list[str] = []
     checked = 0
     for file in sorted(path.rglob("*")):
         model = FILENAME_MODELS.get(file.name)
-        if model is None or not file.is_file():
+        if model is None or not file.is_file() or _in_provisioning_tree(file, path):
             continue
         checked += 1
         try:

@@ -23,6 +23,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import (
     analytics,
+    blinding,
     cleanup,
     corpus,
     corpus_index,
@@ -3203,6 +3204,128 @@ def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
         # conditioning and is correctly rejected, or a provisioning bug.
         typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
         return None
+
+
+@app.command("provision-blinded-predictions")
+def provision_blinded_predictions_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="The resolved event whose predictions are graded.")],
+    run_id: Annotated[str, typer.Option(help="The evaluate run id; seeds the alias assignment.")],
+    map_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the alias map is written/read. Deliberately outside the "
+            "case tree the grader is told to open; point it at a runner-local "
+            "path (e.g. the runner temp dir) in CI.",
+        ),
+    ] = blinding.DEFAULT_MAP_DIR,
+) -> None:
+    """Stage every predictor's latest prediction under an opaque alias, for blind grading.
+
+    A pre-agent step of the evaluate cell. Copies each candidate into
+    ``record/blinded/<alias>/`` with its identity masked — ``predictor_id``
+    becomes the alias, ``engine`` and ``model`` become null, ``process_version``
+    is dropped, and every staged byte (the prose, ``retrieval.md``, and the
+    captured transcript's strings) is scrubbed of predictor ids, evaluator ids,
+    and engine/model names — and writes the alias map to ``--map-dir``.
+    ``usage.json``, ``tooling.json``, and ``flags.json`` are not staged at all.
+    ``record/`` is gitignored, so the masked copies never reach the ledger, and
+    the map is written to ``--map-dir`` — outside the case tree, because the
+    grader is sent into that tree and its key must not be found by an ``ls``
+    nobody had to intend.
+
+    Aliases are assigned by a keyed shuffle seeded on the run, case, and event —
+    never predictor-id sort order, which would make the alias a bijection any
+    reader could invert. Deterministic, so a re-run of the same cell assigns the
+    same aliases.
+
+    Exits 1 when the event carries no prediction: an evaluate cell with nothing
+    to score is a matrix fault, and an empty staging area would have the grader
+    write an empty cell instead of failing.
+
+    The paired step is ``unblind-evaluations``, which must run **before**
+    ``stamp-cell --role evaluator`` — see its help.
+    """
+    settings = get_settings()
+    try:
+        result = blinding.provision_blinded_predictions(
+            data_root=settings.data_root,
+            config_root=settings.config_root,
+            court=court,
+            docket=docket,
+            event_id=event,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"blinding failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for candidate in result.candidates:
+        typer.echo(f"{candidate.alias} <- {len(candidate.staged)} file(s)")
+    typer.echo(f"blinded {len(result.candidates)} candidate(s) -> {result.root}")
+
+
+@app.command("unblind-evaluations")
+def unblind_evaluations_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="The resolved event that was graded.")],
+    evaluator: Annotated[str, typer.Option(help="The evaluator id whose output is un-aliased.")],
+    run_id: Annotated[str, typer.Option(help="The evaluate run id the map was minted under.")],
+    map_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the alias map is written/read. Deliberately outside the "
+            "case tree the grader is told to open; point it at a runner-local "
+            "path (e.g. the runner temp dir) in CI.",
+        ),
+    ] = blinding.DEFAULT_MAP_DIR,
+) -> None:
+    """Rename an evaluate cell's alias-keyed output onto the real predictor ids.
+
+    The other half of ``provision-blinded-predictions``. Reads the alias map
+    from ``--map-dir`` (pass the same value both commands were given), moves each
+    ``evaluations/<evaluator>/<alias>/<run>/`` to
+    ``evaluations/<evaluator>/<predictor_id>/<run>/``, rewrites the
+    ``predictor_id`` field inside each ``evaluation.json``, and resolves every
+    alias the evaluator wrote into its prose, flags, tooling report, and captured
+    log — a `likely`-leakage note naming ``candidate-b`` would otherwise reach a
+    maintainer through the run PR with its only key thrown away with the runner.
+
+    **This must run before ``stamp-cell --role evaluator``.** The stamp joins an
+    evaluation to the prediction it scored on the ``predictor_id`` field and
+    returns nothing on no match, so an alias reaching the stamp costs the cell
+    its ``claim_scores`` block *and* its ``base_rate_salience_version`` — both
+    *silently*, since the stamp assigns whatever the join produced rather than
+    failing. The self-check is
+    ``validate data``'s ``check_evaluation_targets``, which resolves the same
+    join and reports an orphan loudly — so the cell's order is: un-alias, stamp,
+    validate.
+
+    Idempotent over an already-un-aliased cell. Exits 1 on anything else — a
+    missing or corrupt map, a map minted for another cell, an alias the map does
+    not name, a destination that already exists, or an alias-shaped directory
+    surviving the sweep — because degrading would ship alias-keyed evaluations
+    into the ledger.
+    """
+    settings = get_settings()
+    try:
+        moved = blinding.unblind_evaluations(
+            data_root=settings.data_root,
+            court=court,
+            docket=docket,
+            event_id=event,
+            evaluator_id=evaluator,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"un-aliasing failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for alias, predictor_id in moved:
+        typer.echo(f"{alias} -> {predictor_id}")
+    typer.echo(f"un-aliased {len(moved)} evaluation(s) for {evaluator}")
 
 
 @app.command("corpus-integration-check")

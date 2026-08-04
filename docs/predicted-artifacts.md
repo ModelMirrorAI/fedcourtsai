@@ -410,6 +410,19 @@ cell as a whole, a level above at `evaluations/<evaluator_id>/<run_id>/`. This
 is the short version; `metrics/README.md` is the authority on what any of these
 numbers may be claimed to show.
 
+The evaluator never sees that layout while it works. It grades **blind**: the
+harness stages each predictor's latest prediction under an opaque alias with its
+identity masked (`fedcourtsai.blinding`), the evaluator reads those and keys its
+output on the alias, and a post-run step renames the directories onto the real
+predictor ids before the stamp. The committed layout above is what un-aliasing
+produces. What a blinded grade may be read as is in
+[outcome-decomposition.md](outcome-decomposition.md); which files are staged and
+which are dropped is in [cli.md](cli.md), under
+`provision-blinded-predictions`. Briefly: a candidate's
+`usage.json`, `tooling.json`, and `flags.json` are not staged at all, so a
+predictor's own leakage disclosure reaches the grader only where it also made it
+in prose.
+
 - **`evaluation.json`** (the `Evaluation` model) — `correct` (did the
   prediction name the right label on the stage's own axis: the disposition at
   cert and interim, the judgment at merits), `brier_score` on the stage's

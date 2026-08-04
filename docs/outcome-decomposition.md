@@ -131,19 +131,12 @@ which survive, which are doubtful, and why. Everything specific to the family
 lives in *The semantic family, alpha*, deliberately quarantined from the
 pre-registered body of this document.
 
-A semantic grade should be formed before the grader knows whose claim it is,
-because a grader who knows will anchor — and inter-evaluator agreement, the
-check on grader latitude, then partly measures the anchor instead of the claim.
-
-Stating that as a requirement rather than a fact, because the harness cannot
-currently deliver it: the evaluate contract has the evaluator read
-`predictions/<predictor_id>/<run_id>/prediction.json` and write under a path
-keyed on the same id, so identity is unavoidable today. The nearest existing
-precedent is narrower than blinding — the evaluator forms its big-case read
-before looking at the predictor's `big_case_score`, which blinds it to the
-predictor's *number*, not to which predictor it is. Closing the gap needs a
-harness change, and that is a precondition on scoring semantic claims, not a
-detail of it.
+A semantic grade is formed with the predictor's name removed, because a grader
+who knows whose claim it is will anchor on it, and the judge validation below —
+tau-b of the grade against the mechanical record — would then partly measure the
+anchor instead of the claim. The qualifier is load-bearing and is stated with
+the claim rather than after it: what the harness removes is the *name*, and one
+identifying channel is left open by design. Both are set out below.
 
 ## The scoring rule
 
@@ -632,9 +625,11 @@ provenance denominator — and nothing records
 authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
-ingestion (`has_opinion` is 0 on every corpus row) and on the blinding
-precondition above; the alpha that will meet them when they land — and what it
-deliberately does not yet decide — is *The semantic family, alpha*.
+ingestion (`has_opinion` is 0 on every corpus row). Their blind-grading
+precondition above is met on the explicit-identifier channel; the engine channel
+named there is what remains owed before a semantic grade is published as
+blind. The alpha that will meet them when they land — and what it deliberately
+does not yet decide — is *The semantic family, alpha*.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
 
@@ -752,8 +747,12 @@ definition is fixed now:
 estimator under exactly these rules, with the evaluator's
 `reasoning_quality` grade as the semantic side of each pair — the
 judge-graded number the ledger already carries — pending the semantic claim
-family itself, which awaits both opinion ingestion and its blinding
-precondition. The reading contract for the artifact is `metrics/README.md`.
+family itself, which awaits opinion ingestion. That grade is formed under the
+blinding bracket above, so the pair's semantic side carries no *named* anchor on
+which predictor wrote the rationale; it carries the engine-channel residual and
+every other caveat `reasoning_quality` does. The reading contract for the
+artifact is `metrics/README.md`, which is also where the rule against pooling
+blinded with unblinded grades lives.
 
 ## The semantic family, alpha (`semantic-v0`)
 

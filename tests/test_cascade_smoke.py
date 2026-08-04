@@ -22,6 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import build_leaderboard
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cascade
 from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 from fedcourtsai.pipeline.claims import (
@@ -98,6 +99,19 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
     prediction = json.loads(prediction_path.read_text())
     assert prediction["judgment"] == "affirmed" and prediction["votes"]
     assert merits_case.case_id == "scotus/306"
+
+    # The blind-grading bracket ran around every evaluate cell: a candidate was
+    # staged per predictor, and nothing alias-keyed reached the ledger (the stub
+    # writes real ids, so un-aliasing is a no-op — what this pins is that the
+    # bracket runs at all and leaves the committed layout untouched).
+    blinded = CasePaths(data_root, "ca9", 101).blinded_predictions
+    assert sorted(p.name for p in blinded.iterdir()) == [
+        "candidate-a",
+        "candidate-b",
+        "candidate-c",
+    ]
+    assert (blinded / "candidate-a" / "prediction.json").is_file()
+    assert not list(data_root.glob("cases/*/*/events/*/evaluations/*/candidate-*"))
 
     # The compose check: all cases in one ledger pass the gate's own validate CLI
     # (the merits-contract check included, now that a merits event is in the tree).

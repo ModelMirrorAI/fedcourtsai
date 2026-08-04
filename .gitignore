@@ -235,3 +235,7 @@ __marimo__/
 
 # Claude Code's stored subscription credential.
 .credentials.json
+
+# The evaluate cell's alias maps: the key that undoes blind grading
+# (`fedcourtsai.blinding`). Runner-local by design and never a ledger artifact.
+/.blinding/

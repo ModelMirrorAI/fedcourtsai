@@ -19,7 +19,7 @@ what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). It needs nothi
 secret.
 
 The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
-it drives provision → predict → evaluate → `validate` over the fixture corpus with no
+it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
 network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
 predicted stage — a cert petition; the fixture's substantive stay application, whose
 interim cell carries a Brier score but no segment baseline; and its granted docket, whose
@@ -168,7 +168,7 @@ the committed cassette double as the fixture for that valid shape.
 run with no remote, no role assumption, and no tokens.
 
 **A one-command cascade.** `fedcourts local-cascade --court <id> --docket <id>`
-chains provision → predict → evaluate → `validate` over the fixture corpus:
+chains provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus:
 
 ```bash
 # offline, token-free — the default loop

@@ -142,6 +142,26 @@ stays outside the gate:
   for the stratum's own reason: a mootness-basis label tracks the Court's
   vacatur practice, not cert-worthiness.
 
+  **A grade formed blind and a grade formed unblinded are two populations.**
+  `reasoning_quality` is the semantic side of the judge validation and the
+  source of the leaderboard's `mean_reasoning_quality`, and the evaluate cell
+  forms it with the predictor's identity masked (`docs/outcome-decomposition.md`,
+  *Semantic claims*). A grade formed before that bracket carries an anchor on
+  which predictor wrote the rationale; one formed after does not. So a
+  `reasoning_quality` mean, or a judge-validation tau-b, whose cells span that
+  boundary is not one population and may not be read as one — the same rule
+  `declared_set_versions` states for a claim total, applied to the evaluator's
+  process. The boundary is visible per cell: the bracket rides a prompt change,
+  so it moves every evaluator's process digest. It is not *enforced* anywhere —
+  the frozen filter keys on the **prediction's** stamp, because the competitor
+  being ranked is the predictor — so an evaluation's own digest is recorded and
+  read by nothing, and this is a rule for the reader rather than a partition the
+  code applies. Two consequences follow: report the distinct evaluator process
+  digests a pooled grade figure spans, and treat more than one as demoting the
+  figure to coverage. The same boundary moves the denominator, not only the
+  anchor: under the bracket exactly one candidate is staged per predictor, so an
+  event a predictor ran twice contributes one grade rather than several.
+
   **The judge validation is the headline.** Per stratum, the pre-registered
   Kendall tau-b between per-cell mechanical claim totals and
   `reasoning_quality` grades, over the **intersection** population only —
