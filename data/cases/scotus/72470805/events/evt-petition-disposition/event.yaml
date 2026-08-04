@@ -1,0 +1,11 @@
+case_id: scotus/72470805
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-05-23'
+resolved: true
+schema_version: '1.0'
+title: "Denise Halvorson, et vir, Petitioners v. Hennepin County Children\u2019s Services\
+  \ Department, et al."

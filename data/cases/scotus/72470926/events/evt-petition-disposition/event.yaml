@@ -1,0 +1,11 @@
+case_id: scotus/72470926
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-06-23'
+resolved: true
+schema_version: '1.0'
+title: Richard Arnold, et al., Petitioners v. Carlos Del Toro, Secretary of the Navy,
+  et al.
