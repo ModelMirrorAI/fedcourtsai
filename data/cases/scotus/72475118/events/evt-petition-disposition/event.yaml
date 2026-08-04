@@ -1,0 +1,11 @@
+case_id: scotus/72475118
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-12-29'
+resolved: true
+schema_version: '1.0'
+title: George Little, Acting Secretary, Pennsylvania Department of Corrections, et
+  al., Petitioners v. Samuel Randolph
