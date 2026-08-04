@@ -48,6 +48,7 @@ from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
 )
+from .attribution_migration import reopen_misattributed_outcomes
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
@@ -640,6 +641,55 @@ def relabel_application_events_cmd(
         typer.echo(f"  {', '.join(preview)}{suffix}")
     for case_id, reason in result.skipped:
         typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("reopen-misattributed-outcomes")
+def reopen_misattributed_outcomes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Reopen the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Reopen committed outcomes copied from a sibling case-baseline event.
+
+    A deterministic repair over the committed ledger for the records an earlier
+    single-open-event attribution shortcut left behind: a non-case-baseline
+    event whose outcome duplicates a case-baseline sibling's
+    `(actual_disposition, resolved_at, actual_granted)` exactly — a stay motion
+    holding a copy of the petition's cert disposition. Each is deleted and its
+    event reopened in both stores (the ledger `event.yaml` and the corpus event
+    row), because the ledger does not carry the source order text, so no true
+    disposition is recoverable here and an open event is the honest state. Only
+    non-baseline events are repaired: reopening a case-baseline event makes it
+    the stage-less fallback's target, so the next resolution pass would rewrite
+    the deleted outcome — a duplication between two case-baseline events is
+    reported for triage instead. An event carrying committed predict/evaluate
+    output is likewise skipped. Idempotent, and convergent against the
+    resolution pass. Dry-run by default; `--apply` writes. Run where the corpus
+    is pulled; land the corpus side last (`corpus-push` after the ledger
+    commit). Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the repair.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = reopen_misattributed_outcomes(conn, settings.data_root, apply=apply)
+    verb = "reopened" if apply else "would reopen"
+    typer.echo(
+        f"reopen-misattributed-outcomes ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.reopened)} event(s); "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.reopened:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
 
 
 @app.command("scope-manifest")

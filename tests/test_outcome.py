@@ -7,7 +7,7 @@ from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
-    _CASE_BASELINE_ID_PREFIXES,
+    CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
     Resolution,
     appears_decided,
@@ -431,7 +431,7 @@ def test_attribution_prefixes_and_forecastable_kinds_agree() -> None:
     # Two encodings of "case-baseline" — the attribution guard keys on the id
     # prefix, the queue filter on the corpus kind column — must name the same
     # kinds, or targeting and attribution drift apart silently.
-    assert set(_CASE_BASELINE_ID_PREFIXES) == {f"evt-{kind}-" for kind in _FORECASTABLE_KINDS}
+    assert set(CASE_BASELINE_ID_PREFIXES) == {f"evt-{kind}-" for kind in _FORECASTABLE_KINDS}
 
 
 # --- ledger write --------------------------------------------------------------
