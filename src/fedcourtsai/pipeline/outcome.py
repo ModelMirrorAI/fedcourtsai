@@ -286,6 +286,46 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
     return None
 
 
+# The one :data:`_TERMINAL_ENTRY_RE` shape that is a merits cell's own opening
+# rather than its outcome: a cert-before-judgment GRANT opens a merits
+# proceeding exactly as an ordinary grant does, so a merits cell's snapshot
+# necessarily carries it. Its denial/dismissal siblings stay terminal for the
+# merits scan, since neither leaves anything to argue.
+_CBJ_GRANT_RE = re.compile(
+    r"^(?:the\s+)?petitions? for (?:a )?writs? of certiorari before judgment "
+    r"(?:are |is )?granted",
+    re.IGNORECASE,
+)
+
+
+def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
+    """A **merits** outcome visible anywhere in the snapshot, or ``None``.
+
+    The merits-event counterpart of :func:`snapshot_shows_disposition` for the
+    forward-cell provisioning guard, which is keyed on the event because one
+    docket carries several events' outcomes at once. It keeps that function's
+    high-recall :data:`_TERMINAL_ENTRY_RE` rather than narrowing to the
+    deterministic merits parser: the parser is deliberately conservative (a
+    miss there costs one unparsed row in a descriptive count), while a miss
+    *here* hands a forward cell its answer, so the two failure costs point in
+    opposite directions and the guard must take the wider net. Every terminal
+    shape the cert scan catches — "Opinion Issued", "Judgment Issued", a case
+    termination, a dismissal — is a decided merits docket too.
+
+    One branch is dropped: the **cert-before-judgment grant**, which is the
+    order that mints the merits event rather than a disclosure of its outcome.
+    The plain cert grant needs no exclusion because it matches no branch of the
+    regex at all — only the resolver sees it, and the merits scan does not run
+    the resolver.
+    """
+    for description in entry_descriptions(docket):
+        if _CBJ_GRANT_RE.search(description):
+            continue
+        if _TERMINAL_ENTRY_RE.search(description):
+            return f"snapshot entry reads as terminal: {description!r}"
+    return None
+
+
 # High-recall interim disposal shapes, for the routing and provisioning
 # backstops on APPLICATION-FORM dockets only. Deliberately wider than the
 # resolving vocabulary (`interim_signals.match_interim_disposition`), which

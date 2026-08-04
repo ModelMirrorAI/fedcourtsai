@@ -411,8 +411,16 @@ that makes `--full` useful in production.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
 only) is the forward-cell guard at the provisioning seam: it refuses to
-provision a forward cell whose snapshot's latest entry reads terminal — a
-forward prediction on a decided case would be a mislabeled back-test. A refused
+provision a forward cell whose snapshot already discloses **its own event's**
+outcome — a forward prediction on a decided event would be a mislabeled
+back-test. The question is keyed on the event (`--event`), because one docket
+carries several events' outcomes at once: a granted cert docket's grant order
+is a disclosed *cert* outcome and is also what opens the merits proceeding, so
+the entry that must refuse a cert cell is the merits cell's own record. On the
+merits event the test is therefore a parsed merits judgment; on every other
+event it is the latest entry reading terminal, any entry carrying a
+machine-readable disposition order, or — on an application docket — a legible
+interim disposal. A refused
 cell is a legitimate outcome, not an error; the prompt contract tells the agent
 to note the gap in `flags.json` and predict from priors and base rates only,
 without retrieving the case's current docket state (the case already looks
@@ -575,9 +583,10 @@ or network.
      event from those columns (`Outcome.judgment` plus the disturbed binary
      as `actual_granted`; an undated parse surfaces for triage instead of
      guessing a `resolved_at`), and the docket exits the rotation with its
-     last open event. The merits event is not yet predicted: it is not
-     a forecastable kind, so no predict cell fans out for it until the merits
-     prompt sections ship.
+     last open event. The merits event is forecastable while it stays open:
+     `store.forecastable_events` admits it on a row whose grant opened a merits
+     proceeding, so the granted docket queues a merits predict cell the way an
+     application docket queues its interim one.
 
 ## Event definition — deterministic, corpus-driven
 

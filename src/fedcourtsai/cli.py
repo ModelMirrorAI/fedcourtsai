@@ -11,7 +11,7 @@ import json
 import os
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -116,12 +116,14 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.judgment import backfill_merits_judgments, grant_term_year
+from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import (
+    MERITS_EVENT_ID,
     entry_descriptions,
     interim_disposal_signal,
     snapshot_shows_disposition,
+    snapshot_shows_judgment,
 )
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
@@ -2994,6 +2996,65 @@ def paths(
             typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
+def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> str | None:
+    """Why a forward cell's snapshot already shows **its own** event's outcome.
+
+    A forward *prediction* cell forecasts a genuinely pending event, so a
+    snapshot disclosing that event's outcome must never be materialized — it
+    would hand the predictor the answer. The question is always keyed on the
+    event, because one docket carries outcomes of different events at once: a
+    granted cert docket's grant order *is* a disclosed cert outcome and is also
+    the thing that opens the merits proceeding, so the same entry that must
+    refuse a cert cell must not refuse the merits cell it created.
+
+    On the **merits** event the disclosed outcome is the judgment, tested two
+    ways because they fail differently. The shared merits parser
+    (:func:`fedcourtsai.pipeline.judgment.last_judgment_entry`) names the
+    judgment it read, which makes the refusal legible; it is deliberately
+    conservative, though, so :func:`snapshot_shows_judgment` runs beside it and
+    supplies the recall — every terminal shape the cert scan catches is a
+    decided merits docket too, and a miss here hands a forward cell its answer.
+    Nothing cert-shaped applies beyond that: the grant, the distributions, and
+    the CVSG are the merits cell's legitimate provisioned record.
+
+    On every other event the disclosed outcome is the cert or interim
+    disposition, and three checks run over either payload shape (REST
+    ``docket_entries`` or the raw live ``ProceedingsandOrder``):
+
+    - the high-recall terminal scan (:func:`snapshot_shows_disposition`, over
+      *every* entry) — provisioning's semantic is "outcome visible anywhere in
+      the snapshot", not docket pendency, so a disposition followed by
+      administrative notations ("Application ... denied as moot") that hide it
+      from the latest-entry rule, and the cert-before-judgment grant / merits
+      judgment the resolver omits, are still caught;
+    - the resolver (:func:`match_disposition_signal`) over *every* entry, which
+      adds the plain cert grant/denial orders that are not terminal-shaped;
+    - on an application-form docket, the high-recall interim disposal scan
+      (:func:`interim_disposal_signal`) — the cert-shaped checks above match no
+      application phrasing, and the interim resolver's exact vocabulary can
+      miss a disposal that names the relief instead of the application.
+
+    The pull-side routing skip and the resolver latch are the primary
+    protections; this refusal is defense-in-depth for cells fanned out before
+    the docket latched.
+    """
+    if event_id == MERITS_EVENT_ID:
+        judgment = last_judgment_entry(payload)
+        if judgment is not None:
+            return f"snapshot carries a merits judgment: {judgment[0].value!r}"
+        return snapshot_shows_judgment(payload)
+    terminal = snapshot_shows_disposition(payload)
+    payload_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "")
+    if terminal is None and court == "scotus" and corpus.is_scotus_application_form(payload_number):
+        terminal = interim_disposal_signal(payload)
+    if terminal is None:
+        for text in entry_descriptions(payload):
+            matched = match_disposition_signal(text)
+            if matched is not None:
+                return f"snapshot carries a disposition order: {matched[2]!r}"
+    return terminal
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(
     court: Annotated[str, typer.Option()],
@@ -3023,6 +3084,15 @@ def provision_snapshot(
             "decided dockets, so the default provisions unconditionally.",
         ),
     ] = False,
+    event: Annotated[
+        str,
+        typer.Option(
+            help="The event this cell forecasts. Scopes --refuse-terminal to "
+            "that event's own outcome; omitted, the guard reads the "
+            "cert/interim disposition, which is the right question for every "
+            "case-baseline cell.",
+        ),
+    ] = "",
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -3039,7 +3109,8 @@ def provision_snapshot(
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
-    snapshot already reads decided (code 3, nothing written).
+    snapshot already discloses ``--event``'s own outcome (code 3, nothing
+    written; see :func:`_forward_leakage`).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -3061,48 +3132,14 @@ def provision_snapshot(
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
-    # Leakage guard (opt-in): a forward *prediction* cell predicts a genuinely
-    # pending event, so a snapshot that shows the outcome must never be
-    # materialized — it would hand the predictor the answer. Two checks, both
-    # over either payload shape (REST ``docket_entries`` or the raw live
-    # ``ProceedingsandOrder`` the live channel stores verbatim):
-    #   - the high-recall terminal scan (``snapshot_shows_disposition``,
-    #     ``_TERMINAL_ENTRY_RE`` over *every* entry) — provisioning's semantic
-    #     is "outcome visible anywhere in the snapshot", not docket pendency, so
-    #     a disposition followed by administrative notations ("Application ...
-    #     denied as moot") that hide it from the latest-entry rule, and the
-    #     cert-before-judgment grant / merits judgment the resolver omits, are
-    #     still caught;
-    #   - the resolver (``match_disposition_signal``) over *every* entry, which
-    #     adds the plain cert grant/denial orders that are not terminal-shaped;
-    #   - on an application-form docket, the high-recall interim disposal scan
-    #     (``interim_disposal_signal``) — the cert-shaped checks above match no
-    #     application phrasing, and the interim resolver's exact vocabulary can
-    #     miss a disposal that names the relief instead of the application.
-    # The pull-side routing skip and the resolver latch are the primary
-    # protections; this refusal is defense-in-depth for cells fanned out
-    # before the docket latched. Refuses before writing anything (no snapshot,
-    # no context.json); run-predict's provisioning step is continue-on-error,
-    # so the cell runs snapshot-less and the agent notes the gap per the
-    # prompt contract. Opt-in because the other callers *must* see decided
-    # dockets: run-evaluate provisions the same forward-mode cell for an
-    # already-resolved event, and the replay provisioner truncates
-    # point-in-time itself.
+    # Refuses before writing anything (no snapshot, no context.json);
+    # run-predict's provisioning step is continue-on-error, so the cell runs
+    # snapshot-less and the agent notes the gap per the prompt contract. Opt-in
+    # because the other callers *must* see decided dockets: run-evaluate
+    # provisions the same forward-mode cell for an already-resolved event, and
+    # the replay provisioner truncates point-in-time itself.
     if refuse_terminal and mode == "forward":
-        terminal = snapshot_shows_disposition(payload)
-        payload_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "")
-        if (
-            terminal is None
-            and court == "scotus"
-            and corpus.is_scotus_application_form(payload_number)
-        ):
-            terminal = interim_disposal_signal(payload)
-        if terminal is None:
-            for text in entry_descriptions(payload):
-                matched = match_disposition_signal(text)
-                if matched is not None:
-                    terminal = f"snapshot carries a disposition order: {matched[2]!r}"
-                    break
+        terminal = _forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
                 f"refusing to provision forward cell for {case}: {terminal}",

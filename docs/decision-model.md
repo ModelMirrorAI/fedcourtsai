@@ -17,8 +17,7 @@ the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
 application docket's motion baseline and on SCOTUS entry-pinned
 stay/injunction motions, `merits` on the minted merits event, absent
 everywhere the writers do not classify one. The merits **cell contract** is
-implemented end to end *in the pipeline* — everywhere but the prompts: a cert
-grant that
+implemented end to end: a cert grant that
 opens a merits proceeding mints an open `evt-order-judgment` (kind `order`,
 stage `merits`, target the judgment); the granted docket keeps polling toward
 its decision; the live channel latches the parsed judgment onto the corpus
@@ -32,12 +31,11 @@ non-empty vote block (schema-enforced; the `validate` gate holds a
 merits-stage event's scored prediction to the judgment), and its
 `probability` is P(disturbed), scored by the same Brier formula against the
 strictly-prior pooled disturbed rate (*Scoring a merits forecast*, below).
-What remains unbuilt: no merits cell fans out yet (the merits event is not a
-forecastable kind — the fan-out ships with the merits prompt sections, so a
-cell never runs before its prompt contract exists), and those sections are
-owed on **both** prompts: today's evaluate prompt defines `correct` on the
-disposition and `segment_base_rate` on the cert band alone, which is the wrong
-axis and the wrong rate for a merits cell; no artifact carries a
+The merits **cell** runs: both prompts carry a merits section, the fan-out
+admits the merits event on a row whose grant opened a merits proceeding
+(`store.forecastable_events`), and the provisioning guard is keyed on the
+event, so the grant order that opened the cell does not refuse it.
+What remains unbuilt: no artifact carries a
 writing role or a real vote record with provenance (the outcome writer
 records no votes, for the reason given below); no schema carries a vote
 *margin*; and no aggregation rule is applied to anything. The scoring design
@@ -385,11 +383,24 @@ inflate the pooled rate over any grant Term whose GVRs are unlabelled, and
 differential parseability aggravates it — a cert-order vacatur parses the day
 it is granted, an argued judgment six to eighteen months later, so the
 *parsed* slice is enriched in the escapees beyond their population share. So:
-the section's rate over such a Term is an **upper bound**, no merits skill
+the section's rate over such a Term is an **upper bound**, and no merits skill
 number may be published against a pool drawing on Terms whose GVRs are
-unlabelled, and the merits fan-out owes a label-independent guard first — the
-deterministic one available is the grant→judgment gap, since a disposition
-riding in the cert order carries the grant's own date.
+unlabelled. The **label-independent guard is owed**, and the deterministic one
+available is the grant→judgment gap, since a disposition riding in the cert
+order carries the grant's own date. Until it lands the prohibition is honoured
+the only way that does not depend on the label: `brier_skill_score` is omitted
+on **every** merits cell, so no merits skill number exists to be published. The
+evaluate prompt states the rule and `validate`'s
+`merits_evaluations_score_no_skill` check enforces it against the committed
+ledger, so the prohibition holds whatever an evaluator writes. Detecting the contaminated Terms per cell was considered and
+rejected — the escapees show up as a partly-labelled Term rather than an empty
+one, and the cert Term table an evaluator can read is keyed on the
+docket-number Term, so the test would pass exactly the Terms the pack's own
+caveat names. A heuristic that cannot separate a partly-labelled Term from a
+clean one is not an enforcement of this constraint. `segment_base_rate` is
+still recorded on a merits cell, because the pool the cell faced is a fact
+about the run; the harness's `judgment-disturbed` claim baseline reads the same
+pool and applies no guard either, so its scores carry this caveat too.
 
 **Two guards on the pool, both stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —
@@ -483,8 +494,7 @@ check that voids a divergent block, not a penalty that shapes it).
 **What remains unbuilt, and stays outside every scored total.** No schema
 carries a margin distribution and none is scored; `p_implied` and the margin
 identity above remain analysis, and eliciting a margin in prose remains
-permitted and unscored. No merits cell fans out until the merits prompt
-sections ship the contract to the predictors. And the writing-role claims
+permitted and unscored. The writing-role claims
 keep the conditions recorded under *Observation* above.
 
 [rules]: https://www.supremecourt.gov/filingandrules/2026RulesoftheCourt_WEB.pdf

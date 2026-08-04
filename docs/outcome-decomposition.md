@@ -66,11 +66,11 @@ set out under *Why the set is mandatory*.
 
 ### Mechanical claims
 
-Resolved in code, no reader and no latitude. They split by event kind, because
-the pipeline predicts cert-stage events and the merits claims below describe a
-decided case.
+Resolved in code, no reader and no latitude. They split by the event's stage,
+because a claim is only scoreable where its stage's outcome record carries the
+signal it resolves against.
 
-**Cert-stage** — the events that actually exist:
+**Cert-stage** — the case-baseline petition events:
 
 | Claim | Resolves against |
 | --- | --- |
@@ -84,8 +84,9 @@ petitions that have one. A relist or a CVSG is also a genuine forward call — i
 happens days after a conference distribution, which is exactly when a prediction
 is committed.
 
-**Merits** — the pipeline records merits outcomes (`Outcome.judgment`,
-resolved by judgment detection from the docket's disposition entry):
+**Merits** — the merits event is forecast and its outcome recorded
+(`Outcome.judgment`, resolved by judgment detection from the docket's
+disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |

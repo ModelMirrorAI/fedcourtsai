@@ -27,9 +27,10 @@ from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 from fedcourtsai.pipeline.claims import (
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
+    CLAIM_JUDGMENT_DISTURBED,
     CLAIM_RELIST_INCREMENT,
 )
-from fedcourtsai.schemas import Evaluation, Outcome, Prediction
+from fedcourtsai.schemas import Disposition, Evaluation, Judgment, Outcome, Prediction
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
 
@@ -169,6 +170,94 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
     assert "interim" in board.stages
     assert board.stages["interim"].evaluations_total >= 1
+    assert board.evaluations_total == 0
+
+
+def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
+    """The fixture's granted docket runs the merits cell end to end offline.
+
+    scotus/306's cert grant opened a merits proceeding, so it carries the
+    `evt-order-judgment` event the grant mints (kind `order`, `Stage.merits`):
+    provision → stub predict (a judgment with its mandatory vote block, and the
+    whole declared `merits-v1` set) → merits outcome off the judgment axis →
+    evaluate → validate, then the leaderboard build segments the cell into the
+    unranked `merits` stages block, never the cert board.
+
+    Addressed by event id, because `add_merits_fixture` writes its row over the
+    interim application docket's: without it the cascade would target that
+    case's motion baseline too and the assertions would read a mixed ledger.
+
+    What this proves is the *composition* — a merits cell reaches every stage
+    and lands in the right block. The rules it composes are pinned at their own
+    seams: the judgment axes in ``tests/test_evaluate.py``, the merits claim
+    set in ``tests/test_claims.py``, the harness-computed claim block in
+    ``tests/test_cli_stamp.py``, and the fan-out admission in
+    ``tests/test_store.py``. The stub writes no skill fields and the cascade
+    runs no stamp step, so the null skill/claim fields here would read null for
+    any cell.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+    merits_case = fixture.add_merits_fixture(db)
+    data_root = tmp_path / "data"
+    assert merits_case.case_id == "scotus/306"  # the literals the call below uses
+
+    report = run_cascade(
+        corpus_db_path=db,
+        data_root=data_root,
+        config_root=CONFIG_ROOT,
+        court="scotus",
+        docket=306,
+        event="evt-order-judgment",
+        run_id=RUN,
+    )
+
+    assert report.valid, report.problems
+    assert report.events == ("evt-order-judgment",)
+    assert report.predictions and report.outcomes and report.evaluations
+
+    # The ground truth took the judgment mapping, not the cert vocabulary: the
+    # cert axis has no member for a judgment, and `actual_granted` carries the
+    # declared merits binary so one Brier formula serves every stage.
+    outcome = read_model(report.outcomes[0], Outcome)
+    assert outcome.judgment == Judgment.reversed
+    assert outcome.actual_disposition == Disposition.other
+    assert outcome.actual_granted == 1
+    # No votes: the terminal docket entry discloses no participating count, so
+    # the writer records none and the mandatory vote block stays unscored.
+    assert outcome.votes == []
+
+    # The prediction carries the merits contract — a judgment with its
+    # mandatory vote block — and answers the whole declared `merits-v1` set,
+    # whose one claim restates the headline probability exactly (a divergent
+    # pair voids the block at stamp time).
+    prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
+    prediction = read_model(prediction_path, Prediction)
+    assert prediction.judgment == Judgment.affirmed
+    assert prediction.votes
+    assert prediction.claims is not None
+    assert [c.claim_id for c in prediction.claims] == [CLAIM_JUDGMENT_DISTURBED]
+    assert prediction.claims[0].probability == prediction.probability
+
+    # Scored on the merits axes: the stub's affirmed/0.0 floor against a
+    # reversed outcome is a judgment mismatch and a full Brier miss, and
+    # `correct` is the judgment comparison rather than the disposition one.
+    # `vote_accuracy` is null because the outcome names no Justice — the
+    # intersection rule, so a banked vote block costs nothing.
+    evaluation_path = next(p for p in report.evaluations if p.name == "evaluation.json")
+    evaluation = read_model(evaluation_path, Evaluation)
+    assert evaluation.correct == 0
+    assert evaluation.judgment_correct == 0
+    assert evaluation.brier_score == 1.0
+    assert evaluation.vote_accuracy is None
+    assert evaluation.segment_base_rate is None
+    assert evaluation.claim_scores is None
+
+    # The leaderboard build puts the cell in the unranked `merits` stages
+    # block; nothing enters the ranked cert board from this ledger.
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+    assert "merits" in board.stages
+    assert board.stages["merits"].evaluations_total >= 1
     assert board.evaluations_total == 0
 
 

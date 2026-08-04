@@ -293,7 +293,7 @@
         }
       ],
       "default": null,
-      "description": "Which population segment_base_rate was taken over. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings). The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
+      "description": "Which salience-band population segment_base_rate was taken over. Null wherever the rate is not a band product \u2014 a merits cell's Term-pooled disturbed rate, and an interim cell, which takes no rate at all. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings). The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
       "title": "Base Rate Basis"
     },
     "base_rate_salience_version": {
@@ -306,7 +306,7 @@
         }
       ],
       "default": null,
-      "description": "Harness-stamped record of which salience version the segment_base_rate's band was read under \u2014 the version half of the basis record, the parallel of `base_rate_basis`. Stamped by `stamp-cell --role evaluator` deterministically from the same inputs the basis names (never the evaluator's word, and an evaluator-written value does not survive the stamp): on the `risk_set` path it is the scored prediction's frozen `context.salience_version`, on the `terminal` path the live scorer's version. Null when no basis is recorded, and on records written before the field existed.",
+      "description": "Harness-stamped record of which salience version the segment_base_rate's band was read under \u2014 the version half of the basis record, the parallel of `base_rate_basis`. Stamped by `stamp-cell --role evaluator` deterministically from the same inputs the basis names (never the evaluator's word, and an evaluator-written value does not survive the stamp): on the `risk_set` path it is the scored prediction's frozen `context.salience_version`, on the `terminal` path the live scorer's version. Null when no basis is recorded \u2014 which includes every merits cell, whose baseline is not a salience-band product and so has no scorer version to pin \u2014 and on records written before the field existed.",
       "title": "Base Rate Salience Version"
     },
     "big_case": {
@@ -498,7 +498,7 @@
         }
       ],
       "default": null,
-      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term. Which band, and therefore which of the two published rates, is recorded in base_rate_basis below. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
+      "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.evaluate.merits_base_rate`), which is not a salience-band product, so base_rate_basis and base_rate_salience_version stay null there. An interim cell has no published rate and omits the field. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
       "title": "Segment Base Rate"
     },
     "vote_accuracy": {

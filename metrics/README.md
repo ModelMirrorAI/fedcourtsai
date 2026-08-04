@@ -211,7 +211,9 @@ registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is claimable **only against that declared
 baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
 the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind, so the merits fan-out owes that gate (next paragraph) — and only
+stage-blind. What keeps a merits cell out of that mean is a `validate` check
+(`merits_evaluations_score_no_skill`), not the averaging — see the next
+paragraph — and only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
@@ -227,8 +229,10 @@ forward convention, so a Term resolved before it existed carries its GVRs as
 plain `granted`, and no resolver produces `summary-reversal` at all — both
 parse as near-certain vacaturs, so the rate over any Term with unlabelled GVRs
 is an **upper bound**, and no merits skill number may be published against a
-pool drawing on such a Term (`docs/decision-model.md` names the guard the
-merits fan-out owes). And the window is the same ten-Term
+pool drawing on such a Term — which, until the label-independent guard
+`docs/decision-model.md` names is built, is honoured by omitting
+`brier_skill_score` on every merits cell, in the evaluate prompt and in the
+`validate` gate behind it. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -236,12 +240,17 @@ outcome's `actual_disposition` is always the off-vocabulary `other`. The
 interim stage has no registered base rate, so its block carries counts,
 accuracy, and Brier with its skill mean null and `skill_scored` zero.
 
-Nothing writes a merits skill number yet: no merits cell fans out (the merits
-event is not a forecastable kind until its prompt contract ships), and the
-evaluator prompt defines `segment_base_rate` on the cert band only — so today
-the registered merits baseline is realized through the claim block's
-difference form alone, and a merits `brier_skill_score` would be anchored to
-the wrong rate if one were written before that prompt lands.
+No merits **skill** number is published, and two separate things hold it back.
+The prohibition above is the binding one: until the label-independent guard
+lands, `brier_skill_score` is omitted on every merits cell by rule, so the
+merits stage block's skill mean is null and its `skill_scored` zero for the
+same reason the interim block's are. And the pack gates the baseline itself —
+the merits section publishes only once a corpus row carries a parsed judgment,
+and the pooled prior-Term sample must clear the minimum, below which the
+declared claim goes unscored too, so nothing realizes the registered baseline
+at all. What a merits cell does record is `segment_base_rate`, read from the
+merits section rather than the cert band, with `base_rate_basis` and
+`base_rate_salience_version` null because that rate is no band product.
 
 - `cert-backtest.json` — the cert-specific back-test (not on the scheduled
   refresh): predictors

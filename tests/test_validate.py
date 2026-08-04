@@ -39,6 +39,7 @@ from fedcourtsai.validate import (
     CHECK_EVALUATION_TARGETS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
+    CHECK_MERITS_EVALUATIONS,
     CHECK_MERITS_PREDICTIONS,
     CHECK_NO_DUPLICATES,
     CHECK_PREDICTION_DOCS,
@@ -652,6 +653,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_EVALUATION_TARGETS,
         CHECK_PREDICTION_DOCS,
         CHECK_MERITS_PREDICTIONS,
+        CHECK_MERITS_EVALUATIONS,
     }
     assert all(c.passed for c in checks)
 
@@ -1067,4 +1069,60 @@ def test_non_merits_events_are_outside_the_contract(tmp_path: Path) -> None:
     _write_event(data_root, "ca9", 1, "evt-motion-stay")
     _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
     check = _merits_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+def _write_merits_evaluation(data_root: Path, *, skill: float | None) -> None:
+    ep = CasePaths(data_root, "scotus", 22451).event("evt-order-judgment")
+    evaluation = Evaluation(
+        case_id="scotus/22451",
+        event_id="evt-order-judgment",
+        predictor_id="p1",
+        evaluator_id="e1",
+        engine=Engine.claude_code,
+        run_id="2026-02-01T00-00-00Z",
+        created_at=datetime(2026, 2, 1),
+        correct=1,
+        judgment_correct=1,
+        brier_score=0.09,
+        segment_base_rate=0.7,
+        brier_skill_score=skill,
+    )
+    write_json(ep.evaluation("e1", "p1", "2026-02-01T00-00-00Z"), evaluation)
+
+
+def _merits_evaluation_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_MERITS_EVALUATIONS
+    )
+
+
+def test_a_merits_evaluation_publishing_a_skill_score_fails(tmp_path: Path) -> None:
+    # The pre-registered prohibition, enforced rather than only prompted: the
+    # merits pool's GVR exclusion reads a forward-convention label, so no skill
+    # number may be published against it until a label-independent guard lands.
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_evaluation(data_root, skill=0.4)
+    check = _merits_evaluation_check(data_root)
+    assert not check.passed
+    assert any("brier_skill_score" in p for p in check.problems)
+
+
+def test_a_merits_evaluation_recording_only_its_baseline_passes(tmp_path: Path) -> None:
+    # `segment_base_rate` is deliberately unconstrained: recording the pool the
+    # cell faced is not publishing a skill claim over it.
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_evaluation(data_root, skill=None)
+    check = _merits_evaluation_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_cert_evaluations_skill_score_is_untouched(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    _write_evaluation(data_root, "ca9", 1, "evt-motion-stay", "p1", "e1")
+    check = _merits_evaluation_check(data_root)
     assert check.passed and check.checked == 0

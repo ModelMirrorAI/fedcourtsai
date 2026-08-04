@@ -121,6 +121,188 @@ def test_provision_snapshot_refuses_a_disposition_masked_by_trailing_cleanup(
     assert not CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-17").exists()
 
 
+# A granted-but-undecided merits docket: the grant order is the entry that
+# opened the merits proceeding, and the case is argued but not yet decided.
+_GRANTED_PENDING_PAYLOAD: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "24-12",
+    "docket_entries": [
+        {"id": 1, "description": "Petition for writ of certiorari filed."},
+        {"id": 2, "description": "Petition GRANTED."},
+        {"id": 3, "description": "Argued. For petitioner: counsel of record."},
+    ],
+}
+
+
+def test_provision_snapshot_provisions_a_merits_cell_on_its_own_grant_order(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The cert grant that opened the merits event is not that event's outcome.
+
+    The guard is keyed on the event: on the merits event the disclosed outcome
+    is the judgment, so a grant order — which every merits cell's docket
+    necessarily carries, since it is what minted the cell — must provision
+    rather than refuse. Without the key the merits fan-out would be a fan-out
+    of snapshot-less cells.
+    """
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 20), _GRANTED_PENDING_PAYLOAD)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-order-judgment",
+            "--refuse-terminal",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.snapshot("2026-07-20").exists()
+    assert paths.cell_context.exists()
+
+
+def test_provision_snapshot_refuses_a_merits_cell_on_a_decided_judgment(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The merits event's own leak: the judgment is legible in the snapshot, so
+    # the cell was minted against a docket that is already decided.
+    decided = {
+        **_GRANTED_PENDING_PAYLOAD,
+        "docket_entries": [
+            *_GRANTED_PENDING_PAYLOAD["docket_entries"],
+            {"id": 4, "description": "Judgment REVERSED and case REMANDED."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 21), decided)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-order-judgment",
+            "--refuse-terminal",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "merits judgment" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-21").exists()
+
+
+def test_provision_snapshot_refuses_a_merits_cell_on_a_terminal_entry_the_parser_misses(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The merits guard keeps the cert scan's recall rather than narrowing to the
+    # deterministic judgment parser: the parser is conservative by design (a
+    # miss costs one unparsed row in a descriptive count) while a miss here
+    # hands a forward cell its answer. "Opinion Issued" parses as no judgment
+    # and is unmistakably a decided merits docket.
+    decided = {
+        **_GRANTED_PENDING_PAYLOAD,
+        "docket_entries": [
+            *_GRANTED_PENDING_PAYLOAD["docket_entries"],
+            {"id": 4, "description": "Opinion Issued."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 23), decided)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-order-judgment",
+            "--refuse-terminal",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "reads as terminal" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-23").exists()
+
+
+def test_provision_snapshot_provisions_a_merits_cell_opened_before_judgment(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The one terminal shape dropped from the merits scan: a cert-before-judgment
+    # GRANT opens a merits proceeding exactly as an ordinary grant does, so it is
+    # the cell's own opening rather than its outcome.
+    cbj = {
+        "id": 305,
+        "docket_number": "25-243",
+        "docket_entries": [
+            {"id": 1, "description": "Petition for writ of certiorari before judgment GRANTED."},
+            {"id": 2, "description": "Argued. For petitioner: counsel of record."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 24), cbj)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-order-judgment",
+            "--refuse-terminal",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-24").exists()
+
+
+def test_provision_snapshot_still_refuses_a_cert_cell_on_the_same_grant_order(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The other side of the key: the same payload, addressed as the cert
+    # petition's cell, discloses that petition's outcome and must be refused.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 22), _GRANTED_PENDING_PAYLOAD)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--refuse-terminal",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "disposition order" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2026-07-22").exists()
+    assert not paths.cell_context.exists()
+
+
 def test_provision_snapshot_default_still_provisions_a_terminal_snapshot(
     fixture_corpus: FixtureCorpus,
 ) -> None:

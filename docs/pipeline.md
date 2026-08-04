@@ -158,7 +158,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  else queue an unrecorded outcome, surfaced
                                  │  per-case on the pipeline-runs dashboard
                                  └─ create issues  ← APP TOKEN
-                                    ├─ run:predict    (changed case with open case-baseline events,
+                                    ├─ run:predict    (changed case with open forecastable events,
                                     │                  unless the docket already looks
                                     │                  decided — skipped + surfaced;
                                     │                  held if PREDICT_HANDOFF_ENABLED=0)
