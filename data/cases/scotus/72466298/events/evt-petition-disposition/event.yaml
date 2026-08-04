@@ -1,0 +1,12 @@
+case_id: scotus/72466298
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-10-16'
+resolved: true
+schema_version: '1.0'
+title: Ken Mascara, in His Official Capacity as Sheriff of St. Lucie County, Florida,
+  et al., Petitioners v. Viola Bryant, as Personal Representative of the Estate of
+  Gregory Vaughn Hill, Jr.
