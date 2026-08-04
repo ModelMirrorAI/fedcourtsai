@@ -1,0 +1,11 @@
+case_id: scotus/72479276
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-04-11'
+resolved: true
+schema_version: '1.0'
+title: Grant Nyhammer, Petitioner v. Paula Basta, in Her Official Capacity as Director
+  of the Illinois Department on Aging

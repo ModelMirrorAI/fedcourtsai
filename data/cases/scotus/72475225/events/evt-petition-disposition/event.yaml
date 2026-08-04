@@ -1,0 +1,11 @@
+case_id: scotus/72475225
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-04-28'
+resolved: true
+schema_version: '1.0'
+title: Joseph E. Blackburn, Jr., et ux. , Petitioners v.  Dare County, North Carolina,
+  et al.

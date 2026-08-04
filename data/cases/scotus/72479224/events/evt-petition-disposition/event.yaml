@@ -1,0 +1,11 @@
+case_id: scotus/72479224
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-03-24'
+resolved: true
+schema_version: '1.0'
+title: Transervice Logistics, Inc., et al., Petitioners v. Central States, Southeast
+  and Southwest Areas Pension Fund, et al.

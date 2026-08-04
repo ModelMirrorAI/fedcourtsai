@@ -1,0 +1,11 @@
+case_id: scotus/72475187
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-04-18'
+resolved: true
+schema_version: '1.0'
+title: Estate of Rex Vance Wilson, et al., Petitioners v. Las Vegas Metropolitan Police
+  Department, et al.

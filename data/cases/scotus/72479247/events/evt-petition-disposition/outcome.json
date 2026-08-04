@@ -1,0 +1,17 @@
+{
+  "actual_disposition": "denied",
+  "actual_granted": 0,
+  "case_id": "scotus/72479247",
+  "disposition_basis": "standard",
+  "event_id": "evt-petition-disposition",
+  "judgment": null,
+  "resolved_at": "2024-06-17",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": "2023-10-02",
+    "distribution_count": 3
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": []
+}
