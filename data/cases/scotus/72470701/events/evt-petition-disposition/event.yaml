@@ -1,0 +1,11 @@
+case_id: scotus/72470701
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-08-02'
+resolved: true
+schema_version: '1.0'
+title: Amanda P., et vir, as Parents and Next Friends of T. P., a Minor Individual
+  with a Disability, Petitioners v. Copperas Cove Independent School District

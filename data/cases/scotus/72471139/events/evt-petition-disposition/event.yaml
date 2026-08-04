@@ -1,0 +1,11 @@
+case_id: scotus/72471139
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-07-12'
+resolved: true
+schema_version: '1.0'
+title: "M\xE1xima Acu\xF1a-Atalaya, et al., Petitioners v. Newmont Mining Corporation,\
+  \ et al."
