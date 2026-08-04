@@ -8,8 +8,8 @@ name: run-analytics
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
 #                      question. Reads the corpus read-only via a full pull.
 #   - metrics-refresh: regenerate the committed deterministic artifacts
-#                      (leaderboard / backtest / statpack, plus the scope
-#                      manifest) and land any change as a **reviewed**
+#                      (leaderboard / claim scores / backtest / statpack, plus
+#                      the scope manifest) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
@@ -226,12 +226,14 @@ jobs:
             # replace the real record.
             uv run fedcourts scope-manifest
           fi
-          # Last, and outside the corpus gate: the board needs no corpus, but it
-          # scores its realized-Term skill column against the committed
+          # Last, and outside the corpus gate: neither needs a corpus, but the
+          # board scores its realized-Term skill column against the committed
           # statpack, so running it before the pack would commit a board keyed
           # on the pack it replaces — and a rerun on the merged tree would
-          # diff.
+          # diff. The claim-score board reads only the ledger, and sits here so
+          # the two evaluation-derived artifacts refresh from one tree state.
           uv run fedcourts leaderboard
+          uv run fedcourts claim-scores
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
       # (null pr = nothing changed); this step only runs git and gh, mirroring
