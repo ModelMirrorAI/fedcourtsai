@@ -1693,7 +1693,18 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         else event_paths.evaluation_retrieval_log(actor, run_id)
     )
     write_json(destination, record)
-    typer.echo(f"retrieval: {actor} {len(calls)} call(s) -> {destination}")
+    # Redaction is a rewrite, not a gate: it lets a run through that the collect
+    # scan would have withheld, so the fact that it fired has to be visible
+    # somewhere or the signal is simply gone. Advisory — an agent can type the
+    # marker itself — but a non-zero count is a maintainer's cue to look at the
+    # cell's engine transcript while the run's artifacts still exist.
+    redacted = sum(1 for call in calls if retrieval.carries_redaction(call))
+    typer.echo(f"retrieval: {actor} {len(calls)} call(s), {redacted} redacted -> {destination}")
+    if redacted:
+        typer.echo(
+            f"::warning::retrieval capture redacted credential-shaped text in {redacted} "
+            f"call(s) for {actor} ({ids.case_id(court, docket)} {event})"
+        )
 
 
 @app.command("usage-summary")

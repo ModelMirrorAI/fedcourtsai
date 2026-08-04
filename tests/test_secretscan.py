@@ -5,11 +5,17 @@ shapes (and the live token in any cheap encoding) are caught, the ledger's
 ordinary content — citations, docket numbers, digests, run ids, URLs, legal
 prose — passes clean, misconfiguration fails closed, and no rendered output
 ever contains the matched text.
+
+The same shapes serve capture-time redaction one layer earlier, so its truth
+table lives here too: every credential format is rewritten to a marker, and
+the content a retrieval log legitimately carries survives untouched.
 """
 
 from __future__ import annotations
 
 import base64
+import random
+import time
 from pathlib import Path
 
 import pytest
@@ -19,6 +25,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.collect import PathChange, parse_name_status
 from fedcourtsai.secretscan import (
     Finding,
+    redact_credentials,
     render_issue_comment,
     render_warnings,
     scan_changes,
@@ -379,3 +386,139 @@ def test_known_gap_base64_split_by_three_slashes_is_missed() -> None:
     assert _scan(f"observed {slashy} in output") == []
     # ...but containment still catches it when the value is a known secret.
     assert "known-token" in _scan(f"observed {slashy} in output", known=(slashy,))
+
+
+# --- capture-time redaction: what the harness rewrites before it commits ---
+
+
+# Synthetic stand-ins, never real credentials. The Fernet blob carries the
+# shape a codex cell logs when a token rides in a tool-call payload: the v1
+# version+timestamp header, then base64url ciphertext to ~487 chars, unpadded.
+# Seeded rather than patterned, so it has a real token's entropy and the gate
+# would genuinely withhold a run over it.
+_FERNET = "gAAAAAB" + base64.urlsafe_b64encode(
+    random.Random(20260804).randbytes(360)
+).decode().rstrip("=")
+_JWT = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFnZW50In0"
+    ".dBjftJeZ4CVP7mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+)
+_OPAQUE = base64.urlsafe_b64encode(bytes(range(7, 71))).decode().rstrip("=")
+
+
+@pytest.mark.parametrize(
+    ("text", "rule"),
+    [
+        (_FERNET, "fernet-token"),
+        (f'{{"message": "{_FERNET}"}}', "fernet-token"),
+        (_JWT, "jwt"),
+        ("sk-ant-api03-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("sk-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("ghp_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k", "github-token"),
+        ("gho_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k", "github-token"),
+        ("ghs_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k", "github-token"),
+        ("github_pat_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC", "github-token"),
+        ("AIza" + "SyD3fG6hJ9kL2mN5pQ8rS1tU4vW7xY0zA", "google-key"),
+        ("ya29." + "a0AfH6SMBx3dE6gH9jK2mN5pQ8sT1vW4yZ7", "google-key"),
+        ("AKIA" + "IOSFODNN7EXAMPLE", "aws-key-id"),
+        ("ASIA" + "IOSFODNN7EXAMPLE", "aws-key-id"),
+        (_OPAQUE, "opaque"),
+    ],
+)
+def test_credential_shapes_are_redacted(text: str, rule: str) -> None:
+    redacted = redact_credentials(f"searched for {text} in the docket")
+    assert f"[redacted:{rule}]" in redacted
+    assert text not in redacted
+
+
+# A dotted `<public-id>.<secret>` credential — the shape config-service and
+# vault tokens take, and the one that a value class stopping at `.` would
+# redact only the front half of.
+_DOTTED = "aaaa1111bbbb2222.cccc3333dddd4444"
+
+
+@pytest.mark.parametrize(
+    ("text", "secret"),
+    [
+        (f"Authorization: Bearer {_OPAQUE}", _OPAQUE),
+        (f'{{"headers": {{"Authorization": "Bearer {_OPAQUE}"}}}}', _OPAQUE),
+        (f'{{"api_key": "{_TOKEN}"}}', _TOKEN),
+        (f"x-api-key={_TOKEN}", _TOKEN),
+        (f"password: {_TOKEN}", _TOKEN),
+        (f"password: {_DOTTED}", _DOTTED),
+        (f'{{"proxy-authorization": "Basic {_TOKEN}"}}', _TOKEN),
+    ],
+)
+def test_credential_headers_and_assignments_are_redacted(text: str, secret: str) -> None:
+    redacted = redact_credentials(text)
+    assert "[redacted:credential]" in redacted
+    # No usable fragment of the value may survive. A rule that redacted only
+    # part of a dotted credential would leave the secret half behind *and*
+    # rewrite the line past what the collect scan would have flagged.
+    for start in range(0, len(secret) - 12):
+        assert secret[start : start + 12] not in redacted
+
+
+def test_redaction_never_leaves_a_run_the_scan_would_have_withheld() -> None:
+    # The property that makes rewriting-instead-of-withholding safe: whatever
+    # redaction touches, what it leaves behind is clean by the gate's own
+    # detectors — a partial redaction that silenced a finding would be worse
+    # than no redaction at all.
+    for text in (
+        f'{{"message": "{_FERNET}"}}',
+        f"Authorization: Bearer {_OPAQUE}",
+        f"password: {_DOTTED}",
+        f"api_key = {_TOKEN}",
+        "ghp_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k",
+        "AKIA" + "IOSFODNN7EXAMPLE",
+    ):
+        assert _scan(text) != [], "fixture must be something the gate would catch"
+        assert _scan(redact_credentials(text)) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Docket prose, at the length a real query slice runs to.
+        "The petition for a writ of certiorari to the United States Court of "
+        "Appeals for the Ninth Circuit presents the question whether the "
+        "court of appeals correctly held that respondents lacked standing.",
+        "Docket 22-1078; consolidated with 1:22-cv-01234 (D.D.C.); see 570 U.S. 205 (2013).",
+        "params_digest: 9f86d081884c7d65",
+        "sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "evt-petition-disposition",
+        "https://www.courtlistener.com/api/rest/v4/search/"
+        "?q=cited_by%3A12345&type=o&order_by=dateFiled%20desc&court=scotus",
+        "https://www.supremecourt.gov/DocketPDF/25/25-962/401003/"
+        "20260316144707617_25-962acPresidentProTemporeOfTheState.pdf",
+        "/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/24-1234/events/"
+        "evt-petition-disposition/predictions/claude-baseline/20260710T120000Z/"
+        "08bfc68e-3166-4d04-a5d6-90dacf06c4d4/prediction.json",
+        "run_id: 20260716T123618Z",
+        "token: COURTLISTENER_API_TOKEN is configured for the MCP server",
+        "Trump-v-United-States-Petition-For-Writ-Of-Certiorari-Granted-In-Part-2026",
+        "mcp__courtlistener__search",
+        # `bearer` and `basic` are ordinary English next to a 16-char run, so
+        # the rule anchors on a credential keyword rather than on the scheme.
+        "the bearer of the note assumed basic responsibilities1 under the order",
+    ],
+)
+def test_legitimate_capture_content_survives_redaction(text: str) -> None:
+    assert redact_credentials(text) == text
+
+
+def test_redaction_is_idempotent() -> None:
+    once = redact_credentials(f'{{"message": "{_FERNET}"}}')
+    assert redact_credentials(once) == once
+
+
+def test_redaction_terminates_on_a_hostile_payload() -> None:
+    # Every multi-part pattern is repeat-bounded, because the text redaction
+    # reads is agent-influenced and arrives uncapped: an unbounded `{n,}`
+    # either side of a required literal backtracks quadratically, which is a
+    # hung capture step and a lost cell rather than a slow one.
+    started = time.monotonic()
+    redact_credentials("-eyJ" * 50_000)
+    assert time.monotonic() - started < 10

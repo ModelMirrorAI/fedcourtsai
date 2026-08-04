@@ -1082,22 +1082,31 @@ class RetrievalCall(_Strict):
     Captured by the harness from the engine log — never the agent's word — so
     the evaluator's leakage grading can see what a cell actually
     retrieved. Long parameters and results are digested, not stored: the log
-    is an audit trail, not a content mirror.
+    is an audit trail, not a content mirror. A transcript records whatever a
+    tool call carried, so every string captured here (``tool``, ``query``,
+    ``timestamp``) is credential-redacted first: a run shaped like a token is
+    replaced by a ``[redacted:rule]`` marker naming the shape. Read a marker as
+    a redaction rather than as retrieved content — though nothing stops an
+    agent typing the literal string into a tool call, so it is a reading aid,
+    not provenance. The digests cover the payload before redaction.
     """
 
     tool: str = Field(
-        description="Tool name as the engine logged it, e.g. mcp__courtlistener__search"
+        description="Tool name as the engine logged it (redacted at capture), "
+        "e.g. mcp__courtlistener__search"
     )
     query: str | None = Field(
         default=None,
         max_length=2000,
-        description="The human-legible query/params slice (truncated), where extractable",
+        description="The human-legible query/params slice, where extractable — "
+        "credential-redacted at capture, then truncated",
     )
     params_digest: str | None = Field(
         default=None, description="SHA-256 (hex, 16 chars) of the full serialized params"
     )
     timestamp: str | None = Field(
-        default=None, description="Engine-logged wall-clock time of the call, verbatim"
+        default=None,
+        description="Engine-logged wall-clock time of the call, redacted at capture",
     )
     result_digest: str | None = Field(
         default=None, description="SHA-256 (hex, 16 chars) of the logged result payload"

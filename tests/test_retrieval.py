@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -10,6 +11,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
+    carries_redaction,
     parse_claude_retrieval,
     parse_codex_retrieval,
     parse_gemini_retrieval,
@@ -261,3 +263,196 @@ def test_record_retrieval_empty_transcript_still_records(fixture_corpus: Fixture
         .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
     )
     assert json.loads(destination.read_text())["calls"] == []
+
+
+def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> None:
+    # A transcript records whatever a tool call carried. `message` is not a
+    # query key, so the whole params blob becomes the slice — which is how a
+    # token riding in an engine payload reaches the log.
+    fernet = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30  # synthetic, never a real token
+    rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
+    rollout.parent.mkdir(parents=True)
+    rollout.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-07-10T12:00:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "mcp__courtlistener__search",
+                    "call_id": "c1",
+                    "arguments": json.dumps({"message": fernet}),
+                },
+            }
+        )
+    )
+    calls = parse_codex_retrieval(tmp_path / "sessions")
+    assert len(calls) == 1
+    query = calls[0].query
+    assert query is not None
+    assert fernet[:40] not in query
+    assert "[redacted:fernet-token]" in query
+    # The params digest still covers the unredacted payload, so the audit trail
+    # keeps its identity even though the text is gone.
+    assert calls[0].params_digest is not None
+
+
+def test_capture_redacts_a_credential_sitting_past_the_query_cap(tmp_path: Path) -> None:
+    # Redaction runs over the whole candidate, not the kept slice: a token
+    # beyond the truncation point must not be a token the next payload
+    # ordering promotes into the log.
+    fernet = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
+    transcript = [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {"q": "cert petition " + "standing doctrine " * 40 + fernet},
+                    }
+                ]
+            },
+        }
+    ]
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert len(call.query) <= 500
+    assert "gAAAAA" not in call.query
+
+
+def test_capture_leaves_ordinary_query_text_intact(tmp_path: Path) -> None:
+    transcript = [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {
+                            "q": "https://www.courtlistener.com/api/rest/v4/search/"
+                            "?q=cited_by%3A12345&type=o&court=scotus"
+                        },
+                    }
+                ]
+            },
+        }
+    ]
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == (
+        "https://www.courtlistener.com/api/rest/v4/search/?q=cited_by%3A12345&type=o&court=scotus"
+    )
+    assert call.tool == "mcp__courtlistener__search"
+
+
+def test_capture_redacts_the_tool_name_and_timestamp(tmp_path: Path) -> None:
+    # Every string harvested from a transcript is redacted, not just the query
+    # slice: nothing about a transcript guarantees which field a payload lands
+    # in, and the log is committed whole.
+    blob = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
+    transcript = [
+        {
+            "type": "assistant",
+            "timestamp": f"2026-07-10T12:00:01Z {blob}",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": f"tool-{blob}", "input": {}}
+                ]
+            },
+        }
+    ]
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.tool == "tool-[redacted:fernet-token]"
+    assert call.timestamp == "2026-07-10T12:00:01Z [redacted:fernet-token]"
+    assert carries_redaction(call)
+
+
+def test_capture_bounds_the_work_a_payload_can_ask_for(tmp_path: Path) -> None:
+    # A tool call's arguments are unbounded and agent-influenced (a file write
+    # carries its whole body), so redaction reads a fixed window rather than
+    # however much the payload offers.
+    transcript = [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "Write",
+                        "input": {"content": "-eyJ" * 200_000},
+                    }
+                ]
+            },
+        }
+    ]
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(transcript))
+    started = time.monotonic()
+    (call,) = parse_claude_retrieval(execution_file)
+    assert time.monotonic() - started < 10
+    assert call.query is not None
+    assert len(call.query) <= 500
+
+
+def test_record_retrieval_reports_the_redaction_count(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    blob = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {"message": blob},
+                    }
+                ]
+            },
+        }
+    ]
+    execution = tmp_path / "execution.json"
+    execution.write_text(json.dumps(transcript))
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "claude-code",
+            "--role",
+            "predictor",
+            "--actor",
+            "claude-baseline",
+            "--claude-execution-file",
+            str(execution),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    # Redaction lets through a run the collect scan would have withheld, so the
+    # fact that it fired has to surface somewhere.
+    assert "1 redacted" in result.output
+    assert "::warning::" in result.output

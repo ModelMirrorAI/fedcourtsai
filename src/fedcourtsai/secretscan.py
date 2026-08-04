@@ -32,6 +32,19 @@ Detectors, strongest first:
 
 A :class:`Finding` carries the file, rule, and line — never the matched text —
 so the report itself cannot re-leak what it caught.
+
+The same credential-shape knowledge serves a second consumer, one layer
+earlier: :func:`redact_credentials` rewrites rather than reports, and the
+harness applies it to every string it harvests from an engine transcript into
+``retrieval_log.json`` (:mod:`fedcourtsai.retrieval`). Capture-time redaction
+and the scan are complements, not duplicates — a credential the agent never
+chose to write, pulled in verbatim because it happened to sit in a tool-call
+payload, should not reach the staged tree at all, and a withheld run costs a
+whole fan-out's model spend. The two are tuned differently on purpose: a scan
+false positive costs one human look at a withheld run, while a redaction false
+positive silently eats audit content the evaluators' leakage grading reads, so
+redaction leans harder on prefix-anchored shapes and holds its last-resort
+entropy rule to a stricter length floor.
 """
 
 from __future__ import annotations
@@ -61,15 +74,25 @@ _STRUCTURED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
 )
 
+# Keys that name a credential, shared by the scan's assignment detector and
+# capture-time redaction below so the two cannot drift apart on what counts as
+# one. The HTTP header names are here because a pasted request header is the
+# realistic way a short key — one below the entropy detector's 40-char floor —
+# reaches either surface.
+_CREDENTIAL_KEYWORDS = r"""
+    authorization | proxy-authorization | x-api-key | api[_-]?key
+    | secret | password | passwd | token | credential
+"""
+
 # `key = value` / `key: value` where the key names a credential and the value
 # is token-shaped. The value must carry a digit and must not look like an
 # environment-variable *name* (all-caps identifiers are how the docs and
 # prompts legitimately talk about credentials without holding one).
 _KEYWORD_ASSIGNMENT = re.compile(
-    r"""(?ix)
-    \b (?: api[_-]?key | secret | password | passwd | token | credential ) \b
+    rf"""(?ix)
+    \b (?: {_CREDENTIAL_KEYWORDS} ) \b
     ["'\s]* [:=] \s* ["']?
-    (?P<value> [A-Za-z0-9+/_\-]{16,} )
+    (?P<value> [A-Za-z0-9+/_\-]{{16,}} )
     """,
 )
 _ENV_VAR_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
@@ -208,14 +231,151 @@ def _entropy_hits(line: str) -> bool:
     return False
 
 
+def _holds_credential(value: str) -> bool:
+    """Whether an assignment's right-hand side *holds* a credential.
+
+    An all-caps identifier is how the docs, prompts, and configs legitimately
+    name one without carrying it, and a run id is token-shaped by coincidence;
+    everything else must carry a digit to count.
+
+    Shared by the reporting gate and capture-time redaction, whose tuning
+    pressures point opposite ways: loosening this to make redaction eat less
+    also weakens the pre-push scan.
+    """
+    if _ENV_VAR_NAME.match(value) or _RUN_ID_SHAPE.match(value):
+        return False
+    return any(c.isdigit() for c in value)
+
+
 def _keyword_assignment_hits(line: str) -> bool:
-    for match in _KEYWORD_ASSIGNMENT.finditer(line):
-        value = match.group("value")
-        if _ENV_VAR_NAME.match(value) or _RUN_ID_SHAPE.match(value):
-            continue  # naming a credential (or a run id), not holding one
-        if any(c.isdigit() for c in value):
-            return True
-    return False
+    return any(_holds_credential(m.group("value")) for m in _KEYWORD_ASSIGNMENT.finditer(line))
+
+
+# --- Capture-time redaction -------------------------------------------------
+
+# What replaces a redacted run. Square brackets and `:` sit outside every
+# credential alphabet below, so a marker can never be re-matched as one on a
+# later pass (redaction is idempotent), and it reads unmistakably as machine
+# insertion to anyone reviewing a query slice. The rule name says which shape
+# fired and nothing about the match. A marker is not proof of harness
+# provenance — nothing stops an agent writing the literal string into a tool
+# call — so it is a reading aid, not evidence.
+REDACTION_MARKER_PREFIX = "[redacted:"
+_REDACTION_MARKER = REDACTION_MARKER_PREFIX + "{rule}]"
+
+# Repeat ceilings on the multi-part patterns. Redaction runs over engine
+# transcript text, which an agent influences and which arrives uncapped, so an
+# unbounded `{n,}` either side of a required literal is a quadratic-backtracking
+# hang, not just a slow match. 4096 is far past any real token segment.
+_MAX_SEGMENT = 4096
+
+# Shapes redaction removes on sight, over and above the ones the scan reports.
+# Each is prefix-anchored on a token format's own header, so ordinary case
+# prose, citations, and identifiers cannot match.
+_REDACTION_ONLY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # Fernet v1: `gAAAAA` is the base64url rendering of the version byte and
+    # the leading zero bytes of the 64-bit timestamp. Unanchored on the left —
+    # the prefix is distinctive enough that a mid-run occurrence is a token,
+    # not a coincidence.
+    ("fernet-token", re.compile(r"gAAAAA[A-Za-z0-9_-]{20,}={0,2}")),
+    # A JWT's three base64url segments. The signature may be empty (`alg=none`).
+    (
+        "jwt",
+        re.compile(
+            rf"\beyJ[A-Za-z0-9_-]{{8,{_MAX_SEGMENT}}}"
+            rf"\.[A-Za-z0-9_-]{{8,{_MAX_SEGMENT}}}"
+            rf"\.[A-Za-z0-9_-]{{0,{_MAX_SEGMENT}}}"
+        ),
+    ),
+    # Model-provider keys: the `sk-proj-` / `sk-ant-` variants continue in the
+    # same alphabet, so one pattern covers them. No English word starts `sk-`.
+    ("model-provider-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}")),
+    # Google API keys and OAuth access tokens.
+    ("google-key", re.compile(r"\b(?:AIza|ya29\.)[A-Za-z0-9_-]{20,}")),
+)
+
+# The scan's report rules plus redaction's own: redaction is a superset of the
+# shapes, because it has no cost beyond the run it rewrites.
+_REDACTION_PATTERNS = _STRUCTURED_PATTERNS + _REDACTION_ONLY_PATTERNS
+
+# How a captured HTTP header or client config carries a credential that has no
+# recognizable prefix. Same keys the scan's assignment detector uses; the auth
+# scheme is part of the *prefix* group, so `Authorization: Bearer <token>`
+# keeps the scheme and loses only the token. The value class is wider than the
+# scan's — `.`, `=` and `~` included — because a rule that redacted only the
+# first half of a dotted `<public-id>.<secret>` credential would leave the
+# usable half behind *and* rewrite the line past what the scan would have
+# flagged: a partial redaction is worse than none.
+# Anchored on the keyword rather than on the scheme alone: bare `bearer`/
+# `basic` are ordinary English beside a 16-char run ("basic
+# responsibilities1"), and eating docket text costs the leakage grading its
+# evidence.
+_CREDENTIAL_ASSIGNMENT = re.compile(
+    rf"""(?ix)
+    (?P<prefix>
+        \b (?: {_CREDENTIAL_KEYWORDS} ) \b
+        ["'\s]* [:=] \s* ["']?
+        (?: (?: bearer | basic ) \s+ )?
+    )
+    (?P<value> [A-Za-z0-9+/_.=~\-]{{16,}} )
+    """,
+)
+
+# The last-resort net, for an opaque token whose format this does not know.
+# 64 chars, against the scan's 40: the shapes above carry every credential
+# format the pipeline can plausibly meet, so the generic rule exists for the
+# unknown one, and a rule that silently eats a long docket slug or caption
+# would cost the leakage grading its evidence. Judged by the scan's calibrated
+# discriminator (>= 3 character classes and normalized entropy over the bar),
+# with the same per-segment treatment of path-like runs.
+#
+# The deliberate consequence: an unrecognized opaque run of 40-63 chars — a
+# base64url-encoded 32-byte token is 43 — is left alone here and still
+# withholds the run at the collect scan. Redaction spares the runs it can name;
+# it does not replace the gate.
+_OPAQUE_MIN_RUN = 64
+_OPAQUE_CANDIDATE = re.compile(rf"[A-Za-z0-9+/=_\-]{{{_OPAQUE_MIN_RUN},}}")
+
+
+def _redact_assignment(match: re.Match[str]) -> str:
+    value = match.group("value")
+    if not _holds_credential(value):
+        return match.group()  # naming a credential, not holding one
+    return match.group("prefix") + _REDACTION_MARKER.format(rule="credential")
+
+
+def _redact_opaque(match: re.Match[str]) -> str:
+    run = match.group()
+    marker = _REDACTION_MARKER.format(rule="opaque")
+    if run.count("/") >= _PATHLIKE_SLASHES:
+        # Path-like: rewrite per segment, so a workspace path or a document URL
+        # survives intact while a blob sitting inside one still goes.
+        return "/".join(
+            marker
+            if len(segment) >= _OPAQUE_MIN_RUN and _entropy_candidate_hits(segment)
+            else segment
+            for segment in run.split("/")
+        )
+    return marker if _entropy_candidate_hits(run) else run
+
+
+def redact_credentials(text: str) -> str:
+    """Replace credential-shaped runs in captured text with ``[redacted:rule]``.
+
+    Pure and deterministic: the same input always yields the same output, and
+    the marker names the shape that fired, never the matched text. Applied by
+    the harness to everything it harvests from an engine transcript, *before*
+    any truncation, so a credential cannot survive by sitting past a cut.
+
+    Nothing here is a parser: the goal is that a token pulled into a logged
+    tool-call payload leaves the harness unusable, not that the surrounding
+    text stays perfectly legible. Nor is it a gate — what it cannot name it
+    leaves for the scan to withhold the run over.
+    """
+    for rule, pattern in _REDACTION_PATTERNS:
+        text = pattern.sub(_REDACTION_MARKER.format(rule=rule), text)
+    text = _CREDENTIAL_ASSIGNMENT.sub(_redact_assignment, text)
+    return _OPAQUE_CANDIDATE.sub(_redact_opaque, text)
 
 
 def secret_variants(secret: str) -> tuple[str, ...]:
