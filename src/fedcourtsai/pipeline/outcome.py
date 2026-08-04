@@ -54,6 +54,7 @@ from .. import corpus, ids
 from ..paths import CasePaths
 from ..schemas import (
     GRANTED_DISPOSITIONS,
+    MERITS_PROCEEDING_DISPOSITIONS,
     Disposition,
     EventKind,
     Outcome,
@@ -66,17 +67,10 @@ from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
 
-# The granted dispositions that open a **merits proceeding** — the subset of
-# `GRANTED_DISPOSITIONS` a cert grant mints the open merits event for. `gvr`
-# and `summary-reversal` are grants on the binary axis but terminate the case
-# at the cert order itself: a GVR is a grant/vacate/remand — the vacatur and
-# remand ride in the same order that grants — and a summary reversal is "the
-# Court granting review and deciding the merits in one order" (the
-# `Disposition` docstring), so neither is followed by briefing, argument, or a
-# separate judgment, and there is no merits event to predict.
-_MERITS_PROCEEDING: frozenset[Disposition] = frozenset(
-    {Disposition.granted, Disposition.granted_in_part}
-)
+# Which grants open a merits proceeding is one definition, shared with the
+# judgment backfill and the statpack's merits section so the population that is
+# predicted is the population the base rate is measured over.
+_MERITS_PROCEEDING = MERITS_PROCEEDING_DISPOSITIONS
 
 #: The id of the merits event a cert grant mints: the grant order is the filing
 #: that opened it (kind names the filing, stage names the standard — the

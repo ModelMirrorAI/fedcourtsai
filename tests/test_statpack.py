@@ -1128,7 +1128,8 @@ def _seed_granted_cohort(db_path: Path) -> None:
     gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
     equally-divided affirmance and one mixed in-part outcome. Plus a granted
     row carrying an out-of-vocabulary judgment string (counts as unparsed, so
-    the distribution always sums to `parsed`) and a denial (never eligible).
+    the distribution always sums to `parsed`), a denial, and a GVR — the last
+    two never eligible, the GVR because its vacatur is a cert-stage disposition.
     """
     ot23 = date(2024, 1, 12)
     ot24 = date(2024, 10, 7)
@@ -1137,6 +1138,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000001",
             court="scotus",
             docket_number="23-201",
+            disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="reversed",
             merits_decided=date(2024, 6, 27),
@@ -1145,6 +1147,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000002",
             court="scotus",
             docket_number="23-202",
+            disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="vacated",
             merits_decided=date(2024, 6, 20),
@@ -1153,6 +1156,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000003",
             court="scotus",
             docket_number="23-203",
+            disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="affirmed",
         ),
@@ -1160,6 +1164,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000004",
             court="scotus",
             docket_number="23-204",
+            disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="dismissed-as-improvidently-granted",
         ),
@@ -1167,12 +1172,14 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000005",
             court="scotus",
             docket_number="23-205",
+            disposition=Disposition.granted,
             date_cert_granted=ot23,
         ),
         corpus.CorpusRow(
             case_id="scotus/910000006",
             court="scotus",
             docket_number="24-101",
+            disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-by-an-equally-divided-court",
         ),
@@ -1180,6 +1187,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000007",
             court="scotus",
             docket_number="24-102",
+            disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-in-part-reversed-in-part",
         ),
@@ -1187,6 +1195,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             case_id="scotus/910000008",
             court="scotus",
             docket_number="24-103",
+            disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="remanded-with-prejudice",  # out of vocabulary
         ),
@@ -1197,6 +1206,17 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.denied,
             date_cert_denied=ot23,
             merits_judgment="affirmed",  # never eligible: a denial has no merits stage
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000010",
+            court="scotus",
+            docket_number="23-207",
+            # A GVR vacates in the cert order itself, so it opens no merits
+            # proceeding and must not enter the population — its near-certain
+            # vacatur would otherwise read as a disturbed merits judgment.
+            disposition=Disposition.gvr,
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
         ),
     ]
     with corpus.connect(db_path) as conn:
@@ -1258,6 +1278,24 @@ def test_merits_counts_distribution_and_rate_by_grant_term(tmp_path: Path) -> No
     assert ot23.disturbed_rate == pytest.approx(0.5)
 
 
+def test_merits_population_excludes_grants_that_decide_in_the_cert_order(
+    tmp_path: Path,
+) -> None:
+    """A GVR grants the petition and vacates below in one order, so it opens no
+    merits proceeding and never mints a merits event to forecast. Pooling it
+    would put a near-certain vacatur in the rate that scores merits forecasts,
+    inflating the disturbed rate with cases no one was asked to predict."""
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    # The cohort carries a GVR row stamped `vacated`; neither its grant nor its
+    # judgment reaches any counter.
+    assert (merits.granted, merits.parsed) == (8, 6)
+    assert merits.vacated == 1
+    assert merits.disturbed == 3
+
+
 def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
     # An all-affirmed parsed slice is a real 0% — distinct from the no-rate
     # None an unparsed slice carries.
@@ -1270,6 +1308,7 @@ def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
                     case_id="scotus/910000001",
                     court="scotus",
                     docket_number="23-201",
+                    disposition=Disposition.granted,
                     date_cert_granted=date(2024, 1, 12),
                     merits_judgment="affirmed",
                 )

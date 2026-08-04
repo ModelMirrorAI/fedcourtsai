@@ -80,6 +80,19 @@ GRANTED_DISPOSITIONS: frozenset[Disposition] = frozenset(
     }
 )
 
+#: The granted dispositions that open a **merits proceeding** — the subset of
+#: :data:`GRANTED_DISPOSITIONS` that is followed by briefing, argument, and a
+#: separate judgment. A GVR is a grant/vacate/remand whose vacatur rides in the
+#: same order that grants, and a summary reversal decides the merits in the
+#: cert order itself, so neither leaves a merits decision to forecast or to
+#: observe. One definition for every merits-population question: which grants
+#: mint the open merits event, which rows the judgment backfill parses, and
+#: which rows the statpack's merits section describes — so the population that
+#: is predicted is the population the base rate is measured over.
+MERITS_PROCEEDING_DISPOSITIONS: frozenset[Disposition] = frozenset(
+    {Disposition.granted, Disposition.granted_in_part}
+)
+
 
 #: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
 #: only statutory numbers in the decision model; every vote threshold is Court
@@ -2839,8 +2852,10 @@ class _StatPackMeritsCounts(_Strict):
     granted: int = Field(
         default=0,
         ge=0,
-        description="Granted SCOTUS cases (`date_cert_granted` set) in this slice "
-        "— the cohort the merits backfill walks, parsed or not",
+        description="SCOTUS cases in this slice whose grant opens a merits "
+        "proceeding (a plain or partial grant with `date_cert_granted` set; a "
+        "GVR or summary reversal decides in the cert order and is excluded) — "
+        "the cohort the merits backfill walks, parsed or not",
     )
     parsed: int = Field(
         default=0,
@@ -2919,7 +2934,10 @@ class StatPackMerits(_StatPackMeritsCounts):
     is not a salience-band product. Pack-level counts with a per-grant-Term
     breakdown; the accumulating cohort whose disturbed rate will eventually
     anchor a merits Brier baseline, published descriptively until that baseline
-    is specified.
+    is specified. The population is the grants that open a merits proceeding —
+    the same rule that mints the event a merits forecast is made on — so a GVR,
+    whose vacatur rides in the cert order itself, never contributes a
+    near-certain disturbance to a rate meant to describe argued cases.
     """
 
     terms: list[StatPackMeritsTerm] = Field(
