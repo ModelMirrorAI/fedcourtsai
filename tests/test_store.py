@@ -316,6 +316,41 @@ def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim
     assert forecastable_events(db, "scotus", 9525000009) == ["evt-petition-disposition"]
 
 
+def test_forecastable_events_refuses_an_application_dockets_cert_shaped_baseline(
+    tmp_path: Path,
+) -> None:
+    """An application docket whose baseline still reads petition-kind carries a
+    mislabel, not a cert petition. Admitting it on the strength of the kind would
+    forecast a stay application under the cert contract — so forecastability is
+    correct on its own terms, not conditional on the relabel pass having run."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000010",
+                    court="scotus",
+                    docket_number="25A99",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/9525000010",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=None,
+                )
+            ],
+        )
+    assert forecastable_events(db, "scotus", 9525000010) == []
+
+
 def test_forecastable_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     with corpus.connect(db) as conn:

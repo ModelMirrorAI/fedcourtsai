@@ -190,6 +190,31 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
     )
 
 
+def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether a case-baseline event is the forecastable baseline of its case.
+
+    The kind is necessary but not sufficient: an **application** docket whose
+    baseline still reads petition-kind carries a mislabel, not a cert petition.
+    Discovery mints an application's baseline as the interim-stage motion, but a
+    row minted before that rule — or one the relabel pass has not reached — keeps
+    the cert-shaped id, and admitting it would forecast a stay application under
+    the cert contract, against a cert population, on the strength of a name.
+
+    Keyed on the docket form rather than on the event's stage, because the
+    mislabel predates the stage stamp: the rows that need excluding are exactly
+    the ones carrying no stage at all. That makes forecastability correct on its
+    own terms rather than conditional on a data migration having run — the
+    migration changes which event is forecast, never whether a mislabeled one is.
+    """
+    if event.kind not in _FORECASTABLE_KINDS:
+        return False
+    return not (
+        row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+    )
+
+
 def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
     """:func:`forecastable_events` over an already-open connection."""
     case_id = ids.case_id(court_id, docket_id)
@@ -201,7 +226,7 @@ def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id
         event.event_id
         for event in events
         if not event.resolved
-        and (event.kind in _FORECASTABLE_KINDS or _interim_forecastable(event, row))
+        and (_case_baseline_forecastable(event, row) or _interim_forecastable(event, row))
     ]
 
 
