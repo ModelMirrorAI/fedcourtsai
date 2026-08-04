@@ -1,0 +1,11 @@
+case_id: scotus/72466124
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-09-16'
+resolved: true
+schema_version: '1.0'
+title: J. H., By Conservator, Betty Harris, Petitioner v. Williamson County, Tennessee,
+  et al.

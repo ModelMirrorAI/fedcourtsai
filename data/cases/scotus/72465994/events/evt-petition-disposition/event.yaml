@@ -1,0 +1,11 @@
+case_id: scotus/72465994
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-08-27'
+resolved: true
+schema_version: '1.0'
+title: Aladdin Manufacturing Corporation, et al., Petitioners v. The Water Works and
+  Sewer Board of the Town Centre, et al.
