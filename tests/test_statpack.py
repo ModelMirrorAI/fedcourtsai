@@ -1,10 +1,12 @@
 """Tests for the corpus base-rate statpack (``fedcourts statpack`` / :mod:`analytics`).
 
-Uses the deterministic synthetic corpus (``fixture_corpus``): six cases across
-ca9 / ca1 / scotus, four resolved and two open. The two SCOTUS petitions are
+Uses the deterministic synthetic corpus (``fixture_corpus``): seven cases across
+ca9 / ca1 / scotus, five resolved and two open. The two SCOTUS petitions are
 live-slice rows — ``scotus/304`` a walker-sampled denial at weight 5 (one
 relist), ``scotus/305`` a pending poller row at weight 1 (CVSG on file) — and
-the fixture carries discovery cursors (OT22 paid complete at 850, OT22 IFP
+``scotus/306`` is a resolved substantive stay application (the interim
+docket's row, outside every cert-stage cut). The
+fixture carries discovery cursors (OT22 paid complete at 850, OT22 IFP
 partial at 460, OT24 paid partial at 12), so the weighted sections, the census,
 and the completeness flags all have real material to aggregate.
 """
@@ -17,7 +19,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import analytics, corpus, serialize
+from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import (
@@ -50,20 +52,21 @@ def _term(pack: StatPack, year: int) -> StatPackTerm:
 
 def test_build_statpack_headline_and_sections(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
-    assert (pack.corpus_rows, pack.resolved, pack.open) == (6, 4, 2)
-    # All four resolved fixture cases carry concrete labels and date pairs.
-    assert (pack.machine_readable_resolved, pack.dated_resolved) == (4, 4)
-    # Overall base rate over the four resolved cases (raw counts, never weighted).
+    assert (pack.corpus_rows, pack.resolved, pack.open) == (7, 5, 2)
+    # All five resolved fixture cases carry concrete labels and date pairs.
+    assert (pack.machine_readable_resolved, pack.dated_resolved) == (5, 5)
+    # Overall base rate over the five resolved cases (raw counts, never weighted).
     shares = {d.disposition: d.share for d in pack.overall.dispositions}
-    assert shares == {"denied": 0.5, "dismissed": 0.25, "granted": 0.25}
+    assert shares == {"denied": 0.4, "granted": 0.4, "dismissed": 0.2}
     # One section per curated breakdown, in order.
     assert [s.title for s in pack.sections] == [spec.title for spec in _STATPACK_SECTIONS]
 
 
 def test_build_statpack_coverage_block(fixture_corpus: FixtureCorpus) -> None:
     coverage = _pack(fixture_corpus).coverage
-    # The two SCOTUS petitions are the live slice; one is resolved (raw count).
-    assert (coverage.live_slice_rows, coverage.live_slice_resolved) == (2, 1)
+    # The two SCOTUS petitions plus the application are the live slice; the
+    # denied petition and the granted application are resolved (raw counts).
+    assert (coverage.live_slice_rows, coverage.live_slice_resolved) == (3, 2)
     # Census totals across the fixture cursors: OT22 paid 850 + OT22 IFP
     # (5460 - 5001 + 1 = 460) + OT24 paid 12.
     assert coverage.census_filings == 850 + 460 + 12
@@ -74,16 +77,16 @@ def test_build_statpack_court_breakdown(fixture_corpus: FixtureCorpus) -> None:
     assert by_court.court is None
     assert by_court.group_by == "court"
     assert by_court.live_slice is False and by_court.weighted is False
-    assert [(b.key, b.cases) for b in by_court.buckets] == [("ca9", 3), ("scotus", 2), ("ca1", 1)]
+    assert [(b.key, b.cases) for b in by_court.buckets] == [("ca9", 3), ("scotus", 3), ("ca1", 1)]
 
 
 def test_build_statpack_overall_timing(fixture_corpus: FixtureCorpus) -> None:
     timing = _pack(fixture_corpus).timing
-    # The four resolved cases all carry date pairs: 168, 319, 525, and 546 days.
-    assert timing.cases == 4
-    assert timing.mean_days == pytest.approx(389.5)
-    assert timing.median_days == 319.0  # nearest-rank: ceil(0.5 x 4) = rank 2
-    assert timing.p90_days == 546.0  # nearest-rank: ceil(0.9 x 4) = rank 4
+    # The five resolved cases all carry date pairs: 22, 168, 319, 525, and 546 days.
+    assert timing.cases == 5
+    assert timing.mean_days == pytest.approx(316.0)
+    assert timing.median_days == 319.0  # nearest-rank: ceil(0.5 x 5) = rank 3
+    assert timing.p90_days == 546.0  # nearest-rank: ceil(0.9 x 5) = rank 5
 
 
 def test_build_statpack_weighted_cert_anchor(fixture_corpus: FixtureCorpus) -> None:
@@ -330,7 +333,7 @@ def test_live_slice_sections_exclude_bulk_rows(fixture_corpus: FixtureCorpus) ->
         )
     pack = analytics.build_statpack(corpus_db_path=fixture_corpus.db_path)
     by_court = _section(pack, "Cases by court")
-    assert ("scotus", 3) in {(b.key, b.cases) for b in by_court.buckets}
+    assert ("scotus", 4) in {(b.key, b.cases) for b in by_court.buckets}
     cert = _section(pack, "Modern discretionary-cert petitions by disposition")
     assert "granted" not in {b.key for b in cert.buckets}
     # And it defines no Term entry (OT21 has no live rows and no cursors).
@@ -630,10 +633,10 @@ def test_committed_statpack_still_parses() -> None:
 def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> None:
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     assert md.startswith("# Corpus statpack")
-    assert "**6** case(s): 4 resolved, 2 open." in md
-    assert "**Live/historical slice:** 2 case(s), 1 resolved" in md
+    assert "**7** case(s): 5 resolved, 2 open." in md
+    assert "**Live/historical slice:** 3 case(s), 2 resolved" in md
     assert "1322 docketed filing(s)" in md
-    assert "**Dated share:** 4 of 4 machine-readable resolved case(s)" in md
+    assert "**Dated share:** 5 of 5 machine-readable resolved case(s)" in md
     # Full-corpus sections say so; live-slice sections state slice + weighting.
     assert "## Cases by court" in md
     assert "_Scope: all courts; includes the frozen bulk import._" in md
@@ -641,7 +644,7 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
         "counts are denial-reweighted estimates._" in md
     )
-    assert "median 319d, p90 546d (mean 389.5d over 4 dated case(s))" in md
+    assert "median 319d, p90 546d (mean 316.0d over 5 dated case(s))" in md
     # The per-Term table: filings census, raw ingested count, weighted
     # estimates, completeness. OT22 ingested exactly one live row; the weighted
     # columns count its sampled denial as five.
@@ -748,7 +751,7 @@ def test_cli_statpack_writes_both_files(fixture_corpus: FixtureCorpus, tmp_path:
     assert result.exit_code == 0, result.output
     # The JSON validates as a StatPack, and the Markdown carries the rendered doc.
     pack = StatPack.model_validate_json(json_out.read_text())
-    assert pack.corpus_rows == 6
+    assert pack.corpus_rows == 7
     assert md_out.read_text().startswith("# Corpus statpack")
 
 
@@ -766,8 +769,9 @@ def test_cli_statpack_absent_corpus_writes_empty(
 
 def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:
     era = _section(_pack(fixture_corpus), "SCOTUS cases by era")
-    # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers.
-    assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 2)]
+    # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers;
+    # the application docket's era derives from its 2026 filing date.
+    assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 3)]
 
 
 def test_the_risk_set_rate_nests_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
@@ -950,11 +954,27 @@ def _seed_applications(db_path: Path) -> None:
         )
 
 
-def test_interim_section_absent_without_application_rows(fixture_corpus: FixtureCorpus) -> None:
+def test_interim_section_absent_without_application_rows(tmp_path: Path) -> None:
     # The stage section is shown only once its feed exists: no application rows,
     # no section — omitted from the serialized pack rather than emitted as null,
     # so a pack built from an application-free corpus keeps its pre-axis bytes.
-    pack = _pack(fixture_corpus)
+    # The fixture corpus carries an application docket, so build the cert-only
+    # slice of it here.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                case.row()
+                for case in fixture.FIXTURE_CASES
+                # The form recognizer is meaningless off SCOTUS, so gate on the
+                # court the way its contract asks callers to.
+                if not (
+                    case.court == "scotus" and corpus.is_scotus_application_form(case.docket_number)
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
     assert pack.interim is None
     assert "interim" not in pack.model_dump(mode="json")
     assert "The interim docket" not in analytics.render_statpack_markdown(pack)
@@ -1089,7 +1109,8 @@ def test_application_rows_leave_the_cert_populations_unchanged(
 ) -> None:
     # The stage axis is disjoint from the cert one: an A-form docket defines no
     # cert Term entry and joins no cert-stage section, so seeding applications
-    # changes only the full-corpus overview counts and adds the interim section.
+    # changes only the full-corpus overview counts and the interim section
+    # (which the fixture's own application docket already feeds).
     before = _pack(fixture_corpus)
     _seed_applications(fixture_corpus.db_path)
     after = _pack(fixture_corpus)
@@ -1097,7 +1118,8 @@ def test_application_rows_leave_the_cert_populations_unchanged(
     for prior, current in zip(before.sections, after.sections, strict=True):
         if prior.cert_stage:
             assert current == prior
-    assert before.interim is None and after.interim is not None
+    assert before.interim is not None and after.interim is not None
+    assert after.interim.applications == before.interim.applications + 7
 
 
 def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:

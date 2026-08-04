@@ -1445,8 +1445,10 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         f"**{pack.corpus_rows}** case(s): {pack.resolved} resolved, {pack.open} open.",
         "",
         f"**Live/historical slice:** {pack.coverage.live_slice_rows} case(s), "
-        f"{pack.coverage.live_slice_resolved} resolved — the population behind every "
-        f"live-slice section below; {census}.",
+        f"{pack.coverage.live_slice_resolved} resolved — the polled population the "
+        f"live-slice sections below draw from. It also carries the interim "
+        f"application rows, which no cert section aggregates, so a cert section's "
+        f"denominator can sit below this count; {census}.",
         "",
         f"**Overall base rate (resolved):** {_disposition_summary(pack.overall)}",
         "",
@@ -1806,9 +1808,10 @@ def render_docket_markdown(pack: DocketPack) -> str:
         "`cases` before quoting one.",
         "",
         f"**Live/historical slice.** {pack.coverage.live_slice_rows} case(s), "
-        f"{pack.coverage.live_slice_resolved} resolved — petitions read from the Court's "
-        "own docket pages, the population behind every cert statistic below; "
-        f"{census}.",
+        f"{pack.coverage.live_slice_resolved} resolved — matters read from the Court's "
+        "own docket pages, the population the cert statistics below draw from. It "
+        "also carries the interim application rows, which no cert statistic "
+        f"aggregates, so a cert denominator can sit below this count; {census}.",
         "",
         "**How to read the tables.** Each section states its own scope: the court, the "
         "population, and whether its counts are denial-reweighted. That reweighting "

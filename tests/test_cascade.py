@@ -7,15 +7,27 @@ artifacts produced end to end with no network.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.cascade import CascadeError, CascadeReport, run_cascade
+from fedcourtsai.pipeline.cascade import (
+    CascadeError,
+    CascadeReport,
+    _outcome_for_resolved,
+    run_cascade,
+)
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.schemas import Evaluation, Outcome, PredictableEvent, Prediction
+from fedcourtsai.schemas import (
+    Disposition,
+    Evaluation,
+    Outcome,
+    PredictableEvent,
+    Prediction,
+)
 from fedcourtsai.serialize import read_model
 
 CONFIG_ROOT = Path("config")
@@ -215,3 +227,37 @@ def test_cascade_is_deterministic(corpus_db: Path, tmp_path: Path) -> None:
     first = prediction.read_bytes()
     _run(corpus_db, data_root, RESOLVED_COURT, RESOLVED_DOCKET)
     assert prediction.read_bytes() == first
+
+
+def test_interim_outcome_carries_no_cert_signals_block() -> None:
+    """An application docket's outcome drops the cert `signals` block.
+
+    The discriminating input: a row that *would* emit a block — a parsed
+    `distribution_count` and a CVSG date — on an application-form docket
+    number. `resolution_signals` returns None for an unparsed count on its own,
+    so only a row carrying real cert signals reaches the interim guard, and
+    only this shape tells the guard apart from the sentinel path. Mirrors
+    `pipeline.outcome._build_outcome`, whose interim recording drops the block
+    for the same reason: distribution count and CVSG are observations nobody
+    makes on an application.
+    """
+
+    def _row(docket_number: str) -> corpus.CorpusRow:
+        return corpus.CorpusRow(
+            case_id="scotus/306",
+            court="scotus",
+            docket_number=docket_number,
+            disposition=Disposition.granted,
+            date_decided=date(2026, 7, 14),
+            distribution_count=2,
+            cvsg_date=date(2026, 5, 1),
+        )
+
+    interim = _outcome_for_resolved(_row("26A11"), "evt-motion-disposition")
+    assert interim is not None and interim.signals is None
+
+    # The cert docket keeps the block, so the guard is a stage rule and not a
+    # blanket suppression.
+    cert = _outcome_for_resolved(_row("24-1234"), "evt-petition-disposition")
+    assert cert is not None and cert.signals is not None
+    assert cert.signals.distribution_count == 2

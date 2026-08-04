@@ -131,6 +131,12 @@ def test_segment_base_rate_none_when_no_prior_term_data() -> None:
     assert (
         segment_base_rate(_row("bare-docket"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
     )
+    # An interim application docket is the same answer for a stage-level reason:
+    # an `A`-form number carries no cert Term, so the cert band pool it would
+    # have to be drawn from does not apply to it at all. The evaluate prompt's
+    # interim rule (omit `segment_base_rate` and `brier_skill_score`) is the
+    # agent-side half of this.
+    assert segment_base_rate(_row("26A11"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
 
 
 def test_segment_base_rate_skips_bands_with_nothing_resolved() -> None:

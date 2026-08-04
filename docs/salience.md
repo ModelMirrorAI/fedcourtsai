@@ -650,7 +650,12 @@ resolved/granted counts and raw grant rate, and the escalation-signal counts,
 pack-level and per application-Term — but **no interim skill is scored**:
 `segment_base_rate` yields nothing for an application docket, so an interim
 cell's evaluation carries a null skill, and the leaderboard segments the cell
-into its unranked `interim` stage block, never the cert board.
+into its unranked `interim` stage block, never the cert board. The predict and
+evaluate prompts carry the agent-side half of the same rule in their interim
+rules: the predictor reads the statpack's interim section as
+descriptive counts rather than a scored base rate, and the evaluator omits
+`segment_base_rate` and `brier_skill_score` (with `base_rate_basis` null) as
+the stage's standing rule rather than a per-cell anomaly.
 **Pre-registered claimability rule:** the interim segment base rate publishes
 — and skill over the interim stage becomes claimable — once the statpack's
 substantive **resolved count reaches 25**; until then the stage reports

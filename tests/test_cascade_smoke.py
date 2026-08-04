@@ -20,8 +20,17 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
+from fedcourtsai.leaderboard import build_leaderboard
 from fedcourtsai.pipeline import cascade
 from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
+from fedcourtsai.pipeline.claims import (
+    CLAIM_CVSG_INCREMENT,
+    CLAIM_DISPOSITION,
+    CLAIM_RELIST_INCREMENT,
+)
+from fedcourtsai.schemas import Evaluation, Outcome, Prediction
+from fedcourtsai.serialize import read_model
+from fedcourtsai.store import iter_stratified_evaluations
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
@@ -57,6 +66,109 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "valid" in result.output
+
+
+def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
+    """The fixture's application docket runs the interim cell end to end offline.
+
+    scotus/306 (`26A11`) is a resolved substantive stay application, so its
+    motion-baseline event carries `Stage.interim`: provision → stub predict →
+    interim outcome (a granted stay, no cert `signals` block) → evaluate →
+    validate, then the leaderboard build segments the cell into the unranked
+    `interim` stages block, never the cert board.
+
+    What this proves is the *composition* — an interim cell reaches every stage
+    and lands in the right block. The rules it composes are pinned at their own
+    seams, because the stub writes no skill fields and the cascade runs no
+    stamp step, so the null skill/claim fields here would read null for any
+    cell: the band suppression in
+    ``tests/test_cli_provision.py::test_an_application_snapshot_freezes_no_band``,
+    the absent cert baseline in ``tests/test_evaluate.py``'s
+    ``segment_base_rate`` cases, the interim ``signals`` guard in
+    ``tests/test_cascade.py``, and the claim block in ``tests/test_claims.py`` /
+    ``tests/test_cli_stamp.py``.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+    data_root = tmp_path / "data"
+
+    report = run_cascade(
+        corpus_db_path=db,
+        data_root=data_root,
+        config_root=CONFIG_ROOT,
+        court="scotus",
+        docket=306,
+        run_id=RUN,
+    )
+
+    assert report.valid, report.problems
+    assert report.events == ("evt-motion-disposition",)
+    assert report.predictions and report.outcomes and report.evaluations
+
+    # The interim outcome: relief granted, dated, and no cert signals block —
+    # distribution count and CVSG are observations nobody makes on an application.
+    outcome = read_model(report.outcomes[0], Outcome)
+    assert outcome.actual_granted == 1
+    assert outcome.signals is None
+
+    # A motion-kind event declares no claim set, so the stub prediction carries
+    # no claims field — the prompt's declared-set rule, exercised offline.
+    prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
+    assert read_model(prediction_path, Prediction).claims is None
+
+    # The cell is scored on the probability: stub P=0.0 against a granted stay.
+    # The skill and claim fields are null, which the stub would write for any
+    # cell — the interim rules behind them are pinned at the seams named above.
+    evaluation_path = next(p for p in report.evaluations if p.name == "evaluation.json")
+    evaluation = read_model(evaluation_path, Evaluation)
+    assert evaluation.brier_score == 1.0
+    assert evaluation.correct == 0
+    assert evaluation.segment_base_rate is None
+    assert evaluation.claim_scores is None
+
+    # The leaderboard build puts the cell in the unranked `interim` stages
+    # block; nothing enters the ranked cert board from this ledger.
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+    assert "interim" in board.stages
+    assert board.stages["interim"].evaluations_total >= 1
+    assert board.evaluations_total == 0
+
+
+def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> None:
+    """A cert cell's stub prediction answers the whole declared cert-v1 set.
+
+    The claim_scores block itself is stamped by the workflow's post-agent
+    `stamp-cell` step, which the cascade deliberately does not run — production
+    computes it harness-side, never in the cell — so the block's computation is
+    asserted at its unit seam (`tests/test_claims.py` over `score_claims`).
+    What the cascade can prove offline is the prediction-side contract: the
+    stub answers every declared claim, in declared order, with the disposition
+    claim restating the headline probability exactly (a divergent pair voids
+    the block at stamp time).
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+
+    report = run_cascade(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        config_root=CONFIG_ROOT,
+        court="scotus",
+        docket=304,
+        run_id=RUN,
+    )
+
+    assert report.valid, report.problems
+    prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
+    prediction = read_model(prediction_path, Prediction)
+    assert prediction.claims is not None
+    assert [c.claim_id for c in prediction.claims] == [
+        CLAIM_DISPOSITION,
+        CLAIM_RELIST_INCREMENT,
+        CLAIM_CVSG_INCREMENT,
+    ]
+    disposition = next(c for c in prediction.claims if c.claim_id == CLAIM_DISPOSITION)
+    assert disposition.probability == prediction.probability
 
 
 def test_require_predictions_fails_a_cell_that_produced_nothing(
