@@ -695,10 +695,11 @@ def test_the_noop_guard_yields_to_news_the_row_carries() -> None:
     """A docket-level decision date or a mutated disposition re-opens triage.
 
     The no-op covers exactly the retained-granted re-poll shape. When
-    `date_decided` latches (the merits judgment arriving upstream, which no
-    detection rule reads yet) or the disposition stops telling the recorded
-    grant's story (a DIG relabeled `dismissed`), the poll is news, and the
-    conservative surface must carry it to the maintainer.
+    `date_decided` latches without a judgment-shaped entry to parse (an
+    upstream termination the merits branch cannot read) or the disposition
+    stops telling the recorded grant's story (a DIG relabeled `dismissed`),
+    the poll is news, and the conservative surface must carry it to the
+    maintainer.
     """
     stages: dict[str, Stage | None] = {
         "evt-petition-disposition": Stage.cert,
@@ -1261,3 +1262,136 @@ def test_an_outcome_written_before_the_block_existed_still_parses() -> None:
     assert "signals" not in payload
     outcome = Outcome.model_validate(payload)
     assert outcome.signals is None
+
+
+# --- merits detection: a parsed judgment resolves the merits event ---------------
+
+_MERITS_STAGES: dict[str, Stage | None] = {
+    "evt-petition-disposition": Stage.cert,
+    MERITS_EVENT_ID: Stage.merits,
+}
+
+
+def _judged_row(judgment: str = "reversed", decided: str | None = "2023-06-27") -> CorpusRow:
+    """The retained granted docket's re-poll row once the judgment latched.
+
+    Built over the API-shaped grant and stamped with the merits pair the live
+    channel's ingest parse latches (`map_live_docket`); the parse path itself
+    is pinned in test_ingest.
+    """
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    return row.model_copy(
+        update={
+            "merits_judgment": judgment,
+            "merits_decided": date.fromisoformat(decided) if decided else None,
+        }
+    )
+
+
+def test_a_parsed_judgment_resolves_the_open_merits_event() -> None:
+    resolution = detect_resolution(
+        _judged_row(),
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=_MERITS_STAGES,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert not resolution.unrecorded
+    outcome = resolution.outcomes[MERITS_EVENT_ID]
+    # The merits mapping: the judgment axis carries the result, the cert
+    # vocabulary's catch-all records that no cert label applies, and the
+    # declared binary is the disturbed projection.
+    assert outcome.judgment == "reversed"
+    assert outcome.actual_disposition == Disposition.other
+    assert outcome.actual_granted == 1
+    assert outcome.resolved_at == date(2023, 6, 27)
+    # No vote record: the entry text cannot honestly yield a provenance block.
+    assert outcome.votes == [] and outcome.vote_provenance is None
+
+
+def test_the_two_procedural_exits_resolve_undisturbed() -> None:
+    for judgment in ("dismissed-as-improvidently-granted", "affirmed-by-an-equally-divided-court"):
+        resolution = detect_resolution(
+            _judged_row(judgment),
+            "scotus",
+            22451,
+            [MERITS_EVENT_ID],
+            stages=_MERITS_STAGES,
+            resolved_event_ids=["evt-petition-disposition"],
+        )
+        outcome = resolution.outcomes[MERITS_EVENT_ID]
+        assert outcome.judgment == judgment
+        assert outcome.actual_granted == 0  # the judgment below stands
+
+
+def test_an_undated_judgment_parse_surfaces_the_merits_event() -> None:
+    # A judgment with no fully specified entry date has no resolved_at to
+    # stamp; the conservative surface carries it to the maintainer.
+    resolution = detect_resolution(
+        _judged_row(decided=None),
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=_MERITS_STAGES,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert not resolution.outcomes
+    [unrecorded] = resolution.unrecorded
+    assert unrecorded.event_id == MERITS_EVENT_ID
+    assert "undated" in unrecorded.reason
+
+
+def test_an_out_of_vocabulary_judgment_surfaces_rather_than_raising() -> None:
+    # `merits_judgment` is blob-tolerant TEXT whose readers re-validate against
+    # the vocabulary rather than failing the row — the same contract the
+    # cascade's replay keeps. A corrupt value must reach the maintainer through
+    # the conservative surface, never as an exception out of the live poll.
+    resolution = detect_resolution(
+        _judged_row("remanded-with-prejudice"),
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID],
+        stages=_MERITS_STAGES,
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert not resolution.outcomes
+    [unrecorded] = resolution.unrecorded
+    assert unrecorded.event_id == MERITS_EVENT_ID
+    assert "out of vocabulary" in unrecorded.reason
+
+
+def test_the_merits_branch_leaves_other_open_events_alone() -> None:
+    # An entry-pinned motion open beside the merits event resolves on its own
+    # filing's terms: the judgment closes the merits event only.
+    resolution = detect_resolution(
+        _judged_row(),
+        "scotus",
+        22451,
+        [MERITS_EVENT_ID, "evt-motion-stay"],
+        stages=_MERITS_STAGES | {"evt-motion-stay": None},
+        resolved_event_ids=["evt-petition-disposition"],
+    )
+    assert list(resolution.outcomes) == [MERITS_EVENT_ID]
+    assert not resolution.unrecorded
+
+
+def test_the_judged_repoll_resolves_end_to_end(tmp_path: Path) -> None:
+    """Grant → mint → judged re-poll → the merits outcome lands and the event closes."""
+    _scotus_event(tmp_path)
+    grant_row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolve_case(_db(tmp_path), tmp_path, grant_row, "scotus", 22451)
+    resolution = resolve_case(_db(tmp_path), tmp_path, _judged_row(), "scotus", 22451)
+    assert list(resolution.outcomes) == [MERITS_EVENT_ID]
+    assert not resolution.unrecorded
+    with corpus.connect(_db(tmp_path)) as conn:
+        events = {e.event_id: e.resolved for e in corpus.events_for_case(conn, "scotus/22451")}
+    assert events == {"evt-petition-disposition": True, MERITS_EVENT_ID: True}
+    written = read_model(
+        CasePaths(tmp_path, "scotus", 22451).event(MERITS_EVENT_ID).outcome, Outcome
+    )
+    assert written.judgment == "reversed" and written.actual_granted == 1
+    # And a further re-poll of the fully-decided docket is a clean no-op: no
+    # open events remain, so detection has nothing to do.
+    again = resolve_case(_db(tmp_path), tmp_path, _judged_row(), "scotus", 22451)
+    assert not again.outcomes and not again.unrecorded

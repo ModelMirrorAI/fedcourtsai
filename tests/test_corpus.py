@@ -2243,3 +2243,68 @@ def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
     event = corpus._event_from_record(record)
     assert event.stage is None
     assert event.event_id == "evt-petition-disposition"
+
+
+# --- the merits pair latch ---------------------------------------------------------
+
+
+def test_merits_pair_survives_a_writer_with_no_parse(tmp_path: Path) -> None:
+    # A writer carrying no judgment (a REST enrichment, a bulk row, a degraded
+    # live payload) keeps BOTH stored values: the pair latch keys on the
+    # incoming judgment, so the backfill's stamp and the live channel's
+    # ingest-time parse cannot wipe each other.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="reversed",
+                    merits_decided=date(2023, 6, 27),
+                )
+            ],
+        )
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="22-451")])
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None
+    assert stored.merits_judgment == "reversed"
+    assert stored.merits_decided == date(2023, 6, 27)
+
+
+def test_merits_pair_moves_as_a_pair_on_a_fresh_parse(tmp_path: Path) -> None:
+    # A fresh parse takes both halves — its date included even when that is
+    # NULL (an undated entry): keeping the old date beside the new judgment
+    # would fabricate a mismatched pair.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="reversed",
+                    merits_decided=date(2023, 6, 27),
+                )
+            ],
+        )
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="vacated",
+                    merits_decided=None,
+                )
+            ],
+        )
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None
+    assert stored.merits_judgment == "vacated"
+    assert stored.merits_decided is None

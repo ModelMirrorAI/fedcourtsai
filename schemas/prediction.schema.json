@@ -49,6 +49,19 @@
       "title": "Engine",
       "type": "string"
     },
+    "Judgment": {
+      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\nOn the merits **binary** \u2014 P(disturbed), the axis a merits cell's Brier is\nscored on \u2014 ``dig`` and ``equally_divided`` count as *undisturbed*, because\nboth leave the judgment below standing (a DIG dissolves the writ, an\nequally divided Court affirms by operation of law). They stay in the scored\npool rather than being routed out, because the pooled baseline's\ndenominator (the statpack merits section's ``parsed``) includes them, and a\nscored population that dropped them would face a baseline computed over a\ndifferent one. ``judgment_correct`` keeps them as their own labels, so the\nexact-match axis never confuses a DIG with an affirmance.",
+      "enum": [
+        "affirmed",
+        "reversed",
+        "vacated",
+        "affirmed-in-part-reversed-in-part",
+        "dismissed-as-improvidently-granted",
+        "affirmed-by-an-equally-divided-court"
+      ],
+      "title": "Judgment",
+      "type": "string"
+    },
     "JusticeVote": {
       "additionalProperties": false,
       "description": "One Justice's vote, and whether they wrote.\n\nThe vote is a :class:`VoteValue`, not a :class:`Disposition`: a disposition is\nwhat the *Court* did, and has no member for joining a majority or dissenting.",
@@ -349,7 +362,7 @@
         }
       ],
       "default": null,
-      "description": "Per-claim probabilities over the harness-declared claim set for this event's kind (`fedcourtsai.pipeline.claims`; for a cert-stage petition: disposition, relist-increment, cvsg-increment). The set is fixed and mandatory \u2014 the harness declares it, the predictor states a probability for every declared claim, and it can neither add claims nor skip them. Optional (defaults None) only so predictions written before the field existed still validate.",
+      "description": "Per-claim probabilities over the harness-declared claim set for this event (`fedcourtsai.pipeline.claims`; for a cert-stage petition: disposition, relist-increment, cvsg-increment; for the merits event: judgment-disturbed). The set is fixed and mandatory \u2014 the harness declares it, the predictor states a probability for every declared claim, and it can neither add claims nor skip them. Optional (defaults None) only so predictions written before the field existed still validate.",
       "title": "Claims"
     },
     "confidence": {
@@ -402,6 +415,18 @@
       "title": "Input Snapshot",
       "type": "string"
     },
+    "judgment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Judgment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The predicted merits judgment \u2014 what the Court will do to the judgment below, the mirror of `Outcome.judgment`. Null on non-merits cells, which forecast no judgment. A merits-stage cell must set it (the `validate` gate holds the event's latest prediction to that), and setting it requires a non-empty `votes` block: a merits forecast is over per-Justice votes (docs/decision-model.md), so a judgment call with no vote block is malformed."
+    },
     "model": {
       "anyOf": [
         {
@@ -436,7 +461,7 @@
       "type": "string"
     },
     "probability": {
-      "description": "P(granted)",
+      "description": "P(granted); on a merits-stage event the same field is P(disturbed) \u2014 the probability the judgment below is reversed, vacated, or reversed in part. The stage names the binary, exactly as it does for `granted` (the Stage vocabulary).",
       "maximum": 1.0,
       "minimum": 0.0,
       "title": "Probability",

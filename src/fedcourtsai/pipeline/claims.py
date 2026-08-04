@@ -6,8 +6,9 @@ the set is fixed and mandatory, the scoring rule (implemented once, in
 the publishing rules a claim total travels under. This module holds the
 mechanical family's moving parts:
 
-- the **declaration table** — per event kind, exactly which claims a prediction
-  carries, under a versioned set id;
+- the **declaration table** — per event kind (and, for the minted merits
+  event, per exact event id), exactly which claims a prediction carries,
+  under a versioned set id;
 - the **resolvers** — pure functions from committed artifacts (the prediction's
   frozen ``context``, the outcome's ``signals`` block) to 0 / 1 / ``None``,
   where ``None`` is the availability mask: the record does not disclose what
@@ -40,28 +41,44 @@ from ..schemas import (
     ClaimScore,
     ClaimScoreBlock,
     EventKind,
+    Judgment,
     Outcome,
     Prediction,
     PredictionContext,
     StatPack,
 )
-from .evaluate import claim_score, prediction_base_rate
+from .evaluate import claim_score, merits_base_rate, prediction_base_rate
+from .judgment import judgment_disturbed
+from .outcome import MERITS_EVENT_ID
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
 CLAIM_DISPOSITION = "disposition"
 CLAIM_RELIST_INCREMENT = "relist-increment"
 CLAIM_CVSG_INCREMENT = "cvsg-increment"
 
-# The versioned set id stamped into every block this declaration produces. A
-# change to which claims the cert set carries is a NEW version, never an
-# in-place edit — same discipline as the salience function's `sal-v1`.
+# The declared merits-stage claim id: the binary disturbed projection of the
+# judgment axis. The multi-class judgment form waits on a schema field carrying
+# a per-label distribution, exactly as the cert disposition claim's does; the
+# per-Justice vote, split, and writing claims are deliberately NOT declared —
+# their committed resolution channel (a real vote record on the outcome) does
+# not exist, no strictly-prior committed cut carries their baselines, and nine
+# per-Justice claims re-encode one correlated insight ninefold
+# (docs/outcome-decomposition.md, *What stays out*; docs/decision-model.md).
+CLAIM_JUDGMENT_DISTURBED = "judgment-disturbed"
+
+# The versioned set ids stamped into every block these declarations produce. A
+# change to which claims a set carries is a NEW version, never an in-place
+# edit — same discipline as the salience function's `sal-v1`.
 CLAIM_SET_CERT_V1 = "cert-v1"
+CLAIM_SET_MERITS_V1 = "merits-v1"
 
 # Per event kind: the set id and the declared claims, in reporting order. The
 # set is fixed and mandatory (docs/outcome-decomposition.md, *Why the set is
 # mandatory*): a predictor answers every declared claim and adds none. Only
-# petition-kind (cert-stage) events declare a set; the merits set arrives with
-# the merits stage, against data the pipeline does not yet produce.
+# petition-kind (cert-stage) events declare a kind-keyed set; the merits set
+# below is keyed on the minted merits event id instead, because the stage is
+# not derivable from an event id's kind segment (the merits event's kind is
+# `order` — the grant order opened it — and not every order event is merits).
 DECLARED_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[str, ...]]] = {
     EventKind.petition: (
         CLAIM_SET_CERT_V1,
@@ -69,13 +86,31 @@ DECLARED_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
+# The merits declaration, keyed on the deterministic merits event id the cert
+# grant mints (`pipeline.outcome.MERITS_EVENT_ID`) — the one order-kind event
+# that carries the merits stage.
+_MERITS_CLAIM_SET: tuple[str, tuple[str, ...]] = (
+    CLAIM_SET_MERITS_V1,
+    (CLAIM_JUDGMENT_DISTURBED,),
+)
+
+# The claims that restate the prediction's headline `probability` — one belief
+# written twice so each set is self-describing (the cert disposition claim on a
+# petition, the disturbed claim on the merits event). A pair that diverges is
+# malformed and voids the block; see `score_claims`.
+_HEADLINE_CLAIMS = (CLAIM_DISPOSITION, CLAIM_JUDGMENT_DISTURBED)
+
 
 def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
-    """The ``(set_version, claim_ids)`` an event's kind declares, or ``None``.
+    """The ``(set_version, claim_ids)`` an event declares, or ``None``.
 
-    ``None`` — no set, so no block — for a malformed event id and for every
-    kind without a declaration (a motion or order has no declared claims).
+    The minted merits event declares the merits set by its exact id; every
+    other event declares by kind. ``None`` — no set, so no block — for a
+    malformed event id and for every kind without a declaration (a motion or a
+    non-merits order has no declared claims).
     """
+    if event_id == MERITS_EVENT_ID:
+        return _MERITS_CLAIM_SET
     kind_slug = parse_event_kind(event_id)
     if kind_slug is None:
         return None
@@ -133,7 +168,11 @@ def _resolve_cvsg_increment(context: PredictionContext, outcome: Outcome) -> int
 
 
 def _baseline_disposition(
-    context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
 ) -> float | None:
     """The disposition claim's baseline: the frozen band's risk-set grant rate.
 
@@ -149,7 +188,11 @@ def _baseline_disposition(
 
 
 def _baseline_relist_increment(
-    context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
 ) -> float | None:
     """The relist-increment baseline the published statpack cannot yet support.
 
@@ -172,7 +215,11 @@ def _baseline_relist_increment(
 
 
 def _baseline_cvsg_increment(
-    context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
 ) -> float | None:
     """The cvsg-increment baseline the published statpack cannot yet support.
 
@@ -191,10 +238,51 @@ def _baseline_cvsg_increment(
     return None
 
 
+def _resolve_judgment_disturbed(context: PredictionContext, outcome: Outcome) -> int | None:
+    """Did the Court disturb the judgment below — the merits declared binary.
+
+    Resolved from the outcome's ``judgment`` through the single shared
+    projection (:func:`fedcourtsai.pipeline.judgment.judgment_disturbed`): a
+    DIG and an equally divided affirmance resolve 0 (undisturbed — both leave
+    the judgment below standing). Masked (``None``) where the outcome records
+    no judgment, a state no merits outcome writer produces but a malformed or
+    foreign record could.
+    """
+    if outcome.judgment is None:
+        return None
+    return int(judgment_disturbed(Judgment(outcome.judgment)))
+
+
+def _baseline_judgment_disturbed(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The disturbed claim's baseline: the strictly-prior pooled disturbed rate.
+
+    :func:`fedcourtsai.pipeline.evaluate.merits_base_rate` over the **grant**
+    Term — the axis the statpack merits section is keyed on, supplied by the
+    caller from the merits event's ``opened_at`` (the grant date). The frozen
+    context's docket-number Term is deliberately *not* used: the two disagree
+    for a petition docketed into the incoming Term and granted before it opens,
+    where the docket Term runs one later and would admit the case's own cohort
+    into its own baseline, and keying on the grant Term is also what keeps two
+    cases granted in the same Term scored against the same pool. ``None`` —
+    claim unscored — where the caller supplied no grant Term, or the prior
+    Terms' pooled sample does not clear the baseline's minimum.
+    """
+    if grant_term is None:
+        return None
+    return merits_base_rate(grant_term, statpack, lookback_terms=lookback_terms)
+
+
 _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
     CLAIM_DISPOSITION: _resolve_disposition,
     CLAIM_RELIST_INCREMENT: _resolve_relist_increment,
     CLAIM_CVSG_INCREMENT: _resolve_cvsg_increment,
+    CLAIM_JUDGMENT_DISTURBED: _resolve_judgment_disturbed,
 }
 
 
@@ -202,7 +290,12 @@ class _BaselineFn(Protocol):
     """A claim's baseline function: frozen conditioning + statpack -> rate | None."""
 
     def __call__(
-        self, context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+        self,
+        context: PredictionContext,
+        statpack: StatPack,
+        *,
+        lookback_terms: int,
+        grant_term: int | None,
     ) -> float | None: ...
 
 
@@ -210,6 +303,7 @@ _BASELINES: Mapping[str, _BaselineFn] = {
     CLAIM_DISPOSITION: _baseline_disposition,
     CLAIM_RELIST_INCREMENT: _baseline_relist_increment,
     CLAIM_CVSG_INCREMENT: _baseline_cvsg_increment,
+    CLAIM_JUDGMENT_DISTURBED: _baseline_judgment_disturbed,
 }
 
 
@@ -219,14 +313,26 @@ def resolve_claim(claim_id: str, context: PredictionContext, outcome: Outcome) -
 
 
 def claim_baseline(
-    claim_id: str, context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+    claim_id: str,
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None = None,
 ) -> float | None:
     """One claim's harness baseline, or ``None`` where no honest one exists."""
-    return _BASELINES[claim_id](context, statpack, lookback_terms=lookback_terms)
+    return _BASELINES[claim_id](
+        context, statpack, lookback_terms=lookback_terms, grant_term=grant_term
+    )
 
 
 def score_claims(
-    prediction: Prediction, outcome: Outcome, statpack: StatPack, *, lookback_terms: int
+    prediction: Prediction,
+    outcome: Outcome,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None = None,
 ) -> ClaimScoreBlock | None:
     """Assemble the claim-score block for one prediction, or ``None`` for none.
 
@@ -257,12 +363,14 @@ def score_claims(
     stated = _stated_probabilities(prediction.claims)
     if stated is None or any(claim_id not in stated for claim_id in claim_ids):
         return None
-    # The disposition claim restates the headline `probability` — the same
-    # belief, written twice so the set is self-describing. A pair that diverges
-    # is two committed numbers for one belief, the same class of malformed
-    # input as a duplicate: no block, never a silent pick between them.
-    if CLAIM_DISPOSITION in stated and stated[CLAIM_DISPOSITION] != prediction.probability:
-        return None
+    # A headline claim (the cert disposition claim, the merits disturbed claim)
+    # restates the prediction's `probability` — the same belief, written twice
+    # so the set is self-describing. A pair that diverges is two committed
+    # numbers for one belief, the same class of malformed input as a
+    # duplicate: no block, never a silent pick between them.
+    for headline in _HEADLINE_CLAIMS:
+        if headline in stated and stated[headline] != prediction.probability:
+            return None
 
     rows: list[ClaimScore] = []
     total: float | None = None
@@ -271,7 +379,11 @@ def score_claims(
         probability = stated[claim_id]
         resolved = resolve_claim(claim_id, prediction.context, outcome)
         baseline = claim_baseline(
-            claim_id, prediction.context, statpack, lookback_terms=lookback_terms
+            claim_id,
+            prediction.context,
+            statpack,
+            lookback_terms=lookback_terms,
+            grant_term=grant_term,
         )
         score: float | None = None
         if resolved is not None and baseline is not None:

@@ -2292,3 +2292,99 @@ def test_amicus_counsel_lands_under_other_and_is_not_arrival_time() -> None:
     assert by_role["other"] == ["Amici 0", "Amici 1", "Amici 2"]
     # All of them reach the flat list undifferentiated — the exposure the role fixes.
     assert len(row.attorneys) == 5
+
+
+# --- the ingest-time merits latch ---------------------------------------------------
+
+
+_JUDGMENT_ENTRY = {"Date": "Jun 27 2027", "Text": "Judgment REVERSED and case REMANDED."}
+# The canonical GVR order: it grants and disposes in one entry, and the judgment
+# parser's shapes are deliberately wide enough to read its vacatur.
+_GVR_ENTRY = {
+    "Date": "Jul 06 2026",
+    "Text": "Petition GRANTED.  Judgment VACATED and case REMANDED for further consideration.",
+}
+
+
+def test_a_granted_dockets_judgment_entry_latches_the_merits_pair() -> None:
+    # The live channel parses the last judgment-shaped entry through the shared
+    # parser (`pipeline.judgment`) whenever the docket carries a cert grant, so
+    # outcome detection can resolve the merits event from the columns alone.
+    payload = _payload(proceedings=[_GRANTED_ENTRY, _JUDGMENT_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.merits_judgment == "reversed"
+    assert row.merits_decided == date(2027, 6, 27)
+
+
+def test_a_granted_docket_without_a_judgment_entry_latches_nothing() -> None:
+    row = from_live_docket(_payload(proceedings=[_GRANTED_ENTRY]), live_docket_id(25, 100))
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_an_ungranted_docket_never_carries_a_merits_parse() -> None:
+    # The eligibility is the population the offline backfill walks, so a denied
+    # docket whose text happens to recite a judgment shape stays unparsed here.
+    payload = _payload(proceedings=[_DENIED_ENTRY, _JUDGMENT_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_a_gvr_never_carries_a_merits_parse() -> None:
+    """A GVR grants and vacates in one order, so its own vacatur must not land in
+    the column that means "what the Court did to the judgment below on the
+    merits". The order text parses — the shapes are anchored to catch it — so
+    the population predicate, not the parser, is what keeps it out; and this
+    column reaches the agent-facing retrieval surface, where a cert-stage
+    vacatur read as a merits judgment is a fact about the wrong stage."""
+    payload = _payload(proceedings=[_GVR_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.disposition == Disposition.gvr.value
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_the_judged_docket_exits_the_live_rotation(tmp_path: Path) -> None:
+    """Resolving the merits event ends the granted docket's retention.
+
+    The retention clause keys on an *open* merits-stage event; once judgment
+    detection closes it, the rotation predicate's EXISTS fails and the docket
+    leaves the poll set.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="petition",
+                    title="scotus/1",
+                    resolved=True,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title="scotus/1",
+                    decision_target="judgment",
+                ),
+            ],
+        )
+        assert [r.case_id for r in corpus.live_rotation(conn, limit=10)] == ["scotus/1"]
+        corpus.set_event_resolved(conn, "scotus/1", "evt-order-judgment")
+        assert corpus.live_rotation(conn, limit=10) == []

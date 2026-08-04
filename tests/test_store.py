@@ -196,6 +196,56 @@ def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> N
     }
 
 
+def test_forecastable_events_never_fans_out_the_merits_event(tmp_path: Path) -> None:
+    """The minted merits event is tracked ground truth, never a forecast cell.
+
+    Its scoring contract is registered end to end, but the fan-out waits on the
+    merits prompt sections, so a cell can never run ahead of the prompt that
+    defines it. Neither admission path reaches it: the case-baseline path is
+    keyed on the petition/appeal kinds and the interim path on a motion-kind,
+    interim-stage event — a merits event is an `order` carrying the merits
+    stage, so widening either path would have to be deliberate.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/11",
+                    court="scotus",
+                    docket_number="24-1234",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2025, 1, 10),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/11",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    resolved=True,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/11",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                ),
+            ],
+        )
+    assert forecastable_events(db, "scotus", 11) == []
+    # The unfiltered seam still serves it: detection resolves it, and evaluate
+    # would score it — the fan-out is the only thing held back.
+    assert open_events(db, "scotus", 11) == ["evt-order-judgment"]
+
+
 def _application_event(case_id: str, *, stage: Stage | None = Stage.interim) -> corpus.CorpusEvent:
     return corpus.CorpusEvent(
         event_id="evt-motion-disposition",

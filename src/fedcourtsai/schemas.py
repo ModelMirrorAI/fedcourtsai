@@ -12,7 +12,14 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 SCHEMA_VERSION: Final = "1.0"
 
@@ -155,9 +162,15 @@ class Judgment(StrEnum):
     the merits event resolved to nothing. Forcing it onto that axis would corrupt
     the comparability anchor every grant-rate figure in this project rests on.
 
-    ``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the
-    same reason mootness practice does: scoring them as merits calls would
-    conflate a prediction about the law with one about the Court's housekeeping.
+    On the merits **binary** — P(disturbed), the axis a merits cell's Brier is
+    scored on — ``dig`` and ``equally_divided`` count as *undisturbed*, because
+    both leave the judgment below standing (a DIG dissolves the writ, an
+    equally divided Court affirms by operation of law). They stay in the scored
+    pool rather than being routed out, because the pooled baseline's
+    denominator (the statpack merits section's ``parsed``) includes them, and a
+    scored population that dropped them would face a baseline computed over a
+    different one. ``judgment_correct`` keeps them as their own labels, so the
+    exact-match axis never confuses a DIG with an affirmance.
     """
 
     affirmed = "affirmed"
@@ -520,9 +533,26 @@ class Prediction(_Strict):
     created_at: datetime
     input_snapshot: str = Field(description="Repo-relative path to the snapshot used as input")
     granted: int = Field(ge=0, le=1, description="Binary outcome prediction, 1=granted")
-    probability: float = Field(ge=0.0, le=1.0, description="P(granted)")
+    probability: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="P(granted); on a merits-stage event the same field is "
+        "P(disturbed) — the probability the judgment below is reversed, vacated, "
+        "or reversed in part. The stage names the binary, exactly as it does for "
+        "`granted` (the Stage vocabulary).",
+    )
     predicted_disposition: Disposition
     votes: list[JusticeVote] = Field(default_factory=list)
+    judgment: Judgment | None = Field(
+        default=None,
+        description="The predicted merits judgment — what the Court will do to "
+        "the judgment below, the mirror of `Outcome.judgment`. Null on "
+        "non-merits cells, which forecast no judgment. A merits-stage cell must "
+        "set it (the `validate` gate holds the event's latest prediction to "
+        "that), and setting it requires a non-empty `votes` block: a merits "
+        "forecast is over per-Justice votes (docs/decision-model.md), so a "
+        "judgment call with no vote block is malformed.",
+    )
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     big_case_score: float | None = Field(
         default=None,
@@ -571,13 +601,30 @@ class Prediction(_Strict):
     claims: list[ClaimProbability] | None = Field(
         default=None,
         description="Per-claim probabilities over the harness-declared claim set "
-        "for this event's kind (`fedcourtsai.pipeline.claims`; for a cert-stage "
-        "petition: disposition, relist-increment, cvsg-increment). The set is "
+        "for this event (`fedcourtsai.pipeline.claims`; for a cert-stage "
+        "petition: disposition, relist-increment, cvsg-increment; for the "
+        "merits event: judgment-disturbed). The set is "
         "fixed and mandatory — the harness declares it, the predictor states a "
         "probability for every declared claim, and it can neither add claims nor "
         "skip them. Optional (defaults None) only so predictions written before "
         "the field existed still validate.",
     )
+
+    @model_validator(mode="after")
+    def _judgment_requires_votes(self) -> Prediction:
+        """A predicted judgment must carry its per-Justice vote block.
+
+        The merits contract makes the vote block mandatory, and this is the
+        half of it the schema can enforce self-contained: a prediction does not
+        carry its event's stage, so "merits-stage cell => judgment set" lives
+        in the ``validate`` gate (which reads the event definition), while
+        "judgment set => votes non-empty" holds right here on every artifact.
+        """
+        if self.judgment is not None and not self.votes:
+            raise ValueError(
+                "a prediction carrying `judgment` must carry a non-empty `votes` block"
+            )
+        return self
 
 
 class ResolutionSignals(_Strict):
@@ -628,8 +675,22 @@ class Outcome(_Strict):
     case_id: str
     event_id: str
     resolved_at: date
-    actual_disposition: Disposition
-    actual_granted: int = Field(ge=0, le=1)
+    actual_disposition: Disposition = Field(
+        description="The realized disposition label. On a merits-stage outcome "
+        "the cert/interim vocabulary has no member by design (Judgment values "
+        "are deliberately not Dispositions), so the writer records `other` and "
+        "`judgment` carries the result; the stage axis keeps such cells out of "
+        "every cert-vocabulary figure.",
+    )
+    actual_granted: int = Field(
+        ge=0,
+        le=1,
+        description="The stage's declared binary: 1 iff the disposition is in "
+        "the granted set on a cert/interim event, and 1 iff the judgment below "
+        "was disturbed (reversed / vacated / affirmed-in-part — "
+        "`pipeline.judgment.judgment_disturbed`) on a merits event, so "
+        "`(probability - actual_granted)^2` is the Brier score at every stage.",
+    )
     votes: list[JusticeVote] = Field(default_factory=list)
     signals: ResolutionSignals | None = Field(
         default=None,
@@ -842,8 +903,34 @@ class Evaluation(_Strict):
     )
     run_id: str
     created_at: datetime
-    correct: int = Field(ge=0, le=1, description="1 if disposition matched outcome")
+    correct: int = Field(
+        ge=0,
+        le=1,
+        description="1 if the prediction named the right outcome label on the "
+        "stage's own axis: the disposition on a cert/interim cell, the judgment "
+        "on a merits cell (whose `actual_disposition` is always the "
+        "off-vocabulary `other`, so a disposition comparison there would score "
+        "every cell against a constant). Computed identically in code by "
+        "`pipeline.evaluate.is_correct`; the leaderboard's accuracy column is "
+        "its mean.",
+    )
     brier_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    judgment_correct: int | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="1 iff the prediction's `judgment` exactly matches the "
+        "outcome's — the merits-axis analogue of `correct`, on the full Judgment "
+        "vocabulary (a `reversed` call against a `vacated` outcome is 0). Null "
+        "wherever either side records no judgment: every non-merits cell, and "
+        "records written before the field existed. The evaluator's field, like "
+        "`correct` and `brier_score` — the harness stamps only `claim_scores` "
+        "and the base-rate basis record — but computed identically in code by "
+        "`pipeline.evaluate.judgment_correct`, which the offline engines use. "
+        "Descriptive accuracy, never a "
+        "proper score: `brier_score` on the disturbed binary is the scored axis, "
+        "and `correct` already carries this same comparison on a merits cell.",
+    )
     vote_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     leakage_suspected: bool | None = Field(
@@ -890,6 +977,18 @@ class Evaluation(_Strict):
         "The two differ several-fold in the weak bands, so a skill score is only "
         "comparable within one basis; absent on evaluations written before the "
         "distinction existed.",
+    )
+    base_rate_salience_version: str | None = Field(
+        default=None,
+        description="Harness-stamped record of which salience version the "
+        "segment_base_rate's band was read under — the version half of the "
+        "basis record, the parallel of `base_rate_basis`. Stamped by "
+        "`stamp-cell --role evaluator` deterministically from the same inputs "
+        "the basis names (never the evaluator's word, and an evaluator-written "
+        "value does not survive the stamp): on the `risk_set` path it is the "
+        "scored prediction's frozen `context.salience_version`, on the "
+        "`terminal` path the live scorer's version. Null when no basis is "
+        "recorded, and on records written before the field existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,
@@ -2847,13 +2946,17 @@ class StatPackInterim(_StatPackInterimCounts):
 class _StatPackMeritsCounts(_Strict):
     """The count block one merits slice carries (the pack, or one grant Term).
 
-    Raw counts throughout: every granted case is walked, none stands in for
+    Raw counts throughout: every case whose grant opened a merits proceeding
+    is walked, none stands in for
     another, and nothing here is reweighted (the denial-sampling frame covers
-    the cert stage, and a grant is always ingested with certainty). Descriptive
-    only — the disturbed rate describes the parsed cohort and is **not** yet a
-    scored base rate: the merits Brier baseline it will anchor remains
-    unspecified (``docs/outcome-decomposition.md``), so no skill or calibration
-    claim rests on these figures. ``parsed`` against ``granted`` is the
+    the cert stage, and a grant is always ingested with certainty). The
+    disturbed rate is the anchor of the pre-registered merits Brier baseline
+    (``docs/decision-model.md``): a merits cell's skill is scored against the
+    per-grant-Term disturbed rates pooled over Terms strictly before the
+    case's (``pipeline.evaluate.merits_base_rate``), so a skill claim exists
+    only once strictly-prior Terms carry parsed judgments — until then the
+    figures stay descriptive, and ``metrics/README.md`` governs what may be
+    claimed. ``parsed`` against ``granted`` is the
     backfill's own coverage statement, so a thin parse never masquerades as a
     thin docket — read the gap as an upper bound that blends still-pending
     cases (granted, not yet decided) with genuine parse gaps.
@@ -2879,8 +2982,9 @@ class _StatPackMeritsCounts(_Strict):
     vacated: int = Field(
         default=0,
         ge=0,
-        description="Judgments vacated (GVRs parse here — a vacate-and-remand "
-        "disturbs the judgment below whether or not argument was heard)",
+        description="Judgments vacated — a vacate-and-remand after argument "
+        "disturbs the judgment below (a GVR's vacatur is a cert-order "
+        "disposition and is not in this population)",
     )
     affirmed_in_part: int = Field(
         default=0,
@@ -2909,9 +3013,11 @@ class _StatPackMeritsCounts(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="disturbed / parsed — a descriptive rate over the parsed "
-        "slice; the two non-merits exits (DIG, equally divided) sit in the "
-        "denominator as undisturbed, since both leave the judgment below "
+        description="disturbed / parsed — the **scored** merits base rate's "
+        "per-Term feed (`pipeline.evaluate.merits_base_rate` pools these "
+        "strictly-prior), conditioned on exactly the population a merits cell "
+        "is drawn from. The two non-merits exits (DIG, equally divided) sit in "
+        "the denominator as undisturbed, since both leave the judgment below "
         "intact. None when nothing has parsed (no rate, not 0%)",
     )
 
@@ -2942,12 +3048,14 @@ class StatPackMerits(_StatPackMeritsCounts):
     feed does, so the pack omits this one entirely while no row carries a
     parsed `merits_judgment`, and it carries no ``salience_version`` because it
     is not a salience-band product. Pack-level counts with a per-grant-Term
-    breakdown; the accumulating cohort whose disturbed rate will eventually
-    anchor a merits Brier baseline, published descriptively until that baseline
-    is specified. The population is the grants that open a merits proceeding —
-    the same rule that mints the event a merits forecast is made on — so a GVR,
-    whose vacatur rides in the cert order itself, never contributes a
-    near-certain disturbance to a rate meant to describe argued cases.
+    breakdown; the per-Term disturbed rates are the committed feed of the
+    pre-registered merits Brier baseline
+    (``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the
+    ``terms`` array is a scoring input as well as a description. The population
+    is the grants that open a merits proceeding — the same rule that mints the
+    event a merits forecast is made on — so a GVR, whose vacatur rides in the
+    cert order itself, never contributes a near-certain disturbance to a rate
+    that scores forecasts about argued cases.
     """
 
     terms: list[StatPackMeritsTerm] = Field(

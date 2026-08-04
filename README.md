@@ -188,7 +188,7 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
   event.yaml                     # what is predicted: kind, stage, decision target
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
-    prediction.json              # quantitative: granted 1/0, P(granted), votes, claim probabilities
+    prediction.json              # quantitative: granted 1/0, the stage's P (granted; disturbed at merits), votes, judgment on a merits cell, claim probabilities
     reasoning.md                 # qualitative: why this number
     predicted_reasoning.md       # qualitative: what the court will do, and why
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/

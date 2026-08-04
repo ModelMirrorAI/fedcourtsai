@@ -12,10 +12,12 @@ N-unweighted point estimates variance-seeking would buy rank). Aggregates are
 per predictor per pre-registration stratum — the same stratification the
 leaderboard uses, via the same ``store.iter_stratified_evaluations`` join and
 the same frozen-scope default — and are never pooled across strata or across
-process-version scope. The population is the **cert-stage** cells, because
-only the cert-stage event kinds declare a claim set (``pipeline.claims``): a
-cell on any other stage is never owed a block, so it belongs outside the
-surface rather than inside its absence counts.
+process-version scope. The population is the **cert-stage** cells, because the
+surface never blends stages: the minted merits event declares its own set
+(``merits-v1``) and its cells do carry blocks, but a total pooled across two
+stages' claim sets is not one quantity, so a non-cert cell belongs outside
+this surface rather than inside its absence counts until a per-stage surface
+exists.
 
 The headline is the **judge validation**, pre-registered in
 ``docs/outcome-decomposition.md`` (*The mechanical↔semantic agreement*):
@@ -191,11 +193,12 @@ def build_claim_scores(
     (``store.iter_stratified_evaluations``), already filtered to
     ``process_scope`` by the caller — recording the scope makes the empty
     frozen headline self-explaining rather than reading as a regression. The
-    surface's population is the **cert-stage** cells only: the declared claim
-    sets are keyed on event kind and only the cert-stage kinds declare one, so
-    a non-cert cell structurally cannot carry a block — counting it as an
-    "absence" would dilute the operational-absence counts with cells that were
-    never owed a block. One entry per predictor with at least one
+    surface's population is the **cert-stage** cells only: stages are never
+    blended, so a merits cell's block (the ``merits-v1`` set) sits outside
+    this surface until a per-stage claim surface exists, and counting a
+    non-cert cell here as an
+    "absence" would dilute the operational-absence counts with cells drawn
+    from a different population. One entry per predictor with at least one
     block-carrying cell, ordered by ``predictor_id``; the per-stratum judge
     validation is computed over every in-population cell, block-carrying or
     not, so the absence counts describe the whole population the intersection

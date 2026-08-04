@@ -565,11 +565,19 @@ or network.
      merits event** (`evt-order-judgment`, kind `order`, stage `merits`,
      opened on the grant date), so the granted docket stays in the live
      rotation and keeps polling toward its judgment instead of exiting the
-     pipeline at the grant. The merits event is tracked ground truth only: it
-     is not a forecastable kind, so no predict cell fans out for it, and no
-     judgment detection resolves it yet. On every later re-poll the
+     pipeline at the grant. On every later re-poll the
      already-attributed cert disposition is recognized as the record of the
-     petition's resolution — a clean no-op, not a triage entry.
+     petition's resolution — a clean no-op, not a triage entry — until the
+     judgment lands: the live ingest latches the parsed merits pair onto the
+     row (`merits_judgment` / `merits_decided`, the shared
+     `pipeline/judgment.py` parser the offline backfill also runs),
+     detection resolves the open merits-stage
+     event from those columns (`Outcome.judgment` plus the disturbed binary
+     as `actual_granted`; an undated parse surfaces for triage instead of
+     guessing a `resolved_at`), and the docket exits the rotation with its
+     last open event. The merits event is not yet predicted: it is not
+     a forecastable kind, so no predict cell fans out for it until the merits
+     prompt sections ship.
 
 ## Event definition — deterministic, corpus-driven
 

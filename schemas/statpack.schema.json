@@ -354,7 +354,7 @@
     },
     "StatPackMerits": {
       "additionalProperties": false,
-      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the accumulating cohort whose disturbed rate will eventually\nanchor a merits Brier baseline, published descriptively until that baseline\nis specified. The population is the grants that open a merits proceeding \u2014\nthe same rule that mints the event a merits forecast is made on \u2014 so a GVR,\nwhose vacatur rides in the cert order itself, never contributes a\nnear-certain disturbance to a rate meant to describe argued cases.",
+      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the per-Term disturbed rates are the committed feed of the\npre-registered merits Brier baseline\n(``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the\n``terms`` array is a scoring input as well as a description. The population\nis the grants that open a merits proceeding \u2014 the same rule that mints the\nevent a merits forecast is made on \u2014 so a GVR, whose vacatur rides in the\ncert order itself, never contributes a near-certain disturbance to a rate\nthat scores forecasts about argued cases.",
       "properties": {
         "affirmed": {
           "default": 0,
@@ -396,7 +396,7 @@
             }
           ],
           "default": null,
-          "description": "disturbed / parsed \u2014 a descriptive rate over the parsed slice; the two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "description": "disturbed / parsed \u2014 the **scored** merits base rate's per-Term feed (`pipeline.evaluate.merits_base_rate` pools these strictly-prior), conditioned on exactly the population a merits cell is drawn from. The two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
           "title": "Disturbed Rate"
         },
         "equally_divided": {
@@ -437,7 +437,7 @@
         },
         "vacated": {
           "default": 0,
-          "description": "Judgments vacated (GVRs parse here \u2014 a vacate-and-remand disturbs the judgment below whether or not argument was heard)",
+          "description": "Judgments vacated \u2014 a vacate-and-remand after argument disturbs the judgment below (a GVR's vacatur is a cert-order disposition and is not in this population)",
           "minimum": 0,
           "title": "Vacated",
           "type": "integer"
@@ -490,7 +490,7 @@
             }
           ],
           "default": null,
-          "description": "disturbed / parsed \u2014 a descriptive rate over the parsed slice; the two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "description": "disturbed / parsed \u2014 the **scored** merits base rate's per-Term feed (`pipeline.evaluate.merits_base_rate` pools these strictly-prior), conditioned on exactly the population a merits cell is drawn from. The two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
           "title": "Disturbed Rate"
         },
         "equally_divided": {
@@ -528,7 +528,7 @@
         },
         "vacated": {
           "default": 0,
-          "description": "Judgments vacated (GVRs parse here \u2014 a vacate-and-remand disturbs the judgment below whether or not argument was heard)",
+          "description": "Judgments vacated \u2014 a vacate-and-remand after argument disturbs the judgment below (a GVR's vacatur is a cert-order disposition and is not in this population)",
           "minimum": 0,
           "title": "Vacated",
           "type": "integer"

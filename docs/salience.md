@@ -674,7 +674,11 @@ shape — currently reads **denial-first** through the interim vocabulary and
 lands as `denied` / ungranted; if that collapse proves material once volume
 exists, changing it is a new reading applied forward, never a silent
 relabel. The floor, the estimator, and the collapses are fixed here, before
-any interim cell has been scored, so none can be tuned to a result.
+any interim cell has been scored, so none can be tuned to a result. The
+**merits** stage is a stage ahead of that: its baseline is not merely
+pre-registered but wired — the statpack merits section's disturbed rate pooled
+strictly-prior (`docs/decision-model.md`) — so interim is the only stage whose
+estimator is written down and waiting on its cohort.
 
 ## Shared discipline: leakage / timing
 

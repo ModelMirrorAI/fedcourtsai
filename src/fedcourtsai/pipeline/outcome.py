@@ -39,7 +39,14 @@ pass that resolves the petition never sees it), and the live rotation keeps
 polling the granted docket toward its judgment on that event's account. Once
 the petition event has closed, a re-poll's decided-looking row is recognized
 as the record of that resolution (:func:`_cert_already_attributed`) and
-resolves to a clean no-op rather than triage.
+resolves to a clean no-op rather than triage — until the judgment lands: the
+live channel latches the parsed merits pair onto the row at ingest
+(``merits_judgment`` / ``merits_decided``, via the shared
+:mod:`fedcourtsai.pipeline.judgment` parser), and detection resolves the open
+merits-stage event from those columns (:func:`build_merits_outcome` — the
+judgment axis on the outcome, the disturbed projection as its declared
+binary), at which point the case's last open event closes and the docket
+exits the rotation.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -61,6 +68,7 @@ from ..schemas import (
     MERITS_PROCEEDING_DISPOSITIONS,
     Disposition,
     EventKind,
+    Judgment,
     Outcome,
     PredictableEvent,
     ResolutionSignals,
@@ -70,11 +78,26 @@ from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
+from .judgment import judgment_disturbed
 
 # Which grants open a merits proceeding is one definition, shared with the
 # judgment backfill and the statpack's merits section so the population that is
 # predicted is the population the base rate is measured over.
 _MERITS_PROCEEDING = MERITS_PROCEEDING_DISPOSITIONS
+
+
+def _known_judgment(value: str) -> Judgment | None:
+    """The stored merits judgment as a :class:`Judgment`, or ``None`` if unknown.
+
+    ``merits_judgment`` is a blob-tolerant TEXT column whose readers re-validate
+    against the vocabulary rather than failing the row, so an out-of-vocabulary
+    value degrades to the unrecorded path everywhere it is read.
+    """
+    try:
+        return Judgment(value)
+    except ValueError:
+        return None
+
 
 #: The id of the merits event a cert grant mints: the grant order is the filing
 #: that opened it (kind names the filing, stage names the standard — the
@@ -406,6 +429,62 @@ def _build_outcome(
     )
 
 
+def build_merits_outcome(
+    case_id: str,
+    event_id: str,
+    judgment: Judgment,
+    decided: date,
+    *,
+    distribution_count: int | None,
+    cvsg_date: date | None,
+    source: str | None,
+) -> Outcome:
+    """Construct the merits ground truth from a parsed judgment and its date.
+
+    Takes the values rather than a row for the same reason
+    :func:`resolution_signals` does: the ingest-stage row (live detection) and
+    the persisted corpus row (the cascade's replay of an already-resolved
+    event) are different models and both reach this, so passing the fields
+    keeps one mapping in one place.
+
+    The mapping is the least-corrupting one the vocabularies allow, and each
+    choice is deliberate:
+
+    - ``actual_disposition`` is :attr:`Disposition.other` — the Judgment values
+      are deliberately not Dispositions (forcing one onto the cert binary would
+      corrupt the comparability anchor, per the ``Judgment`` docstring), so the
+      cert vocabulary's catch-all records that no cert label applies and
+      ``judgment`` carries the result. The stage axis keeps such outcomes out
+      of every cert-vocabulary figure.
+    - ``actual_granted`` is the **declared merits binary** — the judgment
+      disturbed the decision below (:func:`~fedcourtsai.pipeline.judgment.judgment_disturbed`) —
+      matching ``Prediction.probability``'s merits meaning, P(disturbed), so
+      the Brier formula scores every stage unchanged. A DIG and an equally
+      divided affirmance record 0: both leave the judgment below standing.
+    - ``votes`` stays empty and ``vote_provenance`` absent ("nobody looked"),
+      deliberately: the terminal entry's authorship recital names at most the
+      opinion's author and never the participating count that
+      ``VoteProvenance`` requires as the aggregation denominator, so an honest
+      provenance block cannot be built from docket text — and a vote list
+      without one would be illegible. A real vote source (an order list, the
+      opinion) is the seam that populates these, not this writer;
+      :func:`~fedcourtsai.pipeline.judgment.opinion_author` stays advisory.
+    - ``resolved_at`` is ``decided`` — the judgment entry's own docket date
+      (``merits_decided``); detection refuses to resolve on an undated parse
+      rather than stamping a guess.
+    """
+    return Outcome(
+        case_id=case_id,
+        event_id=event_id,
+        resolved_at=decided,
+        actual_disposition=Disposition.other,
+        actual_granted=int(judgment_disturbed(judgment)),
+        judgment=judgment,
+        signals=resolution_signals(distribution_count, cvsg_date),
+        source=source,
+    )
+
+
 # The event kinds the case-level disposition may resolve: the case-baseline
 # petition/appeal events (`evt-<kind>-<slug>`, so the kind is the id's first
 # segment). An entry-pinned event of another kind (a stay motion on a cert
@@ -526,19 +605,27 @@ def detect_resolution(
     undated disposition still surfaces **every** open event: with nothing
     recordable, whole-docket triage is the conservative call.
 
+    A row carrying a parsed merits judgment (``merits_judgment`` /
+    ``merits_decided``, latched at ingest by the shared parser) resolves the
+    case's lone open **merits-stage** event instead
+    (:func:`build_merits_outcome`); an undated parse surfaces that event for
+    triage, since ``resolved_at`` is never guessed.
+
     ``resolved_event_ids`` lists the case's already-closed events and gates the
     one clean no-op: when no open event can claim the disposition, a resolved
     event already carries it (:func:`_cert_already_attributed`), and the row
     still tells that resolution's story — a granted-set disposition with no
     docket-level decision date — the decided-looking row is the record of the
     earlier grant: the shape every re-poll of a retained granted docket
-    presents, its petition event closed and the minted merits event open, so
+    presents, its petition event closed and the minted merits event open (and
+    no judgment parsed yet), so
     nothing is recorded and nothing is surfaced. Without it a retained granted
     docket would re-surface an unrecorded outcome on every poll until
     judgment. The no-op is deliberately that narrow: a latched ``date_decided``
-    (the merits judgment arriving upstream) or a disposition outside the
+    (a termination arriving upstream without a judgment-shaped entry) or a
+    disposition outside the
     granted set (a DIG relabeled ``dismissed``, an upstream correction) is news
-    no detection rule reads yet, so those shapes fall through to the
+    no detection rule reads, so those shapes fall through to the
     conservative triage surface instead of being absorbed.
     """
     if not open_event_ids or not appears_decided(row):
@@ -560,6 +647,54 @@ def detect_resolution(
     if readable and target is not None:
         return Resolution(
             outcomes={target: _build_outcome(row, target, disposition_basis, interim=application)}
+        )
+
+    # The merits branch: a retained granted docket whose refreshed row carries
+    # a parsed judgment (latched at ingest via the shared parser) resolves its
+    # lone open merits-stage event from the columns — the row-level facts, the
+    # same discipline as the cert branch, so detection stays pure and
+    # deterministic. Other open events (an entry-pinned motion) stay open on
+    # their own filings' terms, exactly as under the cert stage routing. A
+    # judgment parsed from an undated entry has no `resolved_at` to stamp, so
+    # it surfaces for triage rather than being recorded on a guessed date.
+    merits_staged = [eid for eid in open_event_ids if stages and stages.get(eid) == Stage.merits]
+    if not application and row.merits_judgment is not None and len(merits_staged) == 1:
+        merits_event = merits_staged[0]
+        # The column is blob-tolerant TEXT whose readers re-validate against the
+        # vocabulary rather than failing the row (the field's own contract, and
+        # the same guard the cascade's replay applies): an out-of-vocabulary
+        # value surfaces for triage, never a crash in the poll.
+        parsed = _known_judgment(row.merits_judgment)
+        if parsed is not None and row.merits_decided is not None:
+            outcome = build_merits_outcome(
+                row.case_id,
+                merits_event,
+                parsed,
+                row.merits_decided,
+                distribution_count=row.distribution_count,
+                cvsg_date=row.cvsg_date,
+                source=row.citations[0] if row.citations else None,
+            )
+            return Resolution(outcomes={merits_event: outcome})
+        return Resolution(
+            unrecorded=(
+                UnrecordedOutcome(
+                    case_id=row.case_id,
+                    court_id=court_id,
+                    docket_id=docket_id,
+                    event_id=merits_event,
+                    disposition=row.disposition,
+                    date_decided=row.date_decided,
+                    reason=(
+                        f"merits judgment {row.merits_judgment!r} is out of vocabulary"
+                        if parsed is None
+                        else (
+                            f"merits judgment parsed ({row.merits_judgment}) but its docket "
+                            "entry is undated; no resolved_at can be stamped"
+                        )
+                    ),
+                ),
+            )
         )
 
     # A retained granted docket re-polls with its cert disposition already

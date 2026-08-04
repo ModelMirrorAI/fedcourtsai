@@ -86,9 +86,14 @@ For each predictor you score, write to
   - `engine` — `claude-code`, `codex`, or `gemini` (the engine you are running as).
   - `model` = `$MODEL_ID` — the model that produced this evaluation; copy the
     cell-identifier value verbatim, never guess.
-  - `correct` (1/0) — did `predicted_disposition` match `actual_disposition`? Exact
-    match on the label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
-    though both count as a grant on the binary axis.
+  - `correct` (1/0) — did the prediction name the right outcome label on the
+    stage's own axis? On the cert and interim cells you are scoring, that is
+    `predicted_disposition` against `actual_disposition`, exact match on the
+    label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
+    though both count as a grant on the binary axis. (A merits cell compares
+    `judgment` instead, and also records `judgment_correct`; no merits cell
+    reaches an evaluator until the merits prompt sections ship, so nothing
+    below conditions on it.)
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
     for a `gvr` outcome — a GVR is a grant).
   - `vote_accuracy` — fraction of predicted per-Justice votes that matched, over the Justices the prediction and the outcome both name (or omit if no
@@ -158,6 +163,10 @@ For each predictor you score, write to
     (`fedcourtsai.pipeline.claims`) from the prediction's claims, the outcome's
     signals, and the committed statpack, per the do-not-score rule above. Leave
     the field absent.
+  - Do **not** write `base_rate_salience_version` — the harness derives it at
+    the stamp from the `base_rate_basis` you record and the scored prediction's
+    frozen context, so anything you put there is overwritten. Record the basis;
+    the version half is not yours.
   - `leakage` — the structured assessment from the leakage grading below
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff

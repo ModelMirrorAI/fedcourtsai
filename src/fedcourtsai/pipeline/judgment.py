@@ -2,13 +2,13 @@
 
 Once certiorari is granted, the case's terminal docket entry states the merits
 disposition — "Judgment REVERSED and case REMANDED.", "Adjudged to be
-AFFIRMED.", "Writ of certiorari DISMISSED as improvidently granted." — and no
-ingestion channel normalizes it (the corpus row's ``disposition`` carries the
+AFFIRMED.", "Writ of certiorari DISMISSED as improvidently granted." — which
+no other seam normalizes (the corpus row's ``disposition`` carries the
 *cert* label; the routing backstop ``_TERMINAL_ENTRY_RE`` in
 :mod:`fedcourtsai.pipeline.outcome` only detects that such an entry exists).
 This module is the deterministic parser from that entry text onto the
 :class:`fedcourtsai.schemas.Judgment` vocabulary, plus the ``disturbed``
-projection a merits base rate will score against, and a best-effort authorship
+projection the merits base rate scores against, and a best-effort authorship
 reader.
 
 Every shape here is **anchored on a sentence opening with the disposition's own
@@ -23,12 +23,17 @@ VACATED ..."), still parses. A false negative costs one unparsed row in a
 descriptive count; a false positive would fabricate a merits ground truth — so
 the parser is deliberately conservative.
 
-The batch pass (:func:`backfill_merits_judgments`) reads each merits-bound
+Two writers stamp the parsed judgment onto the corpus row (``merits_judgment``
+/ ``merits_decided``), both through this parser so detection stays
+single-sourced: the live poll latches it at ingest for a granted docket
+(:func:`fedcourtsai.pipeline.ingest.map_live_docket`), which is what lets
+outcome detection resolve the open merits event from the columns alone, and
+the batch pass (:func:`backfill_merits_judgments`) reads each merits-bound
 SCOTUS case's latest stored snapshot through :func:`fedcourtsai.corpus.latest_snapshot`
 — the same offline access path the salience replay uses, which under the
-corpus-split mode transparently serves from the per-case content store — and
-stamps the parsed judgment on the corpus row (``merits_judgment`` /
-``merits_decided``), feeding the statpack's merits stage section.
+corpus-split mode transparently serves from the per-case content store — as
+the offline reconciler over rows the poller has not touched. Both feed the
+statpack's merits stage section.
 """
 
 from __future__ import annotations
@@ -126,9 +131,9 @@ _PER_CURIAM_RE = re.compile(r"\bper\s+curiam\b", re.IGNORECASE)
 # The judgments that disturb the decision below. A DIG and an equally divided
 # affirmance are non-merits exits that leave the lower judgment standing — a
 # DIG dissolves the writ, not the judgment, and an equally divided Court
-# affirms by operation of law — so both project to False (undisturbed), while
-# routing to the procedural stratum for scoring purposes (see
-# docs/decision-model.md and the Judgment docstring).
+# affirms by operation of law — so both project to False (undisturbed) and are
+# scored on that footing, since the pooled baseline's denominator counts them
+# the same way (see docs/decision-model.md and the Judgment docstring).
 _DISTURBED: frozenset[Judgment] = frozenset(
     {Judgment.reversed, Judgment.vacated, Judgment.affirmed_in_part}
 )
@@ -163,11 +168,28 @@ def judgment_disturbed(judgment: Judgment) -> bool:
     affirmance. The two non-merits exits also project to False because both
     leave the lower court's judgment intact: a dismissal as improvidently
     granted dissolves the *writ* while the judgment below stands untouched, and
-    an equally divided Court affirms by operation of law. They are procedural
-    exits, not merits wins for respondent — the ``procedural`` stratum, not
-    this projection, is where scoring keeps that distinction.
+    an equally divided Court affirms by operation of law. They are not merits
+    wins for respondent, but they are scored on this projection all the same:
+    the pooled baseline's denominator counts them as undisturbed too, so
+    keeping them in holds the scored population and its baseline to one
+    population. ``judgment_correct`` preserves their own labels, so the
+    exact-match axis never confuses a DIG with an affirmance.
     """
     return judgment in _DISTURBED
+
+
+def grant_term_year(granted: date) -> int:
+    """The October Term a cert-grant date falls in (a new Term opens in October).
+
+    The merits cohort's Term axis, shared by the statpack's merits section and
+    the merits base rate's leakage guard: keyed on the grant date rather than
+    the docket number because a case is often granted the Term after it was
+    docketed, and the merits cohort is defined by the grant. The pivot is the
+    calendar month, a deliberate convention: a late-September long-conference
+    grant order — issued for the *incoming* Term — lands in the outgoing Term's
+    row. Consistent and stated, so do not "fix" it in one caller.
+    """
+    return granted.year if granted.month >= 10 else granted.year - 1
 
 
 def opinion_author(text: str) -> str | None:
@@ -206,12 +228,16 @@ def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | No
 
 
 class MeritsBackfillResult(BaseModel):
-    """What one merits backfill pass over the granted SCOTUS rows did (or would do)."""
+    """What one merits backfill pass over the merits-bound SCOTUS rows did (or would do)."""
 
     model_config = ConfigDict(extra="forbid")
 
     applied: bool = Field(description="Whether the pass wrote the corpus (False = dry-run)")
-    eligible: int = Field(ge=0, description="Granted SCOTUS rows (date_cert_granted set)")
+    eligible: int = Field(
+        ge=0,
+        description="SCOTUS rows whose cert grant opens a merits proceeding "
+        "(`corpus.opens_merits_proceeding`)",
+    )
     no_snapshot: int = Field(
         ge=0, description="Eligible rows with no stored snapshot reachable — skipped"
     )

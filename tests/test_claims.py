@@ -20,13 +20,16 @@ import pytest
 from fedcourtsai.pipeline.claims import (
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
+    CLAIM_JUDGMENT_DISTURBED,
     CLAIM_RELIST_INCREMENT,
     CLAIM_SET_CERT_V1,
+    CLAIM_SET_MERITS_V1,
     claim_baseline,
     declared_claim_set,
     resolve_claim,
     score_claims,
 )
+from fedcourtsai.pipeline.judgment import judgment_disturbed
 from fedcourtsai.schemas import (
     BaseRateBucket,
     ClaimProbability,
@@ -34,13 +37,18 @@ from fedcourtsai.schemas import (
     Disposition,
     Engine,
     Evaluation,
+    Judgment,
+    JusticeVote,
     Outcome,
     Prediction,
     PredictionContext,
     ResolutionSignals,
     StatPack,
+    StatPackMerits,
+    StatPackMeritsTerm,
     StatPackTerm,
     StatPackTermSegment,
+    VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json
 
@@ -372,3 +380,138 @@ def test_evaluation_claim_scores_round_trip(tmp_path: Path) -> None:
     assert read.claim_scores is not None
     assert isinstance(read.claim_scores, ClaimScoreBlock)
     assert read.claim_scores.model_dump() == block.model_dump()
+
+
+# --- the merits set: judgment-disturbed under merits-v1 ---------------------------
+
+_MERITS_EVENT = "evt-order-judgment"
+
+
+def _merits_pack(*, rate_terms: dict[int, tuple[int, int]]) -> StatPack:
+    """A pack whose merits section carries ``term -> (disturbed, parsed)``."""
+    terms = [
+        StatPackMeritsTerm(term=year, disturbed=d, parsed=p)
+        for year, (d, p) in sorted(rate_terms.items(), reverse=True)
+    ]
+    return StatPack(
+        corpus_rows=1,
+        merits=StatPackMerits(
+            parsed=sum(t.parsed for t in terms),
+            disturbed=sum(t.disturbed for t in terms),
+            terms=terms,
+        ),
+    )
+
+
+def _merits_prediction(
+    *, probability: float = 0.7, claim: float | None = 0.7, context: PredictionContext | None = None
+) -> Prediction:
+    claims = (
+        None
+        if claim is None
+        else [ClaimProbability(claim_id=CLAIM_JUDGMENT_DISTURBED, probability=claim)]
+    )
+    return Prediction(
+        case_id="scotus/1",
+        event_id=_MERITS_EVENT,
+        predictor_id="p",
+        engine=Engine.claude_code,
+        run_id="r",
+        created_at=datetime(2025, 3, 1),
+        input_snapshot="x",
+        granted=int(probability >= 0.5),
+        probability=probability,
+        predicted_disposition=Disposition.other,
+        judgment=Judgment.reversed,
+        votes=[JusticeVote(justice="roberts", vote=VoteValue.majority)],
+        context=context if context is not None else _context(band=None, term=2025),
+        claims=claims,
+    )
+
+
+def _merits_outcome(judgment: Judgment) -> Outcome:
+    return Outcome(
+        case_id="scotus/1",
+        event_id=_MERITS_EVENT,
+        resolved_at=date(2026, 6, 1),
+        actual_disposition=Disposition.other,
+        actual_granted=int(judgment_disturbed(judgment)),
+        judgment=judgment,
+    )
+
+
+def test_the_merits_event_declares_exactly_the_disturbed_claim() -> None:
+    # Keyed on the minted merits event id, not the order kind: any other order
+    # event still declares nothing (the `evt-order-x` case above).
+    assert declared_claim_set(_MERITS_EVENT) == (CLAIM_SET_MERITS_V1, (CLAIM_JUDGMENT_DISTURBED,))
+
+
+def test_judgment_disturbed_resolves_through_the_shared_projection() -> None:
+    ctx = _context()
+    assert resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _merits_outcome(Judgment.reversed)) == 1
+    assert resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _merits_outcome(Judgment.vacated)) == 1
+    assert resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _merits_outcome(Judgment.affirmed)) == 0
+    # The two non-merits exits leave the judgment below standing: undisturbed.
+    assert resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _merits_outcome(Judgment.dig)) == 0
+    assert (
+        resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _merits_outcome(Judgment.equally_divided)) == 0
+    )
+    # A record without a judgment is masked, never guessed.
+    assert resolve_claim(CLAIM_JUDGMENT_DISTURBED, ctx, _outcome(granted=1)) is None
+
+
+def test_the_disturbed_baseline_is_keyed_on_the_grant_term() -> None:
+    pack = _merits_pack(rate_terms={2025: (40, 40), 2024: (24, 40), 2023: (32, 40)})
+    ctx = _context(band=None, term=2025)
+    # The GRANT Term guards the pool, supplied by the caller from the merits
+    # event's opened_at — not the context's docket-number Term, which can run a
+    # Term later and would admit the case's own cohort.
+    assert claim_baseline(
+        CLAIM_JUDGMENT_DISTURBED, ctx, pack, lookback_terms=0, grant_term=2025
+    ) == pytest.approx(0.70)
+    # No grant Term supplied (every cert cell, and any merits event whose
+    # definition could not be read) => unscored, never a docket-Term fallback.
+    assert claim_baseline(CLAIM_JUDGMENT_DISTURBED, ctx, pack, lookback_terms=0) is None
+
+
+def test_the_disturbed_baseline_ignores_the_contexts_docket_term() -> None:
+    """A summer-docketed, pre-October grant has docket Term = grant Term + 1.
+
+    Keying on the docket Term would pool the case's own grant cohort — the one
+    Term the leakage guard exists to exclude. The frozen context here carries
+    the later docket Term while the grant Term is the earlier one; the pool
+    must follow the grant Term.
+    """
+    pack = _merits_pack(rate_terms={2024: (40, 40), 2023: (28, 40)})
+    ctx = _context(band=None, term=2025)  # docket Term, one later than the grant
+    assert claim_baseline(
+        CLAIM_JUDGMENT_DISTURBED, ctx, pack, lookback_terms=0, grant_term=2024
+    ) == pytest.approx(0.70)
+
+
+def test_merits_score_claims_end_to_end() -> None:
+    pack = _merits_pack(rate_terms={2024: (28, 40)})
+    prediction = _merits_prediction(probability=0.9, claim=0.9, context=_context(band=None))
+    block = score_claims(
+        prediction,
+        _merits_outcome(Judgment.reversed),
+        pack,
+        lookback_terms=0,
+        grant_term=2025,
+    )
+    assert block is not None and block.declared_set_version == CLAIM_SET_MERITS_V1
+    [row] = block.claims
+    assert row.claim_id == CLAIM_JUDGMENT_DISTURBED
+    assert row.outcome == 1 and row.baseline == pytest.approx(0.70)
+    assert row.score == pytest.approx((0.70 - 1) ** 2 - (0.9 - 1) ** 2)
+    assert block.floor == 0.0 and block.lift == block.total
+
+
+def test_a_divergent_disturbed_claim_voids_the_block() -> None:
+    # The disturbed claim restates the merits headline probability; a pair that
+    # diverges is malformed, exactly as the cert disposition pair is.
+    pack = _merits_pack(rate_terms={2024: (7, 10)})
+    prediction = _merits_prediction(probability=0.9, claim=0.4)
+    assert (
+        score_claims(prediction, _merits_outcome(Judgment.reversed), pack, lookback_terms=0) is None
+    )

@@ -128,7 +128,10 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
 # tracked but never queued for prediction — the prompt contract, the salience
 # band, and the segment base rate are all conditioned on the cert petition, so
 # a cell minted for it would be forecast and scored against a population it
-# does not belong to.
+# does not belong to. The minted merits event (kind `order`) reaches neither
+# path, on purpose even though its scoring contract is registered end to end:
+# widening this set ships with the merits prompt sections, so a merits cell can
+# never fan out before its prompt contract exists.
 _FORECASTABLE_KINDS = frozenset({EventKind.petition, EventKind.appeal})
 
 

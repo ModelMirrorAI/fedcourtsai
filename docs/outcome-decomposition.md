@@ -7,16 +7,21 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-**The mechanical cert-stage family is implemented; everything else here is
+**The mechanical cert-stage family and the merits judgment claim are
+implemented; everything else here is
 pre-registration.** The scoring rule is `pipeline.evaluate.claim_score`; the
-declared cert-stage set — three claims under the `cert-v1` declaration — lives
+declared sets — three cert-stage claims under `cert-v1`, and the one merits
+claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
+event — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
 availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The
 first set proposed against the rule was specified in a way that did not
 resolve, and *A claim set that failed* records why, in detail, because its
-tests are what the declared set was chosen against. The merits claims and the
-whole semantic family remain pre-registered only.
+tests are what the declared sets were chosen against. The merits vote,
+split, and writing claims and the
+whole semantic family remain pre-registered only —
+`docs/decision-model.md` records why the vote claims failed the tests.
 
 The rest is pre-registration: the decomposition and the rule are settled before
 there is data to fit them to, which is the only order in which the choice of rule
@@ -79,11 +84,13 @@ petitions that have one. A relist or a CVSG is also a genuine forward call — i
 happens days after a conference distribution, which is exactly when a prediction
 is committed.
 
-**Merits** — a decided case, which the pipeline does not yet produce:
+**Merits** — the pipeline records merits outcomes (`Outcome.judgment`,
+resolved by judgment detection from the docket's disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |
-| Each justice's vote | `Outcome.votes`, per justice |
+| Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution no schema field carries |
+| Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), so the resolution channel is empty by construction; see `docs/decision-model.md` |
 | Majority author | *no field yet* |
 | A concurrence is filed | *no field yet* |
 | A dissent is filed | *no field yet* |
@@ -236,12 +243,20 @@ was priced.
 
 Two supporting requirements: each claim's baseline needs a stated minimum
 observation count and a smoothing rule, since the unpriced free expectation is
-largest exactly where the history is thinnest — the declared set defers both,
-tolerable only because its one live baseline pools band denominators in the
-weighted hundreds to thousands, and a thin-history baseline must land them
-before it lands; and the baseline's lookback window has to be stated with the
-figure, because moving it re-bases every claim score at once and a comparison
-across the change is not a comparison.
+largest exactly where the history is thinnest; and the baseline's lookback
+window has to be stated with the figure, because moving it re-bases every
+claim score at once and a comparison across the change is not a comparison.
+The cert set defers the count and the rule alike, tolerable only because its
+one live baseline pools band denominators in the weighted hundreds to
+thousands. The merits set is the thin-history case, and lands the count:
+`MERITS_BASE_RATE_MIN_PARSED` (30 parsed judgments pooled strictly-prior),
+below which there is no baseline and the claim goes unscored. It **defers the
+smoothing rule**, which is the standing debt on it: at the floor the unpriced
+baseline-estimation expectation is `π(1−π)/n ≈ 0.007` per claim, the same
+order as the per-claim drift term this document already calls dominant — so a
+merits claim total is read exactly as the cert one is, never as case-level
+skill on its own, and a smoothing rule is owed before any merits claim total
+is published as evidence rather than as coverage.
 
 ### Why the set is mandatory
 
@@ -579,11 +594,30 @@ already on the docket making the increment vacuous. A predictor cannot decline
 its way into the mask, and every declared claim is answered regardless of
 whether it will resolve.
 
-**What stays out, and why.** The merits claims wait for the merits stage:
-`Outcome.votes` is `[]` in every committed outcome, and nothing records
-authorship or separate writings for a modern case — so the merits set is
-deliberately **not** declared here; it arrives with the merits stage, against
-the record that stage actually produces. All semantic claims wait on opinion
+**The declared merits set: `merits-v1`.** The minted merits event
+(`evt-order-judgment` — keyed by exact event id, since its kind is `order`
+and not every order event is merits) declares exactly one claim,
+`judgment-disturbed`: the binary disturbed projection of `Outcome.judgment`,
+restating the merits headline `probability` the way the cert set's
+`disposition` claim restates its headline (a divergent pair voids the block
+identically). Its baseline is `pipeline.evaluate.merits_base_rate` — the
+statpack merits section's disturbed rate pooled over strictly-prior Terms,
+version-free — read at the **grant** Term (`grant_term_year` over the merits
+event's `opened_at`), never the frozen context's docket-number Term, which
+runs a Term later for a summer-docketed pre-October grant and would admit the
+case's own cohort; so the claim scores only
+once prior grant Terms carry parsed judgments. A DIG and an equally divided
+affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
+same way; `docs/decision-model.md` is the registered design.
+
+**What stays out, and why.** The merits vote and writing claims wait for a
+real vote source:
+`Outcome.votes` is `[]` in every committed outcome — the merits outcome
+writer deliberately records none, because docket text discloses no
+provenance denominator — and nothing records
+authorship or separate writings for a modern case; the per-Justice forms also
+fail the redundancy and volume conditions (`docs/decision-model.md` records
+the full test-by-test analysis). All semantic claims wait on opinion
 ingestion (`has_opinion` is 0 on every corpus row) and on the blinding
 precondition above.
 
@@ -632,14 +666,18 @@ never-parsed.
 
 ### What that adds up to
 
-The merits half of this document is blocked on data that is not scheduled:
+The merits *vote and writing* half of this document is blocked on data that is
+not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
-why that half of the taxonomy is pre-registered rather than implemented.
+why that half of the taxonomy is pre-registered rather than implemented. The
+merits *judgment* half is not blocked: judgment detection resolves
+`Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
 
 The cert-stage half is declared: `Outcome.signals` freezes what a cert-stage
 claim resolves *against*, `Prediction.context` freezes what it resolves *from*,
-and `cert-v1` above is the set the eight tests were applied to. A change to
-what the set carries is a new declaration version, never an in-place edit —
+and `cert-v1` and `merits-v1` above are the sets the eight tests were applied
+to. A change to
+what a set carries is a new declaration version, never an in-place edit —
 the same discipline the salience function keeps.
 
 Claim scoring still sits outside any earlier frozen process, by construction:

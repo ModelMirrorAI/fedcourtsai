@@ -16,7 +16,7 @@
       "type": "string"
     },
     "Judgment": {
-      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\n``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the\nsame reason mootness practice does: scoring them as merits calls would\nconflate a prediction about the law with one about the Court's housekeeping.",
+      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\nOn the merits **binary** \u2014 P(disturbed), the axis a merits cell's Brier is\nscored on \u2014 ``dig`` and ``equally_divided`` count as *undisturbed*, because\nboth leave the judgment below standing (a DIG dissolves the writ, an\nequally divided Court affirms by operation of law). They stay in the scored\npool rather than being routed out, because the pooled baseline's\ndenominator (the statpack merits section's ``parsed``) includes them, and a\nscored population that dropped them would face a baseline computed over a\ndifferent one. ``judgment_correct`` keeps them as their own labels, so the\nexact-match axis never confuses a DIG with an affirmance.",
       "enum": [
         "affirmed",
         "reversed",
@@ -155,9 +155,11 @@
   "description": "``outcome.json`` \u2014 realized ground truth, written once an event resolves.",
   "properties": {
     "actual_disposition": {
-      "$ref": "#/$defs/Disposition"
+      "$ref": "#/$defs/Disposition",
+      "description": "The realized disposition label. On a merits-stage outcome the cert/interim vocabulary has no member by design (Judgment values are deliberately not Dispositions), so the writer records `other` and `judgment` carries the result; the stage axis keeps such cells out of every cert-vocabulary figure."
     },
     "actual_granted": {
+      "description": "The stage's declared binary: 1 iff the disposition is in the granted set on a cert/interim event, and 1 iff the judgment below was disturbed (reversed / vacated / affirmed-in-part \u2014 `pipeline.judgment.judgment_disturbed`) on a merits event, so `(probability - actual_granted)^2` is the Brier score at every stage.",
       "maximum": 1,
       "minimum": 0,
       "title": "Actual Granted",

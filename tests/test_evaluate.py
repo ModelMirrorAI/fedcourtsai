@@ -13,7 +13,11 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.evaluate import (
+    MERITS_BASE_RATE_MIN_PARSED,
     brier_skill_score,
+    is_correct,
+    judgment_correct,
+    merits_base_rate,
     prediction_base_rate,
     segment_base_rate,
 )
@@ -22,12 +26,17 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
     Engine,
+    Judgment,
+    JusticeVote,
     Outcome,
     Prediction,
     PredictionContext,
     StatPack,
+    StatPackMerits,
+    StatPackMeritsTerm,
     StatPackTerm,
     StatPackTermSegment,
+    VoteValue,
 )
 
 
@@ -406,3 +415,175 @@ def test_a_versionless_frozen_band_yields_no_baseline() -> None:
     pack = _statpack(_term(2023, {"high": (0.30, 100)}))
     ctx = _context("high", term=2024, salience_version=None)
     assert prediction_base_rate(ctx, pack) is None
+
+
+# --- merits_base_rate: the strictly-prior pooled disturbed rate ------------------
+
+
+def _merits_term(year: int, *, disturbed: int, parsed: int) -> StatPackMeritsTerm:
+    """One grant-Term row of the merits section — the counters the baseline pools."""
+    return StatPackMeritsTerm(term=year, disturbed=disturbed, parsed=parsed)
+
+
+def _merits_pack(*terms: StatPackMeritsTerm) -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        merits=StatPackMerits(
+            parsed=sum(t.parsed for t in terms),
+            disturbed=sum(t.disturbed for t in terms),
+            terms=list(terms),
+        ),
+    )
+
+
+def test_merits_base_rate_pools_only_terms_before_the_cases() -> None:
+    # OT24 case: OT24's own (and later) rows never contribute — the same
+    # leakage guard as the segment baseline, on the grant-Term axis.
+    pack = _merits_pack(
+        _merits_term(2025, disturbed=40, parsed=40),
+        _merits_term(2024, disturbed=36, parsed=40),
+        _merits_term(2023, disturbed=24, parsed=40),
+        _merits_term(2022, disturbed=32, parsed=40),
+    )
+    # Pooled aggregate over OT22+OT23: (24 + 32) / 80 = 0.70.
+    assert merits_base_rate(2024, pack) == pytest.approx(0.70)
+
+
+def test_merits_base_rate_lookback_bounds_the_pool_as_a_term_year_band() -> None:
+    pack = _merits_pack(
+        _merits_term(2023, disturbed=24, parsed=40),
+        _merits_term(2021, disturbed=40, parsed=40),
+    )
+    # A 2-Term window before OT24 covers OT22+OT23 only; OT22 is absent from
+    # the pack, which shortens the sample rather than pulling OT21 in.
+    assert merits_base_rate(2024, pack, lookback_terms=2) == pytest.approx(0.60)
+
+
+def test_merits_base_rate_none_without_a_section_or_prior_terms() -> None:
+    assert merits_base_rate(2024, StatPack()) is None
+    pack = _merits_pack(_merits_term(2024, disturbed=28, parsed=40))
+    assert merits_base_rate(2024, pack) is None  # only the case's own Term
+
+
+def test_merits_base_rate_refuses_a_sample_below_the_stated_floor() -> None:
+    """A thin pool yields no baseline rather than a degenerate one.
+
+    The section exists from its first parsed judgment, so without the floor one
+    prior-Term row would hand out a 0.0/1.0 baseline — and `brier_skill` masks
+    exactly the cells such a baseline got right, leaving a published mean taken
+    only over the ones it got wrong.
+    """
+    thin = _merits_pack(_merits_term(2023, disturbed=1, parsed=1))
+    assert merits_base_rate(2024, thin) is None
+    just_under = _merits_pack(
+        _merits_term(
+            2023, disturbed=MERITS_BASE_RATE_MIN_PARSED - 1, parsed=MERITS_BASE_RATE_MIN_PARSED - 1
+        )
+    )
+    assert merits_base_rate(2024, just_under) is None
+    at_floor = _merits_pack(_merits_term(2023, disturbed=21, parsed=MERITS_BASE_RATE_MIN_PARSED))
+    assert merits_base_rate(2024, at_floor) == pytest.approx(0.70)
+
+
+def test_merits_base_rate_pools_aggregates_not_term_means() -> None:
+    # Aggregate disturbed over aggregate parsed — a Term contributes at its
+    # parsed count, so a thin Term cannot outvote a thick one.
+    pack = _merits_pack(
+        _merits_term(2023, disturbed=1, parsed=1),
+        _merits_term(2022, disturbed=50, parsed=100),
+    )
+    assert merits_base_rate(2024, pack) == pytest.approx(51 / 101)
+
+
+# --- judgment_correct: the merits exact-match diagnostic -------------------------
+
+
+def _merits_prediction(judgment: Judgment) -> Prediction:
+    return Prediction(
+        case_id="scotus/1",
+        event_id="evt-order-judgment",
+        predictor_id="p",
+        engine=Engine.claude_code,
+        run_id="r",
+        created_at=datetime(2025, 1, 1),
+        input_snapshot="x",
+        granted=0,
+        probability=0.7,
+        predicted_disposition=Disposition.other,
+        judgment=judgment,
+        votes=[JusticeVote(justice="roberts", vote=VoteValue.majority)],
+    )
+
+
+def _merits_outcome(judgment: Judgment) -> Outcome:
+    return Outcome(
+        case_id="scotus/1",
+        event_id="evt-order-judgment",
+        resolved_at=date(2025, 6, 1),
+        actual_disposition=Disposition.other,
+        actual_granted=int(judgment in {Judgment.reversed, Judgment.vacated}),
+        judgment=judgment,
+    )
+
+
+def test_judgment_correct_is_exact_on_the_full_vocabulary() -> None:
+    assert (
+        judgment_correct(_merits_prediction(Judgment.reversed), _merits_outcome(Judgment.reversed))
+        == 1
+    )
+    # A reversal call against a vacatur is wrong on this axis, even though both
+    # disturb the judgment below — exact match, not the binary projection.
+    assert (
+        judgment_correct(_merits_prediction(Judgment.reversed), _merits_outcome(Judgment.vacated))
+        == 0
+    )
+
+
+def test_judgment_correct_none_off_the_merits_axis() -> None:
+    cert_prediction = _prediction(0.4)
+    cert_outcome = _outcome(1)
+    assert judgment_correct(cert_prediction, cert_outcome) is None
+    assert judgment_correct(cert_prediction, _merits_outcome(Judgment.reversed)) is None
+    assert judgment_correct(_merits_prediction(Judgment.reversed), cert_outcome) is None
+
+
+def test_correct_is_the_judgment_axis_on_a_merits_cell() -> None:
+    """`correct` compares the stage's own outcome label.
+
+    A merits outcome's `actual_disposition` is always the off-vocabulary
+    `other`, so a disposition comparison there would score every merits cell
+    against a constant the merits contract never defines — and the leaderboard's
+    merits accuracy column would be that constant, settable by the predictor.
+    Where both sides carry a judgment, `correct` is the judgment match.
+    """
+    outcome = _merits_outcome(Judgment.reversed)
+    assert is_correct(_merits_prediction(Judgment.reversed), outcome) == 1
+    assert is_correct(_merits_prediction(Judgment.vacated), outcome) == 0
+    # …and it does not care what the prediction wrote in predicted_disposition,
+    # which on a merits cell is exactly the ungoverned field.
+    wrong_judgment = _merits_prediction(Judgment.affirmed).model_copy(
+        update={"predicted_disposition": Disposition.other}
+    )
+    assert is_correct(wrong_judgment, outcome) == 0
+
+
+def test_a_judgment_less_prediction_earns_no_free_merits_match() -> None:
+    """The routing is on the outcome, so `other == other` is never a match.
+
+    A merits outcome's `actual_disposition` is `other`; a prediction that
+    carries no judgment but writes `other` there would collect a costless 1 if
+    `correct` needed a judgment on both sides. `validate` refuses such a
+    prediction, but `correct` is computed before validate runs, so the axis has
+    to hold on its own.
+    """
+    outcome = _merits_outcome(Judgment.reversed)
+    judgment_less = _prediction(0.6).model_copy(update={"predicted_disposition": Disposition.other})
+    assert judgment_less.judgment is None
+    assert is_correct(judgment_less, outcome) == 0
+
+
+def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
+    # A cert cell carries no judgment on either side, so the disposition
+    # comparison is unchanged — the path every committed evaluation took.
+    assert is_correct(_prediction(0.9), _outcome(1)) == 1
+    assert is_correct(_prediction(0.1), _outcome(1)) == 0
