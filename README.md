@@ -196,6 +196,11 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
     evaluation.md
 ```
 
+What each of those files holds — every field of `prediction.json` at each of
+the three stages, the two prose documents, and the sidecars a cell writes (or
+does not) — is walked with worked examples in
+[`docs/predicted-artifacts.md`](docs/predicted-artifacts.md).
+
 The line is deliberate: raw facts are bulk and regenerable, so they live in
 the packed, access-gated corpus (per-case content objects stay behind index
 pointers, never git tree entries); derived judgments are tiny, critical, and
@@ -249,6 +254,7 @@ docs/               design & operations references (see Documentation below)
 
 - [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
+- [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
 - [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
 - [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
