@@ -1,0 +1,11 @@
+case_id: scotus/72470440
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-02-16'
+resolved: true
+schema_version: '1.0'
+title: National Postal Policy Council, et al., Petitioners v. Postal Regulatory Commission,
+  et al.
