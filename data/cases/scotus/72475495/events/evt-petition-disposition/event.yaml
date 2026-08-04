@@ -1,0 +1,11 @@
+case_id: scotus/72475495
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-08-24'
+resolved: true
+schema_version: '1.0'
+title: "Centro M\xE9dico del Turabo, Inc., dba Hospital Hima San Pablo Caguas and\
+  \ Hospital Hima San Pablo Fajardo, Petitioner, v. Uni\xF3n General de Trabajadores"

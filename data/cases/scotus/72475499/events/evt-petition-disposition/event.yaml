@@ -1,0 +1,12 @@
+case_id: scotus/72475499
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-08-29'
+resolved: true
+schema_version: '1.0'
+title: Robert R. Cushing, Individually and in His Capacity as the Minority Leader
+  of the New Hampshire House of Representatives, et al., Petitioners v. Sherman Packard,
+  Speaker of the House of the New Hampshire House of Representatives
