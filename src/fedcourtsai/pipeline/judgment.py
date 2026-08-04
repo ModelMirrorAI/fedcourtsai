@@ -23,8 +23,8 @@ VACATED ..."), still parses. A false negative costs one unparsed row in a
 descriptive count; a false positive would fabricate a merits ground truth — so
 the parser is deliberately conservative.
 
-The batch pass (:func:`backfill_merits_judgments`) reads each granted SCOTUS
-case's latest stored snapshot through :func:`fedcourtsai.corpus.latest_snapshot`
+The batch pass (:func:`backfill_merits_judgments`) reads each merits-bound
+SCOTUS case's latest stored snapshot through :func:`fedcourtsai.corpus.latest_snapshot`
 — the same offline access path the salience replay uses, which under the
 corpus-split mode transparently serves from the per-case content store — and
 stamps the parsed judgment on the corpus row (``merits_judgment`` /
@@ -237,9 +237,12 @@ class MeritsBackfillResult(BaseModel):
 
 
 def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> MeritsBackfillResult:
-    """Parse every granted SCOTUS row's stored snapshot for its merits judgment.
+    """Parse each merits-bound SCOTUS row's stored snapshot for its judgment.
 
-    For each row with ``date_cert_granted`` set, read the case's latest stored
+    The population is :func:`fedcourtsai.corpus.opens_merits_proceeding` — a
+    cert grant that is actually followed by briefing, argument, and a separate
+    judgment, so a GVR's own vacatur never enters the merits record. For each
+    such row, read the case's latest stored
     snapshot (:func:`fedcourtsai.corpus.latest_snapshot` — SQLite, or the
     per-case content store under the corpus-split mode), parse the **last**
     judgment-shaped entry, and stamp ``merits_judgment`` / ``merits_decided``
@@ -256,7 +259,7 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     judgments: Counter[str] = Counter()
     updates: list[tuple[str, Judgment, date | None]] = []
     for row in corpus.iter_rows(conn, court="scotus"):
-        if row.date_cert_granted is None:
+        if not corpus.opens_merits_proceeding(row):
             continue
         eligible += 1
         found = corpus.latest_snapshot(conn, row.case_id)

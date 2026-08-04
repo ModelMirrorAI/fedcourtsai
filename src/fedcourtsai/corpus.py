@@ -44,7 +44,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
-from .schemas import GRANTED_DISPOSITIONS, Disposition, EventKind, Judgment, Stage
+from .schemas import (
+    GRANTED_DISPOSITIONS,
+    MERITS_PROCEEDING_DISPOSITIONS,
+    Disposition,
+    EventKind,
+    Judgment,
+    Stage,
+)
 from .supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -1475,6 +1482,26 @@ def is_modern_cert(row: CorpusRow) -> bool:
     historical merits-era labels.
     """
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+def opens_merits_proceeding(row: CorpusRow) -> bool:
+    """Whether a SCOTUS row's cert grant is followed by a merits proceeding.
+
+    A cert grant date alone does not mean a merits decision follows: a GVR and a
+    summary reversal are grants whose disposition rides in the cert order
+    itself, so they leave nothing to argue, decide, or forecast. Both the
+    judgment backfill's population and the statpack's merits section key on
+    this, matching the rule that mints the open merits event
+    (:data:`fedcourtsai.schemas.MERITS_PROCEEDING_DISPOSITIONS`) — a case never
+    forecast at the merits stage must not enter the rate that scores merits
+    forecasts, and a GVR's vacatur would otherwise count as a disturbed
+    judgment by construction.
+    """
+    return (
+        row.court == "scotus"
+        and row.date_cert_granted is not None
+        and row.disposition in MERITS_PROCEEDING_DISPOSITIONS
+    )
 
 
 def is_live_slice(row: CorpusRow) -> bool:

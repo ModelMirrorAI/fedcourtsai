@@ -1117,10 +1117,14 @@ def _accumulate_scotus_terms(
     stage populations. The cert entries keep their live-slice restriction; the
     interim axis keys on the form alone, which is the live channel's
     addressable population either way. The merits axis is a *projection* of the
-    cert population rather than a third form — every row with a cert grant
-    date, keyed on the Term of the grant — so a granted row feeds both a cert
-    Term entry and a merits one, describing two different stages of the same
-    case.
+    cert population rather than a third form — the rows whose grant opens a
+    merits proceeding (:func:`fedcourtsai.corpus.opens_merits_proceeding`),
+    keyed on the Term of the grant — so such a row feeds both a cert Term entry
+    and a merits one, describing two different stages of the same case. A GVR
+    or summary reversal is a grant that decides in the cert order itself, so it
+    contributes no merits row: its vacatur is a cert-stage disposition, and
+    pooling it would count as a disturbed judgment a case that was never
+    forecast at the merits stage.
     """
     if row_is_live:
         year = corpus.scotus_term_year(row.docket_number)
@@ -1129,7 +1133,7 @@ def _accumulate_scotus_terms(
     application_year = corpus.scotus_application_term_year(row.docket_number)
     if application_year is not None:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
-    if row.date_cert_granted is not None:
+    if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
         grant_year = _grant_term_year(row.date_cert_granted)
         merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
 

@@ -355,15 +355,17 @@ the rendered table) and
   vacated / affirmed-in-part / DIG / equally divided), and the **disturbed
   rate** — reversed + vacated + affirmed-in-part over parsed, raw `n` beside
   it, with the two non-merits exits (DIG, equally divided) counted as
-  undisturbed because both leave the judgment below standing. The vacated
-  bucket — and therefore the disturbed rate — pools summary GVRs (near-certain
-  vacaturs decided without argument) with argued merits vacaturs, so the rate
-  describes **all grants**, not the argued docket. **What may be
+  undisturbed because both leave the judgment below standing. The population is
+  the grants that open a merits proceeding — the same rule that mints the event
+  a merits forecast is made on — so GVRs and summary reversals, whose
+  disposition rides in the cert order itself, are absent: their vacaturs are
+  cert-stage facts and would otherwise count as disturbed judgments in cases
+  no one forecast at the merits stage. **What may be
   claimed from it:** the counts and the disturbed rate are *descriptive* facts
   about the parsed cohort, nothing more. The rate is the natural anchor for a
   future merits Brier baseline, but that baseline — like merits predict scope
-  and scoring, and its own denominator (whether GVRs and the procedural exits
-  sit in it) — remains unspecified (`docs/outcome-decomposition.md`), so no
+  and scoring, and its own denominator (whether the procedural exits sit in
+  it) — remains unspecified (`docs/outcome-decomposition.md`), so no
   skill, calibration, or baseline claim may rest on it; and the parsed slice
   is selected on parseability (a stored snapshot whose terminal entry matches
   the deterministic shapes), so quote the `parsed`/`granted` coverage beside
