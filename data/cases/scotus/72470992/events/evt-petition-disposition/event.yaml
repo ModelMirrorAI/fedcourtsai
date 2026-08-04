@@ -1,0 +1,11 @@
+case_id: scotus/72470992
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-08-11'
+resolved: true
+schema_version: '1.0'
+title: SNH SE Ashley River Tenant, LLC, et al., Petitioners v. Thayer W. Arredondo,
+  as Personal Representative of the Estate of Hubert Whaley,  Deceased

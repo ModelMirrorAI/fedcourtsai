@@ -1,0 +1,12 @@
+case_id: scotus/72471008
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-08-13'
+resolved: true
+schema_version: '1.0'
+title: Huping Hu, et al., Petitioners v. Drew Hirshfeld, Acting Under Secretary of
+  Commerce for Intellectual Property and Director, United States Patent and Trademark
+  Office
