@@ -1,12 +1,15 @@
 """Tests for the court-facing docket pack (``fedcourts docket`` / :mod:`analytics`).
 
 Uses the same deterministic synthetic corpus as the statpack tests
-(``fixture_corpus``): six cases across ca9 / ca1 / scotus, four resolved and two
-open, with two live-slice SCOTUS petitions — ``scotus/304`` a walker-sampled
+(``fixture_corpus``): seven cases across ca9 / ca1 / scotus, five resolved and
+two open, with two live-slice SCOTUS petitions — ``scotus/304`` a walker-sampled
 paid denial at weight 5 (OT22, one relist) and ``scotus/305`` a pending paid
 poller row at weight 1 (OT24, CVSG on file) — plus discovery cursors (OT22 paid
 complete at 850, OT22 IFP partial at 460, OT24 paid partial at 12), so the
-pooled per-Term census and the fee-class cut both have real material.
+pooled per-Term census and the fee-class cut both have real material. The
+``scotus/306`` stay application is a live-slice row too, so it counts in the
+coverage block while joining no cert section — the cut every cert assertion
+here is scoped to.
 """
 
 from __future__ import annotations
@@ -56,11 +59,12 @@ def test_docket_sections_are_court_facing_only() -> None:
 
 def test_build_docket_pack_headline_and_sections(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus.db_path)
-    assert (pack.corpus_rows, pack.resolved, pack.open) == (6, 4, 2)
+    assert (pack.corpus_rows, pack.resolved, pack.open) == (7, 5, 2)
     assert [s.title for s in pack.sections] == [spec.title for spec in _DOCKET_SECTIONS]
-    # Coverage denominators match the live slice the cert sections aggregate.
-    assert pack.coverage.live_slice_rows == 2
-    assert pack.coverage.live_slice_resolved == 1
+    # Coverage denominators span the whole live slice (the application row
+    # included), even though the cert sections aggregate only the petitions.
+    assert pack.coverage.live_slice_rows == 3
+    assert pack.coverage.live_slice_resolved == 2
     assert pack.coverage.census_filings == 1322  # 850 + 460 + 12
 
 
@@ -228,8 +232,8 @@ def test_render_docket_markdown_carries_scope_and_sample_size(
 ) -> None:
     md = analytics.render_docket_markdown(_pack(fixture_corpus.db_path))
     assert md.startswith("# Docket pack")
-    assert "**Corpus.** 6 case(s): 4 resolved, 2 open." in md
-    assert "**Live/historical slice.** 2 case(s), 1 resolved" in md
+    assert "**Corpus.** 7 case(s): 5 resolved, 2 open." in md
+    assert "**Live/historical slice.** 3 case(s), 2 resolved" in md
     assert "1322 docketed filing(s)" in md
     # Every section states its own scope, and every base rate its denominator.
     assert "## Cert petitions by fee class (paid vs IFP)" in md
@@ -307,7 +311,7 @@ def test_cli_docket_writes_both_files(fixture_corpus: FixtureCorpus, tmp_path: P
     result = runner.invoke(app, ["docket", "--out", str(json_out), "--markdown-out", str(md_out)])
     assert result.exit_code == 0, result.output
     pack = DocketPack.model_validate_json(json_out.read_text())
-    assert pack.corpus_rows == 6
+    assert pack.corpus_rows == 7
     assert md_out.read_text().startswith("# Docket pack")
 
 

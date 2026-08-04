@@ -37,7 +37,12 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** Under
-`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/`:
+`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/`. Start with the event's
+`event.yaml`: its `stage` field names the decision standard the event resolved
+on and selects which scoring rules below govern — `cert` (a petition for
+certiorari; a petition/appeal-kind event that records no stage also reads as
+cert) or `interim` (a stay/injunction application; the interim rules sit under
+`evaluation.json` below). No other stage reaches a scored cell today. Then:
 
 3. `outcome.json` — the realized ground truth (`actual_disposition`,
    `actual_granted`, optional `votes`). The event must be resolved; if there is no
@@ -88,7 +93,8 @@ For each predictor you score, write to
     for a `gvr` outcome — a GVR is a grant).
   - `vote_accuracy` — fraction of predicted per-Justice votes that matched, over the Justices the prediction and the outcome both name (or omit if no
     votes were predicted).
-  - `segment_base_rate` — the case's **salience-band** grant rate over prior Terms
+  - `segment_base_rate` — **cert-stage cells** (an interim cell omits it; see
+    the interim rules below): the case's **salience-band** grant rate over prior Terms
     only, read from committed `metrics/statpack.md`. Take the band from the
     prediction's own `context.band` — the band frozen when that cell ran — and
     **do not re-derive it from the docket**: a band only ever strengthens, so a
@@ -120,6 +126,27 @@ For each predictor you score, write to
     the forecast's skill over the naive baseline that always predicts the segment base
     rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
     `segment_base_rate` is omitted or the baseline is already exact.
+  - **Interim-stage cells** (the event's stage is `interim` — a stay/injunction
+    application): `correct` and `brier_score` are computed identically —
+    `granted` there denotes the requested relief, and you read
+    `outcome.actual_granted` as recorded rather than re-deriving it. **Omit
+    `segment_base_rate` and `brier_skill_score`, and leave `base_rate_basis`
+    null**: no interim segment base rate is published — the statpack's
+    interim-docket section is descriptive counts, with the rate pre-registered
+    to publish only once 25 resolved substantive applications accumulate
+    (`docs/salience.md`, *The interim docket*) — so there is no baseline to
+    score skill against, and the salience band table describes a cert
+    population no application belongs to. The omission is keyed on the
+    **stage**, not on the prediction's band: an interim cell whose
+    `context.band` is non-null was pinned to a cert docket, and that band
+    describes the cert petition rather than the application, so omit anyway and
+    add a `flags.json` `data-quality` note that an interim cell carried a cert
+    band. Omitting for the ordinary interim reason takes no flag: it is the
+    stage's standing rule, not a per-cell anomaly a maintainer needs surfaced —
+    unlike the salience-version mismatch above. Say in `evaluation.md` that the
+    cell is interim and the skill fields are omitted by rule. `claim_scores`
+    stays absent as always: a motion-kind event declares no claim set, so the
+    harness stamps nothing.
   - `reasoning_quality` — your 0–1 qualitative judgment of the predictor's
     `reasoning.md` (soundness of the legal analysis given the outcome, not just
     whether it was right), and of that document only — not its

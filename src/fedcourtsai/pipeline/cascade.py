@@ -127,13 +127,18 @@ def _outcome_for_resolved(
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):
         return None
     assert row.disposition is not None  # narrowed by is_machine_readable above
+    # An interim (application-docket) outcome never carries the cert `signals`
+    # block — distribution count and CVSG are observations nobody makes on an
+    # application — keyed on the same tolerant docket-form recognizer the live
+    # resolution path uses (`pipeline.outcome._build_outcome`).
+    interim = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     return Outcome(
         case_id=row.case_id,
         event_id=event_id,
         resolved_at=row.date_decided,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
-        signals=resolution_signals(row.distribution_count, row.cvsg_date),
+        signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )

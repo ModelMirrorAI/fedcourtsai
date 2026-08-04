@@ -60,8 +60,17 @@ from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
 from ..pricing import DEFAULT_MODELS
-from ..schemas import Disposition, Engine, Evaluation, Outcome, Prediction, UsageRole
+from ..schemas import (
+    ClaimProbability,
+    Disposition,
+    Engine,
+    Evaluation,
+    Outcome,
+    Prediction,
+    UsageRole,
+)
 from ..serialize import read_model, write_json
+from .claims import declared_claim_set
 from .evaluate import brier_score, is_correct, vote_accuracy
 
 # Canned values the stub reports. Deterministic by construction — no clock, no
@@ -188,6 +197,30 @@ class StubRunner:
             return self._predict(request)
         return self._evaluate(request)
 
+    @staticmethod
+    def _claims(event_id: str) -> list[ClaimProbability] | None:
+        """The stub's answer to the event's declared claim set, or ``None`` for none.
+
+        Mirrors the prompt contract: a cell answers every declared claim, and a
+        kind with no declared set (a motion, an order) declares none — the
+        serialized record then carries a null ``claims``, which is what an
+        agent omitting the field also produces. Every probability is the same
+        canned deterministic floor the rest of the stub uses: the disposition
+        claim must restate ``probability`` exactly
+        (:func:`fedcourtsai.pipeline.claims.score_claims` voids a divergent
+        pair), and the increments take that floor rather than a considered
+        number, since the stub reads no facts. Both increment baselines are
+        ``None`` today, so neither claim scores regardless.
+        """
+        declared = declared_claim_set(event_id)
+        if declared is None:
+            return None
+        _set_version, claim_ids = declared
+        return [
+            ClaimProbability(claim_id=claim_id, probability=_STUB_PROBABILITY)
+            for claim_id in claim_ids
+        ]
+
     def _predict(self, request: RunRequest) -> list[Path]:
         events = request.event_paths
         prediction = Prediction(
@@ -202,6 +235,7 @@ class StubRunner:
             probability=_STUB_PROBABILITY,
             predicted_disposition=_STUB_DISPOSITION,
             big_case_score=_STUB_BIG_CASE_SCORE,
+            claims=self._claims(request.event_id),
             predicted_reasoning_doc=events.predicted_reasoning(
                 request.actor_id, request.run_id
             ).name,

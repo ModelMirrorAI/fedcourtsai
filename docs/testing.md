@@ -20,8 +20,10 @@ secret.
 
 The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
 it drives provision → predict → evaluate → `validate` over the fixture corpus with no
-network, so a broken predict/evaluate cell fails in the gate in seconds. Run just it
-with `uv run pytest -k cascade_smoke`.
+network, so a broken predict/evaluate cell fails in the gate in seconds. It covers both
+predicted stages — a cert petition and the fixture's substantive stay application, whose
+interim cell carries a Brier score but no segment baseline and lands in the leaderboard's
+unranked `interim` block. Run just it with `uv run pytest -k cascade_smoke`.
 
 If you changed the pydantic models, the `schemas` stage regenerates the exported
 schemas and fails on drift — so regenerate and commit them in the same change.

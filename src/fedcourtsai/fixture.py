@@ -71,6 +71,13 @@ class FixtureCase:
     originating_court_name: str | None = None
     date_cert_granted: date | None = None
     date_cert_denied: date | None = None
+    # Interim-docket facts: an application case carries its parsed ask and the
+    # latched escalation-ladder signals, so the corpus columns the interim
+    # cohort is assembled from have a population in miniature.
+    application_kind: str | None = None
+    response_requested: bool | None = None
+    referred_to_court: bool | None = None
+    amicus_briefs: int | None = None
 
     @property
     def case_id(self) -> str:
@@ -78,8 +85,16 @@ class FixtureCase:
 
     @property
     def kind(self) -> EventKind:
-        """SCOTUS dockets predict a petition; every other court an appeal."""
-        return EventKind.petition if self.court == "scotus" else EventKind.appeal
+        """Mirrors the baseline-mint rule (:func:`fedcourtsai.pipeline.ingest.default_event`).
+
+        At SCOTUS an application docket predicts its motion and a cert docket
+        its petition; every other court predicts the appeal.
+        """
+        if self.court != "scotus":
+            return EventKind.appeal
+        if corpus.is_scotus_application_form(self.docket_number):
+            return EventKind.motion
+        return EventKind.petition
 
     @property
     def resolved(self) -> bool:
@@ -112,15 +127,28 @@ class FixtureCase:
             originating_court_name=self.originating_court_name,
             date_cert_granted=self.date_cert_granted,
             date_cert_denied=self.date_cert_denied,
+            application_kind=self.application_kind,
+            response_requested=self.response_requested,
+            referred_to_court=self.referred_to_court,
+            amicus_briefs=self.amicus_briefs,
         )
 
     def event(self) -> corpus.CorpusEvent:
+        # The stage mirrors the baseline-mint rule: a SCOTUS motion baseline is
+        # the interim decision standard, a SCOTUS petition baseline the cert
+        # standard, and a circuit appeal declares none.
+        if self.court != "scotus":
+            stage = None
+        elif self.kind == EventKind.motion:
+            stage = Stage.interim
+        else:
+            stage = Stage.cert
         return corpus.CorpusEvent(
             event_id=ids.event_id(self.kind.value, "disposition"),
             case_id=self.case_id,
             court=self.court,
             kind=self.kind,
-            stage=Stage.cert if self.court == "scotus" else None,
+            stage=stage,
             title=self.case_name,
             decision_target="disposition",
             opened_at=self.date_filed,
@@ -148,7 +176,10 @@ class FixtureCase:
 # citations / disposition / recency) and provisioning (the dated snapshot) read.
 # The SCOTUS petitions carry lower-court linkage onto the ca9 dockets (304 →
 # ca9/102, 305 → ca9/103) and are live-slice rows, so the statpack's
-# originating-circuit and weighted cert cuts have material to aggregate.
+# originating-circuit and weighted cert cuts have material to aggregate. The
+# `26A11` application docket (scotus/306) is the interim stage in miniature: a
+# resolved substantive stay application whose motion-baseline event carries
+# `Stage.interim`, so the offline cascade can prove an interim cell end to end.
 FIXTURE_CASES: tuple[FixtureCase, ...] = (
     FixtureCase(
         court="ca9",
@@ -267,6 +298,46 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
         entries=(
             ("2025-01-15", "Petition for writ of certiorari filed."),
             ("2025-03-03", "Brief in opposition requested."),
+        ),
+    ),
+    FixtureCase(
+        court="scotus",
+        docket=306,
+        docket_number="26A11",
+        case_name="Marbury Power Cooperative v. Ellison",
+        date_filed=date(2026, 6, 22),
+        date_decided=date(2026, 7, 14),
+        snapshot_date=date(2026, 7, 14),
+        # Written by the live application rotation: a substantive stay
+        # application that climbed the whole escalation ladder — a requested
+        # response, referral to the full Court, one amicus brief — and was
+        # granted, so the fixture exercises the interim (motion-baseline) path:
+        # a `Stage.interim` event, application-shaped entry text, and an
+        # outcome with no cert `signals` block (no distributions, no CVSG).
+        # The snapshot envelope stays the fixture's uniform CourtListener docket
+        # shape; only the entry text is application-shaped.
+        disposition=Disposition.granted,
+        last_live_polled=date(2026, 7, 14),
+        sample_weight=1,
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=True,
+        amicus_briefs=1,
+        entries=(
+            (
+                "2026-06-22",
+                "Application (26A11) for a stay of the mandate pending the filing and "
+                "disposition of a petition for a writ of certiorari, submitted to "
+                "The Chief Justice.",
+            ),
+            ("2026-06-25", "Response to application (26A11) requested, due July 2, 2026."),
+            ("2026-07-02", "Response to application filed."),
+            ("2026-07-06", "Brief amicus curiae of Grid Reliability Council filed."),
+            (
+                "2026-07-14",
+                "Application (26A11) referred to the Court. Application granted; the "
+                "mandate is stayed pending disposition of the petition.",
+            ),
         ),
     ),
 )
