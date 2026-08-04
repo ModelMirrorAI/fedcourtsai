@@ -160,22 +160,32 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
     """Whether an event is the forecastable interim baseline of an in-scope case.
 
     The interim admission: a **motion-kind** event carrying the **interim
-    stage** (the application-docket baseline the discovery mint stamps), on a
-    row the row-only scope rules keep in scope — which, per
-    :func:`fedcourtsai.corpus.is_non_cert_scotus_form`, admits only an
-    application whose latched ask reads substantive. The row check is what
-    keeps an extension or unknown-ask application's baseline out of the
-    fan-out even before the scope reconcile latches ``predict_excluded`` on
-    its row. Deliberately the **row-only** reason evaluator, not the
+    stage**, on an **application-form** row the row-only scope rules keep in
+    scope — which, per :func:`fedcourtsai.corpus.is_non_cert_scotus_form`,
+    admits only an application whose latched ask reads substantive. The row
+    check is what keeps an extension or unknown-ask application's baseline out
+    of the fan-out even before the scope reconcile latches ``predict_excluded``
+    on its row. Deliberately the **row-only** reason evaluator, not the
     connection-holding ``out_of_scope_reason_full``: the one rule the full
     evaluator adds (the bare opinion-import profile) cannot match an
     application row, and the caller's ``predict_excluded`` check already
     carries any snapshot-aware latch.
+
+    The docket form is load-bearing, not redundant with the stage: a cert
+    docket carries interim-stage events too — an entry-pinned stay or
+    injunction motion filed on the petition's own docket — and a cert docket is
+    squarely in scope, so the scope rules alone would admit one. Its cell would
+    then freeze the *petition's* salience band as its conditioning, scoring an
+    interim forecast against a cert population. Forecasting those motions is a
+    later scope decision with its own baseline; until then the interim fan-out
+    is the application docket, whose baseline the discovery mint stamps.
     """
     return (
         event.kind == EventKind.motion
         and event.stage == Stage.interim
         and row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
         and corpus.out_of_scope_reason(row) is None
     )
 

@@ -274,6 +274,48 @@ def test_forecastable_events_requires_the_interim_stage_on_a_motion(tmp_path: Pa
     assert forecastable_events(db, "scotus", 9525000004) == []
 
 
+def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim_fan_out(
+    tmp_path: Path,
+) -> None:
+    """A cert docket carries interim-stage events too — an entry-pinned stay or
+    injunction motion filed on the petition's own docket — and a cert docket is
+    in scope, so the stage and scope rules alone would admit one. Its cell would
+    freeze the petition's salience band as its conditioning, scoring an interim
+    forecast against a cert population. Only the petition baseline fans out."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    docket_number="24-1234",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay-pending-disposition",
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    kind=EventKind.motion,
+                    stage=Stage.interim,
+                ),
+            ],
+        )
+    assert forecastable_events(db, "scotus", 9525000009) == ["evt-petition-disposition"]
+
+
 def test_forecastable_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     with corpus.connect(db) as conn:
