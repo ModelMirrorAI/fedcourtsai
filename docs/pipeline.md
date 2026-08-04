@@ -69,9 +69,11 @@ each as its own least-privilege job holding only the credentials its mode needs:
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
-  artifacts from drifting stale: `metrics/leaderboard.json` and
-  `metrics/claim-scores.json` (input: the `data/`
-  evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
+  evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
+  committed `metrics/statpack.json`, which its realized-Term skill column is
+  scored against — so it regenerates *after* the pack)
+  and `metrics/backtest.json` / `metrics/statpack.{json,md}`
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are

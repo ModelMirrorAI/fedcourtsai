@@ -193,7 +193,8 @@ jobs:
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # backtest and statpack read the corpus, so it must be on disk; a missing
-      # pointer only warns (the leaderboard needs no corpus), but a failed pull
+      # pointer only warns (the leaderboard reads the committed pack, not the
+      # corpus), but a failed pull
       # of an existing pointer fails the job — regenerating against a missing
       # corpus would regress those artifacts to the empty pack.
       - uses: ./.github/actions/corpus-readonly
@@ -213,7 +214,6 @@ jobs:
       - name: Regenerate the metrics artifacts
         run: |
           set -euo pipefail
-          uv run fedcourts leaderboard
           if [ -f corpus/corpus.db ]; then
             uv run fedcourts backtest
             uv run fedcourts statpack
@@ -226,6 +226,12 @@ jobs:
             # replace the real record.
             uv run fedcourts scope-manifest
           fi
+          # Last, and outside the corpus gate: the board needs no corpus, but it
+          # scores its realized-Term skill column against the committed
+          # statpack, so running it before the pack would commit a board keyed
+          # on the pack it replaces — and a rerun on the merged tree would
+          # diff.
+          uv run fedcourts leaderboard
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
       # (null pr = nothing changed); this step only runs git and gh, mirroring

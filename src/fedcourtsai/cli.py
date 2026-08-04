@@ -91,7 +91,12 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .leaderboard import big_case_agreement, build_leaderboard, evaluator_agreement
+from .leaderboard import (
+    big_case_agreement,
+    build_leaderboard,
+    evaluator_agreement,
+    skill_components,
+)
 from .matrix import (
     CappedMatrix,
     CaseRequest,
@@ -812,9 +817,18 @@ def leaderboard(
     procedural mootness-basis cells, never blended and with only the timing
     strata ranked; see the ``Leaderboard`` schema). The ranked board is the
     **cert stage**; a non-cert stage's cells report in their own unranked
-    ``stages`` block, never pooled. The result
+    ``stages`` block, never pooled.
+
+    Each stratum also carries the **realized-Term** skill mean beside the
+    prior-Term one — the same band scored against the rate its own Term actually
+    realized, read from the committed ``metrics/statpack.json`` at build time
+    rather than from the cell, so the whole board shares one vintage. It is ex
+    post, never ranks, and is never pooled with the prior-Term mean; the claim
+    contract is ``metrics/README.md``. Without a readable pack the column is
+    absent altogether, which the command says out loud rather than leaving it to
+    read as "no cell qualified". The result
     writes through the shared serializer for minimal diffs. Reruns over an
-    unchanged ledger reproduce the file byte for byte.
+    unchanged ledger and pack reproduce the file byte for byte.
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
     blessed frozen process. During the shakedown (no digest blessed yet) that is
@@ -823,11 +837,17 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
+    cells = iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only)
+    # The realized-Term skill column is scored at render against the committed
+    # pack, so every cell on a board shares one vintage. Best-effort like the
+    # ops feeds: no pack means the column is absent, never partly computed.
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     board = build_leaderboard(
-        iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only),
+        cells,
         big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
+        skills=skill_components(cells, settings.data_root, statpack),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -836,6 +856,15 @@ def leaderboard(
         if scope == "frozen" and board.predictors_ranked == 0
         else ""
     )
+    # An unreadable pack and a board where no cell qualified both render the
+    # realized-Term column as null/0, so the one that is an input failure has to
+    # say so — a suppressed column must never read as a computed zero.
+    if statpack is None:
+        typer.echo(
+            "leaderboard: no readable metrics/statpack.json — "
+            "realized-Term skill omitted from every stratum.",
+            err=True,
+        )
     typer.echo(
         f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "

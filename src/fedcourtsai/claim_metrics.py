@@ -1,9 +1,10 @@
 """Aggregate the ledger's mechanical claim-score blocks into ``metrics/claim-scores.json``.
 
-Deterministic and offline like the leaderboard: a pure function of the
-committed artifacts under ``data/`` — no network, no clock, no randomness — so
-the same ledger always yields byte-identical output. ``fedcourts claim-scores``
-writes the result.
+Deterministic and offline: a pure function of the committed artifacts under
+``data/`` — no network, no clock, no randomness — so the same ledger always
+yields byte-identical output. (The leaderboard shares the discipline but takes
+one input more, the committed statpack.) ``fedcourts claim-scores`` writes the
+result.
 
 The surface is **advisory beside the leaderboard, never inside it**: nothing
 here alters or reorders the board, and the artifact carries no rank because a

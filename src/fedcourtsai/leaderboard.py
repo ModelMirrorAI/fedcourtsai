@@ -1,9 +1,9 @@
 """Aggregate the evaluations ledger into a ranked per-predictor leaderboard.
 
 Deterministic and offline: a pure function of the committed artifacts under
-``data/`` — no network, no clock, no randomness — so the same ledger always
-yields byte-identical output. ``fedcourts leaderboard`` writes the result to
-``metrics/leaderboard.json``.
+``data/`` and the committed ``metrics/statpack.json`` — no network, no clock, no
+randomness — so the same inputs always yield byte-identical output.
+``fedcourts leaderboard`` writes the result to ``metrics/leaderboard.json``.
 
 Every scored cell is stratified by the **pre-registration standard** before any
 aggregation: a prediction committed while its event was still open is a true
@@ -24,6 +24,16 @@ stage, and a cell whose event resolves on a different decision standard
 (interim, merits — the join normalizes the stage) aggregates into its own
 unranked ``stages`` block, never pooled with cert or another stage, because
 ``granted`` answers a different question at each stage.
+
+Skill is reported twice, against two baselines that answer different questions
+and are never combined. The evaluator's recorded ``brier_skill_score`` scores
+against the **strictly-prior** pooled band rate: leakage-safe, the primary
+outcome measure, and the only one that may rank.
+:func:`skill_components` adds the ex-post complement — the same band scored
+against the rate the case's own Term realized — computed at render rather than
+carried on the cell, because a Term's own rate keeps moving until the Term
+closes. Both are aggregated as a **ratio of sums** rather than a mean of
+per-cell ratios; :class:`CellSkill` says why.
 """
 
 from __future__ import annotations
@@ -31,12 +41,15 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
+from .pipeline.evaluate import realized_band_rate
 from .process_version import is_frozen
 from .schemas import (
+    GRANT_FAMILY_DISPOSITIONS,
     BigCaseLeaderboard,
     Evaluation,
     EvaluatorAgreement,
@@ -45,11 +58,18 @@ from .schemas import (
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
+    Outcome,
     Prediction,
     Stage,
+    StatPack,
     Stratum,
 )
 from .serialize import read_model
+
+#: One scored cell's identity — ``(case, event, predictor, evaluator, run)``.
+#: The join key for per-cell figures the board computes at render rather than
+#: reading off the record, since ``Evaluation`` is not hashable.
+EvaluationKey = tuple[str, str, str, str, str]
 
 FORWARD: Stratum = "forward"
 RETROSPECTIVE: Stratum = "retrospective"
@@ -88,21 +108,89 @@ def _mean(values: Sequence[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def _aggregate(evals: Sequence[Evaluation]) -> LeaderboardStratum | None:
-    """One stratum's aggregates, or ``None`` when the stratum has no evaluations."""
+def _evaluation_key(evaluation: Evaluation) -> EvaluationKey:
+    """This evaluation's :data:`EvaluationKey`."""
+    return (
+        evaluation.case_id,
+        evaluation.event_id,
+        evaluation.predictor_id,
+        evaluation.evaluator_id,
+        evaluation.run_id,
+    )
+
+
+@dataclass(frozen=True)
+class CellSkill:
+    """One scored cell's Brier and the baseline Brier each skill column uses.
+
+    The terms, not the ratios, because a stratum's skill is aggregated as a
+    **ratio of sums** — ``1 - sum(brier) / sum(baseline_brier)`` — and a mean of
+    per-cell ratios is a different, worse estimator. The per-cell ratio caps at
+    +1 but is unbounded below, so under cert's class imbalance a mean of ratios
+    is dominated by the many low-baseline denial cells and pays a predictor to
+    under-forecast the rare event: on the current pack's `baseline` band an
+    always-deny forecaster means to about +0.94 while the honest level-only
+    forecaster means to about +0.002. The ratio of sums prices the same
+    always-deny forecaster at about -0.05 and gives the level-only forecaster
+    exactly 0, and it is stable under band mix, which a mean of ratios is not.
+
+    A baseline is ``None`` where that column does not score the cell, so the two
+    columns keep independent populations and independent counts.
+    """
+
+    brier: float
+    prior_term_baseline: float | None = None
+    realized_term_baseline: float | None = None
+
+
+def _skill_of_means(terms: Sequence[tuple[float, float]]) -> float | None:
+    """Population Brier skill over ``(brier, baseline_brier)`` pairs, or ``None``.
+
+    ``1 - sum(brier) / sum(baseline_brier)``. Every baseline term is strictly
+    positive by construction (a zero baseline Brier is the undefined case its
+    producer already dropped), so the denominator cannot vanish on a non-empty
+    set. Bounded above by 1 like the per-cell score, and unbounded below.
+    """
+    if not terms:
+        return None
+    return 1.0 - sum(brier for brier, _ in terms) / sum(baseline for _, baseline in terms)
+
+
+def _aggregate(
+    evals: Sequence[Evaluation], skills: Mapping[EvaluationKey, CellSkill]
+) -> LeaderboardStratum | None:
+    """One stratum's aggregates, or ``None`` when the stratum has no evaluations.
+
+    ``skills`` is :func:`skill_components`' per-cell map. A cell absent from a
+    column's population is left out of that column entirely rather than entered
+    as a zero, and each column publishes its own ``*_scored`` denominator. The
+    two are never combined — different baselines, different questions.
+    """
     if not evals:
         return None
-    # The skill mean's own denominator rides beside it (`skill_scored`): a cell
-    # scores skill only where a segment base rate exists, so the gap between it
-    # and `evaluations` must be visible rather than silent.
-    skills = [ev.brier_skill_score for ev in evals if ev.brier_skill_score is not None]
+    # Each skill column's own denominator rides beside it: a cell scores a
+    # column only where that column's baseline exists, so the gap between it and
+    # `evaluations` must be visible rather than silent.
+    cells = [skills.get(_evaluation_key(ev)) for ev in evals]
+    prior = [
+        (cell.brier, cell.prior_term_baseline)
+        for cell in cells
+        if cell is not None and cell.prior_term_baseline is not None
+    ]
+    realized = [
+        (cell.brier, cell.realized_term_baseline)
+        for cell in cells
+        if cell is not None and cell.realized_term_baseline is not None
+    ]
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
         evaluations=len(evals),
         accuracy=sum(ev.correct for ev in evals) / len(evals),
         mean_brier_score=_mean([ev.brier_score for ev in evals if ev.brier_score is not None]),
-        mean_brier_skill_score=_mean(skills),
-        skill_scored=len(skills),
+        population_brier_skill_score=_skill_of_means(prior),
+        skill_scored=len(prior),
+        population_realized_term_skill_score=_skill_of_means(realized),
+        realized_term_skill_scored=len(realized),
         mean_vote_accuracy=_mean(
             [ev.vote_accuracy for ev in evals if ev.vote_accuracy is not None]
         ),
@@ -120,6 +208,10 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
     orders predictors that have no forward cells yet. The procedural stratum
     never contributes — vacatur-practice calls buy no rank. ``predictor_id`` makes the
     ranking deterministic under full ties.
+
+    No skill column is a rank key, and the realized-Term one could not be: it
+    scores against a rate no predictor could have known in-season, so ranking on
+    it would rank in-season on an ex-post fact.
     """
 
     def acc(stratum: LeaderboardStratum | None) -> float:
@@ -304,6 +396,177 @@ def evaluator_agreement(
     }
 
 
+def skill_components(
+    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
+    data_root: Path,
+    statpack: StatPack | None,
+) -> dict[EvaluationKey, CellSkill]:
+    """Each scored cell's Brier and the baseline Brier of each skill column.
+
+    The terms both columns aggregate from, resolved in one pass because both
+    need the cell's realized outcome: a baseline Brier is
+    ``(base_rate - actual_granted) ** 2``, and neither ``Evaluation`` carries
+    ``actual_granted`` nor can the ratio recover it. See :class:`CellSkill` for
+    why the terms travel rather than the ratios.
+
+    **The prior-Term column** takes the baseline the evaluator recorded
+    (``segment_base_rate``) over the population it already had: cells whose
+    ``brier_skill_score`` is non-null, which the schema ties to a recorded rate
+    and Brier. Only where its aggregation happens changes — plus the coherence
+    check :func:`_prior_baseline` adds, which drops a cell whose recorded skill
+    and recorded inputs disagree rather than publishing either.
+
+    **The realized-Term column** re-reads the same band from the case's own Term
+    (:func:`fedcourtsai.pipeline.evaluate.realized_band_rate`, leave-one-out)
+    instead of the strictly-prior pool. Holding the level at what obtained nets
+    out level-knowledge and leaves **discrimination** — a predictor with the
+    Term's level right but no ability to separate its cases scores positive on
+    the prior-Term column and ~0 here — which is why the two are published side
+    by side and never combined.
+
+    **A per-cell decomposition, not a difference of the two columns.** The
+    realized column's qualifying rules are narrower in practice and never the
+    same set (``base_rate_basis`` is the evaluator's own field, so inclusion is
+    a convention rather than a construction), so the two published figures run
+    over different cells with different denominators and must not be subtracted
+    from one another.
+
+    **Computed here rather than carried on the cell.** A Term's own rate is
+    term-to-date and keeps moving until the Term closes, so a value frozen onto
+    an ``evaluation.json`` would record when the cell was graded, not what the
+    Term did. Built from the ``statpack`` handed in, every cell on a board
+    therefore shares one vintage, and the figure converges as the Term closes. A
+    missing pack drops the realized column wholesale — the prior-Term column,
+    which needs no pack, is unaffected.
+
+    A cell qualifies for the realized column on four counts, each of which is an
+    omission rather than a substitute where it fails. It must be **cert stage**:
+    no other stage has a salience band, so none has a band rate to realize. It
+    must carry a ``brier_score`` to score. Its recorded ``base_rate_basis`` must
+    be ``risk_set``, so this number and the prior-Term number beside it describe
+    the same band population — the ``terminal`` basis re-derives the band from
+    the corpus row, which the committed ledger does not carry, so those cells
+    are omitted rather than scored on a mismatched pairing. And the scored
+    prediction — the predictor's **latest** for the event, the join every
+    scoring surface uses — must carry the frozen band, version, and Term the
+    pairing is keyed on.
+    """
+    cases_dir = data_root / "cases"
+    outcomes: dict[tuple[str, str], Outcome] = {}
+    components: dict[EvaluationKey, CellSkill] = {}
+    for evaluation, _stratum, stage in cells:
+        if evaluation.brier_score is None:
+            continue
+        event_key = (evaluation.case_id, evaluation.event_id)
+        if event_key not in outcomes:
+            event_dir = cases_dir / evaluation.case_id / "events" / evaluation.event_id
+            outcomes[event_key] = read_model(event_dir / "outcome.json", Outcome)
+        outcome = outcomes[event_key]
+        prior = _prior_baseline(evaluation, outcome.actual_granted)
+        realized = _baseline_brier(
+            _realized_rate(cases_dir, evaluation, stage, outcome, statpack), outcome.actual_granted
+        )
+        if prior is None and realized is None:
+            continue
+        components[_evaluation_key(evaluation)] = CellSkill(
+            brier=evaluation.brier_score,
+            prior_term_baseline=prior,
+            realized_term_baseline=realized,
+        )
+    return components
+
+
+def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | None:
+    """The Brier a constant ``base_rate`` forecaster scored on this outcome.
+
+    ``None`` without a rate, and ``None`` when the baseline is already exact —
+    the skill ratio's undefined case, dropped here exactly as
+    :func:`fedcourtsai.pipeline.evaluate.brier_skill` drops it per cell, so a
+    zero can never reach the aggregate's denominator. That exclusion is not
+    neutral and is worth knowing when reading the column: an exact baseline is
+    the baseline's *best* cell, one the forecast could only lose against, so
+    dropping it nudges the published figure up. Both floors make it near
+    unreachable — a band rate of exactly 0.0 or 1.0 has to survive the minimum
+    resolved count — but the direction is fixed rather than random.
+    """
+    if base_rate is None:
+        return None
+    baseline = (base_rate - actual_granted) ** 2
+    return baseline if baseline > 0 else None
+
+
+#: How far a recorded ``brier_skill_score`` may sit from the value its own
+#: recorded inputs imply before :func:`_prior_baseline` drops the cell. Loose
+#: enough for an evaluator that rounded its own arithmetic (committed records
+#: carry three decimals), tight enough that a skill taken against a different
+#: band cannot pass — band rates differ several-fold, so a mismatch moves the
+#: score far further than this.
+_SKILL_COHERENCE_TOLERANCE = 1e-2
+
+
+def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
+    """The prior-Term baseline Brier this cell aggregates on, or ``None``.
+
+    The column's **population** stays the recorded ``brier_skill_score``'s, so
+    ``skill_scored`` keeps its documented meaning. Its **value** is derived from
+    the cell's own recorded inputs — ``segment_base_rate`` against the realized
+    outcome — because the aggregate needs the baseline term rather than the
+    ratio, and a ratio cannot yield the term back on a cell whose Brier is zero.
+
+    The two are one quantity computed two ways, and ``Evaluation`` enforces no
+    relation between its fields, so the derivation is **checked against the
+    record**: a cell whose recorded skill does not reproduce from its own
+    recorded base rate and Brier is omitted — visibly, in ``skill_scored`` —
+    rather than published on a baseline it was never graded against. Harness
+    output always agrees; a stale or hand-written record need not.
+    """
+    if evaluation.brier_skill_score is None or evaluation.brier_score is None:
+        return None
+    baseline = _baseline_brier(evaluation.segment_base_rate, actual_granted)
+    if baseline is None:
+        return None
+    implied = 1.0 - evaluation.brier_score / baseline
+    if not math.isclose(
+        implied,
+        evaluation.brier_skill_score,
+        rel_tol=_SKILL_COHERENCE_TOLERANCE,
+        abs_tol=_SKILL_COHERENCE_TOLERANCE,
+    ):
+        return None
+    return baseline
+
+
+def _realized_rate(
+    cases_dir: Path,
+    evaluation: Evaluation,
+    stage: Stage | None,
+    outcome: Outcome,
+    statpack: StatPack | None,
+) -> float | None:
+    """This cell's realized-Term band rate, or ``None`` where it does not qualify."""
+    if statpack is None or stage != Stage.cert or evaluation.base_rate_basis != "risk_set":
+        return None
+    latest = _latest_prediction(
+        cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+    )
+    context = latest.context if latest is not None else None
+    if context is None or context.band is None:
+        return None
+    if context.salience_version is None or context.term is None:
+        return None
+    return realized_band_rate(
+        context.band,
+        context.salience_version,
+        context.term,
+        statpack,
+        risk_set=True,
+        # The pack's numerator, not the binary target: `granted-in-part` is a
+        # granted outcome that keeps its own statpack bucket, so subtracting
+        # `actual_granted` would remove a grant the published rate never counted.
+        own_grant_family=int(outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS),
+    )
+
+
 def _group_by_predictor(
     cells: Sequence[tuple[Evaluation, Stratum]],
 ) -> dict[str, dict[Stratum, list[Evaluation]]]:
@@ -322,12 +585,18 @@ def _stratum_total(
     return sum(len(strata[stratum]) for strata in by_predictor.values())
 
 
-def _stage_board(cells: Sequence[tuple[Evaluation, Stratum]]) -> LeaderboardStage:
+def _stage_board(
+    cells: Sequence[tuple[Evaluation, Stratum]], skills: Mapping[EvaluationKey, CellSkill]
+) -> LeaderboardStage:
     """One non-cert stage's unranked block: per-predictor aggregates plus counts.
 
     The same per-stratum aggregation as the cert entries, but ordered by
     ``predictor_id`` and never ranked — a stage resolves on its own decision
     standard, so nothing here is comparable to the cert board or another stage.
+    Only cert cells ever carry a realized-Term baseline, so a stage block's
+    realized-Term figure is null and its count zero — the same shape the interim
+    block's prior-Term skill already has, and for the same reason: no other
+    stage publishes a band rate.
     """
     by_predictor = _group_by_predictor(cells)
     entries: list[LeaderboardStageEntry] = []
@@ -338,9 +607,9 @@ def _stage_board(cells: Sequence[tuple[Evaluation, Stratum]]) -> LeaderboardStag
             LeaderboardStageEntry(
                 predictor_id=predictor_id,
                 evaluators=len({ev.evaluator_id for ev in evals}),
-                forward=_aggregate(strata[FORWARD]),
-                retrospective=_aggregate(strata[RETROSPECTIVE]),
-                procedural=_aggregate(strata[PROCEDURAL]),
+                forward=_aggregate(strata[FORWARD], skills),
+                retrospective=_aggregate(strata[RETROSPECTIVE], skills),
+                procedural=_aggregate(strata[PROCEDURAL], skills),
             )
         )
     return LeaderboardStage(
@@ -361,33 +630,43 @@ def build_leaderboard(
     *,
     evaluators: Mapping[str, EvaluatorAgreement] | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
+    skills: Mapping[EvaluationKey, CellSkill] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
-    The ranked board is the **cert stage**: only cells whose event's stage is
-    cert (as the join normalizes it — see
-    :func:`fedcourtsai.store.iter_stratified_evaluations`) enter the top-level
-    entries and counts. Any other stage aggregates alone into an unranked
-    ``stages`` block keyed by the stage value (:data:`NO_STAGE_KEY` for a
-    stage-less cell), because ``granted`` answers a different question at each
-    stage — no skill or count figure is ever pooled across stages. (The
-    ``big_case`` and ``evaluators`` maps the caller supplies are stage-blind by
-    contract: they describe stakes reads, not stage-scoped skill.)
+        The ranked board is the **cert stage**: only cells whose event's stage is
+        cert (as the join normalizes it — see
+        :func:`fedcourtsai.store.iter_stratified_evaluations`) enter the top-level
+        entries and counts. Any other stage aggregates alone into an unranked
+        ``stages`` block keyed by the stage value (:data:`NO_STAGE_KEY` for a
+        stage-less cell), because ``granted`` answers a different question at each
+        stage — no skill or count figure is ever pooled across stages. (The
+        ``big_case`` and ``evaluators`` maps the caller supplies are stage-blind by
+        contract: they describe stakes reads, not stage-scoped skill.)
 
-    One entry per predictor, each carrying its **forward** and **retrospective**
-    aggregates separately (a stratum with no cells is null, never zero-filled
-    into a blend). Entries rank by forward accuracy (desc), forward Brier (asc,
-    missing last), the retrospective pair as tie-break, then ``predictor_id`` —
-    a total order, so the ranking is deterministic even under ties. ``big_case``
-    (from :func:`big_case_agreement`) attaches each predictor's big-case
-    rank-agreement as a second, orthogonal dimension that never affects the rank;
-    absent from the map (or unsupplied) leaves the entry's ``big_case`` null.
+        One entry per predictor, each carrying its **forward** and **retrospective**
+        aggregates separately (a stratum with no cells is null, never zero-filled
+        into a blend). Entries rank by forward accuracy (desc), forward Brier (asc,
+        missing last), the retrospective pair as tie-break, then ``predictor_id`` —
+        a total order, so the ranking is deterministic even under ties. ``big_case``
+        (from :func:`big_case_agreement`) attaches each predictor's big-case
+        rank-agreement as a second, orthogonal dimension that never affects the rank;
+        absent from the map (or unsupplied) leaves the entry's ``big_case`` null.
 
-    ``process_scope`` only labels the board — the caller has already filtered
-    ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
-    seam). Recording it makes the empty frozen headline self-explaining rather
-    than reading as a regression.
+    ``skills`` (from :func:`skill_components` over the same cells) supplies both
+        skill columns' terms — the cell's Brier and each baseline's — which are
+        aggregated as a ratio of sums, never a mean of per-cell ratios
+        (:class:`CellSkill`). The two columns keep separate populations and separate
+        ``*_scored`` counts, are never combined, and neither reaches
+        :func:`_rank_key`. Unsupplied, both columns are null everywhere with zero
+        counts — the board still carries accuracy, Brier, and every count.
+
+        ``process_scope`` only labels the board — the caller has already filtered
+        ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
+        seam). Recording it makes the empty frozen headline self-explaining rather
+        than reading as a regression.
     """
+    cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
     stage_cells: dict[str, list[tuple[Evaluation, Stratum]]] = defaultdict(list)
     for ev, stratum, stage in cells:
@@ -407,9 +686,9 @@ def build_leaderboard(
                 predictor_id=predictor_id,
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
-                forward=_aggregate(strata[FORWARD]),
-                retrospective=_aggregate(strata[RETROSPECTIVE]),
-                procedural=_aggregate(strata[PROCEDURAL]),
+                forward=_aggregate(strata[FORWARD], cell_skills),
+                retrospective=_aggregate(strata[RETROSPECTIVE], cell_skills),
+                procedural=_aggregate(strata[PROCEDURAL], cell_skills),
                 big_case=(big_case or {}).get(predictor_id),
             )
         )
@@ -430,5 +709,5 @@ def build_leaderboard(
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         evaluator_agreement=dict(evaluators or {}),
         entries=entries,
-        stages={key: _stage_board(stage_cells[key]) for key in sorted(stage_cells)},
+        stages={key: _stage_board(stage_cells[key], cell_skills) for key in sorted(stage_cells)},
     )

@@ -33,6 +33,7 @@ from .pipeline.judgment import grant_term_year, judgment_disturbed
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
 from .schemas import (
+    GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
     BaseRateBucket,
     Disposition,
@@ -71,15 +72,14 @@ _UNKNOWN_KEY = "(unknown)"
 # GVR grants the petition, so it sums into the grant rate alongside a plain grant
 # (both were a single "granted" bucket before the `gvr` label split them out).
 # `granted-in-part` stays its own bucket, preserving the pre-`gvr` definition.
-# The grant family, as one definition. The rendered tables print a grant count and
-# a grant rate in adjacent columns, so two enumerations of "what counts as a
-# grant" would diverge somewhere visible. Mirrors `pipeline.outcome.granted_flag`,
-# which owns the same question for the binary scoring target.
-_GRANT_LABELS = (
-    Disposition.granted.value,
-    Disposition.gvr.value,
-    Disposition.summary_reversal.value,
-)
+# The label form of `schemas.GRANT_FAMILY_DISPOSITIONS`, which is the one
+# definition: the rendered tables print a grant count and a grant rate in
+# adjacent columns, and a consumer that reconstructs the count from the rate
+# subtracts on these terms — so two enumerations of "what counts as a grant"
+# would diverge somewhere visible. It is deliberately *not*
+# `pipeline.outcome.granted_flag`'s set, which owns the binary scoring target
+# and admits `granted-in-part`. Sorted, so the constant is order-stable.
+_GRANT_LABELS = tuple(sorted(d.value for d in GRANT_FAMILY_DISPOSITIONS))
 
 
 def _grant_family_share(bucket: BaseRateBucket) -> float | None:

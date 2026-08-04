@@ -6,6 +6,13 @@ agent; the quantitative pieces (correctness, Brier score, and the segment-baseli
 skill score) are deterministic and provided here so every evaluator computes them
 identically.
 
+One function here is deliberately **not** a cell's to compute:
+:func:`realized_band_rate` reads the Term the case is in, whose rate keeps
+moving until that Term closes, so a value frozen onto an ``evaluation.json``
+would say when the cell was graded rather than what the Term did. It lives
+beside its strictly-prior sibling because the two share a definition, and is
+called from the leaderboard build over the current statpack instead.
+
 This module reads no config. Every tunable — today, the segment base rate's
 lookback window — arrives as an argument, so the functions stay pure and a test,
 a replay cell, and the cert back-test all get the same number from the same
@@ -189,6 +196,138 @@ def prediction_base_rate(
         lookback_terms=lookback_terms,
         risk_set=True,
     )
+
+
+#: The smallest resolved sample a **realized-Term** band rate may rest on. It
+#: binds twice, on the leave-one-out **weighted** denominator that scores the
+#: case and on the **observed** row count behind it, because a Term walked under
+#: denial sampling can carry a weighted 31 over some fourteen real petitions and
+#: the standard error follows the rows. Below either, :func:`realized_band_rate`
+#: returns ``None`` and the cell carries no realized-Term skill — a visible
+#: omission (the aggregate's own ``*_scored`` count), never a zero folded into a
+#: mean.
+#:
+#: Thirty, the figure :data:`MERITS_BASE_RATE_MIN_PARSED` states, for a sharper
+#: version of the same reason. A rate over thirty observed rows carries a
+#: standard error of at most ~0.09, and the skill ratio divides by
+#: ``(rate - outcome)**2``, so noise in the rate lands on the denominator of
+#: every cell in the band at once rather than averaging out across them. What
+#: binds harder here than on the pooled prior-Term baseline is that this pool is
+#: **one Term**: it cannot be widened by reaching further back, so a thin band
+#: is not a sampling choice but a fact about how far the Term has got. The floor
+#: is therefore a wait-for-the-Term rule — the `high` band clears it partway
+#: through an October Term and the weaker bands almost at once, while a band
+#: that never clears is omitted for that Term entirely. A stated
+#: pre-registration choice, not a knob: only tests pass ``min_resolved``
+#: anything else.
+REALIZED_BAND_RATE_MIN_RESOLVED = 30
+
+
+def realized_band_rate(
+    band: str,
+    band_version: str,
+    term: int,
+    statpack: StatPack,
+    *,
+    risk_set: bool,
+    own_grant_family: int,
+    min_resolved: int = REALIZED_BAND_RATE_MIN_RESOLVED,
+) -> float | None:
+    """One band's grant rate **in ``term`` itself**, leave-one-out for the scored case.
+
+    The ex-post sibling of :func:`_pooled_band_rate`, and identical to it in
+    every respect but one: it reads the case's **own** Term instead of every
+    strictly-prior one. Same band, same version pin (a band name means something
+    only under the scorer that assigned it), same ``risk_set`` pairing — a
+    frozen-context band takes ``prefix_est_grant_rate``, a band derived from the
+    row now takes ``est_grant_rate``.
+
+    Because the level is held at the one that obtained, skill against this rate
+    nets out level-knowledge and leaves **discrimination**: a predictor that has
+    the Term's level right but cannot tell its cases apart scores positive
+    against the prior-Term pool and ~0 here. It is **not** leakage-safe and no
+    predictor could have known it in-season, so it never ranks and is never
+    pooled or averaged with the prior-Term skill; ``metrics/README.md`` carries
+    the claim contract.
+
+    **Leave-one-out.** The scored case sits inside this rate, and in a thin band
+    that bites — one case moves a band of seventy-odd by well over a point. The
+    pack publishes no grant count, but the rate is a ratio of integer weighted
+    counts, so ``rate * weighted_resolved`` rounds back to the numerator
+    exactly; ``own_grant_family`` comes off it and one unit of weight off the
+    denominator. The ``risk_set`` pairing is what makes that subtraction well
+    defined: a band only ever strengthens, so a case frozen at a band ends at
+    that band or a stronger one and is therefore in the band's **risk set**,
+    while a case banded from the row now is in the band's **terminal**
+    population. Against the wrong rate the case would be subtracted from a
+    population it was never counted in.
+
+    ``own_grant_family`` is 1 iff the case's disposition is in
+    :data:`fedcourtsai.schemas.GRANT_FAMILY_DISPOSITIONS`, the numerator's own
+    definition — **not** ``actual_granted``, which is the binary scoring target
+    and additionally admits ``granted-in-part``. Subtracting the latter would
+    remove a grant the published numerator never counted.
+
+    **What the correction does to the scale**, exactly. Jackknifing moves the
+    baseline away from the case's own outcome by a fixed factor, so
+    ``skill = 1 - (1 - skill_uncorrected) * ((n - 1) / n)**2`` for a band of
+    weighted ``n`` (exactly, wherever ``own_grant_family`` equals the case's
+    ``actual_granted``, i.e. everywhere but a ``granted-in-part`` cert
+    disposition). Two readings follow. It is monotone in the uncorrected score,
+    so it never reorders cells within a band. And the attainable level-only
+    null is **not** 0 but ``(2n - 1) / n**2`` — the score of a forecaster
+    reporting the band's *published* rate, which contains its own case: about
+    +0.03 at n = 72 and about +0.06 at the floor of n = 31. (A forecaster
+    reporting the leave-one-out level itself would score exactly 0, but that
+    level is ``(g - y) / (n - 1)``, so reporting it requires knowing the
+    outcome — an oracle, not a null.) Read "~0" as that bound. Note the shift
+    itself, ``(1 - skill_uncorrected) * (2n - 1) / n**2``, is bounded only at
+    the null: Brier skill has no lower bound, so a badly negative cell shifts
+    much further.
+
+    Three bounded approximations, stated rather than corrected. The subtraction
+    removes one unit of weight rather than the row's own ``sample_weight``,
+    which the pack does not publish per row; the two coincide on a Term walked
+    at weight 1 — every live Term, so every forward cell — while on a
+    reweighted historical Term, where the retrospective cells sit, the
+    correction falls short of a sampled denial's full weight. The case is
+    assumed to be a row of the segment's population (the Term's live-slice paid
+    modern-cert petitions), which the salience gate makes true of every cell it
+    provisions but which an IFP or off-slice row would break. And the pack is a
+    **vintage**: a case resolved after it was built is not yet in its own Term's
+    counts, so the subtraction over-corrects by one unit until the next refresh
+    — bounded by ``1 / min_resolved`` and self-correcting as the Term closes.
+
+    ``None`` when the Term carries no segment for the band under that version,
+    when the band holds a single resolved row (leaving it out leaves nothing),
+    when either leave-one-out sample is below ``min_resolved``, or when the
+    subtraction lands outside ``[0, loo_weighted]`` — which cannot happen for a
+    case the counts contain, so it is proof that this vintage does not contain
+    it and the honest answer is no baseline rather than a clamped certainty.
+    """
+    for entry in statpack.terms:
+        if entry.salience_version != band_version:
+            continue  # version pin: a band name only means something under its own scorer
+        if entry.term != term:
+            continue  # the case's OWN Term, and only it — the whole difference from the pooler
+        for seg in entry.segments:
+            if seg.band != band:
+                continue
+            rate = seg.prefix_est_grant_rate if risk_set else seg.est_grant_rate
+            weighted = seg.prefix_weighted_resolved if risk_set else seg.weighted_resolved
+            observed = seg.prefix_resolved if risk_set else seg.resolved
+            if rate is None:
+                continue
+            loo_weighted = weighted - 1
+            if loo_weighted <= 0:
+                return None  # a single resolved row: leaving it out leaves no band at all
+            if loo_weighted < min_resolved or observed - 1 < min_resolved:
+                return None
+            loo_grants = round(rate * weighted) - own_grant_family
+            if not 0 <= loo_grants <= loo_weighted:
+                return None  # the case is not in this vintage's counts; invent nothing
+            return loo_grants / loo_weighted
+    return None
 
 
 #: The smallest parsed sample a merits baseline may rest on. Below it the

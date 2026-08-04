@@ -87,6 +87,18 @@ GRANTED_DISPOSITIONS: frozenset[Disposition] = frozenset(
     }
 )
 
+#: The **grant family** the statpack's published ``est_grant*rate`` figures
+#: count: :data:`GRANTED_DISPOSITIONS` less ``granted-in-part``, which keeps its
+#: own bucket so the published rate preserves its pre-``gvr`` definition. The
+#: two membership tests are therefore *not* interchangeable, and anything that
+#: reconstructs a published grant count from a published rate — the
+#: leave-one-out in ``pipeline.evaluate.realized_band_rate`` — has to subtract a
+#: case on exactly the terms the numerator counted it, not on the binary
+#: scoring target.
+GRANT_FAMILY_DISPOSITIONS: frozenset[Disposition] = GRANTED_DISPOSITIONS - {
+    Disposition.granted_in_part
+}
+
 #: The granted dispositions that open a **merits proceeding** — the subset of
 #: :data:`GRANTED_DISPOSITIONS` that is followed by briefing, argument, and a
 #: separate judgment. A GVR is a grant/vacate/remand whose vacatur rides in the
@@ -1465,6 +1477,25 @@ class LeaderboardStratum(_Strict):
     the cell measures recall plus calibration, never ex-ante forecasting skill.
     The strata are therefore aggregated separately and never blended into one
     headline number.
+
+    Two skill columns sit here, and they are never blended either. ``population_brier_skill_score``
+    scores against the strictly-prior pooled band rate — the leakage-safe
+    baseline, and the primary outcome measure — while
+    ``population_realized_term_skill_score`` holds the level at the rate the case's own
+    Term actually realized. Together they decompose skill **per cell**: the
+    first rewards knowing the level *and* discriminating within it, the second
+    nets the level out and leaves discrimination alone. Different baselines
+    answer different questions, so no figure combines them, only the first may
+    rank, and — since the second qualifies a narrower, never-identical set of
+    cells, which its own ``*_scored`` count records — the two are not a
+    difference either.
+
+    Both are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``
+    over the cells they score, rather than means of per-cell ratios — which is
+    what the ``population_`` prefix records, against the plain ``mean_*``
+    fields beside them. The ratio caps at +1 but is unbounded below, so a mean
+    of ratios under cert's class imbalance rewards under-forecasting the rare
+    event (``fedcourtsai.leaderboard.CellSkill``).
     """
 
     events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
@@ -1476,12 +1507,16 @@ class LeaderboardStratum(_Strict):
         le=1.0,
         description="Mean Brier score where reported (lower is better)",
     )
-    mean_brier_skill_score: float | None = Field(
+    population_brier_skill_score: float | None = Field(
         default=None,
         le=1.0,
-        description="Mean Brier skill score vs the stage's own segment base rate "
-        "where reported (higher is better; ~0 = no better than that baseline, "
-        "negative = worse). Distinct from raw Brier: it credits beating the biased "
+        description="Brier skill vs the stage's own segment base rate over the "
+        "cells that report one (higher is better; ~0 = no better than that "
+        "baseline, negative = worse). Despite the name it is the **population** "
+        "skill — `1 - sum(cell Brier) / sum(cell baseline Brier)` — not a mean "
+        "of per-cell ratios, which under cert's class imbalance would be "
+        "dominated by low-baseline denial cells and would pay a predictor to "
+        "under-forecast the rare event. Distinct from raw Brier: it credits beating the biased "
         "predicted-segment base rate, not the whole-docket rate. On the cert board "
         "the baseline is the salience segment's grant rate; a merits cell reports "
         "no skill score at all while the merits pool's GVR guard is unbuilt "
@@ -1490,10 +1525,40 @@ class LeaderboardStratum(_Strict):
     skill_scored: int = Field(
         default=0,
         ge=0,
-        description="Evaluations contributing to mean_brier_skill_score — the cells "
-        "carrying a non-null skill score. The skill mean's true denominator, which "
+        description="Evaluations contributing to population_brier_skill_score — the cells "
+        "carrying a non-null skill score. The figure's true denominator, which "
         "can be far below `evaluations` (a cell scores skill only where a segment "
-        "base rate exists), so the mean must be read beside this count",
+        "base rate exists), so the figure must be read beside this count",
+    )
+    population_realized_term_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Brier skill against the **realized** rate of each "
+        "case's own October Term, aggregated as the same population ratio "
+        "population_brier_skill_score is — the same band and basis as "
+        "population_brier_skill_score, with the baseline held at the level that "
+        "actually obtained instead of the strictly-prior pool, and computed "
+        "leave-one-out so a case never sits in the baseline that scores it. "
+        "Holding the level fixed nets out level-knowledge and leaves "
+        "discrimination: a predictor with the Term's level right but no ability "
+        "to separate its cases reads positive on the prior-Term figure and ~0 "
+        "here. Strictly **ex post** — no predictor could have known its Term's "
+        "realized rate — so it never ranks and is never pooled or averaged with "
+        "population_brier_skill_score, whose baseline answers a different question; "
+        "the two are a per-cell decomposition and their board means, taken over "
+        "different cell sets, must not be differenced. Cert stage only (no "
+        "other stage has a salience band), and null wherever no cell scored",
+    )
+    realized_term_skill_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations contributing to population_realized_term_skill_score. "
+        "Its own denominator, separate from `skill_scored`: this metric also "
+        "needs the cell's own Term to carry the band under the matching salience "
+        "version and to clear the stated minimum resolved count "
+        "(`pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
+        "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
+        "than computed on a handful of cases",
     )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
@@ -1680,8 +1745,10 @@ class Leaderboard(_Strict):
     evaluator-agreement blocks are stage-blind — they describe stakes reads,
     not stage-scoped skill), while any non-cert stage reports its own
     unranked block under ``stages`` (omitted entirely while none exist — see the
-    serializer). Computed by ``fedcourts leaderboard``; carries no
-    timestamp so the same ledger always serializes identically.
+    serializer). Computed by ``fedcourts leaderboard`` from the ledger and the
+    committed ``metrics/statpack.json`` (the vintage the realized-Term skill
+    column is scored on); carries no timestamp, so the same two inputs always
+    serialize identically.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION

@@ -13,14 +13,18 @@ from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
     PROCEDURAL,
     RETROSPECTIVE,
+    CellSkill,
+    _evaluation_key,
     big_case_agreement,
     build_leaderboard,
     classify_stratum,
     evaluator_agreement,
     kendall_tau_b,
+    skill_components,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
+    BaseRateBucket,
     BigCaseAssessment,
     BigCaseLeaderboard,
     Disposition,
@@ -31,8 +35,12 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     ProcessVersion,
     Stage,
+    StatPack,
+    StatPackTerm,
+    StatPackTermSegment,
     Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
@@ -81,7 +89,7 @@ def _write(data_root: Path, ev: Evaluation) -> None:
     write_json(path, ev)
 
 
-def _write_cell(
+def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     data_root: Path,
     ev: Evaluation,
     *,
@@ -91,6 +99,7 @@ def _write_cell(
     process_version: ProcessVersion | None = None,
     kind: EventKind = EventKind.petition,
     stage: Stage | None = None,
+    context: PredictionContext | None = None,
 ) -> None:
     """A full scored cell: evaluation plus the event, prediction, and outcome it targets.
 
@@ -98,6 +107,8 @@ def _write_cell(
     partitions on; ``None`` leaves it a shakedown cell. ``kind``/``stage`` land
     on the event.yaml the stratification join reads — the petition-kind default
     with a null stage is the committed-ledger shape, which stratifies as cert.
+    ``context`` is the harness-frozen conditioning the realized-Term skill reads
+    the band, version, and Term off.
     """
     _write(data_root, ev)
     court, _, docket = ev.case_id.partition("/")
@@ -127,6 +138,7 @@ def _write_cell(
             probability=0.7,
             predicted_disposition=Disposition.granted,
             process_version=process_version,
+            context=context,
         ),
     )
     write_json(
@@ -236,20 +248,62 @@ def test_all_optionals_absent_stay_none() -> None:
     assert stratum.mean_brier_score is None
     assert stratum.mean_vote_accuracy is None
     assert stratum.mean_reasoning_quality is None
-    assert stratum.mean_brier_skill_score is None
+    assert stratum.population_brier_skill_score is None
 
 
 def test_brier_skill_score_aggregates_over_present_cells() -> None:
-    # The skill column averages only reported cells and admits negative skill
-    # (a forecast worse than the segment base rate).
-    cells = [
-        _forward(_evaluation("alpha", brier_skill_score=0.4)),
-        _forward(_evaluation("alpha", brier_skill_score=-0.2)),
-        _forward(_evaluation("alpha", brier_skill_score=None)),  # skipped, not zero
-    ]
-    stratum = build_leaderboard(cells).entries[0].forward
+    # The skill column covers only cells carrying a baseline, and admits
+    # negative skill (a forecast worse than the segment base rate).
+    scored = [_evaluation("alpha", event_id="evt-a"), _evaluation("alpha", event_id="evt-b")]
+    unscored = _evaluation("alpha", event_id="evt-c")
+    cells = [_forward(ev) for ev in [*scored, unscored]]
+    stratum = (
+        build_leaderboard(
+            cells,
+            skills={
+                _evaluation_key(scored[0]): CellSkill(brier=0.06, prior_term_baseline=0.1),
+                _evaluation_key(scored[1]): CellSkill(brier=0.24, prior_term_baseline=0.2),
+            },
+        )
+        .entries[0]
+        .forward
+    )
     assert stratum is not None
-    assert stratum.mean_brier_skill_score == pytest.approx(0.1)
+    # A ratio of sums (0.30 Brier over 0.30 baseline = 0.0), not the mean of the
+    # per-cell ratios +0.4 and -0.2 that the same two cells would give (+0.1).
+    assert stratum.population_brier_skill_score == pytest.approx(0.0)
+    assert stratum.skill_scored == 2
+
+
+def test_skill_aggregates_as_a_ratio_of_sums_not_a_mean_of_ratios() -> None:
+    """The estimator, pinned on the case that separates them.
+
+    Two cells: a low-baseline denial the forecast nearly nails, and a
+    high-baseline grant it misses. Per-cell ratios are +0.99 and -1.0, which
+    average to a near-zero saying the forecast was about as good as its
+    baseline; the population skill divides total Brier by total baseline Brier
+    and reports the -0.96 the cells actually add up to. Cert's class imbalance
+    makes this the difference between paying a predictor to under-forecast
+    grants and not.
+    """
+    cheap = _evaluation("alpha", event_id="evt-cheap")
+    dear = _evaluation("alpha", event_id="evt-dear")
+    stratum = (
+        build_leaderboard(
+            [_forward(cheap), _forward(dear)],
+            skills={
+                _evaluation_key(cheap): CellSkill(brier=0.0001, prior_term_baseline=0.01),
+                _evaluation_key(dear): CellSkill(brier=0.9, prior_term_baseline=0.45),
+            },
+        )
+        .entries[0]
+        .forward
+    )
+    assert stratum is not None
+    per_cell_mean = ((1 - 0.0001 / 0.01) + (1 - 0.9 / 0.45)) / 2
+    assert per_cell_mean == pytest.approx(-0.00500, abs=1e-5)
+    assert stratum.population_brier_skill_score == pytest.approx(1 - 0.9001 / 0.46)
+    assert stratum.population_brier_skill_score == pytest.approx(-0.9567, abs=1e-4)
 
 
 def test_iter_evaluations_missing_ledger_is_empty(tmp_path: Path) -> None:
@@ -432,19 +486,274 @@ def test_the_empty_stage_axis_is_omitted_from_the_payload() -> None:
     assert "interim" in with_stage.model_dump(mode="json")["stages"]
 
 
-def test_skill_scored_counts_the_skill_means_denominator() -> None:
-    # The silent gap between the skill mean's denominator and `evaluations`
-    # must be visible: three cells, two carrying a skill score.
-    cells = [
-        _forward(_evaluation("alpha", brier_skill_score=0.4)),
-        _forward(_evaluation("alpha", brier_skill_score=-0.2)),
-        _forward(_evaluation("alpha", brier_skill_score=None)),
-    ]
-    stratum = build_leaderboard(cells).entries[0].forward
+def test_skill_scored_counts_the_skill_figures_denominator() -> None:
+    # The silent gap between the skill column's denominator and `evaluations`
+    # must be visible: three cells, two carrying a baseline to score against.
+    scored = [_evaluation("alpha", event_id="evt-a"), _evaluation("alpha", event_id="evt-b")]
+    cells = [_forward(ev) for ev in [*scored, _evaluation("alpha", event_id="evt-c")]]
+    stratum = (
+        build_leaderboard(
+            cells,
+            skills={
+                _evaluation_key(ev): CellSkill(brier=0.1, prior_term_baseline=0.2) for ev in scored
+            },
+        )
+        .entries[0]
+        .forward
+    )
     assert stratum is not None
     assert stratum.evaluations == 3
     assert stratum.skill_scored == 2
-    assert stratum.mean_brier_skill_score == pytest.approx(0.1)
+    assert stratum.population_brier_skill_score == pytest.approx(1 - 0.2 / 0.4)
+
+
+# --- realized-Term skill: the ex-post complement to the prior-Term mean -----------
+
+
+def _statpack(*, resolved: int = 72, grants: int = 32, version: str = "sal-v1") -> StatPack:
+    """A pack whose OT2025 `high` band carries the published OT2025 counts."""
+    return StatPack(
+        corpus_rows=1,
+        terms=[
+            StatPackTerm(
+                term=2025,
+                base_rates=BaseRateBucket(),
+                salience_version=version,
+                segments=[
+                    StatPackTermSegment(
+                        band="high",
+                        resolved=resolved,
+                        weighted_resolved=resolved,
+                        est_grant_rate=grants / resolved,
+                        prefix_resolved=resolved,
+                        prefix_weighted_resolved=resolved,
+                        prefix_est_grant_rate=grants / resolved,
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def _frozen_context() -> PredictionContext:
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2026, 1, 5),
+        signals_observable=True,
+        distribution_count=3,
+        band="high",
+        salience_version="sal-v1",
+        term=2025,
+    )
+
+
+def test_realized_term_skill_aggregates_with_its_own_denominator() -> None:
+    # Its own `*_scored` count, separate from the prior-Term column's: the two
+    # omit different cells, so one denominator cannot stand for both — and each
+    # divides only its own sums.
+    both = _evaluation("alpha", event_id="evt-a")
+    prior_only = _evaluation("alpha", event_id="evt-b")
+    stratum = (
+        build_leaderboard(
+            [_forward(both), _forward(prior_only)],
+            skills={
+                _evaluation_key(both): CellSkill(
+                    brier=0.1, prior_term_baseline=0.2, realized_term_baseline=0.05
+                ),
+                _evaluation_key(prior_only): CellSkill(brier=0.1, prior_term_baseline=0.2),
+            },
+        )
+        .entries[0]
+        .forward
+    )
+    assert stratum is not None
+    assert stratum.evaluations == 2
+    assert stratum.skill_scored == 2
+    assert stratum.population_brier_skill_score == pytest.approx(1 - 0.2 / 0.4)
+    # The cell with no realized-Term baseline is left out, never a zero — and
+    # the realized figure divides by 0.05 alone, not by the prior column's sum.
+    assert stratum.realized_term_skill_scored == 1
+    assert stratum.population_realized_term_skill_score == pytest.approx(1 - 0.1 / 0.05)
+
+
+def test_realized_term_skill_is_absent_when_nothing_scored() -> None:
+    stratum = build_leaderboard([_forward(_evaluation("alpha"))]).entries[0].forward
+    assert stratum is not None
+    assert stratum.population_realized_term_skill_score is None
+    assert stratum.realized_term_skill_scored == 0
+
+
+def test_realized_term_skill_never_moves_the_ranking() -> None:
+    # It is ex post — no predictor could have known its Term's realized rate —
+    # so it must not rank, in-season or ever. The two predictors are identical
+    # on every key the ranking reads (accuracy, Brier, stratum), so the realized
+    # column is the ONLY thing that could reorder them: the tie must still break
+    # on `predictor_id`, not on the skill it is handed.
+    alpha = _evaluation("alpha", correct=1, brier_score=0.2)
+    beta = _evaluation("beta", correct=1, brier_score=0.2)
+    cells = [_forward(alpha), _forward(beta)]
+    assert [e.predictor_id for e in build_leaderboard(cells).entries] == ["alpha", "beta"]
+    with_skill = build_leaderboard(
+        cells,
+        skills={
+            _evaluation_key(alpha): CellSkill(brier=0.2, realized_term_baseline=0.1),
+            _evaluation_key(beta): CellSkill(brier=0.2, realized_term_baseline=0.9),
+        },
+    )
+    assert [e.predictor_id for e in with_skill.entries] == ["alpha", "beta"]
+    # …and it did land in the aggregates, so the test is not passing vacuously.
+    assert with_skill.entries[0].forward is not None
+    assert with_skill.entries[0].forward.population_realized_term_skill_score == pytest.approx(
+        1 - 2.0
+    )
+
+
+def test_skill_components_scores_the_frozen_band_against_its_own_term(
+    tmp_path: Path,
+) -> None:
+    """End to end over a fixture ledger, hand-computed.
+
+    OT2025's `high` band is 32 weighted grants over 72 resolved; the scored case
+    was granted, so its leave-one-out baseline is 31/71 and the baseline Brier
+    it contributes is `(31/71 - 1)**2`. The prior-Term baseline rides in the
+    same record, from the evaluator's own `segment_base_rate`.
+    """
+    ev = _evaluation(
+        "alpha",
+        brier_score=0.25,
+        base_rate_basis="risk_set",
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+    )
+    _write_cell(tmp_path, ev, context=_frozen_context())
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    (cell,) = skill_components(cells, tmp_path, _statpack()).values()
+    assert cell.brier == pytest.approx(0.25)
+    assert cell.prior_term_baseline == pytest.approx((0.4 - 1) ** 2)
+    assert cell.realized_term_baseline == pytest.approx((31 / 71 - 1) ** 2)
+
+
+def test_skill_components_omits_a_realized_baseline_it_cannot_pair(tmp_path: Path) -> None:
+    """Four omissions, each visible rather than substituted.
+
+    A non-cert cell has no salience band, so nothing to realize; a
+    `terminal`-basis cell would need the band re-derived from the corpus row,
+    which the committed ledger does not carry, so scoring it here would pair
+    this number with a different band population than the prior-Term one beside
+    it; a cell whose prediction froze no context has no band at all; and a pack
+    carrying the Term under another salience version offers nothing the band
+    name means anything under.
+    """
+    cert = _evaluation("alpha", event_id="evt-cert", base_rate_basis="risk_set")
+    interim = _evaluation("alpha", event_id="evt-interim", base_rate_basis="risk_set")
+    terminal = _evaluation("alpha", event_id="evt-terminal", base_rate_basis="terminal")
+    contextless = _evaluation("alpha", event_id="evt-bare", base_rate_basis="risk_set")
+    _write_cell(tmp_path, cert, context=_frozen_context())
+    _write_cell(tmp_path, interim, context=_frozen_context(), stage=Stage.interim)
+    _write_cell(tmp_path, terminal, context=_frozen_context())
+    _write_cell(tmp_path, contextless, context=None)
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+
+    def realized(pack: StatPack | None) -> set[str]:
+        return {
+            key[1]
+            for key, cell in skill_components(cells, tmp_path, pack).items()
+            if cell.realized_term_baseline is not None
+        }
+
+    assert realized(_statpack()) == {"evt-cert"}
+    # A version the pack does not carry is the contracted `None`, not a blend.
+    assert realized(_statpack(version="sal-v2")) == set()
+    # No pack at all drops the column wholesale rather than half-computing it.
+    assert realized(None) == set()
+
+
+def test_a_cell_whose_recorded_skill_contradicts_its_inputs_is_omitted(tmp_path: Path) -> None:
+    """`Evaluation` constrains no relation between its own numbers.
+
+    The column's figure is computed from `segment_base_rate` and the realized
+    outcome, so a record whose recorded `brier_skill_score` does not reproduce
+    from its own inputs is dropped — visibly, in `skill_scored` — rather than
+    published on a baseline it was never graded against. An evaluator that
+    rounded its arithmetic still counts; a skill taken against another band
+    does not.
+    """
+    # Outcome is granted, so the baseline Brier is (0.4 - 1)**2 = 0.36 and the
+    # implied skill is 1 - 0.25/0.36 = 0.3056 — which 0.306 rounds to.
+    rounded = _evaluation(
+        "alpha",
+        event_id="evt-rounded",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=0.306,
+    )
+    contradictory = _evaluation(
+        "alpha",
+        event_id="evt-contradictory",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=0.9,
+    )
+    _write_cell(tmp_path, rounded)
+    _write_cell(tmp_path, contradictory)
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    scored = {
+        key[1]: cell.prior_term_baseline
+        for key, cell in skill_components(cells, tmp_path, None).items()
+        if cell.prior_term_baseline is not None
+    }
+    assert scored == {"evt-rounded": pytest.approx(0.36)}
+
+
+def test_skill_components_omits_a_band_under_the_minimum(tmp_path: Path) -> None:
+    # The floor is on the leave-one-out denominator: 30 resolved leaves 29 and
+    # publishes nothing, 31 leaves the stated minimum and publishes.
+    ev = _evaluation("alpha", brier_score=0.25, base_rate_basis="risk_set")
+    _write_cell(tmp_path, ev, context=_frozen_context())
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+
+    def realized(pack: StatPack) -> float | None:
+        # Absent from the map entirely when neither column scores the cell (the
+        # fixture records no `segment_base_rate`, so there is no prior baseline).
+        cell = skill_components(cells, tmp_path, pack).get(_evaluation_key(ev))
+        return cell.realized_term_baseline if cell is not None else None
+
+    assert realized(_statpack(resolved=30, grants=10)) is None
+    assert realized(_statpack(resolved=31, grants=10)) is not None
+
+
+def test_the_cli_scores_the_realized_column_from_the_committed_pack(tmp_path: Path) -> None:
+    """The wiring the workflow actually runs, end to end.
+
+    The command reads `<metrics_root>/statpack.json`, so the column is populated
+    with a pack in place and absent without one — and a missing pack says so on
+    stderr rather than rendering as a computed zero.
+    """
+    data_root, metrics_root = tmp_path / "data", tmp_path / "metrics"
+    ev = _evaluation("alpha", brier_score=0.25, base_rate_basis="risk_set")
+    _write_cell(data_root, ev, context=_frozen_context())
+    env = {"FEDCOURTS_DATA_ROOT": str(data_root), "FEDCOURTS_METRICS_ROOT": str(metrics_root)}
+    out = tmp_path / "leaderboard.json"
+    argv = ["leaderboard", "--out", str(out), "--all-versions"]
+
+    no_pack = runner.invoke(app, argv, env=env)
+    assert no_pack.exit_code == 0, no_pack.output
+    assert "no readable metrics/statpack.json" in no_pack.output
+    forward = read_model(out, Leaderboard).entries[0].forward
+    assert forward is not None
+    assert forward.realized_term_skill_scored == 0
+    assert forward.population_realized_term_skill_score is None
+
+    write_json(metrics_root / "statpack.json", _statpack())
+    with_pack = runner.invoke(app, argv, env=env)
+    assert with_pack.exit_code == 0, with_pack.output
+    assert "no readable metrics/statpack.json" not in with_pack.output
+    forward = read_model(out, Leaderboard).entries[0].forward
+    assert forward is not None
+    assert forward.realized_term_skill_scored == 1
+    assert forward.population_realized_term_skill_score == pytest.approx(
+        1 - 0.25 / (1 - 31 / 71) ** 2
+    )
 
 
 def test_the_committed_leaderboard_round_trips_byte_for_byte(tmp_path: Path) -> None:
