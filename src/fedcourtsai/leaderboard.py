@@ -47,10 +47,9 @@ from .schemas import (
     LeaderboardStratum,
     Prediction,
     Stage,
+    Stratum,
 )
 from .serialize import read_model
-
-Stratum = Literal["forward", "retrospective", "procedural"]
 
 FORWARD: Stratum = "forward"
 RETROSPECTIVE: Stratum = "retrospective"

@@ -25,9 +25,12 @@ the same block byte for byte. Like the rest of
 :mod:`fedcourtsai.pipeline.evaluate`, this module reads no config: the
 baseline lookback arrives as an argument and resolves at the caller.
 
-The semantic family is out of scope by pre-registration: its claims need a
-reader, and the blinding precondition ``docs/outcome-decomposition.md`` states
-is not met. Nothing here touches it.
+The semantic family is out of scope here: its claims need a reader, they have
+no harness-computable prior for :func:`claim_score` to consume, and the
+blinding precondition ``docs/outcome-decomposition.md`` states is not met.
+Nothing in this module touches it, and no semantic grade is ever run through
+the rule wired here. Its own (wired but inert, alpha) seam is
+:mod:`fedcourtsai.pipeline.semantic`.
 """
 
 from __future__ import annotations

@@ -20,7 +20,7 @@ from typing import Literal
 
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
-from .leaderboard import FORWARD, RETROSPECTIVE, Stratum
+from .leaderboard import FORWARD, RETROSPECTIVE
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -37,6 +37,7 @@ from .schemas import (
     PredictorScoreRow,
     SpendSummary,
     StatPack,
+    Stratum,
     SubstanceCalibration,
     SubstanceCells,
     SubstanceDigest,

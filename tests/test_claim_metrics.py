@@ -12,7 +12,7 @@ from fedcourtsai.claim_metrics import (
     build_claim_scores,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, Stratum
+from fedcourtsai.leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     ClaimScore,
@@ -26,6 +26,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     Stage,
+    Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_stratified_evaluations

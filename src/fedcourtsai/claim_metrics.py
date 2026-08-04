@@ -28,9 +28,13 @@ with the intersection ``n`` printed beside the coefficient and the coefficient
 two numbers — are counted and published beside the intersection, because
 differential absence selects the pair set; availability-mask exclusions (a
 block whose every claim is masked or baseline-less) are a property of the
-record and are counted separately. Inter-evaluator agreement on the semantic
-grades is *not* re-derived here: ``Leaderboard.evaluator_agreement`` already
-publishes it and one implementation is enough.
+record and are counted separately. No inter-grader agreement is derived here:
+``Leaderboard.evaluator_agreement`` publishes the panel's agreement on its
+**big-case reads**, and the semantic claim family has its own per-grader number
+in :mod:`fedcourtsai.pipeline.semantic` (wired but inert — no cell produces a
+semantic grade). Both correlate through the one
+:func:`fedcourtsai.leaderboard.kendall_tau_b`, which is the part that must not
+be duplicated.
 """
 
 from __future__ import annotations
@@ -40,7 +44,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Literal
 
-from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, Stratum, kendall_tau_b
+from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, kendall_tau_b
 from .schemas import (
     ClaimJudgeAgreement,
     ClaimMeanScore,
@@ -50,6 +54,7 @@ from .schemas import (
     ClaimScoreStratum,
     Evaluation,
     Stage,
+    Stratum,
 )
 
 # The pre-registered suppression threshold for the judge-validation tau-b: below

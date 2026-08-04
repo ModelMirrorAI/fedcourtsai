@@ -157,7 +157,7 @@ stays outside the gate:
   better, and a high tau does not certify the judge's *level* (a uniformly
   shifted — generous but rank-preserving — judge is invisible to a rank
   correlation) — grader level is `evaluator_agreement`'s job on the
-  leaderboard, which remains the sole inter-evaluator agreement number and is
+  leaderboard, the sole inter-evaluator agreement number **on the board**, and
   deliberately not duplicated here. Operational absences (a cell missing a
   block, or missing a grade) are counted beside the intersection because
   differential absence selects the pair set on difficulty; the counts cover
@@ -165,6 +165,113 @@ stays outside the gate:
   stays invisible, upstream of them; and a block whose every claim is masked
   is the availability mask at work — a property of the record, never of the
   predictor — counted separately.
+
+**Semantic grades publish nothing today, and this is the contract for when they
+do.** No artifact here carries a semantic claim grade: no stage declares a
+semantic claim set, no cell produces a grade, and the schema blocks that would
+carry one are null on every committed prediction and evaluation. The rules are
+written before the surface exists so that a first publication has a contract to
+meet rather than one written around it. The methodology behind them is
+[outcome-decomposition.md](../docs/outcome-decomposition.md)'s *The semantic
+family, alpha*, and it is **alpha** — `semantic-v0` is provisional, has never
+met a real opinion, and is explicitly not a pre-registered commitment of the
+kind the mechanical claim sets are. A grade produced under it would be a design
+under test, not evidence about a predictor.
+
+Not to be confused with the judge validation above, which calls
+`reasoning_quality` "the semantic side" of its pair. That is a **different
+number**: one judge-graded score of a prediction's reasoning as a whole,
+standing in for a claim family that does not exist. A `semantic-v0` grade is
+per declared claim and graded against opinion text. The pre-registered pairing
+keeps `reasoning_quality`; whether it ever changes hands is `semantic-v1`'s
+question, not this contract's.
+
+**Descriptive only, and never a rank key** — under the alpha caveat above,
+which travels with each rule below rather than being spent on the lead. A
+semantic grade is an ordinal reading of a predicted rationale against the
+opinion — `supported` / `partially-supported` / `unsupported`, plus a distinct
+`not-addressed`. What may be published is the **census**: counts per level, per
+declared claim, with the graded count beside them, and a pooled
+`overall` census that is a coverage figure rather than a headline (different
+claims are propositions of different difficulty, so a pooled share describes
+the claim mix as much as the predictor — and it reaches its minimum on units
+pooled across claims, so it publishes the distinct-cell count that actually
+bounds it). No standing, no ordering, and no entry
+into the leaderboard or any headline. Nothing derived from a grade is a skill,
+calibration, or forecasting claim of any kind.
+
+**Never pooled with a mechanical claim score.** A semantic grade never enters
+a claim `total`, `floor`, or `lift`, is never summed with one, and never
+appears in the same aggregate. The mechanical rule scores against a
+harness-computed prior drawn from strictly-prior history; a semantic
+proposition has no such frequency, so there is no baseline, no score, and no
+common unit — adding the two would be adding a Brier difference to a reading.
+Whether a semantic baseline is ever derivable is an open empirical question,
+not a pending feature.
+
+**Agreement is published beside every grade, or the grade is not published.**
+Unlike the harness-computed mechanical block, a semantic grade *is* the
+grader's word — resolving it needs a reader — so inter-grader agreement is the
+only check on grader latitude this surface has. It uses the same estimator and
+the same leave-one-out shape as the board's `evaluator_agreement`, over a
+different population and **never the same figure**: per grader, over the
+`(cell, claim)` units it shares with a peer. Read as a property of the
+**panel** rather than a verdict on one judge, and pooled across claims by
+design — per-claim unit counts are too thin to correlate, so a per-claim share
+travels with a panel-level figure. That pooling has a cost with a name: graders
+who merely order the claim *types* alike can carry a coefficient near +1 with
+within-claim agreement of zero. The **number of claims pooled** publishes
+beside the coefficient so a reader can bound it — at one claim the contrast is
+unavailable, and the higher it runs the more of the number it could be.
+
+A count or share standing alone, with no agreement figure for the same cell
+set, is one reader's opinion presented as a measurement — and **a null
+coefficient is not an agreement figure**. It is null two reachable ways, and
+both bar publication. *Withheld*, below the 10-unit minimum: the unit count,
+the distinct-cell count, and the claims-pooled count publish anyway, and the
+cell count is the one to read, since a five-claim set reaches 10 units on two
+cells whose grades share one reading pass. *Undefined for want of variation*,
+where one axis is constant across units and every pair ties on it.
+
+That second case is the one to read carefully, because it looks like unanimity
+and is not. Tau-b is undefined on a **constant** axis, not on an agreeing
+panel: graders who agree on grades that differ from unit to unit read +1. A
+constant axis means either a record uniform enough that every unit graded
+alike, or a **uniformly generous grader** whose own axis never moves — and the
+number cannot tell those apart. The second is the exact pathology the figure
+exists to catch, so an undefined coefficient is treated as no coefficient. The
+record separates withheld from undefined, so a thin sample and a degenerate one
+are distinguishable; neither publishes.
+
+**The mask is the record's, and sits outside every denominator.**
+`not-addressed` means the record does not put the claim in question — no
+opinion body of the required kind exists, none is ingested, or the opinion is
+silent on the claim's axis. It gets the same *treatment* as a masked mechanical
+claim — counted apart, never averaged with the ordinal levels, never inside a
+share's denominator, never inside the agreement coefficient — though not the
+same provenance: the mechanical mask is harness-computed with no latitude and
+this one is a reader's call. That is why a unit graders *split* on gets a row
+of its own: the disagreement measures the record's adequacy rather than the
+panel's. It also selects what the coefficient is computed over, and in the
+worst direction — the excluded units are the ones graders disagreed on most
+sharply — so the published coefficient is agreement **conditional on the panel
+unanimously agreeing the record spoke**, and it is read against the
+mask-dispute count rather than merely beside it.
+
+**Suppression, population, and comparability.** Any derived figure — a
+supported share, an agreement coefficient — is withheld below its minimum count,
+with the count still published, so a withheld number is visibly withheld and
+never reads as a missing one. Grades are never pooled across strata, across
+process versions, or across semantic claim-set declarations: a set version
+fixes what the propositions *are*, so a census spanning two of them is a
+coverage figure and nothing more. A graded unit carries none of those three
+labels, so **a census must state its stratum and its process scope or it is not
+readable at all** — an unstated census could have pooled forward and replay
+cells and look identical to one that did not. And a replay cell's grades are
+never claimable: its opinion is public, so the claim is retrievable rather than
+forecastable, and with no baseline to subtract the *whole* of the grade is
+retrievable rather than an increment over one. The backtest-as-iteration
+doctrine below applies to them in full.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved
