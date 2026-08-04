@@ -1,0 +1,11 @@
+case_id: scotus/72470621
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-03-25'
+resolved: true
+schema_version: '1.0'
+title: Clare Therese Grady, Carmen Trotta, and Martha Hennessy, Petitioners v. United
+  States

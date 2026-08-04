@@ -1,0 +1,11 @@
+case_id: scotus/72470708
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-04-25'
+resolved: true
+schema_version: '1.0'
+title: Mary Alexandre, Petitioner v. National Union Fire Insurance Company of Pittsburgh,
+  PA

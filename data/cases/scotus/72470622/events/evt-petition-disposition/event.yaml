@@ -1,0 +1,10 @@
+case_id: scotus/72470622
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-03-28'
+resolved: true
+schema_version: '1.0'
+title: Leonard Albrecht, et al., Petitioners v. Riverside County, California, et al.

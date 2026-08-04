@@ -1,0 +1,12 @@
+case_id: scotus/72470691
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-04-19'
+resolved: true
+schema_version: '1.0'
+title: Marguerite DeSelms, Individually and as Trustee of the Circle Road Revocable
+  Living Trust Dated November 11, 2010, Petitioner v. Bank of New York Mellon, fka
+  The Bank of New York
