@@ -460,6 +460,28 @@ out-of-scope note either way; the cap surfaces its own escalated `::error::` for
 correct attribution, and it is safe because the deferred cases stay in the corpus
 predict queue and re-queue next cycle regardless of the close.
 
+### The evaluate cell grades blind
+
+An evaluate cell brackets its agent with two deterministic harness steps
+(`fedcourtsai.blinding`, and *Semantic claims* in
+[outcome-decomposition.md](outcome-decomposition.md)): `fedcourts
+provision-blinded-predictions` stages each predictor's latest prediction under an
+opaque alias with its identity masked, and `fedcourts unblind-evaluations`
+renames the evaluator's alias-keyed output back onto the real predictor ids. The
+staging area lives under the case's gitignored `record/`, so it rides the cell
+artifact and never reaches the ledger.
+
+**The un-aliasing runs before the stamp, and the ordering is load-bearing.**
+`stamp-cell --role evaluator` joins each evaluation to the prediction it scored
+on the `predictor_id` field; under an alias the join misses and the cell's
+`claim_scores` block and `base_rate_salience_version` are *silently* absent
+rather than wrong. `validate`'s
+evaluation-target check resolves the same join and does fail loudly, so it is the
+backstop rather than the detector. The cell's order is therefore: blind →
+agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
+Wiring those two steps anywhere else in the sequence produces a run that looks
+green and quietly drops a scoring block.
+
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and
 uploads it (plus a status file) as an artifact rather than opening a PR, and a

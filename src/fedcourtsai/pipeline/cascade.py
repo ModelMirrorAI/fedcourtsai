@@ -22,19 +22,28 @@ The steps mirror what ``run-predict`` / ``run-evaluate`` do around the agent cal
    ``event.yaml`` definition plus, for a resolved event, the ground-truth
    ``outcome.json`` the evaluator scores against.
 2. **Predict** the event with every enabled predictor.
-3. **Evaluate** every resolved target's predictions with every enabled evaluator.
+3. **Evaluate** every resolved target's predictions with every enabled evaluator,
+   bracketed by the blind-grading steps (:mod:`fedcourtsai.blinding`): the
+   candidates are staged under opaque aliases before the agent runs and its
+   output is un-aliased after, before ``validate``.
 4. **Validate** the produced ledger (schema + git-only referential checks), the
    same gate CI runs on the resulting PR.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from .. import corpus, ids
-from ..paths import CasePaths
+from ..blinding import (
+    latest_prediction_dirs,
+    provision_blinded_predictions,
+    unblind_evaluations,
+)
+from ..paths import CasePaths, EventPaths
 from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
@@ -46,7 +55,7 @@ from .outcome import (
     is_machine_readable,
     resolution_signals,
 )
-from .runner import RunRequest, get_runner
+from .runner import Runner, RunRequest, get_runner
 
 
 class CascadeError(RuntimeError):
@@ -186,6 +195,61 @@ def _event_definition(event: corpus.CorpusEvent) -> PredictableEvent:
     )
 
 
+def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
+    *,
+    runner: Runner,
+    request: Callable[[UsageRole, str, str, str], RunRequest],
+    event_paths: EventPaths,
+    data_root: Path,
+    config_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    run_id: str,
+    map_dir: Path,
+) -> list[Path]:
+    """Score one resolved event with every enabled evaluator, graded blind.
+
+    The blind-grading bracket is the same one ``run-evaluate`` puts around its
+    agent step (:mod:`fedcourtsai.blinding`): stage the candidates under opaque
+    aliases first, un-alias the evaluator's output after. The local loop has to
+    run the contract the evaluate prompt states, or a real-engine cascade reads a
+    staging area that was never built — and the un-aliasing has to happen before
+    ``run_cascade``'s closing ``validate``, since an alias resolves against no
+    prediction and that is exactly the check which says so.
+
+    Returns nothing for an event that is unresolved, or that no predictor
+    produced a cell for: there is no ground truth to score against in the first
+    case and nothing to score in the second.
+    """
+    if not event_paths.outcome.is_file() or not latest_prediction_dirs(event_paths):
+        return []
+    provision_blinded_predictions(
+        data_root=data_root,
+        config_root=config_root,
+        court=court,
+        docket=docket,
+        event_id=event_id,
+        run_id=run_id,
+        map_dir=map_dir,
+    )
+    written: list[Path] = []
+    for evaluator in enabled_evaluators(config_root / "evaluators.yaml"):
+        written.extend(
+            runner.run(request(UsageRole.evaluator, evaluator.id, evaluator.prompt, event_id))
+        )
+        unblind_evaluations(
+            data_root=data_root,
+            court=court,
+            docket=docket,
+            event_id=event_id,
+            evaluator_id=evaluator.id,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    return written
+
+
 def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one arg each
     *,
     corpus_db_path: Path,
@@ -286,11 +350,23 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
 
     evaluations: list[Path] = []
     for ev in targets:
-        if not case_paths.event(ev.event_id).outcome.is_file():
-            continue  # nothing to score until the event resolves
-        for evaluator in enabled_evaluators(config_root / "evaluators.yaml"):
-            request = _request(UsageRole.evaluator, evaluator.id, evaluator.prompt, ev.event_id)
-            evaluations.extend(runner.run(request))
+        evaluations.extend(
+            _evaluate_event(
+                runner=runner,
+                request=_request,
+                event_paths=case_paths.event(ev.event_id),
+                data_root=data_root,
+                config_root=config_root,
+                court=court,
+                docket=docket,
+                event_id=ev.event_id,
+                run_id=run_id,
+                # Runner-local, beside the ledger rather than inside it, so a
+                # local cascade over a real engine keeps the key out of the tree
+                # the agent browses just as CI does.
+                map_dir=data_root.parent / ".blinding",
+            )
+        )
 
     ledger = validate_ledger(data_root)
     references = run_ledger_referential_checks(data_root)
