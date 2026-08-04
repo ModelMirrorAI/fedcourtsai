@@ -1,0 +1,10 @@
+case_id: scotus/72477609
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-01-18'
+resolved: true
+schema_version: '1.0'
+title: Padma Rao, Petitioner v. Anita Rao, et al.

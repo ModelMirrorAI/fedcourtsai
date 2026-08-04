@@ -1,0 +1,11 @@
+case_id: scotus/72478028
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-01-26'
+resolved: true
+schema_version: '1.0'
+title: Heather B., Parent and Next Friend of S. S., et al., Petitioners v. Houston
+  Independent School District, et al.
