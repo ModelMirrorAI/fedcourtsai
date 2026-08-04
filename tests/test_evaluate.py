@@ -14,15 +14,20 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.evaluate import (
     MERITS_BASE_RATE_MIN_PARSED,
+    REALIZED_BAND_RATE_MIN_RESOLVED,
+    brier_skill,
     brier_skill_score,
     is_correct,
     judgment_correct,
     merits_base_rate,
     prediction_base_rate,
+    realized_band_rate,
     segment_base_rate,
 )
 from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
+    GRANT_FAMILY_DISPOSITIONS,
+    GRANTED_DISPOSITIONS,
     BaseRateBucket,
     Disposition,
     Engine,
@@ -415,6 +420,214 @@ def test_a_versionless_frozen_band_yields_no_baseline() -> None:
     pack = _statpack(_term(2023, {"high": (0.30, 100)}))
     ctx = _context("high", term=2024, salience_version=None)
     assert prediction_base_rate(ctx, pack) is None
+
+
+# --- realized_band_rate: the case's OWN Term, leave-one-out ----------------------
+
+
+def _own_term(
+    year: int,
+    *,
+    terminal: tuple[int, int],
+    risk_set: tuple[int, int] | None = None,
+    version: str = "sal-v1",
+    band: str = "high",
+    observed: int | None = None,
+) -> StatPackTerm:
+    """A Term whose ``band`` carries ``(weighted grants, weighted resolved)``.
+
+    The pack publishes rates rather than counts, so the fixture divides exactly
+    as the statpack builder does and leaves `realized_band_rate` to round the
+    numerator back out. ``risk_set`` defaults to the terminal pair, so a fixture
+    encodes a prefix-versus-terminal gap only when the test is about one.
+    ``observed`` is the raw row count behind the weighted estimate, defaulting
+    to a Term walked at weight 1 — set it lower for a reweighted Term.
+    """
+    grants, resolved = terminal
+    prefix_grants, prefix_resolved = risk_set if risk_set is not None else terminal
+    return StatPackTerm(
+        term=year,
+        base_rates=BaseRateBucket(),
+        salience_version=version,
+        segments=[
+            StatPackTermSegment(
+                band=band,
+                resolved=observed if observed is not None else resolved,
+                weighted_resolved=resolved,
+                est_grant_rate=grants / resolved,
+                prefix_resolved=observed if observed is not None else prefix_resolved,
+                prefix_weighted_resolved=prefix_resolved,
+                prefix_est_grant_rate=prefix_grants / prefix_resolved,
+            )
+        ],
+    )
+
+
+def _realized(
+    pack: StatPack, own_grant_family: int, *, term: int = 2025, risk_set: bool = False, **kw: int
+) -> float | None:
+    return realized_band_rate(
+        "high", "sal-v1", term, pack, risk_set=risk_set, own_grant_family=own_grant_family, **kw
+    )
+
+
+def test_realized_band_rate_leaves_the_scored_case_out() -> None:
+    """The case sits inside its own Term's rate, and in a thin band that bites.
+
+    OT2025's `high` band as published: 32 weighted grants over 72 resolved. A
+    granted case must be scored against the other 71 (31/71), a denied one
+    against 32/71 — never the 32/72 that contains it.
+    """
+    pack = _statpack(_own_term(2025, terminal=(32, 72)))
+    assert _realized(pack, 1) == pytest.approx(31 / 71)
+    assert _realized(pack, 0) == pytest.approx(32 / 71)
+    # The uncorrected rate is neither, and sits between them — which is exactly
+    # the direction the correction has to move in.
+    assert 31 / 71 < 32 / 72 < 32 / 71
+
+
+def test_realized_band_rate_needs_the_band_to_survive_the_omission() -> None:
+    """One resolved row and leaving it out leaves no band at all.
+
+    The floor would catch this too, so the test dials it away to pin the
+    degenerate guard itself: n=0 is `None`, never a division.
+    """
+    pack = _statpack(_own_term(2025, terminal=(1, 1)))
+    assert _realized(pack, 1, min_resolved=0) is None
+    assert _realized(pack, 0, min_resolved=0) is None
+
+
+def test_realized_band_rate_omits_a_band_under_the_minimum() -> None:
+    """The floor is measured on the leave-one-out denominator that scores the case.
+
+    30 resolved leaves 29 after the omission and publishes nothing; 31 leaves
+    exactly the stated minimum and publishes. A thin band is omitted, visibly,
+    rather than scored on a handful of cases.
+    """
+    assert REALIZED_BAND_RATE_MIN_RESOLVED == 30
+    assert _realized(_statpack(_own_term(2025, terminal=(10, 30))), 0) is None
+    assert _realized(_statpack(_own_term(2025, terminal=(10, 31))), 0) == pytest.approx(10 / 30)
+
+
+def test_the_minimum_binds_on_observed_rows_not_only_weighted_ones() -> None:
+    """A denial-reweighted Term can carry a weighted 31 over a dozen real
+    petitions, and the rate's standard error follows the rows. So the floor
+    binds twice — on the leave-one-out weighted denominator *and* on the
+    observed count behind it — and a Term that clears only the first publishes
+    nothing."""
+    thin = _statpack(_own_term(2025, terminal=(10, 31), observed=14))
+    assert _realized(thin, 0) is None
+    assert _realized(_statpack(_own_term(2025, terminal=(10, 31), observed=31)), 0) is not None
+
+
+def test_realized_band_rate_subtracts_on_the_packs_own_grant_definition() -> None:
+    """`own_grant_family` is the numerator's membership test, not `actual_granted`.
+
+    `granted-in-part` is a granted binary outcome that keeps its own statpack
+    bucket, so it is absent from the published rate's numerator; subtracting it
+    would remove a grant that was never counted and hand the cell a baseline one
+    grant too low.
+    """
+    pack = _statpack(_own_term(2025, terminal=(32, 72)))
+    assert Disposition.granted_in_part in GRANTED_DISPOSITIONS
+    assert Disposition.granted_in_part not in GRANT_FAMILY_DISPOSITIONS
+    assert _realized(pack, 0) == pytest.approx(32 / 71)  # the granted-in-part case
+    assert _realized(pack, 1) == pytest.approx(31 / 71)  # a plain grant
+
+
+def test_a_case_outside_the_packs_counts_gets_no_baseline_rather_than_a_clamp() -> None:
+    """The subtraction landing out of range proves the case is not in this
+    vintage — a pack built before it resolved. Clamping would hand the cell a
+    certainty baseline and, with it, a large fabricated skill; the honest answer
+    is the same `None` every other gap returns."""
+    grantless = _statpack(_own_term(2025, terminal=(0, 72)))
+    assert _realized(grantless, 0) == pytest.approx(0.0)  # in range: a real all-denied band
+    assert _realized(grantless, 1) is None
+    saturated = _statpack(_own_term(2025, terminal=(72, 72)))
+    assert _realized(saturated, 1) == pytest.approx(1.0)
+    assert _realized(saturated, 0) is None
+
+
+def test_realized_band_rate_is_version_pinned_like_the_prior_term_pool() -> None:
+    """A band name means something only under the scorer that assigned it.
+
+    A sal-v1 `high` and a sal-v2 `high` are different populations sharing a
+    label, so a pack carrying only the other version has no rate to offer —
+    `None`, never a blend no version ever defined.
+    """
+    pack = _statpack(_own_term(2025, terminal=(32, 72), version="sal-v2"))
+    assert _realized(pack, 1) is None
+    assert realized_band_rate(
+        "high", "sal-v2", 2025, pack, risk_set=False, own_grant_family=1
+    ) == pytest.approx(31 / 71)
+
+
+def test_realized_band_rate_keeps_the_risk_set_terminal_pairing() -> None:
+    """The same pairing the prior-Term baseline uses, and here it is what makes
+    the omission well defined: a case frozen at a band ends at that band or a
+    stronger one, so it is counted in the band's risk set — and a case banded
+    off the row now is counted in the band's terminal population. Read the wrong
+    rate and the case is subtracted from a population it was never in."""
+    pack = _statpack(_own_term(2025, terminal=(14, 901), risk_set=(90, 1301)))
+    assert _realized(pack, 1, risk_set=False) == pytest.approx(13 / 900)
+    assert _realized(pack, 1, risk_set=True) == pytest.approx(89 / 1300)
+
+
+def test_realized_band_rate_reads_only_the_cases_own_term() -> None:
+    """The one difference from the strictly-prior pooler, and it cuts both ways:
+    neither an earlier Term nor a later one contributes anything."""
+    pack = _statpack(
+        _own_term(2026, terminal=(70, 72)),
+        _own_term(2025, terminal=(32, 72)),
+        _own_term(2024, terminal=(2, 72)),
+    )
+    assert _realized(pack, 1) == pytest.approx(31 / 71)
+    assert _realized(pack, 1, term=2023) is None  # a Term the pack does not carry
+
+
+def test_the_leave_one_out_null_is_exactly_the_self_inclusion_price() -> None:
+    """Jackknifing moves the baseline away from the case's own outcome by a fixed
+    factor, so the metric's null is stated rather than assumed. A forecaster
+    reporting the case-excluded level scores exactly 0; one reporting the band's
+    *published* rate — which contains its own case — scores `(2n - 1) / n**2`,
+    the price of that self-inclusion and nothing else. The docs quote the bound;
+    this pins it."""
+    n = 72
+    pack = _statpack(_own_term(2025, terminal=(32, n)))
+    loo = _realized(pack, 1)
+    assert loo is not None
+    assert brier_skill((loo - 1) ** 2, 1, loo) == pytest.approx(0.0)
+    published = 32 / n
+    assert brier_skill((published - 1) ** 2, 1, loo) == pytest.approx((2 * n - 1) / n**2)
+
+
+def test_prior_term_and_realized_term_skill_can_disagree_in_sign() -> None:
+    """The decomposition's whole point, on a Term that ran hot.
+
+    History put the `high` band at 40%; OT2025 realized 60% (61 of 101, or 60 of
+    100 once the scored case is left out). A predictor at 0.50 on a case that
+    was granted **beat history** — positive prior-Term skill — and **lost to the
+    Term** — negative realized-Term skill. Holding the level at what actually
+    obtained is what turns the sign: the first number credits the level call,
+    the second asks only whether the predictor could tell this case from its
+    band-mates.
+    """
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _own_term(2025, terminal=(61, 101)),
+    )
+    prediction, outcome = _prediction(0.5), _outcome(1)
+    prior = prediction_base_rate(_context("high", term=2025), pack)
+    realized = _realized(pack, 1, risk_set=True)
+    assert prior == pytest.approx(0.40)
+    assert realized == pytest.approx(0.60)
+    prior_skill = brier_skill_score(prediction, outcome, prior)
+    realized_skill = brier_skill_score(prediction, outcome, realized)
+    assert prior_skill is not None and realized_skill is not None
+    # brier 0.25 against baseline briers 0.36 and 0.16.
+    assert prior_skill == pytest.approx(1 - 0.25 / 0.36)
+    assert realized_skill == pytest.approx(1 - 0.25 / 0.16)
+    assert prior_skill > 0 > realized_skill
 
 
 # --- merits_base_rate: the strictly-prior pooled disturbed rate ------------------

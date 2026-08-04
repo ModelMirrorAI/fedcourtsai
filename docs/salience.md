@@ -376,7 +376,13 @@ prediction's timing contract:
   so a prediction that merely parrots the base rate earns ~zero skill and a genuine
   edge shows as positive lift. The leaderboard carries the aggregated
   skill-vs-baseline column, **per stratum** — so a forward cell's skill lands
-  there. The ops dashboard reports the selected segment's size and its base grant
+  there, aggregated as a population ratio of summed Briers rather than a mean of
+  per-cell ratios. Beside it the board publishes a second, deliberately **ex-post**
+  column: the same band scored against the rate the case's *own* Term realized,
+  leave-one-out, which nets out level-knowledge and leaves discrimination. It is
+  a board-only figure — no cell records it, no predictor could have known it,
+  and it never ranks — with its claim contract in
+  [metrics/README.md](../metrics/README.md). The ops dashboard reports the selected segment's size and its base grant
   rate, and compares predictions to that baseline **for the replay stratum
   only**: its calibration block filters to retrospective cells before averaging,
   so no volume of forward grading ever fills that line. Replay cells come from
@@ -413,9 +419,12 @@ has nothing above it, so its two rates coincide exactly.
 **The pool is version-pinned, and a lagging statpack yields no baseline rather
 than a blended one.** A band name is meaningful only under the salience version
 that assigned it — a hypothetical `sal-v2 high` and a `sal-v1 high` are
-different populations that happen to share a label. So both baseline entry
-points (`fedcourtsai.pipeline.evaluate.segment_base_rate` and
-`prediction_base_rate`, through their shared pooler) pool **only** the statpack
+different populations that happen to share a label. So every band-rate entry
+point pins the version — the two scored baselines
+(`fedcourtsai.pipeline.evaluate.segment_base_rate` and
+`prediction_base_rate`, through their shared pooler), and the board's ex-post
+`realized_band_rate`, which pins identically on its single Term. They read
+**only** the statpack
 Terms whose `salience_version` matches the version that produced the band
 (the frozen `PredictionContext.salience_version` on the risk-set path; the
 live scorer's version on the terminal path), and when no Term matches, the

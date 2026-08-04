@@ -53,18 +53,142 @@ stays outside the gate:
   agentic replay, so continuous skill tracking would mean scheduling a cert-scoped
   run.
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
-  under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
+  under `data/`, with the committed `statpack.json` as a second input (the
+  realized-Term skill column below is scored against it at build time): per
+  predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,
   evaluators), each reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
   never blended into one number, with only the timing strata ranked. Each
-  stratum block reports `skill_scored` beside `mean_brier_skill_score` — the
-  skill mean's true denominator (the cells carrying a non-null skill score),
+  stratum block reports `skill_scored` beside `population_brier_skill_score` — the
+  skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
-  a segment base rate exists; read the mean against that count, never against
-  the stratum's evaluation total. The ranked board is the **cert stage** (see
-  the stage axis note below); a non-cert stage's cells report in their own
-  unranked `stages` block. Each entry
+  a segment base rate exists; read the figure against that count, never against
+  the stratum's evaluation total. A cell also drops out of that count when its
+  recorded skill does not reproduce from its own recorded base rate and Brier:
+  the published figure is computed from those inputs, and `Evaluation`
+  constrains no relation between its numbers, so a record that disagrees with
+  itself is omitted rather than published on a baseline it was never graded
+  against.
+
+  Beside it runs a second, complementary skill number —
+  `population_realized_term_skill_score`, with its own `realized_term_skill_scored`
+  denominator. Same band, same basis, same formula; only the baseline differs.
+  Where `population_brier_skill_score` scores against the **strictly-prior** pooled
+  band rate (leakage-safe, and the primary outcome measure), this one scores
+  against the grant rate the case's **own Term** actually realized, computed
+  **leave-one-out** so a case never sits inside the rate that scores it. The two
+  **decompose skill, per cell**. Prior-Term skill rewards knowing the level
+  *and* discriminating within it, so a Term that runs hot or cold credits or
+  penalises every predictor for the shift. Realized-Term skill holds the level
+  at what obtained, nets the level out, and leaves **discrimination**: a
+  predictor with the Term's level right but no ability to tell its cases apart
+  scores positive on the first and ~0 on the second, and one that beat history
+  while losing to the Term scores positive then negative. That sign
+  disagreement is the point of publishing both. (A predictor that merely
+  parrots the *historical* rate scores exactly 0 on the first — that is what
+  the prior-Term baseline means — and, on average wherever the Term moved,
+  negative on the second.)
+
+  Three things sharpen the "~0". The attainable level-only null is **not** 0
+  but `(2n − 1) / n²` for a band of weighted `n` — the score of a forecaster
+  reporting the band's *published* rate, which contains its own case: about
+  +0.03 at n = 72 and about +0.06 at the floor of n = 31. (A forecaster
+  reporting the case-excluded level would score exactly 0, but reaching that
+  level requires knowing the case's outcome, so it is an oracle rather than a
+  null.) More generally the correction is the exact rescale
+  `skill = 1 − (1 − skill_uncorrected)·((n − 1)/n)²`, so it never reorders
+  cells within a band — but the shift it applies, `(1 − skill_uncorrected)·(2n
+  − 1)/n²`, is bounded only at the null: Brier skill has no lower bound, so a
+  badly negative cell moves much further than the figures above. And the two
+  published **figures** run over different cell sets — the qualifying rules
+  below are narrower in practice and never the same set, since
+  `base_rate_basis` is the evaluator's own field and inclusion is therefore a
+  convention rather than a construction — so the decomposition is a statement
+  about a cell, never a licence to subtract one column from the other.
+
+  **Both columns aggregate as a ratio of sums, not a mean of per-cell
+  ratios**: a stratum's figure is `1 − Σ(cell Brier) / Σ(cell baseline Brier)`
+  over the cells that column scores. The distinction is load-bearing under
+  cert's class imbalance, because the per-cell skill ratio caps at +1 but is
+  unbounded below, so a mean of ratios is dominated by the many low-baseline
+  denial cells and pays a predictor to under-forecast the rare event. On the
+  current pack's OT2025 segments an always-deny forecaster means to **+0.94**
+  in the `baseline` band, **+0.75** in `elevated` and −0.40 in `high`, against
+  about +0.002 to +0.03 for the honest level-only forecaster — the ordering is
+  inverted, and the result swings on band mix. The ratio of sums prices the
+  same always-deny forecaster at **−0.05 / −0.20 / −0.75**, correctly negative
+  and stable. The `population_` prefix on both field names records exactly
+  this, against the plain `mean_*` fields beside them (`mean_brier_score` and
+  the rest *are* per-cell means), so the estimator travels with the number
+  rather than only with its description. One consequence to know when reading
+  either figure: a cell whose baseline Brier is zero — the base rate matched
+  the outcome exactly — is excluded, since the ratio is undefined there. That
+  is right for the ratio but not neutral, because those are the baseline's
+  best cells and dropping them nudges the published figure up; the minimum
+  resolved count and the leave-one-out range guard make a rate of exactly 0.0
+  or 1.0 near unreachable.
+
+  **Never pooled, never a rank key, never in-season evidence.** The two
+  baselines answer different questions, so nothing averages, blends, or
+  otherwise combines them into one figure, and each is read against its
+  own count. The ranking is unchanged — forward accuracy, forward Brier, the
+  retrospective pair, then `predictor_id` — and could not include this number:
+  it is **ex post**, since no predictor could have known its Term's realized
+  rate when it ran, so ordering predictors on it during a live Term would rank
+  them on a fact that did not exist at prediction time. Read it as a diagnostic
+  of one predictor's discrimination within a band, never as a standing. One
+  further asymmetry to hold in view: only the prior-Term half moves with
+  `salience.base_rate_lookback_terms`, so a change to that window re-bases one
+  member of the pair and not the other, and readings taken across such a change
+  are not comparable.
+
+  Scope rules travel with the figure. It is **cert stage only** — no other
+  stage has a salience band, so none has a band rate to realize, and every
+  non-cert `stages` block reports it null with a zero count (this is not the
+  merits GVR-guard suppression described below; merits would have nothing to
+  realize even once that guard lands). It is **version-pinned** exactly like
+  the prior-Term pool: a band name means something only under the salience
+  version that assigned it, so a Term carrying another version contributes
+  nothing rather than a blend. It rests on a **stated minimum** —
+  `pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`, 30 measured *after* the
+  leave-one-out and binding on the weighted denominator **and** the observed
+  row count behind it, since a reweighted Term can otherwise clear a weighted
+  31 on as few as five real petitions (the `baseline` band's risk set reaches
+  6.1x on OT2019) — below which the cell is omitted rather
+  than scored on a handful of cases. Unlike the prior-Term pool this one is a
+  single Term and cannot be widened by reaching further back, so the floor is a
+  wait-for-the-Term rule: a band that never clears it is omitted for that Term
+  entirely, and early in a live Term the forward cells' own Term is exactly the
+  one that has not accumulated, so the first realized-Term numbers to appear on
+  a board are typically retrospective cells sitting in closed Terms — read the
+  stratum before the number. Coverage is narrower than the prior-Term
+  column's for one further reason: only a cell whose recorded `base_rate_basis`
+  is `risk_set` is scored, because the `terminal` basis re-derives the band
+  from the corpus row, which the committed ledger does not carry — pairing this
+  number with a different band population than the one beside it would stop the
+  pair being a decomposition. Every one of these is a visible omission in
+  `realized_term_skill_scored`, never a silent zero.
+
+  Finally, the figure carries a **vintage**, and mid-Term that is a bias and not
+  only a wobble. The board reads the committed `statpack.json` at build time
+  rather than a value carried on the cell, because a Term's own rate is
+  term-to-date and keeps moving — so every cell on a given board is scored on
+  one pack, and the number converges as the Term closes. But a term-to-date
+  band rate is **grant-depleted**: grants resolve months after denials (the
+  pack's own median days-to-grant runs roughly double its overall median
+  days-to-resolution), so while the Term is open the realized level reads low,
+  and the resulting error is outcome-dependent — too harsh on denied cases,
+  too generous on granted ones — which means it does not average out of the
+  mean. Treat an open Term's realized-Term figure as directional; only a closed
+  Term's is settled. The leave-one-out itself carries a matching residual: it
+  removes one unit of weight rather than the row's own sample weight (identical
+  on a weight-1 live Term, short by `w − 1` on a reweighted historical one), and
+  on a pack built before the case resolved it over-corrects by one unit —
+  bounded by `1 / 30` and self-correcting at the next refresh.
+
+  The ranked board is the **cert stage** (see the stage axis note below); a
+  non-cert stage's cells report in their own unranked `stages` block. Each entry
   also carries a `big_case` block — the predictor's `big_case_score`
   rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
   a second, orthogonal skill dimension that never affects the ranking.
@@ -80,8 +204,9 @@ stays outside the gate:
   disagreement rather than assigning blame. It never affects the ranking, and
   `events` beside it is small enough to matter — tau-b over a handful of shared
   events moves a long way on one disagreement.
-  `fedcourts leaderboard` produces it — a deterministic, offline
-  roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
+  `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
+  ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
+  until the first evaluation lands.
 - `claim-scores.json` — the mechanical claim-score surface: every
   harness-computed `claim_scores` block in the evaluations ledger, rolled up
   per predictor **per stratum** and published beside the leaderboard.
@@ -345,12 +470,16 @@ with the figure. `correct` — and so the stage block's accuracy — is the **ju
 exact-match on a merits cell, not the disposition match, since a merits
 outcome's `actual_disposition` is always the off-vocabulary `other`. The
 interim stage has no registered base rate, so its block carries counts,
-accuracy, and Brier with its skill mean null and `skill_scored` zero.
+accuracy, and Brier with its skill figure null and `skill_scored` zero. Every
+non-cert block — both stages and the `(none)` bucket — reports the realized-Term
+skill null with a zero count, by construction rather than by coincidence:
+only the cert segment has a salience band whose realized rate the pack
+publishes.
 
 No merits **skill** number is published, and two separate things hold it back.
 The prohibition above is the binding one: until the label-independent guard
 lands, `brier_skill_score` is omitted on every merits cell by rule, so the
-merits stage block's skill mean is null and its `skill_scored` zero for the
+merits stage block's skill figure is null and its `skill_scored` zero for the
 same reason the interim block's are. And the pack gates the baseline itself —
 the merits section publishes only once a corpus row carries a parsed judgment,
 and the pooled prior-Term sample must clear the minimum, below which the
@@ -456,7 +585,10 @@ the rendered table) and
   set). A prediction carrying a frozen prediction-time band is scored against the
   second, since that is the population it was in when it ran; one without a frozen
   band falls back to the first, which matches the terminal band it has to be
-  grouped by. Both are leakage-safe (strictly-prior-Term), and a skill score is
+  grouped by. Pooled strictly-prior-Term, as the recorded skill score is, both
+  are leakage-safe; the board's realized-Term column reads the risk-set one off
+  the case's **own** Term instead, which is deliberately not leakage-safe and is
+  fenced accordingly where it is described (see the leaderboard bullet above). A skill score is
   only comparable within one basis, which `Evaluation.base_rate_basis` records
   alongside `Evaluation.base_rate_salience_version` — the version the band was
   read under, the other half of the same harness-stamped record, since two

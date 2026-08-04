@@ -343,7 +343,7 @@ form:
 
 The two forms answer different questions, so both stay. Worth noting that the
 existing code already takes *means of ratios* (`leaderboard`'s
-`mean_brier_skill_score`, and the cert back-test's equivalent), which inherits
+`population_brier_skill_score`, and the cert back-test's equivalent), which inherits
 that unbounded negative tail — one baseline-band cell can dominate the mean. That
 is a live property of the current metrics, not something this document introduces.
 
