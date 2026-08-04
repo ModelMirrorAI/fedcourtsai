@@ -1,0 +1,12 @@
+case_id: scotus/67543945
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-12-19'
+resolved: true
+schema_version: '1.0'
+title: N. S., Only Child of Decedent, Ryan Stokes, By and Through Her Natural Mother
+  and Next Friend, Brittany Lee, et al., Petitioners v. Kansas City Board of Police
+  Commissioners, et al.

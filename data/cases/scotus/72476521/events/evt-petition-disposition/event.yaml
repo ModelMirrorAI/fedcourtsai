@@ -1,0 +1,10 @@
+case_id: scotus/72476521
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-12-19'
+resolved: true
+schema_version: '1.0'
+title: Larry J. Winget, et al., Petitioners v. Alter Domus, LLC

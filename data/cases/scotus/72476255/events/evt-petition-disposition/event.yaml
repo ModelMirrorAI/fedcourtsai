@@ -1,0 +1,12 @@
+case_id: scotus/72476255
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-12-13'
+resolved: true
+schema_version: '1.0'
+title: William F. Nored, et ux., as Conservators, Parents, and Next Friends of William
+  F. Nored, Jr., Petitioners v. Tennessee Department of Intellectual & Developmental
+  Disabilities, et al.
