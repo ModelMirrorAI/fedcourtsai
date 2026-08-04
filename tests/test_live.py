@@ -773,16 +773,15 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     assert relisted.distributed_for_conference == date(2026, 10, 10)
 
 
-def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
+def test_live_poll_all_repolls_an_unresolved_application_to_a_recorded_outcome(
     tmp_path: Path,
 ) -> None:
     """Interim acceptance: a discovered application is re-polled by the
     application rotation until it resolves — through the interim vocabulary,
-    with the escalation signals latched onto its row — and nothing about it is
-    ever queued to predict. Its baseline event is motion/interim, so the
-    resolution surfaces on the unrecorded queue (the case-baseline guard
-    records a case-level outcome only for a petition/appeal baseline; the
-    interim outcome routing ships with the interim predict path)."""
+    with the escalation signals latched onto its row — and the machine-matched
+    resolution records an interim ``outcome.json`` on the motion/interim
+    baseline. Nothing was ever predicted for it, so the resolved event routes
+    to ``evaluate_skipped`` (nothing to score), never ``unrecorded``."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     config = LiveConfig()
@@ -840,22 +839,31 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
             data_root,
             term=25,
             config=config,
-            # The production scope: applications are permanently out of predict
-            # scope, and the application routing is deliberately ungated, so the
-            # resolution must surface even under the gate.
+            # The production scope: the application routing is deliberately
+            # ungated, so the resolution must surface even under the gate.
             scope=PredictScope.scotus_docket,
             today=date(2026, 7, 19),
         )
-    # Ground truth only: the row latches the resolution, and the run log
-    # surfaces it on `unrecorded` — the application guard keeps it out of the
-    # cert rule, so no cert-rule `outcome.json` is written. Predict and
-    # evaluate stay empty.
+    # The poll that catches the resolution never queues forward (the seam
+    # closes on the row's disposition), and with no committed prediction the
+    # freshly-resolved event lands on `evaluate_skipped`; nothing is left for
+    # `unrecorded` triage.
     assert queues2.predict == [] and queues2.evaluate == []
-    assert queues2.evaluate_skipped == []
-    (unrecorded,) = queues2.unrecorded
-    assert unrecorded["docket"] == 9_525_000_001
-    assert unrecorded["events"] == ["evt-motion-disposition"]
-    assert "interim standard" in str(unrecorded["reason"])
+    (skipped,) = queues2.evaluate_skipped
+    assert skipped["docket"] == 9_525_000_001
+    assert skipped["events"] == ["evt-motion-disposition"]
+    assert queues2.unrecorded == []
+    # The interim outcome: recorded on the motion/interim baseline from the
+    # row's interim-matched disposition, dated by the disposing entry, with no
+    # cert-only signals block.
+    outcome = read_model(
+        CasePaths(data_root, "scotus", 9_525_000_001).event("evt-motion-disposition").outcome,
+        Outcome,
+    )
+    assert outcome.actual_disposition == Disposition.denied
+    assert outcome.actual_granted == 0
+    assert outcome.resolved_at == date(2026, 7, 18)
+    assert outcome.signals is None
     with corpus.connect(db) as conn:
         resolved = corpus.get_row(conn, case_id)
     assert resolved is not None
@@ -872,11 +880,205 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
         assert corpus.application_rotation(conn, limit=10) == []
 
 
+def test_changed_substantive_application_queues_predict_once_a_day(tmp_path: Path) -> None:
+    """The interim predict trigger: a docket change on a still-unresolved
+    substantive application queues its interim baseline forward — once per
+    day, under the shared `predict_queued_at` debounce — and a same-day
+    second change never re-queues."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues1, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
+        )
+    # Onboarding alone queues nothing (an application is never distributed).
+    assert queues1.predict == []
+
+    # The docket moves: the Court requests a response. The rotation's re-poll
+    # sees the change on a pending substantive application and queues forward.
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 10 2026",
+            "Text": "Response to application (25A1) requested by The Chief Justice.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 10),
+        )
+    assert queues2.predict == [
+        {"court": "scotus", "docket": 9_525_000_001, "events": ["evt-motion-disposition"]}
+    ]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None and row.predict_queued_at == date(2026, 7, 10)
+
+    # A second change the same day: debounced, not re-queued.
+    served["25A1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 10 2026", "Text": "Brief amicus curiae of Amicus Org filed."}
+    )
+    with _frontier_client(served) as client:
+        queues3, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 10),
+        )
+    assert queues3.predict == []
+
+
+def test_unmatched_application_disposal_diverts_instead_of_minting_a_forward_cell(
+    tmp_path: Path,
+) -> None:
+    """The leakage backstop: a disposal phrased past the interim vocabulary
+    (relief named, no "application" anchor) leaves the row unresolved, so the
+    change trigger fires — but the form-keyed disposal scan diverts the queue
+    entry to `predict_skipped_decided` rather than minting a forward cell
+    whose snapshot shows the outcome."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 18 2026",
+            "Text": "Stay of execution granted by The Chief Justice pending further order.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 19)
+        )
+    assert queues.predict == []
+    (diverted,) = queues.predict_skipped_decided
+    assert diverted["docket"] == 9_525_000_001
+    assert "interim disposal" in str(diverted["reason"])
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    # The vocabulary missed the disposal, so the row stays unresolved — the
+    # scan, not the resolver, is what kept the cell from minting.
+    assert row is not None and row.disposition is None
+
+
+def test_reserve_selected_application_is_swept_into_the_predict_queue(tmp_path: Path) -> None:
+    """The interim same-cycle gap is structural — an application has no
+    distribution transition — so the sweep must address the application form:
+    discovery onboards the pending stay, the cycle-end pass latches it through
+    the reserve, and the same cycle's sweep re-fetches it (application-form
+    JSON) and queues its interim baseline."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(interim_reserve_slots=1),
+            today=date(2026, 7, 9),
+        )
+    assert discovery.case_ids == ["scotus/9525000001"]
+    assert queues.predict == [
+        {"court": "scotus", "docket": 9_525_000_001, "events": ["evt-motion-disposition"]}
+    ]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None and row.salience_selected  # the reserve latch
+    assert row.predict_queued_at == date(2026, 7, 9)  # the sweep's stamp
+
+
+def test_changed_extension_application_never_queues_predict(tmp_path: Path) -> None:
+    """The non-substantive slice stays ground-truth only: an extension's
+    docket change re-polls and latches, but its baseline never earns a
+    forecast cell."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) to extend the time to file a petition "
+                    "for a writ of certiorari from July 15, 2026 to September 13, "
+                    "2026, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    served["25A1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 10 2026", "Text": "Letter of applicant filed."}
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
+        )
+    assert queues.predict == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None
+    assert row.application_kind == "extension"
+    assert row.predict_queued_at is None  # never routed at the predict seam
+
+
 def test_scope_latched_application_resolves_silently_into_the_row(tmp_path: Path) -> None:
-    """The visibility boundary of the application rotation: once the scope
-    reconcile latches `predict_excluded` (applications are a standing
-    exclusion), `open_events` yields nothing, so the resolution surfaces on no
-    queue at all — the ground truth lands only as the row's latched disposition
+    """The visibility boundary of the application rotation: while the scope
+    reconcile's `predict_excluded` latch stands on a row (a non-substantive
+    ask, or a substantive reading the reconcile has not yet caught up with),
+    `open_events` yields nothing, so the resolution surfaces on no queue at
+    all — the ground truth lands only as the row's latched disposition
     columns."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"

@@ -1,10 +1,14 @@
 """The salience gate: deterministic scoring and per-conference selection.
 
 The write pass behind salience-ordered prediction scope (see ``docs/salience.md``).
-It scores every in-scope SCOTUS cert petition with the **frozen** ``sal-v1``
+It scores every in-scope SCOTUS case with the **frozen** ``sal-v1``
 function and latches ``salience_selected`` on the fundable slice: each conference
 cohort's top-``N`` by score, plus the always-include carve-outs (CVSG petitions
-and anything at/above the salience floor), which sit *above* ``N``.
+and anything at/above the salience floor), which sit *above* ``N``, plus the
+**interim reserve** — up to ``interim_reserve_slots`` pending substantive
+applications per pass, funded by shrinking the current conference's rank fill
+by the slots in use, so the reserve trades slots inside ``N`` rather than
+adding to it (``docs/budget.md``).
 
 Two invariants make the pass safe to re-run over a live conference:
 
@@ -171,22 +175,48 @@ def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
 
 
 def _select_cohort(
-    rows: list[corpus.CorpusRow], scores: dict[str, float], capacity: int, floor: float
+    rows: list[corpus.CorpusRow],
+    scores: dict[str, float],
+    capacity: int,
+    floor: float,
+    *,
+    reserve: int = 0,
 ) -> set[str]:
     """The case ids to hold selected in one conference cohort.
 
     Carve-outs (:func:`carve_out` — CVSG petitions and anything at/above the
     floor) are selected unconditionally and sit *above* the ``N`` budget; the
     remainder is ranked by score (descending, case_id tie-break) and fills to
-    ``N``.
+    ``N`` minus ``reserve`` — the interim reserve slots in use this pass, which
+    displace the lowest-ranked rank-fill picks (never a carve-out) so the
+    reserve spends inside ``N``.
     """
     selected = {row.case_id for row in rows if carve_out(row, scores[row.case_id], floor)}
     remainder = sorted(
         (row for row in rows if row.case_id not in selected),
         key=lambda row: (-scores[row.case_id], row.case_id),
     )
-    selected.update(row.case_id for row in remainder[: max(0, capacity)])
+    selected.update(row.case_id for row in remainder[: max(0, capacity - reserve)])
     return selected
+
+
+def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, int, str]:
+    """Reserve pick order: furthest up the escalation ladder first.
+
+    The three latched interim signals, strongest first — a requested response
+    (the Court's affirmative act of attention), then a referral to the full
+    bench, then the amicus count — with ``case_id`` for determinism. A
+    deliberate *ordering*, not a scored rate: no grant probability is asserted
+    (the interim base rate is still accumulating — ``docs/salience.md``), only
+    which pending applications the bounded reserve funds first. ``None``
+    signals sort as absent, so a never-parsed row never outranks a parsed one.
+    """
+    return (
+        0 if row.response_requested else 1,
+        0 if row.referred_to_court else 1,
+        -(row.amicus_briefs or 0),
+        row.case_id,
+    )
 
 
 def plan_cohorts(
@@ -203,9 +233,21 @@ def plan_cohorts(
     never de-selects). Cohorting keys on each row's
     ``distributed_for_conference``, so a replay caller sets that field to the
     as-of value it reconstructs.
+
+    An **application** row (the interim docket — only substantive applications
+    survive Tier 0) is never distributed for conference, so it competes for the
+    **interim reserve** instead of a cohort: pending (unresolved) applications
+    fill up to ``interim_reserve_slots``, escalation-ladder order
+    (:func:`_interim_ladder_key`), counting the still-pending already-selected
+    ones against the cap first (a slot frees only when its occupant resolves).
+    The slots in use displace rank-fill capacity in the **latest** conference
+    cohort of the pass — the conference cycle the applications are live in —
+    so the reserve trades inside ``N``; an unfilled reserve displaces nothing,
+    returning to cert (``docs/budget.md``).
     """
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    applications: list[corpus.CorpusRow] = []
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
@@ -213,6 +255,14 @@ def plan_cohorts(
         scores[row.case_id] = salience_score(row)
         if row.salience_selected:
             already_selected.add(row.case_id)
+        if row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number):
+            # An application is never distributed for conference, so it can
+            # never enter a cert cohort; a pending one competes for the
+            # interim reserve instead. Resolved ones are scored only, exactly
+            # like decided petitions below.
+            if row.disposition is None and corpus.resolution_date(row) is None:
+                applications.append(row)
+            continue
         # A decided petition has no open event left to predict, so latching it
         # spends nothing — but it would still count toward "newly selected" and
         # muddy the salience board's "selected = tournament spend" reading with
@@ -221,9 +271,26 @@ def plan_cohorts(
         if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
 
-    to_select: list[str] = []
+    # The interim reserve: still-pending occupants hold their slots (sticky
+    # latch), new picks fill the remainder in ladder order.
+    occupants = [row for row in applications if row.salience_selected]
+    open_slots = max(0, config.interim_reserve_slots - len(occupants))
+    contenders = sorted(
+        (row for row in applications if not row.salience_selected), key=_interim_ladder_key
+    )
+    reserve_picks = [row.case_id for row in contenders[:open_slots]]
+    reserve_in_use = len(occupants) + len(reserve_picks)
+
+    to_select: list[str] = list(reserve_picks)
+    current_conference = max(cohorts) if cohorts else None
     for conference, cohort_rows in cohorts.items():
-        selected = _select_cohort(cohort_rows, scores, _capacity(conference, config), config.floor)
+        selected = _select_cohort(
+            cohort_rows,
+            scores,
+            _capacity(conference, config),
+            config.floor,
+            reserve=reserve_in_use if conference == current_conference else 0,
+        )
         # Sticky + additive: latch only the not-yet-selected; never de-select.
         to_select.extend(case_id for case_id in selected if case_id not in already_selected)
     return scores, to_select, eligible, len(cohorts)
@@ -232,11 +299,12 @@ def plan_cohorts(
 def _selection_plan(
     conn: sqlite3.Connection, config: SalienceConfig
 ) -> tuple[dict[str, float], list[str], int, int]:
-    """Score the in-scope cert petitions and pick each cohort's selected slice.
+    """Score the in-scope SCOTUS cases and pick each cohort's selected slice.
 
     The pure planning half of the pass: the live corpus scan with the Tier-0
-    eligibility filter applied, delegating scoring and cohort selection to
-    :func:`plan_cohorts`.
+    eligibility filter applied (which admits cert petitions and substantive
+    applications), delegating scoring, cohort selection, and the interim
+    reserve to :func:`plan_cohorts`.
     """
     return plan_cohorts(
         (
@@ -267,7 +335,7 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
 def reconcile_salience_selection(
     conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
 ) -> SalienceSelectionResult:
-    """Score the in-scope cert petitions and latch the per-conference selected slice.
+    """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
     Dry run by default (scores and picks are computed but nothing is written);
     ``apply`` writes the scores/version on every in-scope case and latches

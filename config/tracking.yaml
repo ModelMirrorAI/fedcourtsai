@@ -77,8 +77,10 @@ live:
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
   # Unresolved interim applications re-polled per cycle (recent Terms first,
-  # then stalest) — ground-truth collection only; prediction queueing is off
-  # for applications. Small because each re-poll is one request at the polite
+  # then stalest). A changed, still-unresolved substantive application in
+  # predict scope queues predict on the poll (daily-debounced; quota'd by
+  # salience.interim_reserve_slots below); the rest is ground-truth
+  # collection. Small because each re-poll is one request at the polite
   # ~1 req/s and applications resolve in days to weeks: the unresolved set
   # stays a short list that drains across cycles like the sweep backlog, so a
   # small cap keeps the interim tail cheap without ever starving it.
@@ -259,13 +261,19 @@ salience:
   # an older Term in. Move it between Terms, never part-way through one —
   # a change re-bases every published skill number at once.
   base_rate_lookback_terms: 10
-  # Placeholder cap on interim-docket tournament slots (stays, injunctions —
-  # docs/salience.md "The interim docket", docs/budget.md), carved from the
-  # same per-conference spend envelope rather than added to it, so target
-  # total spend stays as published. Inert: no enforcement code reads this key
-  # yet — it holds the knob's place until interim predict scope lands, and is
-  # sized only once a measured interim base rate exists.
-  interim_reserve_slots: 0
+  # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
+  # "The interim docket", docs/budget.md), carved from the same per-conference
+  # spend envelope rather than added to it, so target total spend stays as
+  # published. Enforced INSIDE N by the selection pass
+  # (pipeline.salience.plan_cohorts): each pass, pending substantive
+  # applications fill up to this many reserve slots (escalation-ladder order;
+  # a still-pending selected application keeps its slot), and the slots in use
+  # shrink the current conference cohort's rank fill one-for-one — carve-outs
+  # above N are untouched, and an unfilled reserve displaces nothing. Small
+  # because the pending substantive population is small (~12% of a thin
+  # stream): 5 covers the observed concurrency with headroom while bounding
+  # the cert slots it can ever displace.
+  interim_reserve_slots: 5
 
 # statpack = publication knobs for `metrics/statpack.md`
 # (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and

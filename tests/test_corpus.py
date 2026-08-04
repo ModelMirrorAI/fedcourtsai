@@ -482,6 +482,47 @@ def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction(
         assert corpus.is_non_cert_scotus_form(row) is True, number
 
 
+def test_substantive_application_is_in_predict_scope() -> None:
+    # The interim predict scope: an application whose latched ask reads
+    # substantive (a stay, an injunction, a vacatur) is spared by the form
+    # rule and by the whole row-rule chain — the one letter-form slice any
+    # predict path targets.
+    substantive = corpus.CorpusRow(
+        case_id="scotus/9525000001",
+        court="scotus",
+        docket_number="25A1",
+        application_kind="substantive",
+    )
+    assert corpus.is_non_cert_scotus_form(substantive) is False
+    assert corpus.out_of_scope_reason(substantive) is None
+
+
+def test_non_substantive_applications_stay_out_of_scope() -> None:
+    # An extension is single-Justice routine, an unknown ask is a parser gap,
+    # and a never-parsed row (a historical spelling the live channel cannot
+    # address, or a REST-ingested application) carries no reading at all —
+    # every one of them stays excluded; only the substantive reading spares.
+    for kind in ("extension", "unknown", None):
+        row = corpus.CorpusRow(
+            case_id="scotus/9525000002",
+            court="scotus",
+            docket_number="25A2",
+            application_kind=kind,
+        )
+        assert corpus.is_non_cert_scotus_form(row) is True, kind
+        assert corpus.out_of_scope_reason(row) is not None, kind
+    # The spare is application-only: a substantive-looking kind on an
+    # original-jurisdiction or miscellaneous docket changes nothing.
+    for number in ("22O141", "22M75"):
+        other_form = corpus.CorpusRow(
+            case_id="scotus/10",
+            court="scotus",
+            docket_number=number,
+            application_kind="substantive",
+        )
+        assert corpus.is_non_cert_scotus_form(other_form) is True, number
+
+
 def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
     # A modern cert docket carries a hyphen, not a term letter, so it is never caught;
     # a bare or blank number falls to the other predicates; the rule is SCOTUS-only.

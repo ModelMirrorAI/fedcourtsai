@@ -172,7 +172,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │    (per-(Term, stream) cursors)
                                  ├─ re-poll the live cert watchlist (recent Terms first)
                                  ├─ re-poll unresolved interim applications (capped;
-                                 │    ground-truth only — no predict handoff)
+                                 │    substantive + changed + in scope → predict handoff)
                                  ├─ detect resolution from the proceedings text
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the

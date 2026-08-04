@@ -313,6 +313,28 @@ def test_iter_stratified_evaluations_normalizes_the_event_stage(tmp_path: Path) 
     }
 
 
+def test_committed_interim_cell_lands_in_the_stages_block_not_the_cert_board(
+    tmp_path: Path,
+) -> None:
+    # End to end over the committed ledger: an evaluated interim cell — the
+    # shape the interim predict path produces (motion-kind event, interim
+    # stage) — flows through the join into the leaderboard's `stages` block,
+    # never the ranked cert board or its counts.
+    _write_cell(tmp_path, _evaluation("cert-p", event_id="evt-a"))
+    _write_cell(
+        tmp_path,
+        _evaluation("interim-p", event_id="evt-motion-disposition"),
+        kind=EventKind.motion,
+        stage=Stage.interim,
+    )
+    board = build_leaderboard(list(iter_stratified_evaluations(tmp_path, frozen_only=False)))
+    assert [e.predictor_id for e in board.entries] == ["cert-p"]
+    assert board.evaluations_total == 1  # cert only
+    interim = board.stages["interim"]
+    assert [e.predictor_id for e in interim.entries] == ["interim-p"]
+    assert interim.evaluations_total == 1
+
+
 def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_cell(data_root, _evaluation("alpha", correct=0, brier_score=0.3, event_id="evt-a"))

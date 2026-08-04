@@ -20,16 +20,16 @@ referential validation's no-orphan-judgments check), and a case whose existing
 write one filing's ``resolved`` latch and entry pin onto another). Both land on
 the dry-run report for maintainer triage.
 
-After the relabel an application docket's lone event is motion-kind, which the
-case-baseline resolution guard (:mod:`fedcourtsai.pipeline.outcome`)
-deliberately declines to attribute a case-level disposition to — reinforced by
-the form-keyed application guard there, which keeps every application spelling
-out of the cert rule regardless of its baseline's current shape. Interim
-outcome recording is stage-keyed and ships with the interim predict path; note
-that a decided application's baseline still latches ``resolved`` on
-re-extraction (:func:`fedcourtsai.pipeline.ingest.default_event` marks a
-decided row's baseline resolved), so the future interim recording must
-backfill keyed on the row's disposition, not on open events.
+After the relabel an application docket's lone event is the interim-staged
+motion baseline — exactly the target the stage-keyed interim outcome recording
+(:mod:`fedcourtsai.pipeline.outcome`) attributes the row's interim-matched
+disposition to; the form-keyed application guard there keeps every application
+spelling out of the cert rule regardless of its baseline's current shape. Note
+that a decided application's baseline latches ``resolved`` on re-extraction
+(:func:`fedcourtsai.pipeline.ingest.default_event` marks a decided row's
+baseline resolved) even where no outcome was recordable, so any backfill of
+historical interim outcomes must key on the row's disposition, not on open
+events.
 """
 
 from __future__ import annotations

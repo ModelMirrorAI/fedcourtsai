@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import cert_signals, ingest
+from fedcourtsai.pipeline import cell_context, cert_signals, ingest
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -411,3 +411,61 @@ def test_stamping_clears_a_context_the_agent_wrote_itself(
     )
     assert result.exit_code == 0, result.output
     assert json.loads(target.read_text())["context"] is None
+
+
+# An application-docket snapshot: pending, then disposed in language the interim
+# resolving vocabulary misses (relief named, no "application" anchor).
+_APPLICATION_PENDING: dict[str, Any] = {
+    "CaseNumber": "25A1 ",
+    "ProceedingsandOrder": [
+        {
+            "Date": "Jul 01 2026",
+            "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+        },
+    ],
+}
+
+
+def test_an_application_snapshot_freezes_no_band() -> None:
+    """An application docket takes no salience band by rule, not by parse
+    accident: sal-v1's features are cert observations that do not exist on the
+    interim docket, and a band frozen from their absence would hand the
+    evaluator a cert-population base rate for a cell that resolves on the
+    interim standard."""
+    context = cell_context.build(
+        "scotus/9525000001", date(2026, 7, 9), _APPLICATION_PENDING, "forward"
+    )
+    assert context.signals_observable is True  # proceedings are present
+    assert context.band is None
+    assert context.salience_version is None
+    assert context.term is None  # the A-form carries no cert Term
+
+
+def test_provision_snapshot_refuses_an_application_disposal_the_vocabulary_missed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The forward-cell leakage guard's application branch: the cert-shaped
+    # scans match no application phrasing, and the interim resolver's exact
+    # vocabulary misses a relief-named disposal — the high-recall interim scan
+    # must still refuse the cell.
+    disposed: dict[str, Any] = {
+        "CaseNumber": "25A1 ",
+        "ProceedingsandOrder": [
+            *_APPLICATION_PENDING["ProceedingsandOrder"],
+            {
+                "Date": "Jul 18 2026",
+                "Text": "Stay of execution granted by The Chief Justice pending further order.",
+            },
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/9525000001", date(2026, 7, 19), disposed)
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "9525000001", "--refuse-terminal"],
+    )
+
+    assert result.exit_code == 3
+    assert "interim disposal" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 9525000001).cell_context.exists()

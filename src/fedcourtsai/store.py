@@ -121,12 +121,14 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
     return [event.event_id for event in events if not event.resolved]
 
 
-# The event kinds the forward tournament forecasts: the case-baseline
-# disposition events. A substantive motion event on a cert docket is recorded
-# and tracked but never queued for prediction — the prompt contract, the
-# salience band, and the segment base rate are all conditioned on the cert
-# petition, so a cell minted for a motion would be forecast and scored against
-# a population it does not belong to.
+# The event kinds the forward tournament forecasts unconditionally: the
+# case-baseline disposition events. A motion event is forecastable only under
+# the interim stage on an in-scope application docket (see
+# `forecastable_event_ids`); a motion on a *cert* docket is recorded and
+# tracked but never queued for prediction — the prompt contract, the salience
+# band, and the segment base rate are all conditioned on the cert petition, so
+# a cell minted for it would be forecast and scored against a population it
+# does not belong to.
 _FORECASTABLE_KINDS = frozenset({EventKind.petition, EventKind.appeal})
 
 
@@ -139,17 +141,78 @@ def forecastable_events(
 ) -> list[str]:
     """The subset of :func:`open_events` the predict fan-out may target.
 
-    Filters to the case-baseline disposition kinds (petition, appeal). Every
-    predict queue and the predict matrix's default-event resolution read this
-    seam; evaluate, outcome detection, the rotation, and the corpus service
-    keep the unfiltered :func:`open_events`, because an open motion event still
-    needs its ground truth tracked — it just never earns a forecast cell.
+    The case-baseline disposition kinds (petition, appeal), plus the
+    **interim-stage motion baseline** of an in-scope application docket — the
+    interim predict path's fan-out surface. Every predict queue and the predict
+    matrix's default-event resolution read this seam; evaluate, outcome
+    detection, the rotation, and the corpus service keep the unfiltered
+    :func:`open_events`, because an open motion event outside predict scope
+    still needs its ground truth tracked — it just never earns a forecast cell.
     """
     choice = corpus.resolve_backend(backend)
     if choice == "local" and not corpus_db_path.exists():
         return []
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         return forecastable_event_ids(conn, court_id, docket_id)
+
+
+def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is the forecastable interim baseline of an in-scope case.
+
+    The interim admission: a **motion-kind** event carrying the **interim
+    stage**, on an **application-form** row the row-only scope rules keep in
+    scope — which, per :func:`fedcourtsai.corpus.is_non_cert_scotus_form`,
+    admits only an application whose latched ask reads substantive. The row
+    check is what keeps an extension or unknown-ask application's baseline out
+    of the fan-out even before the scope reconcile latches ``predict_excluded``
+    on its row. Deliberately the **row-only** reason evaluator, not the
+    connection-holding ``out_of_scope_reason_full``: the one rule the full
+    evaluator adds (the bare opinion-import profile) cannot match an
+    application row, and the caller's ``predict_excluded`` check already
+    carries any snapshot-aware latch.
+
+    The docket form is load-bearing, not redundant with the stage: a cert
+    docket carries interim-stage events too — an entry-pinned stay or
+    injunction motion filed on the petition's own docket — and a cert docket is
+    squarely in scope, so the scope rules alone would admit one. Its cell would
+    then freeze the *petition's* salience band as its conditioning, scoring an
+    interim forecast against a cert population. Forecasting those motions is a
+    later scope decision with its own baseline; until then the interim fan-out
+    is the application docket, whose baseline the discovery mint stamps.
+    """
+    return (
+        event.kind == EventKind.motion
+        and event.stage == Stage.interim
+        and row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+        and corpus.out_of_scope_reason(row) is None
+    )
+
+
+def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether a case-baseline event is the forecastable baseline of its case.
+
+    The kind is necessary but not sufficient: an **application** docket whose
+    baseline still reads petition-kind carries a mislabel, not a cert petition.
+    Discovery mints an application's baseline as the interim-stage motion, but a
+    row minted before that rule — or one the relabel pass has not reached — keeps
+    the cert-shaped id, and admitting it would forecast a stay application under
+    the cert contract, against a cert population, on the strength of a name.
+
+    Keyed on the docket form rather than on the event's stage, because the
+    mislabel predates the stage stamp: the rows that need excluding are exactly
+    the ones carrying no stage at all. That makes forecastability correct on its
+    own terms rather than conditional on a data migration having run — the
+    migration changes which event is forecast, never whether a mislabeled one is.
+    """
+    if event.kind not in _FORECASTABLE_KINDS:
+        return False
+    return not (
+        row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+    )
 
 
 def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
@@ -162,7 +225,8 @@ def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id
     return [
         event.event_id
         for event in events
-        if not event.resolved and event.kind in _FORECASTABLE_KINDS
+        if not event.resolved
+        and (_case_baseline_forecastable(event, row) or _interim_forecastable(event, row))
     ]
 
 

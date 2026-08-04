@@ -44,6 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
+from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     GRANTED_DISPOSITIONS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -1724,38 +1725,46 @@ def is_scotus_application_form(docket_number: str | None) -> bool:
 
 
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
-    """Whether a SCOTUS docket is an application or original-jurisdiction matter.
+    """Whether a SCOTUS docket is a non-predictable letter-form matter.
 
-    A stay / emergency **application** (``22A123``, older ``A-9999``, with or
-    without a parenthetical companion like ``A-706 (98-1368)``), an
-    **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
-    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
+    An **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
+    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), a
     **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62``,
     trailing-letter ``515 M`` — the motions docket, e.g. leave to file out of
     time — or the pre-1971 ``No. 33, Misc.`` separate docket, merged into the
-    unified numbering at OT1970) are not the
-    discretionary-cert form the ``evt-petition-disposition`` model targets: an
-    application's disposition is a stay grant/deny, an original case's a merits
-    judgment, and a motions docket's a procedural leave — none the cert
-    grant/deny the model calibrates on — while the pre-1971 miscellaneous docket
-    is decades-stale by construction. So predict scope excludes them (as it does
-    the pre-1925 mandatory-jurisdiction regime), keyed on the term letter
-    (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc`` marker that a cert
-    docket's ``YY-NNNN`` never carries. SCOTUS-only.
+    unified numbering at OT1970), and the non-substantive slice of the
+    **application** docket (``22A123``, older ``A-9999``, with or without a
+    parenthetical companion like ``A-706 (98-1368)``) are not a form any
+    predict path targets: an original case's disposition is a merits judgment,
+    a motions docket's a procedural leave, and a time-extension application is
+    single-Justice routine that no fact about the case moves. So predict scope
+    excludes them (as it does the pre-1925 mandatory-jurisdiction regime),
+    keyed on the term letter (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc``
+    marker that a cert docket's ``YY-NNNN`` never carries. SCOTUS-only.
 
-    Conservative — it matches on format alone, so it never catches a modern cert
-    petition (which carries a hyphen, no letter and no ``Orig``/``Misc`` marker).
-    An application docket's baseline is a motion event under the interim
-    standard, which has no predict path yet, so excluding the case still loses
-    nothing; when the interim predict path opens, refine this to spare
-    applications rather than the whole letter-form family.
+    An application docket is **spared when — and only when — its latched
+    ``application_kind`` reads ``substantive``** (a stay, an injunction, a
+    vacatur: the interim predict scope, per
+    :func:`fedcourtsai.pipeline.interim_signals.is_predictable_application`).
+    An extension stays excluded, and so does an application whose ask was never
+    read or could not be (``application_kind`` ``None`` / ``unknown``) — a
+    parser gap must shrink coverage visibly, never admit a matter of unknown
+    character into a scored population. The two-directional scope reconcile
+    releases a latched application when a later poll latches the substantive
+    reading. A historical spelling the live channel cannot address
+    (``A-9999``) never carries the parse, so it stays excluded for free.
+
+    Conservative — outside the application spare it matches on format alone, so
+    it never catches a modern cert petition (which carries a hyphen, no letter
+    and no ``Orig``/``Misc`` marker).
     """
     if row.court != "scotus":
         return False
+    if is_scotus_application_form(row.docket_number):
+        return row.application_kind != ApplicationKind.substantive.value
     dn = normalize_docket_number(row.docket_number) or ""
     return bool(
-        is_scotus_application_form(row.docket_number)
-        or _SCOTUS_ORIGINAL_RE.match(dn)
+        _SCOTUS_ORIGINAL_RE.match(dn)
         or _SCOTUS_MISCELLANEOUS_RE.match(dn)
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
         or _SCOTUS_MISC_TEXT_RE.search(dn)
@@ -1782,11 +1791,12 @@ def is_ifp_petition(row: CorpusRow) -> bool:
 
 
 def is_salience_deferred(row: CorpusRow) -> bool:
-    """Whether a scored cert petition was *not* selected into the tournament slice.
+    """Whether a scored case was *not* selected into the tournament slice.
 
     The read side of the salience gate (see ``docs/salience.md``): the selection
-    pass scores every in-scope petition and latches ``salience_selected`` on the
-    fundable per-conference slice. A row that has been **scored**
+    pass scores every in-scope case — cert petitions into the per-conference
+    cohorts, substantive applications against the interim reserve quota — and
+    latches ``salience_selected`` on the fundable slice. A row that has been **scored**
     (``salience_version`` set) but **not selected** is deferred — dropped from the
     predict matrix and the pull queue this round, but never pruned (this is *not*
     an out-of-scope reason, so ``cleanup-out-of-scope-predictions`` leaves its
@@ -1972,7 +1982,8 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     ),
     (
         is_non_cert_scotus_form,
-        "SCOTUS application / original-jurisdiction docket — not discretionary cert",
+        "non-substantive SCOTUS application / original-jurisdiction docket — "
+        "not a predictable form",
     ),
     (
         is_ifp_petition,

@@ -328,9 +328,11 @@ the rendered table) and
   as-at-prediction values, and no rate here conditions on them). **What may be claimed
   from it:** the counts and the substantive-application grant rate are
   *descriptive* facts about the accumulated cohort, nothing more. The rate is
-  not a segment base rate — predict scope and a scored base rate for the
-  interim stage remain unspecified until enough substantive applications have
-  resolved to support one — so no skill, calibration, or baseline claim may
+  not a segment base rate — the interim stage is predicted (the substantive
+  slice, under the reserve quota) but its scored base rate publishes only at
+  the pre-registered resolved-count floor in
+  [`docs/salience.md`](../docs/salience.md) — so until then no skill,
+  calibration, or baseline claim may
   rest on it, and it is comparable to nothing the cert sections publish (a
   different population resolving on a different standard, unweighted where the
   cert cuts are denial-reweighted). Extensions are counted so the docket's

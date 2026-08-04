@@ -11,6 +11,7 @@ from fedcourtsai.schemas import (
     EventKind,
     FlagCategory,
     Outcome,
+    Stage,
     UsageRole,
 )
 from fedcourtsai.store import (
@@ -193,6 +194,161 @@ def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> N
         "evt-petition-disposition",
         "evt-motion-stay-pending-appeal",
     }
+
+
+def _application_event(case_id: str, *, stage: Stage | None = Stage.interim) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent(
+        event_id="evt-motion-disposition",
+        case_id=case_id,
+        court="scotus",
+        kind=EventKind.motion,
+        stage=stage,
+    )
+
+
+def test_forecastable_events_admits_the_interim_baseline_of_a_substantive_application(
+    tmp_path: Path,
+) -> None:
+    """The interim predict path's fan-out surface: a motion-kind event carrying
+    the interim stage is forecastable when its application row is in scope —
+    which the row rules restrict to a substantive ask."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(conn, [_application_event("scotus/9525000001")])
+    assert forecastable_events(db, "scotus", 9525000001) == ["evt-motion-disposition"]
+
+
+def test_forecastable_events_refuses_a_non_substantive_application(tmp_path: Path) -> None:
+    """An extension's (or unparsed-ask) baseline never earns a forecast cell,
+    even before the scope reconcile latches its row — the row-only rules run
+    at this seam too. Its ground truth still flows through `open_events`."""
+    db = corpus.corpus_db_path(tmp_path)
+    for docket_id, kind in ((9525000002, "extension"), (9525000003, None)):
+        case_id = f"scotus/{docket_id}"
+        with corpus.connect(db) as conn:
+            corpus.upsert_rows(
+                conn,
+                [
+                    corpus.CorpusRow(
+                        case_id=case_id,
+                        court="scotus",
+                        docket_number=f"25A{docket_id % 10}",
+                        application_kind=kind,
+                    )
+                ],
+            )
+            corpus.upsert_events(conn, [_application_event(case_id)])
+        assert forecastable_events(db, "scotus", docket_id) == [], kind
+        assert open_events(db, "scotus", docket_id) == ["evt-motion-disposition"], kind
+
+
+def test_forecastable_events_requires_the_interim_stage_on_a_motion(tmp_path: Path) -> None:
+    # A stage-less motion is never admitted, whatever its row reads: the stage
+    # is the standard, and admitting an unstaged motion would forecast it
+    # against no declared decision rule.
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000004",
+                    court="scotus",
+                    docket_number="25A4",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(conn, [_application_event("scotus/9525000004", stage=None)])
+    assert forecastable_events(db, "scotus", 9525000004) == []
+
+
+def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim_fan_out(
+    tmp_path: Path,
+) -> None:
+    """A cert docket carries interim-stage events too — an entry-pinned stay or
+    injunction motion filed on the petition's own docket — and a cert docket is
+    in scope, so the stage and scope rules alone would admit one. Its cell would
+    freeze the petition's salience band as its conditioning, scoring an interim
+    forecast against a cert population. Only the petition baseline fans out."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    docket_number="24-1234",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay-pending-disposition",
+                    case_id="scotus/9525000009",
+                    court="scotus",
+                    kind=EventKind.motion,
+                    stage=Stage.interim,
+                ),
+            ],
+        )
+    assert forecastable_events(db, "scotus", 9525000009) == ["evt-petition-disposition"]
+
+
+def test_forecastable_events_refuses_an_application_dockets_cert_shaped_baseline(
+    tmp_path: Path,
+) -> None:
+    """An application docket whose baseline still reads petition-kind carries a
+    mislabel, not a cert petition. Admitting it on the strength of the kind would
+    forecast a stay application under the cert contract — so forecastability is
+    correct on its own terms, not conditional on the relabel pass having run."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9525000010",
+                    court="scotus",
+                    docket_number="25A99",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/9525000010",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=None,
+                )
+            ],
+        )
+    assert forecastable_events(db, "scotus", 9525000010) == []
 
 
 def test_forecastable_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:

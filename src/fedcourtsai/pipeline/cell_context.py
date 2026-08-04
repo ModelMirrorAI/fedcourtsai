@@ -76,7 +76,16 @@ def build(
     observable = projected.observable
     count = projected.row.distribution_count
     cvsg = projected.row.cvsg_date
-    band = salience_band(projected.row) if observable else None
+    # An application docket takes no salience band, by rule rather than by
+    # parse accident: sal-v1's features (distribution count, CVSG) are cert
+    # observations that do not exist on the interim docket, so a band derived
+    # from their absence would assert `baseline` — and hand the evaluator a
+    # cert-population base rate — for a cell that resolves on the interim
+    # standard. With no band frozen, the base-rate guards downstream refuse by
+    # design (the interim segment rate publishes on its own pre-registered
+    # terms; see docs/salience.md).
+    application = corpus.is_scotus_application_form(docket_number)
+    band = salience_band(projected.row) if observable and not application else None
     return PredictionContext(
         mode=mode,
         snapshot_date=snapshot_date,

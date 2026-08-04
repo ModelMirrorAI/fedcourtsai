@@ -120,24 +120,29 @@ call), so the gate spends nothing to *decide* what the tournament runs on. Raisi
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
 **The interim docket: a budgeted stream with no new spend.**
-[salience.md](salience.md)'s interim-docket section designs a second selection
+[salience.md](salience.md)'s interim-docket section carries a second selection
 problem — stays, injunctions, vacaturs pending certiorari — and it changes this
 budget by nothing. In its 26-application OT2023–OT2024 spread sample, roughly
 **85% (22 of 26)** are time-extension requests, filtered out deterministically by
 `interim_signals.is_predictable_application` (≈$0, no model call); only the
-substantive slice — **3 of 26 in that sample, ≈12%** — would ever be predicted;
-and no base rate exists yet to score that slice against (three observations
-cannot support one), so the segment is declared unspecified rather than
-predicted. The stream is therefore budgeted as a **bounded reserve inside the
-existing per-conference spend envelope**, not a new line:
-`salience.interim_reserve_slots` in
-[config/tracking.yaml](../config/tracking.yaml) is the placeholder cap — held at
-`0` and **inert** (no enforcement code reads it yet; the field holds the knob's
-place until interim predict scope lands), to be sized only once a measured base
-rate exists. The design it holds a place for: sized above `0`, the reserve
-displaces the lowest-ranked cert picks in whichever conference cycle the
-application is live in — it trades slots inside `N`, never adds to it —
-so target total spend stays as published above and below.
+substantive slice — **3 of 26 in that sample, ≈12%** — is ever predicted. The
+stream is budgeted as a **bounded reserve inside the existing per-conference
+spend envelope**, not a new line: `salience.interim_reserve_slots` in
+[config/tracking.yaml](../config/tracking.yaml), set to `5` and enforced by the
+selection pass — the reserve's slots in use displace the lowest-ranked cert
+rank-fill picks in the pass's latest conference cohort (carve-outs above `N`
+are untouched), so it trades slots inside `N` rather than adding a line, and
+target total spend stays as published above and below. The trade is
+prospective, pass by pass: sticky already-latched picks are never de-selected
+and the pre-scoring fail-open window rides outside the quota for one cycle,
+so a conference's realized count can transiently drift above `N` — the same
+bounded drift the carve-outs already produce (see
+[salience.md](salience.md)). A selected application occupies its slot until
+it resolves, so the reserve also bounds the *concurrent* interim cells in
+flight; an unfilled reserve displaces nothing and returns to cert. The slice
+is predicted but not
+yet skill-scored: the interim segment base rate publishes only at the
+pre-registered resolved-count floor ([salience.md](salience.md)).
 
 **The controls, and the one that reads the bill.** Capacity `N`, the per-run cell
 cap (`predict.max_predict_cells_per_run`), the live cycle's sweep cap, and the
