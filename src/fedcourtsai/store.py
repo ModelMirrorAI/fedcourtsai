@@ -14,7 +14,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .leaderboard import PROCEDURAL, Stratum, classify_stratum
+from .leaderboard import PROCEDURAL, classify_stratum
 from .process_version import is_frozen
 from .schemas import (
     AgentFlags,
@@ -26,6 +26,7 @@ from .schemas import (
     PredictableEvent,
     Prediction,
     Stage,
+    Stratum,
 )
 from .serialize import read_model
 

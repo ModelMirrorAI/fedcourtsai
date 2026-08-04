@@ -8,8 +8,8 @@ defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
 **The mechanical cert-stage family and the merits judgment claim are
-implemented; everything else here is
-pre-registration.** The scoring rule is `pipeline.evaluate.claim_score`; the
+implemented; everything else here is pre-registration — with one carve-out, the
+semantic family, which is neither.** The scoring rule is `pipeline.evaluate.claim_score`; the
 declared sets — three cert-stage claims under `cert-v1`, and the one merits
 claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
 event — live
@@ -19,13 +19,19 @@ probabilities and `Evaluation.claim_scores` the harness-computed block. The
 first set proposed against the rule was specified in a way that did not
 resolve, and *A claim set that failed* records why, in detail, because its
 tests are what the declared sets were chosen against. The merits vote,
-split, and writing claims and the
-whole semantic family remain pre-registered only —
-`docs/decision-model.md` records why the vote claims failed the tests.
+split, and writing claims remain pre-registered only —
+`docs/decision-model.md` records why the vote claims failed the tests. The
+semantic family is neither implemented nor pre-registered: the three candidate
+claim types in *Semantic claims* are a sketch rather than a declaration, and
+what stands behind them is a **wired but inert alpha**, `semantic-v0` (*The
+semantic family, alpha*) — no declared set, no grade produced, and explicitly
+not a commitment of the kind the rest of this document makes.
 
-The rest is pre-registration: the decomposition and the rule are settled before
-there is data to fit them to, which is the only order in which the choice of rule
-is credible.
+Everything else — the whole document up to *The semantic family, alpha* — is
+pre-registration: the decomposition and the rule are settled before there is
+data to fit them to, which is the only order in which the choice of rule is
+credible. That last section is the exception, and says so at its own head; it
+fixes nothing and nothing frozen depends on it.
 
 ## Naming
 
@@ -117,6 +123,13 @@ are graded by the cross-evaluator rather than computed.
 | The doctrinal ground of the majority | The majority opinion |
 | What a concurrence splits off | The concurrence |
 | The argument a dissent rests on | The dissent |
+
+These three are a sketch of the family, not a declared set. *The claim
+vocabulary, sketched* applies the eight tests below to them — plus one the
+eight do not supply, which is alpha rather than pre-registered — and records
+which survive, which are doubtful, and why. Everything specific to the family
+lives in *The semantic family, alpha*, deliberately quarantined from the
+pre-registered body of this document.
 
 A semantic grade should be formed before the grader knows whose claim it is,
 because a grader who knows will anchor — and inter-evaluator agreement, the
@@ -620,7 +633,8 @@ authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 ingestion (`has_opinion` is 0 on every corpus row) and on the blinding
-precondition above.
+precondition above; the alpha that will meet them when they land — and what it
+deliberately does not yet decide — is *The semantic family, alpha*.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
 
@@ -740,3 +754,460 @@ estimator under exactly these rules, with the evaluator's
 judge-graded number the ledger already carries — pending the semantic claim
 family itself, which awaits both opinion ingestion and its blinding
 precondition. The reading contract for the artifact is `metrics/README.md`.
+
+## The semantic family, alpha (`semantic-v0`)
+
+Everything above this heading is pre-registration in the strict sense: settled
+before there is data to fit it to, and changed only by a new declaration
+version. **This section is not.** `semantic-v0` is an **alpha** methodology for
+grading a predicted rationale against what the Court actually wrote — laid out
+and wired now so that iteration is fast when opinion text arrives, provisional,
+unproven against a single real opinion, and expected to change once one is
+seen.
+
+Four facts are what make that an honest label rather than a loophole.
+
+- **Nothing frozen depends on it.** The freeze governs the **process digest** —
+  the prompt bytes plus the resolved actor config (`docs/process-version.md`).
+  Nothing in this section is asked for by a prompt, so no digest moves, no cell
+  produces a semantic grade, and no published number depends on any rule
+  written here. That is precisely what lets it change freely: there is nothing
+  downstream to break.
+- **It commits a predictor to nothing.** Where `cert-v1` and `merits-v1` are
+  declarations a predictor is held to, `semantic-v0` declares nothing:
+  `pipeline.semantic`'s declaration tables are empty and
+  `declared_semantic_claim_set` returns `None` for every event, which the tests
+  assert rather than leave to inspection.
+- **It takes nothing back.** Nothing here relaxes, restates, or reinterprets
+  the mechanical family's contract — not the scoring rule, not the mandatory
+  set, not the floor, not the availability mask, not the publishing rules a
+  claim total travels under. Where anything in this section appears to conflict
+  with a rule above it, the rule above governs and this one is wrong.
+- **Supersession is the plan, not the exception.** The first set actually put
+  to work arrives as `semantic-v1`, with its own review; v0 is never edited
+  into it.
+
+The moment a prompt asks a cell for a semantic claim is the moment this stops
+being alpha, because that is the moment it moves a digest and produces data.
+That is a version bump and its own review — not an edit to this section.
+
+### What a semantic claim is, and how it differs
+
+A mechanical claim resolves in code, with no reader and no latitude. A semantic
+claim resolves by a **reader** matching a predicted proposition against what
+the Court wrote. Of the three conditions in *What a claim is*, one binds
+differently and two do not hold at all:
+
+1. **Resolves true or false from a fixed source.** A semantic claim does not
+   resolve to a bit at all; it earns an ordinal **grade**. And its source is
+   fixed only once an opinion body is ingested and content-addressed — which is
+   the family's binding blocker, not a detail.
+2. **Carries the predictor's probability.** It does not. `SemanticClaim`
+   carries a proposition and no number, deliberately; see the next subsection.
+3. **Has a harness-computed baseline.** It has none, and v0 does not pretend
+   otherwise.
+
+So the unit is a **declared proposition, graded** — not a declared probability,
+scored. `Prediction.semantic_claims` carries the propositions and
+`Evaluation.semantic_grades` one grader's grades of them; both are null on
+every committed artifact, because no set is declared.
+
+One difference is worth stating on its own, because it inverts a rule the
+mechanical family relies on. `Evaluation.claim_scores` is the **harness's**
+word — an evaluator-authored block does not survive the stamp. A semantic grade
+cannot be: needing a reader is the definition of the family. That is exactly
+why inter-grader agreement below is mandatory rather than diagnostic.
+
+### Why a semantic grade is not run through the scoring rule
+
+This is the load-bearing decision of v0, and it is a refusal.
+
+`claim_score = (b − y)² − (p − y)²` needs a harness-computed `b` drawn from
+strictly-prior history, and the whole of the rule's defence rests on where `b`
+comes from. A proposition like *the majority rests on textualist grounds* has
+no such frequency. Every route to manufacturing one fails, and fails in a way
+this document has already recorded:
+
+- **Ask the predictor.** The rule's own text forbids it — a predictor supplying
+  its baseline maximizes trivially by declaring one far from the outcome.
+- **Ask the grader.** The same defect wearing a robe. The grader is a reader
+  with latitude, so the number would be the reader's rather than the record's,
+  and the score would inherit every bias the agreement number exists to detect.
+- **Count how often past majorities rested on that ground.** There is no such
+  tally, and building one means a doctrinal coding of every prior opinion —
+  a harder problem than the one being scored, and one whose coding is itself a
+  reader's judgment. It would also be conditioned on nothing the predictor was
+  shown, which is test 3.
+- **Assert an uninformative `b = 0.5`.** Asserting a baseline is not computing
+  one. The free-score expectation `(π − b)²` would then be an artifact of the
+  assertion, and the floor would price none of it — exactly the failure *The
+  floor priced none of it* records.
+
+So v0 does not score. A semantic grade is **never** run through `claim_score`,
+never enters a `total`, `floor`, or `lift`, is never summed or pooled with a
+mechanical claim total, and is never a rank key. Grades are reported
+descriptively, with inter-grader agreement beside them.
+
+Whether **any** baseline is ever derivable is left open as an **empirical
+question for when text exists**. A doctrinal-ground tally over ingested
+opinions might support a properly-conditioned prior; it might not. Nobody here
+has read a single opinion from this corpus, so settling it now — in either
+direction — would be settling it from no evidence.
+
+### The grade vocabulary
+
+Four values, three of them ordinal (`SemanticSupport`):
+
+| Grade | Meaning |
+| --- | --- |
+| `supported` | The opinion states the predicted proposition or plainly entails it |
+| `partially-supported` | Right direction, wrong scope or wrong reason; or one conjunct of a compound proposition holds and another does not |
+| `unsupported` | The opinion addresses the claim's axis and the proposition is not borne out — including where the opinion says the opposite |
+| `not-addressed` | **The availability mask.** The record does not put the claim in question |
+
+Small on purpose. The grade is a reader's, so every level the vocabulary adds
+is a level graders can disagree on, and agreement is the number this family is
+judged by. Contradiction therefore folds into `unsupported` rather than taking
+a fourth ordinal level: separating *the opinion does not bear this out* from
+*the opinion says the opposite* costs agreement to buy a distinction nothing
+scores. A v1 that finds graders agree easily may split it.
+
+**`not-addressed` is an availability mask and a property of the record, never
+of the predictor** — the same *treatment* the mechanical family gives a vacuous
+claim, though not the same provenance: a mechanical mask is harness-computed
+with no latitude, and this one is a reader's call, which is why a split on it
+has to be counted separately at all. It bites three ways, all of them facts
+about the record: no opinion body of the required kind exists (no concurrence
+was filed), none is ingested, or the opinion is silent on the claim's axis. The
+third is a fact about the record only because the claim's **axis is fixed by
+the declaration** rather than by the predictor's free-text proposition — that
+is the load-bearing reason nothing a predictor writes can move a claim into the
+mask, and it is an intent the declaration does not yet represent (*What remains
+unbuilt*, item 4). It has **no position on the ordinal scale**: counted apart, never
+averaged with the ordinal levels, never inside a share's denominator, and never
+inside the agreement coefficient. A masked claim never reads as one the
+predictor got wrong.
+
+### The claim vocabulary, sketched — and the tests applied
+
+*Semantic claims* above names three candidates. This sketch refines them and
+adds the ones the tests reject, because a vocabulary is defined as much by what
+it excludes. **None of these is declared**; this is a sketch to be tested
+against text, not a set.
+
+First, how the pre-registered eight apply to a claim with no baseline. They
+leave a gap the family has to fill itself, named at the end of this list.
+
+Tests **1 and 2** — is it determined by what the predictor was shown, is it a
+change or a level — apply directly and unchanged.
+
+Test **6** applies directly too, but as a **protocol constraint** rather than a
+filter: it rejects no candidate below and instead fixes how any of them must be
+graded (against the opinion text, never against a pipeline-produced summary of
+it — a grade computed from the same machinery the prediction passed through
+agrees with itself by construction).
+
+Test **3 splits.** Its "is the baseline conditioned on what the predictor sees"
+half needs a baseline and is dormant. Its "is it conditioned on the *outcome*"
+half — leakage wearing a baseline's clothes — applies with full force to the
+**graded population** instead of to a baseline, and it is what rejects both
+compound candidates below.
+
+Tests **4, 5, and 7** are wholly *baseline* tests: the floor, censoring, and
+weighting. **A v0 claim cannot satisfy them at all, because v0 computes no
+baseline** — there is nothing for them to be about. That is not three failing
+grades so much as the reason grades stay descriptive: they go live the day a
+baseline is proposed, and a proposed baseline that has not passed all of them
+(and test 3's dormant half) is not a baseline.
+
+Test **8** bites now. It asks whether a claim's realized base rate sits far
+enough from 0 or 1 to be worth making — a question about the world, measurable
+without adopting any baseline — and it rejects a candidate below.
+
+And the family needs **one test the eight do not supply**, because they were
+written for claims resolved in code. Call it the **gradeability** test: *does
+this claim's shape degrade inter-grader agreement for reasons unrelated to the
+prediction?* Agreement is the family's only check on grader latitude, so a
+claim that injects noise into it does not merely score badly — it damages the
+instrument every other claim is read through. It rejects the last candidate
+below, and it is the one test specific to reader-resolved claims.
+
+**It is alpha, and it is not appended to the eight.** The eight above are
+pre-registered; gradeability is part of `semantic-v0` and carries that
+section's status, not this one's. There is no "test 9" to cite as
+pre-registered, and there will not be one until a version that has met opinion
+text proposes it as such.
+
+| Candidate | Verdict |
+| --- | --- |
+| The doctrinal ground of the majority, **fine-grained** | **Plausible** — the strongest candidate |
+| The doctrinal ground of the majority, **coarse** | Fails test 2 — a level the question presented already discloses |
+| What a concurrence splits off | **Doubtful** — compound, and its graded population conditioned on the outcome (test 3) |
+| The argument a dissent rests on | **Doubtful** — the same, for the same reason |
+| The specific authority the majority relies on | Fails test 8 — a base rate within rounding of zero |
+| The argument the Court declines to reach | **Excluded** — fails gradeability: an unbounded-search negative |
+
+**The majority's doctrinal ground, fine-grained — plausible.** Which of two
+rival readings of the provision carries the holding; which precedent is
+extended, confined, or overruled; whether the holding turns on the canon the
+petitioner pressed or the one the respondent did. Test 1: no snapshot field
+discloses the Court's reasoning, so a forward cell is genuinely forecasting.
+
+That pass is **conditional on when the cell runs**, and v0 records nothing
+about the vantage. The merits event opens at the grant, but nothing pins a
+merits predict cell to that moment, and a forward cell may retrieve without
+restriction — so a cell running after oral argument can read a transcript in
+which the doctrinal ground is frequently telegraphed. The claim's
+forecastability decays monotonically across the Term. It does not fail test 1,
+which keys on the snapshot; it means a v1 declaring this claim owes the
+prediction's date relative to argument beside every grade — which is itself
+unbuilt: no artifact in this project records an argument date.
+
+Test 6 is the protocol constraint, not a filter: the grade must be formed
+against the **opinion text itself**, never against a harness-produced summary
+of it, because grading a prediction against a summary this pipeline generated
+is a quantity measured against its own input.
+
+The replay caveat is sharper here than for a mechanical claim. A replay cell's
+opinion is public, so *every* semantic claim is retrievable rather than
+forecastable — and where a mechanical claim's contamination is bounded by the
+increment over a baseline, a grade has no baseline to subtract, so the whole of
+it is retrievable. Replay semantic grades are iteration instruments only and
+never claimable; *Replay cells cannot produce a claimable total* applies in
+full.
+
+**The same ground, coarsely — fails test 2.** The question presented already
+discloses whether the case is statutory or constitutional and names the
+provision at issue. "The Court will interpret the statute's text" is a level
+the snapshot hands the predictor, not a forecast, and a grader matching it
+against the opinion would find it trivially borne out. This is what forces the
+fineness above: the discriminating content is which reading, which precedent,
+which canon — never which branch of law.
+
+**A concurrence's split, and a dissent's ground — doubtful in their compound
+form.** Each bundles an *existence* claim (a concurrence is filed) with a
+*content* claim (what it splits off on). Two problems, and the second is the
+serious one.
+
+Existence is a mechanical fact, not a semantic one: a filing is a docket event,
+and the day a field records it the claim belongs in the mechanical family,
+where it gets a real baseline and a proper score. Grading it as prose would
+score a countable fact by a reader's impression, and the compound claim also
+*entails* the existence claim, which *No claim may be derived from another*
+forbids.
+
+The content half is conditional on the existence half, and the conditioning is
+on the **outcome** — test 3's live half, applied to the graded population
+rather than to a baseline. Graded as one claim, the content is assessed only where the
+document actually appeared — so a predictor that forecasts a concurrence
+everywhere is graded only on the cases where it was right, and its misses
+vanish into the mask. The mask discipline is not what fails here: "no
+concurrence was filed" genuinely *is* a property of the record, which is what
+makes this hard to see. The mask is honest about the record and silent about
+the miss, and silence about the miss is the whole problem. The fix is to split
+the claim — existence as a mechanical claim once a field exists, content graded
+over the cases where the document exists, with the conditioning stated and the
+conditional population's `n` published beside every grade. Whether the
+conditional grade then carries a claim at all is one of the things v1 has to
+settle with text in hand.
+
+**The specific authority the majority relies on — fails test 8.** "The majority
+will rely on *[named case]*." The rate at which any one named case is relied on
+is within rounding of zero, which is what test 8 exists to catch. In the
+family's own terms — no score, so no Bernoulli-collapsing total to point at —
+the failure shows up as a **census that is almost entirely `unsupported` with
+no power to discriminate between predictors**, and an agreement coefficient
+driven undefined by ties, since graders agreeing that nearly everything is
+unsupported produces no variation to correlate. Test 8's own remedy applies:
+aggregate upward. "The holding rests on the *[named line of cases]*" may pass
+where the per-case form cannot.
+
+**The argument the Court declines to reach — excluded from v0, on
+gradeability.** A negative claim about a long text. Establishing absence means
+searching the whole opinion, and absence-of-evidence in a fifty-page opinion is
+a search problem rather than a reading one; two graders will disagree at a rate
+driven by how hard each looked. That noise lands directly in the agreement
+number, where it is indistinguishable from genuine grader latitude — so a claim
+of this shape does not merely score badly, it degrades the instrument every
+other claim is read through. A v1 could readmit it only under a bounded search:
+a named section, or a specific argument as briefed, so that absence is
+checkable rather than merely unfound.
+
+### The grading protocol
+
+- **Blind by construction.** The blinding requirement above is a
+  **precondition** on this family, inherited unchanged: no grade is published
+  from a pass that could see whose prediction it was grading, because a grader
+  who knows anchors, and the agreement number would then partly measure the
+  anchor. The harness cannot deliver it today; that is a precondition on
+  grading, not a detail of it.
+- **One grade per declared claim, and every declared claim graded.** The set is
+  mandatory exactly as the mechanical set is, for the same reason: a grader who
+  may skip claims selects the graded population. A grader that finds the record
+  settles nothing writes `not-addressed`; it does not skip the row.
+- **The mask is the record's, three ways.** No opinion body of the required
+  kind exists; none is ingested; the opinion is silent on the claim's axis.
+  Never "the prediction was vague" — a vague proposition is graded, and graded
+  poorly.
+- **A grader must not reward paraphrase of the prediction back at itself.** The
+  failure mode is a predicted proposition that restates the question presented,
+  the syllabus, or the standard of review, and is therefore "matched" in the
+  opinion trivially. A grade is earned by a proposition's **discriminating**
+  content — what it asserted that a competent reader of the pre-decision record
+  could have asserted otherwise. A proposition whose content is entailed by the
+  question presented is not `supported` however cleanly it matches, because it
+  was never at issue. The grade's `basis` field is the enforcement surface: it
+  records what *in the opinion* the grade rests on, so a basis that restates
+  the prediction rather than quoting the Court is visible on review.
+- **Grade against the text, never against a summary of it.** Test 6 again: a
+  pipeline-generated summary of the opinion is derived from the same machinery
+  the prediction passed through, and a grade computed against it agrees with
+  itself by construction.
+
+### The agreement requirement
+
+Because a semantic grade is the grader's word by construction, inter-grader
+agreement is not a diagnostic here — it is the family's **only** check on
+grader latitude, and it is what makes a grade a measurement rather than one
+reader's opinion. Three evaluators grade each cell, so it is measurable.
+
+- **Estimator: Kendall tau-b, leave-one-out**, per grader, over the
+  `(case, event, predictor, claim)` units that grader shares with at least one
+  peer — the same estimator and the same leave-one-out shape as
+  `Leaderboard.evaluator_agreement`, reusing its `kendall_tau_b` rather than
+  duplicating it, over a different population and **never the same figure** (a
+  grader can track the panel on case stakes and not on grades). Rank-based, so
+  the spacing of the ordinal scale drops out of the grader's *own* ordering;
+  tau-b is what handles the heavy ties a four-value vocabulary produces.
+  Leave-one-out because a panel mean containing the grader correlates it partly
+  with itself — on a three-judge panel, by a third. Equal spacing between the
+  three levels does survive as an assumption of the **peer mean**, which
+  averages 0/1/2: peers `{unsupported, supported}` and peers
+  `{partial, partial}` both read 1.0 and tie. A four-value vocabulary keeps
+  that mild, and it is the same construction the leaderboard's number already
+  uses, but it is an assumption and not a property.
+- **Never published alone, and a null coefficient is never a pass.** No count
+  or share is published without the agreement figure for the same cell set
+  beside it, and a null figure is not one. The coefficient is null three ways —
+  withheld below the threshold, no comparison to make, and **undefined for want
+  of variation** — and all three bar publication.
+  The third is the one worth spelling out, because it is easy to misread as
+  unanimity. Tau-b is undefined when one axis is **constant across units**, not
+  when the graders agree: a panel that agrees on grades that *differ* from unit
+  to unit reads +1. A constant axis means either a record so uniform that every
+  unit graded alike, or a **uniformly generous grader** whose own axis never
+  moves — and the coefficient cannot tell those apart. The second is precisely
+  the pathology this number exists to catch, so reading an undefined
+  coefficient as agreement would disarm the family's only check at the one
+  moment it is firing. The record separates *withheld* from *undefined*, which
+  are different things to fix — a thin sample against a degenerate one — but
+  neither is a licence to publish.
+- **Pooled across claims, deliberately — and the pooling count travels with
+  it.** The coefficient is one number per grader over every claim's units,
+  because per-claim unit counts are far too thin to correlate separately. The
+  cost is a Simpson-shaped reversal, and it is the *expected* shape once a set
+  mixes claims of differing difficulty: a stable between-claim contrast — this
+  claim type is easy, that one is hard — can carry a tau-b near +1 while
+  within-claim agreement is exactly zero. A caveat in prose does not bound
+  that, so the **number of claims pooled** publishes beside the coefficient,
+  the way `pair_events` publishes beside `pairs` and a reweighted denominator
+  prints `est. n=`. At one claim the contrast is unavailable and cannot be
+  doing the work; the higher it runs, the more of the coefficient it could be.
+  Splitting the coefficient per claim is a job for a version with the per-claim
+  sample to spend on it.
+- **A property of the panel, not of one judge.** With three graders a single
+  dissenter sits inside both peers' comparison and can turn all three negative,
+  so a low figure locates a disagreement rather than assigning blame.
+- **Suppressed below 10 units**, with the unit count still published. The
+  threshold matches the mechanical judge validation's numerically but **not in
+  its unit**: that one counts cells, this one counts `(cell, claim)` pairs, and
+  a five-claim set reaches 10 units on two cells. The units of one cell share a
+  prediction, an opinion, and one reading pass, so they are strongly correlated
+  and the effective sample is nearer the cell count. The distinct-cell count is
+  therefore published beside the unit count, and it is the one to read. The
+  **pooled `overall` census** inherits the same hazard from the same arithmetic
+  — it reaches the minimum on units accumulated across claims — so it publishes
+  its own cell count too. A per-claim census does not need one: for a fixed
+  claim, one cell contributes exactly one unit.
+- **A split on the mask is excluded from the coefficient and counted.** Where
+  some graders read `not-addressed` and others graded on the ordinal scale, the
+  unit enters neither the ordinal census nor the coefficient — it is counted on
+  its own row. Those graders disagree about what the *record* discloses, which
+  measures the record's adequacy rather than the predictor or the panel, and
+  burying it in the coefficient would let an inadequate record read as an
+  unreliable panel. But the exclusion has a price that must be stated with the
+  number rather than discovered later: the units removed are the ones graders
+  disagreed on *most sharply*, so the published coefficient is agreement
+  **conditional on the panel unanimously agreeing the record spoke**. Read it
+  against the mask-dispute count, not merely beside it — and note the exclusion
+  needs unanimity on both sides, so a single mask-prone grader removes units
+  from every peer's comparison.
+
+One convention the roll-up needs and v0 fixes provisionally: a unit graded by
+several graders is counted **once**, at the panel's **lower median ordinal**, or
+the census would weight a unit by its grader count — the distortion the
+mechanical surface removes by deduplicating blocks to one per event. The lower
+median, not the floor of the median, so the result stays on the vocabulary
+(`[0, 0, 2, 2]` gives `unsupported`, never a level between two) and an even
+split lands on the less supported side, so multiplicity can never manufacture
+credit. Unlike the mechanical deduplication this genuinely discards information
+— those copies are byte-identical, graders are not — which is admissible only
+because what it discards is republished as the agreement figure. A summary
+convention of the alpha.
+
+### What this does not change
+
+The pre-registered mechanical↔semantic agreement above pairs each cell's
+mechanical claim total with the evaluator's `reasoning_quality` grade, and
+`semantic-v0` **does not touch that pairing**. Whether the pair's semantic side
+should become a semantic-family grade is for `semantic-v1` to fix, explicitly,
+with its own review: swapping it in place would silently redefine a
+pre-registered number, and a coefficient computed over two different semantic
+sides is not one series.
+
+### What remains unbuilt
+
+In dependency order, most binding first:
+
+1. **Opinion ingest.** `has_opinion` is 0 on every corpus row. Nothing can be
+   graded against text that is not there, and no amount of methodology
+   substitutes.
+2. **Blind grading.** The evaluate contract has the evaluator read
+   `predictions/<predictor_id>/<run_id>/prediction.json` and write under a path
+   keyed on the same id, so grader-side identity is unavoidable today.
+3. **A grader prompt.** None exists, deliberately: writing one moves a digest
+   and makes cells produce data under a methodology that has never met an
+   opinion.
+4. **A declared set — and an axis to go with each claim in it.** The tables in
+   `pipeline.semantic` are empty, and the candidates above are a sketch rather
+   than a declaration. A table entry also carries less than the mask rule
+   above needs: it holds claim ids, and "the opinion is silent on the claim's
+   **axis**" presumes each id names an axis a grader can check silence
+   against. Today that is design intent carried in prose, not something the
+   declaration represents, so the third mask mode rests on a convention rather
+   than on a structure.
+5. **Any baseline.** Left open as an empirical question above.
+6. **The predictor-side mandatory set.** The grader side is enforced —
+   `graded_units` reads the declaration first, refuses a block stamped with a
+   different declaration, drops one that skips a declared claim, and ignores
+   rows outside the set. The *predictor* side has no equivalent refusal:
+   nothing reads `Prediction.semantic_claims` at all, where a non-conforming
+   mechanical claims block at least costs the cell its `claim_scores`
+   (`score_claims` returns no block rather than scoring the half the predictor
+   chose). Until something does, *Why the set is mandatory* holds for graders
+   and not for predictors — and differential coverage across predictors would
+   reweight a pooled census with no visible change in any denominator.
+7. **A published surface.** No artifact under `metrics/` carries semantic
+   grades. `metrics/README.md` states the rules any such surface would publish
+   under, so the reading contract exists before the artifact does. Two of those
+   rules the roll-up cannot enforce for itself, because a graded unit carries
+   no stratum and no process stamp: the caller states both, and a census that
+   does not state them is recorded as undeclared — a null is the only signal,
+   and an undeclared census is not publishable.
+
+What *is* built is the seam: the schema blocks, the empty declaration tables
+with the lookup that treats them as authoritative, and the descriptive roll-up
+with its agreement number, unit tested against synthetic graded fixtures. So
+turning the family on is a declaration plus a prompt that asks for it, rather
+than a new shape — with the two items above still owed before anything from it
+is published.

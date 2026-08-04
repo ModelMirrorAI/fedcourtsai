@@ -274,6 +274,76 @@
       ],
       "title": "ProcessVersion",
       "type": "object"
+    },
+    "SemanticGrade": {
+      "additionalProperties": false,
+      "description": "One declared semantic claim's graded row inside ``Evaluation.semantic_grades``.\n\nThe semantic counterpart of :class:`ClaimScore`, and structurally different\nin the one way that matters: there is no ``baseline`` and no ``score``. The\nmechanical rule needs a harness-computed prior from strictly-prior history,\na semantic proposition has no such frequency, and manufacturing one would\nput a number where no evidence supports it \u2014 so this row carries an ordinal\ngrade and stops there (``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*).\n\nUnlike every field of :class:`ClaimScore`, the grade **is** the grader's\nword \u2014 resolving it needs a reader, which is the definition of the semantic\nfamily. That is exactly why inter-grader agreement travels beside any\npublished grade rather than as an optional diagnostic: with three evaluators\ngrading each cell, agreement is measurable, and it is the only check on\ngrader latitude this family has.",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What in the opinion the grade rests on, briefly \u2014 the passage or holding the grader matched against. A grade whose basis restates the prediction rather than the opinion is a paraphrase graded against itself, which the grading protocol forbids; this field is what makes that visible in review. Null when the grader recorded none",
+          "title": "Basis"
+        },
+        "claim_id": {
+          "description": "The declared semantic claim this row grades",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "grade": {
+          "$ref": "#/$defs/SemanticSupport",
+          "description": "How far the opinion supports the predicted proposition. `not-addressed` is the availability mask \u2014 the record does not put the claim in question (no opinion body of the required kind exists, none is ingested, or the opinion is silent on the claim's axis) \u2014 a property of the record and never of the predictor, so it is counted apart from the ordinal levels and never averaged with them"
+        }
+      },
+      "required": [
+        "claim_id",
+        "grade"
+      ],
+      "title": "SemanticGrade",
+      "type": "object"
+    },
+    "SemanticGradeBlock": {
+      "additionalProperties": false,
+      "description": "One evaluator's grades over a prediction's declared semantic claim set.\n\nAdvisory and segmented like :class:`ClaimScoreBlock`, and further out still:\nit carries no total, is never pooled with mechanical claim scores (the two\nare not in the same units and one is not a score at all), and is never a\nrank key. What may be read off it is fixed by ``metrics/README.md``; what it\n*is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,\nalpha*.\n\n**Alpha, and inert.** ``semantic-v0`` is provisional and unproven against\nopinion text \u2014 not a pre-registered commitment in the sense ``cert-v1`` and\n``merits-v1`` are. No stage declares a semantic set, no prompt asks for one,\nand so no committed evaluation carries this block and no published number\ndepends on it. The first set actually put to work arrives as ``semantic-v1``\nwith its own review; supersession is the expected path, not an exception.",
+      "properties": {
+        "declared_set_version": {
+          "description": "The semantic claim-set declaration these rows answer, e.g. 'semantic-v0' \u2014 the versioned constant in `fedcourtsai.pipeline.semantic`",
+          "title": "Declared Set Version",
+          "type": "string"
+        },
+        "grades": {
+          "description": "One row per declared semantic claim, in the declaration's order. The set is mandatory exactly as the mechanical set is: a grader grades every declared claim and adds none, using `not-addressed` where the record settles nothing rather than skipping the row",
+          "items": {
+            "$ref": "#/$defs/SemanticGrade"
+          },
+          "title": "Grades",
+          "type": "array"
+        }
+      },
+      "required": [
+        "declared_set_version"
+      ],
+      "title": "SemanticGradeBlock",
+      "type": "object"
+    },
+    "SemanticSupport": {
+      "description": "How far the opinion supports one declared semantic claim \u2014 the ``semantic-v0`` grade.\n\nA small closed vocabulary on purpose: the grade is read by a human-or-model\ngrader rather than resolved in code, so every level the vocabulary adds is a\nlevel graders can disagree on, and inter-grader agreement is the number this\nfamily is judged by. Contradiction folds into ``unsupported`` for that\nreason \u2014 separating \"the opinion is silent on the point the claim makes\" from\n\"the opinion says the opposite\" costs agreement to buy a distinction nothing\nscores today.\n\nThree of the four levels are **ordinal** (``unsupported`` <\n``partial`` < ``supported``) and one is not: ``not_addressed`` is the\n**availability mask**, a property of the *record* and never of the\npredictor \u2014 the opinion body that would settle the claim does not exist, was\nnever ingested, or says nothing on the claim's axis. It is reported and\ncounted, never ranked and never scored, exactly as a masked mechanical claim\nis (``ClaimScore.outcome`` null).\n\n``semantic-v0`` is **alpha** \u2014 provisional, unproven against opinion text,\nand explicitly not a pre-registered commitment in the sense ``cert-v1`` and\n``merits-v1`` are. Nothing produces a grade today, so nothing published\ndepends on this vocabulary; see ``docs/outcome-decomposition.md``, *The\nsemantic family, alpha*.",
+      "enum": [
+        "supported",
+        "partially-supported",
+        "unsupported",
+        "not-addressed"
+      ],
+      "title": "SemanticSupport",
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -500,6 +570,18 @@
       "default": null,
       "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.evaluate.merits_base_rate`), which is not a salience-band product, so base_rate_basis and base_rate_salience_version stay null there. An interim cell has no published rate and omits the field. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
       "title": "Segment Base Rate"
+    },
+    "semantic_grades": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SemanticGradeBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "This evaluator's grades over the prediction's declared **semantic** claim set (`fedcourtsai.pipeline.semantic`). Advisory like `claim_scores`, and further out: it carries no total, is never pooled with mechanical claim scores, and is never a rank key. Unlike `claim_scores` it is the grader's word by construction \u2014 a semantic claim needs a reader \u2014 which is why inter-grader agreement travels beside any published grade. Null on every committed evaluation: no stage declares a semantic set and no prompt asks for one."
     },
     "vote_accuracy": {
       "anyOf": [

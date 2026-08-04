@@ -13,7 +13,6 @@ from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
     PROCEDURAL,
     RETROSPECTIVE,
-    Stratum,
     big_case_agreement,
     build_leaderboard,
     classify_stratum,
@@ -34,6 +33,7 @@ from fedcourtsai.schemas import (
     Prediction,
     ProcessVersion,
     Stage,
+    Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations

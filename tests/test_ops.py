@@ -7,7 +7,6 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, ops
 from fedcourtsai.cli import app
-from fedcourtsai.leaderboard import Stratum
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
@@ -34,6 +33,7 @@ from fedcourtsai.schemas import (
     Prediction,
     StatPack,
     StatPackSection,
+    Stratum,
     UsageRole,
 )
 from fedcourtsai.serialize import write_json

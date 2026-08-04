@@ -272,6 +272,46 @@ class FlagSeverity(StrEnum):
     blocker = "blocker"
 
 
+class SemanticSupport(StrEnum):
+    """How far the opinion supports one declared semantic claim — the ``semantic-v0`` grade.
+
+    A small closed vocabulary on purpose: the grade is read by a human-or-model
+    grader rather than resolved in code, so every level the vocabulary adds is a
+    level graders can disagree on, and inter-grader agreement is the number this
+    family is judged by. Contradiction folds into ``unsupported`` for that
+    reason — separating "the opinion is silent on the point the claim makes" from
+    "the opinion says the opposite" costs agreement to buy a distinction nothing
+    scores today.
+
+    Three of the four levels are **ordinal** (``unsupported`` <
+    ``partial`` < ``supported``) and one is not: ``not_addressed`` is the
+    **availability mask**, a property of the *record* and never of the
+    predictor — the opinion body that would settle the claim does not exist, was
+    never ingested, or says nothing on the claim's axis. It is reported and
+    counted, never ranked and never scored, exactly as a masked mechanical claim
+    is (``ClaimScore.outcome`` null).
+
+    ``semantic-v0`` is **alpha** — provisional, unproven against opinion text,
+    and explicitly not a pre-registered commitment in the sense ``cert-v1`` and
+    ``merits-v1`` are. Nothing produces a grade today, so nothing published
+    depends on this vocabulary; see ``docs/outcome-decomposition.md``, *The
+    semantic family, alpha*.
+    """
+
+    supported = "supported"
+    partial = "partially-supported"
+    unsupported = "unsupported"
+    not_addressed = "not-addressed"
+
+
+# The pre-registration stratum a scored cell belongs to. Defined here, beside
+# the models that carry it, so a field can be typed on the closed vocabulary
+# rather than on a bare string; `fedcourtsai.leaderboard` re-exports it with the
+# named constants and owns `classify_stratum`, the single definition of which
+# cell lands where.
+Stratum = Literal["forward", "retrospective", "procedural"]
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
@@ -516,6 +556,44 @@ class ClaimProbability(_Strict):
     )
 
 
+class SemanticClaim(_Strict):
+    """One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.
+
+    The semantic counterpart of :class:`ClaimProbability`, and deliberately not
+    its twin: it carries **no probability**. A semantic claim resolves by a
+    reader matching a predicted proposition against what the Court actually
+    wrote, and no harness-computed prior exists for a proposition like "the
+    majority rests on textualist grounds" — so there is no ``b`` for
+    ``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only
+    invite the rule to be applied where its baseline requirement cannot be met.
+    A grade, not a score, is what this claim earns
+    (:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic
+    family, alpha*, is the design authority.
+
+    The set is the harness's exactly as the mechanical set is
+    (``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no
+    committed prediction carries this block; the field exists so that turning
+    the family on is a declaration plus a prompt that asks for it, rather than
+    a new shape. One piece is still owed on this side and named in
+    ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike
+    ``Prediction.claims``, nothing yet holds this list to the declared set, so
+    the mandatory-set discipline binds graders and not predictors.
+    """
+
+    claim_id: str = Field(
+        description="The declared semantic claim this proposition answers, e.g. "
+        "'majority-ground' — the id the harness declared, never one the "
+        "predictor invented"
+    )
+    proposition: str = Field(
+        min_length=1,
+        max_length=1000,
+        description="The predicted proposition, stated so a grader can match it "
+        "against the opinion: one specific, falsifiable assertion about what the "
+        "Court's reasoning will be, not a hedged survey of possibilities",
+    )
+
+
 class Prediction(_Strict):
     """``prediction.json`` — one predictor's quantitative output for an event."""
 
@@ -614,6 +692,18 @@ class Prediction(_Strict):
         "probability for every declared claim, and it can neither add claims nor "
         "skip them. Optional (defaults None) only so predictions written before "
         "the field existed still validate.",
+    )
+    semantic_claims: list[SemanticClaim] | None = Field(
+        default=None,
+        description="Per-claim propositions over the harness-declared **semantic** "
+        "claim set for this event (`fedcourtsai.pipeline.semantic`). Graded "
+        "against the opinion text by a reader, never scored by "
+        "`claim_score` — a semantic claim has no harness-computable prior, so "
+        "the mechanical rule's baseline requirement cannot be met and the family "
+        "reports grades descriptively instead. Null on every committed "
+        "prediction: the declaration tables are empty (`semantic-v0` is alpha, "
+        "and no opinion body is ingested to ground a claim against), so no cell "
+        "is asked for one.",
     )
 
     @model_validator(mode="after")
@@ -892,6 +982,76 @@ class ClaimScoreBlock(_Strict):
     )
 
 
+class SemanticGrade(_Strict):
+    """One declared semantic claim's graded row inside ``Evaluation.semantic_grades``.
+
+    The semantic counterpart of :class:`ClaimScore`, and structurally different
+    in the one way that matters: there is no ``baseline`` and no ``score``. The
+    mechanical rule needs a harness-computed prior from strictly-prior history,
+    a semantic proposition has no such frequency, and manufacturing one would
+    put a number where no evidence supports it — so this row carries an ordinal
+    grade and stops there (``docs/outcome-decomposition.md``, *The semantic
+    family, alpha*).
+
+    Unlike every field of :class:`ClaimScore`, the grade **is** the grader's
+    word — resolving it needs a reader, which is the definition of the semantic
+    family. That is exactly why inter-grader agreement travels beside any
+    published grade rather than as an optional diagnostic: with three evaluators
+    grading each cell, agreement is measurable, and it is the only check on
+    grader latitude this family has.
+    """
+
+    claim_id: str = Field(description="The declared semantic claim this row grades")
+    grade: SemanticSupport = Field(
+        description="How far the opinion supports the predicted proposition. "
+        "`not-addressed` is the availability mask — the record does not put the "
+        "claim in question (no opinion body of the required kind exists, none is "
+        "ingested, or the opinion is silent on the claim's axis) — a property of "
+        "the record and never of the predictor, so it is counted apart from the "
+        "ordinal levels and never averaged with them"
+    )
+    basis: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="What in the opinion the grade rests on, briefly — the "
+        "passage or holding the grader matched against. A grade whose basis "
+        "restates the prediction rather than the opinion is a paraphrase graded "
+        "against itself, which the grading protocol forbids; this field is what "
+        "makes that visible in review. Null when the grader recorded none",
+    )
+
+
+class SemanticGradeBlock(_Strict):
+    """One evaluator's grades over a prediction's declared semantic claim set.
+
+    Advisory and segmented like :class:`ClaimScoreBlock`, and further out still:
+    it carries no total, is never pooled with mechanical claim scores (the two
+    are not in the same units and one is not a score at all), and is never a
+    rank key. What may be read off it is fixed by ``metrics/README.md``; what it
+    *is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,
+    alpha*.
+
+    **Alpha, and inert.** ``semantic-v0`` is provisional and unproven against
+    opinion text — not a pre-registered commitment in the sense ``cert-v1`` and
+    ``merits-v1`` are. No stage declares a semantic set, no prompt asks for one,
+    and so no committed evaluation carries this block and no published number
+    depends on it. The first set actually put to work arrives as ``semantic-v1``
+    with its own review; supersession is the expected path, not an exception.
+    """
+
+    declared_set_version: str = Field(
+        description="The semantic claim-set declaration these rows answer, e.g. "
+        "'semantic-v0' — the versioned constant in `fedcourtsai.pipeline.semantic`"
+    )
+    grades: list[SemanticGrade] = Field(
+        default_factory=list,
+        description="One row per declared semantic claim, in the declaration's "
+        "order. The set is mandatory exactly as the mechanical set is: a grader "
+        "grades every declared claim and adds none, using `not-addressed` where "
+        "the record settles nothing rather than skipping the row",
+    )
+
+
 class Evaluation(_Strict):
     """``evaluation.json`` — one evaluator scoring one predictor's prediction."""
 
@@ -1024,6 +1184,17 @@ class Evaluation(_Strict):
         "evaluator's word — the harness computes the block from committed "
         "artifacts. Null on records written before the block existed and on "
         "predictions carrying no claims block.",
+    )
+    semantic_grades: SemanticGradeBlock | None = Field(
+        default=None,
+        description="This evaluator's grades over the prediction's declared "
+        "**semantic** claim set (`fedcourtsai.pipeline.semantic`). Advisory like "
+        "`claim_scores`, and further out: it carries no total, is never pooled "
+        "with mechanical claim scores, and is never a rank key. Unlike "
+        "`claim_scores` it is the grader's word by construction — a semantic "
+        "claim needs a reader — which is why inter-grader agreement travels "
+        "beside any published grade. Null on every committed evaluation: no "
+        "stage declares a semantic set and no prompt asks for one.",
     )
     notes_doc: str = "evaluation.md"
     process_version: ProcessVersion | None = Field(
@@ -1831,6 +2002,246 @@ class ClaimScoreBoard(_Strict):
         default_factory=list,
         description="One entry per predictor with at least one block-carrying "
         "cell, ordered by predictor_id — never ranked",
+    )
+
+
+class SemanticClaimSummary(_Strict):
+    """The grade census for one semantic claim — counts, and nothing derived from them.
+
+    Descriptive by construction. The three ordinal levels are counted, the
+    availability mask is counted apart from them, and the one derived figure —
+    ``supported_share`` — is withheld below the minimum graded count, because a
+    share over three grades describes three grades rather than a predictor.
+    Nothing here is a score, nothing is pooled with a mechanical claim total,
+    and nothing is a rank key (``metrics/README.md``).
+    """
+
+    claim_id: str | None = Field(
+        default=None,
+        description="The declared semantic claim these counts cover; null on "
+        "the pooled `overall` census, which is a coverage figure rather than a "
+        "claim's own",
+    )
+    supported: int = Field(default=0, ge=0, description="Grades of `supported`")
+    partial: int = Field(default=0, ge=0, description="Grades of `partially-supported`")
+    unsupported: int = Field(default=0, ge=0, description="Grades of `unsupported`")
+    not_addressed: int = Field(
+        default=0,
+        ge=0,
+        description="Grades of `not-addressed` — the availability mask, a "
+        "property of the record and never of the predictor. Counted apart from "
+        "the ordinal levels and never inside `graded`, so a claim the record "
+        "could not settle never reads as a claim the predictor got wrong",
+    )
+    mask_disputed: int = Field(
+        default=0,
+        ge=0,
+        description="Units where graders split on the mask itself — some read "
+        "`not-addressed`, some graded on the ordinal scale. Excluded from the "
+        "ordinal counts and from the agreement coefficient: the disagreement is "
+        "about what the record discloses, so it measures the record's adequacy "
+        "rather than the predictor or the panel",
+    )
+    graded: int = Field(
+        default=0,
+        ge=0,
+        description="Units resolved on the ordinal scale — supported + partial "
+        "+ unsupported. The denominator for `supported_share`, and the count a "
+        "reader must see beside it",
+    )
+    cells: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cells behind every unit counted here, masked ones "
+        "included. On a per-claim census it equals the unit total (one cell "
+        "contributes one unit to a given claim) and states the identity rather "
+        "than adding to it. On the pooled `overall` census it is the count that "
+        "bounds the evidence: that census reaches the minimum on `graded` "
+        "units, which a multi-claim set can accumulate from a couple of cells",
+    )
+    supported_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`supported` over `graded` — descriptive only, never a rank "
+        "key and never comparable across claim-set versions or strata. Null "
+        "when `graded` sits below the published minimum, where the counts still "
+        "publish and only this figure is withheld",
+    )
+
+
+class SemanticGraderAgreement(_Strict):
+    """How far one grader's semantic grades track the rest of the panel's.
+
+    The semantic family's only check on grader latitude, and mandatory beside
+    any published grade rather than optional: the grade is a reader's word by
+    construction, so a uniformly generous or strict grader is invisible in the
+    grades themselves and visible only against its peers.
+
+    Computed **leave-one-out**, the same shape as
+    :class:`EvaluatorAgreement`: the grader's ordering of the shared units
+    against the mean of the *other* graders' ordinals, correlated with Kendall's
+    tau-b. A rank correlation because the vocabulary is ordinal with heavy ties,
+    which is exactly what tau-b is for; leave-one-out because a panel mean
+    containing the grader correlates it partly with itself, and on a three-judge
+    panel that self-term is a third of the comparison.
+
+    Read it as a property of the **panel**, not of one judge — with three
+    graders a single dissenter sits inside both peers' comparison and can turn
+    all three negative.
+    """
+
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b between this grader's ordinal grades and "
+        "the mean of the other graders' on the units they share (+1 = same "
+        "order, -1 = reversed). Null three ways, and **all three bar "
+        "publication**: below the published minimum unit count; with fewer "
+        "than 2 shared units; and when one axis has no variation across units, "
+        "so every pair ties on it. The third is *undefined*, never 'the panel "
+        "agreed' — a panel that agrees on grades that differ across units "
+        "reads +1, not null. What produces a tied axis is a **constant** one: "
+        "a record so uniform every unit graded alike, or a uniformly generous "
+        "grader whose own axis never moves. The coefficient cannot tell those "
+        "apart, and the second is the exact pathology this number exists to "
+        "catch, so an undefined coefficient is never read as agreement",
+    )
+    paired_units: int = Field(
+        default=0,
+        ge=0,
+        description="Shared (cell, claim) units behind the coefficient — "
+        "published whether or not the coefficient is, so a withheld number is "
+        "visibly withheld rather than absent. Named apart from "
+        "`SemanticGradeSummary.units`, which counts a different population "
+        "(every unit, masked ones included)",
+    )
+    cells: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cells those units came from, and the count that "
+        "actually bounds the evidence: the units of one cell share a "
+        "prediction, an opinion, and a single reading pass, so they are "
+        "strongly correlated and the effective sample is nearer this number "
+        "than `paired_units`. The minimum threshold keys on `paired_units` — "
+        "unlike the mechanical judge validation's, which keys on cells — so "
+        "this count is what stops a published coefficient over one claim set "
+        "on two cells from reading like one over ten",
+    )
+    claims_pooled: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct declared claims the coefficient pools, and the "
+        "integer that bounds its pooling caveat. The coefficient is one number "
+        "per grader across every claim, so a stable *between-claim* contrast — "
+        "this claim type is easy, that one is hard — can carry a tau-b near +1 "
+        "while within-claim agreement is zero. At 1 there is no such contrast "
+        "available to do the work; the higher this runs, the more of the "
+        "coefficient it could be. Splitting the coefficient per claim is left "
+        "to a version with the per-claim sample to spare",
+    )
+    suppressed: bool = Field(
+        default=False,
+        description="Whether `rank_agreement` was withheld for sitting below "
+        "the minimum unit count. False with a null coefficient means the "
+        "coefficient is *undefined* rather than withheld — one axis had no "
+        "variation to correlate. It bars publication either way; the flag "
+        "separates a thin sample from a degenerate one, which are different "
+        "things to fix. (At any threshold of 2 or more — the published one is "
+        "10 — a grader with fewer than two shared units is below the minimum "
+        "too, so that case is recorded as withheld rather than undefined.)",
+    )
+
+
+class SemanticGradeSummary(_Strict):
+    """The descriptive roll-up of a set of semantic grades, with agreement beside it.
+
+    What the ``semantic-v0`` seam produces:
+    :func:`fedcourtsai.pipeline.semantic.summarize_semantic_grades` builds it
+    from graded units and nothing else — no baseline, no score, no total. There
+    is no such artifact under ``metrics/`` and no cell produces a grade to feed
+    one; this is the shape a future surface would publish, exercised now
+    against synthetic grades so the plumbing is proven before real ones exist.
+
+    Two of the rules it publishes under it cannot enforce for itself, because a
+    graded unit carries neither label: ``stratum`` and ``process_scope`` are
+    the caller's word. Nothing marks a census unpublishable — a null is the
+    only signal there is — and an undeclared census is not publishable.
+
+    **Alpha.** ``semantic-v0`` is provisional and unproven against opinion text,
+    explicitly not a pre-registered commitment in the sense ``cert-v1`` and
+    ``merits-v1`` are (``docs/outcome-decomposition.md``, *The semantic family,
+    alpha*). What may and may not be read off a grade is ``metrics/README.md``'s.
+    """
+
+    stratum: Stratum | None = Field(
+        default=None,
+        description="The pre-registration stratum this census covers, stated by "
+        "the caller and never inferred. Typed on the closed vocabulary because "
+        "the label is all there is here — the roll-up cannot check it against "
+        "the cells, so nothing else would stop a caller naming a stratum the "
+        "project does not have. Null means undeclared, and an undeclared census "
+        "is not publishable: strata are never pooled, and a summary that pooled "
+        "forward and retrospective cells would otherwise be indistinguishable "
+        "from one that did not",
+    )
+    process_scope: Literal["frozen", "all"] | None = Field(
+        default=None,
+        description="The process-version scope this census covers, stated by "
+        "the caller and never inferred, and closed for the same reason as "
+        "`stratum`. Null means undeclared, and carries the same bar: a grade is "
+        "never comparable across the scope boundary",
+    )
+    declared_set_versions: list[str] = Field(
+        default_factory=list,
+        description="The semantic claim-set declarations these counts pool, "
+        "sorted. More than one entry demotes every figure here to coverage: a "
+        "grade is never comparable across declarations, exactly as a mechanical "
+        "total is never comparable across claim-set versions. A defensive "
+        "disclosure — `pipeline.semantic.graded_units` refuses a block whose "
+        "version disagrees with the declaration, so units drawn from the ledger "
+        "always share one, and a mixed value says the units were assembled some "
+        "other way",
+    )
+    cells: int = Field(default=0, ge=0, description="Distinct graded cells behind these counts")
+    units: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (cell, claim) units, masked ones included. Not "
+        "what any threshold keys on: the share keys on a claim's `graded` "
+        "count and the agreement coefficient on that grader's `paired_units`",
+    )
+    graders: int = Field(default=0, ge=0, description="Distinct graders contributing grades")
+    min_graded: int = Field(
+        default=0,
+        ge=0,
+        description="The suppression threshold these figures were built under, "
+        "published with them so a withheld share cannot be mistaken for a "
+        "missing one",
+    )
+    claims: list[SemanticClaimSummary] = Field(
+        default_factory=list,
+        description="One census per declared semantic claim, ordered by claim_id",
+    )
+    overall: SemanticClaimSummary | None = Field(
+        default=None,
+        description="The census pooled over claims — a coverage figure, not a "
+        "headline: different claims are different propositions of different "
+        "difficulty, so their pooled share describes the claim mix as much as "
+        "the predictor. Null when there is nothing to pool",
+    )
+    agreement: dict[str, SemanticGraderAgreement] = Field(
+        default_factory=dict,
+        description="Per grader, leave-one-out rank agreement with the rest of "
+        "the panel, **pooled across claims** — the per-claim unit counts are "
+        "too thin to correlate separately, at the cost that graders who merely "
+        "order the claim *types* alike read as agreeing, so a per-claim share "
+        "travels with a panel-level figure rather than its own. Empty when no "
+        "unit carried two graders on the ordinal scale (a unit graders split on "
+        "the mask contributes to neither side) — the state in which no grade "
+        "may be published at all, since agreement is the family's only check on "
+        "grader latitude",
     )
 
 

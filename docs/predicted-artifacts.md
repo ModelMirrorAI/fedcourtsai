@@ -81,6 +81,12 @@ fields that mean the same thing at every stage:
   `probability` scores nothing at all — a partial answer is malformed, not a
   choice. Where an event declares no set the cell writes no `claims` field, and
   the stamped record carries it as null; never an empty list.
+- **`semantic_claims`** — the *semantic* claim set's propositions, and **null on
+  every cell**: no event declares a semantic set, so no prompt asks for one and
+  no cell writes one. The field is the wired-but-inert seam of the alpha
+  `semantic-v0` methodology ([outcome-decomposition.md](outcome-decomposition.md),
+  *The semantic family, alpha*); a cell that invents a block for it is writing
+  a claim the harness never declared.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -412,6 +418,12 @@ numbers may be claimed to show.
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
   and `process_version` are the harness's, never the evaluator's word.
+  `semantic_grades` is null on every cell — the counterpart of the prediction's
+  `semantic_claims` above, and inert for the same reason: nothing declares a
+  semantic set, so nothing is graded. It is the one *claim-family* block that
+  could never be the harness's word, unlike `claim_scores`, since resolving a
+  semantic claim needs a reader; that is why inter-grader agreement is what a
+  published grade would have to travel with.
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, and what drove the `reasoning_quality` score.
 

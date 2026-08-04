@@ -283,6 +283,30 @@
       "title": "ProcessVersion",
       "type": "object"
     },
+    "SemanticClaim": {
+      "additionalProperties": false,
+      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no\ncommitted prediction carries this block; the field exists so that turning\nthe family on is a declaration plus a prompt that asks for it, rather than\na new shape. One piece is still owed on this side and named in\n``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike\n``Prediction.claims``, nothing yet holds this list to the declared set, so\nthe mandatory-set discipline binds graders and not predictors.",
+      "properties": {
+        "claim_id": {
+          "description": "The declared semantic claim this proposition answers, e.g. 'majority-ground' \u2014 the id the harness declared, never one the predictor invented",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "proposition": {
+          "description": "The predicted proposition, stated so a grader can match it against the opinion: one specific, falsifiable assertion about what the Court's reasoning will be, not a hedged survey of possibilities",
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Proposition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "proposition"
+      ],
+      "title": "SemanticClaim",
+      "type": "object"
+    },
     "VoteValue": {
       "description": "How one Justice voted. Distinct from :class:`Disposition`, which is what the\n*Court* did \u2014 a vocabulary with no member for joining a majority or dissenting,\nand so unable to express a vote at all.\n\nSpans every stage, because the model does: ``grant``/``deny`` are the cert and\ninterim vocabulary, the rest are merits. A vote that does not exist is not a\nvote \u2014 ``recused`` and ``did_not_participate`` are recorded so the aggregation\ndenominator is legible, since a threshold counts *participating* Justices.",
       "enum": [
@@ -494,6 +518,22 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "semantic_claims": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SemanticClaim"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. Null on every committed prediction: the declaration tables are empty (`semantic-v0` is alpha, and no opinion body is ingested to ground a claim against), so no cell is asked for one.",
+      "title": "Semantic Claims"
     },
     "votes": {
       "items": {
