@@ -531,10 +531,14 @@ or network.
   through the same latches, so nothing is deleted and `case_id` never moves.
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
-- **Maintenance sweeps:** after the loop, one window a day also runs `fedcourts
-  dedupe-live-rows --apply` (merging live-minted duplicate rows) and then
-  `fedcourts reconcile-scope --apply` (the predict-scope latch sweep) — dedupe
-  first, so the latch pass weighs deduped rows; both ride run-seed (gated to
+- **Maintenance sweeps:** after the loop, one window a day also runs four
+  converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
+  live-minted duplicate rows), `fedcourts reconcile-scope --apply` (the
+  predict-scope latch sweep), `fedcourts relabel-application-events --apply`
+  (application baselines to their motion/interim identity), and `fedcourts
+  backfill-merits-judgments --apply` (the judgment a merits-bound grant
+  received). Dedupe first, so the latch pass weighs deduped rows; each is
+  idempotent, so a converged corpus costs seconds. All ride run-seed (gated to
   keep their daily cadence) because the corpus is already pulled and pushed
   there.
 

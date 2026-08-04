@@ -575,7 +575,7 @@ def migrate_gvr_labels_cmd(
 ) -> None:
     """Relabel identifiable historical GVR outcomes to the `gvr` disposition.
 
-    A one-time, deterministic migration for the introduction of the `gvr` label
+    A deterministic convergence sweep for the introduction of the `gvr` label
     (see `docs/salience.md`): each committed `granted` outcome whose
     `disposition_basis` is `mootness` — an identifiable Munsingwear vacatur — is
     relabeled `actual_disposition = gvr`. Nothing else changes: `actual_granted`
@@ -605,7 +605,7 @@ def relabel_application_events_cmd(
     A SCOTUS `YYAnnn` application docket's baseline event is
     `evt-motion-disposition` (`kind = motion`, `stage = interim`) — a stay or
     injunction application is a motion under the interim standard, not a cert
-    petition. This one-time, deterministic migration renames any cert-shaped
+    petition. This deterministic convergence sweep renames any cert-shaped
     baseline (`evt-petition-disposition`) still sitting on an application docket
     to that form, carrying every field and the `resolved` latch, atomically per
     case. A case with committed ledger artifacts under the old identity, or
