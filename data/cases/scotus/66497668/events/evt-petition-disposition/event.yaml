@@ -1,0 +1,11 @@
+case_id: scotus/66497668
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-05-24'
+resolved: true
+schema_version: '1.0'
+title: United Mine Workers of America Combined Benefit Fund, et al., Petitioners v.
+  Andre M. Toffel, as Chapter 7 Trustee for Walter Energy Inc., et al.
