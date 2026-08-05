@@ -1,4 +1,12 @@
-"""Reopen committed outcomes copied from a sibling case-baseline event.
+"""Repair ledger records the current extraction and attribution rules cannot produce.
+
+Two shapes: :func:`reopen_misattributed_outcomes` for an outcome copied from a
+sibling case-baseline event, and :func:`remove_unmintable_baseline_events` for
+a SCOTUS entry-pinned event carrying a case-baseline id — the shape that makes
+such a copy possible. Both are deterministic, offline, dry-run by default, and
+idempotent.
+
+## Outcomes copied from a sibling case-baseline event
 
 The case-level disposition attaches to exactly one event, and the routing that
 picks it (:func:`fedcourtsai.pipeline.outcome._cert_disposition_target`) is
@@ -45,6 +53,18 @@ An event the corpus does not know is never repaired: the stage exemption below
 reads the corpus row, and :func:`fedcourtsai.corpus.set_event_resolved` no-ops
 on an unknown ``(case_id, event_id)``, so acting on one would delete a
 legitimate outcome while reporting a reopen that never happened.
+
+## Unmintable SCOTUS case-baseline events
+
+A SCOTUS docket carries its petition and appeal request kinds only as the
+case-level baseline (:func:`fedcourtsai.pipeline.events.extract_events` mints no
+entry-pinned event for either), so an **entry-pinned** row whose id carries a
+case-baseline prefix is one no re-ingest reproduces. Such a row is the cause of
+the copied outcome above rather than another instance of it: a second
+case-baseline id is exactly what ``_cert_disposition_target`` cannot
+disambiguate. Removal, not a reopen — the event names nothing the docket
+supports, so leaving it open would park a permanent phantom on the case and, on
+a cert docket, keep it forecastable.
 """
 
 from __future__ import annotations
@@ -54,7 +74,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import corpus
-from .paths import EventPaths
+from .paths import CasePaths, EventPaths
 from .pipeline.outcome import CASE_BASELINE_ID_PREFIXES
 from .schemas import Outcome, PredictableEvent, Stage
 from .serialize import read_model, write_yaml
@@ -70,6 +90,8 @@ _BASELINE_PAIR_REASON = (
     "stage-less fallback, so this needs a routing fix rather than a deletion"
 )
 _AGENT_OUTPUT_REASON = "committed predict/evaluate output under it"
+# The only files an event directory holds; the cell output lives in subdirectories.
+_EVENT_DOCUMENTS = frozenset({"event.yaml", "outcome.json"})
 _UNKNOWN_EVENT_REASON = (
     "the corpus holds no row for this event, so its stage cannot be read and the "
     "reopen would silently no-op"
@@ -213,3 +235,109 @@ def reopen_misattributed_outcomes(
     result.reopened.sort()
     result.skipped.sort()
     return result
+
+
+@dataclass
+class UnmintableEventResult:
+    """What the unmintable-event removal dropped (or would drop on a dry run)."""
+
+    applied: bool = False
+    removed: list[str] = field(default_factory=list)  # "<case_id>/<event_id>" dropped
+    skipped: list[tuple[str, str]] = field(default_factory=list)  # (case_id/event_id, reason)
+
+
+def remove_unmintable_baseline_events(
+    conn: sqlite3.Connection, data_root: Path, *, apply: bool
+) -> UnmintableEventResult:
+    """Drop each entry-pinned SCOTUS event carrying a case-baseline id, in both stores.
+
+    Dry run by default; ``apply`` removes the event's ledger directory and then
+    deletes the corpus row through :func:`fedcourtsai.corpus.delete_event`.
+    **Ledger first**, which is the convergent order for a corpus-driven scan:
+    the corpus row is this sweep's detection handle, so deleting it first and
+    stopping would strand the ledger directory where no later run can see it,
+    while stopping after the directory goes leaves the row for the next run to
+    re-find and finish as a row-only delete.
+
+    Three shapes are skipped and reported rather than removed: an event carrying
+    committed predict/evaluate output (a scored cell is evidence the event was
+    treated as real, and the removal would strand it); an event whose committed
+    outcome is *not* a copy of a case-baseline sibling's, since a distinct
+    outcome is a real observation this sweep has no discriminator for; and a
+    ledger directory holding anything beyond those two documents, which is an
+    unrecognized shape rather than a phantom. See the module docstring for why
+    removal rather than a reopen.
+    """
+    result = UnmintableEventResult(applied=apply)
+    rows = conn.execute(
+        "SELECT case_id, event_id FROM events "
+        "WHERE court = 'scotus' AND docket_entry_id IS NOT NULL ORDER BY case_id, event_id"
+    ).fetchall()
+    for row in rows:
+        case_id, event_id = str(row["case_id"]), str(row["event_id"])
+        if not event_id.startswith(CASE_BASELINE_ID_PREFIXES):
+            continue
+        ref = f"{case_id}/{event_id}"
+        paths = _ledger_event_paths(data_root, case_id, event_id)
+        reason = _removal_blocker(paths, data_root, case_id) if paths is not None else None
+        if reason is not None:
+            result.skipped.append((ref, reason))
+            continue
+        result.removed.append(ref)
+        if apply:
+            if paths is not None and paths.base.is_dir():
+                for child in sorted(paths.base.iterdir()):
+                    child.unlink()
+                paths.base.rmdir()
+            corpus.delete_event(conn, case_id, event_id)
+    return result
+
+
+def _removal_blocker(paths: EventPaths, data_root: Path, case_id: str) -> str | None:
+    """Why this event must not be removed, or ``None`` when it is safe to drop."""
+    if _carries_agent_artifacts(paths):
+        return _AGENT_OUTPUT_REASON
+    if not paths.base.is_dir():
+        return None  # corpus-only row: nothing committed to weigh
+    unexpected = sorted(
+        child.name for child in paths.base.iterdir() if child.name not in _EVENT_DOCUMENTS
+    )
+    if unexpected:
+        return f"unrecognized files under the event directory: {', '.join(unexpected)}"
+    if not paths.outcome.is_file():
+        return None  # a phantom with no recorded observation
+    outcome = read_model(paths.outcome, Outcome)
+    triple = (str(outcome.actual_disposition), str(outcome.resolved_at), outcome.actual_granted)
+    if triple not in _baseline_fingerprints(data_root, case_id, paths.base.name):
+        return (
+            f"its outcome {triple} copies no case-baseline sibling's, so it is a real observation"
+        )
+    return None
+
+
+def _baseline_fingerprints(
+    data_root: Path, case_id: str, exclude: str
+) -> set[tuple[str, str, int]]:
+    """The outcome triples this case's *other* case-baseline events carry."""
+    court, _, docket = case_id.partition("/")
+    events_dir = CasePaths(data_root, court, int(docket)).event(exclude).base.parent
+    fingerprints = set()
+    for event_dir in sorted(p for p in events_dir.iterdir() if p.is_dir()):
+        if event_dir.name == exclude or not event_dir.name.startswith(CASE_BASELINE_ID_PREFIXES):
+            continue
+        outcome_path = EventPaths(event_dir).outcome
+        if not outcome_path.is_file():
+            continue
+        outcome = read_model(outcome_path, Outcome)
+        fingerprints.add(
+            (str(outcome.actual_disposition), str(outcome.resolved_at), outcome.actual_granted)
+        )
+    return fingerprints
+
+
+def _ledger_event_paths(data_root: Path, case_id: str, event_id: str) -> EventPaths | None:
+    """The committed event directory for ``(case_id, event_id)``, or ``None`` off the form."""
+    court, _, docket = case_id.partition("/")
+    if not docket.isdigit():
+        return None
+    return CasePaths(data_root, court, int(docket)).event(event_id)

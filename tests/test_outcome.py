@@ -5,6 +5,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
     CASE_BASELINE_ID_PREFIXES,
@@ -432,6 +433,17 @@ def test_attribution_prefixes_and_forecastable_kinds_agree() -> None:
     # prefix, the queue filter on the corpus kind column — must name the same
     # kinds, or targeting and attribution drift apart silently.
     assert set(CASE_BASELINE_ID_PREFIXES) == {f"evt-{kind}-" for kind in _FORECASTABLE_KINDS}
+
+
+def test_scotus_baseline_only_kinds_match_the_attribution_prefixes() -> None:
+    # A third encoding of the same set — the kinds a SCOTUS entry never mints an
+    # event for. It must stay equal to the prefixes the case-level disposition
+    # routes on: a kind in the router but not the mint guard re-opens the
+    # two-baseline ambiguity, and one in the guard but not the router would have
+    # the unmintable-event sweep delete events the guard still produces.
+    assert {f"evt-{kind.value}-" for kind in _SCOTUS_BASELINE_ONLY_KINDS} == set(
+        CASE_BASELINE_ID_PREFIXES
+    )
 
 
 # --- ledger write --------------------------------------------------------------

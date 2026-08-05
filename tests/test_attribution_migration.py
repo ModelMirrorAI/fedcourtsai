@@ -1,4 +1,4 @@
-"""The copied-outcome repair: detection, the reopen, guards, convergence, idempotency."""
+"""Ledger repairs: the copied-outcome reopen and the unmintable-baseline removal."""
 
 from __future__ import annotations
 
@@ -8,10 +8,14 @@ from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
-from fedcourtsai.attribution_migration import reopen_misattributed_outcomes
+from fedcourtsai.attribution_migration import (
+    remove_unmintable_baseline_events,
+    reopen_misattributed_outcomes,
+)
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.ingest import from_api_docket
@@ -330,3 +334,210 @@ def test_cli_dry_run_reports_without_writing(tmp_path: Path, monkeypatch) -> Non
     assert "would reopen 1 event(s)" in result.output
     assert f"{_CASE}/{_MOTION}" in result.output
     assert motion.outcome.is_file()
+
+
+# --- unmintable SCOTUS case-baseline events ------------------------------------
+
+
+def _entry_pinned(event_id: str, kind: EventKind, *, entry: int | None) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent.model_validate(
+        {
+            "event_id": event_id,
+            "case_id": _CASE,
+            "court": "scotus",
+            "kind": kind,
+            "title": "Petitioner v. Respondent",
+            "decision_target": "disposition",
+            "docket_entry_id": entry,
+            "resolved": True,
+        }
+    )
+
+
+def _seed_unmintable(tmp_path: Path) -> tuple[EventPaths, EventPaths]:
+    """The spurious shape: an entry-pinned appeal event beside the real baseline."""
+    root = _data_root(tmp_path)
+    baseline = _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2020, 11, 5), resolved_at=_RESOLVED_AT
+    )
+    appeal = _write_event(
+        root, _APPEAL, EventKind.appeal, opened_at=date(2022, 1, 31), resolved_at=_RESOLVED_AT
+    )
+    return baseline, appeal
+
+
+def _unmintable_rows() -> list[corpus.CorpusEvent]:
+    return [
+        _entry_pinned(_BASELINE, EventKind.petition, entry=None),
+        _entry_pinned(_APPEAL, EventKind.appeal, entry=24),
+    ]
+
+
+def test_removal_dry_run_finds_the_entry_pinned_baseline(tmp_path: Path) -> None:
+    _, appeal = _seed_unmintable(tmp_path)
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        result = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=False)
+        assert result.applied is False
+        assert result.removed == [f"{_CASE}/{_APPEAL}"]
+        assert result.skipped == []
+        assert len(corpus.events_for_case(conn, _CASE)) == 2
+    assert appeal.event_file.is_file()
+
+
+def test_removal_apply_drops_the_row_and_the_ledger_directory(tmp_path: Path) -> None:
+    baseline, appeal = _seed_unmintable(tmp_path)
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        result = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+        remaining = [e.event_id for e in corpus.events_for_case(conn, _CASE)]
+    assert result.removed == [f"{_CASE}/{_APPEAL}"]
+    assert remaining == [_BASELINE]
+    # The whole directory goes, so the copied outcome leaves with it.
+    assert appeal.base.exists() is False
+    # The real baseline — not entry-pinned — is untouched.
+    assert baseline.outcome.is_file()
+
+
+def test_removal_is_idempotent(tmp_path: Path) -> None:
+    _seed_unmintable(tmp_path)
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+        again = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+    assert again.removed == []
+    assert again.skipped == []
+
+
+def test_removal_skips_an_event_carrying_agent_output(tmp_path: Path) -> None:
+    _, appeal = _seed_unmintable(tmp_path)
+    appeal.prediction_dir("claude-baseline", "20260101T000000Z").mkdir(parents=True)
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        result = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+        remaining = [e.event_id for e in corpus.events_for_case(conn, _CASE)]
+    assert result.removed == []
+    assert result.skipped == [(f"{_CASE}/{_APPEAL}", "committed predict/evaluate output under it")]
+    assert sorted(remaining) == sorted([_BASELINE, _APPEAL])
+
+
+def test_removal_leaves_an_entry_pinned_motion_alone(tmp_path: Path) -> None:
+    """A substantive application is its own predictable thing; only baseline ids go."""
+    _write_event(
+        _data_root(tmp_path),
+        _MOTION,
+        EventKind.motion,
+        opened_at=date(2018, 1, 23),
+        resolved_at=None,
+    )
+    events = [
+        _entry_pinned(_BASELINE, EventKind.petition, entry=None),
+        _entry_pinned(_MOTION, EventKind.motion, entry=11),
+    ]
+    with _seeded(tmp_path, events) as conn:
+        result = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert remaining == sorted([_BASELINE, _MOTION])
+
+
+def test_delete_event_raises_when_the_row_is_absent(tmp_path: Path) -> None:
+    with (
+        _seeded(tmp_path, [_entry_pinned(_BASELINE, EventKind.petition, entry=None)]) as conn,
+        pytest.raises(ValueError, match="no event"),
+    ):
+        corpus.delete_event(conn, _CASE, "evt-motion-nope")
+
+
+def test_removal_leaves_a_circuit_entry_pinned_baseline_alone(tmp_path: Path) -> None:
+    """A circuit notice-of-appeal entry legitimately mints a baseline-prefixed event.
+
+    `evt-appeal-disposition-3` on a ca9 docket is entry-pinned *and* carries a
+    case-baseline prefix; only the court leg of the predicate keeps it.
+    """
+    circuit_case = "ca9/900002"
+    paths = CasePaths(_data_root(tmp_path), "ca9", 900002).event("evt-appeal-disposition-3")
+    write_yaml(
+        paths.event_file,
+        PredictableEvent(
+            event_id="evt-appeal-disposition-3",
+            case_id=circuit_case,
+            kind=EventKind.appeal,
+            title="Doe v. Roe",
+            opened_at=date(2026, 6, 2),
+        ),
+    )
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn, [corpus.CorpusRow.model_validate({"case_id": circuit_case, "court": "ca9"})]
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent.model_validate(
+                    {
+                        "event_id": "evt-appeal-disposition-3",
+                        "case_id": circuit_case,
+                        "court": "ca9",
+                        "kind": EventKind.appeal,
+                        "title": "Doe v. Roe",
+                        "docket_entry_id": 3,
+                    }
+                )
+            ],
+        )
+        result = remove_unmintable_baseline_events(conn, _data_root(tmp_path), apply=True)
+        remaining = [e.event_id for e in corpus.events_for_case(conn, circuit_case)]
+    assert result.removed == []
+    assert remaining == ["evt-appeal-disposition-3"]
+    assert paths.event_file.is_file()
+
+
+def test_removal_skips_an_event_whose_outcome_copies_nothing(tmp_path: Path) -> None:
+    """A distinct outcome is a real observation, not a phantom to sweep away."""
+    root = _data_root(tmp_path)
+    _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2020, 11, 5), resolved_at=_RESOLVED_AT
+    )
+    appeal = _write_event(
+        root,
+        _APPEAL,
+        EventKind.appeal,
+        opened_at=date(2022, 1, 31),
+        resolved_at=date(2022, 3, 1),
+        disposition=Disposition.denied,
+    )
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        result = remove_unmintable_baseline_events(conn, root, apply=True)
+    assert result.removed == []
+    assert "copies no case-baseline sibling" in result.skipped[0][1]
+    assert appeal.outcome.is_file()
+
+
+def test_removal_skips_an_unrecognized_directory_shape(tmp_path: Path) -> None:
+    """An unexpected child is reported before either store is touched."""
+    _, appeal = _seed_unmintable(tmp_path)
+    (appeal.base / "stray").mkdir()
+    with _seeded(tmp_path, _unmintable_rows()) as conn:
+        result = remove_unmintable_baseline_events(conn, root := _data_root(tmp_path), apply=True)
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert root.exists()
+    assert result.removed == []
+    assert "unrecognized files" in result.skipped[0][1]
+    assert appeal.event_file.is_file()
+    assert remaining == sorted([_BASELINE, _APPEAL])
+
+
+def test_cli_removal_apply_drops_both_stores(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _, appeal = _seed_unmintable(tmp_path)
+    with _seeded(tmp_path, _unmintable_rows()):
+        pass
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    dry = runner.invoke(app, ["remove-unmintable-events"])
+    assert dry.exit_code == 0, dry.output
+    assert "would remove 1 event(s)" in dry.output
+    assert appeal.base.exists()
+    applied = runner.invoke(app, ["remove-unmintable-events", "--apply"])
+    assert applied.exit_code == 0, applied.output
+    assert "removed 1 event(s)" in applied.output
+    assert appeal.base.exists() is False
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        assert [e.event_id for e in corpus.events_for_case(conn, _CASE)] == [_BASELINE]
