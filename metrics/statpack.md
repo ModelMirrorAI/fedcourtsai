@@ -1,21 +1,21 @@
 # Corpus statpack
 
-**2151685** case(s): 42148 resolved, 2109537 open.
+**2151694** case(s): 51770 resolved, 2099924 open.
 
-**Live/historical slice:** 11776 case(s), 11181 resolved — the population behind every live-slice section below; 34185 docketed filing(s) across the walked Terms.
+**Live/historical slice:** 21399 case(s), 20803 resolved — the population behind every live-slice section below; 44740 docketed filing(s) across the walked Terms.
 
-**Overall base rate (resolved):** other 57.0%, denied 21.5%, dismissed 17.0%, granted 3.3%, gvr 1.3%, withdrawn 0.0%, granted-in-part 0.0%
+**Overall base rate (resolved):** other 46.4%, denied 34.7%, dismissed 13.8%, granted 4.0%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 11204 of 18143 machine-readable resolved case(s) carry a resolution date (61.8%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 20826 of 27765 machine-readable resolved case(s) carry a resolution date (75.0%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 60d, p90 200d (mean 88.4d over 1557 dated case(s))
+**Filing → decision timing:** median 13d, p90 132d (mean 59.6d over 2388 dated case(s))
 
 ## Cases by court
 _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 589606 | 11477 | 578129 | denied 75.3%, granted 9.8%, dismissed 8.1%, gvr 4.7%, other 2.0%, withdrawn 0.0% |
+| scotus | 589615 | 21099 | 568516 | denied 83.1%, granted 8.6%, dismissed 4.4%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -35,13 +35,13 @@ _Scope: scotus; includes the frozen bulk import._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126842 | 267 | 126575 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
+| (none) | 126799 | 267 | 126532 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
 | 2000s | 124840 | 13 | 124827 | other 100.0% |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% |
-| 2010s | 97058 | 2530 | 94528 | denied 68.1%, dismissed 13.4%, gvr 9.8%, granted 8.7% |
+| 2010s | 97059 | 6515 | 90544 | denied 87.5%, dismissed 5.2%, gvr 3.8%, granted 3.5% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 32866 | 8651 | 24215 | denied 79.8%, granted 10.4%, dismissed 6.3%, gvr 3.4%, withdrawn 0.0% |
+| 2020s | 32917 | 14288 | 18629 | denied 82.7%, granted 11.1%, dismissed 3.8%, gvr 2.3%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -57,42 +57,42 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | disposition | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| denied | 40394 | 40394 | 0 | denied 100.0% |
+| denied | 40504 | 40504 | 0 | denied 100.0% |
 | dismissed | 887 | 887 | 0 | dismissed 100.0% |
-| granted | 691 | 691 | 0 | granted 100.0% |
+| granted | 674 | 674 | 0 | granted 100.0% |
 | (open) | 595 | 0 | 595 | — |
-| gvr | 543 | 543 | 0 | gvr 100.0% |
+| gvr | 576 | 576 | 0 | gvr 100.0% |
 
 ## Modern cert petitions by originating circuit
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 11054 | 10873 | 181 | denied 96.5%, dismissed 2.2%, gvr 0.7%, granted 0.6% |
-| ca9 | 5490 | 5416 | 74 | denied 94.8%, granted 2.2%, dismissed 1.9%, gvr 1.1% |
-| ca5 | 5150 | 5093 | 57 | denied 94.5%, gvr 2.0%, granted 1.9%, dismissed 1.6% |
-| ca11 | 3645 | 3600 | 45 | denied 94.6%, dismissed 1.9%, gvr 1.9%, granted 1.7% |
-| ca4 | 3477 | 3429 | 48 | denied 95.4%, dismissed 2.2%, granted 1.3%, gvr 1.1% |
-| ca6 | 2883 | 2845 | 38 | denied 95.5%, dismissed 1.6%, granted 1.5%, gvr 1.3% |
-| ca8 | 2127 | 2103 | 24 | denied 95.4%, dismissed 1.9%, granted 1.4%, gvr 1.3% |
-| ca2 | 2056 | 2028 | 28 | denied 92.7%, granted 2.7%, dismissed 2.5%, gvr 2.2% |
-| ca3 | 1862 | 1838 | 24 | denied 94.6%, dismissed 2.8%, granted 1.8%, gvr 0.8% |
-| ca7 | 1577 | 1558 | 19 | denied 95.0%, dismissed 2.4%, gvr 1.4%, granted 1.2% |
-| ca10 | 1359 | 1338 | 21 | denied 93.7%, granted 2.7%, dismissed 2.2%, gvr 1.3% |
-| cafc | 924 | 912 | 12 | denied 92.4%, granted 3.4%, dismissed 3.0%, gvr 1.2% |
-| ca1 | 853 | 845 | 8 | denied 95.1%, granted 2.6%, dismissed 1.7%, gvr 0.6% |
-| cadc | 583 | 567 | 16 | denied 88.2%, granted 6.3%, dismissed 3.5%, gvr 1.9% |
-| fla | 27 | 27 | 0 | denied 92.6%, granted 3.7%, gvr 3.7% |
-| texcrimapp | 10 | 10 | 0 | denied 80.0%, gvr 20.0% |
-| alacrimapp | 6 | 6 | 0 | denied 100.0% |
+| (none) | 11252 | 11071 | 181 | denied 96.5%, dismissed 2.1%, gvr 0.8%, granted 0.6% |
+| ca9 | 5503 | 5429 | 74 | denied 94.8%, granted 2.2%, dismissed 1.9%, gvr 1.1% |
+| ca5 | 5194 | 5137 | 57 | denied 94.5%, gvr 2.1%, granted 1.7%, dismissed 1.6% |
+| ca11 | 3584 | 3539 | 45 | denied 94.4%, dismissed 1.9%, gvr 1.9%, granted 1.7% |
+| ca4 | 3382 | 3334 | 48 | denied 95.2%, dismissed 2.2%, granted 1.3%, gvr 1.3% |
+| ca6 | 2890 | 2852 | 38 | denied 95.5%, dismissed 1.6%, granted 1.6%, gvr 1.4% |
+| ca8 | 2049 | 2025 | 24 | denied 95.2%, dismissed 2.0%, gvr 1.4%, granted 1.3% |
+| ca2 | 2001 | 1973 | 28 | denied 92.3%, granted 2.7%, dismissed 2.6%, gvr 2.3% |
+| ca3 | 1920 | 1896 | 24 | denied 94.8%, dismissed 2.7%, granted 1.6%, gvr 0.9% |
+| ca7 | 1592 | 1573 | 19 | denied 95.0%, dismissed 2.4%, gvr 1.4%, granted 1.1% |
+| ca10 | 1396 | 1375 | 21 | denied 93.8%, granted 2.6%, dismissed 2.2%, gvr 1.4% |
+| ca1 | 893 | 885 | 8 | denied 95.4%, granted 2.5%, dismissed 1.6%, gvr 0.6% |
+| cafc | 890 | 878 | 12 | denied 92.1%, granted 3.3%, dismissed 3.1%, gvr 1.5% |
+| cadc | 629 | 613 | 16 | denied 88.9%, granted 5.5%, dismissed 3.3%, gvr 2.3% |
+| fla | 25 | 25 | 0 | denied 96.0%, gvr 4.0% |
+| texcrimapp | 7 | 7 | 0 | denied 85.7%, gvr 14.3% |
+| alacrimapp | 5 | 5 | 0 | denied 100.0% |
 | cal | 5 | 5 | 0 | denied 80.0%, dismissed 20.0% |
-| ariz | 4 | 4 | 0 | denied 100.0% |
 | oklacrimapp | 4 | 4 | 0 | granted 50.0%, denied 25.0%, dismissed 25.0% |
+| ariz | 3 | 3 | 0 | denied 100.0% |
 | nev | 3 | 3 | 0 | denied 66.7%, granted 33.3% |
-| ga | 2 | 2 | 0 | denied 50.0%, dismissed 50.0% |
-| ky | 2 | 2 | 0 | denied 50.0%, gvr 50.0% |
 | ohio | 2 | 2 | 0 | denied 100.0% |
 | ark | 1 | 1 | 0 | denied 100.0% |
+| ga | 1 | 1 | 0 | dismissed 100.0% |
+| idaho | 1 | 1 | 0 | denied 100.0% |
 | _… 4 more bucket(s) in the JSON_ | | | | |
 
 ## Cert petitions by relist count (paid scored segment)
@@ -100,59 +100,59 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 9972 | 9770 | 202 | denied 97.1%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
-| 1 | 2489 | 2457 | 32 | denied 85.8%, granted 9.1%, gvr 4.2%, dismissed 0.9% |
-| 2 | 509 | 507 | 2 | denied 60.2%, granted 27.8%, gvr 11.4%, dismissed 0.6% |
-| 3+ | 452 | 447 | 5 | denied 59.7%, granted 24.6%, gvr 14.1%, dismissed 1.6% |
+| 0 | 9861 | 9659 | 202 | denied 97.0%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
+| 1 | 2576 | 2544 | 32 | denied 86.3%, granted 8.2%, gvr 4.7%, dismissed 0.8% |
+| 2 | 511 | 509 | 2 | denied 59.9%, granted 26.7%, gvr 12.8%, dismissed 0.6% |
+| 3+ | 456 | 451 | 5 | denied 61.0%, granted 23.3%, gvr 14.2%, dismissed 1.6% |
 
 ## Cert petitions by CVSG status (paid scored segment)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 13267 | 13036 | 231 | denied 92.7%, granted 4.2%, gvr 2.0%, dismissed 1.1% |
-| cvsg | 155 | 145 | 10 | denied 57.2%, granted 33.8%, gvr 6.2%, dismissed 2.8% |
+| none | 13231 | 13000 | 231 | denied 92.7%, granted 4.0%, gvr 2.2%, dismissed 1.1% |
+| cvsg | 173 | 163 | 10 | denied 62.0%, granted 30.1%, gvr 5.5%, dismissed 2.5% |
 
 ## Cert petitions by salience band
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | salience_band | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| baseline | 9967 | 9768 | 199 | denied 97.1%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
-| elevated | 2434 | 2408 | 26 | denied 86.0%, granted 9.1%, gvr 4.2%, dismissed 0.8% |
-| high | 1021 | 1005 | 16 | denied 60.7%, granted 25.5%, gvr 12.5%, dismissed 1.3% |
+| baseline | 9856 | 9657 | 199 | denied 97.1%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
+| elevated | 2512 | 2486 | 26 | denied 86.4%, granted 8.2%, gvr 4.6%, dismissed 0.8% |
+| high | 1036 | 1020 | 16 | denied 61.5%, granted 24.1%, gvr 13.1%, dismissed 1.3% |
 
 ## Petitions by originating court (incl. state courts)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| ca9 | 1404 | 1330 | 74 | denied 78.9%, granted 9.0%, dismissed 7.7%, gvr 4.4% |
-| ca5 | 1325 | 1268 | 57 | denied 77.8%, gvr 8.1%, granted 7.5%, dismissed 6.5% |
-| ca11 | 900 | 855 | 45 | denied 77.1%, dismissed 8.1%, gvr 7.8%, granted 7.0% |
-| ca4 | 849 | 801 | 48 | denied 80.3%, dismissed 9.2%, granted 5.6%, gvr 4.9% |
-| ca6 | 723 | 685 | 38 | denied 81.5%, dismissed 6.6%, granted 6.4%, gvr 5.5% |
-| ca2 | 625 | 597 | 28 | denied 75.0%, granted 9.0%, dismissed 8.5%, gvr 7.4% |
-| ca8 | 525 | 501 | 24 | denied 80.6%, dismissed 8.2%, granted 5.8%, gvr 5.4% |
-| ca3 | 494 | 470 | 24 | denied 78.9%, dismissed 10.9%, granted 7.0%, gvr 3.2% |
-| ca7 | 407 | 388 | 19 | denied 79.9%, dismissed 9.8%, gvr 5.7%, granted 4.6% |
-| ca10 | 369 | 348 | 21 | denied 75.9%, granted 10.3%, dismissed 8.6%, gvr 5.2% |
-| (none) | 321 | 285 | 36 | denied 96.5%, dismissed 3.5% |
-| cafc | 294 | 282 | 12 | denied 75.5%, granted 11.0%, dismissed 9.6%, gvr 3.9% |
-| ca1 | 223 | 215 | 8 | denied 80.9%, granted 10.2%, dismissed 6.5%, gvr 2.3% |
-| cadc | 223 | 207 | 16 | denied 67.6%, granted 17.4%, dismissed 9.7%, gvr 5.3% |
-| Supreme Court of Florida | 116 | 113 | 3 | denied 87.6%, dismissed 12.4% |
-| Court of Appeal of California, Second Appellate District | 84 | 77 | 7 | denied 75.3%, dismissed 14.3%, gvr 7.8%, granted 2.6% |
-| Court of Criminal Appeals of Texas | 69 | 68 | 1 | denied 86.8%, dismissed 7.4%, gvr 4.4%, granted 1.5% |
-| Supreme Court of California | 67 | 62 | 5 | denied 82.3%, dismissed 16.1%, granted 1.6% |
-| Court of Appeals of Michigan | 55 | 55 | 0 | denied 94.5%, dismissed 5.5% |
-| Court of Criminal Appeals of Oklahoma | 53 | 53 | 0 | denied 56.6%, gvr 34.0%, dismissed 5.7%, granted 3.8% |
-| United States Court of Appeals for the Armed Forces | 48 | 43 | 5 | denied 95.3%, granted 4.7% |
-| District Court of Appeal of Florida, Fourth District | 47 | 41 | 6 | denied 80.5%, dismissed 17.1%, granted 2.4% |
-| Court of Appeal of California, First Appellate District | 46 | 44 | 2 | denied 84.1%, dismissed 11.4%, granted 4.5% |
-| Supreme Court of Virginia | 46 | 44 | 2 | denied 88.6%, dismissed 6.8%, gvr 4.5% |
-| District of Columbia Court of Appeals | 39 | 38 | 1 | denied 84.2%, dismissed 10.5%, granted 2.6%, gvr 2.6% |
-| _… 232 more bucket(s) in the JSON_ | | | | |
+| ca9 | 2623 | 2549 | 74 | denied 88.9%, granted 4.7%, dismissed 4.0%, gvr 2.4% |
+| ca5 | 2035 | 1978 | 57 | denied 85.7%, gvr 5.6%, granted 4.5%, dismissed 4.2% |
+| ca11 | 1469 | 1424 | 45 | denied 86.1%, dismissed 4.8%, gvr 4.8%, granted 4.2% |
+| ca4 | 1312 | 1264 | 48 | denied 87.3%, dismissed 5.9%, granted 3.5%, gvr 3.3% |
+| ca6 | 1252 | 1214 | 38 | denied 89.4%, dismissed 3.7%, granted 3.7%, gvr 3.2% |
+| ca2 | 1191 | 1163 | 28 | denied 87.0%, granted 4.6%, dismissed 4.4%, gvr 4.0% |
+| ca3 | 849 | 825 | 24 | denied 88.0%, dismissed 6.2%, granted 3.6%, gvr 2.2% |
+| ca8 | 834 | 810 | 24 | denied 88.0%, dismissed 5.1%, gvr 3.6%, granted 3.3% |
+| ca7 | 800 | 781 | 19 | denied 90.0%, dismissed 4.9%, gvr 2.8%, granted 2.3% |
+| cafc | 773 | 761 | 12 | denied 90.9%, granted 3.8%, dismissed 3.5%, gvr 1.7% |
+| ca10 | 667 | 646 | 21 | denied 86.8%, granted 5.6%, dismissed 4.6%, gvr 2.9% |
+| cadc | 494 | 478 | 16 | denied 85.8%, granted 7.1%, dismissed 4.2%, gvr 2.9% |
+| (none) | 492 | 456 | 36 | denied 97.8%, dismissed 2.2% |
+| ca1 | 407 | 399 | 8 | denied 89.7%, granted 5.5%, dismissed 3.5%, gvr 1.3% |
+| Court of Appeal of California, Second Appellate District | 160 | 153 | 7 | denied 87.6%, dismissed 7.2%, gvr 4.6%, granted 0.7% |
+| Supreme Court of Florida | 157 | 154 | 3 | denied 90.3%, dismissed 9.1%, granted 0.6% |
+| Supreme Court of Virginia | 123 | 121 | 2 | denied 95.9%, dismissed 2.5%, gvr 1.7% |
+| Court of Criminal Appeals of Texas | 118 | 117 | 1 | denied 91.5%, dismissed 4.3%, gvr 3.4%, granted 0.9% |
+| Supreme Court of California | 105 | 100 | 5 | denied 89.0%, dismissed 10.0%, granted 1.0% |
+| Court of Criminal Appeals of Oklahoma | 101 | 101 | 0 | denied 77.2%, gvr 17.8%, dismissed 3.0%, granted 2.0% |
+| Court of Appeals of Michigan | 89 | 89 | 0 | denied 96.6%, dismissed 3.4% |
+| United States Court of Appeals for the Armed Forces | 81 | 76 | 5 | denied 97.4%, granted 2.6% |
+| Court of Appeal of California, First Appellate District | 79 | 77 | 2 | denied 90.9%, dismissed 6.5%, granted 2.6% |
+| Superior Court of New Jersey, Appellate Division | 76 | 74 | 2 | denied 97.3%, dismissed 2.7% |
+| District Court of Appeal of Florida, Fourth District | 74 | 68 | 6 | denied 88.2%, dismissed 10.3%, granted 1.5% |
+| _… 266 more bucket(s) in the JSON_ | | | | |
 
 ## SCOTUS cert petitions by Term
 _Live/historical slice; denial-reweighted estimates. Most recent 9 of 9 Term(s); the JSON artifact carries every Term and the per-fee-class detail._
@@ -161,13 +161,13 @@ _Live/historical slice; denial-reweighted estimates. Most recent 9 of 9 Term(s);
 | --- | --- | --: | --: | --- | --- | --: | --: | --- |
 | 2025 | 1432/2702 | 4134 | 3539 | denied 95.3%, dismissed 2.1%, granted 1.3%, gvr 1.3% | 2.6% | 92 | 62 | ✓/✓ |
 | 2024 | 1329/2529 | 1644 | 3732 | denied 94.9%, granted 2.3%, dismissed 2.0%, gvr 0.8% | 3.1% | 116 | 62 | ✓/✓ |
-| 2023 | 301/2848 | 851 | 4055 | denied 94.6%, granted 3.0%, dismissed 2.0%, gvr 0.4% | 3.4% | 138 | 66 | partial/✓ |
-| 2022 | —/2907 | 596 | 3989 | denied 94.7%, dismissed 2.6%, granted 1.9%, gvr 0.8% | 2.7% | 109 | 62 | partial/✓ |
-| 2021 | —/3288 | 706 | 4765 | denied 95.0%, dismissed 1.9%, gvr 1.8%, granted 1.3% | 3.1% | 147 | 62 | partial/✓ |
-| 2020 | —/3477 | 780 | 5073 | denied 94.3%, dismissed 2.5%, gvr 1.7%, granted 1.6% | 3.2% | 163 | 62 | partial/✓ |
-| 2019 | —/3930 | 774 | 5202 | denied 94.9%, dismissed 2.0%, gvr 1.7%, granted 1.4% | 3.1% | 160 | 63 | partial/✓ |
-| 2018 | —/4847 | 878 | 6161 | denied 95.7%, dismissed 1.9%, gvr 1.2%, granted 1.1% | 2.4% | 145 | 62 | partial/✓ |
-| 2017 | —/4595 | 878 | 5999 | denied 95.3%, dismissed 1.9%, gvr 1.4%, granted 1.3% | 2.7% | 164 | 67 | partial/✓ |
+| 2023 | 1375/2848 | 1742 | 4082 | denied 94.6%, granted 2.4%, dismissed 2.0%, gvr 1.0% | 3.4% | 139 | 66 | ✓/✓ |
+| 2022 | 1252/2907 | 1625 | 4001 | denied 94.7%, dismissed 2.6%, granted 1.7%, gvr 1.0% | 2.7% | 109 | 62 | ✓/✓ |
+| 2021 | 1611/3288 | 2035 | 4744 | denied 94.9%, dismissed 1.9%, gvr 1.8%, granted 1.4% | 3.2% | 153 | 62 | ✓/✓ |
+| 2020 | 1829/3477 | 2294 | 5147 | denied 94.3%, dismissed 2.4%, gvr 1.6%, granted 1.6% | 3.2% | 166 | 63 | ✓/✓ |
+| 2019 | 1478/3930 | 2009 | 5213 | denied 94.9%, dismissed 2.0%, gvr 1.7%, granted 1.4% | 3.1% | 161 | 63 | ✓/✓ |
+| 2018 | 1593/4847 | 2203 | 6154 | denied 95.7%, dismissed 1.9%, gvr 1.2%, granted 1.2% | 2.4% | 149 | 62 | ✓/✓ |
+| 2017 | 1718/4595 | 2303 | 6029 | denied 95.3%, dismissed 1.9%, gvr 1.4%, granted 1.3% | 2.7% | 165 | 67 | ✓/✓ |
 
 **The `granted` / `gvr` split is not comparable across Terms.** The `gvr` label is a forward convention: a resolution recorded before it existed keeps `granted`, and no post-hoc rule separates a merits GVR from a plenary grant without re-resolving the source. OT2023 and OT2024 were resolved into the corpus inside that window, so they carry **zero** GVRs against 30-59% of the grant family in every Term either side of them — ingestion history, not the Court changing behaviour. Read the grant family as one number — the JSON artifacts publish it per Term as `est_grant_family_rate` — because the split is safe within a Term and meaningless between them.
 
@@ -178,12 +178,12 @@ _Paid scored-segment grant rate per band, this Term's live slice only (denial-re
 | --- | --- | --- | --- |
 | 2025 | 44.4% (n=72) [reached 44.4%, n=72] | 8.7% (n=229) [reached 17.3%, n=301] | 1.4% (n=875) [reached 5.4%, n=1176] |
 | 2024 | 40.8% (n=120) [reached 40.8%, n=120] | 10.9% (n=257) [reached 20.4%, n=377] | 1.5% (n=935) [reached 6.9%, n=1312] |
-| 2023 | 28.1% (n=153) [reached 28.1%, n=153] | 20.0% (n=235) [reached 23.2%, n=388] | 1.9% (n=955) [reached 8.0%, n=1343] |
-| 2022 | 37.4% (n=115) [reached 37.4%, n=115] | 13.7% (n=211) [reached 22.1%, n=326] | 2.1% (n=909) [reached 7.4%, n=1235] |
-| 2021 | 31.0% (n=145) [reached 31.0%, n=145] | 12.1% (n=354) [reached 17.6%, n=499] | 1.6% (n=1127) [reached 6.5%, n=1626] |
-| 2020 | 44.9% (n=98) [reached 44.9%, n=98] | 18.8% (n=292) [reached 25.4%, n=390] | 1.7% (n=1360) [reached 7.0%, n=1750] |
-| 2019 | 47.5% (n=61) [reached 47.5%, n=61] | 14.3% (n=280) [reached 20.2%, n=341] | 2.7% (n=1125) [reached 6.8%, n=1466] |
-| 2018 | 31.6% (n=117) [reached 31.6%, n=117] | 10.7% (n=272) [reached 17.0%, n=389] | 1.7% (n=1206) [reached 5.5%, n=1595] |
-| 2017 | 48.4% (n=124) [reached 48.4%, n=124] | 10.1% (n=278) [reached 21.9%, n=402] | 0.9% (n=1276) [reached 5.9%, n=1678] |
+| 2023 | 38.9% (n=113) [reached 38.9%, n=113] | 16.0% (n=288) [reached 22.4%, n=401] | 1.9% (n=957) [reached 8.0%, n=1358] |
+| 2022 | 38.9% (n=108) [reached 38.9%, n=108] | 12.7% (n=229) [reached 21.1%, n=337] | 2.1% (n=902) [reached 7.3%, n=1239] |
+| 2021 | 31.9% (n=138) [reached 31.9%, n=138] | 15.1% (n=279) [reached 20.6%, n=417] | 1.6% (n=1162) [reached 6.6%, n=1579] |
+| 2020 | 36.4% (n=118) [reached 36.4%, n=118] | 16.3% (n=337) [reached 21.5%, n=455] | 1.7% (n=1337) [reached 6.8%, n=1792] |
+| 2019 | 27.4% (n=106) [reached 27.4%, n=106] | 14.2% (n=282) [reached 17.8%, n=388] | 2.7% (n=1068) [reached 6.7%, n=1456] |
+| 2018 | 35.5% (n=107) [reached 35.5%, n=107] | 10.4% (n=289) [reached 17.2%, n=396] | 1.7% (n=1164) [reached 5.6%, n=1560] |
+| 2017 | 42.8% (n=138) [reached 42.8%, n=138] | 9.5% (n=296) [reached 20.0%, n=434] | 0.9% (n=1257) [reached 5.8%, n=1691] |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._
