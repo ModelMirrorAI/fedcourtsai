@@ -1,0 +1,11 @@
+case_id: scotus/72463988
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-06-26'
+resolved: true
+schema_version: '1.0'
+title: Palm Valley Health Care, Inc., Petitioner v. Alex M. Azar, II, Secretary of
+  Health and Human Services

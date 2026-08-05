@@ -1,0 +1,11 @@
+case_id: scotus/18549269
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-05-19'
+resolved: true
+schema_version: '1.0'
+title: Rogers County Board of Tax Roll Corrections, et al., Petitioners v. Video Gaming
+  Technologies, Inc.

@@ -1,0 +1,11 @@
+case_id: scotus/72463788
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-04-09'
+resolved: true
+schema_version: '1.0'
+title: Children's Hospital Association of Texas, et al., Petitioners v. Alex M. Azar,
+  II, Secretary of Health and Human Services, et al.

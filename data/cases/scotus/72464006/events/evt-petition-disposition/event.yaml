@@ -1,0 +1,11 @@
+case_id: scotus/72464006
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-07-01'
+resolved: true
+schema_version: '1.0'
+title: S. O., Individually and on Behalf of Her Minor Son, B. O., Petitioner v. Hinds
+  County School District, et al.

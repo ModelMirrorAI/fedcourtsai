@@ -1,0 +1,11 @@
+case_id: scotus/72463908
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-06-04'
+resolved: true
+schema_version: '1.0'
+title: Kansas City Royals Baseball Corp., et al., Petitioners v. Aaron Senne, Individually
+  and on Behalf of All Others Similarly Situated, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72463873
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-05-20'
+resolved: true
+schema_version: '1.0'
+title: "Wanda V\xE1zquez-Garced, Governor of Puerto Rico, et al., Petitioners v. Financial\
+  \ Oversight and Management Board for Puerto Rico, et al."

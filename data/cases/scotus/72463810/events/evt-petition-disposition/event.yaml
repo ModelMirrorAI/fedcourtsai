@@ -1,0 +1,11 @@
+case_id: scotus/72463810
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-04-20'
+resolved: true
+schema_version: '1.0'
+title: "Todd C. Bank, Petitioner v. Al Johnson\u2019s Swedish Restaurant & Butik,\
+  \ Inc."
