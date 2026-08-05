@@ -31,26 +31,26 @@ runner = CliRunner()
 _TABLE: tuple[tuple[str, Judgment | None], ...] = (
     (
         "Judgment REVERSED and case REMANDED.  Gorsuch, J., delivered the opinion "
-        "of the Court, in which Roberts, C. J., and Thomas, J., joined.",
+        + "of the Court, in which Roberts, C. J., and Thomas, J., joined.",
         Judgment.reversed,
     ),
     ("Judgment VACATED and case REMANDED.", Judgment.vacated),
     (
         "Judgment VACATED and case REMANDED for further consideration in light of "
-        "Smith v. Jones, 599 U. S. 1 (2023).",
+        + "Smith v. Jones, 599 U. S. 1 (2023).",
         Judgment.vacated,
     ),
     (
         # The canonical GVR order: the disposition sentence follows the cert
         # recital, so it must parse from a sentence start, not the entry start.
         "Petition GRANTED.  Judgment VACATED, and case REMANDED for further "
-        "consideration in light of United States v. Jones, 565 U. S. 400 (2012).",
+        + "consideration in light of United States v. Jones, 565 U. S. 400 (2012).",
         Judgment.vacated,
     ),
     (
         # The prose form names the lower court between the noun and the verb.
         "Judgment of the United States Court of Appeals for the Ninth Circuit "
-        "REVERSED and case REMANDED.",
+        + "REVERSED and case REMANDED.",
         Judgment.reversed,
     ),
     ("Judgment AFFIRMED.  Kagan, J., delivered the opinion of the Court.", Judgment.affirmed),
@@ -188,7 +188,7 @@ def _seed_backfill_corpus(corpus_root: Path) -> Path:
         (
             "Jun 27 2024",
             "Judgment REVERSED and case REMANDED.  Gorsuch, J., "
-            "delivered the opinion of the Court.",
+            + "delivered the opinion of the Court.",
         ),
     )
     dig_payload = _live_payload(

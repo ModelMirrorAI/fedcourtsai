@@ -483,19 +483,19 @@ def test_redaction_never_leaves_a_run_the_scan_would_have_withheld() -> None:
     [
         # Docket prose, at the length a real query slice runs to.
         "The petition for a writ of certiorari to the United States Court of "
-        "Appeals for the Ninth Circuit presents the question whether the "
-        "court of appeals correctly held that respondents lacked standing.",
+        + "Appeals for the Ninth Circuit presents the question whether the "
+        + "court of appeals correctly held that respondents lacked standing.",
         "Docket 22-1078; consolidated with 1:22-cv-01234 (D.D.C.); see 570 U.S. 205 (2013).",
         "params_digest: 9f86d081884c7d65",
         "sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "evt-petition-disposition",
         "https://www.courtlistener.com/api/rest/v4/search/"
-        "?q=cited_by%3A12345&type=o&order_by=dateFiled%20desc&court=scotus",
+        + "?q=cited_by%3A12345&type=o&order_by=dateFiled%20desc&court=scotus",
         "https://www.supremecourt.gov/DocketPDF/25/25-962/401003/"
-        "20260316144707617_25-962acPresidentProTemporeOfTheState.pdf",
+        + "20260316144707617_25-962acPresidentProTemporeOfTheState.pdf",
         "/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/24-1234/events/"
-        "evt-petition-disposition/predictions/claude-baseline/20260710T120000Z/"
-        "08bfc68e-3166-4d04-a5d6-90dacf06c4d4/prediction.json",
+        + "evt-petition-disposition/predictions/claude-baseline/20260710T120000Z/"
+        + "08bfc68e-3166-4d04-a5d6-90dacf06c4d4/prediction.json",
         "run_id: 20260716T123618Z",
         "token: COURTLISTENER_API_TOKEN is configured for the MCP server",
         "Trump-v-United-States-Petition-For-Writ-Of-Certiorari-Granted-In-Part-2026",

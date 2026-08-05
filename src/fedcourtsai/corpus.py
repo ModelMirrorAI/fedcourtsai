@@ -2008,7 +2008,7 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (
         is_non_cert_scotus_form,
         "non-substantive SCOTUS application / original-jurisdiction docket — "
-        "not a predictable form",
+        + "not a predictable form",
     ),
     (
         is_ifp_petition,
