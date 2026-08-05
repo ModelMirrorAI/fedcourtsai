@@ -1,0 +1,11 @@
+case_id: scotus/72460614
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-05-21'
+resolved: true
+schema_version: '1.0'
+title: Crazy Horse Saloon & Restaurant, Inc., d/b/a Thee New Dollhouse, Petitioner
+  v. Alexis Degidio, Individually and on Behalf of All Others Similarly Situated

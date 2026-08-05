@@ -1,0 +1,17 @@
+{
+  "actual_disposition": "denied",
+  "actual_granted": 0,
+  "case_id": "scotus/66649193",
+  "disposition_basis": "standard",
+  "event_id": "evt-petition-disposition",
+  "judgment": null,
+  "resolved_at": "2018-12-10",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": null,
+    "distribution_count": 4
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": []
+}
