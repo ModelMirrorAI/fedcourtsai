@@ -10,14 +10,14 @@
     },
     {
       "checked": 2151694,
-      "detail": "2151694 rows vs baseline 2151693",
+      "detail": "2151694 rows vs baseline 2151694",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4306478,
+      "checked": 4306479,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -62,7 +62,7 @@
       ]
     },
     {
-      "checked": 4303405,
+      "checked": 4303406,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -70,7 +70,7 @@
       "problems": []
     },
     {
-      "checked": 4306478,
+      "checked": 4306479,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -78,7 +78,7 @@
       "problems": []
     },
     {
-      "checked": 12207,
+      "checked": 12861,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2151711,
+  "corpus_events": 2151712,
   "corpus_rows": 2151694,
   "ok": true,
   "schema_version": "1.0",
