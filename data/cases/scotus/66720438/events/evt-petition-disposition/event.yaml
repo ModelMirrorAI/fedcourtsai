@@ -1,0 +1,11 @@
+case_id: scotus/66720438
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-11-26'
+resolved: true
+schema_version: '1.0'
+title: Mariano Moya, et al., Petitioners v. Robert Garcia, Sheriff, Santa Fe County,
+  New Mexico, et al.

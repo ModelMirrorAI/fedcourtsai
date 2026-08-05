@@ -1,0 +1,11 @@
+case_id: scotus/66649795
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-11-30'
+resolved: true
+schema_version: '1.0'
+title: Robert L. Bertram, Jr., Bryan S. Wood, Robin G. Peavler, James W. Bottom, and
+  Brian C. Walters, Petitioners v. United States

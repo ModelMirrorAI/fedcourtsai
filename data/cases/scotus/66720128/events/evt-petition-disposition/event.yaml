@@ -1,0 +1,11 @@
+case_id: scotus/66720128
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-12-26'
+resolved: true
+schema_version: '1.0'
+title: Teamsters Local 210 Affiliated Health and Insurance Fund, Petitioner v. Leon
+  Silverman, as Trustee of the Union Mutual Medical Fund, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/66659229
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-12-18'
+resolved: true
+schema_version: '1.0'
+title: Minnesota Living Assistance, Inc., dba Baywood Home Care, Petitioner v. Ken
+  B. Peterson, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/66650124
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-11-14'
+resolved: true
+schema_version: '1.0'
+title: Rebekah Cooper, as Administrator of the Estate of Jason Cooper, Deceased, Petitioner
+  v. Ehtsham Haq, et al.

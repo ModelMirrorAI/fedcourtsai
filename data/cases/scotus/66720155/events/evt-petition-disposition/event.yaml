@@ -1,0 +1,11 @@
+case_id: scotus/66720155
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-08'
+resolved: true
+schema_version: '1.0'
+title: Ronald Jarmuth, Petitioner v. The International Club Homeowners Association,
+  Inc.

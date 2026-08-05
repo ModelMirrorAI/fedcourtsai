@@ -1,0 +1,11 @@
+case_id: scotus/66720454
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-03'
+resolved: true
+schema_version: '1.0'
+title: Mario R. Lozano, Petitioner v. Superior Court of Massachusetts, Suffolk County,
+  et al.
