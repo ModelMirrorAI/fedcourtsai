@@ -237,6 +237,12 @@ same PR.
   hand-build them (case = `<court_id>/<docket_id>`, events `evt-<kind>-<slug>`,
   run ids UTC timestamps). Writes go through `fedcourtsai.serialize`.
 - Conventional-commit style PR titles, e.g. `predict(claude-baseline): ca9/123 — evt-...`.
+- **Wrap a long string inside a list with an explicit `+`.** Adjacent string
+  literals concatenate implicitly, so a wrapped element and a *dropped comma*
+  between two elements are the same code — which in a list of docket-entry
+  fixtures silently merges two test inputs rather than failing. The `+` states
+  which one was meant, and CodeQL's `py/implicit-string-concatenation-in-list`
+  enforces it.
 - **Be cautious about creating new workflow files.** Prefer a job or mode on
   an existing workflow (e.g. `run-analytics` for anything that reads the
   corpus and answers a question); permissions are scoped per *job*, so a task

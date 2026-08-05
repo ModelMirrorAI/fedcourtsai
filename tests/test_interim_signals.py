@@ -26,7 +26,7 @@ from fedcourtsai.supremecourt import live_application_id, live_docket_id
 # 24A1 — the administrative majority, verbatim.
 _EXTENSION = [
     "Application (24A1) to extend the time to file a petition for a writ of "
-    "certiorari from July 15, 2024 to September 13, 2024, submitted to Justice Alito.",
+    + "certiorari from July 15, 2024 to September 13, 2024, submitted to Justice Alito.",
     "Application (24A1) granted by Justice Alito extending the time to file until August 15, 2024.",
 ]
 # 24A1099 — a stay, referred to the full Court and denied.
@@ -34,7 +34,7 @@ _STAY_REFERRED = [
     "Application (24A1099) for a stay, submitted to The Chief Justice.",
     "Application (24A1099) referred to the Court.",
     "Application (24A1099) for stay presented to The Chief Justice and by him "
-    "referred to the Court is denied.",
+    + "referred to the Court is denied.",
 ]
 # 24A650 — a stay a single Justice denied without referring it.
 _STAY_CIRCUIT = [
@@ -190,7 +190,7 @@ def test_an_application_resolves_through_its_own_vocabulary() -> None:
         (
             "May 23 2025",
             "Application (24A1099) for stay presented to The Chief Justice and by him "
-            "referred to the Court is denied.",
+            + "referred to the Court is denied.",
         ),
     )
     cert = map_live_docket(payload, 9_500_024_001)
@@ -227,8 +227,8 @@ def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:
             (
                 "Dec 20 2023",
                 "Consideration of the applications for stay (23A349, 23A350) presented "
-                "to The Chief Justice and by him referred to the Court is deferred "
-                "pending oral argument.",
+                + "to The Chief Justice and by him referred to the Court is deferred "
+                + "pending oral argument.",
             ),
             ("Feb 21 2024", "Argued."),
             (

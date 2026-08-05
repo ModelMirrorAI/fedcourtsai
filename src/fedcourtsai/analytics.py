@@ -1466,7 +1466,7 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             "",
             (
                 "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "
-                "| est. grant rate | grants | median days | complete |"
+                + "| est. grant rate | grants | median days | complete |"
             ),
             "| --- | --- | --: | --: | --- | --- | --: | --: | --- |",
         ]
@@ -1511,8 +1511,8 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             "",
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                "anchor only on Term rows strictly preceding your clock — later Terms "
-                "post-date what you are allowed to know._"
+                + "anchor only on Term rows strictly preceding your clock — later Terms "
+                + "post-date what you are allowed to know._"
             ),
         ]
     if pack.interim is not None:
@@ -1535,22 +1535,22 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         "## The interim docket (applications)",
         (
             "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
-            "time-extension requests that dominate the docket), split by application-Term "
-            "year; raw counts, never reweighted. Descriptive only: the grant rate is "
-            "computed over **resolved substantive** applications alone — extensions are "
-            "counted so their dominance stays visible, but they never pool into any rate — "
-            "and it is not a segment base rate: the interim stage's scored base rate "
-            "publishes only at the pre-registered resolved-count floor (docs/salience.md), "
-            "so until then no skill or calibration claim rests on these "
-            "figures. Resolved means a machine-matched interim disposition — an unmatched "
-            "resolution stays visibly unresolved rather than entering any denominator — "
-            "and withdrawn/dismissed resolutions count as ungranted. This is not a "
-            "salience-band product and carries no salience version. "
-            "The escalation-signal columns count substantive applications only, and carry "
-            "max-latched ending states rather than as-at-prediction values — no rate here "
-            "conditions on them. "
-            "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
-            "too — anchor only on Term rows strictly preceding your clock._"
+            + "time-extension requests that dominate the docket), split by application-Term "
+            + "year; raw counts, never reweighted. Descriptive only: the grant rate is "
+            + "computed over **resolved substantive** applications alone — extensions are "
+            + "counted so their dominance stays visible, but they never pool into any rate — "
+            + "and it is not a segment base rate: the interim stage's scored base rate "
+            + "publishes only at the pre-registered resolved-count floor (docs/salience.md), "
+            + "so until then no skill or calibration claim rests on these "
+            + "figures. Resolved means a machine-matched interim disposition — an unmatched "
+            + "resolution stays visibly unresolved rather than entering any denominator — "
+            + "and withdrawn/dismissed resolutions count as ungranted. This is not a "
+            + "salience-band product and carries no salience version. "
+            + "The escalation-signal columns count substantive applications only, and carry "
+            + "max-latched ending states rather than as-at-prediction values — no rate here "
+            + "conditions on them. "
+            + "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
+            + "too — anchor only on Term rows strictly preceding your clock._"
         ),
         "",
         f"**{interim.applications}** application(s): {interim.extension} extension, "
@@ -1565,7 +1565,7 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         "",
         (
             "| Term | applications | extension | substantive | unknown | unparsed "
-            "| resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |"
+            + "| resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |"
         ),
         "| --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |",
     ]
@@ -1586,35 +1586,35 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         "## The merits docket (granted cases)",
         (
             "_SCOTUS cases whose cert grant opened a merits proceeding — a plain or "
-            "partial grant; a GVR or summary reversal decides in the cert order itself, "
-            "so it is a cert-stage fact and is excluded by its disposition label (only "
-            "as exact as that label: a Term resolved before the `gvr` label existed "
-            "carries its GVRs as plain `granted`, so its rate here reads high) — split "
-            "by the October Term "
-            "certiorari was granted in: a grant-date-keyed axis that does **not** align "
-            "with the cert tables' docket-number Terms (a petition docketed in Term T is "
-            "routinely granted in T+1), and Terms with no parsed judgment are omitted "
-            "from the table. Raw counts, never reweighted (a grant is always "
-            "ingested with certainty). The judgment distribution and disturbed rate cover "
-            "the **parsed** slice only — cases whose stored snapshot the deterministic "
-            "merits parser could read — and `parsed` against `granted` states that "
-            "coverage; the gap blends still-pending cases (granted, not yet decided) "
-            "with genuine parse gaps, so a recent Term's thin `parsed` is mostly "
-            "pendency, not parser failure. The per-Term disturbed rates "
-            "(reversed + vacated + affirmed-in-part over parsed) are the committed "
-            "feed of the registered merits Brier baseline: a merits cell's skill is "
-            "scored against these rates pooled over grant Terms **strictly before** "
-            "the case's (docs/decision-model.md), so a skill claim exists only where "
-            "strictly-prior Terms carry parsed judgments — and the rate is measured "
-            "over exactly the population a merits cell is drawn from, which is why the "
-            "cert-order grants are excluded. "
-            "A DIG or an equally divided affirmance counts as undisturbed "
-            "(both leave the judgment below standing) and sits in the scored pool on "
-            "that footing, since the baseline's denominator counts it the same way. "
-            "This is not a salience-band product and carries "
-            "no salience version. Replay/backtest cells: the cert Term tables' "
-            "self-selection rule applies here too — anchor only on Term rows strictly "
-            "preceding your clock._"
+            + "partial grant; a GVR or summary reversal decides in the cert order itself, "
+            + "so it is a cert-stage fact and is excluded by its disposition label (only "
+            + "as exact as that label: a Term resolved before the `gvr` label existed "
+            + "carries its GVRs as plain `granted`, so its rate here reads high) — split "
+            + "by the October Term "
+            + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
+            + "with the cert tables' docket-number Terms (a petition docketed in Term T is "
+            + "routinely granted in T+1), and Terms with no parsed judgment are omitted "
+            + "from the table. Raw counts, never reweighted (a grant is always "
+            + "ingested with certainty). The judgment distribution and disturbed rate cover "
+            + "the **parsed** slice only — cases whose stored snapshot the deterministic "
+            + "merits parser could read — and `parsed` against `granted` states that "
+            + "coverage; the gap blends still-pending cases (granted, not yet decided) "
+            + "with genuine parse gaps, so a recent Term's thin `parsed` is mostly "
+            + "pendency, not parser failure. The per-Term disturbed rates "
+            + "(reversed + vacated + affirmed-in-part over parsed) are the committed "
+            + "feed of the registered merits Brier baseline: a merits cell's skill is "
+            + "scored against these rates pooled over grant Terms **strictly before** "
+            + "the case's (docs/decision-model.md), so a skill claim exists only where "
+            + "strictly-prior Terms carry parsed judgments — and the rate is measured "
+            + "over exactly the population a merits cell is drawn from, which is why the "
+            + "cert-order grants are excluded. "
+            + "A DIG or an equally divided affirmance counts as undisturbed "
+            + "(both leave the judgment below standing) and sits in the scored pool on "
+            + "that footing, since the baseline's denominator counts it the same way. "
+            + "This is not a salience-band product and carries "
+            + "no salience version. Replay/backtest cells: the cert Term tables' "
+            + "self-selection rule applies here too — anchor only on Term rows strictly "
+            + "preceding your clock._"
         ),
         "",
         f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed judgment.",
@@ -1626,7 +1626,7 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         "",
         (
             "| Term | granted | parsed | affirmed | reversed | vacated | in part "
-            "| DIG | equally divided | disturbed | disturbed rate |"
+            + "| DIG | equally divided | disturbed | disturbed rate |"
         ),
         "| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |",
     ]
@@ -1744,21 +1744,21 @@ _GVR_SPLIT_CAVEAT = (
 _DOCKET_GAPS = (
     _GVR_SPLIT_CAVEAT,
     "**What the petitions are about.** A distribution of the questions presented "
-    "by subject matter needs a claim taxonomy to classify them against, and no "
-    "such taxonomy is built. Inventing one for this artifact alone would publish "
-    "a categorization nothing else in the project shares, and that no later work "
-    "could reproduce.",
+    + "by subject matter needs a claim taxonomy to classify them against, and no "
+    + "such taxonomy is built. Inventing one for this artifact alone would publish "
+    + "a categorization nothing else in the project shares, and that no later work "
+    + "could reproduce.",
     "**Summary reversals are not broken out.** The disposition vocabulary carries "
-    "a label for them, but no resolver rule reads one off an order, so none is "
-    "produced and a summary reversal is counted inside the grant family above "
-    "rather than being missing from it. "
-    "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
-    "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
-    "of a substantial federal question are deliberate resolver misses that reach "
-    "maintainer triage instead.",
+    + "a label for them, but no resolver rule reads one off an order, so none is "
+    + "produced and a summary reversal is counted inside the grant family above "
+    + "rather than being missing from it. "
+    + "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
+    + "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
+    + "of a substantial federal question are deliberate resolver misses that reach "
+    + "maintainer triage instead.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
-    "opinion authorship are per-justice facts; this corpus is docket-first and "
-    "holds no per-justice vote record.",
+    + "opinion authorship are per-justice facts; this corpus is docket-first and "
+    + "holds no per-justice vote record.",
 )
 
 
@@ -1796,11 +1796,11 @@ def render_docket_markdown(pack: DocketPack) -> str:
     )
     lines += [
         "Facts about the dockets themselves: what the Supreme Court is asked to take, "
-        "from which court below, on which fee stream, after how many relists, and how "
-        "it disposes of what it is asked. It carries **no claim about this project's "
-        "predictions** — no accuracy, no model ranking, no measure of which petitions "
-        "are worth predicting — so it is readable and citable without any interest in "
-        "whether those models are any good.",
+        + "from which court below, on which fee stream, after how many relists, and how "
+        + "it disposes of what it is asked. It carries **no claim about this project's "
+        + "predictions** — no accuracy, no model ranking, no measure of which petitions "
+        + "are worth predicting — so it is readable and citable without any interest in "
+        + "whether those models are any good.",
         "",
         f"**Corpus.** {pack.corpus_rows} case(s): {pack.resolved} resolved, {pack.open} open"
         f"{vintage}. Most rows are an unlabeled bulk import, so the two overview "
@@ -1814,45 +1814,45 @@ def render_docket_markdown(pack: DocketPack) -> str:
         f"aggregates, so a cert denominator can sit below this count; {census}.",
         "",
         "**How to read the tables.** Each section states its own scope: the court, the "
-        "population, and whether its counts are denial-reweighted. That reweighting "
-        "matters. The historical walk ingests every decided petition except denials, "
-        "which it samples on a committed frame, so a raw count would badly overstate "
-        "the grant rate; a reweighted section counts each ingested petition for the "
-        "number of petitions it stands in for. **Every section here is reweighted**, "
-        "including the two overview cuts: nearly every labeled SCOTUS row is a "
-        "sampled one, so a raw disposition split there would overstate the grant "
-        "family several-fold, while a bulk-import circuit row carries weight 1 and is "
-        "unchanged by it. So every count is a population **estimate** rather than rows "
-        "on hand, and every denominator is written `est. n=`. In the breakdown tables "
-        "that denominator is the `resolved` column beside the rate; the per-Term "
-        "census states its own the same way.",
+        + "population, and whether its counts are denial-reweighted. That reweighting "
+        + "matters. The historical walk ingests every decided petition except denials, "
+        + "which it samples on a committed frame, so a raw count would badly overstate "
+        + "the grant rate; a reweighted section counts each ingested petition for the "
+        + "number of petitions it stands in for. **Every section here is reweighted**, "
+        + "including the two overview cuts: nearly every labeled SCOTUS row is a "
+        + "sampled one, so a raw disposition split there would overstate the grant "
+        + "family several-fold, while a bulk-import circuit row carries weight 1 and is "
+        + "unchanged by it. So every count is a population **estimate** rather than rows "
+        + "on hand, and every denominator is written `est. n=`. In the breakdown tables "
+        + "that denominator is the `resolved` column beside the rate; the per-Term "
+        + "census states its own the same way.",
         "",
         "**In the breakdown tables the estimate does not tell you** how many "
-        "petitions were actually read to produce it. An `est. n=` of a few hundred "
-        "rests on a raw row count several times smaller, and a breakdown row carries "
-        "no raw view of its own — so treat a small reweighted cell as weaker evidence "
-        "than its denominator suggests, and read a rate against the whole-population "
-        "figures above it rather than on its own. The per-Term census is the "
-        "exception and the place to calibrate that gap: it prints the observed "
-        "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
-        "is legible for every Term.",
+        + "petitions were actually read to produce it. An `est. n=` of a few hundred "
+        + "rests on a raw row count several times smaller, and a breakdown row carries "
+        + "no raw view of its own — so treat a small reweighted cell as weaker evidence "
+        + "than its denominator suggests, and read a rate against the whole-population "
+        + "figures above it rather than on its own. The per-Term census is the "
+        + "exception and the place to calibrate that gap: it prints the observed "
+        + "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
+        + "is legible for every Term.",
         "",
         "**Where a value is missing** the row still appears rather than being dropped, "
-        "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
-        "*no value on that dimension*, and what that stands for differs by cut, so "
-        "read it against the section rather than as one thing. On the circuit cut it "
-        "is mostly **not** an unknown court below: it is the petitions whose court "
-        "below is not a federal circuit — state supreme courts above all — and the "
-        "section that follows names them. On the era cut it is the absence of any "
-        "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
-        "a stricter serial parser than the one behind the Term cuts, so docket "
-        "numbers it cannot read — annotated ones such as a capital-case marker most "
-        "visibly, but also consolidated and prefixed spellings — land here. That "
-        "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
-        "split of the petitions whose numbers parse cleanly rather than a partition "
-        "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
-        "CVSG cuts, whose signal comes from parsed proceedings — it means *not yet "
-        "parsed* rather than *did not happen*.",
+        + "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
+        + "*no value on that dimension*, and what that stands for differs by cut, so "
+        + "read it against the section rather than as one thing. On the circuit cut it "
+        + "is mostly **not** an unknown court below: it is the petitions whose court "
+        + "below is not a federal circuit — state supreme courts above all — and the "
+        + "section that follows names them. On the era cut it is the absence of any "
+        + "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
+        + "a stricter serial parser than the one behind the Term cuts, so docket "
+        + "numbers it cannot read — annotated ones such as a capital-case marker most "
+        + "visibly, but also consolidated and prefixed spellings — land here. That "
+        + "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
+        + "split of the petitions whose numbers parse cleanly rather than a partition "
+        + "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
+        + "CVSG cuts, whose signal comes from parsed proceedings — it means *not yet "
+        + "parsed* rather than *did not happen*.",
     ]
     lines += _section_tables(pack.sections, sample_size=True)
     if pack.terms:
@@ -1860,35 +1860,35 @@ def render_docket_markdown(pack: DocketPack) -> str:
             "",
             "## SCOTUS cert petitions by Term",
             "_Live/historical slice. `filings` is the count of docketed serials across "
-            "the paid and IFP streams, read from the discovery cursors — exact for "
-            "docketed numbers, a slight upper bound on real petitions since withheld "
-            "serials still count. **The two columns are not nested**: `ingested` counts "
-            "rows on hand, and a row can sit outside the serial census — most visibly a "
-            "petition whose docket number carries an annotation the serial parser "
-            "cannot read (a capital-case marker, say), ingested under its Term but "
-            "belonging to no stream's census — so `ingested` can "
-            "exceed `filings`. `ingested` and `grants "
-            "observed` are raw counts of rows on hand; the grant rate is the "
-            "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
-            "count it divides by — which is why it too can exceed `ingested`. The "
-            "plain `n` beside the pace to grant is different: that one is a raw count "
-            "of the granted petitions carrying both dates. Dividing "
-            "`grants observed` by `ingested` does **not** reproduce the rate and is "
-            "not a rate at all; the raw grant count is comparable to the weighted "
-            "denominator only because a grant is always kept at weight 1 while "
-            "denials are sampled. The rate pools the paid and IFP streams, whose own "
-            "grant rates differ several-fold, so a Term-over-Term move can be a shift "
-            "in that mix rather than in the Court's appetite. A Term reads `complete` "
-            "only "
-            "once every probed stream was walked to its observed end; until then its "
-            "figures describe the walked prefix, and for a Term still in progress that "
-            "end moves as the Court dockets more petitions, so `complete` there means "
-            "current, not final. Every Term the walk has touched is listed, most recent "
-            "first._",
+            + "the paid and IFP streams, read from the discovery cursors — exact for "
+            + "docketed numbers, a slight upper bound on real petitions since withheld "
+            + "serials still count. **The two columns are not nested**: `ingested` counts "
+            + "rows on hand, and a row can sit outside the serial census — most visibly a "
+            + "petition whose docket number carries an annotation the serial parser "
+            + "cannot read (a capital-case marker, say), ingested under its Term but "
+            + "belonging to no stream's census — so `ingested` can "
+            + "exceed `filings`. `ingested` and `grants "
+            + "observed` are raw counts of rows on hand; the grant rate is the "
+            + "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
+            + "count it divides by — which is why it too can exceed `ingested`. The "
+            + "plain `n` beside the pace to grant is different: that one is a raw count "
+            + "of the granted petitions carrying both dates. Dividing "
+            + "`grants observed` by `ingested` does **not** reproduce the rate and is "
+            + "not a rate at all; the raw grant count is comparable to the weighted "
+            + "denominator only because a grant is always kept at weight 1 while "
+            + "denials are sampled. The rate pools the paid and IFP streams, whose own "
+            + "grant rates differ several-fold, so a Term-over-Term move can be a shift "
+            + "in that mix rather than in the Court's appetite. A Term reads `complete` "
+            + "only "
+            + "once every probed stream was walked to its observed end; until then its "
+            + "figures describe the walked prefix, and for a Term still in progress that "
+            + "end moves as the Court dockets more petitions, so `complete` there means "
+            + "current, not final. Every Term the walk has touched is listed, most recent "
+            + "first._",
             "",
             (
                 "| Term | filings | ingested (rows) | est. grant rate (weighted) "
-                "| grants observed (rows) | median days to grant | census |"
+                + "| grants observed (rows) | median days to grant | census |"
             ),
             "| --- | --: | --: | --- | --: | --- | --- |",
         ]
@@ -1898,9 +1898,9 @@ def render_docket_markdown(pack: DocketPack) -> str:
             "",
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                "this document sits in the same checkout as the statpack and the same rule "
-                "applies — anchor only on Term rows strictly preceding your clock, because "
-                "later Terms post-date what you are allowed to know._"
+                + "this document sits in the same checkout as the statpack and the same rule "
+                + "applies — anchor only on Term rows strictly preceding your clock, because "
+                + "later Terms post-date what you are allowed to know._"
             ),
         ]
     lines += ["", "## Not yet included", ""]

@@ -363,8 +363,8 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
             (
                 "2026-06-22",
                 "Application (26A11) for a stay of the mandate pending the filing and "
-                "disposition of a petition for a writ of certiorari, submitted to "
-                "The Chief Justice.",
+                + "disposition of a petition for a writ of certiorari, submitted to "
+                + "The Chief Justice.",
             ),
             ("2026-06-25", "Response to application (26A11) requested, due July 2, 2026."),
             ("2026-07-02", "Response to application filed."),
@@ -372,7 +372,7 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
             (
                 "2026-07-14",
                 "Application (26A11) referred to the Court. Application granted; the "
-                "mandate is stayed pending disposition of the petition.",
+                + "mandate is stayed pending disposition of the petition.",
             ),
         ),
     ),

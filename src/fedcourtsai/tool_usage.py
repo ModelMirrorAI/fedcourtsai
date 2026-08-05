@@ -216,9 +216,9 @@ def render_tool_usage_markdown(usage: ToolUsage) -> str:
     lines += [
         "",
         "_A zero means **never called**, not useless: a tool can go unused because "
-        "the prompt never mentions it or a sandbox blocked it, and this data cannot "
-        "tell those apart. Read the offered count beside it — unused in 3 cells is "
-        "not unused in 400 — and check the cause before retiring anything._",
+        + "the prompt never mentions it or a sandbox blocked it, and this data cannot "
+        + "tell those apart. Read the offered count beside it — unused in 3 cells is "
+        + "not unused in 400 — and check the cause before retiring anything._",
     ]
     if usage.cells_with_web or usage.cells_with_mcp:
         web = ", ".join(f"`{name}` {count}" for name, count in usage.web_calls.items()) or "none"
@@ -243,11 +243,11 @@ def render_tool_usage_markdown(usage: ToolUsage) -> str:
         lines += [
             "",
             "_Suggestive, not proof. A forward cell is explicitly allowed to use public "
-            "context the corpus does not carry, so web use is sanctioned rather than a "
-            "fault; what it flags is a cell that needed something and did not get it from "
-            "the configured tools. Each engine is counted under its own tool names, so a "
-            "zero is not by itself evidence that a cell chose not to search — check the "
-            "retrieval surface its process version records._",
+            + "context the corpus does not carry, so web use is sanctioned rather than a "
+            + "fault; what it flags is a cell that needed something and did not get it from "
+            + "the configured tools. Each engine is counted under its own tool names, so a "
+            + "zero is not by itself evidence that a cell chose not to search — check the "
+            + "retrieval surface its process version records._",
         ]
     if usage.builtin_calls:
         shown = list(usage.builtin_calls.items())[:10]
