@@ -189,6 +189,7 @@ docs-only change needs none of the Python checks).
 uv sync                    # once, to sync the env the stages assume
 scripts/gate.sh            # every stage, in CI order — what CI enforces
 # or run just the stages that fit your change:
+scripts/gate.sh lock       # uv lock --check (the lock matches pyproject)
 scripts/gate.sh lint       # ruff format --check + ruff check
 scripts/gate.sh types      # mypy
 scripts/gate.sh test       # pytest  (GATE_COV=1 adds coverage, as CI does)

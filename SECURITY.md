@@ -9,6 +9,15 @@ runbook, [docs/security.md](docs/security.md).
 - **Pin actions to a full commit SHA**, with the version in a trailing comment.
   `zizmor` (in `lint-actions.yml`) fails the build on unpinned actions; Dependabot
   bumps the pins.
+- **Pin Python dependencies to `uv.lock`, and install with `--locked`.** The
+  lockfile carries a hash per artifact, so it is the supply-chain control for
+  the project's own dependencies — the counterpart of the action SHAs above.
+  Every job that installs them goes through
+  `.github/actions/setup-python-env`, whose `uv sync --locked` refuses a lock
+  that has drifted from `pyproject.toml` rather than re-resolving. Dependabot
+  bumps it. The packages `uvx` resolves at run time are *not* in that lock and
+  are pinned by version alone: the CourtListener MCP server named in
+  `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The

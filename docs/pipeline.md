@@ -275,6 +275,14 @@ pattern rather than rediscovering it:
   only bound available inside one. The same question is worth asking of any step
   that talks to an external service: what is its worst case, and is it shorter
   than the job budget?
+- **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
+  installs with `uv sync --locked`, which refuses a lock it cannot read as
+  current — so a lock written by a *newer* uv than the action's pin fails every
+  job that installs dependencies, including the scheduled data runs, and the
+  trigger is a local tooling upgrade rather than any dependency edit. The
+  devcontainer's uv is not pinned to the same version, so relock with the pinned
+  uv, or bump the pin in the same change. `scripts/gate.sh lock` catches the
+  drift half of this locally; the version half only shows up in CI.
 - **A branch built during a long job must be based on a freshly fetched remote
   tip, not the job's own checkout.** The deterministic writers commit to `main`
   throughout, so a matrix that runs for an hour finishes holding a stale local

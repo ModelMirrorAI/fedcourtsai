@@ -24,6 +24,16 @@ runs:
       with:
         version: "0.11.26"
         enable-cache: true
+    # `--locked` is what makes uv.lock a control rather than a hint: it refuses
+    # to install when the lock is stale against pyproject.toml, where a bare
+    # `uv sync` re-resolves and installs whatever it finds. The lockfile is the
+    # supply-chain pin for the project's own dependencies (SECURITY.md), and
+    # every job that installs them — including the prod data runs — comes
+    # through this step, so drift fails here or nowhere. Local development runs
+    # a plain `uv sync`, which re-locks; relock with the *pinned* uv above,
+    # since this flag couples that pin to the lockfile format — a lock written
+    # by a newer uv fails every job here, not just the one that changed a
+    # dependency.
     - name: Sync dependencies
       shell: bash
-      run: uv sync
+      run: uv sync --locked
