@@ -1,0 +1,11 @@
+case_id: scotus/72465879
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-06-23'
+resolved: true
+schema_version: '1.0'
+title: Chaplaincy of Full Gospel Churches, et al., Petitioners v. Department of the
+  Navy, et al.

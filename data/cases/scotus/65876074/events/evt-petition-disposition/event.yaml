@@ -1,0 +1,11 @@
+case_id: scotus/65876074
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-09'
+resolved: true
+schema_version: '1.0'
+title: Mark Milner, et al., Petitioners v. Vincent Mares, Executive Director, New
+  Mexico Racing Commission, et al.

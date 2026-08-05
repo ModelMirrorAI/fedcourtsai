@@ -1,0 +1,11 @@
+case_id: scotus/66724807
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-08-21'
+resolved: true
+schema_version: '1.0'
+title: New Mighty U.S. Trust, et al., Petitioners v. Robert Shi, as Executor of the
+  Will of Yueh-Lan Wang, et al.

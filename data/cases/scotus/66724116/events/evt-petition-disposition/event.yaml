@@ -1,0 +1,11 @@
+case_id: scotus/66724116
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-31'
+resolved: true
+schema_version: '1.0'
+title: Thomas P. Kelly, Jr., Petitioner v. Reliance Standard Life Insurance Company,
+  et al.
