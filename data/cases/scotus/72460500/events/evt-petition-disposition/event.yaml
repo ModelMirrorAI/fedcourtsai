@@ -1,0 +1,11 @@
+case_id: scotus/72460500
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-03-27'
+resolved: true
+schema_version: '1.0'
+title: Louise Harris, Petitioner v. Jefferson S. Dunn, Commissioner, Alabama Department
+  of Corrections

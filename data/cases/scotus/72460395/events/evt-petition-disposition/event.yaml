@@ -1,0 +1,11 @@
+case_id: scotus/72460395
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-03-01'
+resolved: true
+schema_version: '1.0'
+title: Charlie Wilson, as Executor of the Estate of Debra Wilson, Petitioner v. Dallas
+  County Hospital District, dba Parkland Health & Hospital System, et al.

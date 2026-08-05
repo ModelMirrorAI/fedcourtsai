@@ -1,0 +1,11 @@
+case_id: scotus/66647837
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-03-22'
+resolved: true
+schema_version: '1.0'
+title: "Consolidation Coal Company, Petitioner v. Director, Office of Workers\u2019\
+  \ Compensation Programs, Department of Labor, et al."
