@@ -1,0 +1,10 @@
+case_id: scotus/66648348
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-08-23'
+resolved: true
+schema_version: '1.0'
+title: Ventura Content, Ltd., Petitioner v. Motherless, Inc., et al.
