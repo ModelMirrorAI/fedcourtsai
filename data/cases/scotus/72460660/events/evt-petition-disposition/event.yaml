@@ -1,0 +1,12 @@
+case_id: scotus/72460660
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-08-17'
+resolved: true
+schema_version: '1.0'
+title: Amy Young and John Scott, as Co-Personal Representatives of the Estate of Andrew
+  Lee Scott, Deceased, et al., Petitioners v. Gary S. Borders, Sheriff, Lake County,
+  Florida, et al.

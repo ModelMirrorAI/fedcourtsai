@@ -1,0 +1,11 @@
+case_id: scotus/72460714
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-14'
+resolved: true
+schema_version: '1.0'
+title: Charles N. Ganson, Jr., as Personal Representative of the Estate of Molly Beyer,
+  Petitioner v. City of Marathon, Florida, et al.

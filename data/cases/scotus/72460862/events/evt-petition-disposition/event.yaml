@@ -1,0 +1,11 @@
+case_id: scotus/72460862
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-10-12'
+resolved: true
+schema_version: '1.0'
+title: Rims Barber, et al., Petitioners v. Phil Bryant, Governor of Mississippi, et
+  al.
