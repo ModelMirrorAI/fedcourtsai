@@ -1,0 +1,11 @@
+case_id: scotus/66727445
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-01-22'
+resolved: true
+schema_version: '1.0'
+title: Ivon Castro, Petitioner v. Dina Simon, Individually and in Her Official Capacity
+  as Deputy Commissioner, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/66727447
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-01-22'
+resolved: true
+schema_version: '1.0'
+title: Donald Henderson Scott, et ux., Petitioners v.  U.S. Bank National Association,
+  et al.

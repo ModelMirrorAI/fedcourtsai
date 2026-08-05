@@ -1,0 +1,11 @@
+case_id: scotus/66726729
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-12-27'
+resolved: true
+schema_version: '1.0'
+title: Christine Almas Rose, Individually and as Mother of Jessie Lee Rose, et al.,
+  Petitioners v. City of Utica, New York, et al.

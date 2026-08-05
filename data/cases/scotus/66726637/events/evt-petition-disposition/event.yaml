@@ -1,0 +1,12 @@
+case_id: scotus/66726637
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-02-18'
+resolved: true
+schema_version: '1.0'
+title: Wayne A. Powe, et ux., Petitioners v. Deutsche Bank National Trust Company,
+  as Trustee for Residential Asset Securitization Trust Series 2004-A7 Mortgage Pass-Through
+  Certificates 2004-G

@@ -1,0 +1,10 @@
+case_id: scotus/72463748
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-03-11'
+resolved: true
+schema_version: '1.0'
+title: American Bankers Association, Petitioner v. National Credit Union Administration

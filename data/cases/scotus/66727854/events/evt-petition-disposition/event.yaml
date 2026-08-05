@@ -1,0 +1,11 @@
+case_id: scotus/66727854
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-01-30'
+resolved: true
+schema_version: '1.0'
+title: Donald E. Craig, et al., Petitioners v. Janet Turner O'Kelley, Individually
+  and as Personal Representative of the Estate of John Harley Turner, et al.
