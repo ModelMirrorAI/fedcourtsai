@@ -1,0 +1,11 @@
+case_id: scotus/66659407
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-04-18'
+resolved: true
+schema_version: '1.0'
+title: The Alliance to End Chickens as Kaporos, et al., Petitioners v. New York City
+  Police Department, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/66723298
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-03-26'
+resolved: true
+schema_version: '1.0'
+title: Oglala Sioux Tribe, et al., Petitioners v. Lisa Fleming, in Her Official Capacity,
+  et al.
