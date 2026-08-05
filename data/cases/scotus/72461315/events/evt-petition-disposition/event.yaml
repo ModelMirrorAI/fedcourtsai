@@ -1,0 +1,11 @@
+case_id: scotus/72461315
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-03'
+resolved: true
+schema_version: '1.0'
+title: Bi-State Development Agency of the Missouri-Illinois Metropolitan District,
+  dba Metro, Petitioner v. United States, ex rel. Eric Fields

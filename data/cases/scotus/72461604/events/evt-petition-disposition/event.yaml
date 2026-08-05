@@ -1,0 +1,11 @@
+case_id: scotus/72461604
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-09'
+resolved: true
+schema_version: '1.0'
+title: Andrew March, Petitioner v. Janet T. Mills, Individually and in Her Official
+  Capacity as Attorney General of Maine, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72461848
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-14'
+resolved: true
+schema_version: '1.0'
+title: National Association of Railroad Passengers, et al., Petitioners v. Union Pacific
+  Railroad Company, et al.

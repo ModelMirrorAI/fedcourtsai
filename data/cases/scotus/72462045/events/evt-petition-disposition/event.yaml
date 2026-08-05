@@ -1,0 +1,11 @@
+case_id: scotus/72462045
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-16'
+resolved: true
+schema_version: '1.0'
+title: Allco Finance Limited, Petitioner v. Robert J. Klee, Commissioner, Connecticut
+  Department of Energy and Environmental Protection, et al.

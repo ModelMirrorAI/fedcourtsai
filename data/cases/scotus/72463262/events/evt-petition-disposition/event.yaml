@@ -1,0 +1,11 @@
+case_id: scotus/72463262
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-12-21'
+resolved: true
+schema_version: '1.0'
+title: Phillip Francis Luke Hughes, on Behalf of the Estate of Jane K. Hughes, et
+  al., Petitioners v. Bank of America National Association

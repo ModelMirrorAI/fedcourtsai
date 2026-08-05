@@ -1,0 +1,11 @@
+case_id: scotus/72463358
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-12-26'
+resolved: true
+schema_version: '1.0'
+title: N. M., Mother of A. J., C. M., and S. M., Children, Petitioner v. Florida Department
+  of Children and Families
