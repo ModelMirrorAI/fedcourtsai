@@ -6,8 +6,8 @@ standard, before a different bench. This module is the pair of readers both the
 scope decision and the event model turn on: what an application *is*, and what
 happened to it.
 
-**Most of the interim docket is administrative.** Measured over a spread sample
-of OT2023-OT2024 applications, roughly **85%** are requests to extend the time to
+**Most of the interim docket is administrative.** Over the parsed application
+dockets, roughly **80%** are requests to extend the time to
 file, granted by a single Justice as a matter of course. They are not forecasts:
 the answer is nearly always yes, one Justice gives it, and nothing about the case
 predicts it. Including them would do to the interim population what including IFP
@@ -180,7 +180,7 @@ def is_predictable_application(kind: ApplicationKind) -> bool:
     petitions are excluded from the cert tournament and for a stronger version of
     it: the answer is nearly always yes, one Justice gives it without the Court
     sitting, and no fact about the case moves it. A base rate over a population
-    that is ~85% extensions would describe the Court's calendar, and a predictor
+    that is ~80% extensions would describe the Court's calendar, and a predictor
     scored against it would be rewarded for saying "granted" every time.
 
     ``unknown`` is excluded too, and that is the conservative direction: an

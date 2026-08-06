@@ -576,10 +576,11 @@ injunctions, vacaturs pending certiorari — needs its own, because none of
 conference, and a CVSG is a cert-stage act. Reusing the band would be the
 conditioning mismatch this document spends its length warning about.
 
-**Most of the docket is not the thing predicted.** Over a spread sample of 26
-OT2023–OT2024 applications, **85%** are requests to extend the time to file:
-granted by a single Justice as a matter of course, with nothing about the case
-moving the answer. 12% are substantive. Admitting the whole docket would hand a
+**Most of the docket is not the thing predicted.** Over the 1,410 parsed
+application dockets, **80.4%** are requests to extend the time to file: granted
+by a single Justice as a matter of course, with nothing about the case moving
+the answer. **15.5%** are substantive and **4.1%** carry an ask the parser
+cannot read. Admitting the whole docket would hand a
 predictor a base rate it beats by answering "granted" every time — the IFP
 problem in a sharper form. `interim_signals.is_predictable_application` keeps only
 the substantive ones, and excludes an unreadable ask with them: that is a parser
@@ -624,13 +625,16 @@ probability. A selected application occupies its slot until it resolves (the
 sticky latch never de-selects), so the reserve bounds *concurrent* live
 interim predictions and a slot frees only on resolution — where "resolves"
 means the machine-matched resolution the accumulation rule below requires, so
-an application decided in language the vocabulary misses pins its slot (and
-its one displaced cert pick per pass) until a maintainer resolves the residue;
+an application decided in language the vocabulary misses pins its slot until a
+maintainer resolves the residue;
 it is visible as the application rotation's long-unresolved tail. The slots in
-use displace cert **rank-fill** capacity one-for-one in the **latest
-conference cohort of the pass** — never a carve-out — so the reserve trades
-slots inside `N` and target spend stays as [budget.md](budget.md) publishes;
-an unfilled reserve displaces nothing. The trade is prospective, pass by
+use lower the cert **rank-fill limit** one-for-one in the **latest
+conference cohort of the pass** — never a carve-out — so the reserve is defined
+inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
+limit costs a real cert pick only where the non-carve-out remainder exceeds it,
+which regular conferences do not reach, so today the slots are additional spend
+and the trade begins at the long conference ([budget.md](budget.md)). An
+unfilled reserve lowers nothing. Where it does bite, it bites prospectively, pass by
 pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
 sticky picks, and an application queued in the fail-open window before its
 first scoring pass rides outside the quota for that cycle — both can push a

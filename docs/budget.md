@@ -24,6 +24,71 @@ meant for Claude Code / claude.ai, not CI/CD. So it covers interactive
 development, while every automated stage (`run:predict`, `run:evaluate`)
 authenticates to Claude via the Anthropic **API key**.
 
+## What there is to predict: measured volumes
+
+Per October Term. **Read these from the corpus, not from the committed
+statpack.** The cert and merits lines are the OT2017–2024 **paid** census, where
+every row carries `sample_weight` 1: the paid stream is walked denial-complete,
+so these are counts rather than reweighted estimates. The committed
+`metrics/statpack.json` still shows that stream reweighted and `complete: false`
+for OT2017–2023, because the pack predates the walk that completed it — it
+catches up at the next metrics refresh, and until then it is the stale surface,
+not this one. The IFP stream genuinely is still sampled, which is why the
+IFP-inclusive figure below is an estimate and these are not. The interim line is
+**one** application Term, OT2025, still open — a Term-to-date count.
+
+| Bucket | Per Term | What it is |
+|---|---:|---|
+| Cert — paid modern-cert petitions | 1,498 | at most the pool the gate selects from (11,987 rows over eight Terms) |
+| Merits — cert grants opening a proceeding | 65 | paid `granted`, excluding the `gvr` label, which disposes of a petition without opening a proceeding |
+| Interim — substantive applications | 219 | 15.5% of the 1,410 parsed application dockets; 80.4% are extensions and 4.1% unreadable asks |
+
+Two denominators are easy to confuse. The **≈5,500** the gate is priced on below
+counts cert decisions across both fee streams; the gate excludes IFP at Tier 0
+([salience.md](salience.md)), so the pool it can ever select from is at most the
+**1,498** paid petitions — an upper bound, because seven further rules in
+`OUT_OF_SCOPE_RULES` cut it again, as does the snapshot-aware bare-import rule
+that `out_of_scope_reason_full` adds. So the ≈$70K below is the whole-docket
+ceiling, and full coverage of what the gate can actually predict is
+`1,498 × 6 cells × $2.12 ≈ $19K`.
+
+**A re-queue is not a re-run.** A selected cert petition re-queues on a
+distribution transition outside the same-day cooldown
+(`salience.relist_requeue_cooldown_days`), and petitions are distributed a raw
+mean of 1.46 times each. But `predict_matrix` drops any `(predictor, event)` cell
+whose predictor already committed a prediction for that event, and does so at
+plan time, before any agent cell is minted. So a relist costs runner minutes,
+provisioning, and poll quota — not inference. The one gap is concurrency: the
+drop reads the checked-out ledger rather than taking a lock, so two runs planned
+before either's collect PR merges both see an unpredicted event and both mint.
+Re-forecasting a changed posture is available as a deliberate change
+(`skip_predicted=False`); its multiplier is above 1.46, because the funded
+population is the relist-selected slice rather than the docket-wide mean.
+
+**The interim reserve bounds concurrency; today it adds spend rather than
+trading it.** Substantive applications resolve in a *mean* of 27.1 days (median
+13, p95 110), so 219 arrivals need ≈16 concurrent slots against
+`interim_reserve_slots: 5` — the reserve is continuously full, and the predicted
+interim slice is therefore a ladder-ordered subsample of the substantive stream
+rather than the stream itself.
+
+The reserve's slots are *defined* inside `N`: `_select_cohort` fills to
+`capacity` minus the slots in use. That subtraction only bites once a
+conference's non-carve-out remainder exceeds that reduced limit, and regular
+conferences run a median ~11 petitions against `per_conference_capacity: 150`,
+so at today's volumes it displaces nothing and the interim cells are additional
+spend — five cases' worth per pass at most. The trade the design describes
+begins at the long conference, and becomes the normal case only if the cohort
+ever approaches the cap.
+
+Two things bound the interim figures. Lifespans run from each docket's first
+entry to its disposing entry rather than from the `date_filed` /
+`date_decided` columns, which are null on 57 of the 219 rows and null
+disproportionately on the long-lived ones; the entry-based measure covers 218,
+the exception being the one application still pending. And OT2025 is open, so
+the arrival count is a partial year divided into a full-year denominator —
+saturation is understated, not overstated.
+
 ## Cost drivers
 
 ### 1. Model usage (the dominant cost)
@@ -93,6 +158,10 @@ evaluate  ≈ 5,500 × 3 × $2.12   ≈ $35K
 full cert gate                   ≈ $70K / yr
 ```
 
+That is the whole-docket ceiling, both fee streams. The gate never selects an
+IFP petition, so the figure to fund full coverage of what it *can* predict is
+the paid pool: `1,498 × ≈$13 ≈ $19K / yr` (see *What there is to predict: measured volumes*).
+
 **Capacity `N`: the funding knob.** Within the gate, [salience.md](salience.md)'s
 capacity `N` bounds *how many* — the tournament runs on the top-`N` salient
 petitions per conference plus a few always-include carve-outs, so inference spend
@@ -119,27 +188,32 @@ scoring is itself ≈$0 (a deterministic pure function of corpus features, no mo
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
-**The interim docket: a budgeted stream with no new spend.**
+**The interim docket: a quota'd stream, capped at five cases in flight.**
 [salience.md](salience.md)'s interim-docket section carries a second selection
-problem — stays, injunctions, vacaturs pending certiorari — and it changes this
-budget by nothing. In its 26-application OT2023–OT2024 spread sample, roughly
-**85% (22 of 26)** are time-extension requests, filtered out deterministically by
-`interim_signals.is_predictable_application` (≈$0, no model call); only the
-substantive slice — **3 of 26 in that sample, ≈12%** — is ever predicted. The
-stream is budgeted as a **bounded reserve inside the existing per-conference
-spend envelope**, not a new line: `salience.interim_reserve_slots` in
+problem — stays, injunctions, vacaturs pending certiorari — and the quota is what
+keeps it small. Across the 1,410 parsed application dockets of the walked
+OT2025 Term, **80.4%** are
+time-extension requests and **4.1%** carry an ask the parser cannot read; both
+are filtered out deterministically by
+`interim_signals.is_predictable_application` (≈$0, no model call), leaving the
+**15.5%** substantive slice as the only population ever predicted. The stream is
+budgeted as a **bounded reserve defined inside the per-conference spend
+envelope**: `salience.interim_reserve_slots` in
 [config/tracking.yaml](../config/tracking.yaml), set to `5` and enforced by the
-selection pass — the reserve's slots in use displace the lowest-ranked cert
-rank-fill picks in the pass's latest conference cohort (carve-outs above `N`
-are untouched), so it trades slots inside `N` rather than adding a line, and
-target total spend stays as published above and below. The trade is
-prospective, pass by pass: sticky already-latched picks are never de-selected
+selection pass — the reserve's slots in use shrink the rank fill in the pass's
+latest conference cohort (carve-outs above `N` are untouched). Whether that is a
+trade or an addition depends on the cohort: it displaces a cert pick only where
+the non-carve-out remainder exceeds `N` minus the reserve, which at today's
+median ~11-petition conferences it does not, so five cases' worth is additional
+spend until cohorts approach the cap. Where it does bite, it bites
+prospectively, pass by pass: sticky already-latched picks are never de-selected
 and the pre-scoring fail-open window rides outside the quota for one cycle,
 so a conference's realized count can transiently drift above `N` — the same
 bounded drift the carve-outs already produce (see
 [salience.md](salience.md)). A selected application occupies its slot until
-it resolves, so the reserve also bounds the *concurrent* interim cells in
-flight; an unfilled reserve displaces nothing and returns to cert. The slice
+it resolves, so the reserve's firm effect is the one on *concurrency*: at most
+five interim cells are ever in flight, against the ≈16 substantive applications
+live at any moment, and an unfilled reserve costs nothing. The slice
 is predicted but not
 yet skill-scored: the interim segment base rate publishes only at the
 pre-registered resolved-count floor ([salience.md](salience.md)).
@@ -278,7 +352,7 @@ magnitude in funding buys roughly ten times the tournamented cases:
 | Scenario | ≈ Annual | Inference (= total − ≈$5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
 | Bootstrapping | ≈$10K | ≈$5K | ≈390 fully-tournamented cases: the OT2026 long-conference cert release (≈200 petitions at the `long_conference_capacity` cap, ≈$2.6K) **plus** the Term's first regular conferences from the same envelope |
-| Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — more than the whole ≈5,500-event cert gate, which runs ≈$70K uncapped. The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
+| Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
 
