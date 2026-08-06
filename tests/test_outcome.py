@@ -1407,3 +1407,65 @@ def test_the_judged_repoll_resolves_end_to_end(tmp_path: Path) -> None:
     # open events remain, so detection has nothing to do.
     again = resolve_case(_db(tmp_path), tmp_path, _judged_row(), "scotus", 22451)
     assert not again.outcomes and not again.unrecorded
+
+
+def test_a_granted_application_mints_no_merits_event() -> None:
+    """A granted stay is a SCOTUS grant that opens no merits proceeding.
+
+    The interim and cert vocabularies share the `granted` label, so the mint
+    cannot key on the disposition alone: an application that the Court grants
+    is finished at that order and will never enter a merits proceeding, but it
+    reaches the same resolution seam a cert grant does. Minting there would put
+    a judgment forecast on a docket with no judgment to forecast — inert only
+    while interim events carry no stage, and a live bug the moment they do.
+    """
+    application = CorpusRow(
+        case_id="scotus/900001",
+        court="scotus",
+        docket_id=900001,
+        source="live",
+        docket_number="24A100",
+        case_name="Doe v. Roe",
+        application_kind="substantive",
+        disposition=Disposition.granted,
+        # The application ingest branch nulls the cert-stage dates by design;
+        # that is exactly what `opens_merits_proceeding` keys on.
+        date_cert_granted=None,
+    )
+    resolution = Resolution(
+        outcomes={
+            "evt-motion-disposition": Outcome(
+                case_id="scotus/900001",
+                event_id="evt-motion-disposition",
+                resolved_at=date(2025, 3, 4),
+                actual_disposition=Disposition.granted,
+                actual_granted=1,
+            )
+        }
+    )
+    assert merits_event_for(application, resolution) is None
+
+
+def test_a_circuit_grant_mints_no_merits_event() -> None:
+    """The other non-cert grant that reaches this seam: pull refreshes every court."""
+    circuit = CorpusRow(
+        case_id="ca9/123",
+        court="ca9",
+        docket_id=123,
+        source="api",
+        docket_number="22-15044",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2025, 1, 2),  # meaningless off SCOTUS; still refused
+    )
+    resolution = Resolution(
+        outcomes={
+            "evt-appeal-disposition": Outcome(
+                case_id="ca9/123",
+                event_id="evt-appeal-disposition",
+                resolved_at=date(2025, 3, 4),
+                actual_disposition=Disposition.granted,
+                actual_granted=1,
+            )
+        }
+    )
+    assert merits_event_for(circuit, resolution) is None

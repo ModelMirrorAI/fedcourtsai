@@ -860,13 +860,23 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
     *this* resolution — not the row's latched disposition — so it fires exactly
     once, at cert-grant detection, and a later re-poll of the granted docket
     (whose resolution is an empty no-op) never re-mints.
+
+    Two guards, and both are load-bearing. The row must be one whose grant
+    :func:`~fedcourtsai.corpus.opens_merits_proceeding` — which is what keeps a
+    granted *application* off the merits docket. The resolution must carry the
+    grant — which is what keeps the mint to once.
     """
-    if row.court != "scotus":
-        # The merits-event contract is SCOTUS-only: a cert grant is the only
-        # grant that opens a merits proceeding before this Court, but the
-        # shared resolution seam also records granted dispositions on circuit
-        # dockets (pull refreshes any court), and those must not receive a
-        # cert-vocabulary merits event.
+    if not corpus.opens_merits_proceeding(row):
+        # The row predicate, not a bare court check, because two other granted
+        # dispositions reach this seam and neither opens a merits proceeding.
+        # A circuit docket's grant is not a cert grant at all (pull refreshes
+        # every court). And a granted **application** — a stay, an injunction —
+        # is a SCOTUS grant in the interim vocabulary whose matter ends at the
+        # order; minting a merits event on it would put a judgment forecast on
+        # a docket that will never enter one. `opens_merits_proceeding` refuses
+        # both by requiring `date_cert_granted`, which the application ingest
+        # branch nulls by design, and it is the same rule the judgment backfill
+        # and the statpack's merits population already key on.
         return None
     grant = next(
         (
