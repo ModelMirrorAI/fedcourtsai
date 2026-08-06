@@ -71,6 +71,16 @@ stays outside the gate:
   itself is omitted rather than published on a baseline it was never graded
   against.
 
+  **The board also names the gate.** `salience_versions` lists the distinct
+  salience versions the ranked cells' baselines were read under. The gate is
+  not part of any actor's process, so a change to it moves **no process
+  digest** and the frozen/shakedown partition cannot see it — but it decides
+  which petitions earn cells at all, so two versions on one board mean the
+  aggregates pool two differently-gated **populations**. More than one entry
+  therefore demotes the means to coverage figures, exactly as
+  `declared_set_versions` does for a claim total. This is a rule for the
+  reader, not a partition the code applies.
+
   Beside it runs a second, complementary skill number —
   `population_realized_term_skill_score`, with its own `realized_term_skill_scored`
   denominator. Same band, same basis, same formula; only the baseline differs.
@@ -513,7 +523,10 @@ merits section rather than the cert band, with `base_rate_basis` and
   replayed over the most recently decided modern discretionary-cert petitions,
   outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
   over the always-deny floor** (the honest signal under cert's denial skew), and
-  a P(granted) calibration view. Each entry also carries a **per-salience-band
+  a P(granted) calibration view. The report names the scorer whose bands
+  segment it (`salience_version`): a band label means something only under the
+  function that assigned it, so a per-band figure is not comparable with one
+  produced under another version. Each entry also carries a **per-salience-band
   skill breakdown** over the paid scored segment — the mean leakage-safe segment
   base rate (each petition's own prior-Term band grant rate) and the mean Brier
   skill against it — so the back-test measures the same segment-baseline skill the

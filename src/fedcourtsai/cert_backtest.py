@@ -54,7 +54,12 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
 )
 from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
-from .pipeline.salience import salience_band, salience_bands, salience_score
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    salience_band,
+    salience_bands,
+    salience_score,
+)
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
@@ -826,7 +831,12 @@ def run_cert_backtest(
     forward stratum uses; omitted on the offline runs that pass no statpack.
     """
     if not items:
-        return CertBacktest(events_scored=0, predictors_evaluated=0, entries=[])
+        return CertBacktest(
+            events_scored=0,
+            predictors_evaluated=0,
+            salience_version=SALIENCE_VERSION,
+            entries=[],
+        )
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
@@ -840,6 +850,7 @@ def run_cert_backtest(
     return CertBacktest(
         events_scored=len(items),
         predictors_evaluated=len(entries),
+        salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
         provisioning=dict(provisioning or {}),
         entries=entries,

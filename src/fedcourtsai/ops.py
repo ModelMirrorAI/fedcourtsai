@@ -205,6 +205,12 @@ def _segment_base_rate(statpack: StatPack | None) -> tuple[float | None, int | N
     the whole-docket rate: with a salience gate the predicted slice grants far
     more often than the ~few-percent full docket. ``(None, None)`` when the
     statpack or its salience-band section is absent or nothing resolved.
+
+    Deliberately **version-blind**, unlike every other band-keyed read. Pooling
+    across every band recovers the whole scored population, and every row falls
+    in exactly one band under any scorer, so the figure is the same number
+    whichever version banded it. That holds only because the pooling is total: a
+    per-band figure taken from this section would need the version.
     """
     if statpack is None:
         return (None, None)

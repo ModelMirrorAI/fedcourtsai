@@ -699,6 +699,14 @@ def build_leaderboard(
 
     return Leaderboard(
         process_scope=process_scope,
+        # The gate versions the ranked cells' baselines were read under. Taken
+        # from the harness-stamped `base_rate_salience_version` rather than
+        # re-derived, so the board reports the version each cell was actually
+        # scored against — including a cell frozen at a version the live pass
+        # has since moved off.
+        salience_versions=sorted(
+            {ev.base_rate_salience_version for ev, _ in cert_cells if ev.base_rate_salience_version}
+        ),
         predictors_ranked=len(entries),
         evaluations_total=sum(
             _stratum_total(by_predictor, stratum)
