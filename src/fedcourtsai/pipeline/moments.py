@@ -33,6 +33,12 @@ from types import MappingProxyType
 from .. import ids
 from ..schemas import EventKind, Moment, Stage
 
+#: The declared claim-set versions, named here and resolved to claim ids by
+#: :mod:`fedcourtsai.pipeline.claims`. Strings rather than an import, so this
+#: module stays a leaf and the claims module can read this table.
+CLAIM_SET_CERT_V1 = "cert-v1"
+CLAIM_SET_MERITS_V1 = "merits-v1"
+
 
 @dataclass(frozen=True)
 class MomentSpec:
@@ -43,6 +49,12 @@ class MomentSpec:
     sort key inside this table, never an identity: a moment is named because a
     reader has to know which information set produced a number, and ``merits/2``
     does not say that.
+
+    ``claim_set_version`` names the declared claim set by version string rather
+    than carrying its claim ids, so this module stays a leaf: the ids and their
+    resolvers live in :mod:`fedcourtsai.pipeline.claims`, which reads this table.
+    Every moment of a stage declares the **same** set — the claims do not change
+    because the forecast was taken later, only the information set does.
 
     ``forecastable`` gates whether the fan-out ever mints a cell for the moment.
     A moment can be declared, parsed, and latched while still being switched
@@ -57,7 +69,7 @@ class MomentSpec:
     ordinal: int
     decision_target: str
     description: str
-    claim_set_for: EventKind | None
+    claim_set_version: str | None
     forecastable: bool = True
 
 
@@ -72,7 +84,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the petition for a writ of certiorari.",
-        claim_set_for=EventKind.petition,
+        claim_set_version=CLAIM_SET_CERT_V1,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
@@ -82,7 +94,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the application for interim relief.",
-        claim_set_for=None,
+        claim_set_version=None,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "judgment"),
@@ -92,7 +104,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="judgment",
         description="Disposition of the judgment below, following the cert grant.",
-        claim_set_for=EventKind.order,
+        claim_set_version=CLAIM_SET_MERITS_V1,
     ),
 )
 

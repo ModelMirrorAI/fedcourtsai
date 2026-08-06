@@ -49,6 +49,16 @@ class EventPaths:
     def outcome(self) -> Path:
         return self.base / "outcome.json"
 
+    def sibling(self, event_id: str) -> EventPaths:
+        """Another event of the **same case**.
+
+        The one cross-event read the ledger layout supports: events sit
+        side-by-side under the case, so a later forecast moment can reach the
+        first moment's definition without knowing the case path it was built
+        from.
+        """
+        return EventPaths(self.base.parent / event_id)
+
     @property
     def predictions_dir(self) -> Path:
         return self.base / "predictions"

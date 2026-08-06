@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from . import corpus, ids
 from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
+from .pipeline import moments
 from .pipeline.moments import first_moment
 from .process_version import is_frozen
 from .schemas import (
@@ -187,8 +188,7 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
     is the application docket, whose baseline the discovery mint stamps.
     """
     return (
-        event.kind == EventKind.motion
-        and event.stage == Stage.interim
+        _declares_forecastable(event, Stage.interim)
         and row is not None
         and row.court == "scotus"
         and corpus.is_scotus_application_form(row.docket_number)
@@ -239,8 +239,7 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     predict-scope exclusion refuses is a scope decision, not a fix.
     """
     return (
-        event.kind == EventKind.order
-        and event.stage == Stage.merits
+        _declares_forecastable(event, Stage.merits)
         and row is not None
         and row.merits_judgment is None
         and corpus.opens_merits_proceeding(row)
@@ -329,6 +328,25 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
         return []
     pattern = "*/*/events/*/evaluations/*/*/*/evaluation.json"
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
+
+
+def _declares_forecastable(event: corpus.CorpusEvent, stage: Stage) -> bool:
+    """Whether ``event`` is a declared, fan-out-eligible moment of ``stage``.
+
+    The kind/stage pair an admission used to spell out, read off the register
+    instead — so adding a moment is a table row rather than an edit to every
+    predicate that has to admit it, and a declared-but-switched-off moment
+    (``forecastable=False``) stays out of the fan-out without a second flag
+    anywhere.
+    """
+    spec = moments.spec_for(event.event_id)
+    return (
+        spec is not None
+        and spec.stage is stage
+        and spec.forecastable
+        and event.stage == stage
+        and event.kind == spec.kind
+    )
 
 
 def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | None:
