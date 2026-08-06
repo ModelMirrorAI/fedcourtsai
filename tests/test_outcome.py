@@ -19,7 +19,7 @@ from fedcourtsai.pipeline.outcome import (
     interim_disposal_signal,
     is_machine_readable,
     merits_event_for,
-    mint_merits_event,
+    mint_moment_events,
     record_outcomes,
     resolution_signals,
     resolve_case,
@@ -620,7 +620,7 @@ def test_minting_never_reopens_a_resolved_merits_event(tmp_path: Path) -> None:
     resolution = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
     with corpus.connect(_db(tmp_path)) as conn:
         corpus.set_event_resolved(conn, "scotus/22451", MERITS_EVENT_ID)
-    mint_merits_event(_db(tmp_path), tmp_path, "scotus", 22451, row, resolution)
+    mint_moment_events(_db(tmp_path), tmp_path, "scotus", 22451, row, resolution)
     with corpus.connect(_db(tmp_path)) as conn:
         events = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/22451")}
     assert events[MERITS_EVENT_ID].resolved is True

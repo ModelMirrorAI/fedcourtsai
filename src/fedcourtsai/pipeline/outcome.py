@@ -40,7 +40,7 @@ it takes the whole stage to triage rather than quietly receiving one.
 
 A recorded cert **grant** is also a birth: it opens the merits proceeding, so
 :func:`resolve_case` mints the case's open merits event
-(:func:`mint_merits_event` — after the attribution completes, so the detection
+(:func:`mint_moment_events` — after the attribution completes, so the detection
 pass that resolves the petition never sees it), and the live rotation keeps
 polling the granted docket toward its judgment on that event's account. Once
 the petition event has closed, a re-poll's decided-looking row is recognized
@@ -944,6 +944,43 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
     )
 
 
+def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+    """The cert stage's **second** forecast moment, or ``None``.
+
+    A Call for the Views of the Solicitor General is the Court's own signal that
+    a petition is worth a closer look, and it arrives while the petition is
+    still pending — so the same cert disposition can be forecast again from a
+    materially better evidence base. It is rare (about 1.3% of paid petitions,
+    ~20 a Term) and disproportionately consequential: CVSG petitions are 7.0% of
+    all grants.
+
+    No parser: the CVSG date is already latched at ingest
+    (``cert_signals.snapshot_cvsg_date``). Like the briefed merits moment, this
+    is a docket observation that stays true forever, so the trigger re-fires on
+    every poll and is made safe by the **open-first-moment** guard — a CVSG on
+    an already-decided petition would otherwise mint a permanently open event
+    nothing could resolve.
+    """
+    if row.cvsg_date is None or row.court != "scotus":
+        return None
+    first, spec = moments.moments_for(Stage.cert)[:2]
+    if first.event_id not in open_event_ids:
+        return None
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.cvsg_date,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def briefed_merits_event_for(
     row: CorpusRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:
@@ -987,7 +1024,7 @@ def briefed_merits_event_for(
     )
 
 
-def mint_merits_event(
+def mint_moment_events(
     corpus_db_path: Path,
     data_root: Path,
     court_id: str,
@@ -996,7 +1033,7 @@ def mint_merits_event(
     resolution: Resolution,
     open_event_ids: list[str] | None = None,
 ) -> list[str]:
-    """Record the merits events this poll opens; return their ids.
+    """Record every later forecast moment this poll opens; return their ids.
 
     The write half of :func:`merits_event_for`: upsert the corpus event row —
     idempotent by ``(case_id, event_id)``, and ``resolved`` MAX-latches, so a
@@ -1013,11 +1050,13 @@ def mint_merits_event(
     ships with (an open ``event.yaml`` with ``resolved=False`` is the same
     shape ``materialize-event`` provisions for the agent cells).
     """
+    opens = list(open_event_ids or [])
     minted = [
         event
         for event in (
             merits_event_for(row, resolution),
-            briefed_merits_event_for(row, list(open_event_ids or [])),
+            briefed_merits_event_for(row, opens),
+            cvsg_event_for(row, opens),
         )
         if event is not None
     ]
@@ -1066,7 +1105,7 @@ def resolve_case(
     :class:`Resolution` so the caller can surface the unrecorded rest.
 
     A recorded cert grant then mints the case's open merits event
-    (:func:`mint_merits_event`) — strictly *after* the outcome attribution, so
+    (:func:`mint_moment_events`) — strictly *after* the outcome attribution, so
     the detection pass that resolves the petition never sees the merits event
     among the open set (the single-open-event and stage-routing logic judge the
     docket as it stood when the grant was detected).
@@ -1094,7 +1133,7 @@ def resolve_case(
     # never sees the events it opens. `open_event_ids` is the PRE-resolution
     # set, which is what the briefed moment's guard wants: the first merits
     # moment must still have been open when this poll began.
-    mint_merits_event(
+    mint_moment_events(
         corpus_db_path,
         data_root,
         court_id,

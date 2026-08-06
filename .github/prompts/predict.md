@@ -213,6 +213,24 @@ band), the three-claim `claims` block, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
+**Two cert cells, two moments.** `event.yaml`'s `moment` says which you are:
+
+- `moment: distribution` — event `evt-petition-disposition`, opened when the
+  petition was filed and forecast once it is first distributed for conference.
+  The ordinary cert cell, and the great majority of them.
+- `moment: cvsg` — event `evt-order-cvsg-disposition`, opened on the day the
+  Court called for the Solicitor General's views. A CVSG is the Court's own
+  signal that a petition is worth a closer look, and the base rate conditional
+  on one is far above the docket's: read the statpack's CVSG cut, not the
+  overall rate.
+
+Scored separately, never pooled — the CVSG cell answers the same question from a
+strictly better evidence base. Forecast from what this moment's record shows
+rather than revising an earlier call. Note that on a CVSG cell the
+`cvsg-increment` claim is vacuous by construction (the CVSG is already on the
+docket at prediction time), so the harness masks it; the disposition and
+relist-increment claims are unaffected.
+
 ### Stage: interim (a stay or injunction application)
 
 An interim cell predicts a substantive application — a stay, an injunction, a

@@ -168,7 +168,7 @@ class FixtureCase:
 
         A SCOTUS docket whose grant opens a merits proceeding carries the open
         merits event the cert grant mints in production
-        (`pipeline.outcome.mint_merits_event`) — same id, kind, stage, and
+        (`pipeline.outcome.mint_moment_events`) — same id, kind, stage, and
         target — resolved once the fixture states a parsed judgment, so the
         offline cascade exercises the merits cell contract end to end. The
         admission is `corpus.opens_merits_proceeding`, the production
