@@ -141,16 +141,68 @@ is **two cohorts, never pooled**:
 
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay
-under `sal-v1` forever. Its evidence base does not exist yet: arrival-time
+under `sal-v1` forever, which the scorer registry below is what enforces. Its
+evidence base does not exist yet: arrival-time
 signals live in small subgroups, which the legacy denial subsampling cannot
 measure, so fitting waits for the denial-complete historical re-walk, and any
 candidate is judged by replaying the gate against the same corpus state as a
 fresh `sal-v1` run — the bar is the arrival population's own weighted grant
 rate at comparable recall, recomputed post-re-walk rather than quoted. And the
 carve-out/band alignment is pinned by test: the always-include floor and the
-`high` cutpoint are separate constants in separate files, and the identity
-between "carved in" and "high band" is checked exhaustively over the
-achievable score lattice, so a refit cannot open a silent gap between them.
+strongest band's cutpoint are separate constants in separate files, and the
+identity between "carved in" and "strongest band" is checked exhaustively over
+`sal-v1`'s achievable score lattice, so a refit of it cannot open a silent gap
+between them. The check runs for every registered version, but the lattice it
+enumerates is `sal-v1`'s feature space — relist count, CVSG, originating
+circuit — so a version keying on anything else is checked only at those
+features' defaults. Registering `sal-v2` means extending the enumeration to
+span its own features; until then its coverage is partial and said so here.
+
+### The scorer registry
+
+A salience version is not a function but four things that decide together what
+a band label means: the score function, the band function, the band *names*,
+and the always-include rule. A fifth belongs with them and deliberately does
+not travel on the record: the always-include **floor** the carve-out compares
+against is `config/tracking.yaml`'s single shared `salience.floor`, so it is
+config rather than code and every registered version is held to the same value.
+That is a real cost, stated rather than hidden — a replay run today reproduces
+a past ranking only if the floor has not moved since, and a candidate scorer
+cannot choose its own carve-out threshold without moving the shared one.
+`pipeline.salience.SCORERS` holds each version as
+one `SalienceScorer` record, and `SALIENCE_VERSION` names the **active** one —
+the version the live pass scores with and stamps onto the corpus and onto every
+prediction's frozen context. A refit registers a new record beside the old
+rather than editing it, and `scorer(version)` raises on an unregistered label
+rather than falling back, so no consumer can silently receive output banded
+under a version it did not ask for.
+
+Three consequences are worth stating, because each is a place the discipline
+could otherwise leak:
+
+- **The corpus is single-version by design.** `salience_score` and
+  `salience_version` are one column each, holding the active scorer's view. What
+  makes history safe is not the corpus but the band and version frozen onto each
+  committed prediction, so re-pointing the active version can never retroactively
+  re-band a prediction **that carries a frozen band**. A prediction written
+  before that block existed has its band re-derived from the row by the active
+  scorer, and is re-baselined by a version switch; `base_rate_salience_version`
+  on the evaluation is what makes that visible after the fact.
+- **`statpack.json` publishes every version.** A base-rate pool is pinned to the
+  scorer that assigned the band it quotes, so a prediction frozen at a retired
+  version would lose its baseline the day the live pass moved on. Each Term
+  carries the active version's `segments` plus an `alt_segments` block per other
+  registered version; the block is absent from the payload while only one
+  version is registered. The **Markdown** pack renders the active version only,
+  so a reader of `statpack.md` under two versions is reading one of them.
+- **The gate replay is a three-axis report.** Cells span Term x policy x
+  version, and each (Term, policy) is projected once and scored by every
+  registered version, so two versions cannot differ in the dockets they saw.
+  They are not compared at a matched operating point, though: the floor and the
+  capacity are shared, so a scorer with a different score scale selects a
+  differently sized set. Read a cross-version comparison at matched **recall** —
+  the bar pre-registered above — never as a bare precision delta
+  (`metrics/README.md`).
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 
@@ -285,7 +337,7 @@ date-keyed truncation, the dated-snapshot preference, the fail-closed
 disposition scan), so the two replays share one definition of a
 point-in-time docket.
 
-What the report shows, per (Term, policy): the would-have-been selection
+What the report shows, per (Term, policy, salience version): the would-have-been selection
 split into carve-outs and rank fill, where capacity actually bit, the band and
 provenance mix, and sample-weighted precision/recall of the selection against
 the realized grant-family outcomes. The arrival cells quantify the gate's

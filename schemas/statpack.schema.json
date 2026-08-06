@@ -603,6 +603,14 @@
       "additionalProperties": false,
       "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
       "properties": {
+        "alt_segments": {
+          "description": "The same per-band slices under every OTHER registered salience version, so a prediction frozen at a version the live pass no longer scores with still finds its own scorer's base rate. Empty \u2014 and absent from the serialized payload \u2014 while only one version is registered",
+          "items": {
+            "$ref": "#/$defs/StatPackTermVersionSegments"
+          },
+          "title": "Alt Segments",
+          "type": "array"
+        },
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
           "description": "This Term's live-slice counts and weighted base rates"
@@ -665,7 +673,7 @@
           "type": "string"
         },
         "segments": {
-          "description": "Per-salience-band grant-rate slices over this Term's paid modern-cert petitions (high, elevated, baseline), leakage-safe by construction \u2014 the segment base rate the predict prompt is designed to anchor on and the evaluator will score skill against",
+          "description": "Per-salience-band grant-rate slices over this Term's paid modern-cert petitions (high, elevated, baseline), leakage-safe by construction \u2014 the segment base rate the predict prompt is designed to anchor on and the evaluator will score skill against, under the ACTIVE salience version named above",
           "items": {
             "$ref": "#/$defs/StatPackTermSegment"
           },
@@ -850,6 +858,30 @@
         "band"
       ],
       "title": "StatPackTermSegment",
+      "type": "object"
+    },
+    "StatPackTermVersionSegments": {
+      "additionalProperties": false,
+      "description": "One Term's band slices under a **non-active** salience version.\n\nA band name means nothing on its own: a ``high`` under one scorer and a\n``high`` under another are different populations that happen to share a\nlabel, so the base-rate pool is version-pinned\n(``pipeline.evaluate._pooled_band_rate``). A prediction freezes the version\nthat banded it and keeps that version for life \u2014 which would leave it\nwithout a baseline the moment the live pass moved on. This block is where a\nnon-active scorer's slices stay published, so the pin has something to match.",
+      "properties": {
+        "salience_version": {
+          "description": "The frozen salience function whose bands these slices segment",
+          "title": "Salience Version",
+          "type": "string"
+        },
+        "segments": {
+          "description": "Per-band grant-rate slices under that version \u2014 same shape and same leakage contract as the active version's `segments`",
+          "items": {
+            "$ref": "#/$defs/StatPackTermSegment"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "salience_version"
+      ],
+      "title": "StatPackTermVersionSegments",
       "type": "object"
     },
     "TimingStats": {

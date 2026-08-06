@@ -539,14 +539,17 @@ the rendered table) and
   runnable locally with the engine CLIs authenticated.
 - `salience-replay.json` — the **salience gate** replayed over past Terms
   (`fedcourts salience-replay`; deterministic, offline, spends nothing). One
-  cell per (October Term, cutoff policy): each of the Term's resolved,
+  cell per (October Term, cutoff policy, **salience version**): each of the
+  Term's resolved,
   **live-slice**, paid modern-cert petitions — live-slice because only a
   docket with parsed proceedings offers a state to reconstruct, so a cell's
   `eligible` count is walk coverage, not the Term's whole paid cert docket —
   is projected to the state its docket disclosed at the policy's moment
   (petition arrival, first distribution, or the last pre-resolution
-  distribution) and the current frozen `sal-v1` scoring, banding, and
-  per-conference selection runs over the reconstruction. Each cell reports
+  distribution), and **every registered** frozen scoring, banding, and
+  per-conference selection runs over that one reconstruction — the projection
+  is built once per (Term, policy) and shared, so the versions cannot differ in
+  what they saw. Each cell names the version that produced it, and reports
   the would-have-been selection (carve-out vs rank-fill, and where capacity
   actually bit), the band mix including `unobservable`, the
   snapshot-provenance mix, and sample-weighted **precision/recall of the
@@ -558,7 +561,22 @@ the rendered table) and
   and its structural facts: at arrival every *observable* projection reads
   relist-0/baseline with no conference cohort, so nothing is selected and
   precision is undefined (the gate cannot distinguish petitions before the
-  docket moves). **What may not.** Nothing here is predictor skill — no model
+  docket moves).
+
+  **Comparing two salience versions.** Cells sharing a (Term, policy) are paired
+  on one identical projection, so any difference between them is the scoring
+  function — but *not* at a matched operating point. Every version is run
+  against the same `salience.floor` and the same per-conference capacity, and
+  carve-outs sit above `N`, so a scorer whose score scale puts a different
+  fraction above the floor selects a **differently sized set**. Raw precision
+  is therefore not comparable cell to cell: two versions can differ in
+  precision purely by selecting more or fewer petitions. Read the comparison
+  **at matched recall**, which is the bar `docs/salience.md` pre-registers for
+  a candidate scorer, using the `recall`, `selected_carve_out` and
+  `selected_rank_fill` each cell publishes. A bare precision delta between
+  versions is not a claim this artifact supports.
+
+  **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before
   the replay, so the backtest-as-iteration doctrine below applies in full. A
   Term replayed before it has fully resolved censors its pending — and
