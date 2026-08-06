@@ -23,6 +23,7 @@ from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.evaluate import merits_base_rate
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
@@ -1437,3 +1438,51 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
     # The baseline reads those counts on the grant-Term axis: 0.70, not the
     # (28 + 40) / 80 = 0.85 a GVR-inclusive population would hand out.
     assert merits_base_rate(2024, pack) == pytest.approx(0.70)
+
+
+# --- the alt_segments block: every registered version's bands, per Term ---------
+
+
+def test_a_term_carries_no_alt_segments_key_while_one_version_is_registered(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The block exists for non-active versions, so with one version it is absent —
+    not present-and-empty. An empty list would add a key to every Term of every
+    pack to say nothing, and would move the committed artifact."""
+    pack = _pack(fixture_corpus)
+    assert all(t.alt_segments == [] for t in pack.terms)
+    payload = pack.model_dump(mode="json")
+    assert all("alt_segments" not in term for term in payload["terms"])
+
+
+def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
+    fixture_corpus: FixtureCorpus, two_versions: SalienceScorer
+) -> None:
+    """A prediction keeps the version that banded it for life, so when the live
+    pass moves on the retired scorer still needs a published base rate. This is
+    the producer half of that contract — `_pooled_band_rate` reads what it emits."""
+    pack = _pack(fixture_corpus)
+    for term in pack.terms:
+        assert term.salience_version == SALIENCE_VERSION
+        assert [s.band for s in term.segments] == list(_BANDS)
+        (alt,) = term.alt_segments
+        assert alt.salience_version == "sal-toy"
+        # The toy's own vocabulary, not the active scorer's — a band name means
+        # something only under the function that assigned it.
+        assert [s.band for s in alt.segments] == ["hot", "cold"]
+    # And it survives serialization rather than being dropped by the wrap serializer.
+    payload = pack.model_dump(mode="json")
+    assert all(len(term["alt_segments"]) == 1 for term in payload["terms"])
+
+
+def test_both_versions_count_the_same_rows_into_their_own_bands(
+    fixture_corpus: FixtureCorpus, two_versions: SalienceScorer
+) -> None:
+    """One streaming pass feeds every version, so the versions partition the same
+    population — they disagree about which band a row lands in, never about
+    whether it is in the scored segment at all."""
+    pack = _pack(fixture_corpus)
+    for term in pack.terms:
+        (alt,) = term.alt_segments
+        assert sum(s.ingested for s in term.segments) == sum(s.ingested for s in alt.segments)
+        assert sum(s.resolved for s in term.segments) == sum(s.resolved for s in alt.segments)

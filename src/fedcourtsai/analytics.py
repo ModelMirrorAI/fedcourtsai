@@ -31,7 +31,13 @@ from .corpus import CorpusRow
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.judgment import grant_term_year, judgment_disturbed
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    registered_versions,
+    salience_band,
+    salience_bands,
+    scorer,
+)
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -53,6 +59,7 @@ from .schemas import (
     StatPackTerm,
     StatPackTermClass,
     StatPackTermSegment,
+    StatPackTermVersionSegments,
     TimingStats,
 )
 from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
@@ -673,7 +680,7 @@ class _Slice:
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
-    __slots__ = ("classes", "grant_days", "grants", "overall", "prefixes", "segments")
+    __slots__ = ("classes", "grant_days", "grants", "overall", "prefixes", "scorers", "segments")
 
     def __init__(self) -> None:
         self.overall = _Slice(cert_timing=True)
@@ -681,13 +688,24 @@ class _TermAcc:
             FeeClass.paid: _Slice(cert_timing=True),
             FeeClass.ifp: _Slice(cert_timing=True),
         }
-        # One slice per frozen sal-v1 band over the paid scored segment — the
-        # leakage-safe per-Term segment base rate. Pre-seeded for every band so a
-        # Term with no rows in a band still emits that band (a stable JSON shape).
-        self.segments: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        # One slice per band per registered salience version, over the paid scored
+        # segment — the leakage-safe per-Term segment base rate. Every version is
+        # accumulated in the same streaming pass, because a base-rate pool is
+        # pinned to the scorer that assigned the band it is quoting, so a
+        # prediction frozen at a non-active version still needs its own scorer's
+        # rate published. Pre-seeded for every band so a Term with no rows in a
+        # band still emits that band (a stable JSON shape).
+        self.segments: dict[str, dict[str, _Slice]] = {
+            version: {band: _Slice() for band in scorer(version).bands}
+            for version in registered_versions()
+        }
         # The same bands on a **risk-set** denominator: every row that ever
         # *reached* a band, not only those that ended in it. See `add`.
-        self.prefixes: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        self.prefixes: dict[str, dict[str, _Slice]] = {
+            version: {band: _Slice() for band in scorer(version).bands}
+            for version in registered_versions()
+        }
+        self.scorers = tuple((version, scorer(version)) for version in registered_versions())
         self.grants = 0
         self.grant_days: list[int] = []
 
@@ -697,17 +715,21 @@ class _TermAcc:
         if fee is not None:
             self.classes[fee].add(row)
         if _is_scored_segment_row(row):
-            band = salience_band(row)
-            self.segments[band].add(row)
-            # A band is monotone non-decreasing over a petition's life: the
-            # distribution count is max-latched and a CVSG date, once set, stays
-            # set. So "this petition has reached band b" is the same event as
-            # "its final band is b or stronger", and the risk set for b is every
-            # row at b or above it. `salience_bands()` is ordered strongest-first,
-            # so a row joins its own band's prefix slice and every weaker one.
-            order = salience_bands()
-            for weaker in order[order.index(band) :]:
-                self.prefixes[weaker].add(row)
+            # Hoisted per accumulator rather than resolved per row: this runs
+            # once for every scored row of a full-corpus pass.
+            for version, banding in self.scorers:
+                band = banding.band(row)
+                self.segments[version][band].add(row)
+                # A band is monotone non-decreasing over a petition's life: the
+                # distribution count is max-latched and a CVSG date, once set,
+                # stays set. So "this petition has reached band b" is the same
+                # event as "its final band is b or stronger", and the risk set
+                # for b is every row at b or above it. A scorer's `bands` are
+                # ordered strongest-first, so a row joins its own band's prefix
+                # slice and every weaker one.
+                order = banding.bands
+                for weaker in order[order.index(band) :]:
+                    self.prefixes[version][weaker].add(row)
         if row.disposition in _GRANT_LABELS:
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
@@ -1033,24 +1055,36 @@ def _term_entry(
                 timing=entry.timing(weighted=True),
             )
         )
-    segments = []
-    for band in salience_bands():
-        entry = acc.segments[band]
-        weighted = entry.bucket("", weighted=True)
-        prefix_acc = acc.prefixes[band]
-        prefix = prefix_acc.bucket("", weighted=True)
-        segments.append(
-            StatPackTermSegment(
-                band=band,
-                ingested=entry.cases,
-                resolved=entry.bucket("").resolved,
-                weighted_resolved=weighted.resolved,
-                est_grant_rate=_grant_family_share(weighted),
-                prefix_resolved=prefix_acc.bucket("").resolved,
-                prefix_weighted_resolved=prefix.resolved,
-                prefix_est_grant_rate=_grant_family_share(prefix),
+
+    def _segments_for(version: str) -> list[StatPackTermSegment]:
+        built = []
+        for band in scorer(version).bands:
+            entry = acc.segments[version][band]
+            weighted = entry.bucket("", weighted=True)
+            prefix_acc = acc.prefixes[version][band]
+            prefix = prefix_acc.bucket("", weighted=True)
+            built.append(
+                StatPackTermSegment(
+                    band=band,
+                    ingested=entry.cases,
+                    resolved=entry.bucket("").resolved,
+                    weighted_resolved=weighted.resolved,
+                    est_grant_rate=_grant_family_share(weighted),
+                    prefix_resolved=prefix_acc.bucket("").resolved,
+                    prefix_weighted_resolved=prefix.resolved,
+                    prefix_est_grant_rate=_grant_family_share(prefix),
+                )
             )
-        )
+        return built
+
+    segments = _segments_for(SALIENCE_VERSION)
+    # Non-active versions ride alongside rather than replacing, so a prediction
+    # frozen at an older scorer keeps finding its own version's base rate.
+    alt_segments = [
+        StatPackTermVersionSegments(salience_version=version, segments=_segments_for(version))
+        for version in registered_versions()
+        if version != SALIENCE_VERSION
+    ]
     grant_days = sorted(acc.grant_days)
     base_rates = acc.overall.bucket(str(year), weighted=True)
     return StatPackTerm(
@@ -1063,6 +1097,7 @@ def _term_entry(
         grants=acc.grants,
         salience_version=SALIENCE_VERSION,
         segments=segments,
+        alt_segments=alt_segments,
         median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
     )
 

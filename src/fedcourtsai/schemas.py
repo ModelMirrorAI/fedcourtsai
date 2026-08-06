@@ -3243,6 +3243,28 @@ class StatPackTermSegment(_Strict):
     )
 
 
+class StatPackTermVersionSegments(_Strict):
+    """One Term's band slices under a **non-active** salience version.
+
+    A band name means nothing on its own: a ``high`` under one scorer and a
+    ``high`` under another are different populations that happen to share a
+    label, so the base-rate pool is version-pinned
+    (``pipeline.evaluate._pooled_band_rate``). A prediction freezes the version
+    that banded it and keeps that version for life — which would leave it
+    without a baseline the moment the live pass moved on. This block is where a
+    non-active scorer's slices stay published, so the pin has something to match.
+    """
+
+    salience_version: str = Field(
+        description="The frozen salience function whose bands these slices segment"
+    )
+    segments: list[StatPackTermSegment] = Field(
+        default_factory=list,
+        description="Per-band grant-rate slices under that version — same shape and "
+        "same leakage contract as the active version's `segments`",
+    )
+
+
 class StatPackTerm(_Strict):
     """One SCOTUS October Term's slice of the statpack: the live-slice cert population.
 
@@ -3304,7 +3326,14 @@ class StatPackTerm(_Strict):
         description="Per-salience-band grant-rate slices over this Term's paid modern-cert "
         "petitions (high, elevated, baseline), leakage-safe by construction — the segment "
         "base rate the predict prompt is designed to anchor on and the evaluator will score "
-        "skill against",
+        "skill against, under the ACTIVE salience version named above",
+    )
+    alt_segments: list[StatPackTermVersionSegments] = Field(
+        default_factory=list,
+        description="The same per-band slices under every OTHER registered salience "
+        "version, so a prediction frozen at a version the live pass no longer scores "
+        "with still finds its own scorer's base rate. Empty — and absent from the "
+        "serialized payload — while only one version is registered",
     )
     median_days_to_grant: float | None = Field(
         default=None,
@@ -3312,6 +3341,39 @@ class StatPackTerm(_Strict):
         description="Nearest-rank median days filing → cert grant over this Term's "
         "granted petitions; None when none carry both dates",
     )
+
+    @model_validator(mode="after")
+    def _alt_segments_name_distinct_non_active_versions(self) -> StatPackTerm:
+        """No alt block may shadow the active version or another alt block.
+
+        A duplicate would not blend — the reader takes the Term's own
+        ``segments`` first and then the first matching block — it would silently
+        shadow, which is the harder failure to notice: the pool would quote one
+        scorer's rate under another's label and nothing would say so.
+        """
+        labels = [block.salience_version for block in self.alt_segments]
+        if self.salience_version and self.salience_version in labels:
+            raise ValueError(
+                f"alt_segments repeats the active salience version {self.salience_version!r}; "
+                "the active version's slices belong in `segments`"
+            )
+        if len(set(labels)) != len(labels):
+            raise ValueError(f"alt_segments carries duplicate salience versions: {labels}")
+        return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_alt_segments(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``alt_segments`` from the payload while only one version is registered.
+
+        A band rate is meaningful only under the scorer that assigned it, so the
+        block exists to hold the non-active versions' slices. With a single
+        registered version there are none, and serializing an empty list would
+        add a key to every Term of every pack to say so.
+        """
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.alt_segments:
+            payload.pop("alt_segments", None)
+        return payload
 
 
 class _StatPackInterimCounts(_Strict):
@@ -3851,16 +3913,26 @@ class SalienceSelectionResult(_Strict):
 
 
 class SalienceReplayCell(_Strict):
-    """One (Term, cutoff policy) cell of the salience-gate replay.
+    """One (Term, cutoff policy, salience version) cell of the salience-gate replay.
 
-    The current frozen salience code run over one past Term's resolved paid
-    modern-cert petitions, each projected to the state its docket disclosed as
-    at the policy's cutoff (see ``fedcourtsai.pipeline.asof``). Selection here
-    is what the gate *would have* latched at that moment; precision/recall
-    score that selection against the realized grant-family outcomes.
+    One frozen salience version run over one past Term's resolved paid modern-cert
+    petitions, each projected to the state its docket disclosed as at the policy's
+    cutoff (see ``fedcourtsai.pipeline.asof``). Selection here is what that
+    version's gate *would have* latched at that moment; precision/recall score
+    that selection against the realized grant-family outcomes.
+
+    The version is on the **cell**, not the report, so every registered scorer
+    replays over one common projection of the docket in a single run. That is
+    what makes two versions comparable at all: they differ only in the scoring
+    function, never in the reconstructed moment they scored.
     """
 
     term: int = Field(description="The October Term whose resolved petitions were replayed")
+    salience_version: str = Field(
+        default="",
+        description="The frozen salience-function version whose scoring, banding, "
+        "and selection produced this cell (e.g. sal-v1)",
+    )
     policy: str = Field(
         description="The reconstruction moment: 'arrival' (day after the earliest "
         "dated docket entry), 'distribution-1' (day after the first DISTRIBUTED "
@@ -4004,8 +4076,14 @@ class SalienceReplay(_Strict):
     )
     salience_version: str = Field(
         default="",
-        description="The frozen salience-function version whose scoring, banding, "
-        "and selection the replay ran (e.g. sal-v1)",
+        description="The ACTIVE salience-function version — the one the live gate "
+        "scores with (e.g. sal-v1). Which version produced any given figure is on "
+        "the cell, since the replay runs every registered version",
+    )
+    salience_versions: list[str] = Field(
+        default_factory=list,
+        description="Every salience version replayed, active first — the report's "
+        "third cell axis beside terms and policies",
     )
     terms: list[int] = Field(default_factory=list, description="The October Terms replayed")
     policies: list[str] = Field(

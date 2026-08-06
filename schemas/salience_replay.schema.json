@@ -2,7 +2,7 @@
   "$defs": {
     "SalienceReplayCell": {
       "additionalProperties": false,
-      "description": "One (Term, cutoff policy) cell of the salience-gate replay.\n\nThe current frozen salience code run over one past Term's resolved paid\nmodern-cert petitions, each projected to the state its docket disclosed as\nat the policy's cutoff (see ``fedcourtsai.pipeline.asof``). Selection here\nis what the gate *would have* latched at that moment; precision/recall\nscore that selection against the realized grant-family outcomes.",
+      "description": "One (Term, cutoff policy, salience version) cell of the salience-gate replay.\n\nOne frozen salience version run over one past Term's resolved paid modern-cert\npetitions, each projected to the state its docket disclosed as at the policy's\ncutoff (see ``fedcourtsai.pipeline.asof``). Selection here is what that\nversion's gate *would have* latched at that moment; precision/recall score\nthat selection against the realized grant-family outcomes.\n\nThe version is on the **cell**, not the report, so every registered scorer\nreplays over one common projection of the docket in a single run. That is\nwhat makes two versions comparable at all: they differ only in the scoring\nfunction, never in the reconstructed moment they scored.",
       "properties": {
         "bands": {
           "additionalProperties": {
@@ -85,6 +85,12 @@
           "default": null,
           "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants (among projected petitions) the selection would have covered; null when the projected petitions show no weighted grant. The denominator includes blind projections, which can never be selected \u2014 for a 'blind-untrusted-cutoff' row that is a reconstruction failure, not a gate miss, so read the provenance mix beside a low recall",
           "title": "Recall"
+        },
+        "salience_version": {
+          "default": "",
+          "description": "The frozen salience-function version whose scoring, banding, and selection produced this cell (e.g. sal-v1)",
+          "title": "Salience Version",
+          "type": "string"
         },
         "selected": {
           "description": "Petitions the gate would have latched selected at this moment",
@@ -194,9 +200,17 @@
     },
     "salience_version": {
       "default": "",
-      "description": "The frozen salience-function version whose scoring, banding, and selection the replay ran (e.g. sal-v1)",
+      "description": "The ACTIVE salience-function version \u2014 the one the live gate scores with (e.g. sal-v1). Which version produced any given figure is on the cell, since the replay runs every registered version",
       "title": "Salience Version",
       "type": "string"
+    },
+    "salience_versions": {
+      "description": "Every salience version replayed, active first \u2014 the report's third cell axis beside terms and policies",
+      "items": {
+        "type": "string"
+      },
+      "title": "Salience Versions",
+      "type": "array"
     },
     "schema_version": {
       "const": "1.0",

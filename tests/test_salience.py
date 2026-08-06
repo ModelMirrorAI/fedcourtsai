@@ -13,13 +13,17 @@ from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
     _CIRCUIT_GRANT_RATE,
     SALIENCE_VERSION,
+    SCORERS,
+    SalienceScorer,
     _selection_plan,
     carve_out,
     plan_cohorts,
     reconcile_salience_selection,
+    registered_versions,
     salience_band,
     salience_bands,
     salience_score,
+    scorer,
 )
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
@@ -113,16 +117,22 @@ def test_circuit_nudge_never_carries_a_petition_across_a_band_boundary() -> None
         assert salience_band(_petition("scotus/2", distribution_count=3, circuit=circuit)) == "high"
 
 
-def test_the_carve_out_set_is_exactly_the_high_band() -> None:
-    """The always-include floor (config) and the high cutpoint (code) are
-    separate constants in separate files, and nothing but this test holds them
-    aligned: a refit that put an achievable non-CVSG score inside
-    [cutpoint, floor) would open a silent gap between "high band" and
-    "carved in". The enumeration drives the public scorer over constructed
+@pytest.mark.parametrize("version", registered_versions())
+def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
+    """The always-include floor (config) and the strongest band's cutpoint (code)
+    are separate constants in separate files, and nothing but this test holds them
+    aligned: a refit that put an achievable non-carved score inside
+    [cutpoint, floor) would open a silent gap between "strongest band" and
+    "carved in". The enumeration drives the scorer over constructed
     rows — every relist state crossed with every circuit (known, unknown,
     unlinked), with and without CVSG — so it spans the achievable score
     lattice even if the scorer later gains a term; the private constant is
-    imported only to enumerate the circuit keys."""
+    imported only to enumerate the circuit keys.
+
+    Parameterized over every registered version, so registering a second scorer
+    cannot skip the check that the first one is held to."""
+    banding = scorer(version)
+    strongest = banding.bands[0]
     floor = load_salience_config(Path("config")).floor
     circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
     for distribution_count in (1, 2, 3, None):
@@ -134,14 +144,58 @@ def test_the_carve_out_set_is_exactly_the_high_band() -> None:
                     cvsg=cvsg,
                     circuit=circuit,
                 )
-                score = salience_score(row)
-                in_high = salience_band(row) == "high"
-                carved = carve_out(row, score, floor)
-                assert in_high == carved, (
-                    f"gap at distribution_count={distribution_count} "
+                score = banding.score(row)
+                in_strongest = banding.band(row) == strongest
+                carved = banding.carve_out(row, score, floor)
+                assert in_strongest == carved, (
+                    f"{version} gap at distribution_count={distribution_count} "
                     f"circuit={circuit} cvsg={cvsg}: score={score:.4f}, "
-                    f"high={in_high}, carved={carved}"
+                    f"{strongest}={in_strongest}, carved={carved}"
                 )
+
+
+def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
+    """The module-level helpers are delegations, not a second implementation.
+
+    Every existing caller reads `salience_score` / `salience_band` /
+    `carve_out` as "the live scorer", so those names have to stay pinned to the
+    registry's active entry rather than to whichever function happens to be
+    defined beside them."""
+    row = _petition("scotus/1", distribution_count=3, circuit="ca9")
+    active = scorer()
+    assert active.version == SALIENCE_VERSION
+    assert active.score(row) == salience_score(row)
+    assert active.band(row) == salience_band(row)
+    assert active.bands == salience_bands()
+    assert active.carve_out(row, salience_score(row), 0.28) == carve_out(
+        row, salience_score(row), 0.28
+    )
+
+
+def test_registered_versions_leads_with_the_active_one() -> None:
+    """Report cell order is stable across runs and puts the live scorer first."""
+    versions = registered_versions()
+    assert versions[0] == SALIENCE_VERSION
+    assert set(versions) == set(SCORERS)
+    assert list(versions[1:]) == sorted(versions[1:])
+
+
+def test_an_unregistered_version_raises_rather_than_falling_back() -> None:
+    """A caller asking for a scorer this process cannot produce wants an error.
+
+    Falling back to the active scorer would silently return output banded under
+    a version the caller did not ask for — which is exactly the confusion the
+    version pin exists to prevent."""
+    with pytest.raises(KeyError):
+        scorer("sal-v0")
+
+
+def test_every_registered_scorer_reports_its_own_version() -> None:
+    """The registry key and the record's label cannot drift apart."""
+    for version, entry in SCORERS.items():
+        assert entry.version == version
+        assert entry.bands, f"{version} declares no bands"
+        assert len(set(entry.bands)) == len(entry.bands), f"{version} repeats a band name"
 
 
 def test_salience_bands_are_ordered_strongest_first() -> None:
@@ -648,3 +702,66 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
     assert first.newly_selected == 2  # the application + the one remaining fill
     assert again.newly_selected == 0
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
+
+
+# --- the registry under a second version ---------------------------------------
+#
+# Every claim the registry makes is about what happens when a SECOND scorer
+# exists, so the single shipped version cannot exercise any of it: a loop over
+# one entry passes with the loop deleted. These tests register a toy scorer with
+# a deliberately DIFFERENT band vocabulary — so a band name leaking across
+# versions shows up as a KeyError rather than as a plausible number — and are
+# the only place the multi-version paths run at all.
+
+
+def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
+    two_versions: SalienceScorer,
+) -> None:
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy")  # active first
+    row = _petition("scotus/1", distribution_count=3, cvsg=True)
+    assert scorer("sal-toy").band(row) == "hot"
+    assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
+    assert salience_bands() == ("high", "elevated", "baseline")
+
+
+def test_each_version_selects_under_its_own_scorer(two_versions: SalienceScorer) -> None:
+    """The same rows, two scorers, two different picks — which is the whole point.
+
+    sal-v1 carves in the CVSG petition and rank-fills the rest to `N`; the toy
+    carves in the CVSG petition and, having no rank order worth the name, still
+    fills to `N`. What must differ is the *scoring*, and what must not differ is
+    the population either one sees."""
+    rows = [_petition(f"scotus/{i}", distribution_count=3) for i in range(4)]
+    rows.append(_petition("scotus/cvsg", distribution_count=1, cvsg=True))
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28)
+
+    v1_scores, v1_pick, v1_eligible, _ = plan_cohorts(rows, config)
+    toy_scores, toy_pick, toy_eligible, _ = plan_cohorts(rows, config, version=two_versions)
+
+    assert v1_eligible == toy_eligible == len(rows)  # same population, both times
+    assert v1_scores != toy_scores  # different scale
+    assert set(v1_pick) != set(toy_pick) or v1_scores["scotus/0"] != toy_scores["scotus/0"]
+    # sal-v1 puts every relist-2 row in `high` and above the floor, so all four
+    # carve in; the toy scores them 0.1 and carves in only the CVSG row.
+    assert set(v1_pick) == {f"scotus/{i}" for i in range(4)} | {"scotus/cvsg"}
+    assert "scotus/cvsg" in toy_pick
+
+
+def test_a_scorers_band_function_only_ever_returns_a_declared_band(
+    two_versions: SalienceScorer,
+) -> None:
+    """The registry's core consistency invariant, and the one the statpack relies on.
+
+    `analytics._TermAcc` indexes `segments[version][band]` and calls
+    `bands.index(band)`, so a scorer whose band function returns a label outside
+    its own `bands` raises rather than mis-slicing — but it raises deep inside a
+    streaming corpus pass, which is a poor place to learn it."""
+    for version in registered_versions():
+        banding = scorer(version)
+        for distribution_count in (1, 2, 3, None):
+            for cvsg in (False, True):
+                row = _petition("scotus/x", distribution_count=distribution_count, cvsg=cvsg)
+                assert banding.band(row) in banding.bands, (
+                    f"{version} banded a row {banding.band(row)!r}, "
+                    f"which is not among {banding.bands}"
+                )

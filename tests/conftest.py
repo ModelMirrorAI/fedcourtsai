@@ -12,11 +12,14 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
 from fedcourtsai import casestore, corpus, fixture
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import salience as salience_module
+from fedcourtsai.pipeline.salience import SalienceScorer
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction
 from fedcourtsai.serialize import write_json
 
@@ -127,3 +130,35 @@ def seed_evaluation(
             correct=1,
         ),
     )
+
+
+def _toy_scorer() -> SalienceScorer:
+    """A second registered salience version: two bands, its own carve-out and scale.
+
+    Nothing about it resembles sal-v1, on purpose. Sharing a band vocabulary
+    would let a cross-version bug produce a plausible number instead of an
+    error; with a disjoint one, a band leaking across versions raises.
+    """
+    return SalienceScorer(
+        version="sal-toy",
+        score=lambda row: 0.9 if row.cvsg_date is not None else 0.1,
+        band=lambda row: "hot" if row.cvsg_date is not None else "cold",
+        bands=("hot", "cold"),
+        carve_out=lambda row, score, floor: row.cvsg_date is not None,
+    )
+
+
+@pytest.fixture
+def two_versions(monkeypatch: pytest.MonkeyPatch) -> SalienceScorer:
+    """Register a toy scorer beside the active one for the duration of a test.
+
+    Every claim the scorer registry makes is about what happens when a SECOND
+    version exists, so the single shipped version cannot exercise any of it — a
+    loop over one entry passes with the loop deleted. This fixture is the only
+    way the multi-version paths run at all.
+    """
+    toy = _toy_scorer()
+    monkeypatch.setattr(
+        salience_module, "SCORERS", MappingProxyType({**salience_module.SCORERS, toy.version: toy})
+    )
+    return toy

@@ -137,7 +137,7 @@ from .pipeline.outcome import (
 )
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection
+from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection, registered_versions
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -1296,9 +1296,8 @@ def salience_replay_cmd(
     policies: Annotated[
         str,
         typer.Option(
-            help="Comma-separated cutoff policies, each one cell per Term: "
-            + ", ".join(p.value for p in CutoffPolicy)
-            + "."
+            help="Comma-separated cutoff policies, each one cell per Term per "
+            "registered salience version: " + ", ".join(p.value for p in CutoffPolicy) + "."
         ),
     ] = "arrival,distribution-1,resolution",
     out: Annotated[
@@ -1308,11 +1307,12 @@ def salience_replay_cmd(
 ) -> None:
     """Replay the salience gate over past Terms into ``metrics/salience-replay.json``.
 
-    Runs the current frozen ``sal-v1`` scoring, banding, and per-conference
+    Runs **every registered** frozen scoring, banding, and per-conference
     selection over each named Term's resolved paid modern-cert petitions,
     projected to the state their dockets disclosed at each cutoff policy's
     moment (arrival / first distribution / the last pre-resolution
-    distribution), and scores the would-have-been selection against the
+    distribution) — one projection per moment, shared across versions — and
+    scores each would-have-been selection against the
     realized grant-family outcomes — what the numbers do and do not claim:
     ``metrics/README.md``. Deterministic, offline, and free: no model runs, no
     tokens are spent, and nothing under ``data/`` is touched.
@@ -1353,6 +1353,7 @@ def salience_replay_cmd(
             destination,
             SalienceReplay(
                 salience_version=SALIENCE_VERSION,
+                salience_versions=list(registered_versions()),
                 terms=term_years,
                 policies=[str(p) for p in policy_list],
             ),
@@ -1369,7 +1370,8 @@ def salience_replay_cmd(
     typer.echo(
         f"salience-replay: {report.cells_evaluated} cell(s) over "
         f"Term(s) {', '.join(str(t) for t in term_years)} x "
-        f"{len(policy_list)} policy(ies) -> {destination}"
+        f"{len(policy_list)} policy(ies) x "
+        f"{len(report.salience_versions)} version(s) -> {destination}"
     )
 
 

@@ -22,7 +22,14 @@ inputs. Config resolves one level out, at the caller.
 from __future__ import annotations
 
 from ..corpus import CorpusRow, scotus_term_year
-from ..schemas import Outcome, Prediction, PredictionContext, StatPack
+from ..schemas import (
+    Outcome,
+    Prediction,
+    PredictionContext,
+    StatPack,
+    StatPackTerm,
+    StatPackTermSegment,
+)
 from .salience import SALIENCE_VERSION, salience_band
 
 
@@ -56,6 +63,24 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
     the matching P, so one formula scores every stage.
     """
     return (prediction.probability - outcome.actual_granted) ** 2
+
+
+def _version_segments(entry: StatPackTerm, band_version: str) -> list[StatPackTermSegment] | None:
+    """One Term's band slices under ``band_version``, or ``None`` if it has none.
+
+    ``None`` rather than an empty list: arithmetically the two are the same to
+    the pool, since an empty list adds nothing to either accumulator, but they
+    are different facts. ``None`` says the Term never carried this version at
+    all, which is what a caller reasoning about coverage needs to be able to
+    ask, and what keeps a future caller from reading an empty band list as a
+    measured zero.
+    """
+    if entry.salience_version == band_version:
+        return entry.segments
+    for block in entry.alt_segments:
+        if block.salience_version == band_version:
+            return block.segments
+    return None
 
 
 def _pooled_band_rate(
@@ -93,13 +118,17 @@ def _pooled_band_rate(
     weighted_grants = 0.0
     weighted_resolved = 0.0
     for entry in statpack.terms:
-        if entry.salience_version != band_version:
-            continue  # version pin: a band name only means something under its own scorer
+        # Version pin: a band name only means something under its own scorer, so
+        # take that scorer's slices — the Term's own `segments` when it is the
+        # active version, else the matching `alt_segments` block, else nothing.
+        segments = _version_segments(entry, band_version)
+        if segments is None:
+            continue
         if entry.term >= term:
             continue  # leakage guard: the case's own and later Terms never contribute
         if oldest is not None and entry.term < oldest:
             continue  # outside the configured lookback window
-        for seg in entry.segments:
+        for seg in segments:
             if seg.band != band:
                 continue
             rate = seg.prefix_est_grant_rate if risk_set else seg.est_grant_rate
@@ -306,11 +335,18 @@ def realized_band_rate(
     it and the honest answer is no baseline rather than a clamped certainty.
     """
     for entry in statpack.terms:
-        if entry.salience_version != band_version:
-            continue  # version pin: a band name only means something under its own scorer
+        # Version pin, resolved the same way the pooler resolves it — including
+        # through `alt_segments`. An asymmetry here would drop the realized-Term
+        # skill of every cell frozen at a non-active version while leaving its
+        # prior-Term skill standing, so the board would print two skill columns
+        # over two different populations, split on a version label rather than
+        # on the resolved-count floor that is this field's only stated omission.
+        segments = _version_segments(entry, band_version)
+        if segments is None:
+            continue
         if entry.term != term:
             continue  # the case's OWN Term, and only it — the whole difference from the pooler
-        for seg in entry.segments:
+        for seg in segments:
             if seg.band != band:
                 continue
             rate = seg.prefix_est_grant_rate if risk_set else seg.est_grant_rate

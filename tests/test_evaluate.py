@@ -41,12 +41,30 @@ from fedcourtsai.schemas import (
     StatPackMeritsTerm,
     StatPackTerm,
     StatPackTermSegment,
+    StatPackTermVersionSegments,
     VoteValue,
 )
 
 
+def _segments(band_rates: dict[str, tuple[float, int]]) -> list[StatPackTermSegment]:
+    return [
+        StatPackTermSegment(
+            band=band,
+            weighted_resolved=n,
+            est_grant_rate=rate,
+            prefix_weighted_resolved=n,
+            prefix_est_grant_rate=rate,
+        )
+        for band, (rate, n) in band_rates.items()
+    ]
+
+
 def _term(
-    year: int, band_rates: dict[str, tuple[float, int]], *, version: str = "sal-v1"
+    year: int,
+    band_rates: dict[str, tuple[float, int]],
+    *,
+    version: str = "sal-v1",
+    alt: dict[str, dict[str, tuple[float, int]]] | None = None,
 ) -> StatPackTerm:
     """A Term whose bands carry ``(rate, weighted_resolved)``.
 
@@ -59,15 +77,10 @@ def _term(
         term=year,
         base_rates=BaseRateBucket(),
         salience_version=version,
-        segments=[
-            StatPackTermSegment(
-                band=band,
-                weighted_resolved=n,
-                est_grant_rate=rate,
-                prefix_weighted_resolved=n,
-                prefix_est_grant_rate=rate,
-            )
-            for band, (rate, n) in band_rates.items()
+        segments=_segments(band_rates),
+        alt_segments=[
+            StatPackTermVersionSegments(salience_version=v, segments=_segments(rates))
+            for v, rates in (alt or {}).items()
         ],
     )
 
@@ -403,6 +416,26 @@ def test_pooling_is_version_pinned_to_the_bands_scorer() -> None:
     assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)
     v2 = _context("high", term=2024, salience_version="sal-v2")
     assert prediction_base_rate(v2, pack) == pytest.approx(0.60)
+
+
+def test_a_non_active_version_pools_from_its_alt_segments_block() -> None:
+    """One Term publishes every registered version's bands, not only the live one.
+
+    A prediction keeps the version that banded it for life, so when the live pass
+    moves to a new scorer the older one still needs a baseline. `alt_segments`
+    carries it on the same Term, and the pin has to look there — otherwise every
+    cell frozen at the previous version silently loses its skill score the day
+    the scorer changes."""
+    pack = _statpack(_term(2023, {"high": (0.30, 100)}, alt={"sal-v0": {"high": (0.60, 100)}}))
+    # The active version reads the Term's own `segments`.
+    assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)
+    # The retired version reads its own block on the same Term — no blend.
+    retired = _context("high", term=2024, salience_version="sal-v0")
+    assert prediction_base_rate(retired, pack) == pytest.approx(0.60)
+    # A version in neither place still gets the contracted no-baseline answer.
+    assert (
+        prediction_base_rate(_context("high", term=2024, salience_version="sal-v9"), pack) is None
+    )
 
 
 def test_a_fully_mismatched_pack_yields_none_not_a_blend() -> None:
@@ -800,3 +833,38 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
     # comparison is unchanged — the path every committed evaluation took.
     assert is_correct(_prediction(0.9), _outcome(1)) == 1
     assert is_correct(_prediction(0.1), _outcome(1)) == 0
+
+
+def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> None:
+    """The realized-Term rate resolves its version exactly as the pooler does.
+
+    An asymmetry here would be invisible and expensive: on the day a new scorer
+    activates, every cell frozen at the old one would keep its prior-Term skill
+    and silently lose its realized-Term skill, so the board would print two
+    skill columns over two different populations — split on a version label
+    rather than on the resolved-count floor, which is this field's only stated
+    reason to be absent.
+    """
+    own = _own_term(2025, terminal=(32, 72))
+    retired = _own_term(2025, terminal=(40, 80), version="sal-v0")
+    pack = _statpack(
+        own.model_copy(
+            update={
+                "alt_segments": [
+                    StatPackTermVersionSegments(
+                        salience_version="sal-v0", segments=retired.segments
+                    )
+                ]
+            }
+        )
+    )
+    # The active version reads the Term's own segments (32 grants of 72, less the case).
+    assert _realized(pack, 1) == pytest.approx(31 / 71)
+    # The retired version reads its own block on the same Term — no blend, no None.
+    assert realized_band_rate(
+        "high", "sal-v0", 2025, pack, risk_set=False, own_grant_family=1
+    ) == pytest.approx(39 / 79)
+    # A version in neither place still gets the contracted no-baseline answer.
+    assert (
+        realized_band_rate("high", "sal-v9", 2025, pack, risk_set=False, own_grant_family=1) is None
+    )
