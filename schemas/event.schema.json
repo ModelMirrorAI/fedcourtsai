@@ -1,13 +1,29 @@
 {
   "$defs": {
     "EventKind": {
+      "description": "The filing that *opened* an event \u2014 not what the event decides.\n\nOrthogonal to :class:`Stage` (the decision standard) and :class:`Moment`\n(when in the case's life the forecast was taken). Keeping the three apart is\nwhat lets one case carry several forecasts of one question: they share a\nstage, differ in moment, and each names the filing that made it forecastable.",
       "enum": [
         "motion",
         "petition",
         "appeal",
-        "order"
+        "order",
+        "brief"
       ],
       "title": "EventKind",
+      "type": "string"
+    },
+    "Moment": {
+      "description": "*When* in a case's life a forecast of its stage was taken.\n\nA stage asks one question \u2014 will cert be granted, will the application be\ngranted, will the judgment below be disturbed \u2014 and the case passes several\npoints at which that question can honestly be forecast, each with a\ndifferent information set. A petition forecast the day it is first\ndistributed and the same petition forecast after a CVSG are answering the\nsame question from different evidence, so they are **two forecasts, not one\nforecast revised**: each freezes its own context and each is scored on its\nown.\n\nThe consequence that makes this a vocabulary rather than a counter: two\nmoments are two populations, and pooling them would publish a mean over a\nmixture of information sets. Aggregation therefore keys on\n``(stage, moment)`` and never on stage alone \u2014 the same rule the salience\nversion and the claim-set version already carry.\n\nWhich moments exist, what each is minted from, and which claims each\ndeclares live in one table, :mod:`fedcourtsai.pipeline.moments`. Nothing\nreads a moment out of an event id.",
+      "enum": [
+        "distribution",
+        "cvsg",
+        "arrival",
+        "response-requested",
+        "response-filed",
+        "grant",
+        "briefed"
+      ],
+      "title": "Moment",
       "type": "string"
     },
     "Stage": {
@@ -63,6 +79,18 @@
     },
     "kind": {
       "$ref": "#/$defs/EventKind"
+    },
+    "moment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Moment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Which forecast moment of the stage this event is (see the Moment vocabulary) \u2014 the point in the case's life the forecast was taken from, and therefore the information set it had. Null means unrecorded, in which case a consumer reads it as the stage's first moment; a stage carrying two events reads them as two populations and never pools them."
     },
     "opened_at": {
       "anyOf": [

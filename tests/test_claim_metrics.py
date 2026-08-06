@@ -12,7 +12,7 @@ from fedcourtsai.claim_metrics import (
     build_claim_scores,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE
+from fedcourtsai.leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     ClaimScore,
@@ -22,6 +22,7 @@ from fedcourtsai.schemas import (
     Engine,
     Evaluation,
     EventKind,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -107,10 +108,12 @@ def _evaluation(
 
 
 def _cells(
-    *items: tuple[Evaluation, Stratum], stage: Stage | None = Stage.cert
-) -> list[tuple[Evaluation, Stratum, Stage | None]]:
+    *items: tuple[Evaluation, Stratum],
+    stage: Stage | None = Stage.cert,
+    moment: Moment | None = Moment.distribution,
+) -> list[StratifiedCell]:
     """Stage-annotate fixture cells the way the stratified join yields them."""
-    return [(ev, stratum, stage) for ev, stratum in items]
+    return [(ev, stratum, stage, moment) for ev, stratum in items]
 
 
 def test_empty_stream_is_the_fully_suppressed_board() -> None:
@@ -237,7 +240,7 @@ def test_masked_blocks_count_as_availability_not_scoring() -> None:
 
 def _pair_cells(
     predictor: str, stratum: Stratum, totals_and_grades: list[tuple[float, float]]
-) -> list[tuple[Evaluation, Stratum, Stage | None]]:
+) -> list[StratifiedCell]:
     """One intersection pair per (total, reasoning_quality), distinct events."""
     return _cells(
         *(

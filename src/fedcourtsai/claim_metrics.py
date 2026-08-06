@@ -45,7 +45,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Literal
 
-from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, kendall_tau_b
+from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, kendall_tau_b
 from .schemas import (
     ClaimJudgeAgreement,
     ClaimMeanScore,
@@ -189,7 +189,7 @@ def agreement_summary(agreement: ClaimJudgeAgreement | None) -> str:
 
 
 def build_claim_scores(
-    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
+    cells: Iterable[StratifiedCell],
     *,
     process_scope: Literal["frozen", "all"] = "frozen",
 ) -> ClaimScoreBoard:
@@ -216,7 +216,7 @@ def build_claim_scores(
     )
     total = 0
     with_claims = 0
-    for ev, stratum, stage in cells:
+    for ev, stratum, stage, _moment in cells:
         if stage != Stage.cert:
             continue
         total += 1
