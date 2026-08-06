@@ -19,11 +19,13 @@ definition of the timing split, derivable offline from committed artifacts (the
 prediction's ``created_at`` vs the outcome's ``resolved_at``); the procedural
 override lives with the join in ``store.iter_stratified_evaluations``.
 
-Orthogonal to the strata runs the **stage axis**: the ranked board is the cert
-stage, and a cell whose event resolves on a different decision standard
-(interim, merits — the join normalizes the stage) aggregates into its own
-unranked ``stages`` block, never pooled with cert or another stage, because
-``granted`` answers a different question at each stage.
+Orthogonal to the strata runs the **stage/moment axis**: the ranked board is
+cert's *first* forecast moment, and every other population — a different
+decision standard (interim, merits), or the same standard forecast later in the
+case's life (cert after a CVSG, merits after briefing) — aggregates into its own
+unranked ``<stage>@<moment>`` block. Never pooled: ``granted`` answers a
+different question at each stage, and a later moment answers the same question
+with strictly more evidence.
 
 Skill is reported twice, against two baselines that answer different questions
 and are never combined. The evaluator's recorded ``brier_skill_score`` scores
@@ -47,6 +49,7 @@ from pathlib import Path
 from typing import Literal
 
 from .pipeline.evaluate import realized_band_rate
+from .pipeline.moments import first_moment
 from .process_version import is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
@@ -91,6 +94,27 @@ PROCEDURAL: Stratum = "procedural"
 # normalization): the GroupBy dimensions' `(none)` convention, so coverage is
 # visible rather than silently dropped.
 NO_STAGE_KEY = "(none)"
+
+
+def stage_moment_key(stage: Stage | None, moment: Moment | None) -> str:
+    """The unranked block a cell aggregates into: ``"<stage>@<moment>"``.
+
+    Two moments of one stage are two populations — the later one answers the
+    same question with strictly more evidence — so they must not share a mean.
+    Keying the block on the pair is what keeps them apart, and it is the same
+    rule the salience version and the claim-set version already carry.
+
+    A cell with neither takes the ``(none)`` convention the GroupBy dimensions
+    use, so coverage stays visible rather than silently dropped. A stage
+    carrying no recorded moment is written bare (``"interim"``), which cannot
+    collide with a keyed block and reads honestly as "stage known, moment not".
+    """
+    if stage is None:
+        return NO_STAGE_KEY
+    # str() yields the bare enum value — Stage/Moment are StrEnums, and a
+    # validated model hands back the plain string.
+    return f"{stage}@{moment}" if moment is not None else str(stage)
+
 
 # Brier scores are bounded in [0, 1]; predictors that never reported one sort
 # after every predictor that did, without colliding with a real worst score.
@@ -283,9 +307,12 @@ def big_case_agreement(
     predictor's latest ``big_case_score`` with the **mean** of the panel's
     independent reads for that event, then correlates the predictor's ordering
     against the panel's with Kendall's tau-b (:func:`kendall_tau_b`) across the
-    scored events (one per case in the current single-event model). Predictors
-    with no comparable event are absent from the map (their ``big_case`` stays
-    null).
+    scored **cases**. A case carrying several forecast moments contributes one
+    point, both sides averaged over its moments: big-caseness is a property of
+    the case, so several points from one case would be non-independent
+    observations in a correlation that assumes independence, and the count would
+    be events wearing the name of cases. Predictors with no comparable case are
+    absent from the map (their ``big_case`` stays null).
 
     ``frozen_only`` (the default) keeps only events whose latest prediction was
     produced by a frozen process, so this section defaults to the frozen headline
@@ -302,7 +329,12 @@ def big_case_agreement(
             key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
             reads[key].append(evaluation.big_case.evaluator_score)
 
-    points: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    # Collapsed to the CASE, not the event. Big-caseness is a property of the
+    # case — the same dispute is the same size at cert and at merits — so a
+    # case carrying several forecast moments would otherwise contribute several
+    # *non-independent* points to a rank correlation that treats its inputs as
+    # independent, and `cases` would count events while calling them cases.
+    per_case: dict[tuple[str, str], list[tuple[float, float]]] = defaultdict(list)
     for (predictor_id, case_id, event_id), evaluator_scores in reads.items():
         latest = _latest_prediction(cases_dir, case_id, event_id, predictor_id)
         if latest is None:
@@ -312,7 +344,13 @@ def big_case_agreement(
         if latest.big_case_score is None:
             continue
         panel_mean = sum(evaluator_scores) / len(evaluator_scores)
-        points[predictor_id].append((latest.big_case_score, panel_mean))
+        per_case[(predictor_id, case_id)].append((latest.big_case_score, panel_mean))
+
+    points: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for (predictor_id, _case_id), moments_read in sorted(per_case.items()):
+        predictor_mean = sum(own for own, _ in moments_read) / len(moments_read)
+        panel_mean = sum(panel for _, panel in moments_read) / len(moments_read)
+        points[predictor_id].append((predictor_mean, panel_mean))
 
     return {
         predictor_id: BigCaseLeaderboard(rank_agreement=kendall_tau_b(pairs), cases=len(pairs))
@@ -366,16 +404,21 @@ def evaluator_agreement(
     three-judge panel, by a third.
 
     Shares :func:`big_case_agreement`'s ``frozen_only`` semantics, keyed on the
-    *prediction's* stamp, so both agreement views cover the same cells and can be
-    read side by side.
+    *prediction's* stamp, **and its collapse to the case**, so both agreement
+    views cover the same cells and can be read side by side. Collapsing only one
+    of them would silently break that.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return {}
-    # (case, event) -> evaluator_id -> the reads that evaluator gave on it. One
-    # evaluator scores every predictor for an event, so its read of the *case's*
-    # stakes is the mean of those — the quantity a peer's read is comparable to.
-    reads: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    # case -> evaluator_id -> every read that evaluator gave on it. One
+    # evaluator scores every predictor for an event, and a case may carry
+    # several forecast moments, so its read of the *case's* stakes is the mean
+    # over both — the quantity a peer's read is comparable to. Keyed on the case
+    # rather than the (case, event) pair for the same reason
+    # `big_case_agreement` collapses: stakes are a property of the case, so two
+    # moments would put two non-independent points into one correlation.
+    reads: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         if evaluation.big_case is None:
@@ -384,16 +427,17 @@ def evaluator_agreement(
             cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
         ):
             continue
-        key = (evaluation.case_id, evaluation.event_id)
-        reads[key][evaluation.evaluator_id].append(evaluation.big_case.evaluator_score)
+        reads[evaluation.case_id][evaluation.evaluator_id].append(
+            evaluation.big_case.evaluator_score
+        )
 
     points: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for panel in reads.values():
+    for _case_id, panel in sorted(reads.items()):
         per_evaluator = {
             evaluator: sum(scores) / len(scores) for evaluator, scores in panel.items()
         }
         if len(per_evaluator) < 2:
-            continue  # nothing to agree with on this event
+            continue  # nothing to agree with on this case
         for evaluator, own in per_evaluator.items():
             peers = [v for other, v in per_evaluator.items() if other != evaluator]
             points[evaluator].append((own, sum(peers) / len(peers)))
@@ -677,13 +721,12 @@ def build_leaderboard(
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
     stage_cells: dict[str, list[tuple[Evaluation, Stratum]]] = defaultdict(list)
-    for ev, stratum, stage, _moment in cells:
-        if stage == Stage.cert:
+    ranked = (Stage.cert, first_moment(Stage.cert))
+    for ev, stratum, stage, moment in cells:
+        if (stage, moment) == ranked:
             cert_cells.append((ev, stratum))
         else:
-            # str() yields the bare stage value ("interim") — Stage is a
-            # StrEnum, and a validated model hands back the plain string.
-            stage_cells[str(stage) if stage is not None else NO_STAGE_KEY].append((ev, stratum))
+            stage_cells[stage_moment_key(stage, moment)].append((ev, stratum))
 
     by_predictor = _group_by_predictor(cert_cells)
     entries: list[LeaderboardEntry] = []

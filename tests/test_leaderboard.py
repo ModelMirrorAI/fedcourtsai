@@ -2,6 +2,7 @@
 
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -23,6 +24,7 @@ from fedcourtsai.leaderboard import (
     skill_components,
 )
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.moments import first_moment
 from fedcourtsai.schemas import (
     BaseRateBucket,
     BigCaseAssessment,
@@ -53,6 +55,17 @@ runner = CliRunner()
 # `build_leaderboard` consumes.
 Cell = tuple[Evaluation, Stratum, Stage | None, Moment | None]
 
+#: Sentinel: derive the stage's first moment rather than hard-coding one, so a
+#: fixture that names a stage cannot accidentally pair it with another stage's
+#: moment.
+_DERIVE: Any = object()
+
+
+def _moment_for(stage: Stage | None, moment: Moment | None) -> Moment | None:
+    if moment is not _DERIVE:
+        return moment
+    return first_moment(stage) if stage is not None else None
+
 
 def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
     base: dict[str, object] = dict(
@@ -73,19 +86,15 @@ def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
 
 
 def _forward(
-    ev: Evaluation,
-    stage: Stage | None = Stage.cert,
-    moment: Moment | None = Moment.distribution,
+    ev: Evaluation, stage: Stage | None = Stage.cert, moment: Moment | None = _DERIVE
 ) -> Cell:
-    return (ev, FORWARD, stage, moment)
+    return (ev, FORWARD, stage, _moment_for(stage, moment))
 
 
 def _retro(
-    ev: Evaluation,
-    stage: Stage | None = Stage.cert,
-    moment: Moment | None = Moment.distribution,
+    ev: Evaluation, stage: Stage | None = Stage.cert, moment: Moment | None = _DERIVE
 ) -> Cell:
-    return (ev, RETROSPECTIVE, stage, moment)
+    return (ev, RETROSPECTIVE, stage, _moment_for(stage, moment))
 
 
 def _write(data_root: Path, ev: Evaluation) -> None:
@@ -109,6 +118,7 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     kind: EventKind = EventKind.petition,
     stage: Stage | None = None,
     context: PredictionContext | None = None,
+    big_case_score: float | None = None,
 ) -> None:
     """A full scored cell: evaluation plus the event, prediction, and outcome it targets.
 
@@ -146,6 +156,7 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
             granted=1,
             probability=0.7,
             predicted_disposition=Disposition.granted,
+            big_case_score=big_case_score,
             process_version=process_version,
             context=context,
         ),
@@ -471,9 +482,9 @@ def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) ->
 
 
 def test_non_cert_stages_report_separately_and_never_rank() -> None:
-    # The ranked board is the cert stage. An interim cell and a stage-less cell
-    # land in their own `stages` blocks — out of the entries, out of the
-    # top-level counts, never pooled with cert or with each other.
+    # The ranked board is cert's FIRST moment. An interim cell and a stage-less
+    # cell land in their own `stage@moment` blocks — out of the entries, out of
+    # the top-level counts, never pooled with cert or with each other.
     board = build_leaderboard(
         [
             (
@@ -489,8 +500,8 @@ def test_non_cert_stages_report_separately_and_never_rank() -> None:
     assert [e.predictor_id for e in board.entries] == ["a"]
     assert board.predictors_ranked == 1
     assert board.evaluations_total == 1  # cert only; each stage carries its own
-    assert set(board.stages) == {"interim", NO_STAGE_KEY}
-    interim = board.stages["interim"]
+    assert set(board.stages) == {"interim@arrival", NO_STAGE_KEY}
+    interim = board.stages["interim@arrival"]
     assert interim.evaluations_total == 1
     assert interim.forward_evaluations == 1
     (b_entry,) = interim.entries
@@ -507,7 +518,8 @@ def test_the_empty_stage_axis_is_omitted_from_the_payload() -> None:
     all_cert = build_leaderboard([_forward(_evaluation("a"))])
     assert "stages" not in all_cert.model_dump(mode="json")
     with_stage = build_leaderboard([_forward(_evaluation("a"), stage=Stage.interim)])
-    assert "interim" in with_stage.model_dump(mode="json")["stages"]
+    # Keyed on the pair, because two moments of one stage are two populations.
+    assert "interim@arrival" in with_stage.model_dump(mode="json")["stages"]
 
 
 def test_skill_scored_counts_the_skill_figures_denominator() -> None:
@@ -1177,3 +1189,56 @@ def test_a_board_with_no_banded_baseline_names_no_gate_version() -> None:
     """Empty, not a fabricated default — a merits cell has no scorer to pin."""
     board = build_leaderboard([_forward(_evaluation("p1"))])
     assert board.salience_versions == []
+
+
+def test_two_moments_of_one_stage_never_share_a_block() -> None:
+    """Two moments are two populations, so they must not share a mean.
+
+    The later moment answers the same question with strictly more evidence, so
+    pooling them would publish a figure over a mixture of information sets —
+    the error the stage axis, the salience version and the claim-set version
+    each already refuse on their own axis.
+    """
+    board = build_leaderboard(
+        [
+            _forward(_evaluation("a", correct=1, brier_score=0.1)),  # cert@distribution
+            _forward(_evaluation("a", correct=0, brier_score=0.9), moment=Moment.cvsg),
+            _forward(_evaluation("a", correct=1, brier_score=0.2), stage=Stage.merits),
+            _forward(
+                _evaluation("a", correct=1, brier_score=0.3),
+                stage=Stage.merits,
+                moment=Moment.briefed,
+            ),
+        ]
+    )
+    # Only cert's first moment ranks; every later moment reports unranked.
+    assert board.evaluations_total == 1
+    assert set(board.stages) == {"cert@cvsg", "merits@grant", "merits@briefed"}
+    # And the two merits moments keep separate figures rather than averaging.
+    assert board.stages["merits@grant"].evaluations_total == 1
+    assert board.stages["merits@briefed"].evaluations_total == 1
+
+
+def test_a_stage_with_no_recorded_moment_keys_bare() -> None:
+    """Honest rather than guessed: "stage known, moment not" is its own block."""
+    board = build_leaderboard([_forward(_evaluation("a"), stage=Stage.interim, moment=None)])
+    assert set(board.stages) == {"interim"}
+
+
+def test_big_case_agreement_counts_cases_not_events(tmp_path: Path) -> None:
+    """Stakes are a property of the case, so its moments contribute one point.
+
+    Two moments would otherwise put two *non-independent* observations into a
+    rank correlation that assumes independence, and `cases` would be counting
+    events while calling them cases.
+    """
+    moments_read = (("evt-petition-disposition", 0.8, 0.7), ("evt-order-judgment", 0.6, 0.5))
+    for event_id, own, panel in moments_read:
+        _write_cell(
+            tmp_path,
+            _evaluation("p", event_id=event_id, big_case=BigCaseAssessment(evaluator_score=panel)),
+            big_case_score=own,
+        )
+    ((predictor, agreement),) = big_case_agreement(tmp_path, frozen_only=False).items()
+    assert predictor == "p"
+    assert agreement.cases == 1  # one case, two moments

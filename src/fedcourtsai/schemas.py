@@ -1668,9 +1668,12 @@ class BigCaseLeaderboard(_Strict):
     read a case's significance well while calling grant/deny only modestly, or the
     reverse). Bigness is comparative, so the agreement is a **rank** correlation —
     Kendall's tau-b between the predictor's ``big_case_score`` ordering and the
-    panel's (the mean of the evaluators' independent reads per event), across the
-    scored events both sides rated (one per case in the current single-event
-    model). Never enters the leaderboard ranking; reported alongside it.
+    panel's (the mean of the evaluators' independent reads), across the scored
+    **cases** both sides rated. A case carrying several forecast moments
+    contributes one point, both sides averaged over its moments: bigness is a
+    property of the case, so a case's moments are not independent observations
+    and a correlation that assumed they were would overstate its own evidence.
+    Never enters the leaderboard ranking; reported alongside it.
     """
 
     rank_agreement: float | None = Field(
@@ -1686,7 +1689,8 @@ class BigCaseLeaderboard(_Strict):
         default=0,
         ge=0,
         description="Cases with both a predictor big_case_score and at least one "
-        "evaluator big-case read",
+        "evaluator big-case read — cases, not events: a case's forecast moments "
+        "are averaged into one point",
     )
 
 
@@ -1759,10 +1763,12 @@ class LeaderboardStageEntry(_Strict):
 
 
 class LeaderboardStage(_Strict):
-    """One non-cert stage's slice of the evaluations ledger, aggregated per predictor.
+    """One unranked ``stage@moment`` population, aggregated per predictor.
 
     A stage is a decision standard (cert / interim / merits — the event
-    vocabulary), and skill figures are only meaningful within one: `granted`
+    vocabulary) and a moment is the point in the case's life the forecast was
+    taken from, so the pair — not the stage alone — identifies a population.
+    Skill figures are only meaningful within one: `granted`
     answers a different question at each stage, and only the cert segment
     reports a skill score today — the interim stage has no published base rate,
     and the merits stage has a registered one whose skill number is suppressed
@@ -1865,12 +1871,15 @@ class Leaderboard(_Strict):
     )
     stages: dict[str, LeaderboardStage] = Field(
         default_factory=dict,
-        description="Per-stage unranked blocks for the non-cert stages, keyed by "
-        "the stage value (`interim` / `merits`; a cell whose event records no "
-        "stage and is not a case-baseline kind shares one `(none)` bucket, so "
-        "coverage stays visible). Each stage aggregates alone — never pooled "
-        "across stages or into the cert board — and the key is omitted entirely "
-        "while no non-cert cell exists.",
+        description="Unranked blocks for every population outside the ranked "
+        "board, keyed `<stage>@<moment>` (`interim@arrival`, `merits@briefed`) — "
+        "a later forecast moment of a stage answers the same question with more "
+        "evidence, so it is a separate population and never shares a mean with "
+        "an earlier one. A stage with no recorded moment keys bare (`interim`), "
+        "and a cell with no stage at all shares one `(none)` bucket, so coverage "
+        "stays visible rather than guessed. Nothing here pools across blocks or "
+        "into the cert board, and the key is omitted entirely while no such "
+        "cell exists.",
     )
 
     @model_serializer(mode="wrap")

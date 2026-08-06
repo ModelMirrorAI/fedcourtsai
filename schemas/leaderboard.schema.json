@@ -2,11 +2,11 @@
   "$defs": {
     "BigCaseLeaderboard": {
       "additionalProperties": false,
-      "description": "A predictor's big-case-score agreement with the independent evaluator panel.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' independent reads per event), across the\nscored events both sides rated (one per case in the current single-event\nmodel). Never enters the leaderboard ranking; reported alongside it.",
+      "description": "A predictor's big-case-score agreement with the independent evaluator panel.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' independent reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
       "properties": {
         "cases": {
           "default": 0,
-          "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read",
+          "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read \u2014 cases, not events: a case's forecast moments are averaged into one point",
           "minimum": 0,
           "title": "Cases",
           "type": "integer"
@@ -139,7 +139,7 @@
     },
     "LeaderboardStage": {
       "additionalProperties": false,
-      "description": "One non-cert stage's slice of the evaluations ledger, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary), and skill figures are only meaningful within one: `granted`\nanswers a different question at each stage, and only the cert segment\nreports a skill score today \u2014 the interim stage has no published base rate,\nand the merits stage has a registered one whose skill number is suppressed\nwhile the pool's GVR guard is unbuilt (docs/decision-model.md). So each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
+      "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage, and only the cert segment\nreports a skill score today \u2014 the interim stage has no published base rate,\nand the merits stage has a registered one whose skill number is suppressed\nwhile the pool's GVR guard is unbuilt (docs/decision-model.md). So each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
       "properties": {
         "entries": {
           "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
@@ -441,7 +441,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/LeaderboardStage"
       },
-      "description": "Per-stage unranked blocks for the non-cert stages, keyed by the stage value (`interim` / `merits`; a cell whose event records no stage and is not a case-baseline kind shares one `(none)` bucket, so coverage stays visible). Each stage aggregates alone \u2014 never pooled across stages or into the cert board \u2014 and the key is omitted entirely while no non-cert cell exists.",
+      "description": "Unranked blocks for every population outside the ranked board, keyed `<stage>@<moment>` (`interim@arrival`, `merits@briefed`) \u2014 a later forecast moment of a stage answers the same question with more evidence, so it is a separate population and never shares a mean with an earlier one. A stage with no recorded moment keys bare (`interim`), and a cell with no stage at all shares one `(none)` bucket, so coverage stays visible rather than guessed. Nothing here pools across blocks or into the cert board, and the key is omitted entirely while no such cell exists.",
       "title": "Stages",
       "type": "object"
     }
