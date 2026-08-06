@@ -471,6 +471,15 @@ class CorpusRow(BaseModel):
         "beside a non-None `merits_judgment`, and latched as a pair with it; "
         "the merits event's `resolved_at` when detection records the outcome.",
     )
+    merits_brief_filed: date | None = Field(
+        default=None,
+        description="When the respondent filed its brief on the merits "
+        "(`pipeline.merits_signals.respondent_brief_date`) — the point at which "
+        "both sides' arguments are on the record. Opens the merits stage's "
+        "second forecast moment. None = not yet filed, or not parsed: the case "
+        "is pending, unsnapshotted, or its briefing is recorded in a shape the "
+        "pattern misses — a coverage gap, never an observed absence.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -777,6 +786,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "amicus_briefs": "INTEGER",
     "merits_judgment": "TEXT",
     "merits_decided": "TEXT",
+    "merits_brief_filed": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1009,6 +1019,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "amicus_briefs": row.amicus_briefs,
         "merits_judgment": row.merits_judgment,
         "merits_decided": row.merits_decided.isoformat() if row.merits_decided else None,
+        "merits_brief_filed": (
+            row.merits_brief_filed.isoformat() if row.merits_brief_filed else None
+        ),
     }
 
 
@@ -1111,6 +1124,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         amicus_briefs=_optional_int(record, "amicus_briefs"),
         merits_judgment=_optional_str(record, "merits_judgment"),
         merits_decided=_optional_date(record, "merits_decided"),
+        merits_brief_filed=_optional_date(record, "merits_brief_filed"),
     )
 
 

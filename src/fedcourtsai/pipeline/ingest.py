@@ -44,6 +44,7 @@ from . import moments
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 from .interim_signals import application_kind, escalation_signals, match_interim_disposition
 from .judgment import last_judgment_entry
+from .merits_signals import respondent_brief_date
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -155,6 +156,12 @@ class CorpusRow(BaseModel):
         "on a granted docket; None elsewhere — the storage latch keeps a "
         "stored parse when a writer carries none, and it moves as a pair with "
         "`merits_decided`.",
+    )
+    merits_brief_filed: date | None = Field(
+        default=None,
+        description="When the respondent filed its brief on the merits — the "
+        "merits stage's second forecast moment. Latched by the live poll at "
+        "ingest through the shared parser.",
     )
     merits_decided: date | None = Field(
         default=None,
@@ -455,6 +462,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         amicus_briefs=_as_count(record.get("amicus_briefs")),
         merits_judgment=_clean(record.get("merits_judgment")),
         merits_decided=_date(record.get("merits_decided")),
+        merits_brief_filed=_date(record.get("merits_brief_filed")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -743,6 +751,7 @@ def map_live_docket(
     referred: bool | None = None
     amici: int | None = None
     merits: tuple[Judgment, date | None] | None = None
+    merits_brief: date | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -778,6 +787,10 @@ def map_live_docket(
             # merits, and this column is read as the latter — including on the
             # agent-facing retrieval surface.
             merits = last_judgment_entry({"docket_entries": entries})
+            # The merits stage's second forecast moment, latched on the same
+            # poll and from the same payload — the docket says when both sides'
+            # arguments reached the record, and nothing else does.
+            merits_brief = respondent_brief_date(payload, granted_on=cert_granted)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
@@ -803,6 +816,7 @@ def map_live_docket(
         "amicus_briefs": amici,
         "merits_judgment": merits[0].value if merits else None,
         "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
+        "merits_brief_filed": merits_brief.isoformat() if merits_brief else None,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,

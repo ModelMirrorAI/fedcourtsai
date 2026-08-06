@@ -280,10 +280,26 @@ of the requested relief**:
 ### Stage: merits (the Court's judgment after argument)
 
 A merits cell predicts what the Court does to the **judgment below** in a case
-it has already agreed to hear. The event is `evt-order-judgment` — kind
-`order`, opened on the day certiorari was granted — and it resolves as the
-**judgment the Court enters** after briefing and argument. Certiorari is
-settled history here; nothing about the grant is in play.
+it has already agreed to hear, and it resolves as the **judgment the Court
+enters** after briefing and argument. Certiorari is settled history here;
+nothing about the grant is in play.
+
+**Two merits cells, two moments.** The same judgment is forecast twice, from
+different evidence, and `event.yaml`'s `moment` says which one you are:
+
+- `moment: grant` — event `evt-order-judgment`, opened the day certiorari was
+  granted. You have the petition, the brief in opposition, and the questions
+  presented. No merits briefing exists yet.
+- `moment: briefed` — event `evt-brief-judgment`, opened the day the
+  respondent's brief on the merits was filed. Both sides' merits arguments are
+  now on the record, and typically several months remain before the judgment.
+
+They are **scored separately and never pooled**, because the later one answers
+the same question with strictly more evidence. So do not treat the briefed cell
+as a revision of the grant cell, and do not go looking for what you predicted
+before: forecast the judgment from what this moment's record shows. If your two
+forecasts differ, that difference is the measurement — it is what the briefing
+was worth.
 
 - **`judgment`, and `probability` as P(disturbed).** A merits prediction
   carries a `judgment` from its own six-label vocabulary, which is **not** the
