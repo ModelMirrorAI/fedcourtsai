@@ -1760,6 +1760,17 @@ class Leaderboard(_Strict):
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
     )
+    salience_versions: list[str] = Field(
+        default_factory=list,
+        description="The distinct salience versions the ranked cells' baselines "
+        "were read under, sorted. The gate decides WHICH petitions earn cells at "
+        "all, so it partitions the population rather than the process — and "
+        "unlike a process change it does not move any digest. More than one "
+        "entry therefore means the aggregates pool two differently-gated "
+        "populations and are coverage figures, not a ranking (the rule "
+        "`declared_set_versions` states for a claim total). Empty on a board with "
+        "no salience-banded baseline, which includes an all-merits board.",
+    )
     predictors_ranked: int = Field(
         ge=0,
         description="Number of predictors on the cert board (a procedural-only "
@@ -1807,17 +1818,21 @@ class Leaderboard(_Strict):
     )
 
     @model_serializer(mode="wrap")
-    def _omit_empty_stage_axis(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the ``stages`` block from the payload while no non-cert cell exists.
+    def _omit_empty_optional_axes(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop the ``stages`` and ``salience_versions`` blocks while each is empty.
 
-        The StatPack stage sections' rule, applied here: a stage axis is shown
-        only once its cells do, and serializing an empty placeholder would both
-        misstate that contract and add byte noise to every board built from an
-        all-cert ledger, whose serialized form must carry no ``stages`` key.
+        The StatPack stage sections' rule, applied here: an axis is shown only
+        once its cells do, and serializing an empty placeholder would both
+        misstate that contract and add byte noise to every board that does not
+        have it — an all-cert ledger carries no ``stages`` key, and a ledger
+        whose cells record no banded baseline carries no ``salience_versions``.
         """
         payload = handler(self)
-        if isinstance(payload, dict) and not self.stages:
-            payload.pop("stages", None)
+        if isinstance(payload, dict):
+            if not self.stages:
+                payload.pop("stages", None)
+            if not self.salience_versions:
+                payload.pop("salience_versions", None)
         return payload
 
 
@@ -2661,6 +2676,14 @@ class CertBacktest(_Strict):
     )
     events_scored: int = Field(ge=0, description="Size of the cert back-test set")
     predictors_evaluated: int = Field(ge=0, description="Number of predictors on the board")
+    salience_version: str = Field(
+        default="",
+        description="The frozen salience function whose bands segment this "
+        "board. A band name means something only under the scorer that assigned "
+        "it, so a per-band figure here is not comparable with one produced under "
+        "another version; default empty only on a board built before the stamp "
+        "existed.",
+    )
     always_denied_accuracy: float = Field(
         default=0.0,
         ge=0.0,

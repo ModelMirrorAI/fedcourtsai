@@ -423,6 +423,14 @@
       "title": "Retrospective Evaluations",
       "type": "integer"
     },
+    "salience_versions": {
+      "description": "The distinct salience versions the ranked cells' baselines were read under, sorted. The gate decides WHICH petitions earn cells at all, so it partitions the population rather than the process \u2014 and unlike a process change it does not move any digest. More than one entry therefore means the aggregates pool two differently-gated populations and are coverage figures, not a ranking (the rule `declared_set_versions` states for a claim total). Empty on a board with no salience-banded baseline, which includes an all-merits board.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Salience Versions",
+      "type": "array"
+    },
     "schema_version": {
       "const": "1.0",
       "default": "1.0",

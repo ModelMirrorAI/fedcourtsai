@@ -1129,3 +1129,27 @@ def test_evaluator_agreement_honours_the_frozen_partition(tmp_path: Path) -> Non
             )
     assert evaluator_agreement(root, frozen_only=True) == {}
     assert evaluator_agreement(root, frozen_only=False) != {}
+
+
+def test_the_board_names_every_gate_version_its_cells_were_scored_under() -> None:
+    """The gate partitions the population, and no digest records that it moved.
+
+    A process change moves a digest and the frozen filter sees it. A salience
+    change does not move anything — it just hands the tournament a different set
+    of petitions — so the only way a reader can tell that a board spans two
+    gated populations is if the board says so.
+    """
+    cells = [
+        _forward(_evaluation("p1", base_rate_salience_version="sal-v1")),
+        _forward(_evaluation("p1", base_rate_salience_version="sal-v2")),
+        _forward(_evaluation("p2", base_rate_salience_version="sal-v1")),
+        _forward(_evaluation("p2")),  # no basis recorded -> no version to report
+    ]
+    board = build_leaderboard(cells)
+    assert board.salience_versions == ["sal-v1", "sal-v2"]  # sorted, deduped, nulls dropped
+
+
+def test_a_board_with_no_banded_baseline_names_no_gate_version() -> None:
+    """Empty, not a fabricated default — a merits cell has no scorer to pin."""
+    board = build_leaderboard([_forward(_evaluation("p1"))])
+    assert board.salience_versions == []
