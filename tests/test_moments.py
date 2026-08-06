@@ -15,6 +15,7 @@ from fedcourtsai.pipeline.outcome import (
     MERITS_EVENT_ID,
     briefed_merits_event_for,
     cvsg_event_for,
+    interim_response_events_for,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
 from fedcourtsai.store import normalized_moment
@@ -281,3 +282,45 @@ def test_both_cert_moments_declare_the_same_claim_set() -> None:
     first, second = (s.event_id for s in moments.moments_for(Stage.cert))
     assert declared_claim_set(first) == declared_claim_set(second)
     assert declared_claim_set(first) is not None
+
+
+def test_the_interim_response_moments_are_distinct_events() -> None:
+    """A request and a filing are different events, kept apart deliberately.
+
+    A respondent may answer uninvited, and a requested response may never
+    arrive — so one "the record filled" signal would conflate two things with
+    very different horizons (median 17 days against median 2).
+    """
+    row = CorpusRow(
+        case_id="scotus/4",
+        court="scotus",
+        docket_id=4,
+        source="live",
+        docket_number="24A200",
+        response_requested_at=date(2025, 4, 1),
+        response_filed_at=date(2025, 4, 5),
+    )
+    baseline = moments.moments_for(Stage.interim)[0].event_id
+    minted = interim_response_events_for(row, [baseline])
+    assert [(e.moment, e.opened_at) for e in minted] == [
+        (Moment.response_requested, date(2025, 4, 1)),
+        (Moment.response_filed, date(2025, 4, 5)),
+    ]
+    # Each mints on its own signal, not as a pair.
+    only_filed = row.model_copy(update={"response_requested_at": None})
+    assert [e.moment for e in interim_response_events_for(only_filed, [baseline])] == [
+        Moment.response_filed
+    ]
+    # And the same open-first-moment guard: a decided application mints nothing.
+    assert interim_response_events_for(row, []) == []
+
+
+def test_no_interim_moment_declares_claims() -> None:
+    """The interim stage has no declared claim set at any moment.
+
+    Its base rate is still accumulating toward the pre-registered floor, so
+    there is nothing for a claim to be scored against — and a later moment does
+    not change that.
+    """
+    for spec in moments.moments_for(Stage.interim):
+        assert declared_claim_set(spec.event_id) is None

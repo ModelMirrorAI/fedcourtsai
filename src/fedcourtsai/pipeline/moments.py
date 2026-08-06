@@ -110,6 +110,28 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         claim_set_version=None,
     ),
     MomentSpec(
+        event_id=ids.event_id(EventKind.order.value, "response-requested-disposition"),
+        kind=EventKind.order,
+        stage=Stage.interim,
+        moment=Moment.response_requested,
+        ordinal=1,
+        decision_target="disposition",
+        description=(
+            "Disposition of the application, forecast after the Court called for a response."
+        ),
+        claim_set_version=None,
+    ),
+    MomentSpec(
+        event_id=ids.event_id(EventKind.brief.value, "response-disposition"),
+        kind=EventKind.brief,
+        stage=Stage.interim,
+        moment=Moment.response_filed,
+        ordinal=2,
+        decision_target="disposition",
+        description=("Disposition of the application, forecast once a response has been filed."),
+        claim_set_version=None,
+    ),
+    MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "judgment"),
         kind=EventKind.order,
         stage=Stage.merits,
