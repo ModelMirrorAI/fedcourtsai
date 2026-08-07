@@ -60,8 +60,8 @@ live:
   # pending ones plus the granted dockets retained until their merits
   # judgment (a cohort of roughly a Term's grants, small against this cap).
   # Sized to re-poll the whole pending watchlist each cycle even at its seasonal
-  # peak — the September long conference distributes ~276 petitions at once
-  # (regular conferences run a median ~11, p90 ~37). This is a coverage ceiling,
+  # peak — the September long conference distributes ~180 petitions at once
+  # (regular conferences run a median ~34, p90 ~82). This is a coverage ceiling,
   # not the wall-clock bound: a re-poll that catches a distribution transition
   # also fetches up to two document PDFs, and those cluster exactly at that peak,
   # so cycle time is governed by the run-pull live job's `--max-run-seconds` soft
@@ -72,7 +72,7 @@ live:
   max_cases_per_run: 300
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
-  # absorb the long-conference onboarding burst within a day (~276 over ~4
+  # absorb the long-conference onboarding burst within a day (~180 over ~2
   # cycles) rather than trickling it over a week; the same soft
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
@@ -220,15 +220,24 @@ evaluate:
 # up to a fundable capacity N. N is a guaranteed floor per conference, not a hard
 # ceiling — carve-outs and the sticky latch may push the realized count above it.
 salience:
-  # Bootstrapping-sized: the long-conference cap keeps the flagship three-engine
-  # OT2026 release inside the ~$10K bootstrapping budget (~$5K inference at the
-  # ~$13/fully-tournamented-case planning rate, over the ~$5K non-inference
-  # floor), with headroom left for the Term's first regular conferences; raised
-  # as funding lifts N (see docs/budget.md). The long conference (the Term's
-  # opening conference) clears the summer backlog at once, so it carries a
-  # larger cap than a regular conference.
-  per_conference_capacity: 150
-  long_conference_capacity: 200
+  # Bootstrapping-sized, and sized to BIND. Conference cohorts run a median 34
+  # petitions (p90 82, max 369), so a cap of 150 cut 8 of 251 cohorts and
+  # selected 96% of the paid docket — a ranking, not a spend control, funding
+  # ~$21K/Term against a ~$10K inference envelope. At 12 the gate selects ~543
+  # petitions a Term, which with the other stages' moments lands the whole
+  # program at ~$10.2K (docs/budget.md).
+  #
+  # It costs coverage, and the trade is stated rather than hidden: ~80% of the
+  # Term's grants are still selected, against ~98% at 150. Raise both as funding
+  # lifts, keeping the ratio below.
+  per_conference_capacity: 12
+  # The Term's opening conference clears the summer backlog at once — ~180
+  # petitions against a regular conference's ~34 — so it carries a larger cap.
+  # The 2x ratio (up from 1.33x) front-loads deliberately: the opening cohort is
+  # where the Term's arrivals concentrate, and at a fixed budget the shift is
+  # grant-neutral, so it buys breadth at the moment of highest volume for
+  # nothing.
+  long_conference_capacity: 24
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28
