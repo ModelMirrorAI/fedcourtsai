@@ -197,6 +197,145 @@ def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> N
     }
 
 
+def _cvsg_case(
+    db: Path,
+    docket_id: int,
+    *,
+    disposition: Disposition | None = None,
+    docket_number: str = "24-1234",
+    stage: Stage | None = Stage.cert,
+) -> None:
+    """A SCOTUS petition whose CVSG order has been minted beside its baseline."""
+    case_id = f"scotus/{docket_id}"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number=docket_number,
+                    disposition=disposition,
+                    cvsg_date=date(2025, 3, 3),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    resolved=disposition is not None,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-order-cvsg-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=stage,
+                ),
+            ],
+        )
+
+
+def test_forecastable_events_fans_out_the_cvsg_event(tmp_path: Path) -> None:
+    """The cert admission: a minted CVSG order earns its re-forecast cell.
+
+    The later cert moment's fan-out surface — an order-kind, cert-stage event
+    on a still-pending petition — alongside the baseline the case-kind arm
+    already admits. Neither of the other stage arms reaches it (interim is
+    keyed on a motion, merits on the merits stage), so this arm is what puts
+    the budgeted CVSG cells in front of a predictor at all.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 21)
+
+    assert set(forecastable_events(db, "scotus", 21)) == {
+        "evt-petition-disposition",
+        "evt-order-cvsg-disposition",
+    }
+
+
+def test_forecastable_events_refuses_a_cvsg_event_on_a_decided_row(tmp_path: Path) -> None:
+    # A disposition latched while the CVSG event still awaits its outcome
+    # record (the unrecorded-triage shape) must not mint a cell per predictor,
+    # per day, that provisioning then refuses — same guard the merits arm
+    # keys on its latched judgment. Ground truth still flows via open_events.
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 22, disposition=Disposition.denied)
+
+    assert forecastable_events(db, "scotus", 22) == []
+    assert open_events(db, "scotus", 22) == ["evt-order-cvsg-disposition"]
+
+
+def test_forecastable_events_refuses_a_cvsg_event_out_of_predict_scope(tmp_path: Path) -> None:
+    # An IFP docket serial is a documented predict-scope exclusion: its CVSG
+    # cell is refused by the row rules at this seam, while its baseline rides
+    # the case-kind arm until the scope reconcile latches the row out.
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 23, docket_number="24-5001")
+
+    assert forecastable_events(db, "scotus", 23) == ["evt-petition-disposition"]
+
+
+def test_forecastable_events_requires_the_cert_stage_on_the_cvsg_order(tmp_path: Path) -> None:
+    # A stage-less order is never admitted, here as on the merits arm: the
+    # stage is the decision standard, and the register check reads the stamp,
+    # not the id.
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 24, stage=None)
+
+    assert forecastable_events(db, "scotus", 24) == ["evt-petition-disposition"]
+
+
+def test_forecastable_events_keeps_an_application_row_out_of_the_cert_arm(
+    tmp_path: Path,
+) -> None:
+    # The pin behind the arm's superset claim: an application-form row whose
+    # events wear cert-shaped ids and stamps is refused by the cert arm's form
+    # check exactly as the case-baseline arm refuses its mislabeled baseline —
+    # the new arm opens no side door around that refusal.
+    db = corpus.corpus_db_path(tmp_path)
+    case_id = "scotus/9525000010"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="25A10",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-order-cvsg-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.cert,
+                ),
+            ],
+        )
+
+    assert forecastable_events(db, "scotus", 9525000010) == []
+
+
 def _granted_case(
     db: Path,
     docket_id: int,

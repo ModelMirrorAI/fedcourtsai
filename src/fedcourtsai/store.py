@@ -126,10 +126,11 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
 
 
 # The event kinds the forward tournament forecasts unconditionally: the
-# case-baseline disposition events. Two stage-keyed admissions sit beside this
-# set in `forecastable_event_ids` — the interim-stage motion baseline of an
-# application docket, and the merits-stage order event a cert grant mints — and
-# both are conditional on the row, because the kind alone does not say which
+# case-baseline disposition events. Three stage-keyed admissions sit beside
+# this set in `forecastable_event_ids` — the cert-stage CVSG order minted on a
+# still-pending petition, the interim-stage motion baseline of an application
+# docket, and the merits-stage order event a cert grant mints — and all are
+# conditional on the row, because the kind alone does not say which
 # population the cell would be scored against. A motion on a *cert* docket is
 # recorded and tracked but never queued for prediction: the prompt contract,
 # the salience band, and the segment base rate are all conditioned on the cert
@@ -147,10 +148,12 @@ def forecastable_events(
 ) -> list[str]:
     """The subset of :func:`open_events` the predict fan-out may target.
 
-    The case-baseline disposition kinds (petition, appeal), plus two stage-keyed
-    admissions: the **interim-stage motion baseline** of an in-scope application
-    docket, and the **merits-stage order event** a cert grant minted on a case
-    whose grant opened a merits proceeding. Every predict queue and the predict
+    The case-baseline disposition kinds (petition, appeal), plus three
+    stage-keyed admissions: the **cert-stage CVSG order** minted on a petition
+    still awaiting disposition, the **interim-stage motion baseline** of an
+    in-scope application docket, and the **merits-stage order event** minted on
+    a case whose cert grant opened a merits proceeding. Every predict queue and
+    the predict
     matrix's default-event resolution read this seam; evaluate, outcome
     detection, the rotation, and the corpus service keep the unfiltered
     :func:`open_events`, because an open motion event outside predict scope
@@ -161,6 +164,45 @@ def forecastable_events(
         return []
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         return forecastable_event_ids(conn, court_id, docket_id)
+
+
+def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is a forecastable cert-stage moment of a pending petition.
+
+    The cert admission: an event the register declares at the **cert stage**,
+    on a scotus row that is neither an application docket nor already decided.
+    In practice this arm carries the **CVSG order** — the later cert moment,
+    minted when the call for the Solicitor General's views latches while the
+    petition is still awaiting disposition — since the petition baseline the
+    register also declares is already admitted by the case-baseline arm; the
+    or-chain makes the overlap harmless, and this arm's row refusals are a
+    strict superset of that arm's, so nothing the baseline arm refuses can
+    enter through this one.
+
+    The form check mirrors the case-baseline arm's mislabeled-application
+    refusal: a CVSG exists only on a cert docket, but admission is keyed on
+    the row, not on the shape of an id.
+
+    The decided-row refusal mirrors the merits arm's latched-judgment check,
+    reading the same pair the cohort selection reads (``disposition`` /
+    :func:`fedcourtsai.corpus.resolution_date`): a disposition latched while
+    the docket's events await their outcome record would otherwise mint a
+    cell per predictor, per day, that provisioning then refuses.
+
+    Deliberately **no salience condition**, matching the baseline: the gate
+    applies at the queue seams (predict scope, the live sweep), and a CVSG row
+    is a sal-v1 carve-out — selection follows the very signal that minted this
+    event.
+    """
+    return (
+        _declares_forecastable(event, Stage.cert)
+        and row is not None
+        and row.court == "scotus"
+        and not corpus.is_scotus_application_form(row.docket_number)
+        and row.disposition is None
+        and corpus.resolution_date(row) is None
+        and corpus.out_of_scope_reason(row) is None
+    )
 
 
 def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
@@ -285,6 +327,7 @@ def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id
         if not event.resolved
         and (
             _case_baseline_forecastable(event, row)
+            or _cert_forecastable(event, row)
             or _interim_forecastable(event, row)
             or _merits_forecastable(event, row)
         )
