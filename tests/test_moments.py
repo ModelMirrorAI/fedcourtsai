@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from fedcourtsai import corpus
@@ -9,7 +11,8 @@ from fedcourtsai.cli import _forward_leakage
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.claims import declared_claim_set
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
-from fedcourtsai.schemas import EventKind, Moment, Stage
+from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID, briefed_merits_event_for
+from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
 from fedcourtsai.store import normalized_moment
 
 
@@ -173,3 +176,57 @@ def _register(monkeypatch: pytest.MonkeyPatch, *extra: moments.MomentSpec) -> No
     declared = (*moments.DECLARED_MOMENTS, *extra)
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", declared)
     monkeypatch.setattr(moments, "_BY_EVENT_ID", {s.event_id: s for s in declared})
+
+
+def test_the_briefed_moment_mints_only_while_the_grant_moment_is_open() -> None:
+    """The open-first-moment guard, which is what makes a forever-true trigger safe.
+
+    The respondent's brief stays on the docket permanently, so this trigger
+    re-fires on every poll — harmless, because the upsert is idempotent. What
+    would not be harmless is minting on a docket whose judgment has already
+    landed: that creates a permanently open event nothing can ever resolve,
+    which would keep the case in the rotation and owed a cell forever.
+    """
+    briefed = date(2025, 6, 1)
+    row = CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_id=1,
+        source="live",
+        docket_number="24-100",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2025, 3, 4),
+        merits_brief_filed=briefed,
+    )
+    minted = briefed_merits_event_for(row, [MERITS_EVENT_ID])
+    assert minted is not None
+    assert (minted.event_id, minted.stage, minted.moment) == (
+        "evt-brief-judgment",
+        Stage.merits,
+        Moment.briefed,
+    )
+    assert minted.opened_at == briefed  # the moment, not the grant date
+    # The grant moment already closed: the case is decided, nothing to forecast.
+    assert briefed_merits_event_for(row, []) is None
+    # A judgment already latched: same answer, checked on the row rather than
+    # the event set, since the two can disagree for a poll.
+    decided = row.model_copy(update={"merits_judgment": "reversed"})
+    assert briefed_merits_event_for(decided, [MERITS_EVENT_ID]) is None
+    # No brief parsed yet.
+    unbriefed = row.model_copy(update={"merits_brief_filed": None})
+    assert briefed_merits_event_for(unbriefed, [MERITS_EVENT_ID]) is None
+
+
+def test_a_granted_application_mints_no_briefed_moment_either() -> None:
+    """The same `opens_merits_proceeding` guard the grant moment takes."""
+    application = CorpusRow(
+        case_id="scotus/2",
+        court="scotus",
+        docket_id=2,
+        source="live",
+        docket_number="24A100",
+        disposition=Disposition.granted,
+        date_cert_granted=None,
+        merits_brief_filed=date(2025, 6, 1),
+    )
+    assert briefed_merits_event_for(application, [MERITS_EVENT_ID]) is None

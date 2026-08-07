@@ -106,6 +106,19 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description="Disposition of the judgment below, following the cert grant.",
         claim_set_version=CLAIM_SET_MERITS_V1,
     ),
+    MomentSpec(
+        event_id=ids.event_id(EventKind.brief.value, "judgment"),
+        kind=EventKind.brief,
+        stage=Stage.merits,
+        moment=Moment.briefed,
+        ordinal=1,
+        decision_target="judgment",
+        description=(
+            "Disposition of the judgment below, forecast once both sides' merits "
+            "briefs are on the record."
+        ),
+        claim_set_version=CLAIM_SET_MERITS_V1,
+    ),
 )
 
 _BY_EVENT_ID: Mapping[str, MomentSpec] = MappingProxyType(

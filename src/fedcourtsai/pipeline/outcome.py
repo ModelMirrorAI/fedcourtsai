@@ -944,6 +944,49 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
     )
 
 
+def briefed_merits_event_for(
+    row: CorpusRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
+    """The merits stage's **second** forecast moment, or ``None``.
+
+    Once both sides' merits briefs are on the record the case is substantively
+    ready to be decided, and the same judgment can be forecast again from a much
+    larger evidence base — a median 159 days before it lands, and never fewer
+    than 44 (:mod:`fedcourtsai.pipeline.merits_signals`).
+
+    Unlike the grant moment, this cannot be keyed on *this* resolution's
+    outcomes: the brief is a docket observation that stays true forever, so the
+    trigger re-fires on every poll. That is safe — the upsert is idempotent by
+    ``(case_id, event_id)`` and writing identical YAML is a git no-op — but only
+    because of the **open-first-moment** guard: without it, a brief on a docket
+    whose judgment has already landed would mint a permanently open phantom
+    event that nothing could ever resolve.
+    """
+    if row.merits_brief_filed is None or row.merits_judgment is not None:
+        return None
+    spec = moments.moments_for(Stage.merits)[1]
+    if not corpus.opens_merits_proceeding(row):
+        return None
+    if MERITS_EVENT_ID not in open_event_ids:
+        # The first moment must still be open: it closes at the judgment, so an
+        # already-closed one means the case is decided and there is nothing left
+        # to forecast.
+        return None
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.merits_brief_filed,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def mint_merits_event(
     corpus_db_path: Path,
     data_root: Path,
@@ -951,8 +994,9 @@ def mint_merits_event(
     docket_id: int,
     row: CorpusRow,
     resolution: Resolution,
-) -> str | None:
-    """Record the merits event a just-recorded cert grant opens; return its id.
+    open_event_ids: list[str] | None = None,
+) -> list[str]:
+    """Record the merits events this poll opens; return their ids.
 
     The write half of :func:`merits_event_for`: upsert the corpus event row —
     idempotent by ``(case_id, event_id)``, and ``resolved`` MAX-latches, so a
@@ -969,30 +1013,38 @@ def mint_merits_event(
     ships with (an open ``event.yaml`` with ``resolved=False`` is the same
     shape ``materialize-event`` provisions for the agent cells).
     """
-    event = merits_event_for(row, resolution)
-    if event is None:
-        return None
+    minted = [
+        event
+        for event in (
+            merits_event_for(row, resolution),
+            briefed_merits_event_for(row, list(open_event_ids or [])),
+        )
+        if event is not None
+    ]
+    if not minted:
+        return []
     with corpus.connect(corpus_db_path) as conn:
-        corpus.upsert_events(conn, [event])
-        stored = {e.event_id: e for e in corpus.events_for_case(conn, event.case_id)}[
-            event.event_id
-        ]
-    write_yaml(
-        CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
-        PredictableEvent(
-            event_id=stored.event_id,
-            case_id=stored.case_id,
-            kind=stored.kind,
-            stage=stored.stage,
-            title=stored.title,
-            description=stored.description,
-            docket_entry_id=stored.docket_entry_id,
-            opened_at=stored.opened_at,
-            decision_target=stored.decision_target,
-            resolved=stored.resolved,
-        ),
-    )
-    return event.event_id
+        corpus.upsert_events(conn, minted)
+        stored_all = {e.event_id: e for e in corpus.events_for_case(conn, minted[0].case_id)}
+    for event in minted:
+        stored = stored_all[event.event_id]
+        write_yaml(
+            CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
+            PredictableEvent(
+                event_id=stored.event_id,
+                case_id=stored.case_id,
+                kind=stored.kind,
+                stage=stored.stage,
+                moment=stored.moment,
+                title=stored.title,
+                description=stored.description,
+                docket_entry_id=stored.docket_entry_id,
+                opened_at=stored.opened_at,
+                decision_target=stored.decision_target,
+                resolved=stored.resolved,
+            ),
+        )
+    return [event.event_id for event in minted]
 
 
 def resolve_case(
@@ -1038,5 +1090,17 @@ def resolve_case(
         resolved_event_ids=resolved_event_ids,
     )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
-    mint_merits_event(corpus_db_path, data_root, court_id, docket_id, row, resolution)
+    # After the attribution, so the detection pass that resolves the petition
+    # never sees the events it opens. `open_event_ids` is the PRE-resolution
+    # set, which is what the briefed moment's guard wants: the first merits
+    # moment must still have been open when this poll began.
+    mint_merits_event(
+        corpus_db_path,
+        data_root,
+        court_id,
+        docket_id,
+        row,
+        resolution,
+        open_event_ids=open_event_ids,
+    )
     return resolution
