@@ -69,6 +69,7 @@ from ..schemas import (
     Disposition,
     EventKind,
     Judgment,
+    Moment,
     Outcome,
     PredictableEvent,
     ResolutionSignals,
@@ -101,7 +102,8 @@ def _known_judgment(value: str) -> Judgment | None:
 
 #: The id of the merits event a cert grant mints: the grant order is the filing
 #: that opened it (kind names the filing, stage names the standard — the
-#: ``Stage`` docstring), and the thing to predict is the judgment.
+#: ``Stage`` docstring), and the thing to predict is the judgment. Declared in
+#: :mod:`fedcourtsai.pipeline.moments`; kept here as the name most callers know.
 MERITS_EVENT_ID = ids.event_id("order", "judgment")
 
 
@@ -894,6 +896,7 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
         court=row.court,
         kind=EventKind.order,
         stage=Stage.merits,
+        moment=Moment.grant,
         # The same fallback chain the baseline event uses, so a payload with no
         # petitioner title never yields an empty-titled event definition.
         title=row.case_name or row.docket_number or row.case_id,

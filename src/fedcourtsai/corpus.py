@@ -51,6 +51,7 @@ from .schemas import (
     Disposition,
     EventKind,
     Judgment,
+    Moment,
     Stage,
 )
 from .supremecourt import (
@@ -506,6 +507,11 @@ class CorpusEvent(BaseModel):
         "merits); None where no stage is recorded — no Supreme Court standard "
         "applies, or the writer does not classify one for this event.",
     )
+    moment: Moment | None = Field(
+        default=None,
+        description="Which forecast moment of the stage this event is; None where "
+        "unrecorded, read downstream as the stage's first moment.",
+    )
     title: str = ""
     description: str | None = None
     docket_entry_id: int | None = Field(
@@ -648,6 +654,7 @@ CREATE TABLE IF NOT EXISTS events (
     court           TEXT NOT NULL,
     kind            TEXT NOT NULL,
     stage           TEXT,
+    moment          TEXT,
     title           TEXT NOT NULL DEFAULT '',
     description     TEXT,
     docket_entry_id INTEGER,
@@ -2705,6 +2712,7 @@ _EVENT_COLUMNS = (
     "court",
     "kind",
     "stage",
+    "moment",
     "title",
     "description",
     "docket_entry_id",
@@ -2721,6 +2729,7 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "court": event.court,
         "kind": event.kind,
         "stage": event.stage,
+        "moment": event.moment,
         "title": event.title,
         "description": event.description,
         "docket_entry_id": event.docket_entry_id,
@@ -2739,6 +2748,7 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         # The ranged backend serves the remote blob as-is, so a blob written
         # before the column existed must read as unset, not fail the row.
         stage=_optional_str(record, "stage"),
+        moment=_optional_str(record, "moment"),
         title=record["title"],
         description=record["description"],
         docket_entry_id=record["docket_entry_id"],

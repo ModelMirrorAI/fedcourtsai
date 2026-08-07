@@ -40,6 +40,7 @@ from ..supremecourt import (
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
+from . import moments
 from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
 from .interim_signals import application_kind, escalation_signals, match_interim_disposition
 from .judgment import last_judgment_entry
@@ -864,6 +865,10 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
         court=row.court,
         kind=kind,
         stage=stage,
+        # Stamped at the mint, not inferred later: the events upsert takes the
+        # incoming value for every column but `resolved`, so a moment left off
+        # here is nulled again by the next re-ingest.
+        moment=moments.first_moment(stage) if stage is not None else None,
         title=row.case_name or row.docket_number or row.case_id,
         decision_target="disposition",
         opened_at=row.date_filed,

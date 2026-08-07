@@ -27,7 +27,8 @@ from pathlib import Path
 from typing import Any
 
 from . import corpus, ids
-from .schemas import Disposition, EventKind, Judgment, Stage
+from .pipeline import moments
+from .schemas import Disposition, EventKind, Judgment, Moment, Stage
 
 _COURT_URL = "https://www.courtlistener.com/api/rest/v4/courts/{court}/"
 
@@ -155,6 +156,7 @@ class FixtureCase:
             court=self.court,
             kind=self.kind,
             stage=stage,
+            moment=moments.first_moment(stage) if stage is not None else None,
             title=self.case_name,
             decision_target="disposition",
             opened_at=self.date_filed,
@@ -182,6 +184,7 @@ class FixtureCase:
                     court=self.court,
                     kind=EventKind.order,
                     stage=Stage.merits,
+                    moment=Moment.grant,
                     title=self.case_name,
                     description="Disposition of the judgment below, following the cert grant.",
                     decision_target="judgment",

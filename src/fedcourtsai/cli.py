@@ -2086,7 +2086,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # is the leaderboard's job.
     stratified = [
         (ev, stratum)
-        for ev, stratum, _stage in iter_stratified_evaluations(
+        for ev, stratum, _stage, _moment in iter_stratified_evaluations(
             settings.data_root, frozen_only=not all_versions
         )
     ]

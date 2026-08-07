@@ -14,7 +14,8 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .leaderboard import PROCEDURAL, classify_stratum
+from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
+from .pipeline.moments import first_moment
 from .process_version import is_frozen
 from .schemas import (
     AgentFlags,
@@ -22,6 +23,7 @@ from .schemas import (
     Evaluation,
     EventKind,
     ModelUsage,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -329,10 +331,22 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
 
 
+def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | None:
+    """The forecast moment a cell reads as, normalizing an unrecorded one.
+
+    A record written before the moment axis existed carries none, and its event
+    is by construction the stage's **first** moment — there was no second one to
+    be. Normalizing here rather than back-filling the record follows the stage
+    rule directly above: the join decides what a legacy artifact reads as, and
+    the artifact keeps saying only what its writer knew.
+    """
+    return moment if moment is not None else (first_moment(stage) if stage is not None else None)
+
+
 def iter_stratified_evaluations(
     data_root: Path, *, frozen_only: bool = True
-) -> list[tuple[Evaluation, Stratum, Stage | None]]:
-    """Every evaluation joined to its stratum and its event's stage, in stable path order.
+) -> list[StratifiedCell]:
+    """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
     the same event and the event's ``outcome.json`` — all committed artifacts, so
@@ -366,7 +380,7 @@ def iter_stratified_evaluations(
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return []
-    cells: list[tuple[Evaluation, Stratum, Stage | None]] = []
+    cells: list[StratifiedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -395,7 +409,7 @@ def iter_stratified_evaluations(
         stage: Stage | None = event.stage
         if stage is None and event.kind in _FORECASTABLE_KINDS:
             stage = Stage.cert
-        cells.append((evaluation, stratum, stage))
+        cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
     return cells
 
 

@@ -32,6 +32,7 @@ from fedcourtsai.schemas import (
     Evaluation,
     EventKind,
     Leaderboard,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -50,7 +51,7 @@ runner = CliRunner()
 
 # The stage-annotated cell shape `iter_stratified_evaluations` yields and
 # `build_leaderboard` consumes.
-Cell = tuple[Evaluation, Stratum, Stage | None]
+Cell = tuple[Evaluation, Stratum, Stage | None, Moment | None]
 
 
 def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
@@ -71,12 +72,20 @@ def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
     return Evaluation.model_validate(base)
 
 
-def _forward(ev: Evaluation, stage: Stage | None = Stage.cert) -> Cell:
-    return (ev, FORWARD, stage)
+def _forward(
+    ev: Evaluation,
+    stage: Stage | None = Stage.cert,
+    moment: Moment | None = Moment.distribution,
+) -> Cell:
+    return (ev, FORWARD, stage, moment)
 
 
-def _retro(ev: Evaluation, stage: Stage | None = Stage.cert) -> Cell:
-    return (ev, RETROSPECTIVE, stage)
+def _retro(
+    ev: Evaluation,
+    stage: Stage | None = Stage.cert,
+    moment: Moment | None = Moment.distribution,
+) -> Cell:
+    return (ev, RETROSPECTIVE, stage, moment)
 
 
 def _write(data_root: Path, ev: Evaluation) -> None:
@@ -335,7 +344,7 @@ def test_iter_stratified_evaluations_joins_prediction_and_outcome(tmp_path: Path
     )
     strata = {
         ev.event_id: stratum
-        for ev, stratum, _stage in iter_stratified_evaluations(tmp_path, frozen_only=False)
+        for ev, stratum, _stage, _moment in iter_stratified_evaluations(tmp_path, frozen_only=False)
     }
     assert strata == {"evt-a": FORWARD, "evt-b": RETROSPECTIVE}
 
@@ -357,7 +366,7 @@ def test_iter_stratified_evaluations_normalizes_the_event_stage(tmp_path: Path) 
     _write_cell(tmp_path, _evaluation("p", event_id="evt-d"), kind=EventKind.motion, stage=None)
     stages = {
         ev.event_id: stage
-        for ev, _stratum, stage in iter_stratified_evaluations(tmp_path, frozen_only=False)
+        for ev, _stratum, stage, _moment in iter_stratified_evaluations(tmp_path, frozen_only=False)
     }
     assert stages == {
         "evt-a": Stage.cert,
@@ -427,7 +436,7 @@ def test_mootness_outcome_routes_to_the_procedural_stratum(tmp_path: Path) -> No
         resolved_at=date(2026, 6, 23),  # timing alone would read forward
         disposition_basis="mootness",
     )
-    ((_, stratum, _stage),) = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    ((_, stratum, _stage, _moment),) = iter_stratified_evaluations(tmp_path, frozen_only=False)
     assert stratum == PROCEDURAL
 
 
@@ -437,8 +446,18 @@ def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) ->
     # and the totals must report the segmentation.
     board = build_leaderboard(
         [
-            (_evaluation("a", correct=1, brier_score=0.1), FORWARD, Stage.cert),
-            (_evaluation("b", correct=1, brier_score=0.0), PROCEDURAL, Stage.cert),
+            (
+                _evaluation("a", correct=1, brier_score=0.1),
+                FORWARD,
+                Stage.cert,
+                Moment.distribution,
+            ),
+            (
+                _evaluation("b", correct=1, brier_score=0.0),
+                PROCEDURAL,
+                Stage.cert,
+                Moment.distribution,
+            ),
         ]
     )
     assert [e.predictor_id for e in board.entries] == ["a", "b"]
@@ -457,9 +476,14 @@ def test_non_cert_stages_report_separately_and_never_rank() -> None:
     # top-level counts, never pooled with cert or with each other.
     board = build_leaderboard(
         [
-            (_evaluation("a", correct=1, brier_score=0.1), FORWARD, Stage.cert),
-            (_evaluation("b", correct=1, brier_score=0.0), FORWARD, Stage.interim),
-            (_evaluation("c", correct=0, brier_score=0.5), RETROSPECTIVE, None),
+            (
+                _evaluation("a", correct=1, brier_score=0.1),
+                FORWARD,
+                Stage.cert,
+                Moment.distribution,
+            ),
+            (_evaluation("b", correct=1, brier_score=0.0), FORWARD, Stage.interim, Moment.arrival),
+            (_evaluation("c", correct=0, brier_score=0.5), RETROSPECTIVE, None, None),
         ]
     )
     assert [e.predictor_id for e in board.entries] == ["a"]

@@ -194,10 +194,19 @@ class Judgment(StrEnum):
 
 
 class EventKind(StrEnum):
+    """The filing that *opened* an event — not what the event decides.
+
+    Orthogonal to :class:`Stage` (the decision standard) and :class:`Moment`
+    (when in the case's life the forecast was taken). Keeping the three apart is
+    what lets one case carry several forecasts of one question: they share a
+    stage, differ in moment, and each names the filing that made it forecastable.
+    """
+
     motion = "motion"
     petition = "petition"
     appeal = "appeal"
     order = "order"
+    brief = "brief"
 
 
 class Stage(StrEnum):
@@ -220,6 +229,45 @@ class Stage(StrEnum):
     cert = "cert"
     interim = "interim"
     merits = "merits"
+
+
+class Moment(StrEnum):
+    """*When* in a case's life a forecast of its stage was taken.
+
+    A stage asks one question — will cert be granted, will the application be
+    granted, will the judgment below be disturbed — and the case passes several
+    points at which that question can honestly be forecast, each with a
+    different information set. A petition forecast the day it is first
+    distributed and the same petition forecast after a CVSG are answering the
+    same question from different evidence, so they are **two forecasts, not one
+    forecast revised**: each freezes its own context and each is scored on its
+    own.
+
+    The consequence that makes this a vocabulary rather than a counter: two
+    moments are two populations, and pooling them would publish a mean over a
+    mixture of information sets. Aggregation therefore keys on
+    ``(stage, moment)`` and never on stage alone — the same rule the salience
+    version and the claim-set version already carry.
+
+    Which moments exist, what each is minted from, and which claims each
+    declares live in one table, :mod:`fedcourtsai.pipeline.moments`. Nothing
+    reads a moment out of an event id.
+    """
+
+    #: cert — the petition is first distributed for conference.
+    distribution = "distribution"
+    #: cert — the Court calls for the Solicitor General's views.
+    cvsg = "cvsg"
+    #: interim — the application arrives on the docket.
+    arrival = "arrival"
+    #: interim — the Court (or a Circuit Justice) asks for a response.
+    response_requested = "response-requested"
+    #: interim — a response to the application is filed.
+    response_filed = "response-filed"
+    #: merits — the cert grant opens the proceeding.
+    grant = "grant"
+    #: merits — the respondent's brief on the merits is filed.
+    briefed = "briefed"
 
 
 class GroupBy(StrEnum):
@@ -358,6 +406,14 @@ class PredictableEvent(_Strict):
         "either no Supreme Court decision standard applies (a circuit appeal), or "
         "the writer does not classify one for this event; consumers treat null as "
         "'no rule', never as a guess.",
+    )
+    moment: Moment | None = Field(
+        default=None,
+        description="Which forecast moment of the stage this event is (see the "
+        "Moment vocabulary) — the point in the case's life the forecast was taken "
+        "from, and therefore the information set it had. Null means unrecorded, "
+        "in which case a consumer reads it as the stage's first moment; a stage "
+        "carrying two events reads them as two populations and never pools them.",
     )
     title: str
     description: str | None = None

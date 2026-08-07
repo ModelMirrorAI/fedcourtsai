@@ -36,6 +36,7 @@ from typing import Any
 
 from .. import corpus, ids
 from ..schemas import EventKind, Stage
+from . import moments
 from .ingest import CorpusRow, default_event, from_api_docket
 
 # --- docket-entry classification ----------------------------------------------
@@ -182,6 +183,16 @@ def _referenced_numbers(text: str) -> set[int]:
     return {int(m.group(1)) for m in _REFERENCE_RE.finditer(text)}
 
 
+def _entry_stage(kind: EventKind, court: str) -> Stage | None:
+    """The stage an entry-pinned event declares.
+
+    A SCOTUS motion that survived the substantive filter is a stay / injunction
+    / emergency application — the interim decision standard. A circuit entry has
+    no SCOTUS stage at all.
+    """
+    return Stage.interim if kind == EventKind.motion and court == "scotus" else None
+
+
 def extract_events(
     docket: Mapping[str, Any],
     *,
@@ -293,9 +304,10 @@ def extract_events(
                 # A SCOTUS motion that survived the substantive filter is a
                 # stay / injunction / emergency application — the interim
                 # decision standard. A circuit entry has no SCOTUS stage.
-                stage=(
-                    Stage.interim if kind == EventKind.motion and row.court == "scotus" else None
-                ),
+                stage=(stage := _entry_stage(kind, row.court)),
+                # An entry-pinned motion is the interim stage's arrival moment:
+                # it is the filing that first made the matter forecastable.
+                moment=moments.first_moment(stage) if stage is not None else None,
                 title=row.case_name or row.docket_number or row.case_id,
                 description=entry.text or None,
                 docket_entry_id=entry.entry_id,

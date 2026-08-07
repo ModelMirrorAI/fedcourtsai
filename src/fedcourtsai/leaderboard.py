@@ -58,6 +58,7 @@ from .schemas import (
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
+    Moment,
     Outcome,
     Prediction,
     Stage,
@@ -70,6 +71,13 @@ from .serialize import read_model
 #: The join key for per-cell figures the board computes at render rather than
 #: reading off the record, since ``Evaluation`` is not hashable.
 EvaluationKey = tuple[str, str, str, str, str]
+
+#: One joined cell as ``store.iter_stratified_evaluations`` yields it:
+#: ``(evaluation, stratum, stage, moment)``. The stage and the moment travel
+#: together because neither alone identifies the population a cell belongs to —
+#: the stage names the question, the moment names the information set that
+#: answered it.
+StratifiedCell = tuple["Evaluation", "Stratum", "Stage | None", "Moment | None"]
 
 FORWARD: Stratum = "forward"
 RETROSPECTIVE: Stratum = "retrospective"
@@ -397,7 +405,7 @@ def evaluator_agreement(
 
 
 def skill_components(
-    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
+    cells: Iterable[StratifiedCell],
     data_root: Path,
     statpack: StatPack | None,
 ) -> dict[EvaluationKey, CellSkill]:
@@ -454,7 +462,7 @@ def skill_components(
     cases_dir = data_root / "cases"
     outcomes: dict[tuple[str, str], Outcome] = {}
     components: dict[EvaluationKey, CellSkill] = {}
-    for evaluation, _stratum, stage in cells:
+    for evaluation, _stratum, stage, _moment in cells:
         if evaluation.brier_score is None:
             continue
         event_key = (evaluation.case_id, evaluation.event_id)
@@ -625,7 +633,7 @@ def _stage_board(
 
 
 def build_leaderboard(
-    cells: Iterable[tuple[Evaluation, Stratum, Stage | None]],
+    cells: Iterable[StratifiedCell],
     big_case: Mapping[str, BigCaseLeaderboard] | None = None,
     *,
     evaluators: Mapping[str, EvaluatorAgreement] | None = None,
@@ -669,7 +677,7 @@ def build_leaderboard(
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
     stage_cells: dict[str, list[tuple[Evaluation, Stratum]]] = defaultdict(list)
-    for ev, stratum, stage in cells:
+    for ev, stratum, stage, _moment in cells:
         if stage == Stage.cert:
             cert_cells.append((ev, stratum))
         else:
