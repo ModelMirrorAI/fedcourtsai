@@ -9,14 +9,21 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
+from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
+    _CIRCUIT_GRANT_RATE,
     SALIENCE_VERSION,
+    SCORERS,
+    SalienceScorer,
     _selection_plan,
+    carve_out,
     plan_cohorts,
     reconcile_salience_selection,
+    registered_versions,
     salience_band,
     salience_bands,
     salience_score,
+    scorer,
 )
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
@@ -108,6 +115,87 @@ def test_circuit_nudge_never_carries_a_petition_across_a_band_boundary() -> None
             "elevated"
         )
         assert salience_band(_petition("scotus/2", distribution_count=3, circuit=circuit)) == "high"
+
+
+@pytest.mark.parametrize("version", registered_versions())
+def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
+    """The always-include floor (config) and the strongest band's cutpoint (code)
+    are separate constants in separate files, and nothing but this test holds them
+    aligned: a refit that put an achievable non-carved score inside
+    [cutpoint, floor) would open a silent gap between "strongest band" and
+    "carved in". The enumeration drives the scorer over constructed
+    rows — every relist state crossed with every circuit (known, unknown,
+    unlinked), with and without CVSG — so it spans the achievable score
+    lattice even if the scorer later gains a term; the private constant is
+    imported only to enumerate the circuit keys.
+
+    Parameterized over every registered version, so registering a second scorer
+    cannot skip the check that the first one is held to."""
+    banding = scorer(version)
+    strongest = banding.bands[0]
+    floor = load_salience_config(Path("config")).floor
+    circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
+    for distribution_count in (1, 2, 3, None):
+        for circuit in circuits:
+            for cvsg in (False, True):
+                row = _petition(
+                    "scotus/lattice",
+                    distribution_count=distribution_count,
+                    cvsg=cvsg,
+                    circuit=circuit,
+                )
+                score = banding.score(row)
+                in_strongest = banding.band(row) == strongest
+                carved = banding.carve_out(row, score, floor)
+                assert in_strongest == carved, (
+                    f"{version} gap at distribution_count={distribution_count} "
+                    f"circuit={circuit} cvsg={cvsg}: score={score:.4f}, "
+                    f"{strongest}={in_strongest}, carved={carved}"
+                )
+
+
+def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
+    """The module-level helpers are delegations, not a second implementation.
+
+    Every existing caller reads `salience_score` / `salience_band` /
+    `carve_out` as "the live scorer", so those names have to stay pinned to the
+    registry's active entry rather than to whichever function happens to be
+    defined beside them."""
+    row = _petition("scotus/1", distribution_count=3, circuit="ca9")
+    active = scorer()
+    assert active.version == SALIENCE_VERSION
+    assert active.score(row) == salience_score(row)
+    assert active.band(row) == salience_band(row)
+    assert active.bands == salience_bands()
+    assert active.carve_out(row, salience_score(row), 0.28) == carve_out(
+        row, salience_score(row), 0.28
+    )
+
+
+def test_registered_versions_leads_with_the_active_one() -> None:
+    """Report cell order is stable across runs and puts the live scorer first."""
+    versions = registered_versions()
+    assert versions[0] == SALIENCE_VERSION
+    assert set(versions) == set(SCORERS)
+    assert list(versions[1:]) == sorted(versions[1:])
+
+
+def test_an_unregistered_version_raises_rather_than_falling_back() -> None:
+    """A caller asking for a scorer this process cannot produce wants an error.
+
+    Falling back to the active scorer would silently return output banded under
+    a version the caller did not ask for — which is exactly the confusion the
+    version pin exists to prevent."""
+    with pytest.raises(KeyError):
+        scorer("sal-v0")
+
+
+def test_every_registered_scorer_reports_its_own_version() -> None:
+    """The registry key and the record's label cannot drift apart."""
+    for version, entry in SCORERS.items():
+        assert entry.version == version
+        assert entry.bands, f"{version} declares no bands"
+        assert len(set(entry.bands)) == len(entry.bands), f"{version} repeats a band name"
 
 
 def test_salience_bands_are_ordered_strongest_first() -> None:
@@ -309,8 +397,8 @@ def test_load_salience_config_reads_the_tracking_section(tmp_path: Path) -> None
 
 def test_load_salience_config_defaults_when_absent(tmp_path: Path) -> None:
     config = load_salience_config(tmp_path)  # no tracking.yaml
-    assert config.per_conference_capacity == 150
-    assert config.long_conference_capacity == 200
+    assert config.per_conference_capacity == 12
+    assert config.long_conference_capacity == 24
     assert config.floor == 0.28
     assert config.base_rate_lookback_terms == 0  # unbounded: every prior Term
 
@@ -428,13 +516,19 @@ def test_the_cap_prefers_higher_scores_before_it_fills_with_ties(tmp_path: Path)
         reconcile_salience_selection(conn, config, apply=True)
 
     selected = _selected_ids(db)
-    # The 25 relist-1 petitions outrank all 240 relist-0 ones, so they are all in
-    # even though they are a minority of the cohort.
-    assert all(f"scotus/r1-{i:04d}" in selected for i in range(_LC_RELIST_1))
-    # The remaining capacity goes to relist-0 in case_id order, and the tail is cut.
+    capacity = config.long_conference_capacity
+    funded_r1 = sum(1 for s in selected if s.startswith("scotus/r1-"))
     funded_r0 = sum(1 for s in selected if s.startswith("scotus/r0-"))
-    assert funded_r0 == config.long_conference_capacity - _LC_RELIST_1
-    assert f"scotus/r0-{_LC_RELIST_0 - 1:04d}" not in selected  # the tail is not funded
+    # Relist-1 outranks relist-0, so the rank fill is spent on relist-1 first and
+    # reaches relist-0 only once every relist-1 petition is funded. Expressed
+    # against the configured capacity rather than a literal, so the property
+    # under test is the RANKING and the test survives a re-sizing of the gate.
+    assert funded_r1 == min(_LC_RELIST_1, capacity)
+    assert funded_r0 == max(0, capacity - _LC_RELIST_1)
+    assert funded_r0 + funded_r1 == capacity  # the fill is exactly the cap
+    # The tail of the weaker band is always cut: the cohort is far larger than
+    # any capacity this gate is funded at.
+    assert f"scotus/r0-{_LC_RELIST_0 - 1:04d}" not in selected
 
 
 def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
@@ -451,3 +545,264 @@ def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
             reconcile_salience_selection(conn, config, apply=True)
         runs.append(_selected_ids(db))
     assert runs[0] == runs[1]
+
+
+# --- the interim reserve --------------------------------------------------------
+
+
+def _application(  # a keyword-only test fixture builder, one arg per row feature
+    case_id: str,
+    docket: str,
+    *,
+    kind: str | None = "substantive",
+    requested: bool = False,
+    referred: bool = False,
+    amici: int = 0,
+    selected: bool = False,
+    disposition: str | None = None,
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow.model_validate(
+        {
+            "case_id": case_id,
+            "court": "scotus",
+            "docket_number": docket,
+            "application_kind": kind,
+            "response_requested": requested,
+            "referred_to_court": referred,
+            "amicus_briefs": amici,
+            "salience_selected": selected,
+            "disposition": disposition,
+            "date_decided": date(2026, 1, 20) if disposition else None,
+        }
+    )
+
+
+def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path: Path) -> None:
+    # Three below-floor petitions at N=2 beside one pending substantive
+    # application, reserve 1: the application is selected and the cert rank
+    # fill shrinks to 1 — the reserve trades inside N, never adds to it.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
+
+
+def test_reserve_never_displaces_a_carve_out(tmp_path: Path) -> None:
+    # Carve-outs sit above N, so the reserve displaces only the rank fill: a
+    # CVSG petition survives even when the reserve consumes the whole cap.
+    rows = [
+        _petition("scotus/cvsg", distribution_count=1, cvsg=True),
+        _petition("scotus/ranked", distribution_count=1),
+        _application("scotus/9525000001", "25A1"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=1, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/cvsg"}
+
+
+def test_unfilled_reserve_returns_to_cert(tmp_path: Path) -> None:
+    # Slots bound the reserve; only the slots actually in use displace. One
+    # pending application under a reserve of 5 shrinks the fill by exactly 1.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=3, floor=0.28, interim_reserve_slots=5)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a", "scotus/b"}
+
+
+def test_reserve_picks_climb_the_escalation_ladder(tmp_path: Path) -> None:
+    # Pick order is the two-signal ladder, strongest first — a requested
+    # response, then the amicus count — a deterministic ordering, not a
+    # scored rate.
+    rows = [
+        _application("scotus/9525000001", "25A1"),  # no signals
+        _application("scotus/9525000002", "25A2", requested=True),
+        _application("scotus/9525000003", "25A3", amici=2),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # The requested-response application outranks the amicus-carrying one; the
+    # signal-less one waits for a freed slot.
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
+
+
+def test_reserve_ladder_orders_by_amicus_count_and_breaks_ties_on_case_id(
+    tmp_path: Path,
+) -> None:
+    # Within a rung the amicus count orders (more first); an exact tie breaks
+    # deterministically on case_id, ascending.
+    rows = [
+        _application("scotus/9525000004", "25A4", amici=1),
+        _application("scotus/9525000003", "25A3", amici=3),
+        _application("scotus/9525000002", "25A2", amici=1),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # amici=3 first, then the amici=1 tie resolves to the lower case_id.
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
+
+
+def test_reserve_ladder_ignores_the_referral_signal(tmp_path: Path) -> None:
+    # The exclusion is the contract: a referral is usually the disposition
+    # entry itself, so it carries no forecast horizon and buys no rank — a
+    # referred-but-otherwise-signal-less application does NOT outrank one
+    # carrying amici.
+    rows = [
+        _application("scotus/9525000001", "25A1", referred=True),
+        _application("scotus/9525000002", "25A2", amici=1),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000002"}
+
+
+def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
+    # A still-pending selected application keeps its slot (the sticky latch),
+    # so a newcomer waits; once the occupant resolves, the freed slot goes to
+    # the newcomer on the next pass — and the resolved one is never de-selected.
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True),
+            _application("scotus/9525000002", "25A2", requested=True),
+        ],
+    )
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        first = reconcile_salience_selection(conn, config, apply=True)
+    assert first.newly_selected == 0  # the slot is occupied
+    assert _selected_ids(db) == {"scotus/9525000001"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn, [_application("scotus/9525000001", "25A1", selected=True, disposition="denied")]
+        )
+        second = reconcile_salience_selection(conn, config, apply=True)
+    assert second.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
+
+
+def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
+    # The application is live in the cycle whose conference the pass is
+    # filling — the latest cohort — so an earlier conference's fill is intact.
+    earlier, later = date(2026, 1, 9), date(2026, 2, 20)
+    rows = [
+        _petition("scotus/e1", distribution_count=1, conference=earlier),
+        _petition("scotus/e2", distribution_count=1, conference=earlier),
+        _petition("scotus/l1", distribution_count=1, conference=later),
+        _petition("scotus/l2", distribution_count=1, conference=later),
+        _application("scotus/9525000001", "25A1"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # Earlier cohort keeps both; the later (current) one shrinks to 1.
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/e1", "scotus/e2", "scotus/l1"}
+
+
+def test_reserve_zero_keeps_applications_deferred_and_reserve_gates_predict_scope(
+    tmp_path: Path,
+) -> None:
+    # The quota is the whole gate: with slots 0 a substantive application is
+    # scored-and-deferred, and the shared predict-scope predicate drops it —
+    # while a selected one passes. Fail-open before any pass has scored it.
+    db = _seed(tmp_path, [_application("scotus/9525000001", "25A1")])
+    assert _in_predict_scope(db, "scotus/9525000001") is True  # unscored: fail-open
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=0), apply=True)
+    assert _selected_ids(db) == set()
+    assert _in_predict_scope(db, "scotus/9525000001") is False  # scored, deferred
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=1), apply=True)
+    assert _in_predict_scope(db, "scotus/9525000001") is True  # reserve-selected
+
+
+def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
+    # Convergence under the sticky latch: a second pass with no corpus change
+    # latches nothing new and keeps the same displacement.
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "ab"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        first = reconcile_salience_selection(conn, config, apply=True)
+        again = reconcile_salience_selection(conn, config, apply=True)
+    assert first.newly_selected == 2  # the application + the one remaining fill
+    assert again.newly_selected == 0
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
+
+
+# --- the registry under a second version ---------------------------------------
+#
+# Every claim the registry makes is about what happens when a SECOND scorer
+# exists, so the single shipped version cannot exercise any of it: a loop over
+# one entry passes with the loop deleted. These tests register a toy scorer with
+# a deliberately DIFFERENT band vocabulary — so a band name leaking across
+# versions shows up as a KeyError rather than as a plausible number — and are
+# the only place the multi-version paths run at all.
+
+
+def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
+    two_versions: SalienceScorer,
+) -> None:
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy")  # active first
+    row = _petition("scotus/1", distribution_count=3, cvsg=True)
+    assert scorer("sal-toy").band(row) == "hot"
+    assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
+    assert salience_bands() == ("high", "elevated", "baseline")
+
+
+def test_each_version_selects_under_its_own_scorer(two_versions: SalienceScorer) -> None:
+    """The same rows, two scorers, two different picks — which is the whole point.
+
+    sal-v1 carves in the CVSG petition and rank-fills the rest to `N`; the toy
+    carves in the CVSG petition and, having no rank order worth the name, still
+    fills to `N`. What must differ is the *scoring*, and what must not differ is
+    the population either one sees."""
+    rows = [_petition(f"scotus/{i}", distribution_count=3) for i in range(4)]
+    rows.append(_petition("scotus/cvsg", distribution_count=1, cvsg=True))
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28)
+
+    v1_scores, v1_pick, v1_eligible, _ = plan_cohorts(rows, config)
+    toy_scores, toy_pick, toy_eligible, _ = plan_cohorts(rows, config, version=two_versions)
+
+    assert v1_eligible == toy_eligible == len(rows)  # same population, both times
+    assert v1_scores != toy_scores  # different scale
+    assert set(v1_pick) != set(toy_pick) or v1_scores["scotus/0"] != toy_scores["scotus/0"]
+    # sal-v1 puts every relist-2 row in `high` and above the floor, so all four
+    # carve in; the toy scores them 0.1 and carves in only the CVSG row.
+    assert set(v1_pick) == {f"scotus/{i}" for i in range(4)} | {"scotus/cvsg"}
+    assert "scotus/cvsg" in toy_pick
+
+
+def test_a_scorers_band_function_only_ever_returns_a_declared_band(
+    two_versions: SalienceScorer,
+) -> None:
+    """The registry's core consistency invariant, and the one the statpack relies on.
+
+    `analytics._TermAcc` indexes `segments[version][band]` and calls
+    `bands.index(band)`, so a scorer whose band function returns a label outside
+    its own `bands` raises rather than mis-slicing — but it raises deep inside a
+    streaming corpus pass, which is a poor place to learn it."""
+    for version in registered_versions():
+        banding = scorer(version)
+        for distribution_count in (1, 2, 3, None):
+            for cvsg in (False, True):
+                row = _petition("scotus/x", distribution_count=distribution_count, cvsg=cvsg)
+                assert banding.band(row) in banding.bands, (
+                    f"{version} banded a row {banding.band(row)!r}, "
+                    f"which is not among {banding.bands}"
+                )

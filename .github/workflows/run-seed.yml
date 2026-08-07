@@ -130,7 +130,7 @@ jobs:
       # snapshots, rows, and documents to the corpus blob but can never wipe
       # remote objects. The 1h session comfortably outlasts the ≤40-min loop.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -339,6 +339,153 @@ jobs:
           git commit -m "seed: latch out-of-scope cases"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "scope-latch pointer"
+
+      # An application docket's baseline event is a stay or injunction, not a
+      # cert petition; discovery mints it as motion/interim, and this converges
+      # the rows minted before that rule. Idempotent, so after it converges the
+      # step costs seconds. Runs in the lane rather than a dev checkout because
+      # the pointer is a git file the writers commit to main and `corpus-push`
+      # is last-writer-wins — a stale local copy would republish over concurrent
+      # walks. The corpus-write concurrency group serializes it.
+      - name: Relabel application-docket baseline events (interim stage)
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded so the tail cannot push the job past its cap: overrunning
+        # cancels the run, and cancellation is the one outcome
+        # `continue-on-error` does not absorb — it would lose the trailing
+        # verdict and escalate a healthy run. A timed-out sweep is non-fatal
+        # and converges next window.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to relabel.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping application relabel"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The rename's orphan guard reads committed ledger artifacts out of
+          # `data/`, and this checkout is only as fresh as the walk's last
+          # checkpoint rebase — up to a window stale. A collect PR merging
+          # artifacts for an application docket in that gap would be invisible
+          # here, and the rename would orphan exactly what the guard exists to
+          # prevent. Read the remote tip instead.
+          git fetch origin "$GITHUB_REF_NAME"
+          git reset --hard FETCH_HEAD
+          uv run fedcourts relabel-application-events --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Application baselines already relabeled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (application baselines)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "application-relabel pointer"
+
+      # Parse each merits-bound grant's stored snapshot for the judgment the
+      # Court entered, feeding the statpack's merits section. Reads the content
+      # store, so it depends on the job-level split-mode env; a case whose
+      # snapshot is unreachable is counted, never fatal. Converges like the
+      # sweeps above — a re-run over an unchanged corpus stamps nothing.
+      - name: Backfill merits judgments
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason, and more tightly needed: the first
+        # non-converged pass reads the content store once per merits-bound
+        # grant, an external-service loop with no internal cap.
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to parse.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping merits backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts backfill-merits-judgments --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Merits judgments already stamped; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (merits judgments)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "merits-judgment pointer"
+
+      # Mint the open merits forecast events onto already-granted, undecided
+      # dockets. The live mint opens a case's merits events at cert-grant
+      # *detection*, so a grant latched by the walker without a live resolution
+      # pass carries none — and the merits fan-out has no population there.
+      # Ordering contract with the step above: the mint treats a null
+      # `merits_judgment` as unlatched, not pending, so
+      # `backfill-merits-judgments --apply` must run immediately before this
+      # sweep in the same corpus session, leaving the judgment columns
+      # as-latched-as-possible before pendency is judged. Converges like the
+      # sweeps above — a converged corpus mints nothing.
+      - name: Backfill merits events
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason as the judgments pass: the pendency check
+        # reads a stored snapshot per candidate grant, an external-service loop
+        # with no internal cap on a non-converged corpus. On the first
+        # non-converged 02:31 window the job's 55m cap can still bind (the walk
+        # plus the judgments pass plus this step, each at its bound), and a cap
+        # hit cancels the run rather than continuing — so that window may raise
+        # a one-off guard escalation.
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to mint.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping merits-event backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The mint's skip guards read committed ledger artifacts out of
+          # `data/` and its writes land new `event.yaml` files beside them, and
+          # this checkout is only as fresh as the previous step's rebase — up to
+          # a window stale. Read the remote tip first so the guards and the
+          # writes both see the current ledger.
+          git fetch origin "$GITHUB_REF_NAME"
+          git reset --hard FETCH_HEAD
+          # Stamp the null moment columns first (trivially idempotent), so the
+          # events sweep and every moment-keyed reader group on materialized
+          # moments.
+          uv run fedcourts backfill-event-moments --apply
+          # Dry-run first so the step log carries the skip/triage report the
+          # maintainer reads, then apply through the live mint's write path.
+          uv run fedcourts backfill-merits-events
+          uv run fedcourts backfill-merits-events --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # Unlike the pointer-only sweeps above, this one writes ledger
+          # `event.yaml` files under `data/` as well as moving the pointer —
+          # stage BOTH in the one commit, or the pointer lands without the
+          # ledger half of the mint. The directory guard mirrors the walk's
+          # checkpoint: on a tip without data/ an unguarded add fails under
+          # `set -euo pipefail` AFTER the blob push, and continue-on-error
+          # would leave the sweep silently never converging.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Merits events already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (merits events)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "merits-event pointer"
 
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it

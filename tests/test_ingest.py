@@ -310,6 +310,55 @@ def test_to_corpus_row_projects_onto_store_schema() -> None:
     assert store_row.panel[0] == corpus.PanelMember(name="Jane Smith", seniority="active")
 
 
+def test_bulk_circuit_rows_drop_the_cluster_joined_fields() -> None:
+    """The bulk export's docket↔opinion-cluster join is misjoined on the circuit
+    slices (19th-century cluster text on 2018-19 dockets), so the projection
+    declines to store what the join cannot vouch for."""
+    store_row = to_corpus_row(from_bulk_row(BULK_ROW))
+    assert store_row.judges == []
+    assert store_row.panel == []
+    assert store_row.precedential_status is None
+    assert store_row.summary is None
+    assert store_row.citations == []
+    assert store_row.citation_count is None
+    # Docket-side facts are unaffected: they come from the docket row itself.
+    assert store_row.case_name == "Doe v. Roe"
+    assert store_row.parties == ["Jane Roe", "United States"]
+    assert store_row.disposition == Disposition.granted_in_part
+
+
+def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
+    # A bulk SCOTUS row keeps the cluster fields — the misjoin is observed only
+    # on the circuit slices — and the REST path keeps them on every court (the
+    # projection test above pins the api row).
+    scotus = to_corpus_row(from_bulk_row({**BULK_ROW, "court_id": "scotus"}))
+    assert scotus.judges == ["Alan Lee", "Jane Smith"]
+    assert scotus.precedential_status == "Published"
+    assert scotus.citation_count == 5
+    api = to_corpus_row(from_api_docket(API_DOCKET))
+    assert api.judges == ["Alan Lee", "Jane Smith"]
+    assert api.precedential_status == "Published"
+    assert api.citation_count == 5
+
+
+def test_a_reserved_bulk_row_clears_a_stored_misjoin(tmp_path: Path) -> None:
+    """``summary`` / ``precedential_status`` / ``judges`` take the incoming value
+    on upsert (no latch), so re-serving the bulk slice heals rows the misjoined
+    import wrote rather than leaving the garbage latched."""
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(db, [from_api_docket(API_DOCKET)])  # a row with the fields set
+    upsert_to_corpus(db, [from_bulk_row(BULK_ROW)])  # the same case, re-served by bulk
+    with corpus.connect(db) as conn:
+        fetched = corpus.get_row(conn, "ca9/64512345")
+    assert fetched is not None
+    assert fetched.summary is None
+    assert fetched.precedential_status is None
+    assert fetched.judges == []
+    assert fetched.panel == []
+    assert fetched.citations == []
+    assert fetched.citation_count is None
+
+
 def test_enriched_fields_round_trip_through_the_corpus(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     upsert_to_corpus(db, [from_api_docket(API_DOCKET)])
@@ -340,6 +389,7 @@ def test_default_event_for_appeal() -> None:
     assert event.court == "ca9"
     assert event.kind == EventKind.appeal
     assert event.event_id == "evt-appeal-disposition"
+    assert event.stage is None  # a circuit appeal has no SCOTUS decision standard
     assert event.title == "Doe v. Roe"
     assert event.opened_at == date(2021, 3, 1)
     # API_DOCKET carries a disposition, so the event is already resolved.
@@ -350,8 +400,32 @@ def test_default_event_for_scotus_is_a_petition() -> None:
     event = default_event(from_bulk_row({"id": "5", "court_id": "scotus"}))
     assert event.kind == EventKind.petition
     assert event.event_id == "evt-petition-disposition"
+    assert event.stage == "cert"
     assert event.resolved is False  # no disposition yet
     assert event.title == "scotus/5"  # falls back to case_id when unnamed
+
+
+def test_default_event_for_scotus_application_is_a_motion() -> None:
+    # A `YYAnnn` application docket is a stay/injunction application — a motion
+    # under the interim standard, not a cert petition. Keyed on the docket
+    # number's form alone, so it holds even before the live channel's
+    # `application_kind` parse has run.
+    event = default_event(
+        from_bulk_row({"id": "6", "court_id": "scotus", "docket_number": "24A1099"})
+    )
+    assert event.kind == EventKind.motion
+    assert event.event_id == "evt-motion-disposition"
+    assert event.stage == "interim"
+    assert event.decision_target == "disposition"
+
+
+def test_default_event_application_form_outside_scotus_is_still_an_appeal() -> None:
+    # The application-number key is SCOTUS-only; a circuit docket that happens
+    # to parse as `YYAnnn` keeps the appeal baseline.
+    event = default_event(from_bulk_row({"id": "7", "court_id": "ca9", "docket_number": "24A109"}))
+    assert event.kind == EventKind.appeal
+    assert event.event_id == "evt-appeal-disposition"
+    assert event.stage is None
 
 
 def test_upsert_to_corpus_is_idempotent_by_case(tmp_path: Path) -> None:

@@ -7,6 +7,8 @@ from text that looked like something it was not.
 
 from __future__ import annotations
 
+from datetime import date
+
 from fedcourtsai.pipeline.ingest import map_live_docket
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
@@ -17,7 +19,9 @@ from fedcourtsai.pipeline.interim_signals import (
     is_predictable_application,
     match_interim_disposition,
     referral_posture,
+    response_filed_date,
     response_requested,
+    response_requested_date,
 )
 from fedcourtsai.pipeline.live import STREAMS
 from fedcourtsai.schemas import Disposition
@@ -26,7 +30,7 @@ from fedcourtsai.supremecourt import live_application_id, live_docket_id
 # 24A1 — the administrative majority, verbatim.
 _EXTENSION = [
     "Application (24A1) to extend the time to file a petition for a writ of "
-    "certiorari from July 15, 2024 to September 13, 2024, submitted to Justice Alito.",
+    + "certiorari from July 15, 2024 to September 13, 2024, submitted to Justice Alito.",
     "Application (24A1) granted by Justice Alito extending the time to file until August 15, 2024.",
 ]
 # 24A1099 — a stay, referred to the full Court and denied.
@@ -34,7 +38,7 @@ _STAY_REFERRED = [
     "Application (24A1099) for a stay, submitted to The Chief Justice.",
     "Application (24A1099) referred to the Court.",
     "Application (24A1099) for stay presented to The Chief Justice and by him "
-    "referred to the Court is denied.",
+    + "referred to the Court is denied.",
 ]
 # 24A650 — a stay a single Justice denied without referring it.
 _STAY_CIRCUIT = [
@@ -190,7 +194,7 @@ def test_an_application_resolves_through_its_own_vocabulary() -> None:
         (
             "May 23 2025",
             "Application (24A1099) for stay presented to The Chief Justice and by him "
-            "referred to the Court is denied.",
+            + "referred to the Court is denied.",
         ),
     )
     cert = map_live_docket(payload, 9_500_024_001)
@@ -227,8 +231,8 @@ def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:
             (
                 "Dec 20 2023",
                 "Consideration of the applications for stay (23A349, 23A350) presented "
-                "to The Chief Justice and by him referred to the Court is deferred "
-                "pending oral argument.",
+                + "to The Chief Justice and by him referred to the Court is deferred "
+                + "pending oral argument.",
             ),
             ("Feb 21 2024", "Argued."),
             (
@@ -283,3 +287,59 @@ def test_the_frontier_walk_probes_the_interim_sequence() -> None:
     forms = {name: form for name, _, form in STREAMS}
     assert forms == {"paid": "cert", "ifp": "cert", "application": "application"}
     assert live_application_id(24, 1) != live_docket_id(24, 1)
+
+
+# --- the two dated response moments ---------------------------------------------
+
+
+def _entries(*rows: tuple[str, str]) -> list[tuple[str, str | None]]:
+    return [(text, day) for day, text in rows]
+
+
+def test_the_request_and_the_filing_are_read_apart() -> None:
+    """They share an opening clause, and conflating them was a real bug.
+
+    "Response to application (25A97) requested by Justice Alito, due by 4pm"
+    and "Response to application from respondent Florida filed." both start the
+    same way. An anchor-only pattern reads a third of the requests as filings —
+    and since the two moments have very different horizons, that would have
+    published one moment's numbers under the other's name.
+    """
+    entries = _entries(
+        ("Jul 24 2025", "Response to application (25A97) requested by Justice Alito, due by 4pm."),
+        ("Jul 30 2025", "Response to application from respondent Florida filed."),
+    )
+    assert response_requested_date(entries) == date(2025, 7, 24)
+    assert response_filed_date(entries) == date(2025, 7, 30)
+
+
+def test_a_respondent_name_carrying_periods_still_reads_as_filed() -> None:
+    # "et al." ends a sentence as far as a `[^.]` bound is concerned, and
+    # stopping there dropped a third of the real filings.
+    entries = _entries(
+        ("Aug 1 2025", "Response to application from respondents Michael Williams, et al. filed.")
+    )
+    assert response_filed_date(entries) == date(2025, 8, 1)
+
+
+def test_a_request_alone_yields_no_filing_date() -> None:
+    entries = _entries(
+        ("Jul 24 2025", "Response to application (25A97) requested by Justice Kagan.")
+    )
+    assert response_requested_date(entries) == date(2025, 7, 24)
+    assert response_filed_date(entries) is None
+
+
+def test_the_first_response_wins() -> None:
+    entries = _entries(
+        ("Jul 30 2025", "Response to application from respondent Texas filed."),
+        ("Aug 2 2025", "Response to application from respondent Louisiana filed."),
+    )
+    assert response_filed_date(entries) == date(2025, 7, 30)
+
+
+def test_an_undated_entry_yields_no_moment() -> None:
+    # The flag may still be set from the same entry; a date that opens an event
+    # is held to the stricter standard.
+    assert response_filed_date([("Response to application from respondent X filed.", None)]) is None
+    assert response_requested([("Response to application requested by Justice Alito.")]) is True

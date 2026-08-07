@@ -11,7 +11,9 @@ never on how a fact is shaped or stored (see ``docs/data-pipeline.md``).
   same :class:`CorpusRow`.
 
 Both delegate to one private normalizer, so equivalent inputs from the two
-sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`.
+sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`;
+the store projection then withholds the bulk-circuit cluster fields — see
+:func:`to_corpus_row`.
 
 Normalized rows are persisted into the single packed corpus — the SQLite store
 defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so every
@@ -32,10 +34,23 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
-from ..schemas import Disposition, EventKind
-from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
-from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
-from .interim_signals import application_kind, escalation_signals, match_interim_disposition
+from ..schemas import MERITS_PROCEEDING_DISPOSITIONS, Disposition, EventKind, Judgment, Stage
+from ..supremecourt import (
+    IFP_SERIAL_BASE,
+    parse_scotus_application_number,
+    parse_scotus_docket_number,
+)
+from . import moments
+from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal, proceedings_entries
+from .interim_signals import (
+    application_kind,
+    escalation_signals,
+    match_interim_disposition,
+    response_filed_date,
+    response_requested_date,
+)
+from .judgment import last_judgment_entry
+from .merits_signals import respondent_brief_date
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -46,6 +61,12 @@ CORPUS_SCHEMA_VERSION: Final = "1.0"
 # once every Term has been re-walked — each re-served denial upserts at weight 1,
 # and `sample_weight`'s min-latch takes it.
 LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
+
+# The cert dispositions that open a merits proceeding, as the strings
+# `_live_resolution` returns — the live latch's eligibility, matching the
+# population the offline backfill walks so `merits_judgment` means one thing
+# whichever writer filled it.
+_MERITS_PROCEEDING_VALUES: Final = frozenset(d.value for d in MERITS_PROCEEDING_DISPOSITIONS)
 
 
 class CorpusSource(StrEnum):
@@ -132,6 +153,33 @@ class CorpusRow(BaseModel):
         description="Amicus briefs recorded on an interim application's docket "
         "(per-entry count). Live application branch only; None elsewhere — the "
         "storage max-latch keeps the highest count ever parsed.",
+    )
+    merits_judgment: str | None = Field(
+        default=None,
+        description="What the Court did to the judgment below — a `Judgment` "
+        "value, parsed from the last judgment-shaped proceedings entry by the "
+        "shared parser (`pipeline.judgment`). Live cert branch only, and only "
+        "on a granted docket; None elsewhere — the storage latch keeps a "
+        "stored parse when a writer carries none, and it moves as a pair with "
+        "`merits_decided`.",
+    )
+    response_requested_at: date | None = Field(
+        default=None, description="When a response to the application was requested."
+    )
+    response_filed_at: date | None = Field(
+        default=None, description="When a response to the application was filed."
+    )
+    merits_brief_filed: date | None = Field(
+        default=None,
+        description="When the respondent filed its brief on the merits — the "
+        "merits stage's second forecast moment. Latched by the live poll at "
+        "ingest through the shared parser.",
+    )
+    merits_decided: date | None = Field(
+        default=None,
+        description="The docket date of the entry `merits_judgment` was parsed "
+        "from — the merits event's resolution date; None for an undated entry, "
+        "and meaningful only beside a non-None `merits_judgment`.",
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
@@ -424,6 +472,11 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
         amicus_briefs=_as_count(record.get("amicus_briefs")),
+        merits_judgment=_clean(record.get("merits_judgment")),
+        merits_decided=_date(record.get("merits_decided")),
+        merits_brief_filed=_date(record.get("merits_brief_filed")),
+        response_requested_at=_date(record.get("response_requested_at")),
+        response_filed_at=_date(record.get("response_filed_at")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -711,6 +764,10 @@ def map_live_docket(
     requested: bool | None = None
     referred: bool | None = None
     amici: int | None = None
+    merits: tuple[Judgment, date | None] | None = None
+    merits_brief: date | None = None
+    response_requested_on: date | None = None
+    response_filed_on: date | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -730,8 +787,31 @@ def map_live_docket(
         texts = [str(entry.get("description") or "") for entry in entries]
         ask = application_kind(texts).value
         requested, referred, amici = escalation_signals(texts)
+        # The two dated interim moments, read from the same entries the ladder
+        # flags come from. Dates rather than flags because these open events.
+        dated = proceedings_entries(payload)
+        response_requested_on = response_requested_date(dated)
+        response_filed_on = response_filed_date(dated)
     else:
         disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+        if cert_granted is not None and disposition in _MERITS_PROCEEDING_VALUES:
+            # A grant that opens a merits proceeding keeps polling toward its
+            # judgment, and the terminal entry that states it is normalized
+            # nowhere else — so the live channel latches the merits pair at
+            # ingest through the shared parser, on the same last-entry rule the
+            # offline backfill applies. Outcome detection then reads the
+            # columns, keeping judgment detection deterministic and
+            # single-sourced. The eligibility is the same population predicate
+            # the backfill walks, so the column means one thing whichever writer
+            # filled it: a GVR's order text parses as a vacatur, but that
+            # vacatur is the cert-stage disposition, not a judgment on the
+            # merits, and this column is read as the latter — including on the
+            # agent-facing retrieval surface.
+            merits = last_judgment_entry({"docket_entries": entries})
+            # The merits stage's second forecast moment, latched on the same
+            # poll and from the same payload — the docket says when both sides'
+            # arguments reached the record, and nothing else does.
+            merits_brief = respondent_brief_date(payload, granted_on=cert_granted)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
@@ -755,6 +835,13 @@ def map_live_docket(
         "response_requested": requested,
         "referred_to_court": referred,
         "amicus_briefs": amici,
+        "merits_judgment": merits[0].value if merits else None,
+        "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
+        "merits_brief_filed": merits_brief.isoformat() if merits_brief else None,
+        "response_requested_at": (
+            response_requested_on.isoformat() if response_requested_on else None
+        ),
+        "response_filed_at": response_filed_on.isoformat() if response_filed_on else None,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
@@ -785,17 +872,42 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     """Derive the default predictable event for a freshly-onboarded docket.
 
     Every tracked appellate matter has at least one thing to predict — the
-    disposition of the appeal (or, at SCOTUS, the petition). Discovery records
-    this as a raw fact in the corpus, replacing the per-case ``event.yaml`` the
-    retired active tier used. Deterministic so a re-discovery reproduces the same
-    ``event_id``; richer, agent-defined events can be layered on top later.
+    disposition of the appeal or, at SCOTUS, of the docket's originating filing:
+    the cert petition on a ``YY-NNNN`` docket, the application on a ``YYAnnn``
+    interim docket. Discovery records this as a raw fact in the corpus,
+    replacing the per-case ``event.yaml`` the retired active tier used.
+    Deterministic so a re-discovery reproduces the same ``event_id``; richer,
+    agent-defined events can be layered on top later.
     """
-    kind = EventKind.petition if row.court == "scotus" else EventKind.appeal
+    if row.court == "scotus" and parse_scotus_application_number(row.docket_number) is not None:
+        # An interim application docket: a stay/injunction application is a
+        # motion governed by the interim standard, not a cert petition. Keyed
+        # on the docket number's form because a fresh discovery may not yet
+        # carry the live channel's `application_kind` parse — and on the
+        # *strict* `YYAnnn` parser deliberately: it is the same key the live
+        # channel addresses and the relabel migration converges on, so mint and
+        # migration always agree on one identity. Historical tolerant-only
+        # spellings (`A-9999`, …) keep the petition baseline; they are
+        # predict-excluded, and the form-keyed application guard in
+        # `pipeline.outcome` (tolerant recognizer) keeps them out of the cert
+        # rule regardless.
+        kind, stage = EventKind.motion, Stage.interim
+    elif row.court == "scotus":
+        # A SCOTUS cert docket's baseline carries the cert-vote standard.
+        kind, stage = EventKind.petition, Stage.cert
+    else:
+        # A circuit appeal has no Supreme Court stage, so it declares none.
+        kind, stage = EventKind.appeal, None
     return corpus.CorpusEvent(
         event_id=ids.event_id(kind.value, "disposition"),
         case_id=row.case_id,
         court=row.court,
         kind=kind,
+        stage=stage,
+        # Stamped at the mint, not inferred later: the events upsert takes the
+        # incoming value for every column but `resolved`, so a moment left off
+        # here is nulled again by the next re-ingest.
+        moment=moments.first_moment(stage) if stage is not None else None,
         title=row.case_name or row.docket_number or row.case_id,
         decision_target="disposition",
         opened_at=row.date_filed,
@@ -856,7 +968,21 @@ def to_corpus_row(
     channel came to include this row (see the storage field's docstring) — not
     a payload fact; a writer with nothing to assert leaves it ``None`` and the
     upsert's min-latch preserves the stored value.
+
+    The bulk export's docket↔opinion-cluster join is misjoined on the circuit
+    slices (19th-century cluster text and OCR-garbled judge names on
+    2018-19 dockets — an id-space collision in the staged join), so the
+    cluster-derived fields — ``summary``, ``precedential_status``, ``judges``
+    and the ``panel`` behind them, and ``citations`` / ``citation_count``,
+    which the same join supplied — are dropped rather than stored for a bulk
+    circuit row. The projection, not ``_normalize``, is the seam because the
+    ingestion row faithfully records what upstream served; the store declines
+    to keep what the join cannot vouch for. These columns take the incoming
+    value on upsert (no latch), so a re-served bulk row also clears any stored
+    misjoin. SCOTUS bulk rows are untouched: the misjoin is observed only on
+    the circuit slices.
     """
+    cluster_join_unsound = row.source == CorpusSource.bulk and row.court != "scotus"
     return corpus.CorpusRow(
         case_id=row.case_id,
         court=row.court,
@@ -868,16 +994,16 @@ def to_corpus_row(
         date_cert_denied=row.date_cert_denied,
         disposition=row.disposition,
         distributed_for_conference=row.distributed_for_conference,
-        judges=row.judges,
-        panel=row.panel,
+        judges=[] if cluster_join_unsound else row.judges,
+        panel=[] if cluster_join_unsound else row.panel,
         parties=row.parties,
         counsel=row.counsel,
         attorneys=row.attorneys,
         topic=row.nature_of_suit,
-        citations=row.citations,
-        citation_count=row.citation_count,
-        precedential_status=row.precedential_status,
-        summary=row.summary,
+        citations=[] if cluster_join_unsound else row.citations,
+        citation_count=None if cluster_join_unsound else row.citation_count,
+        precedential_status=None if cluster_join_unsound else row.precedential_status,
+        summary=None if cluster_join_unsound else row.summary,
         last_pulled=last_pulled,
         last_live_polled=last_live_polled,
         predict_eligible=is_predict_eligible(row),
@@ -890,6 +1016,8 @@ def to_corpus_row(
         response_requested=row.response_requested,
         referred_to_court=row.referred_to_court,
         amicus_briefs=row.amicus_briefs,
+        merits_judgment=row.merits_judgment,
+        merits_decided=row.merits_decided,
         sample_weight=sample_weight,
     )
 

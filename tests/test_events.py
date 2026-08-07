@@ -46,6 +46,42 @@ def test_scotus_baseline_is_a_petition() -> None:
     assert result.events[0].event_id == "evt-petition-disposition"
 
 
+def test_scotus_application_docket_baseline_is_a_motion() -> None:
+    # A `YYAnnn` application docket's baseline is the application's disposition
+    # under the interim standard — motion-kind, never the cert-shaped petition.
+    docket = _docket(
+        [],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+        docket_number="24A1099",
+    )
+    result = extract_events(docket)
+    (baseline,) = result.events
+    assert baseline.event_id == "evt-motion-disposition"
+    assert EventKind(baseline.kind) == EventKind.motion
+    assert baseline.stage == "interim"
+
+
+def test_application_docket_entries_do_not_disturb_the_motion_baseline() -> None:
+    # The SCOTUS petition-dedup collapse keys on petition-kind entries, and the
+    # administrative-motion filter on non-substantive motion text — neither may
+    # swallow or duplicate an application docket's motion baseline. A
+    # substantive stay entry still earns its own entry-pinned event under a
+    # distinct id.
+    docket = _docket(
+        [
+            _entry(1, "Motion to extend the time to file a response filed.", number=1),
+            _entry(2, "Motion for a stay pending appeal filed.", number=2),
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+        docket_number="24A1099",
+    )
+    result = extract_events(docket)
+    event_ids = [e.event_id for e in result.events]
+    assert event_ids[0] == "evt-motion-disposition"  # the baseline survives
+    assert len(event_ids) == len(set(event_ids)) == 2  # stay entry, distinct id
+    assert all(EventKind(e.kind) == EventKind.motion for e in result.events)
+
+
 def test_scotus_administrative_motions_extract_no_event() -> None:
     # Extensions of time (and IFP/amicus leave) are filed on nearly every
     # petition and granted as a matter of course — an open event for each would
@@ -80,6 +116,42 @@ def test_scotus_petition_entry_collapses_into_the_baseline() -> None:
         "evt-motion-stay-pending-disposition",
     ]
     assert result.ambiguous == []
+    # The baseline carries the cert standard; the surviving substantive motion
+    # is a stay application, which the interim standard governs.
+    assert [e.stage for e in result.events] == ["cert", "interim"]
+
+
+def test_scotus_appeal_entry_collapses_into_the_baseline() -> None:
+    # The "notice of appeal" wording reaches a SCOTUS docket inside a
+    # record-transmittal line from the court below, weeks after the petition.
+    # Minting on it would produce a second case-baseline id beside
+    # evt-petition-disposition — the shape the cert router cannot disambiguate,
+    # since its stage-less fallback keys on a *lone* open baseline.
+    docket = _docket(
+        [
+            _entry(
+                24,
+                "The record received from the Court of Appeals of Texas 13th District is "
+                "electronic and located on the Court of Appeals of Texas web site.  Also one "
+                "envelope containing the Notice of Appeal, Clerk's Record, and Reporter's "
+                "Record.",
+                number=24,
+            )
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+    )
+    result = extract_events(docket)
+    assert [e.event_id for e in result.events] == ["evt-petition-disposition"]
+    assert result.ambiguous == []
+
+
+def test_a_circuit_appeal_entry_still_extracts() -> None:
+    # The collapse is SCOTUS-only: at a circuit court a notice of appeal is a
+    # real filing, and evt-appeal-disposition there is the case-level baseline
+    # produced by default_event rather than by this loop.
+    result = extract_events(_docket([_entry(3, "NOTICE OF APPEAL filed by Appellant", number=3)]))
+    assert "evt-appeal-disposition" in [e.event_id for e in result.events]
+    assert len(result.events) > 1
 
 
 def test_motion_entry_becomes_predictable_event() -> None:
@@ -94,6 +166,7 @@ def test_motion_entry_becomes_predictable_event() -> None:
     assert event.opened_at == date(2026, 6, 2)
     assert event.description.startswith("MOTION for stay")
     assert event.resolved is False  # no disposing order references it
+    assert event.stage is None  # a circuit motion has no SCOTUS decision standard
 
 
 def test_disposing_order_referencing_entry_number_resolves_it() -> None:

@@ -7,15 +7,31 @@ artifacts produced end to end with no network.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.cascade import CascadeError, CascadeReport, run_cascade
+from fedcourtsai.pipeline.cascade import (
+    CascadeError,
+    CascadeReport,
+    _event_definition,
+    _outcome_for_resolved,
+    run_cascade,
+)
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.schemas import Evaluation, Outcome, PredictableEvent, Prediction
+from fedcourtsai.schemas import (
+    Disposition,
+    Evaluation,
+    EventKind,
+    Moment,
+    Outcome,
+    PredictableEvent,
+    Prediction,
+    Stage,
+)
 from fedcourtsai.serialize import read_model
 
 CONFIG_ROOT = Path("config")
@@ -58,6 +74,24 @@ def _run(
         run_id=RUN,
         **kwargs,  # type: ignore[arg-type]
     )
+
+
+def test_event_definition_carries_the_moment_stamp() -> None:
+    # The cascade writes its own event.yaml; a dropped moment reads as the
+    # stage's first at the metrics join, silently re-pooling a later-moment
+    # cell — same contract as the resolution and materialize writers.
+    event = corpus.CorpusEvent(
+        event_id="evt-order-cvsg-disposition",
+        case_id="scotus/305",
+        court="scotus",
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        title="CVSG disposition",
+    )
+    definition = _event_definition(event)
+    assert definition.stage == Stage.cert
+    assert definition.moment == Moment.cvsg
 
 
 def test_resolved_case_runs_the_full_cascade(corpus_db: Path, tmp_path: Path) -> None:
@@ -215,3 +249,69 @@ def test_cascade_is_deterministic(corpus_db: Path, tmp_path: Path) -> None:
     first = prediction.read_bytes()
     _run(corpus_db, data_root, RESOLVED_COURT, RESOLVED_DOCKET)
     assert prediction.read_bytes() == first
+
+
+def test_interim_outcome_carries_no_cert_signals_block() -> None:
+    """An application docket's outcome drops the cert `signals` block.
+
+    The discriminating input: a row that *would* emit a block — a parsed
+    `distribution_count` and a CVSG date — on an application-form docket
+    number. `resolution_signals` returns None for an unparsed count on its own,
+    so only a row carrying real cert signals reaches the interim guard, and
+    only this shape tells the guard apart from the sentinel path. Mirrors
+    `pipeline.outcome._build_outcome`, whose interim recording drops the block
+    for the same reason: distribution count and CVSG are observations nobody
+    makes on an application.
+    """
+
+    def _row(docket_number: str) -> corpus.CorpusRow:
+        return corpus.CorpusRow(
+            case_id="scotus/306",
+            court="scotus",
+            docket_number=docket_number,
+            disposition=Disposition.granted,
+            date_decided=date(2026, 7, 14),
+            distribution_count=2,
+            cvsg_date=date(2026, 5, 1),
+        )
+
+    def _event(event_id: str, stage: Stage) -> corpus.CorpusEvent:
+        return corpus.CorpusEvent(
+            event_id=event_id,
+            case_id="scotus/306",
+            court="scotus",
+            kind=EventKind.motion if stage == Stage.interim else EventKind.petition,
+            stage=stage,
+            resolved=True,
+        )
+
+    interim = _outcome_for_resolved(_row("26A11"), _event("evt-motion-disposition", Stage.interim))
+    assert interim is not None and interim.signals is None
+
+    # The cert docket keeps the block, so the guard is a stage rule and not a
+    # blanket suppression.
+    cert = _outcome_for_resolved(_row("24-1234"), _event("evt-petition-disposition", Stage.cert))
+    assert cert is not None and cert.signals is not None
+    assert cert.signals.distribution_count == 2
+
+
+def test_a_corrupt_stored_judgment_degrades_to_no_outcome(corpus_db: Path, tmp_path: Path) -> None:
+    """The merits column is blob-tolerant TEXT, so its readers re-validate.
+
+    An out-of-vocabulary stored value must land on the unrecorded path — the
+    same contract the statpack's reader keeps — rather than crashing the whole
+    cascade run on an enum conversion.
+    """
+    case = fixture.add_merits_fixture(corpus_db)
+    with corpus.connect(corpus_db) as conn:
+        conn.execute(
+            "UPDATE cases SET merits_judgment = 'not-a-judgment' WHERE case_id = ?",
+            (case.case_id,),
+        )
+        conn.commit()
+
+    report = _run(corpus_db, tmp_path / "data", "scotus", case.docket, event="evt-order-judgment")
+
+    assert report.valid, report.problems
+    assert not report.outcomes  # no ground truth written from a value we cannot read
+    assert not report.evaluations  # and so nothing to score

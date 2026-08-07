@@ -1,10 +1,12 @@
 """Tests for the corpus base-rate statpack (``fedcourts statpack`` / :mod:`analytics`).
 
-Uses the deterministic synthetic corpus (``fixture_corpus``): six cases across
-ca9 / ca1 / scotus, four resolved and two open. The two SCOTUS petitions are
+Uses the deterministic synthetic corpus (``fixture_corpus``): seven cases across
+ca9 / ca1 / scotus, five resolved and two open. The two SCOTUS petitions are
 live-slice rows — ``scotus/304`` a walker-sampled denial at weight 5 (one
 relist), ``scotus/305`` a pending poller row at weight 1 (CVSG on file) — and
-the fixture carries discovery cursors (OT22 paid complete at 850, OT22 IFP
+``scotus/306`` is a resolved substantive stay application (the interim
+docket's row, outside every cert-stage cut). The
+fixture carries discovery cursors (OT22 paid complete at 850, OT22 IFP
 partial at 460, OT24 paid partial at 12), so the weighted sections, the census,
 and the completeness flags all have real material to aggregate.
 """
@@ -17,9 +19,11 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import analytics, corpus
+from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.evaluate import merits_base_rate
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
@@ -50,20 +54,21 @@ def _term(pack: StatPack, year: int) -> StatPackTerm:
 
 def test_build_statpack_headline_and_sections(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
-    assert (pack.corpus_rows, pack.resolved, pack.open) == (6, 4, 2)
-    # All four resolved fixture cases carry concrete labels and date pairs.
-    assert (pack.machine_readable_resolved, pack.dated_resolved) == (4, 4)
-    # Overall base rate over the four resolved cases (raw counts, never weighted).
+    assert (pack.corpus_rows, pack.resolved, pack.open) == (7, 5, 2)
+    # All five resolved fixture cases carry concrete labels and date pairs.
+    assert (pack.machine_readable_resolved, pack.dated_resolved) == (5, 5)
+    # Overall base rate over the five resolved cases (raw counts, never weighted).
     shares = {d.disposition: d.share for d in pack.overall.dispositions}
-    assert shares == {"denied": 0.5, "dismissed": 0.25, "granted": 0.25}
+    assert shares == {"denied": 0.4, "granted": 0.4, "dismissed": 0.2}
     # One section per curated breakdown, in order.
     assert [s.title for s in pack.sections] == [spec.title for spec in _STATPACK_SECTIONS]
 
 
 def test_build_statpack_coverage_block(fixture_corpus: FixtureCorpus) -> None:
     coverage = _pack(fixture_corpus).coverage
-    # The two SCOTUS petitions are the live slice; one is resolved (raw count).
-    assert (coverage.live_slice_rows, coverage.live_slice_resolved) == (2, 1)
+    # The two SCOTUS petitions plus the application are the live slice; the
+    # denied petition and the granted application are resolved (raw counts).
+    assert (coverage.live_slice_rows, coverage.live_slice_resolved) == (3, 2)
     # Census totals across the fixture cursors: OT22 paid 850 + OT22 IFP
     # (5460 - 5001 + 1 = 460) + OT24 paid 12.
     assert coverage.census_filings == 850 + 460 + 12
@@ -74,16 +79,16 @@ def test_build_statpack_court_breakdown(fixture_corpus: FixtureCorpus) -> None:
     assert by_court.court is None
     assert by_court.group_by == "court"
     assert by_court.live_slice is False and by_court.weighted is False
-    assert [(b.key, b.cases) for b in by_court.buckets] == [("ca9", 3), ("scotus", 2), ("ca1", 1)]
+    assert [(b.key, b.cases) for b in by_court.buckets] == [("ca9", 3), ("scotus", 3), ("ca1", 1)]
 
 
 def test_build_statpack_overall_timing(fixture_corpus: FixtureCorpus) -> None:
     timing = _pack(fixture_corpus).timing
-    # The four resolved cases all carry date pairs: 168, 319, 525, and 546 days.
-    assert timing.cases == 4
-    assert timing.mean_days == pytest.approx(389.5)
-    assert timing.median_days == 319.0  # nearest-rank: ceil(0.5 x 4) = rank 2
-    assert timing.p90_days == 546.0  # nearest-rank: ceil(0.9 x 4) = rank 4
+    # The five resolved cases all carry date pairs: 22, 168, 319, 525, and 546 days.
+    assert timing.cases == 5
+    assert timing.mean_days == pytest.approx(316.0)
+    assert timing.median_days == 319.0  # nearest-rank: ceil(0.5 x 5) = rank 3
+    assert timing.p90_days == 546.0  # nearest-rank: ceil(0.9 x 5) = rank 5
 
 
 def test_build_statpack_weighted_cert_anchor(fixture_corpus: FixtureCorpus) -> None:
@@ -330,7 +335,7 @@ def test_live_slice_sections_exclude_bulk_rows(fixture_corpus: FixtureCorpus) ->
         )
     pack = analytics.build_statpack(corpus_db_path=fixture_corpus.db_path)
     by_court = _section(pack, "Cases by court")
-    assert ("scotus", 3) in {(b.key, b.cases) for b in by_court.buckets}
+    assert ("scotus", 4) in {(b.key, b.cases) for b in by_court.buckets}
     cert = _section(pack, "Modern discretionary-cert petitions by disposition")
     assert "granted" not in {b.key for b in cert.buckets}
     # And it defines no Term entry (OT21 has no live rows and no cursors).
@@ -630,10 +635,10 @@ def test_committed_statpack_still_parses() -> None:
 def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> None:
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     assert md.startswith("# Corpus statpack")
-    assert "**6** case(s): 4 resolved, 2 open." in md
-    assert "**Live/historical slice:** 2 case(s), 1 resolved" in md
+    assert "**7** case(s): 5 resolved, 2 open." in md
+    assert "**Live/historical slice:** 3 case(s), 2 resolved" in md
     assert "1322 docketed filing(s)" in md
-    assert "**Dated share:** 4 of 4 machine-readable resolved case(s)" in md
+    assert "**Dated share:** 5 of 5 machine-readable resolved case(s)" in md
     # Full-corpus sections say so; live-slice sections state slice + weighting.
     assert "## Cases by court" in md
     assert "_Scope: all courts; includes the frozen bulk import._" in md
@@ -641,7 +646,7 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
         "counts are denial-reweighted estimates._" in md
     )
-    assert "median 319d, p90 546d (mean 389.5d over 4 dated case(s))" in md
+    assert "median 319d, p90 546d (mean 316.0d over 5 dated case(s))" in md
     # The per-Term table: filings census, raw ingested count, weighted
     # estimates, completeness. OT22 ingested exactly one live row; the weighted
     # columns count its sampled denial as five.
@@ -748,7 +753,7 @@ def test_cli_statpack_writes_both_files(fixture_corpus: FixtureCorpus, tmp_path:
     assert result.exit_code == 0, result.output
     # The JSON validates as a StatPack, and the Markdown carries the rendered doc.
     pack = StatPack.model_validate_json(json_out.read_text())
-    assert pack.corpus_rows == 6
+    assert pack.corpus_rows == 7
     assert md_out.read_text().startswith("# Corpus statpack")
 
 
@@ -766,8 +771,9 @@ def test_cli_statpack_absent_corpus_writes_empty(
 
 def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:
     era = _section(_pack(fixture_corpus), "SCOTUS cases by era")
-    # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers.
-    assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 2)]
+    # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers;
+    # the application docket's era derives from its 2026 filing date.
+    assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 3)]
 
 
 def test_the_risk_set_rate_nests_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
@@ -868,3 +874,615 @@ def test_the_docket_pack_warns_that_the_gvr_split_is_not_cross_term_comparable(
     assert "not comparable across Terms" in md
     assert "forward convention" in md
     assert "OT2023 and OT2024" in md
+
+
+# --- The interim stage axis --------------------------------------------------
+
+
+def _seed_applications(db_path: Path) -> None:
+    """Insert a known interim-docket cohort: OT2024-heavy, one OT2023 row.
+
+    OT2024: one granted extension, a granted substantive with every escalation
+    signal, a denied substantive with none, an open substantive, an
+    unknown-ask row, and a never-parsed row. OT2023: one dismissed substantive.
+    """
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="24A1",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000002",
+                    court="scotus",
+                    docket_number="24A2",
+                    application_kind="substantive",
+                    disposition=Disposition.granted,
+                    response_requested=True,
+                    referred_to_court=True,
+                    amicus_briefs=2,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000003",
+                    court="scotus",
+                    docket_number="24A3",
+                    application_kind="substantive",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000004",
+                    court="scotus",
+                    docket_number="24A4",
+                    application_kind="substantive",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000005",
+                    court="scotus",
+                    docket_number="24A5",
+                    application_kind="unknown",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000006",
+                    court="scotus",
+                    docket_number="24A6",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900000007",
+                    court="scotus",
+                    docket_number="23A9",
+                    application_kind="substantive",
+                    disposition=Disposition.dismissed,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+            ],
+        )
+
+
+def test_interim_section_absent_without_application_rows(tmp_path: Path) -> None:
+    # The stage section is shown only once its feed exists: no application rows,
+    # no section — omitted from the serialized pack rather than emitted as null,
+    # so a pack built from an application-free corpus keeps its pre-axis bytes.
+    # The fixture corpus carries an application docket, so build the cert-only
+    # slice of it here.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                case.row()
+                for case in fixture.FIXTURE_CASES
+                # The form recognizer is meaningless off SCOTUS, so gate on the
+                # court the way its contract asks callers to.
+                if not (
+                    case.court == "scotus" and corpus.is_scotus_application_form(case.docket_number)
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.interim is None
+    assert "interim" not in pack.model_dump(mode="json")
+    assert "The interim docket" not in analytics.render_statpack_markdown(pack)
+
+
+def test_the_committed_pack_reserializes_byte_identically(tmp_path: Path) -> None:
+    """The committed artifact must survive a parse → serialize round trip unchanged.
+
+    `write_json` is deterministic and the pack is a pure function of the corpus,
+    so this holds by construction — and it is exactly the property a model change
+    can silently break (a new field serializing as `null` would perturb every
+    rebuild whose corpus does not feed it). Pinned on the committed file, written
+    back through the real writer, so the schema and the artifact cannot drift
+    apart between refreshes.
+    """
+    committed = (Path(__file__).resolve().parents[1] / "metrics" / "statpack.json").read_text()
+    pack = StatPack.model_validate_json(committed)
+    rewritten = tmp_path / "statpack.json"
+    serialize.write_json(rewritten, pack)
+    assert rewritten.read_text() == committed
+
+
+def test_interim_counts_by_kind_and_term(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_applications(db)
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    # Pack-level kind counts: the never-parsed row is a coverage gap, kept apart
+    # from the parsed-but-unreadable `unknown` ask.
+    assert (interim.applications, interim.extension, interim.substantive) == (7, 1, 4)
+    assert (interim.unknown, interim.unparsed) == (1, 1)
+    # Substantive slice only: the granted extension never enters the rate, the
+    # open substantive row never enters the denominator, and a dismissal resolves
+    # without granting — so 1 granted of 3 resolved.
+    assert (interim.substantive_resolved, interim.substantive_granted) == (3, 1)
+    assert interim.substantive_grant_rate == pytest.approx(1 / 3)
+    # Escalation signals count substantive applications carrying each column.
+    assert (interim.response_requested, interim.referred_to_court, interim.with_amicus) == (1, 1, 1)
+    # Per-application-Term split, most recent first, read off the A-form number.
+    assert [t.term for t in interim.terms] == [2024, 2023]
+    ot24, ot23 = interim.terms
+    assert (ot24.applications, ot24.substantive_resolved, ot24.substantive_granted) == (6, 2, 1)
+    assert ot24.substantive_grant_rate == pytest.approx(0.5)
+    assert (ot23.applications, ot23.substantive, ot23.substantive_resolved) == (1, 1, 1)
+    assert ot23.substantive_grant_rate == 0.0  # a dismissal resolves, ungranted
+
+
+def test_interim_rate_is_substantive_only(tmp_path: Path) -> None:
+    # A docket of granted extensions has NO rate: extensions are counted so their
+    # dominance is visible, but they never pool into any rate (docs/salience.md).
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/90000000{i}",
+                    court="scotus",
+                    docket_number=f"25A{i}",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+                for i in range(1, 4)
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.applications, interim.extension) == (3, 3)
+    assert (interim.substantive_resolved, interim.substantive_granted) == (0, 0)
+    assert interim.substantive_grant_rate is None  # no rate, not 0% or 100%
+
+
+def test_interim_out_of_vocabulary_kind_counts_as_unknown(tmp_path: Path) -> None:
+    # The blob is external input: a kind string outside the vocabulary must not
+    # vanish from the kind split (which would break the sum-to-`applications`
+    # identity silently) — it counts with the unreadable asks.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="garbled",
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.applications, interim.unknown) == (1, 1)
+    assert (
+        interim.extension + interim.substantive + interim.unknown + interim.unparsed
+        == interim.applications
+    )
+
+
+def test_interim_other_disposition_stays_out_of_the_denominator(tmp_path: Path) -> None:
+    # An `other` label means "decided, but we do not know how" — it can only
+    # reach an application row through a channel crossing, never through the
+    # interim vocabulary — so it joins the visibly unresolved residue instead of
+    # entering the rate as a silent denial.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/900000001",
+                    court="scotus",
+                    docket_number="25A1",
+                    application_kind="substantive",
+                    disposition=Disposition.other,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                )
+            ],
+        )
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.substantive, interim.substantive_resolved) == (1, 0)
+    assert interim.substantive_grant_rate is None
+
+
+def test_application_rows_leave_the_cert_populations_unchanged(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The stage axis is disjoint from the cert one: an A-form docket defines no
+    # cert Term entry and joins no cert-stage section, so seeding applications
+    # changes only the full-corpus overview counts and the interim section
+    # (which the fixture's own application docket already feeds).
+    before = _pack(fixture_corpus)
+    _seed_applications(fixture_corpus.db_path)
+    after = _pack(fixture_corpus)
+    assert after.terms == before.terms
+    for prior, current in zip(before.sections, after.sections, strict=True):
+        if prior.cert_stage:
+            assert current == prior
+    assert before.interim is not None and after.interim is not None
+    assert after.interim.applications == before.interim.applications + 7
+
+
+def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_applications(db)
+    md = analytics.render_statpack_markdown(analytics.build_statpack(corpus_db_path=db))
+    assert "## The interim docket (applications)" in md
+    # The caption carries the interpretation contract with the figures.
+    interim_section = md.split("## The interim docket (applications)")[1]
+    assert "resolved substantive" in interim_section
+    assert "not a segment base rate" in interim_section
+    assert "**7** application(s): 1 extension, 4 substantive" in interim_section
+    # Rates print raw-count denominators beside them; per-Term rows carry the
+    # kind counts, the substantive-only rate, and the escalation signals.
+    assert "**Substantive slice:** 3 resolved, 1 granted — grant rate 33.3% (n=3)." in md
+    assert "| 2024 | 6 | 1 | 3 | 1 | 1 | 2 | 1 | 50.0% (n=2) | 1 | 1 | 1 |" in md
+    assert "| 2023 | 1 | 0 | 1 | 0 | 0 | 1 | 0 | 0.0% (n=1) | 0 | 0 | 0 |" in md
+
+
+# --- The merits stage axis ---------------------------------------------------
+
+
+def _seed_granted_cohort(db_path: Path) -> None:
+    """Insert a known granted-merits cohort split across two grant Terms.
+
+    OT2023 (granted Jan 2024 -> Term 2023): a reversal, a vacatur, an
+    affirmance, a DIG, and a granted row with no parsed judgment (coverage
+    gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
+    equally-divided affirmance and one mixed in-part outcome. Plus a granted
+    row carrying an out-of-vocabulary judgment string (counts as unparsed, so
+    the distribution always sums to `parsed`), a denial, and a GVR — the last
+    two never eligible, the GVR because its vacatur is a cert-stage disposition.
+    """
+    ot23 = date(2024, 1, 12)
+    ot24 = date(2024, 10, 7)
+    rows = [
+        corpus.CorpusRow(
+            case_id="scotus/910000001",
+            court="scotus",
+            docket_number="23-201",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="reversed",
+            merits_decided=date(2024, 6, 27),
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000002",
+            court="scotus",
+            docket_number="23-202",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
+            merits_decided=date(2024, 6, 20),
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000003",
+            court="scotus",
+            docket_number="23-203",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="affirmed",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000004",
+            court="scotus",
+            docket_number="23-204",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="dismissed-as-improvidently-granted",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000005",
+            court="scotus",
+            docket_number="23-205",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000006",
+            court="scotus",
+            docket_number="24-101",
+            disposition=Disposition.granted,
+            date_cert_granted=ot24,
+            merits_judgment="affirmed-by-an-equally-divided-court",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000007",
+            court="scotus",
+            docket_number="24-102",
+            disposition=Disposition.granted,
+            date_cert_granted=ot24,
+            merits_judgment="affirmed-in-part-reversed-in-part",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000008",
+            court="scotus",
+            docket_number="24-103",
+            disposition=Disposition.granted,
+            date_cert_granted=ot24,
+            merits_judgment="remanded-with-prejudice",  # out of vocabulary
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000009",
+            court="scotus",
+            docket_number="23-206",
+            disposition=Disposition.denied,
+            date_cert_denied=ot23,
+            merits_judgment="affirmed",  # never eligible: a denial has no merits stage
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000010",
+            court="scotus",
+            docket_number="23-207",
+            # A GVR vacates in the cert order itself, so it opens no merits
+            # proceeding and must not enter the population — its near-certain
+            # vacatur would otherwise read as a disturbed merits judgment.
+            disposition=Disposition.gvr,
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
+        ),
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_merits_section_absent_without_parsed_judgments(fixture_corpus: FixtureCorpus) -> None:
+    # The stage section is shown only once its feed exists: no parsed judgment,
+    # no section — omitted from the serialized pack rather than emitted as null,
+    # so a pack built from a judgment-free corpus keeps its pre-axis bytes.
+    pack = _pack(fixture_corpus)
+    assert pack.merits is None
+    assert "merits" not in pack.model_dump(mode="json")
+    assert "The merits docket" not in analytics.render_statpack_markdown(pack)
+
+
+def test_merits_section_absent_when_granted_rows_carry_no_judgment(tmp_path: Path) -> None:
+    # A granted-but-unparsed cohort is a feed that does not exist yet: the
+    # section joins on the parsed judgment, not on the grant.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000001",
+                    court="scotus",
+                    docket_number="23-201",
+                    date_cert_granted=date(2024, 1, 12),
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.merits is None
+    assert "merits" not in pack.model_dump(mode="json")
+
+
+def test_merits_counts_distribution_and_rate_by_grant_term(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    # Pack-level coverage: 8 granted (the denial is not eligible), 6 parsed —
+    # the unparsed row and the out-of-vocabulary value are both coverage gaps.
+    assert (merits.granted, merits.parsed) == (8, 6)
+    assert (merits.affirmed, merits.reversed, merits.vacated) == (1, 1, 1)
+    assert (merits.affirmed_in_part, merits.dig, merits.equally_divided) == (1, 1, 1)
+    # Disturbed = reversed + vacated + in-part; DIG and equally divided leave
+    # the judgment below standing, so both sit in the denominator undisturbed.
+    assert merits.disturbed == 3
+    assert merits.disturbed_rate == pytest.approx(3 / 6)
+    # Per-grant-Term split, most recent first, October pivot: the Oct 2024
+    # grants are OT2024, the Jan 2024 grants OT2023.
+    assert [t.term for t in merits.terms] == [2024, 2023]
+    ot24, ot23 = merits.terms
+    assert (ot24.granted, ot24.parsed, ot24.disturbed) == (3, 2, 1)
+    assert ot24.disturbed_rate == pytest.approx(0.5)
+    assert (ot23.granted, ot23.parsed, ot23.disturbed) == (5, 4, 2)
+    assert ot23.disturbed_rate == pytest.approx(0.5)
+
+
+def test_merits_population_excludes_grants_that_decide_in_the_cert_order(
+    tmp_path: Path,
+) -> None:
+    """A GVR grants the petition and vacates below in one order, so it opens no
+    merits proceeding and never mints a merits event to forecast. Pooling it
+    would put a near-certain vacatur in the rate that scores merits forecasts,
+    inflating the disturbed rate with cases no one was asked to predict."""
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    # The cohort carries a GVR row stamped `vacated`; neither its grant nor its
+    # judgment reaches any counter.
+    assert (merits.granted, merits.parsed) == (8, 6)
+    assert merits.vacated == 1
+    assert merits.disturbed == 3
+
+
+def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
+    # An all-affirmed parsed slice is a real 0% — distinct from the no-rate
+    # None an unparsed slice carries.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000001",
+                    court="scotus",
+                    docket_number="23-201",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2024, 1, 12),
+                    merits_judgment="affirmed",
+                )
+            ],
+        )
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    assert merits.disturbed_rate == 0.0
+    assert merits.terms[0].disturbed_rate == 0.0
+
+
+def test_merits_rows_leave_live_slice_terms_and_interim_unchanged(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The merits axis is a projection over granted rows, not a new cert
+    # population: the seeded (non-live) cohort adds the merits section without
+    # moving the live-slice per-Term array or the interim stage section. The
+    # full-corpus overview sections legitimately grow — the seeded rows are
+    # real corpus rows — so they are deliberately not compared here.
+    before = _pack(fixture_corpus)
+    _seed_granted_cohort(fixture_corpus.db_path)
+    after = _pack(fixture_corpus)
+    assert before.merits is None and after.merits is not None
+    assert after.terms == before.terms
+    assert after.interim == before.interim
+
+
+def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    md = analytics.render_statpack_markdown(analytics.build_statpack(corpus_db_path=db))
+    assert "## The merits docket (granted cases)" in md
+    # The caption carries the interpretation contract with the figures.
+    merits_section = md.split("## The merits docket (granted cases)")[1]
+    # The caption states the scored contract: the section's own disturbed rate
+    # is the registered baseline's feed, over the population it scores.
+    assert "registered merits Brier baseline" in merits_section
+    assert "excluded by its disposition label" in merits_section
+    assert "strictly before" in merits_section
+    assert "undisturbed" in merits_section
+    assert "**8** granted case(s): 6 with a parsed judgment." in merits_section
+    # Rates print raw-count denominators beside them; per-Term rows carry the
+    # coverage pair, the six-way distribution, and the disturbed rate.
+    assert "disturbed rate 50.0% (n=6)." in merits_section
+    assert "| 2024 | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
+    assert "| 2023 | 5 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section
+
+
+def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
+    """One grant Term holding a merits-bound cohort beside a GVR block.
+
+    The merits-bound rows (`granted` / `granted-in-part` — the dispositions
+    that mint a merits event) split 28 disturbed of 40, enough to clear the
+    baseline's minimum sample; the 40 GVRs are the near-certain vacaturs the
+    scored population is never drawn from.
+    """
+    granted = date(2024, 1, 12)
+    rows = [
+        corpus.CorpusRow(
+            case_id=f"scotus/9200{n:05d}",
+            court="scotus",
+            docket_number=f"23-3{n:02d}",
+            disposition=Disposition.granted_in_part if n == 0 else Disposition.granted,
+            date_cert_granted=granted,
+            merits_judgment="reversed" if n < 28 else "affirmed",
+        )
+        for n in range(40)
+    ] + [
+        corpus.CorpusRow(
+            case_id=f"scotus/9210{n:05d}",
+            court="scotus",
+            docket_number=f"23-4{n:02d}",
+            disposition=Disposition.gvr,
+            date_cert_granted=granted,
+            merits_judgment="vacated",
+        )
+        for n in range(40)
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> None:
+    """End to end: a GVR block cannot move the rate a merits cell is scored on.
+
+    A GVR mints no merits event, so no merits cell is ever drawn from one.
+    Pooling the near-certain GVR vacaturs would anchor every merits forecast
+    above the rate its own population faces — the
+    baseline-coarser-than-the-conditioning failure
+    `docs/outcome-decomposition.md`'s third test rules out — and would restate
+    a cert-stage disposition under a merits heading. Excluding them at the
+    population is what makes the section's own `disturbed_rate` the baseline's
+    feed.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_merits_and_gvr_cohort(db)
+    pack = analytics.build_statpack(corpus_db_path=db)
+    merits = pack.merits
+    assert merits is not None
+    assert (merits.granted, merits.parsed, merits.disturbed) == (40, 40, 28)
+    assert merits.disturbed_rate == pytest.approx(0.70)
+    assert merits.vacated == 0  # every vacatur in the corpus is a GVR's
+    # The baseline reads those counts on the grant-Term axis: 0.70, not the
+    # (28 + 40) / 80 = 0.85 a GVR-inclusive population would hand out.
+    assert merits_base_rate(2024, pack) == pytest.approx(0.70)
+
+
+# --- the alt_segments block: every registered version's bands, per Term ---------
+
+
+def test_a_term_carries_no_alt_segments_key_while_one_version_is_registered(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The block exists for non-active versions, so with one version it is absent —
+    not present-and-empty. An empty list would add a key to every Term of every
+    pack to say nothing, and would move the committed artifact."""
+    pack = _pack(fixture_corpus)
+    assert all(t.alt_segments == [] for t in pack.terms)
+    payload = pack.model_dump(mode="json")
+    assert all("alt_segments" not in term for term in payload["terms"])
+
+
+def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
+    fixture_corpus: FixtureCorpus, two_versions: SalienceScorer
+) -> None:
+    """A prediction keeps the version that banded it for life, so when the live
+    pass moves on the retired scorer still needs a published base rate. This is
+    the producer half of that contract — `_pooled_band_rate` reads what it emits."""
+    pack = _pack(fixture_corpus)
+    for term in pack.terms:
+        assert term.salience_version == SALIENCE_VERSION
+        assert [s.band for s in term.segments] == list(_BANDS)
+        (alt,) = term.alt_segments
+        assert alt.salience_version == "sal-toy"
+        # The toy's own vocabulary, not the active scorer's — a band name means
+        # something only under the function that assigned it.
+        assert [s.band for s in alt.segments] == ["hot", "cold"]
+    # And it survives serialization rather than being dropped by the wrap serializer.
+    payload = pack.model_dump(mode="json")
+    assert all(len(term["alt_segments"]) == 1 for term in payload["terms"])
+
+
+def test_both_versions_count_the_same_rows_into_their_own_bands(
+    fixture_corpus: FixtureCorpus, two_versions: SalienceScorer
+) -> None:
+    """One streaming pass feeds every version, so the versions partition the same
+    population — they disagree about which band a row lands in, never about
+    whether it is in the scored segment at all."""
+    pack = _pack(fixture_corpus)
+    for term in pack.terms:
+        (alt,) = term.alt_segments
+        assert sum(s.ingested for s in term.segments) == sum(s.ingested for s in alt.segments)
+        assert sum(s.resolved for s in term.segments) == sum(s.resolved for s in alt.segments)

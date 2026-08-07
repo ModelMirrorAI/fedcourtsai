@@ -14,9 +14,23 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .leaderboard import PROCEDURAL, Stratum, classify_stratum
+from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
+from .pipeline import moments
+from .pipeline.moments import first_moment
 from .process_version import is_frozen
-from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage, Outcome, Prediction
+from .schemas import (
+    AgentFlags,
+    AgentToolingFeedback,
+    Evaluation,
+    EventKind,
+    ModelUsage,
+    Moment,
+    Outcome,
+    PredictableEvent,
+    Prediction,
+    Stage,
+    Stratum,
+)
 from .serialize import read_model
 
 
@@ -79,9 +93,10 @@ def open_events(
     The event-state seam reads from the packed corpus, where the ingestion channels
     record predictable events as raw facts: a case enters the corpus with its
     event(s) open, and outcome detection flips each event's ``resolved`` flag when
-    it records that event's ``outcome.json``. These are the events ``run-predict``
-    should target. Empty (not created) if the local corpus does not exist yet;
-    ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
+    it records that event's ``outcome.json``. ``run-predict`` targets the
+    case-baseline subset of these — see :func:`forecastable_events`. Empty (not
+    created) if the local corpus does not exist yet; ``backend`` selects the
+    read backend (see :func:`corpus.connect_readonly`).
 
     A case the scope reconcile has latched **out of scope** (``predict_excluded``)
     yields no predictable events here — so a stale/unresolvable or
@@ -108,6 +123,215 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
         return []
     events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if not event.resolved]
+
+
+# The event kinds the forward tournament forecasts unconditionally: the
+# case-baseline disposition events. Three stage-keyed admissions sit beside
+# this set in `forecastable_event_ids` — the cert-stage CVSG order minted on a
+# still-pending petition, the interim-stage motion baseline of an application
+# docket, and the merits-stage order event a cert grant mints — and all are
+# conditional on the row, because the kind alone does not say which
+# population the cell would be scored against. A motion on a *cert* docket is
+# recorded and tracked but never queued for prediction: the prompt contract,
+# the salience band, and the segment base rate are all conditioned on the cert
+# petition, so a cell minted for it would be forecast and scored against a
+# population it does not belong to.
+_FORECASTABLE_KINDS = frozenset({EventKind.petition, EventKind.appeal})
+
+
+def forecastable_events(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_id: int,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> list[str]:
+    """The subset of :func:`open_events` the predict fan-out may target.
+
+    The case-baseline disposition kinds (petition, appeal), plus three
+    stage-keyed admissions: the **cert-stage CVSG order** minted on a petition
+    still awaiting disposition, the **interim-stage motion baseline** of an
+    in-scope application docket, and the **merits-stage order event** minted on
+    a case whose cert grant opened a merits proceeding. Every predict queue and
+    the predict
+    matrix's default-event resolution read this seam; evaluate, outcome
+    detection, the rotation, and the corpus service keep the unfiltered
+    :func:`open_events`, because an open motion event outside predict scope
+    still needs its ground truth tracked — it just never earns a forecast cell.
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return []
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        return forecastable_event_ids(conn, court_id, docket_id)
+
+
+def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is a forecastable cert-stage moment of a pending petition.
+
+    The cert admission: an event the register declares at the **cert stage**,
+    on a scotus row that is neither an application docket nor already decided.
+    In practice this arm carries the **CVSG order** — the later cert moment,
+    minted when the call for the Solicitor General's views latches while the
+    petition is still awaiting disposition — since the petition baseline the
+    register also declares is already admitted by the case-baseline arm; the
+    or-chain makes the overlap harmless, and this arm's row refusals are a
+    strict superset of that arm's, so nothing the baseline arm refuses can
+    enter through this one.
+
+    The form check mirrors the case-baseline arm's mislabeled-application
+    refusal: a CVSG exists only on a cert docket, but admission is keyed on
+    the row, not on the shape of an id.
+
+    The decided-row refusal mirrors the merits arm's latched-judgment check,
+    reading the same pair the cohort selection reads (``disposition`` /
+    :func:`fedcourtsai.corpus.resolution_date`): a disposition latched while
+    the docket's events await their outcome record would otherwise mint a
+    cell per predictor, per day, that provisioning then refuses.
+
+    Deliberately **no salience condition**, matching the baseline: the gate
+    applies at the queue seams (predict scope, the live sweep), and a CVSG row
+    is a sal-v1 carve-out — selection follows the very signal that minted this
+    event.
+    """
+    return (
+        _declares_forecastable(event, Stage.cert)
+        and row is not None
+        and row.court == "scotus"
+        and not corpus.is_scotus_application_form(row.docket_number)
+        and row.disposition is None
+        and corpus.resolution_date(row) is None
+        and corpus.out_of_scope_reason(row) is None
+    )
+
+
+def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is the forecastable interim baseline of an in-scope case.
+
+    The interim admission: a **motion-kind** event carrying the **interim
+    stage**, on an **application-form** row the row-only scope rules keep in
+    scope — which, per :func:`fedcourtsai.corpus.is_non_cert_scotus_form`,
+    admits only an application whose latched ask reads substantive. The row
+    check is what keeps an extension or unknown-ask application's baseline out
+    of the fan-out even before the scope reconcile latches ``predict_excluded``
+    on its row. Deliberately the **row-only** reason evaluator, not the
+    connection-holding ``out_of_scope_reason_full``: the one rule the full
+    evaluator adds (the bare opinion-import profile) cannot match an
+    application row, and the caller's ``predict_excluded`` check already
+    carries any snapshot-aware latch.
+
+    The docket form is load-bearing, not redundant with the stage: a cert
+    docket carries interim-stage events too — an entry-pinned stay or
+    injunction motion filed on the petition's own docket — and a cert docket is
+    squarely in scope, so the scope rules alone would admit one. Its cell would
+    then freeze the *petition's* salience band as its conditioning, scoring an
+    interim forecast against a cert population. Forecasting those motions is a
+    later scope decision with its own baseline; until then the interim fan-out
+    is the application docket, whose baseline the discovery mint stamps.
+    """
+    return (
+        _declares_forecastable(event, Stage.interim)
+        and row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+        and corpus.out_of_scope_reason(row) is None
+    )
+
+
+def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether an event is the forecastable merits event of a granted case.
+
+    The merits admission: an **order-kind** event carrying the **merits
+    stage**, on a row whose cert grant actually opened a merits proceeding, whose
+    judgment is not already latched, and which the row-only scope rules keep in
+    scope. The stage carries the event test — an order event of any other sort
+    carries no stage at all — with the kind checked defensively beside it, since
+    only the merits mint produces an order-kind event today and a second one
+    would have to declare its own stage to reach here.
+
+    The latched-judgment check is not redundant with the event's open flag: a
+    parsed judgment whose entry carries no usable date surfaces for triage
+    rather than resolving the event, so the row knows the case is decided while
+    the event stays open. Without the check that docket mints a cell per
+    predictor, per day, that provisioning then refuses.
+
+    The row predicate is :func:`fedcourtsai.corpus.opens_merits_proceeding` —
+    the same rule that mints the event, that the judgment backfill parses, and
+    that the statpack merits section measures its disturbed rate over. Checking
+    it here rather than trusting the event's existence is what keeps the
+    forecast population and the baseline population one population when the two
+    could drift: a docket re-resolved to ``gvr`` after its merits event was
+    minted leaves the cert order carrying the disposition, so its judgment is a
+    cert-stage fact the merits baseline excludes, and a cell forecasting it
+    would be scored against a rate its own case is not in.
+
+    The scope rules narrow the forecast population *inside* the baseline's
+    rather than matching it exactly, and the gap is not small: predict scope
+    excludes IFP petitions, consolidated-out-of-scope members, and
+    date-inconsistent rows, while :func:`opens_merits_proceeding` — and so the
+    statpack merits section the baseline is pooled from — admits all of them.
+    The IFP slice alone is roughly an eighth of the committed pack's plain
+    grants, and it is the criminal/habeas end of the docket, whose disturbance
+    rate has no reason to match the paid cohort's. So the merits baseline is
+    measured over a population wider than the one forecast, which is the same
+    shape ``docs/decision-model.md`` invokes to exclude GVRs; the honest
+    resolution is a fee-class cut on the merits section, and until one lands
+    the residue is stated rather than bounded. Admitting the excluded dockets
+    instead is not the alternative — a merits cell on a docket the documented
+    predict-scope exclusion refuses is a scope decision, not a fix.
+    """
+    return (
+        _declares_forecastable(event, Stage.merits)
+        and row is not None
+        and row.merits_judgment is None
+        and corpus.opens_merits_proceeding(row)
+        and corpus.out_of_scope_reason(row) is None
+    )
+
+
+def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether a case-baseline event is the forecastable baseline of its case.
+
+    The kind is necessary but not sufficient: an **application** docket whose
+    baseline still reads petition-kind carries a mislabel, not a cert petition.
+    Discovery mints an application's baseline as the interim-stage motion, but a
+    row minted before that rule — or one the relabel pass has not reached — keeps
+    the cert-shaped id, and admitting it would forecast a stay application under
+    the cert contract, against a cert population, on the strength of a name.
+
+    Keyed on the docket form rather than on the event's stage, because the
+    mislabel predates the stage stamp: the rows that need excluding are exactly
+    the ones carrying no stage at all. That makes forecastability correct on its
+    own terms rather than conditional on a data migration having run — the
+    migration changes which event is forecast, never whether a mislabeled one is.
+    """
+    if event.kind not in _FORECASTABLE_KINDS:
+        return False
+    return not (
+        row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+    )
+
+
+def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
+    """:func:`forecastable_events` over an already-open connection."""
+    case_id = ids.case_id(court_id, docket_id)
+    row = corpus.get_row(conn, case_id)
+    if row is not None and row.predict_excluded:
+        return []
+    events = corpus.events_for_case(conn, case_id)
+    return [
+        event.event_id
+        for event in events
+        if not event.resolved
+        and (
+            _case_baseline_forecastable(event, row)
+            or _cert_forecastable(event, row)
+            or _interim_forecastable(event, row)
+            or _merits_forecastable(event, row)
+        )
+    ]
 
 
 def resolved_events(
@@ -149,10 +373,41 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
 
 
+def _declares_forecastable(event: corpus.CorpusEvent, stage: Stage) -> bool:
+    """Whether ``event`` is a declared, fan-out-eligible moment of ``stage``.
+
+    The kind/stage pair an admission used to spell out, read off the register
+    instead — so adding a moment is a table row rather than an edit to every
+    predicate that has to admit it, and a declared-but-switched-off moment
+    (``forecastable=False``) stays out of the fan-out without a second flag
+    anywhere.
+    """
+    spec = moments.spec_for(event.event_id)
+    return (
+        spec is not None
+        and spec.stage is stage
+        and spec.forecastable
+        and event.stage == stage
+        and event.kind == spec.kind
+    )
+
+
+def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | None:
+    """The forecast moment a cell reads as, normalizing an unrecorded one.
+
+    A record written before the moment axis existed carries none, and its event
+    is by construction the stage's **first** moment — there was no second one to
+    be. Normalizing here rather than back-filling the record follows the stage
+    rule directly above: the join decides what a legacy artifact reads as, and
+    the artifact keeps saying only what its writer knew.
+    """
+    return moment if moment is not None else (first_moment(stage) if stage is not None else None)
+
+
 def iter_stratified_evaluations(
     data_root: Path, *, frozen_only: bool = True
-) -> list[tuple[Evaluation, Stratum]]:
-    """Every evaluation joined to its pre-registration stratum, in stable path order.
+) -> list[StratifiedCell]:
+    """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
     the same event and the event's ``outcome.json`` — all committed artifacts, so
@@ -167,6 +422,13 @@ def iter_stratified_evaluations(
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
 
+    The third element is the event's decision **stage**, read off its committed
+    ``event.yaml`` and normalized for stratification: a petition/appeal-kind
+    event with no recorded stage reads as **cert** — the case-baseline kinds
+    resolve on the cert standard by construction — while a null stage on any
+    other kind stays ``None`` (no stage, never guessed into one). The
+    leaderboard segments its stage axis on this value.
+
     ``frozen_only`` (the default) keeps only cells whose latest prediction was
     produced by a **frozen** process (:func:`process_version.is_frozen`), so every
     surface built on this stream — the leaderboard and the ops dashboard both — is
@@ -179,7 +441,7 @@ def iter_stratified_evaluations(
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return []
-    cells: list[tuple[Evaluation, Stratum]] = []
+    cells: list[StratifiedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -200,7 +462,15 @@ def iter_stratified_evaluations(
             if outcome.disposition_basis == "mootness"
             else classify_stratum(latest.created_at, outcome.resolved_at)
         )
-        cells.append((evaluation, stratum))
+        event = read_model(event_dir / "event.yaml", PredictableEvent)
+        # Stage normalization for stratification: a missing/null stage on a
+        # petition/appeal-kind event reads as cert — the case-baseline kinds
+        # resolve on the cert standard by construction — while a null stage on
+        # any other kind stays no-stage.
+        stage: Stage | None = event.stage
+        if stage is None and event.kind in _FORECASTABLE_KINDS:
+            stage = Stage.cert
+        cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
     return cells
 
 

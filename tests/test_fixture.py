@@ -15,6 +15,8 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.ingest import CorpusRow as IngestRow
+from fedcourtsai.pipeline.ingest import CorpusSource, default_event
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -58,6 +60,34 @@ def test_fixture_spans_courts_with_mixed_resolution(tmp_path: Path) -> None:
             assert corpus.latest_snapshot(conn, row.case_id) is not None
             (event,) = corpus.events_for_case(conn, row.case_id)
             assert event.resolved == (row.disposition is not None)
+
+
+def test_fixture_baseline_events_mirror_the_production_mint() -> None:
+    """Every fixture case's baseline event is what discovery would mint for it.
+
+    The fixture is a miniature, not a mock, so its event shape has to be the
+    production rule's own answer — otherwise a case shaped like a real docket
+    could carry a kind/stage pair the pipeline would never produce, and the
+    offline cascade would prove a contract that does not exist. Pinned across
+    the whole table because the fixture's `kind` keys on the *tolerant*
+    application recognizer while `default_event` keys on the *strict* one: they
+    agree on every spelling the fixture carries, and this is what keeps it so.
+    """
+    for case in fixture.FIXTURE_CASES:
+        # `default_event` reads the ingestion-stage row; the fixture stores the
+        # packed-corpus one. Project across the seam with the fields the mint
+        # actually reads (court, docket number, identity, filing date, label).
+        ingested = IngestRow(
+            case_id=case.case_id,
+            court=case.court,
+            docket_id=str(case.docket),
+            source=CorpusSource.live,
+            docket_number=case.docket_number,
+            case_name=case.case_name,
+            date_filed=case.date_filed,
+            disposition=case.disposition,
+        )
+        assert case.event() == default_event(ingested), case.case_id
 
 
 def test_fixture_sets_the_scope_column_by_court(tmp_path: Path) -> None:

@@ -17,7 +17,8 @@ axes the cert task demands:
   P(granted) against the observed grant rate.
 - **Agentic replay** runs the configured predictors through the same engine
   runner ``run-predict`` uses, over a **redacted snapshot** — every field that
-  exists only because the matter was decided is stripped — into a scratch root,
+  exists only because the matter was decided, or that accrues with the docket
+  and thereby betrays it, is stripped — into a scratch root,
   never the ``data/`` ledger. The result is retrospective by construction (the
   outcomes predate every modern model's training cutoff), and the report says so
   (the same pre-registration rule the leaderboard stratifies on).
@@ -54,7 +55,12 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
 )
 from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
-from .pipeline.salience import salience_band, salience_bands, salience_score
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    salience_band,
+    salience_bands,
+    salience_score,
+)
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
@@ -201,10 +207,11 @@ def select_cert_backtest_set(
     return [BacktestItem(backtest_features(row), Disposition(str(row.disposition))) for row in rows]
 
 
-# Snapshot fields that exist only because the matter was decided (or that record
-# the decision), stripped before an agentic replay sees the docket. This
-# blocklist is key-name-based, so every channel's outcome-bearing keys must be
-# listed.
+# Snapshot fields that reveal the outcome — because they exist only once the
+# matter was decided (or record the decision), or because they accrue with the
+# proceedings and so, on a decided docket, betray it — stripped before an
+# agentic replay sees the docket. This blocklist is key-name-based, so every
+# channel's outcome-bearing keys must be listed.
 #
 # The proceedings entries are NOT here: they are truncated by date instead
 # (`truncate_snapshot`). Content offers no rule that separates a disposing order
@@ -235,15 +242,40 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     # grant order — the key's very presence leaks the outcome (verified live).
     # The questions presented reach cells from the petition text instead.
     "QPLink",
+    # The party and counsel blocks accrue after arrival: every third-party
+    # filing appends its counsel of record, and amici pile onto granted
+    # petitions (mean "Other" entries: 10.37 granted vs 0.45 denied), so on a
+    # decided docket the blocks' sheer size is a grant oracle — and
+    # "AttorneyHeaderOther" is emitted only when the "Other" block is
+    # non-empty, so its very presence is the boolean form of the same oracle
+    # (verified live). "PetitionerTitle" and "RespondentTitle" are NOT here:
+    # they are the arrival-time captions a forward cell sees (pipeline ingest
+    # reads them for the case name).
+    "Petitioner",
+    "Respondent",
+    "Other",
+    "AttorneyHeaderPetitioner",
+    "AttorneyHeaderRespondent",
+    "AttorneyHeaderOther",
 )
 
 
 def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop the derived fields that exist only because the matter was decided.
+    """Drop the top-level fields that reveal that (or how) the matter was decided.
 
     :data:`SNAPSHOT_OUTCOME_FIELDS` only. The proceedings entries survive this
     and are handled by :func:`truncate_snapshot`, which is the other half — a
     caller wanting the pre-decision view wants both.
+
+    Deliberately uniform across provenances: the counsel blocks are stripped
+    from genuinely pre-decision (``dated``) snapshots too, where they are
+    legitimate arrival-time signal, because the blocks are undated — date
+    truncation cannot apply — and a uniform replay information set beats a
+    dated/truncated mixture the scoring would then have to carry. The cost is
+    stated, not hidden: every replay cell is blind to counsel identity, which
+    a forward cell sees, so replay figures understate the same predictor's
+    forward information set. Do not "fix" this on dated snapshots — that
+    reopens the seam on every decided one.
     """
     return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
 
@@ -578,6 +610,8 @@ def replay_predictors(
                 event_id=event.event_id,
                 case_id=event.case_id,
                 kind=event.kind,
+                stage=event.stage,
+                moment=event.moment,
                 title=event.title or event.case_id,
                 description=event.description,
                 opened_at=event.opened_at,
@@ -679,8 +713,9 @@ def build_segment_context(
     outside the population the salience gate predicts, so the per-band breakdown
     covers the same paid segment the statpack's segment rate is computed over.
 
-    ``lookback_terms`` bounds that pool; ``None`` takes
-    ``salience.base_rate_lookback_terms``'s default, ``0`` — every prior Term.
+    ``lookback_terms`` bounds that pool; ``None`` takes the field default
+    (``0``, the absent-file fallback — every prior Term), **not** the shipped
+    config value. Production passes the loaded config's window.
     """
     window = (
         lookback_terms if lookback_terms is not None else SalienceConfig().base_rate_lookback_terms
@@ -824,7 +859,12 @@ def run_cert_backtest(
     forward stratum uses; omitted on the offline runs that pass no statpack.
     """
     if not items:
-        return CertBacktest(events_scored=0, predictors_evaluated=0, entries=[])
+        return CertBacktest(
+            events_scored=0,
+            predictors_evaluated=0,
+            salience_version=SALIENCE_VERSION,
+            entries=[],
+        )
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
@@ -838,6 +878,7 @@ def run_cert_backtest(
     return CertBacktest(
         events_scored=len(items),
         predictors_evaluated=len(entries),
+        salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
         provisioning=dict(provisioning or {}),
         entries=entries,

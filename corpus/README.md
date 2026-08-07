@@ -93,6 +93,8 @@ source.
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
+| `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
+| `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -114,9 +116,18 @@ after a grant, so counting it on a decided docket is a grant oracle. The flat
 
 The multi-valued sibling facts (`panel`, `parties`, `attorneys`, `counsel`) are
 filled by whichever channel carries them; a bulk-shaped source supplies them
-through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. The
+through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. One
+carve-out at the storage seam: the bulk export's docket↔opinion-cluster join is
+misjoined on the circuit slices, so `to_corpus_row` withholds the
+cluster-derived fields (`summary`, `precedential_status`, `judges`, `panel`,
+`citations`, `citation_count`)
+from a bulk circuit row — a replica-shaped source with a sound join must
+revisit that predicate, which keys on the channel (`source == bulk`), not on
+any particular export. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
-`seniority` is.
+`seniority` is. A historical row serialized before the column existed also stays
+empty until a re-walk re-serves it — the same legacy-row shape as
+`sample_weight` below.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
@@ -145,7 +156,15 @@ so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The
 walk now keeps every decided petition, so the weight it writes is always 1 and
 the column's remaining job is to keep those legacy rows honest until a re-walk
-re-serves them.
+re-serves them. The merits pair (`merits_judgment`, `merits_decided`) moves as
+a **pair**, written by two writers through one parser: the live poll latches it
+at ingest on a granted cert docket, and `backfill-merits-judgments` reconciles
+offline over stored snapshots. The upsert keys both columns on the incoming
+judgment — a writer carrying no parse (a CourtListener enrichment, a bulk row,
+a degraded payload) keeps both stored values, while a fresh parse takes both,
+its null `merits_decided` included, since a date kept from a different entry's
+parse would fabricate a mismatched pair. Merits outcome detection reads these
+columns, so the pair is a scoring input, not only a statistic.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so
@@ -161,6 +180,11 @@ The things the pipeline predicts about a case are raw facts too, so they live
 in the corpus, not as per-case files. The deterministic event-definition stage
 (`fedcourtsai.pipeline.events`) records one or more events per docket by
 classifying its entries; see [docs/data-pipeline.md](../docs/data-pipeline.md).
+Every docket carries a case-level **baseline** event: the appeal's disposition
+off SCOTUS; at SCOTUS, the cert petition's (`kind = petition`, `stage = cert`)
+on a `YY-NNNN` docket, or the application's (`kind = motion`, `stage =
+interim`) on a `YYAnnn` application docket — a stay or injunction application
+is a motion under the interim standard, not a cert petition.
 
 | Column            | Type        | Notes                                       |
 |-------------------|-------------|---------------------------------------------|
@@ -168,6 +192,7 @@ classifying its entries; see [docs/data-pipeline.md](../docs/data-pipeline.md).
 | `event_id`        | text (PK)   | `evt-<kind>-<slug>`; unique within a case    |
 | `court`           | text        | CourtListener court id                       |
 | `kind`            | text        | motion / petition / appeal / order          |
+| `stage`           | text        | decision standard (cert / interim / merits); null where none is recorded |
 | `title`           | text        |                                             |
 | `description`     | text        |                                             |
 | `docket_entry_id` | integer     | docket entry the event is pinned to; null for case-level |

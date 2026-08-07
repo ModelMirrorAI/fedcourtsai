@@ -200,8 +200,9 @@ class LiveConfig(BaseModel):
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application
-    # rotation; recent Terms first, then stalest). Ground-truth collection
-    # only — prediction queueing is off for applications.
+    # rotation; recent Terms first, then stalest). A changed, still-unresolved
+    # substantive application in predict scope queues predict on the poll
+    # (daily-debounced); the rest is ground-truth collection.
     max_applications_per_run: int = Field(default=10, ge=0)
     # Oldest October Term the refresh rotation reaches — the reachability
     # probe's floor (docs/live-sources.md): full JSON coverage OT2017+.
@@ -386,13 +387,19 @@ class SalienceConfig(BaseModel):
     ``base_rate_lookback_terms`` is the one non-selection knob here: it bounds the
     segment base-rate window the evaluator and the cert back-test score skill
     against (``0`` = every prior Term). It lives beside the band knobs because the
-    band is what it conditions on.
+    band is what it conditions on — but it governs **two** baselines on two
+    different Term axes: the salience segment rate (docket-number Term) and the
+    merits disturbed rate (grant Term,
+    :func:`fedcourtsai.pipeline.evaluate.merits_base_rate`, which is not a
+    salience product at all). Ten Terms means a different window on each. Moving
+    this re-bases every published skill number on both stages at once, so a
+    change here is a reviewable diff for figures well beyond salience.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    per_conference_capacity: int = Field(default=150, ge=0)
-    long_conference_capacity: int = Field(default=200, ge=0)
+    per_conference_capacity: int = Field(default=12, ge=0)
+    long_conference_capacity: int = Field(default=24, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
     # Bounds the live cycle's selection sweep (selected petitions with open,
     # never-predicted events — the rescue/catch-up/retry path). Each swept case
@@ -411,8 +418,9 @@ class SalienceConfig(BaseModel):
     # The lookback window for the salience-band segment base rate
     # (``fedcourtsai.pipeline.evaluate.segment_base_rate``): how many October Terms
     # immediately preceding a case's own Term may contribute to its band's pooled
-    # grant rate. 0 = unbounded — every prior Term in the statpack, which is the
-    # pre-registered behaviour and the shipped default. A bound trades variance for
+    # grant rate. 0 = unbounded — every prior Term in the statpack — and is the
+    # absent-file fallback only; the shipped config value is 10, matching
+    # ``statpack.markdown_terms``. A bound trades variance for
     # bias: the high band carries only ~60-165 weighted-resolved petitions per Term,
     # so a short window is noisy, while a long one assumes the Court's grant
     # behaviour is stationary across the whole walked range (it visibly is not —
@@ -422,13 +430,14 @@ class SalienceConfig(BaseModel):
     # `cert-backtest.json` per-band skill at once, which is exactly why it is config
     # rather than a constant. Counted in Term *years*, not statpack rows.
     base_rate_lookback_terms: int = Field(default=0, ge=0)
-    # Placeholder cap on interim-docket tournament slots (stays, injunctions —
-    # docs/salience.md, *The interim docket*), carved from the same
-    # per-conference spend envelope rather than added to it (docs/budget.md).
-    # Inert: no enforcement code reads it yet — the field holds the knob's
-    # place until interim predict scope lands, and is sized only once a
-    # measured interim base rate exists.
-    interim_reserve_slots: int = Field(default=0, ge=0)
+    # Cap on interim-docket tournament slots (stays, injunctions —
+    # docs/salience.md, *The interim docket*), defined inside the per-conference
+    # envelope (docs/budget.md). Enforced by the selection pass
+    # (pipeline.salience.plan_cohorts): pending substantive applications fill up
+    # to this many reserve slots per pass, and the slots in use lower the current
+    # conference cohort's rank-fill limit by the same number — which costs a cert
+    # pick only where the cohort's non-carve-out remainder exceeds that limit.
+    interim_reserve_slots: int = Field(default=5, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:
@@ -444,8 +453,12 @@ class SalienceConfig(BaseModel):
 def load_salience_config(config_root: Path) -> SalienceConfig:
     """Read the salience selection knobs from ``config_root/tracking.yaml``.
 
-    Falls back to the documented OT2026 defaults if the file or its ``salience``
-    section is absent, so the pass runs with a conservative cap rather than failing.
+    Falls back to the field defaults if the file or its ``salience`` section is
+    absent. The capacity defaults mirror the shipped ``config/tracking.yaml``
+    sizing — capacities that bind at typical cohort sizes and fit the
+    bootstrapping spend envelope (``docs/budget.md``) — so a config-less run
+    keeps the gate a spend control rather than un-binding it. (The lookback
+    keeps its deliberately conservative unbounded fallback; see the field.)
     """
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
@@ -464,8 +477,9 @@ class StatpackConfig(BaseModel):
     in code for the baseline those agents are scored against. The bound is
     conventional rather than a capability limit: ``statpack.json`` sits in the
     same checkout and carries every Term. Separate fields with separate defaults
-    on purpose; ``docs/salience.md`` states when the two coincide and when they
-    part.
+    on purpose; ``docs/salience.md`` records that the two are configured to the
+    same window so the scored baseline and the rendered table cannot silently
+    diverge.
     """
 
     model_config = ConfigDict(extra="ignore")

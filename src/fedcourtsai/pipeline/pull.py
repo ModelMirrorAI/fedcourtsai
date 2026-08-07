@@ -31,7 +31,7 @@ from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import cell_failure_count, event_has_evaluations, event_has_predictions
 from ..registry import enabled_evaluators
-from ..store import open_events
+from ..store import forecastable_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import UnrecordedOutcome, disposition_basis, resolve_case, termination_signal
@@ -199,7 +199,13 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
             row
             and row.court == "scotus"
             and corpus.out_of_scope_reason_full(conn, row) is None
-            and not corpus.is_salience_deferred(row)
+            # The salience gate is a CERT-stage funding decision. A case whose
+            # merits proceeding is open was selected by the Court itself, and
+            # the question the gate answers — which of ~1,500 petitions is worth
+            # a forecast — has no bearing on a population of ~65 grants a Term.
+            and (
+                not corpus.is_salience_deferred(row) or corpus.has_open_merits_event(conn, case_id)
+            )
         )
 
 
@@ -469,7 +475,7 @@ def pull_cases(
             continue
         consecutive_transient = 0
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
-        events = open_events(corpus_db_path, court, docket)
+        events = forecastable_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
             _queue_predict(queues, corpus_db_path, result, court, docket, events)
         if in_scope and result.resolved:

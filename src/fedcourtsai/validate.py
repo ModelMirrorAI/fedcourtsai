@@ -19,8 +19,10 @@ Two layers of checks:
 * **referential integrity** — the cross-store checks nothing else does: every
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
   event that exist in the corpus (no orphan judgments); every evaluation
-  targets a predictor that actually produced a prediction for that event; and every
-  prose document a ``prediction.json`` names resolves to a file beside it.
+  targets a predictor that actually produced a prediction for that event; every
+  prose document a ``prediction.json`` names resolves to a file beside it; and
+  every merits-stage event's scored (latest-per-predictor) prediction carries
+  its ``judgment`` — the stage-aware half of the merits prediction contract.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -51,12 +53,15 @@ from .schemas import (
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
+    Evaluation,
     EventKind,
     LedgerValidation,
+    PredictableEvent,
     Prediction,
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
+    Stage,
 )
 
 # Bounded sample of matched case ids per exclusion, so the scope audit stays small.
@@ -85,6 +90,8 @@ CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
+CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
+CHECK_MERITS_EVALUATIONS = "merits_evaluations_score_no_skill"
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -102,6 +109,32 @@ def _check(name: str, problems: list[str], *, checked: int, detail: str = "") ->
 # --- schema conformance (layer A, git ledger only) -----------------------------
 
 
+def _in_provisioning_tree(file: Path, root: Path) -> bool:
+    """Whether ``file`` sits under a case's gitignored ``record/`` provisioning tree.
+
+    ``record/`` holds what a cell was *handed*, not what it produced: the corpus
+    snapshot, the fetched document text, the cell context, and the evaluate
+    cell's blinded candidate staging (:mod:`fedcourtsai.blinding`). None of it is
+    committed, so none of it is ledger. The distinction is load-bearing rather
+    than tidy-minded: a blinded candidate is a deliberately *masked* view of a
+    prediction — no engine, no model, no process version — so it is not a
+    ``Prediction`` and checking it against that schema would report a mask as a
+    defect. Nothing under ``record/`` carries a ledger filename today apart from
+    that staging, so this narrows the scan by exactly the tree it names.
+
+    Matched **positionally** against the case layout rather than by looking for a
+    ``record`` component anywhere in the path. An unanchored test would also fire
+    on a data root that happens to sit under a directory called ``record``, and
+    the failure would be a validation pass that checked nothing — the one shape a
+    gate must never have.
+    """
+    try:
+        parts = file.relative_to(root).parts
+    except ValueError:  # pragma: no cover - rglob yields paths under root
+        return False
+    return len(parts) > 4 and parts[0] == "cases" and parts[3] == "record"
+
+
 def validate_ledger(path: Path) -> LedgerValidation:
     """Validate every known artifact under ``path`` against its schema model.
 
@@ -110,12 +143,15 @@ def validate_ledger(path: Path) -> LedgerValidation:
     :class:`LedgerValidation` so the ops dashboard can present it alongside the
     corpus verdict. ``problems`` is capped like the corpus checks; ``invalid`` is
     the true failure count.
+
+    Scoped to the committed ledger: the gitignored ``record/`` provisioning trees
+    are skipped (:func:`_in_provisioning_tree`).
     """
     problems: list[str] = []
     checked = 0
     for file in sorted(path.rglob("*")):
         model = FILENAME_MODELS.get(file.name)
-        if model is None or not file.is_file():
+        if model is None or not file.is_file() or _in_provisioning_tree(file, path):
             continue
         checked += 1
         try:
@@ -537,6 +573,100 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     return _check(CHECK_PREDICTION_DOCS, problems, checked=checked)
 
 
+def check_merits_predictions(data_root: Path) -> CorpusCheck:
+    """A merits-stage event's latest prediction per predictor must carry a judgment.
+
+    The half of the merits prediction contract the schema cannot enforce
+    self-contained: a ``prediction.json`` does not carry its event's stage, so
+    the schema holds "judgment set => votes non-empty" while this check reads
+    the committed ``event.yaml`` and holds "merits-stage event => the scored
+    prediction carries a judgment". Latest per predictor, because that is the
+    prediction every scoring join reads (the evaluation layout has no slot for
+    a prediction run id); an earlier judgment-less run superseded by a
+    compliant one is history, not a defect. A file that does not parse is
+    ``validate_ledger``'s concern (schema law) and is skipped here.
+
+    The directory test comes before the parse deliberately: ``validate data``
+    runs once per cell in both fan-outs, and most of the ledger's events carry
+    no predictions at all, so parsing every ``event.yaml`` to reach a handful
+    would put the whole ledger's YAML cost on every cell. The two orders check
+    the same events.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        predictions_root = event_file.parent / "predictions"
+        if not predictions_root.is_dir():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if event.stage != Stage.merits:
+            continue
+        for predictor_dir in sorted(p for p in predictions_root.iterdir() if p.is_dir()):
+            predictions = []
+            for path in sorted(predictor_dir.glob("*/prediction.json")):
+                try:
+                    predictions.append(Prediction.model_validate(json.loads(path.read_text())))
+                except (OSError, ValueError, ValidationError):
+                    continue
+            if not predictions:
+                continue
+            checked += 1
+            latest = max(predictions, key=lambda p: p.created_at)
+            if latest.judgment is None:
+                problems.append(
+                    f"prediction {predictor_dir}: latest prediction for merits-stage "
+                    f"event {event.event_id!r} carries no judgment"
+                )
+    return _check(CHECK_MERITS_PREDICTIONS, problems, checked=checked)
+
+
+def check_merits_evaluations(data_root: Path) -> CorpusCheck:
+    """A merits-stage event's evaluations must record no Brier skill score.
+
+    The code-side half of a pre-registered prohibition the prompts otherwise
+    carry alone: no merits skill number may be published against a pool whose
+    grant Terms may carry unlabelled GVRs, and the label-independent guard that
+    would let one be published is not built (``docs/decision-model.md``). The
+    leaderboard averages ``brier_skill_score`` stage-blind, so a single merits
+    cell that wrote one would enter a stage mean nothing else checks.
+
+    Every evaluation, not the latest per predictor as the prediction check
+    uses: an evaluation is a committed judgment on its own terms, and a
+    superseded one carrying a forbidden number is still a published number.
+    ``segment_base_rate`` is deliberately unconstrained — recording the pool the
+    cell faced is not publishing a skill claim over it. A file that does not
+    parse is ``validate_ledger``'s concern and is skipped here; the directory
+    test precedes the parse for the same cost reason as the prediction check.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        evaluations_root = event_file.parent / "evaluations"
+        if not evaluations_root.is_dir():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if event.stage != Stage.merits:
+            continue
+        for path in sorted(evaluations_root.glob("*/*/*/evaluation.json")):
+            try:
+                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+            except (OSError, ValueError, ValidationError):
+                continue
+            checked += 1
+            if evaluation.brier_skill_score is not None:
+                problems.append(
+                    f"evaluation {path}: merits-stage event {event.event_id!r} carries a "
+                    f"brier_skill_score, which no merits cell may publish"
+                )
+    return _check(CHECK_MERITS_EVALUATIONS, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -594,7 +724,9 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
 
     The subset of layer-C checks that need only the git ledger under ``data/``:
     every judgment references an event defined in git, every evaluation targets
-    a prediction that exists, and every prose document a prediction names is there.
+    a prediction that exists, every prose document a prediction names is there,
+    every merits-stage event's scored prediction carries its judgment, and no
+    merits evaluation publishes a Brier skill score.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -602,6 +734,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_ledger_events_in_git(data_root),
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
+        check_merits_predictions(data_root),
+        check_merits_evaluations(data_root),
     ]
 
 
@@ -628,6 +762,8 @@ def _run_checks(
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
+        check_merits_predictions(data_root),
+        check_merits_evaluations(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

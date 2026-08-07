@@ -40,6 +40,7 @@ CORPUS_POINTER = corpus_remote.pointer_path_for(CORPUS_BLOB)
 # them; this gate fails when one is missing or uncommitted.
 METRICS_ARTIFACTS: tuple[Path, ...] = (
     Path("metrics") / "leaderboard.json",
+    Path("metrics") / "claim-scores.json",
     Path("metrics") / "backtest.json",
     Path("metrics") / "statpack.json",
     Path("metrics") / "statpack.md",
@@ -78,8 +79,11 @@ def check_state(
         if not (repo_root / artifact).is_file():
             errors.append(
                 f"{artifact}: metrics artifact is missing; regenerate it "
-                "(fedcourts leaderboard / backtest / statpack — the same "
-                "commands the run-analytics metrics refresh runs) and commit it"
+                "(fedcourts backtest / statpack / scope-manifest / "
+                "leaderboard, the order the run-analytics metrics refresh "
+                "runs them in — the board reads the committed statpack, so "
+                "regenerating it first keys it on the pack it replaces) and "
+                "commit it"
             )
         elif not is_tracked(artifact):
             errors.append(f"{artifact}: metrics artifact is not committed to git")

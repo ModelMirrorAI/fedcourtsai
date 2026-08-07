@@ -69,10 +69,13 @@ each as its own least-privilege job holding only the credentials its mode needs:
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
-  artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
-  evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
-  (input: the corpus) are deterministic stage commands that previously only
-  changed when someone reran them locally. It reruns those tested
+  artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
+  evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
+  committed `metrics/statpack.json`, which its realized-Term skill column is
+  scored against — so it regenerates *after* the pack)
+  and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  (input: the corpus) are deterministic stage commands that otherwise change
+  only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
@@ -118,17 +121,30 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs two
-maintenance sweeps, each gated to one window a day: the **live-duplicate
-dedupe** (`fedcourts dedupe-live-rows`), a standing sweep that merges and drops
+the live job owns SCOTUS freshness for free). run-seed also runs five
+maintenance sweeps, each gated to one window a day and each converging rather
+than one-shot — a re-run over an unchanged corpus does nothing. In order: the
+**live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
 any SCOTUS petition carrying both a CourtListener-keyed row and a live-minted
 reserved-range row — the pair shape a docket-number spelling leaves when it
-defeats the channels' identity join — and then the **predict-scope reconcile**
+defeats the channels' identity join; the **predict-scope reconcile**
 (`fedcourts reconcile-scope`), which latches out-of-scope cases (the
 shared exclusion rules — era, staleness, docket form, date consistency, and the
 snapshot-aware bare opinion-import profile) in the corpus so they leave the
-predictable set at the source. The dedupe runs first so the latch pass weighs
-deduped rows; each then pushes the blob and commits the pointer like
+predictable set at the source; the **application-baseline relabel**
+(`fedcourts relabel-application-events`), which converges application dockets
+whose baseline event predates the motion/interim minting rule; the
+**merits-judgment backfill** (`fedcourts backfill-merits-judgments`), which
+parses each merits-bound grant's stored snapshot for the judgment entered,
+feeding the statpack's merits section; and the **merits-event backfill**
+(`fedcourts backfill-merits-events`, preceded in the same step by the
+moment-column stamp `fedcourts backfill-event-moments`), which mints the open
+merits forecast events — corpus rows plus their ledger `event.yaml` files,
+staged in the one pointer commit — onto granted, undecided dockets the live
+mint never opened. The dedupe runs first so the latch pass weighs deduped
+rows, and the event mint runs immediately after the judgment backfill so
+pendency is judged on judgment columns as latched as the stored snapshots
+allow; each then pushes the blob and commits the pointer like
 any other corpus write. The full design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
@@ -157,7 +173,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  else queue an unrecorded outcome, surfaced
                                  │  per-case on the pipeline-runs dashboard
                                  └─ create issues  ← APP TOKEN
-                                    ├─ run:predict    (changed case with open events,
+                                    ├─ run:predict    (changed case with open forecastable events,
                                     │                  unless the docket already looks
                                     │                  decided — skipped + surfaced;
                                     │                  held if PREDICT_HANDOFF_ENABLED=0)
@@ -167,10 +183,11 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                                        held if EVALUATE_HANDOFF_ENABLED=0)
    daily ×4 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
-                                 │  → onboard new petitions (per-Term cursor)
-                                 ├─ re-poll the pending cert watchlist (recent Terms first)
+                                 │  → onboard new petitions + applications
+                                 │    (per-(Term, stream) cursors)
+                                 ├─ re-poll the live cert watchlist (recent Terms first)
                                  ├─ re-poll unresolved interim applications (capped;
-                                 │    ground-truth only — no predict handoff)
+                                 │    substantive + changed + in scope → predict handoff)
                                  ├─ detect resolution from the proceedings text
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
@@ -265,6 +282,14 @@ pattern rather than rediscovering it:
   only bound available inside one. The same question is worth asking of any step
   that talks to an external service: what is its worst case, and is it shorter
   than the job budget?
+- **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
+  installs with `uv sync --locked`, which refuses a lock it cannot read as
+  current — so a lock written by a *newer* uv than the action's pin fails every
+  job that installs dependencies, including the scheduled data runs, and the
+  trigger is a local tooling upgrade rather than any dependency edit. The
+  devcontainer's uv is not pinned to the same version, so relock with the pinned
+  uv, or bump the pin in the same change. `scripts/gate.sh lock` catches the
+  drift half of this locally; the version half only shows up in CI.
 - **A branch built during a long job must be based on a freshly fetched remote
   tip, not the job's own checkout.** The deterministic writers commit to `main`
   throughout, so a matrix that runs for an hour finishes holding a stale local
@@ -295,27 +320,23 @@ below describes the damage). The promotion gates target exactly those two.
 
 The mechanics:
 
-- **Feature PRs target `staging`** (AGENTS.md), and the routing rests on that
-  convention plus the maintainer's merge: `main`'s required checks are exactly
-  `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
-  mis-route — it runs, and fails, only on a PR to `main` whose head is not
-  `staging` or a reviewed non-feature lane (the collect run branches, the
-  maintainer's cleanup sweep, the metrics-refresh, cert-backtest, and
-  salience-replay PRs) —
-  but it is **not** a required context, so it goes red without being able to
-  block the merge. It cannot be required yet: a `pull_request` runs the
-  workflow from the merge ref, and every legitimate lane into `main` is cut
-  from `main`, whose own ci.yml carries no `main-base` job — the context would
-  never report and an auto-merging collect PR would hang pending forever. It
-  becomes requireable once that definition promotes into `main`
-  (docs/security.md inventories this).
+- **Feature PRs target `staging`** (AGENTS.md), and the routing is enforced:
+  `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
+  **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
+  only on a PR to `main` whose head is not `staging` or a reviewed non-feature
+  lane (the collect run branches, the maintainer's cleanup sweep, the
+  metrics-refresh, cert-backtest, and salience-replay PRs); on those
+  legitimate lanes it reports `skipped`, which satisfies the requirement. Its
+  definition lives in `main`'s own ci.yml, so the context reports on every
+  lane into `main` (docs/security.md inventories this).
   Rulesets cannot constrain a PR's source branch, which is why the routing
   lives as a check at all, and why the check deters mistakes while the human
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
   definition. Dependabot targets `staging` for the same reason. The `staging`
   ruleset itself requires a pull request plus the status checks that can report
-  on a staging-targeted PR — `gate` and `paths`; `promotion-gate` keys on a
-  base of `main` and is always `skipped` here — with the **repository admin
+  on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
+  `promotion-gate` and `main-base`, key on a base of `main` and are always
+  `skipped` here — with the **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the admin role is the only identity that can land the sync
@@ -339,8 +360,8 @@ The mechanics:
   sync defers itself while a promotion PR is open, so it never moves the head
   a batch in flight is being tested against. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
-  environment is `main`-only, so `sync-staging` does nothing until it is
-  promoted — the promotion that carries it is itself still synced by hand.
+  environment is `main`-only, so an edit to `sync-staging` takes effect only
+  once it promotes.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
@@ -374,24 +395,44 @@ The full path of a change, operator's view:
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
-   check right before merging, and merge with a **merge commit**. Live on
-   the next workflow run.
+   check right before merging, and merge with a **merge commit**; tag the
+   merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
+   second batch — the *Tags* subsection below). Live on the next workflow
+   run.
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
 **repository admin role as the only bypass actor** (docs/security.md
-inventories it); and add `promotion-gate` to `main`'s required checks
-alongside `gate` and `paths` — it reports `skipped`, which satisfies the
-requirement, on every PR that is not the promotion. `main-base` stays
-**unrequired** until its ci.yml definition has been **promoted to `main`**,
-because a required check that no workflow run reports leaves every collect
-auto-merge PR waiting forever.
+inventories it); and add `promotion-gate` — and, once the *Adding a required
+status check* procedure below clears it, `main-base` — to `main`'s required
+checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
+the requirement, on every PR it does not gate; requiring a context before its
+producing job reaches `main` strands every collect auto-merge PR, which is
+what the procedure's ordering prevents.
 
 The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
 restricted to `staging`, read-only role trust, per-environment engine keys) is
 separate wiring, described in docs/security.md.
+
+### Tags
+
+Annotated tags on `main` record the project's public reference points, in
+three namespaces:
+
+- **`prereg/<label>`** — a pre-registration freeze commit, e.g.
+  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS`
+  (docs/process-version.md carries the freeze procedure).
+- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
+  `-2` suffix distinguishes a same-day second batch.
+- **`results/<term>-<milestone>`** — the commit carrying a published metrics
+  refresh, e.g. `results/ot2026-longconf`.
+
+One-time setup (maintainer): before the first tag is minted, add a tag
+ruleset blocking update and deletion on all three namespaces — a movable
+pre-registration marker defeats its purpose. Creating a tag is likewise a
+maintainer step, like the promotion merge it usually accompanies.
 
 ### Adding a required status check
 
@@ -400,7 +441,7 @@ failing loudly: a context nothing on `main` produces leaves every PR into
 `main` pending forever, and the auto-merging collect PRs hang first.
 
 ```bash
-scripts/promotion-gate.sh contexts <candidate>   # e.g. main-base
+scripts/promotion-gate.sh contexts <candidate>   # the context you want to require
 ```
 
 It reads `main: require PR`'s live required contexts and `main`'s own workflow
@@ -413,9 +454,9 @@ report an advisory fact. Run it with your own token.
 1. Land the job on `staging` and let it promote to `main` in an ordinary batch.
 2. `scripts/promotion-gate.sh contexts <candidate>` — proceed only on *ready to
    require*.
-3. Confirm a real PR of the kind you are gating reports the context. For
-   `main-base` that means watching one collect PR, since those auto-merge and
-   are what a mistake strands.
+3. Confirm a real PR of the kind you are gating reports the context. For a
+   context that must report on the bot lanes, that means watching one of their
+   PRs, since those auto-merge and are what a mistake strands.
 4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
    context you just added.
 5. Update the surfaces that record the required set — the pinned list in
@@ -461,6 +502,28 @@ that close step cannot tell cap-empty from scope-empty — so it closes with the
 out-of-scope note either way; the cap surfaces its own escalated `::error::` for
 correct attribution, and it is safe because the deferred cases stay in the corpus
 predict queue and re-queue next cycle regardless of the close.
+
+### The evaluate cell grades blind
+
+An evaluate cell brackets its agent with two deterministic harness steps
+(`fedcourtsai.blinding`, and *Semantic claims* in
+[outcome-decomposition.md](outcome-decomposition.md)): `fedcourts
+provision-blinded-predictions` stages each predictor's latest prediction under an
+opaque alias with its identity masked, and `fedcourts unblind-evaluations`
+renames the evaluator's alias-keyed output back onto the real predictor ids. The
+staging area lives under the case's gitignored `record/`, so it rides the cell
+artifact and never reaches the ledger.
+
+**The un-aliasing runs before the stamp, and the ordering is load-bearing.**
+`stamp-cell --role evaluator` joins each evaluation to the prediction it scored
+on the `predictor_id` field; under an alias the join misses and the cell's
+`claim_scores` block and `base_rate_salience_version` are *silently* absent
+rather than wrong. `validate`'s
+evaluation-target check resolves the same join and does fail loudly, so it is the
+backstop rather than the detector. The cell's order is therefore: blind →
+agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
+Wiring those two steps anywhere else in the sequence produces a run that looks
+green and quietly drops a scoring block.
 
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and

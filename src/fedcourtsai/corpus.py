@@ -44,7 +44,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
-from .schemas import Disposition, EventKind
+from .pipeline.interim_signals import ApplicationKind
+from .schemas import (
+    GRANTED_DISPOSITIONS,
+    MERITS_PROCEEDING_DISPOSITIONS,
+    Disposition,
+    EventKind,
+    Judgment,
+    Moment,
+    Stage,
+)
 from .supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -387,7 +396,9 @@ class CorpusRow(BaseModel):
         "lives only in the opinion text). Derived from `opinion_text` at "
         "construction, but stored as its own column so it survives the corpus "
         "split: under the split, the heavy `opinion_text` body moves to the "
-        "content store and the corpus keeps only this bit.",
+        "content store and the corpus keeps only this bit. The upsert "
+        "max-latches it: a writer that does not carry the body cannot flip a "
+        "stored True back to False.",
     )
     salience_score: float | None = Field(
         default=None,
@@ -435,6 +446,55 @@ class CorpusRow(BaseModel):
         "losing this stamp costs at most a duplicate trigger issue, never a "
         "grading.",
     )
+    merits_judgment: str | None = Field(
+        default=None,
+        description="What the Court did to the judgment below on this granted "
+        "case — the merits axis, a `Judgment` value stored as text (the same "
+        "blob-tolerant TEXT pattern as `application_kind`: readers re-validate "
+        "against the vocabulary rather than failing the row). Parsed "
+        "deterministically from the docket's disposition entry by the shared "
+        "parser (`pipeline/judgment.py`), stamped by two writers: the live "
+        "poll at ingest on a granted docket, and the offline backfill pass "
+        "over stored snapshots; the upsert latch keeps a stored parse when a "
+        "writer carries none. None = no parsed judgment: the case is pending, "
+        "unsnapshotted, "
+        "or its terminal entry matched no judgment shape — a coverage gap, "
+        "never an observed absence. Feeds the statpack's merits stage section, "
+        "the merits base rate pooled from it, and merits outcome detection "
+        "(`pipeline/outcome.py`).",
+    )
+    merits_decided: date | None = Field(
+        default=None,
+        description="The docket date of the disposition entry `merits_judgment` "
+        "was parsed from, or None when that entry carries no fully specified "
+        "date (a judgment may be parsed from an undated entry). Meaningful only "
+        "beside a non-None `merits_judgment`, and latched as a pair with it; "
+        "the merits event's `resolved_at` when detection records the outcome.",
+    )
+    response_requested_at: date | None = Field(
+        default=None,
+        description="When the Court or a Circuit Justice asked for a response to "
+        "the application — the interim stage's second forecast moment. Dated "
+        "sibling of the `response_requested` flag, which the escalation ladder "
+        "reads; the two disagree only on an undated request, where the flag is "
+        "set and no date can be.",
+    )
+    response_filed_at: date | None = Field(
+        default=None,
+        description="When a response to the application was filed — the interim "
+        "stage's third forecast moment. A different event from the Court asking: "
+        "a respondent may answer uninvited, and a requested response may never "
+        "arrive.",
+    )
+    merits_brief_filed: date | None = Field(
+        default=None,
+        description="When the respondent filed its brief on the merits "
+        "(`pipeline.merits_signals.respondent_brief_date`) — the point at which "
+        "both sides' arguments are on the record. Opens the merits stage's "
+        "second forecast moment. None = not yet filed, or not parsed: the case "
+        "is pending, unsnapshotted, or its briefing is recorded in a shape the "
+        "pattern misses — a coverage gap, never an observed absence.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -465,6 +525,17 @@ class CorpusEvent(BaseModel):
     case_id: str
     court: str
     kind: EventKind
+    stage: Stage | None = Field(
+        default=None,
+        description="Which decision standard governs this event (cert / interim / "
+        "merits); None where no stage is recorded — no Supreme Court standard "
+        "applies, or the writer does not classify one for this event.",
+    )
+    moment: Moment | None = Field(
+        default=None,
+        description="Which forecast moment of the stage this event is; None where "
+        "unrecorded, read downstream as the stage's first moment.",
+    )
     title: str = ""
     description: str | None = None
     docket_entry_id: int | None = Field(
@@ -578,7 +649,17 @@ CREATE TABLE IF NOT EXISTS cases (
     application_kind    TEXT,
     response_requested  INTEGER,
     referred_to_court   INTEGER,
-    amicus_briefs       INTEGER
+    amicus_briefs       INTEGER,
+    -- The merits judgment (see CorpusRow and pipeline/judgment.py): what the
+    -- Court did to the judgment below on a granted case, parsed
+    -- deterministically from the docket's disposition entry, plus that
+    -- entry's own date. Stamped through the shared parser by the live poll at
+    -- ingest and by the offline backfill pass (`backfill-merits-judgments`);
+    -- the upsert latches the pair (a NULL incoming judgment keeps both stored
+    -- values). NULL = no parsed judgment (pending, no snapshot, or no
+    -- matching entry). Merits outcome detection reads these columns.
+    merits_judgment     TEXT,
+    merits_decided      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -596,6 +677,8 @@ CREATE TABLE IF NOT EXISTS events (
     event_id        TEXT NOT NULL,
     court           TEXT NOT NULL,
     kind            TEXT NOT NULL,
+    stage           TEXT,
+    moment          TEXT,
     title           TEXT NOT NULL DEFAULT '',
     description     TEXT,
     docket_entry_id INTEGER,
@@ -716,6 +799,11 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "response_requested": "INTEGER",
     "referred_to_court": "INTEGER",
     "amicus_briefs": "INTEGER",
+    "merits_judgment": "TEXT",
+    "merits_decided": "TEXT",
+    "merits_brief_filed": "TEXT",
+    "response_requested_at": "TEXT",
+    "response_filed_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -745,6 +833,18 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(live_discovery_cursors)")}
     if "frontier_serial" not in existing:
         conn.execute("ALTER TABLE live_discovery_cursors ADD COLUMN frontier_serial INTEGER")
+
+
+def _migrate_events(conn: sqlite3.Connection) -> None:
+    """Back-fill `events` columns added after table creation.
+
+    The events table's counterpart of :func:`_migrate_cases`. ``stage`` is
+    nullable with no DEFAULT — a pre-existing row simply carries no stage until
+    the next re-ingest stamps one. Idempotent on a current-schema table.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
+    if "stage" not in existing:
+        conn.execute("ALTER TABLE events ADD COLUMN stage TEXT")
 
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
@@ -804,6 +904,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.executescript(_SCHEMA)
         _migrate_cases(conn)
         _migrate_live_cursors(conn)
+        _migrate_events(conn)
         yield conn
     finally:
         conn.close()
@@ -933,6 +1034,15 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             int(row.referred_to_court) if row.referred_to_court is not None else None
         ),
         "amicus_briefs": row.amicus_briefs,
+        "merits_judgment": row.merits_judgment,
+        "merits_decided": row.merits_decided.isoformat() if row.merits_decided else None,
+        "merits_brief_filed": (
+            row.merits_brief_filed.isoformat() if row.merits_brief_filed else None
+        ),
+        "response_requested_at": (
+            row.response_requested_at.isoformat() if row.response_requested_at else None
+        ),
+        "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
     }
 
 
@@ -1033,6 +1143,11 @@ def _from_record(record: RecordRow) -> CorpusRow:
         response_requested=_optional_bool(record, "response_requested"),
         referred_to_court=_optional_bool(record, "referred_to_court"),
         amicus_briefs=_optional_int(record, "amicus_briefs"),
+        merits_judgment=_optional_str(record, "merits_judgment"),
+        merits_decided=_optional_date(record, "merits_decided"),
+        merits_brief_filed=_optional_date(record, "merits_brief_filed"),
+        response_requested_at=_optional_date(record, "response_requested_at"),
+        response_filed_at=_optional_date(record, "response_filed_at"),
     )
 
 
@@ -1043,17 +1158,23 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled`` and the fill-in slice of
     the live-parsed signals)
     only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count`` and the interim escalation
-    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``)
-    are max-latches (proceedings are append-only and the signals monotone, so
+    another channel stamped; ``distribution_count``, the interim escalation
+    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    and the ``has_opinion`` presence bit
+    are max-latches (proceedings are append-only and the signals monotone —
+    an opinion once linked is never unlinked — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
     ``unknown``); ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
-    it to the model default; and the ``salience_*`` columns are owned by the
-    salience selection pass on the same keep-stored rationale. ``predict_eligible``
+    it to the model default; the ``salience_*`` columns (the salience
+    selection pass) are owned on the same keep-stored rationale; and the
+    ``merits_*`` pair latches as a pair — a writer with no parse (NULL
+    judgment) keeps both stored values, a fresh parse takes both, so the live
+    channel's ingest-time parse and the offline backfill converge on the same
+    columns without either wiping the other. ``predict_eligible``
     deliberately takes the incoming value: it is a derived mirror of the court
     predicate, so a re-ingest self-heals a stale value rather than latching it.
     """
@@ -1069,7 +1190,13 @@ def _update_clause(column: str) -> str:
         # conference parse) must not wipe what another channel stamped. Safe for
         # exactly the columns whose degraded parse yields NULL.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
-    if column in ("distribution_count", "response_requested", "referred_to_court", "amicus_briefs"):
+    if column in (
+        "distribution_count",
+        "response_requested",
+        "referred_to_court",
+        "amicus_briefs",
+        "has_opinion",
+    ):
         # A fill-in latch is not enough here: a degraded live parse (a payload
         # served with its proceedings missing) yields a confident 0 — not NULL —
         # and 0 asserts "parsed, never distributed", so COALESCE would let it
@@ -1079,6 +1206,13 @@ def _update_clause(column: str) -> str:
         # share the property exactly (the Court does not un-request a response,
         # un-refer an application, or un-file an amicus brief), so the boolean
         # flags max-latch as 0/1 integers and the amicus count as a count.
+        # `has_opinion` is the same shape again: an opinion once linked is never
+        # unlinked, and every writer asserts the bit (NOT NULL, default False),
+        # so a channel that does not carry the body would otherwise flip a
+        # stored True back to False, dropping the case's body from `query
+        # --full` hydration and weakening the presence checks that OR on the
+        # bit — the max-latch keeps the bit
+        # monotonic in the store the way the model validator keeps it in memory.
         return (
             f"{column}=MAX("
             f"COALESCE(excluded.{column}, cases.{column}), "
@@ -1129,7 +1263,25 @@ def _update_clause(column: str) -> str:
         # deriver's daily-retry debounce re-queue a case every cycle its
         # rotation poll touches it.
         return f"{column}=cases.{column}"
-    return f"{column}=excluded.{column}"
+    if column in ("merits_judgment", "merits_decided"):
+        # The merits pair moves as a PAIR, keyed on the incoming judgment: two
+        # writers stamp it through the shared parser (the live poll at ingest
+        # for a granted docket, and the offline backfill via
+        # `set_merits_judgment`), a writer with no parse (NULL judgment — a
+        # CourtListener enrichment, a bulk row, a degraded payload) keeps both
+        # stored values, and a fresh parse takes both — its `merits_decided`
+        # included even when that is NULL (an undated entry), because a date
+        # kept from a different entry's parse would fabricate a mismatched
+        # pair. A fresh parse overwrites a stored one deliberately: the docket's
+        # last judgment-shaped entry is the realized word (a granted-rehearing
+        # docket restates it), the same last-entry rule the backfill applies.
+        clause = (
+            f"{column}=CASE WHEN excluded.merits_judgment IS NULL "
+            f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    else:
+        clause = f"{column}=excluded.{column}"
+    return clause
 
 
 # --- dual-write sink (dependency-inverted) ------------------------------------
@@ -1371,6 +1523,23 @@ def scotus_term_year(docket_number: str) -> int | None:
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
+def scotus_application_term_year(docket_number: str) -> int | None:
+    """Parse the October-Term year from an interim application docket number.
+
+    ``"24A1099"`` -> ``2024``, under the same century pivot as
+    :func:`scotus_term_year` (a two-digit prefix >= 30 reads as 19xx). Keyed on
+    the strict A-form parser, so exactly the ``YYAnnn`` form the live channel can
+    address parses — historical spellings (``A-363``) return ``None`` and fall
+    outside any per-Term application cut, as they carry none of the
+    application-parsed columns anyway.
+    """
+    parsed = parse_scotus_application_number(docket_number)
+    if parsed is None:
+        return None
+    two_digit = parsed[0]
+    return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
+
+
 def is_modern_cert(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is a modern discretionary-cert petition, by form.
 
@@ -1383,6 +1552,47 @@ def is_modern_cert(row: CorpusRow) -> bool:
     historical merits-era labels.
     """
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+class MeritsProceedingRow(Protocol):
+    """The three fields :func:`opens_merits_proceeding` reads.
+
+    Structural, because the rule has to hold at both ends of the pipeline and
+    the two ends carry different row models: ingestion builds a
+    ``pipeline.ingest.CorpusRow`` and everything downstream reads a
+    :class:`CorpusRow`. Restating the predicate against each would let the mint
+    and the population that scores it drift apart — which is precisely the
+    failure the rule exists to prevent.
+    """
+
+    @property
+    def court(self) -> str: ...
+
+    @property
+    def date_cert_granted(self) -> date | None: ...
+
+    @property
+    def disposition(self) -> str | None: ...
+
+
+def opens_merits_proceeding(row: MeritsProceedingRow) -> bool:
+    """Whether a SCOTUS row's cert grant is followed by a merits proceeding.
+
+    A cert grant date alone does not mean a merits decision follows: a GVR and a
+    summary reversal are grants whose disposition rides in the cert order
+    itself, so they leave nothing to argue, decide, or forecast. Both the
+    judgment backfill's population and the statpack's merits section key on
+    this, matching the rule that mints the open merits event
+    (:data:`fedcourtsai.schemas.MERITS_PROCEEDING_DISPOSITIONS`) — a case never
+    forecast at the merits stage must not enter the rate that scores merits
+    forecasts, and a GVR's vacatur would otherwise count as a disturbed
+    judgment by construction.
+    """
+    return (
+        row.court == "scotus"
+        and row.date_cert_granted is not None
+        and row.disposition in MERITS_PROCEEDING_DISPOSITIONS
+    )
 
 
 def is_live_slice(row: CorpusRow) -> bool:
@@ -1588,39 +1798,63 @@ _SCOTUS_ORIGINAL_TEXT_RE = re.compile(r"ORIG")
 _SCOTUS_MISC_TEXT_RE = re.compile(r"MISC")
 
 
-def is_non_cert_scotus_form(row: CorpusRow) -> bool:
-    """Whether a SCOTUS docket is an application or original-jurisdiction matter.
+def is_scotus_application_form(docket_number: str | None) -> bool:
+    """Whether a SCOTUS docket number is an interim application, in any spelling.
 
-    A stay / emergency **application** (``22A123``, older ``A-9999``, with or
-    without a parenthetical companion like ``A-706 (98-1368)``), an
-    **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
-    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
+    The tolerant recognizer — ``22A123``, older ``A-9999`` / ``A-706 (98-1368)``,
+    trailing-letter serials — where
+    :func:`fedcourtsai.supremecourt.parse_scotus_application_number` is strict:
+    this has to *recognize* every spelling an application might carry so none is
+    ever treated as a cert docket (scope exclusion, and the cert-rule outcome
+    guard in :mod:`fedcourtsai.pipeline.outcome`), while the strict parser has
+    to *address* one on the upstream JSON endpoint. Callers gate on
+    ``court == "scotus"`` themselves — the form is meaningless elsewhere.
+    """
+    dn = normalize_docket_number(docket_number) or ""
+    return bool(_SCOTUS_APPLICATION_RE.match(dn))
+
+
+def is_non_cert_scotus_form(row: CorpusRow) -> bool:
+    """Whether a SCOTUS docket is a non-predictable letter-form matter.
+
+    An **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
+    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), a
     **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62``,
     trailing-letter ``515 M`` — the motions docket, e.g. leave to file out of
     time — or the pre-1971 ``No. 33, Misc.`` separate docket, merged into the
-    unified numbering at OT1970) are not the
-    discretionary-cert form the ``evt-petition-disposition`` model targets: an
-    application's disposition is a stay grant/deny, an original case's a merits
-    judgment, and a motions docket's a procedural leave — none the cert
-    grant/deny the model calibrates on — while the pre-1971 miscellaneous docket
-    is decades-stale by construction. So predict scope excludes them (as it does
-    the pre-1925 mandatory-jurisdiction regime), keyed on the term letter
-    (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc`` marker that a cert
-    docket's ``YY-NNNN`` never carries. SCOTUS-only.
+    unified numbering at OT1970), and the non-substantive slice of the
+    **application** docket (``22A123``, older ``A-9999``, with or without a
+    parenthetical companion like ``A-706 (98-1368)``) are not a form any
+    predict path targets: an original case's disposition is a merits judgment,
+    a motions docket's a procedural leave, and a time-extension application is
+    single-Justice routine that no fact about the case moves. So predict scope
+    excludes them (as it does the pre-1925 mandatory-jurisdiction regime),
+    keyed on the term letter (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc``
+    marker that a cert docket's ``YY-NNNN`` never carries. SCOTUS-only.
 
-    Conservative — it matches on format alone, so it never catches a modern cert
-    petition (which carries a hyphen, no letter and no ``Orig``/``Misc`` marker).
-    If application *stays* are later modeled as their own motion events,
-    refine this to spare those rather than the whole case; today an
-    application docket carries only the mis-fit cert baseline, so excluding the
-    case loses nothing.
+    An application docket is **spared when — and only when — its latched
+    ``application_kind`` reads ``substantive``** (a stay, an injunction, a
+    vacatur: the interim predict scope, per
+    :func:`fedcourtsai.pipeline.interim_signals.is_predictable_application`).
+    An extension stays excluded, and so does an application whose ask was never
+    read or could not be (``application_kind`` ``None`` / ``unknown``) — a
+    parser gap must shrink coverage visibly, never admit a matter of unknown
+    character into a scored population. The two-directional scope reconcile
+    releases a latched application when a later poll latches the substantive
+    reading. A historical spelling the live channel cannot address
+    (``A-9999``) never carries the parse, so it stays excluded for free.
+
+    Conservative — outside the application spare it matches on format alone, so
+    it never catches a modern cert petition (which carries a hyphen, no letter
+    and no ``Orig``/``Misc`` marker).
     """
     if row.court != "scotus":
         return False
+    if is_scotus_application_form(row.docket_number):
+        return row.application_kind != ApplicationKind.substantive.value
     dn = normalize_docket_number(row.docket_number) or ""
     return bool(
-        _SCOTUS_APPLICATION_RE.match(dn)
-        or _SCOTUS_ORIGINAL_RE.match(dn)
+        _SCOTUS_ORIGINAL_RE.match(dn)
         or _SCOTUS_MISCELLANEOUS_RE.match(dn)
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
         or _SCOTUS_MISC_TEXT_RE.search(dn)
@@ -1647,11 +1881,12 @@ def is_ifp_petition(row: CorpusRow) -> bool:
 
 
 def is_salience_deferred(row: CorpusRow) -> bool:
-    """Whether a scored cert petition was *not* selected into the tournament slice.
+    """Whether a scored case was *not* selected into the tournament slice.
 
     The read side of the salience gate (see ``docs/salience.md``): the selection
-    pass scores every in-scope petition and latches ``salience_selected`` on the
-    fundable per-conference slice. A row that has been **scored**
+    pass scores every in-scope case — cert petitions into the per-conference
+    cohorts, substantive applications against the interim reserve quota — and
+    latches ``salience_selected`` on the fundable slice. A row that has been **scored**
     (``salience_version`` set) but **not selected** is deferred — dropped from the
     predict matrix and the pull queue this round, but never pruned (this is *not*
     an out-of-scope reason, so ``cleanup-out-of-scope-predictions`` leaves its
@@ -1661,6 +1896,43 @@ def is_salience_deferred(row: CorpusRow) -> bool:
     predicate, distinct from the destructive hard-scope exclusion.
     """
     return row.salience_version is not None and not row.salience_selected
+
+
+def has_open_merits_event(conn: ReadConnection, case_id: str) -> bool:
+    """Whether a case carries an open merits-stage event.
+
+    The **funding bypass** the salience seams consult: a case only reaches this
+    state after the Court has granted it, which is the Court's own selection
+    signal and a far stronger one than the gate's. The cert-stage funding
+    question — which of ~1,500 petitions is worth a forecast — simply does not
+    apply to a population of ~65 grants a Term, so a petition that missed the
+    cap must still be forecast at the merits stage.
+
+    Deliberately **not** a salience-column read. The gate stays a cert
+    construct: `salience_selected` keeps meaning "spent tournament budget at
+    cert", and latching it on granted rows to get this effect would corrupt the
+    one reading it is documented to carry (``docs/salience.md``).
+    """
+    cur = conn.execute(
+        "SELECT 1 FROM events WHERE case_id = ? AND resolved = 0 AND stage = ? LIMIT 1",
+        (case_id, Stage.merits.value),
+    )
+    return cur.fetchone() is not None
+
+
+def merits_open_case_ids(conn: ReadConnection) -> set[str]:
+    """Every case id carrying an open merits-stage event.
+
+    The bulk form of :func:`has_open_merits_event`, for a caller that walks the
+    whole SCOTUS table and would otherwise issue a point query per row. Served
+    by the partial open-events index, so it reads a small ordered slice rather
+    than scanning the table.
+    """
+    cur = conn.execute(
+        "SELECT DISTINCT case_id FROM events WHERE resolved = 0 AND stage = ?",
+        (Stage.merits.value,),
+    )
+    return {str(record["case_id"]) for record in cur}
 
 
 def is_disbarment_docket(row: CorpusRow) -> bool:
@@ -1837,7 +2109,8 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     ),
     (
         is_non_cert_scotus_form,
-        "SCOTUS application / original-jurisdiction docket — not discretionary cert",
+        "non-substantive SCOTUS application / original-jurisdiction docket — "
+        + "not a predictable form",
     ),
     (
         is_ifp_petition,
@@ -1980,6 +2253,26 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
         )
 
 
+def set_merits_judgment(
+    conn: sqlite3.Connection, case_id: str, judgment: Judgment, decided: date | None
+) -> None:
+    """Stamp the parsed merits judgment (and its entry date) on one granted case.
+
+    The merits backfill pass's sole writer. Owned here rather than through
+    ``upsert_rows`` so ingestion never disturbs the columns (the upsert keeps
+    the stored value — see :func:`_update_clause`): the judgment is parsed from
+    a stored snapshot's disposition entry, not supplied by a channel. Overwrites
+    forward — a re-run with a corrected parser self-heals a stored reading —
+    and never clears: the pass simply does not call this for a case whose
+    snapshot no longer matches.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET merits_judgment = ?, merits_decided = ? WHERE case_id = ?",
+            (judgment.value, decided.isoformat() if decided else None, case_id),
+        )
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
 
@@ -2066,7 +2359,11 @@ class PriorQuery(BaseModel):
         default=None,
         description="Exclusive year cutoff: keep only priors whose best-known year "
         "(`case_year`) strictly precedes it. Rows with no derivable year are "
-        "excluded — a prior qualifies only when it provably came first. This is "
+        "excluded — a prior qualifies only when it provably came first. The "
+        "merits columns on a qualifying row are held to the same bar "
+        "separately: a merits judgment is a later fact than the row's own year, "
+        "so the pair is stripped unless `merits_decided` also provably precedes "
+        "the cutoff. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -2125,6 +2422,28 @@ def recency_key(row: CorpusRow) -> tuple[int, int]:
     return (1, 0)
 
 
+def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
+    """Strip a masked prior's merits columns unless they provably precede the clock.
+
+    The ``decided_before`` mask admits a *row* by its best-known year, but the
+    merits judgment on an admitted row is a later fact: a petition docketed in
+    Term Y-1 qualifies under a clock of Y while its judgment issued a year or
+    two afterwards, and the ``query`` output row dumps every column
+    (:func:`prior_payload`) — so without this the one retrieval surface a
+    replay cell leans on would quietly carry post-clock outcome facts. Fail
+    closed at the mask's own year granularity, the same provably-came-first bar
+    the row filter applies: the pair survives only when ``merits_decided`` is
+    present and its year strictly precedes the cutoff — an undated judgment
+    cannot prove precedence, so it is stripped (mirroring the snapshot
+    truncation's fail-closed treatment of undated entries).
+    """
+    if row.merits_judgment is None and row.merits_decided is None:
+        return row
+    if row.merits_decided is not None and row.merits_decided.year < decided_before:
+        return row
+    return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -2174,6 +2493,7 @@ def retrieve_priors(
             year = case_year(row)
             if year is None or year >= query.decided_before:
                 continue
+            row = _mask_post_clock_merits(row, query.decided_before)
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.
@@ -2329,32 +2649,61 @@ _TERM_YEAR_SQL = (
 )
 
 
+# SQL literal of `schemas.GRANTED_DISPOSITIONS`, built from the constant so the
+# rotation's granted-docket retention and `granted_flag` can never disagree on
+# membership. Deliberately the full granted set, though only the dispositions
+# that open a merits proceeding ever mint one: the open-merits-event EXISTS
+# beside it is what carries that subset distinction, so a GVR or summary
+# reversal (no merits event) still exits. Safe to inline: the values are
+# closed-enum code constants, never user input.
+_GRANTED_SQL = ", ".join(f"'{d.value}'" for d in sorted(GRANTED_DISPOSITIONS))
+
+# A pending petition's conference-proximity sort key: the distributed-leads
+# ordering exists because a distributed *pending* petition is days from its
+# order-list result. A granted docket retained for its merits proceeding still
+# carries the (past) conference that produced the grant, so keying it on that
+# date would park the whole granted cohort at the head of every cycle until
+# judgment; masking the date once a disposition lands returns those rows to the
+# staleness rotation.
+_PENDING_CONFERENCE_SQL = "(CASE WHEN disposition IS NULL THEN distributed_for_conference END)"
+
+
 def live_rotation(
     conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
 ) -> list[CorpusRow]:
-    """The next ``limit`` pending petitions the live poller should refresh.
+    """The next ``limit`` live petitions the live poller should refresh.
 
-    The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: pending
-    modern-cert petitions (no disposition, no termination, an open event) from
-    ``term_floor_year`` forward — the floor the reachability probe established
-    (docs/live-sources.md). **Distributed petitions lead** (nearest
+    The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: live
+    modern-cert dockets from ``term_floor_year`` forward — the floor the
+    reachability probe established (docs/live-sources.md). A docket is live
+    while it is **pending** (no disposition, no termination, an open event) or
+    **granted with its merits proceeding open** (a granted-set disposition, an
+    unresolved ``merits``-stage event — minted at the cert grant — and no
+    docket-level decision yet: the case stays on the merits docket until the
+    judgment). **Distributed pending petitions lead** (nearest
     conference first — they are days from resolution, the opposite of
     stalest-first; a past conference date sorts first of all, since that
-    petition is overdue for its order-list result), then recent Terms
-    first, then never-polled before stale, then ``case_id`` for determinism.
-    Rotates on ``last_live_polled``, never ``last_pulled``, so the CourtListener
-    enrichment rotation is undisturbed.
+    petition is overdue for its order-list result; a granted docket's stale
+    conference date is masked — :data:`_PENDING_CONFERENCE_SQL`), then recent
+    Terms first, then never-polled before stale, then ``case_id`` for
+    determinism. Rotates on ``last_live_polled``, never ``last_pulled``, so the
+    CourtListener enrichment rotation is undisturbed.
     """
     if limit <= 0:
         return []
     sql = (
         "SELECT * FROM cases WHERE court = 'scotus' "
-        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND date_decided IS NULL "
+        "AND (disposition IS NULL "
+        f"     OR (disposition IN ({_GRANTED_SQL}) "
+        "         AND EXISTS (SELECT 1 FROM events "
+        "                     WHERE events.case_id = cases.case_id "
+        "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
         "AND docket_number GLOB '[0-9][0-9]-*' "
         f"AND {_TERM_YEAR_SQL} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        "ORDER BY distributed_for_conference IS NULL, distributed_for_conference ASC, "
+        f"ORDER BY {_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC LIMIT ?"
     )
@@ -2436,6 +2785,8 @@ _EVENT_COLUMNS = (
     "event_id",
     "court",
     "kind",
+    "stage",
+    "moment",
     "title",
     "description",
     "docket_entry_id",
@@ -2451,6 +2802,8 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "event_id": event.event_id,
         "court": event.court,
         "kind": event.kind,
+        "stage": event.stage,
+        "moment": event.moment,
         "title": event.title,
         "description": event.description,
         "docket_entry_id": event.docket_entry_id,
@@ -2466,6 +2819,10 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         event_id=record["event_id"],
         court=record["court"],
         kind=record["kind"],
+        # The ranged backend serves the remote blob as-is, so a blob written
+        # before the column existed must read as unset, not fail the row.
+        stage=_optional_str(record, "stage"),
+        moment=_optional_str(record, "moment"),
         title=record["title"],
         description=record["description"],
         docket_entry_id=record["docket_entry_id"],
@@ -2490,6 +2847,18 @@ def _event_update_clause(column: str) -> str:
     return f"{column}=excluded.{column}"
 
 
+def _event_upsert_sql() -> str:
+    """The one events upsert statement, honoring each column's latch."""
+    placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
+    updates = ", ".join(
+        _event_update_clause(c) for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
+    )
+    return (
+        f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(case_id, event_id) DO UPDATE SET {updates}"
+    )
+
+
 def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     """Insert or replace predictable-event definitions by ``(case_id, event_id)``.
 
@@ -2499,17 +2868,10 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     one column a re-ingest cannot regress (see :func:`_event_update_clause`), so a
     re-discovery or reconcile never reopens an already-closed event.
     """
-    placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
-    updates = ", ".join(
-        _event_update_clause(c) for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
-    )
-    sql = (
-        f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "
-        f"ON CONFLICT(case_id, event_id) DO UPDATE SET {updates}"
-    )
     with conn:
         conn.executemany(
-            sql, [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events]
+            _event_upsert_sql(),
+            [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events],
         )
     # The mirror reads the full committed set back per case (guarded on the flag,
     # so this is a pure no-op when the store is off).
@@ -2583,6 +2945,115 @@ def set_event_resolved(
     # the case's events here too — otherwise the casestore events.json keeps the
     # stale resolved=0 until the next re-ingest, and a casestore-provisioned
     # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) -> int:
+    """Stamp ``moment`` on every ``stage``-staged event row whose moment is null.
+
+    The ``backfill-event-moments`` sweep's sole writer. A null ``moment``
+    already *reads* downstream as the stage's first moment (the
+    :class:`CorpusEvent` field contract), so the stamp materializes that
+    reading into the column; the caller supplies the ``(stage, moment)`` pair
+    (:func:`fedcourtsai.pipeline.moments.first_moment`), keeping this module
+    below the declared-moments table. Idempotent — a stamped row no longer
+    matches the null predicate. Returns the number of rows stamped. A direct
+    UPDATE the ``upsert_events`` mirror hook never sees, so the touched cases
+    are re-mirrored here, as :func:`set_event_resolved` does.
+    """
+    with conn:
+        case_ids = [
+            str(record["case_id"])
+            for record in conn.execute(
+                "SELECT DISTINCT case_id FROM events WHERE stage = ? AND moment IS NULL",
+                (stage.value,),
+            )
+        ]
+        stamped = conn.execute(
+            "UPDATE events SET moment = ? WHERE stage = ? AND moment IS NULL",
+            (moment.value, stage.value),
+        ).rowcount
+    if case_ids and (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, case_ids)
+    return int(stamped)
+
+
+def rename_event(
+    conn: sqlite3.Connection, case_id: str, old_event_id: str, new_event: CorpusEvent
+) -> None:
+    """Move one predictable event to a new identity, atomically.
+
+    The relabel primitive: in a single transaction, writes ``new_event`` (through
+    the same upsert as :func:`upsert_events`, so it folds onto an existing row of
+    that id rather than duplicating it) and deletes the ``(case_id,
+    old_event_id)`` row — no reader ever sees the case carrying both identities
+    or neither. ``resolved`` keeps its latch across the rename: the new row takes
+    the MAX over the old row, ``new_event``, and any pre-existing row under the
+    new id, so a rename can never reopen an event a prior outcome closed.
+    Raises ``ValueError`` when ``new_event`` names a different case, keeps the
+    same event id (upsert-then-delete would silently *drop* the event — use
+    :func:`upsert_events` to rewrite in place), or the old row is absent — a
+    rename is deliberate surgery, so a degenerate subject is a caller bug, not
+    a no-op.
+    """
+    if new_event.case_id != case_id:
+        raise ValueError(
+            f"rename_event: new event names case {new_event.case_id!r}, expected {case_id!r}"
+        )
+    if new_event.event_id == old_event_id:
+        raise ValueError(
+            f"rename_event: new event keeps the id {old_event_id!r}; a same-identity "
+            "rewrite belongs to upsert_events"
+        )
+    with conn:
+        record = conn.execute(
+            "SELECT resolved FROM events WHERE case_id = ? AND event_id = ?",
+            (case_id, old_event_id),
+        ).fetchone()
+        if record is None:
+            raise ValueError(f"rename_event: no event {old_event_id!r} on {case_id!r} to rename")
+        carried = new_event.model_copy(
+            update={"resolved": bool(new_event.resolved or record["resolved"])}
+        )
+        conn.execute(
+            _event_upsert_sql(),
+            tuple(_event_to_record(carried)[c] for c in _EVENT_COLUMNS),
+        )
+        # The old identity's row is dropped as half of the rename. A predictable
+        # event is a raw fact that otherwise only ever accretes or resolves, so
+        # the corpus exposes no general delete; the one standalone drop is
+        # :func:`delete_event`, for an event the extraction rules can no longer
+        # mint at all.
+        conn.execute(
+            "DELETE FROM events WHERE case_id = ? AND event_id = ?", (case_id, old_event_id)
+        )
+    # Re-mirror the case's committed event set, exactly as `upsert_events` does,
+    # so the casestore events.json reflects the rename rather than keeping the
+    # old identity until the next re-ingest.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def delete_event(conn: sqlite3.Connection, case_id: str, event_id: str) -> None:
+    """Drop one predictable event outright — deliberate surgery, not a write path.
+
+    A predictable event otherwise only accretes or resolves, so the corpus keeps
+    no general delete: an event that turned out to be wrong is normally
+    *reopened* or *renamed* (:func:`rename_event`), because it still names
+    something the docket really carries. This exists for the case where it does
+    not — an event the extraction rules can no longer mint, so re-ingesting its
+    docket reproduces the corpus without it and leaving the row would keep a
+    fact no source supports. Raises ``ValueError`` when the row is absent, so a
+    caller cannot mistake a typo for a completed removal.
+    """
+    with conn:
+        deleted = conn.execute(
+            "DELETE FROM events WHERE case_id = ? AND event_id = ?", (case_id, event_id)
+        ).rowcount
+    if not deleted:
+        raise ValueError(f"delete_event: no event {event_id!r} on {case_id!r} to delete")
+    # Re-mirror as the rename does, so the casestore events.json drops it too.
     if (sink := _mirror_sink()) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 

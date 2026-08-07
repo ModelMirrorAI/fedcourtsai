@@ -81,21 +81,17 @@ pre-registration record's commit ids.
   **absent** from this bypass list. Required approvals are `0` — the maintainer
   reviews at merge time by convention, not by rule; set to `1` if a second
   reviewer exists.
-  - Required checks are exactly `gate`, `paths`, and `promotion-gate` (which
-    reports `skipped` — satisfying the requirement — on every PR that is not
-    the staging→main promotion). **`main-base` is not among them.** It is the
-    merge-routing jail: it runs — and fails — only on a PR to `main` whose head
+  - Required checks are exactly `gate`, `paths`, `promotion-gate`, and
+    `main-base` (the latter two report `skipped` — satisfying the requirement —
+    on every PR they do not gate). `main-base` is the merge-routing jail: it
+    runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Rulesets cannot constrain
-    a PR's source branch, which is why it is a check rather than a rule. It
-    cannot be *required* yet: on a `pull_request` the workflow runs from the
-    merge ref, and every legitimate lane into `main` is cut **from** `main` —
-    the collect run branches, the cleanup sweep, the metrics-refresh and
-    cert-backtest PRs — so they run `main`'s own `ci.yml`, which carries no
-    `main-base` job. The context would never report, and an auto-merging
-    collect PR would hang pending forever. It becomes requireable once the job
-    definition promotes into `main`; until then routing rests on the promotion
-    convention and the maintainer's merge. `cleanup-paths` is
+    a PR's source branch, which is why it is a check rather than a rule. Its
+    job definition lives in `main`'s own `ci.yml`, so the context reports on
+    every lane into `main`; adding a context like it goes through the *Adding
+    a required status check* procedure in
+    [pipeline.md](pipeline.md). `cleanup-paths` is
     deliberately **not** in the required list — a cleanup PR is never
     auto-merged, so it is review-time
     defense-in-depth. **Not** `zizmor` — it is path-filtered
@@ -115,7 +111,12 @@ pre-registration record's commit ids.
     scan-diff-for-secrets`) over the run's changed files and its PR prose — a hit
     **withholds the branch** (nothing pushed, no PR; a redacted file/rule/line
     report goes to the trigger issue) because pushing would itself publish the
-    secret. The scan has no merge-time counterpart by design: its job is to act
+    secret. Earlier still, capture-time redaction rewrites credential-shaped
+    runs in the harness-captured tool-call transcript (`retrieval_log.json`) to
+    a `[redacted:…]` marker rather than withholding the run over them: that
+    text is whatever a tool call carried, not something the agent chose to
+    write. It names only the shapes it recognizes, so what it misses still
+    meets the scan. The scan has no merge-time counterpart by design: its job is to act
     before the push, and it needs a live token env that the merge-time check —
     running on PR branches without the `prod` environment — cannot hold.
   - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That
@@ -133,10 +134,10 @@ pre-registration record's commit ids.
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
   requires a pull request plus the required checks that can report on a
-  staging-targeted PR: `gate` and `paths`. (`main`'s third, `promotion-gate`,
-  is structurally always-`skipped` here — it keys on a base of `main` — so
-  requiring it would add no signal. The same is true of the `main-base` job,
-  which is not a required context anywhere.) **Bypass: the repository
+  staging-targeted PR: `gate` and `paths`. (`main`'s other two,
+  `promotion-gate` and `main-base`, are structurally always-`skipped` here —
+  each keys on a base of `main` — so requiring them would add no
+  signal.) **Bypass: the repository
   admin role only**, the escape hatch for a main→staging sync when the ordinary
   PR path is unavailable; its content is by construction already-gated `main`
   history merged with already-gated `staging` history.
@@ -270,8 +271,9 @@ branch resolution: a `main` dispatch resolves `prod`, a `staging` dispatch
 `staging`, and any other branch its own
 name; an explicit choice still wins). A dispatch whose job *binds* `prod` from
 anything but `main`, or binds `staging` from anything but `staging`, is refused
-at its deployment-branch gate before any step runs; one naming anything else
-auto-creates an unprotected, empty environment and resolves no role variables —
+at its deployment-branch gate before any step runs; an `auto` dispatch from any
+other branch resolves that branch's own name, auto-creating an unprotected,
+empty environment with no role variables —
 the AWS roles' trust policies pin the OIDC `sub` to the named environments, so
 it can assume nothing. The refusal keys on binding, not on the input string: the
 collect scenario binds no environment and so dispatches from anywhere regardless
@@ -325,10 +327,15 @@ assume it, so this is observed, not assumed); the write role's trust never does.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
-this one. It costs one workflow change: adding the environment's name to
-`deploy-environment`'s choice list, which is deliberately a closed vocabulary —
-run titles render the input verbatim and feed the promotion gate's freshness
-matching, so no dispatcher-controlled free text may reach a title.
+this one. It needs no workflow change: `auto` resolution binds an environment
+named after the dispatching branch, so provisioning the environment is itself
+what opens its branch's lane — the environment's existence and contents, not
+the workflow's choice list, are the control surface. The explicit
+`deploy-environment` choices stay a closed vocabulary; the run title renders
+the *resolved* environment (under `auto`, a branch name), and the promotion
+gate's freshness match does not lean on that title being free of
+dispatcher-chosen text — it pins the run's head branch to `staging` and
+anchors its matches, and a ref name cannot carry the title's ` @ ` shape.
 
 **The invariant behind the wiring order:** the environment must never be
 reachable from an arbitrary branch while the read-only role's trust names it.
@@ -350,7 +357,9 @@ run's own synthetic cell artifacts.
 The workflow's engine-smoke scenario additionally — beyond the role
 variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
-other engines' keys never enter the job. The keys live on the `prod`
+other engines' keys never enter the job. An `all` dispatch fans one smoke per
+engine, so a single run reads all three keys — each confined to its own job —
+and spends three cells. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
@@ -431,9 +440,9 @@ job-env export disabled) and they appear only pre-agent — in the composite's
 launch step, whose env the background `corpus-serve` process inherits, and in
 the deterministic provisioning steps' step-scoped env. A guard step fails the job if any `AWS_*` credential is
 visible in the job env when the agent steps begin, and this also levels the
-engines: the Gemini sanitizer could never allowlist a credential, so corpus
-retrieval used to be an accident of harness — now every engine queries the
-same credential-free surface. What replaces the old residual: the sidecar is
+engines: the Gemini sanitizer could never allowlist a credential, so every
+engine queries the same credential-free surface rather than whichever one its
+harness happens to let credentials reach. What replaces the old residual: the sidecar is
 an **unauthenticated localhost HTTP surface**, so any process on the runner —
 including the injected agent itself, which is the *intended* client — can
 query the corpus and spend ranged-read egress through it. That is the same

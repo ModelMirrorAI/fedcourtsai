@@ -17,9 +17,42 @@ conservative:
   has exactly **one** open event, the event's outcome is unambiguous: write
   ``outcome.json`` and mark the event resolved.
 - **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
-  no decision date, or more than one open event the case-level disposition cannot
-  be attributed to — produces an :class:`UnrecordedOutcome`, surfaced on the
+  no decision date, or open events the case-level disposition cannot be
+  attributed to one of — produces an :class:`UnrecordedOutcome`, surfaced on the
   pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
+
+Attribution is **stage-routed**, with the docket's form selecting the
+disposition's source and therefore its stage: on a cert docket the case-level
+disposition is the *cert*-stage decision, so it belongs to the open event whose
+``stage`` is ``cert`` — even when other events (an interim motion) are open
+beside it, which then simply stay open — with stage-less events falling back to
+the case-baseline id-prefix rule; on an application docket it is the *interim*
+disposition the interim vocabulary matched at ingest, so it belongs to the open
+``interim``-stage events. One routing function serves every stage
+(:func:`_stage_disposition_targets`).
+
+**A stage may carry several open events, and they all resolve together.** Two
+forecast moments of one question share one ground truth, so each gets its own
+``outcome.json`` carrying identical facts — which is what lets each be scored
+against the information set it actually had. What is refused is a same-stage
+event that declares no forecast moment: it has no claim on the disposition, and
+it takes the whole stage to triage rather than quietly receiving one.
+
+A recorded cert **grant** is also a birth: it opens the merits proceeding, so
+:func:`resolve_case` mints the case's open merits event
+(:func:`mint_moment_events` — after the attribution completes, so the detection
+pass that resolves the petition never sees it), and the live rotation keeps
+polling the granted docket toward its judgment on that event's account. Once
+the petition event has closed, a re-poll's decided-looking row is recognized
+as the record of that resolution (:func:`_cert_already_attributed`) and
+resolves to a clean no-op rather than triage — until the judgment lands: the
+live channel latches the parsed merits pair onto the row at ingest
+(``merits_judgment`` / ``merits_decided``, via the shared
+:mod:`fedcourtsai.pipeline.judgment` parser), and detection resolves the open
+merits-stage event from those columns (:func:`build_merits_outcome` — the
+judgment axis on the outcome, the disturbed projection as its declared
+binary), at which point the case's last open event closes and the docket
+exits the rotation.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -28,39 +61,101 @@ The pure decision (:func:`detect_resolution`) is separated from the ledger write
 from __future__ import annotations
 
 import re
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome, PredictableEvent, ResolutionSignals
+from ..schemas import (
+    GRANTED_DISPOSITIONS,
+    MERITS_PROCEEDING_DISPOSITIONS,
+    Disposition,
+    EventKind,
+    Judgment,
+    Moment,
+    Outcome,
+    PredictableEvent,
+    ResolutionSignals,
+    Stage,
+)
 from ..serialize import write_json, write_yaml
 from ..store import open_events
+from . import moments
 from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
+from .judgment import judgment_disturbed
 
-# Dispositions that count as a granted (1) binary outcome; a partial grant still
-# granted relief, a GVR grants the petition (it is a grant/vacate/remand), and a
-# summary reversal is the Court granting review and deciding the merits in one
-# order — all land on the granted side of the binary target, which keeps
-# `actual_granted` and the Brier score comparable across each label's
-# introduction.
-_GRANTED: frozenset[Disposition] = frozenset(
-    {
-        Disposition.granted,
-        Disposition.granted_in_part,
-        Disposition.gvr,
-        Disposition.summary_reversal,
-    }
-)
+# Which grants open a merits proceeding is one definition, shared with the
+# judgment backfill and the statpack's merits section so the population that is
+# predicted is the population the base rate is measured over.
+_MERITS_PROCEEDING = MERITS_PROCEEDING_DISPOSITIONS
+
+
+def _known_judgment(value: str) -> Judgment | None:
+    """The stored merits judgment as a :class:`Judgment`, or ``None`` if unknown.
+
+    ``merits_judgment`` is a blob-tolerant TEXT column whose readers re-validate
+    against the vocabulary rather than failing the row, so an out-of-vocabulary
+    value degrades to the unrecorded path everywhere it is read.
+    """
+    try:
+        return Judgment(value)
+    except ValueError:
+        return None
+
+
+#: The id of the merits event a cert grant mints: the grant order is the filing
+#: that opened it (kind names the filing, stage names the standard — the
+#: ``Stage`` docstring), and the thing to predict is the judgment. Declared in
+#: :mod:`fedcourtsai.pipeline.moments`; kept here as the name most callers know.
+MERITS_EVENT_ID = ids.event_id("order", "judgment")
+
+
+class MeritsMintRow(Protocol):
+    """The row fields the merits mint seams read.
+
+    Structural, for the same reason :class:`fedcourtsai.corpus.MeritsProceedingRow`
+    is: the mint runs at both ends of the pipeline — the live resolution pass
+    holds an ingestion-stage :class:`~fedcourtsai.pipeline.ingest.CorpusRow`,
+    the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) a persisted
+    :class:`fedcourtsai.corpus.CorpusRow` — and the two carry the same facts as
+    different models, so one construction rule serves both only by reading the
+    fields structurally.
+    """
+
+    @property
+    def case_id(self) -> str: ...
+
+    @property
+    def court(self) -> str: ...
+
+    @property
+    def docket_number(self) -> str: ...
+
+    @property
+    def case_name(self) -> str: ...
+
+    @property
+    def disposition(self) -> Disposition | None: ...
+
+    @property
+    def date_cert_granted(self) -> date | None: ...
+
+    @property
+    def merits_judgment(self) -> str | None: ...
+
+    @property
+    def merits_brief_filed(self) -> date | None: ...
 
 
 def granted_flag(disposition: Disposition) -> int:
     """Project a disposition onto the binary ``actual_granted`` target (1=granted)."""
-    return int(disposition in _GRANTED)
+    return int(disposition in GRANTED_DISPOSITIONS)
 
 
 def is_machine_readable(disposition: Disposition | None) -> bool:
@@ -239,6 +334,82 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
     return None
 
 
+# The one :data:`_TERMINAL_ENTRY_RE` shape that is a merits cell's own opening
+# rather than its outcome: a cert-before-judgment GRANT opens a merits
+# proceeding exactly as an ordinary grant does, so a merits cell's snapshot
+# necessarily carries it. Its denial/dismissal siblings stay terminal for the
+# merits scan, since neither leaves anything to argue.
+_CBJ_GRANT_RE = re.compile(
+    r"^(?:the\s+)?petitions? for (?:a )?writs? of certiorari before judgment "
+    r"(?:are |is )?granted",
+    re.IGNORECASE,
+)
+
+
+def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
+    """A **merits** outcome visible anywhere in the snapshot, or ``None``.
+
+    The merits-event counterpart of :func:`snapshot_shows_disposition` for the
+    forward-cell provisioning guard, which is keyed on the event because one
+    docket carries several events' outcomes at once. It keeps that function's
+    high-recall :data:`_TERMINAL_ENTRY_RE` rather than narrowing to the
+    deterministic merits parser: the parser is deliberately conservative (a
+    miss there costs one unparsed row in a descriptive count), while a miss
+    *here* hands a forward cell its answer, so the two failure costs point in
+    opposite directions and the guard must take the wider net. Every terminal
+    shape the cert scan catches — "Opinion Issued", "Judgment Issued", a case
+    termination, a dismissal — is a decided merits docket too.
+
+    One branch is dropped: the **cert-before-judgment grant**, which is the
+    order that mints the merits event rather than a disclosure of its outcome.
+    The plain cert grant needs no exclusion because it matches no branch of the
+    regex at all — only the resolver sees it, and the merits scan does not run
+    the resolver.
+    """
+    for description in entry_descriptions(docket):
+        if _CBJ_GRANT_RE.search(description):
+            continue
+        if _TERMINAL_ENTRY_RE.search(description):
+            return f"snapshot entry reads as terminal: {description!r}"
+    return None
+
+
+# High-recall interim disposal shapes, for the routing and provisioning
+# backstops on APPLICATION-FORM dockets only. Deliberately wider than the
+# resolving vocabulary (`interim_signals.match_interim_disposition`), which
+# anchors on the word "application": a disposing order can name the relief
+# instead ("Stay granted pending disposition", "The motion for an injunction
+# ... is denied"), leaving the row unresolved while the outcome sits legible in
+# the snapshot — on the cert side that single point of failure is covered by
+# `_TERMINAL_ENTRY_RE`, which matches no application phrasing. A match here
+# never records an outcome; it only diverts the forward queue
+# (`predict_skipped_decided`) or refuses provisioning, so a false positive (a
+# recital of a lower court's stay denial) parks a cell — the cheap failure the
+# `_TERMINAL_ENTRY_RE` doctrine already endorses. Form-keyed by the callers, so
+# a cert docket's stay-order recital can never refuse a legitimate cert cell.
+_INTERIM_DISPOSAL_RE = re.compile(
+    r"\b(?:applications?|stays?|injunctions?|vacaturs?|motions?)\b[^.]{0,200}?"
+    r"\b(?:granted|denied|dismissed|withdrawn)\b",
+    re.IGNORECASE,
+)
+
+
+def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
+    """An interim disposal legible **anywhere** in an application docket's payload.
+
+    The application-form counterpart of :func:`snapshot_shows_disposition` —
+    leakage semantics, so it scans every entry and takes no reactivation
+    exception — used by the live routing's decided-guard and the forward-cell
+    provisioning refusal on application dockets only (the caller keys on
+    :func:`fedcourtsai.corpus.is_scotus_application_form`). Pure, over either
+    payload shape (:func:`entry_descriptions`).
+    """
+    for description in entry_descriptions(docket):
+        if _INTERIM_DISPOSAL_RE.search(description):
+            return f"snapshot entry reads as an interim disposal: {description!r}"
+    return None
+
+
 @dataclass(frozen=True)
 class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
@@ -246,7 +417,9 @@ class UnrecordedOutcome:
     Carried out of the library so the workflow can surface it on the
     pipeline-runs dashboard; ``reason`` explains why automatic recording was
     declined. ``reason`` must stay a fixed-vocabulary string (the literals in
-    :func:`detect_resolution`, interpolating only closed-enum values): it is
+    :func:`detect_resolution`, interpolating only closed-enum values and
+    event ids — slugified ``[a-z0-9._-]`` strings minted by
+    :func:`fedcourtsai.ids.event_id`, never raw text): it is
     rendered into a GitHub issue body, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """
@@ -313,13 +486,22 @@ def resolution_signals(
 
 
 def _build_outcome(
-    row: CorpusRow, event_id: str, basis: Literal["standard", "mootness"]
+    row: CorpusRow,
+    event_id: str,
+    basis: Literal["standard", "mootness"],
+    *,
+    interim: bool = False,
 ) -> Outcome:
     """Construct the ground-truth ``Outcome`` from a decided, machine-readable row.
 
     ``resolved_at`` is the :func:`corpus.resolution_date` — for a SCOTUS petition
     the cert-stage decision date, so a granted petition's outcome is stamped when
-    cert was granted, not at the merits termination.
+    cert was granted, not at the merits termination; for an application docket
+    the cert dates are empty by construction, so it is the disposing entry's
+    date the interim resolver latched at ingest. ``interim`` marks an
+    interim-stage recording, whose outcome never carries the ``signals`` block:
+    those are the cert docket's resolution signals (distribution count, CVSG),
+    observations nobody makes on an application.
     """
     resolved_at = corpus.resolution_date(row)
     assert row.disposition is not None and resolved_at is not None
@@ -329,9 +511,166 @@ def _build_outcome(
         resolved_at=resolved_at,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
-        signals=resolution_signals(row.distribution_count, row.cvsg_date),
+        signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
+    )
+
+
+def build_merits_outcome(
+    case_id: str,
+    event_id: str,
+    judgment: Judgment,
+    decided: date,
+    *,
+    distribution_count: int | None,
+    cvsg_date: date | None,
+    source: str | None,
+) -> Outcome:
+    """Construct the merits ground truth from a parsed judgment and its date.
+
+    Takes the values rather than a row for the same reason
+    :func:`resolution_signals` does: the ingest-stage row (live detection) and
+    the persisted corpus row (the cascade's replay of an already-resolved
+    event) are different models and both reach this, so passing the fields
+    keeps one mapping in one place.
+
+    The mapping is the least-corrupting one the vocabularies allow, and each
+    choice is deliberate:
+
+    - ``actual_disposition`` is :attr:`Disposition.other` — the Judgment values
+      are deliberately not Dispositions (forcing one onto the cert binary would
+      corrupt the comparability anchor, per the ``Judgment`` docstring), so the
+      cert vocabulary's catch-all records that no cert label applies and
+      ``judgment`` carries the result. The stage axis keeps such outcomes out
+      of every cert-vocabulary figure.
+    - ``actual_granted`` is the **declared merits binary** — the judgment
+      disturbed the decision below (:func:`~fedcourtsai.pipeline.judgment.judgment_disturbed`) —
+      matching ``Prediction.probability``'s merits meaning, P(disturbed), so
+      the Brier formula scores every stage unchanged. A DIG and an equally
+      divided affirmance record 0: both leave the judgment below standing.
+    - ``votes`` stays empty and ``vote_provenance`` absent ("nobody looked"),
+      deliberately: the terminal entry's authorship recital names at most the
+      opinion's author and never the participating count that
+      ``VoteProvenance`` requires as the aggregation denominator, so an honest
+      provenance block cannot be built from docket text — and a vote list
+      without one would be illegible. A real vote source (an order list, the
+      opinion) is the seam that populates these, not this writer;
+      :func:`~fedcourtsai.pipeline.judgment.opinion_author` stays advisory.
+    - ``resolved_at`` is ``decided`` — the judgment entry's own docket date
+      (``merits_decided``); detection refuses to resolve on an undated parse
+      rather than stamping a guess.
+    """
+    return Outcome(
+        case_id=case_id,
+        event_id=event_id,
+        resolved_at=decided,
+        actual_disposition=Disposition.other,
+        actual_granted=int(judgment_disturbed(judgment)),
+        judgment=judgment,
+        signals=resolution_signals(distribution_count, cvsg_date),
+        source=source,
+    )
+
+
+# The event kinds the case-level disposition may resolve: the case-baseline
+# petition/appeal events (`evt-<kind>-<slug>`, so the kind is the id's first
+# segment). An entry-pinned event of another kind (a stay motion on a cert
+# docket) resolves on its own filing's terms, and letting it inherit the
+# docket's cert disposition writes the petition's outcome onto a motion — the
+# resolved-sequentially shape of exactly that failure sits in the committed
+# ledger. An application docket's motion/interim baseline is likewise
+# deliberately outside this tuple: its disposition resolves under the interim
+# standard, routed by the explicit interim stage (`_interim_disposition_target`)
+# rather than by any id-prefix fallback, so it can never inherit the cert rule.
+CASE_BASELINE_ID_PREFIXES = tuple(
+    f"evt-{kind.value}-" for kind in (EventKind.petition, EventKind.appeal)
+)
+
+
+def _stage_disposition_targets(
+    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> list[str]:
+    """The open events one stage's case-level disposition attributes to.
+
+    The corpus row carries exactly one case-level disposition per stage — on a
+    cert docket the petition-stage cert decision
+    (:func:`fedcourtsai.corpus.resolution_date`), on an application docket the
+    interim vocabulary's match at ingest — and this routes it to the events
+    that decision actually decides.
+
+    **A stage may carry several open events, and they all resolve together.**
+    Two forecast moments of one question — a petition at its first distribution
+    and the same petition after a CVSG — are two events sharing one ground
+    truth, so refusing to attribute would leave both permanently open and
+    permanently in triage. What is refused instead is an event that has no
+    claim on the disposition: every same-stage event must be a **declared
+    moment** of the stage (:mod:`fedcourtsai.pipeline.moments`), and one that is
+    not takes the whole stage to triage.
+
+    That is a narrower guard than "exactly one", not a looser one. The declared
+    table is closed and written only by the mint seams, so the shape it still
+    refuses is the one it was built to refuse: a *spurious* duplicate baseline,
+    which would otherwise take a case-level disposition it has no claim on.
+
+    Where no event carries the stage, the **cert** stage-less fallback applies:
+    a lone open event with no recorded stage and a case-baseline id prefix.
+    There is deliberately no interim fallback — the only stage-less baseline an
+    application docket carries is a historical spelling's petition-kind event,
+    whose cert-shaped id must never receive an interim disposition. An event
+    carrying an explicit other stage never inherits this one's disposition,
+    whatever its id.
+    """
+    staged = [eid for eid in open_event_ids if stages.get(eid) == stage]
+    if len(staged) == 1:
+        return staged
+    if staged:
+        # Every one of them must be a declared moment of this stage, or the
+        # disposition has no unambiguous set of claimants.
+        if all(moments.declares(eid, stage) for eid in staged):
+            return sorted(staged)
+        return []
+    if (
+        stage is Stage.cert
+        and len(open_event_ids) == 1
+        and stages.get(open_event_ids[0]) is None
+        and open_event_ids[0].startswith(CASE_BASELINE_ID_PREFIXES)
+    ):
+        return open_event_ids
+    return []
+
+
+def _cert_already_attributed(
+    resolved_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> bool:
+    """Whether a **resolved** event already carries the case-level cert disposition.
+
+    The same event shapes :func:`_cert_disposition_target` routes the
+    disposition to — a cert-staged event, or a stage-less case-baseline one —
+    but over the resolved set: once such an event has closed, the row-level
+    decided signals (the cert date, the latched disposition) are the record of
+    *that* resolution, not news about any event still open.
+    """
+    return any(
+        stages.get(event_id) == Stage.cert
+        or (stages.get(event_id) is None and event_id.startswith(CASE_BASELINE_ID_PREFIXES))
+        for event_id in resolved_event_ids
+    )
+
+
+def _undeclared_same_stage(
+    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> list[str]:
+    """The same-stage open events that declare no moment — the triage reason's detail.
+
+    Computed only to *name* the offenders in the surfaced reason, so a
+    maintainer reading the queue sees which event took the stage to triage
+    rather than a bare count.
+    """
+    return sorted(
+        eid
+        for eid in open_event_ids
+        if stages.get(eid) == stage and not moments.declares(eid, stage)
     )
 
 
@@ -341,25 +680,170 @@ def detect_resolution(
     docket_id: int,
     open_event_ids: list[str],
     disposition_basis: Literal["standard", "mootness"] = "standard",
+    *,
+    stages: Mapping[str, Stage | None] | None = None,
+    resolved_event_ids: list[str] | None = None,
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
     Pure: no I/O. Returns deterministic outcomes to write and unrecorded
     outcomes for the rest. An undecided docket, or one with no open events, resolves to an
-    empty :class:`Resolution` (nothing to do).
+    empty :class:`Resolution` (nothing to do). ``stages`` maps each event id
+    to its recorded decision stage (from the corpus event rows) and drives the
+    stage-routed attribution — :func:`_cert_disposition_target` on a cert
+    docket, :func:`_interim_disposition_target` on an application docket;
+    omitted, every event reads as stage-less, so on a cert docket only the
+    case-baseline prefix fallback applies and on an application docket nothing
+    is ever attributed.
+    When the stage identifies the target unambiguously *and* the disposition is
+    recordable, the other open events are neither resolved nor surfaced for
+    triage — they stay open on their own filings' terms, still tracked by the
+    corpus open-event reads rather than silently dropped. An unreadable or
+    undated disposition still surfaces **every** open event: with nothing
+    recordable, whole-docket triage is the conservative call.
+
+    A row carrying a parsed merits judgment (``merits_judgment`` /
+    ``merits_decided``, latched at ingest by the shared parser) resolves the
+    case's lone open **merits-stage** event instead
+    (:func:`build_merits_outcome`); an undated parse surfaces that event for
+    triage, since ``resolved_at`` is never guessed.
+
+    ``resolved_event_ids`` lists the case's already-closed events and gates the
+    one clean no-op: when no open event can claim the disposition, a resolved
+    event already carries it (:func:`_cert_already_attributed`), and the row
+    still tells that resolution's story — a granted-set disposition with no
+    docket-level decision date — the decided-looking row is the record of the
+    earlier grant: the shape every re-poll of a retained granted docket
+    presents, its petition event closed and the minted merits event open (and
+    no judgment parsed yet), so
+    nothing is recorded and nothing is surfaced. Without it a retained granted
+    docket would re-surface an unrecorded outcome on every poll until
+    judgment. The no-op is deliberately that narrow: a latched ``date_decided``
+    (a termination arriving upstream without a judgment-shaped entry) or a
+    disposition outside the
+    granted set (a DIG relabeled ``dismissed``, an upstream correction) is news
+    no detection rule reads, so those shapes fall through to the
+    conservative triage surface instead of being absorbed.
     """
     if not open_event_ids or not appears_decided(row):
         return Resolution()
 
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
-    if readable and len(open_event_ids) == 1:
-        event_id = open_event_ids[0]
-        return Resolution(outcomes={event_id: _build_outcome(row, event_id, disposition_basis)})
+    # An application docket never takes the cert rule, whatever its baseline's
+    # current shape: its disposition resolves under the interim standard, routed
+    # to the interim-stage baseline by the sibling target rule. Keyed on the
+    # tolerant docket-form recognizer so every recorded application spelling is
+    # covered, not just the strict `YYAnnn` the baseline mint and the relabel
+    # migration key on.
+    application = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
+    stage = Stage.interim if application else Stage.cert
+    targets = _stage_disposition_targets(stage, open_event_ids, stages or {})
+    if readable and targets:
+        # One disposition, every declared moment of the stage. The moments are
+        # separate forecasts of one question, so they share one ground truth —
+        # each gets its own `outcome.json` carrying identical facts, which is
+        # what lets each be scored against the information set it actually had.
+        return Resolution(
+            outcomes={
+                target: _build_outcome(row, target, disposition_basis, interim=application)
+                for target in targets
+            }
+        )
 
-    if not is_machine_readable(row.disposition):
+    # The merits branch: a retained granted docket whose refreshed row carries
+    # a parsed judgment (latched at ingest via the shared parser) resolves its
+    # lone open merits-stage event from the columns — the row-level facts, the
+    # same discipline as the cert branch, so detection stays pure and
+    # deterministic. Other open events (an entry-pinned motion) stay open on
+    # their own filings' terms, exactly as under the cert stage routing. A
+    # judgment parsed from an undated entry has no `resolved_at` to stamp, so
+    # it surfaces for triage rather than being recorded on a guessed date.
+    merits_events = _stage_disposition_targets(Stage.merits, open_event_ids, stages or {})
+    if not application and row.merits_judgment is not None and merits_events:
+        # The column is blob-tolerant TEXT whose readers re-validate against the
+        # vocabulary rather than failing the row (the field's own contract, and
+        # the same guard the cascade's replay applies): an out-of-vocabulary
+        # value surfaces for triage, never a crash in the poll.
+        parsed = _known_judgment(row.merits_judgment)
+        if parsed is not None and row.merits_decided is not None:
+            return Resolution(
+                outcomes={
+                    merits_event: build_merits_outcome(
+                        row.case_id,
+                        merits_event,
+                        parsed,
+                        row.merits_decided,
+                        distribution_count=row.distribution_count,
+                        cvsg_date=row.cvsg_date,
+                        source=row.citations[0] if row.citations else None,
+                    )
+                    for merits_event in merits_events
+                }
+            )
+        # Every merits moment surfaces, not just the first: they share the one
+        # judgment, so an unusable judgment leaves all of them unresolved.
+        return Resolution(
+            unrecorded=tuple(
+                UnrecordedOutcome(
+                    case_id=row.case_id,
+                    court_id=court_id,
+                    docket_id=docket_id,
+                    event_id=merits_event,
+                    disposition=row.disposition,
+                    date_decided=row.date_decided,
+                    reason=(
+                        f"merits judgment {row.merits_judgment!r} is out of vocabulary"
+                        if parsed is None
+                        else (
+                            f"merits judgment parsed ({row.merits_judgment}) but its docket "
+                            "entry is undated; no resolved_at can be stamped"
+                        )
+                    ),
+                )
+                for merits_event in merits_events
+            )
+        )
+
+    # A retained granted docket re-polls with its cert disposition already
+    # attributed to the (resolved) cert event and only the merits event open:
+    # a clean no-op, not a triage case. Narrow by design — a latched
+    # date_decided or a mutated disposition falls through to triage.
+    if (
+        not application
+        and not targets
+        and row.date_decided is None
+        and row.disposition in GRANTED_DISPOSITIONS
+        and _cert_already_attributed(resolved_event_ids or [], stages or {})
+    ):
+        return Resolution()
+
+    undeclared = _undeclared_same_stage(stage, open_event_ids, stages or {})
+    if undeclared:
+        # The one same-stage shape still refused: an event that declares no
+        # forecast moment has no claim on the stage's disposition, and taking
+        # the whole stage to triage is what keeps a spurious duplicate baseline
+        # from quietly receiving one.
+        reason = (
+            f"docket decided ({row.disposition}) but {', '.join(undeclared)} "
+            f"share the {stage.value} stage without declaring a forecast moment; "
+            "the disposition is not attributed to any of them"
+        )
+    elif application and readable:
+        reason = (
+            f"decided application docket ({row.disposition}) but no open "
+            "interim-stage event to attribute the interim disposition to; an "
+            "application's disposition belongs to its interim moments only"
+        )
+    elif not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
     elif corpus.resolution_date(row) is None:
         reason = "disposition is machine-readable but the docket carries no decision date"
+    elif len(open_event_ids) == 1:
+        reason = (
+            f"docket decided ({row.disposition}) but the one open event "
+            f"({open_event_ids[0]}) forecasts a different filing; the case-level "
+            "disposition belongs to the case-baseline event only"
+        )
     else:
         reason = (
             f"docket decided ({row.disposition}) but {len(open_event_ids)} events are open; "
@@ -425,6 +909,8 @@ def record_outcomes(
                     event_id=event.event_id,
                     case_id=event.case_id,
                     kind=event.kind,
+                    stage=event.stage,
+                    moment=event.moment,
                     title=event.title,
                     description=event.description,
                     docket_entry_id=event.docket_entry_id,
@@ -440,6 +926,303 @@ def record_outcomes(
     return written
 
 
+def merits_grant_event(row: MeritsMintRow, opened_at: date) -> corpus.CorpusEvent:
+    """The open grant-moment merits event for ``row``, opened at ``opened_at``.
+
+    The construction half of :func:`merits_event_for`, kept apart from its
+    once-only guards because two callers date the same birth from different
+    records: the live resolution pass opens it at the grant outcome's
+    ``resolved_at``, and the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) at the row's latched
+    ``date_cert_granted`` — the same fact, read from whichever record the
+    caller holds. This constructs; the callers own the population guards
+    (:func:`fedcourtsai.corpus.opens_merits_proceeding`, and firing at most
+    once per case).
+    """
+    return corpus.CorpusEvent(
+        event_id=MERITS_EVENT_ID,
+        case_id=row.case_id,
+        court=row.court,
+        kind=EventKind.order,
+        stage=Stage.merits,
+        moment=Moment.grant,
+        # The same fallback chain the baseline event uses, so a payload with no
+        # petitioner title never yields an empty-titled event definition.
+        title=row.case_name or row.docket_number or row.case_id,
+        description="Disposition of the judgment below, following the cert grant.",
+        opened_at=opened_at,
+        decision_target="judgment",
+        resolved=False,
+    )
+
+
+def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEvent | None:
+    """The open merits event a freshly-recorded cert grant implies, or ``None``.
+
+    Pure. A grant in the merits-proceeding subset (:data:`_MERITS_PROCEEDING` —
+    ``gvr`` and ``summary-reversal`` terminate at the cert order and mint
+    nothing) puts the case on the merits docket, so the grant that closes the
+    petition event is also the birth of the next predictable thing: the
+    judgment. The grant order is the filing that opened it (``kind=order``),
+    the merits standard governs it (``stage=merits``), and it opens on the
+    grant date the outcome was stamped with. Keyed on the outcomes recorded in
+    *this* resolution — not the row's latched disposition — so it fires exactly
+    once, at cert-grant detection, and a later re-poll of the granted docket
+    (whose resolution is an empty no-op) never re-mints.
+
+    Two guards, and both are load-bearing. The row must be one whose grant
+    :func:`~fedcourtsai.corpus.opens_merits_proceeding` — which is what keeps a
+    granted *application* off the merits docket. The resolution must carry the
+    grant — which is what keeps the mint to once.
+    """
+    if not corpus.opens_merits_proceeding(row):
+        # The row predicate, not a bare court check, because two other granted
+        # dispositions reach this seam and neither opens a merits proceeding.
+        # A circuit docket's grant is not a cert grant at all (pull refreshes
+        # every court). And a granted **application** — a stay, an injunction —
+        # is a SCOTUS grant in the interim vocabulary whose matter ends at the
+        # order; minting a merits event on it would put a judgment forecast on
+        # a docket that will never enter one. `opens_merits_proceeding` refuses
+        # both by requiring `date_cert_granted`, which the application ingest
+        # branch nulls by design, and it is the same rule the judgment backfill
+        # and the statpack's merits population already key on.
+        return None
+    grant = next(
+        (
+            outcome
+            for outcome in resolution.outcomes.values()
+            if outcome.actual_disposition in _MERITS_PROCEEDING
+        ),
+        None,
+    )
+    if grant is None:
+        return None
+    return merits_grant_event(row, grant.resolved_at)
+
+
+def interim_response_events_for(
+    row: CorpusRow, open_event_ids: list[str]
+) -> list[corpus.CorpusEvent]:
+    """The interim stage's later forecast moments, in ordinal order.
+
+    An application is forecast on arrival, then again as the record fills: once
+    the Court **asks** for a response, and once one is **filed**. They are
+    different events and are kept apart deliberately — a respondent may answer
+    uninvited, and a requested response may never arrive — so each is scored on
+    its own and the next refit can drop whichever earns nothing.
+
+    Their horizons differ sharply, which is why they are separate moments rather
+    than one "the record filled" signal. Measured over 219 substantive
+    applications: a **requested** response precedes the disposition by a median
+    17 days and never fewer than 3, on 12.3% of applications, with a 37.0% grant
+    rate against a 7.8% base. A **filed** response covers more — 30.6% — but
+    precedes the disposition by a median of only 2 days, and 7 of 67 land the
+    same day. Expect a materially higher share of the filed moment's cells to
+    classify retrospective, because the pipeline's own commit latency eats a
+    two-day horizon.
+
+    Same forever-true triggers as the other later moments, and the same
+    open-first-moment guard: the interim baseline must still be open.
+    """
+    if row.court != "scotus":
+        return []
+    declared = moments.moments_for(Stage.interim)
+    if declared[0].event_id not in open_event_ids:
+        return []
+    dates = {
+        Moment.response_requested: row.response_requested_at,
+        Moment.response_filed: row.response_filed_at,
+    }
+    return [
+        corpus.CorpusEvent(
+            event_id=spec.event_id,
+            case_id=row.case_id,
+            court=row.court,
+            kind=spec.kind,
+            stage=spec.stage,
+            moment=spec.moment,
+            title=row.case_name or row.docket_number or row.case_id,
+            description=spec.description,
+            opened_at=opened,
+            decision_target=spec.decision_target,
+            resolved=False,
+        )
+        for spec in declared[1:]
+        if (opened := dates.get(spec.moment)) is not None
+    ]
+
+
+def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+    """The cert stage's **second** forecast moment, or ``None``.
+
+    A Call for the Views of the Solicitor General is the Court's own signal that
+    a petition is worth a closer look, and it arrives while the petition is
+    still pending — so the same cert disposition can be forecast again from a
+    materially better evidence base. It is rare (about 1.3% of paid petitions,
+    ~20 a Term) and disproportionately consequential: CVSG petitions are 7.0% of
+    all grants.
+
+    No parser: the CVSG date is already latched at ingest
+    (``cert_signals.snapshot_cvsg_date``). Like the briefed merits moment, this
+    is a docket observation that stays true forever, so the trigger re-fires on
+    every poll and is made safe by the **open-first-moment** guard — a CVSG on
+    an already-decided petition would otherwise mint a permanently open event
+    nothing could resolve.
+    """
+    if row.cvsg_date is None or row.court != "scotus":
+        return None
+    first, spec = moments.moments_for(Stage.cert)[:2]
+    if first.event_id not in open_event_ids:
+        return None
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.cvsg_date,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
+def briefed_merits_event_for(
+    row: MeritsMintRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
+    """The merits stage's **second** forecast moment, or ``None``.
+
+    Takes the structural :class:`MeritsMintRow` rather than the ingestion row,
+    because the same rule serves the live poll and the merits-event backfill —
+    the reason the protocol exists.
+
+    Once both sides' merits briefs are on the record the case is substantively
+    ready to be decided, and the same judgment can be forecast again from a much
+    larger evidence base — a median 159 days before it lands, and never fewer
+    than 44 (:mod:`fedcourtsai.pipeline.merits_signals`).
+
+    Unlike the grant moment, this cannot be keyed on *this* resolution's
+    outcomes: the brief is a docket observation that stays true forever, so the
+    trigger re-fires on every poll. That is safe — the upsert is idempotent by
+    ``(case_id, event_id)`` and writing identical YAML is a git no-op — but only
+    because of the **open-first-moment** guard: without it, a brief on a docket
+    whose judgment has already landed would mint a permanently open phantom
+    event that nothing could ever resolve.
+    """
+    if row.merits_brief_filed is None or row.merits_judgment is not None:
+        return None
+    spec = moments.moments_for(Stage.merits)[1]
+    if not corpus.opens_merits_proceeding(row):
+        return None
+    if MERITS_EVENT_ID not in open_event_ids:
+        # The first moment must still be open: it closes at the judgment, so an
+        # already-closed one means the case is decided and there is nothing left
+        # to forecast.
+        return None
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.merits_brief_filed,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
+def mint_moment_events(
+    corpus_db_path: Path,
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    row: CorpusRow,
+    resolution: Resolution,
+    open_event_ids: list[str] | None = None,
+) -> list[str]:
+    """Record every later forecast moment this poll opens; return their ids.
+
+    The live-poll driver over the mint seams: collect the events this
+    resolution and this row open, then write them through
+    :func:`persist_moment_events` — the shared write path whose upsert and
+    MAX-latched ``resolved`` make a re-detection unable to duplicate an event
+    or reopen a merits event a later judgment has closed. ``record_outcomes``
+    materializes ``event.yaml`` only beside a
+    written outcome, but the ledger's event definitions are
+    materialized-on-touch and the merits event is *born at* an outcome write:
+    the deterministic writers commit straight from this working tree, so this
+    is the only seam that can put the open event definition in the git tree it
+    ships with (an open ``event.yaml`` with ``resolved=False`` is the same
+    shape ``materialize-event`` provisions for the agent cells).
+    """
+    opens = list(open_event_ids or [])
+    minted = [
+        event
+        for event in (
+            merits_event_for(row, resolution),
+            briefed_merits_event_for(row, opens),
+            cvsg_event_for(row, opens),
+        )
+        if event is not None
+    ]
+    minted.extend(interim_response_events_for(row, opens))
+    if not minted:
+        return []
+    with corpus.connect(corpus_db_path) as conn:
+        return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def persist_moment_events(
+    conn: sqlite3.Connection,
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    events: list[corpus.CorpusEvent],
+) -> list[str]:
+    """Write one case's minted moment events to both stores; return their ids.
+
+    The one write path for a minted forecast moment, shared by the live mint
+    (:func:`mint_moment_events`) and the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) so both carry one idempotency
+    story: the corpus upsert is keyed on ``(case_id, event_id)`` and
+    ``resolved`` MAX-latches, so a re-mint can neither duplicate an event nor
+    reopen one a later judgment closed — and the ledger ``event.yaml`` is
+    written from the **post-upsert** row, so the committed definition honours
+    the same latch. Corpus first, ledger second: the ledger file is derived
+    from the corpus row, so an interruption leaves the corpus authoritative
+    and the next run converges the ledger. ``events`` must all belong to the
+    case ``(court_id, docket_id)`` names.
+    """
+    if not events:
+        return []
+    corpus.upsert_events(conn, events)
+    stored_all = {e.event_id: e for e in corpus.events_for_case(conn, events[0].case_id)}
+    for event in events:
+        stored = stored_all[event.event_id]
+        write_yaml(
+            CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
+            PredictableEvent(
+                event_id=stored.event_id,
+                case_id=stored.case_id,
+                kind=stored.kind,
+                stage=stored.stage,
+                moment=stored.moment,
+                title=stored.title,
+                description=stored.description,
+                docket_entry_id=stored.docket_entry_id,
+                opened_at=stored.opened_at,
+                decision_target=stored.decision_target,
+                resolved=stored.resolved,
+            ),
+        )
+    return [event.event_id for event in events]
+
+
 def resolve_case(
     corpus_db_path: Path,
     data_root: Path,
@@ -450,12 +1233,50 @@ def resolve_case(
 ) -> Resolution:
     """Detect and record resolution for one freshly-refreshed case.
 
-    Reads the case's open events from the corpus (:func:`open_events`), decides
+    Reads the case's open events from the corpus (:func:`open_events`) along with
+    every event's recorded decision stage and resolved flag (which route the
+    case-level disposition — see :func:`_cert_disposition_target` — and gate the
+    already-attributed no-op), decides
     each (:func:`detect_resolution`), writes the deterministic outcomes and closes
     their corpus events (:func:`record_outcomes`), and returns the full
     :class:`Resolution` so the caller can surface the unrecorded rest.
+
+    A recorded cert grant then mints the case's open merits event
+    (:func:`mint_moment_events`) — strictly *after* the outcome attribution, so
+    the detection pass that resolves the petition never sees the merits event
+    among the open set (the single-open-event and stage-routing logic judge the
+    docket as it stood when the grant was detected).
     """
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
-    resolution = detect_resolution(row, court_id, docket_id, open_event_ids, disposition_basis)
+    stages: dict[str, Stage | None] = {}
+    resolved_event_ids: list[str] = []
+    if open_event_ids:  # the corpus exists — open_events read from it
+        with corpus.connect(corpus_db_path) as conn:
+            for event in corpus.events_for_case(conn, ids.case_id(court_id, docket_id)):
+                stages[event.event_id] = event.stage
+                if event.resolved:
+                    resolved_event_ids.append(event.event_id)
+    resolution = detect_resolution(
+        row,
+        court_id,
+        docket_id,
+        open_event_ids,
+        disposition_basis,
+        stages=stages,
+        resolved_event_ids=resolved_event_ids,
+    )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
+    # After the attribution, so the detection pass that resolves the petition
+    # never sees the events it opens. `open_event_ids` is the PRE-resolution
+    # set, which is what the briefed moment's guard wants: the first merits
+    # moment must still have been open when this poll began.
+    mint_moment_events(
+        corpus_db_path,
+        data_root,
+        court_id,
+        docket_id,
+        row,
+        resolution,
+        open_event_ids=open_event_ids,
+    )
     return resolution

@@ -86,13 +86,13 @@ def test_expedite_motion_orders_are_not_the_cert_disposition() -> None:
     # before-judgment forms, must stay unmatched.
     for text in (
         "Motion of the Special Counsel to expedite consideration of the "
-        "petition for a writ of certiorari before judgment granted.",
+        + "petition for a writ of certiorari before judgment granted.",
         "Motion of petitioners to expedite consideration of the petition "
-        "for a writ of certiorari before judgment denied.",
+        + "for a writ of certiorari before judgment denied.",
         "Motion of petitioner to expedite consideration of the petition "
-        "for a writ of certiorari granted.",
+        + "for a writ of certiorari granted.",
         "Motion of respondent to expedite consideration of the petition "
-        "for a writ of certiorari denied.",
+        + "for a writ of certiorari denied.",
     ):
         assert match_disposition_signal(text) is None, text
 
@@ -162,7 +162,7 @@ def test_party_papers_reciting_a_vacatur_are_not_a_disposition() -> None:
     for text in (
         "Brief of respondent suggesting that the judgment be vacated and the case remanded filed.",
         "Letter of respondent advising that the judgment below was vacated "
-        "and the case remanded by the Court of Appeals filed.",
+        + "and the case remanded by the Court of Appeals filed.",
     ):
         assert match_disposition_signal(text) is None, text
 
@@ -261,9 +261,9 @@ def test_abbreviation_periods_do_not_split_guard_sentences() -> None:
     # and let the recital shapes pierce the guard.
     for text in (
         "Motion of petitioner Acme Inc. to expedite consideration of the "
-        "petition for a writ of certiorari granted.",
+        + "petition for a writ of certiorari granted.",
         "Motion of petitioner to vacate the stay in the event the petition "
-        "is granted in No. 25-332 filed.",
+        + "is granted in No. 25-332 filed.",
     ):
         assert match_disposition_signal(text) is None, text
 

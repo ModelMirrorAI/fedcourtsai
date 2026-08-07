@@ -14,6 +14,8 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     CertBacktest,
     CertBacktestEntry,
+    ClaimJudgeAgreement,
+    ClaimScoreBoard,
     DocketPack,
     DocketPackTerm,
     GroupBy,
@@ -60,6 +62,21 @@ def _metrics_dir(tmp_path: Path) -> Path:
                     retrospective=LeaderboardStratum(events_scored=4, evaluations=4, accuracy=0.8),
                 ),
             ],
+        ),
+    )
+    write_json(
+        metrics / "claim-scores.json",
+        ClaimScoreBoard(
+            evaluations_total=9,
+            cells_with_claims=0,
+            forward_agreement=ClaimJudgeAgreement(
+                pairs=0,
+                pair_events=0,
+                suppressed=True,
+                missing_claim_block=9,
+                masked_claim_total=0,
+                missing_reasoning_quality=0,
+            ),
         ),
     )
     write_json(
@@ -133,6 +150,21 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
     assert "80998 corpus case(s): 60000 resolved / 20998 open" in pr.body
     assert "RID" in pr.body
+
+
+def test_pr_carries_the_claim_score_surface_with_a_sensible_suppressed_headline(
+    tmp_path: Path,
+) -> None:
+    # The suppressed state is the shipping state (no committed evaluation
+    # carries a block yet), so the headline must read as honest counts plus a
+    # withheld coefficient — never as a broken artifact.
+    pr = render_refresh_pr(["metrics/claim-scores.json"], _metrics_dir(tmp_path).parent, "RID")
+    assert pr is not None
+    assert pr.title == "metrics: refresh claim-scores"
+    assert (
+        "[frozen] 0 of 9 evaluation(s) carry claim scores; "
+        "forward judge agreement: suppressed (n=0 < 10)" in pr.body
+    )
 
 
 def test_pr_carries_the_docket_pack(tmp_path: Path) -> None:

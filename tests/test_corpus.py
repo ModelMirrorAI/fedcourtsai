@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import corpus
-from fedcourtsai.schemas import Disposition, EventKind
+from fedcourtsai import corpus, corpus_ranged
+from fedcourtsai.schemas import Disposition, EventKind, Judgment, Stage
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -482,6 +482,47 @@ def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction(
         assert corpus.is_non_cert_scotus_form(row) is True, number
 
 
+def test_substantive_application_is_in_predict_scope() -> None:
+    # The interim predict scope: an application whose latched ask reads
+    # substantive (a stay, an injunction, a vacatur) is spared by the form
+    # rule and by the whole row-rule chain — the one letter-form slice any
+    # predict path targets.
+    substantive = corpus.CorpusRow(
+        case_id="scotus/9525000001",
+        court="scotus",
+        docket_number="25A1",
+        application_kind="substantive",
+    )
+    assert corpus.is_non_cert_scotus_form(substantive) is False
+    assert corpus.out_of_scope_reason(substantive) is None
+
+
+def test_non_substantive_applications_stay_out_of_scope() -> None:
+    # An extension is single-Justice routine, an unknown ask is a parser gap,
+    # and a never-parsed row (a historical spelling the live channel cannot
+    # address, or a REST-ingested application) carries no reading at all —
+    # every one of them stays excluded; only the substantive reading spares.
+    for kind in ("extension", "unknown", None):
+        row = corpus.CorpusRow(
+            case_id="scotus/9525000002",
+            court="scotus",
+            docket_number="25A2",
+            application_kind=kind,
+        )
+        assert corpus.is_non_cert_scotus_form(row) is True, kind
+        assert corpus.out_of_scope_reason(row) is not None, kind
+    # The spare is application-only: a substantive-looking kind on an
+    # original-jurisdiction or miscellaneous docket changes nothing.
+    for number in ("22O141", "22M75"):
+        other_form = corpus.CorpusRow(
+            case_id="scotus/10",
+            court="scotus",
+            docket_number=number,
+            application_kind="substantive",
+        )
+        assert corpus.is_non_cert_scotus_form(other_form) is True, number
+
+
 def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
     # A modern cert docket carries a hyphen, not a term letter, so it is never caught;
     # a bare or blank number falls to the other predicates; the rule is SCOTUS-only.
@@ -589,6 +630,18 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     # A typographic en-dash is folded, so the Term parses like a hyphen.
     assert corpus.scotus_term_year("01" + chr(0x2013) + "7700") == 2001
     assert corpus.scotus_term_year("No. 93" + chr(0x2013) + "7515.") == 1993
+
+
+def test_scotus_application_term_year_parses_the_strict_a_form_only() -> None:
+    # The interim docket's Term key, under the same century pivot as
+    # `scotus_term_year`; only the live channel's addressable `YYAnnn` form
+    # parses — historical spellings and cert-form numbers fall through.
+    assert corpus.scotus_application_term_year("24A1099") == 2024
+    assert corpus.scotus_application_term_year("29A1") == 2029
+    assert corpus.scotus_application_term_year("30A1") == 1930
+    assert corpus.scotus_application_term_year("A-363") is None
+    assert corpus.scotus_application_term_year("22-451") is None
+    assert corpus.scotus_application_term_year("22O141") is None
 
 
 def test_is_date_inconsistent_flags_decided_before_filed() -> None:
@@ -814,6 +867,60 @@ def test_retrieve_priors_decided_before_is_exclusive_and_conservative(tmp_path: 
         unmasked = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
     assert [r.case_id for r in masked] == ["scotus/1"]
     assert len(unmasked) == 4
+
+
+def test_retrieve_priors_decided_before_strips_post_clock_merits(tmp_path: Path) -> None:
+    # The merits judgment on an admitted row is a later fact than the row's own
+    # year: a Term-1993 petition qualifies under a 1998 clock while its
+    # judgment may have issued afterwards. The pair survives the mask only when
+    # `merits_decided` provably precedes the cutoff too; an undated judgment
+    # fails closed. Unmasked (forward) retrieval keeps the columns whole.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(  # judgment provably pre-clock: survives the mask
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="93-7515",
+                    merits_judgment="reversed",
+                    merits_decided=date(1994, 6, 1),
+                ),
+                _row(  # judgment postdates the clock: stripped
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="93-7516",
+                    merits_judgment="affirmed",
+                    merits_decided=date(1999, 6, 1),
+                ),
+                _row(  # undated judgment cannot prove precedence: stripped
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="93-7517",
+                    merits_judgment="vacated",
+                    merits_decided=None,
+                ),
+            ],
+        )
+        masked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(
+                conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
+            )
+        }
+        unmasked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+        }
+    assert set(masked) == {"scotus/1", "scotus/2", "scotus/3"}
+    assert masked["scotus/1"].merits_judgment == "reversed"
+    assert masked["scotus/1"].merits_decided == date(1994, 6, 1)
+    assert masked["scotus/2"].merits_judgment is None
+    assert masked["scotus/2"].merits_decided is None
+    assert masked["scotus/3"].merits_judgment is None
+    assert unmasked["scotus/2"].merits_judgment == "affirmed"
+    assert unmasked["scotus/3"].merits_judgment == "vacated"
 
 
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
@@ -1177,6 +1284,85 @@ def test_set_event_resolved_unknown_event_is_a_noop(tmp_path: Path) -> None:
     assert event.resolved is False
 
 
+def test_rename_event_moves_the_row_to_the_new_identity(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    new = _event(
+        event_id="evt-motion-disposition",
+        kind=EventKind.motion,
+        description="carried over",
+        docket_entry_id=42,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(description="carried over", docket_entry_id=42)])
+        corpus.rename_event(conn, "ca9/123", "evt-appeal-disposition", new)
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event == new  # exactly one row, under the new identity
+
+
+def test_rename_event_never_regresses_the_resolved_latch(tmp_path: Path) -> None:
+    # The rename carries resolution as MAX(old, new): renaming a closed event
+    # with a freshly-minted (resolved=False) replacement must not reopen it.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=True)])
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.event_id == "evt-motion-disposition"
+    assert event.resolved is True
+
+
+def test_rename_event_folds_onto_an_existing_new_row(tmp_path: Path) -> None:
+    # Where the new identity already exists (a re-extraction minted it before
+    # the rename ran), the rename folds onto that row instead of duplicating,
+    # and the latch still takes the MAX across all three.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                _event(resolved=False),
+                _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=True),
+            ],
+        )
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.resolved is True
+
+
+def test_rename_event_requires_the_old_row_and_a_matching_case(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event()])
+        with pytest.raises(ValueError, match="no event"):
+            corpus.rename_event(
+                conn, "ca9/123", "evt-nonexistent", _event(event_id="evt-motion-disposition")
+            )
+        with pytest.raises(ValueError, match="names case"):
+            corpus.rename_event(
+                conn,
+                "ca9/999",
+                "evt-appeal-disposition",
+                _event(event_id="evt-motion-disposition"),
+            )
+        # A same-identity call would upsert-then-delete the row — a silent
+        # event delete, which the corpus deliberately has no API for.
+        with pytest.raises(ValueError, match="same-identity"):
+            corpus.rename_event(conn, "ca9/123", "evt-appeal-disposition", _event())
+        # No failed call disturbed the stored row.
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.event_id == "evt-appeal-disposition"
+
+
 def test_watermark_set_and_get(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
@@ -1324,6 +1510,23 @@ def test_distribution_count_never_regresses_on_a_degraded_parse(tmp_path: Path) 
     assert stored is not None and stored.distribution_count == 3
 
 
+def test_has_opinion_survives_a_reingest_without_the_body(tmp_path: Path) -> None:
+    # The presence bit is monotone (an opinion once linked is never unlinked)
+    # and every writer asserts it (NOT NULL, default False), so a channel that
+    # does not carry the body — a docket-only re-ingest — must not flip a
+    # stored True back to False; a genuine first link still lands.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="ca9/77")])  # opinion_text set → bit True
+        corpus.upsert_rows(conn, [_row(case_id="ca9/77", opinion_text=None, summary=None)])
+        survived = corpus.get_row(conn, "ca9/77")
+        corpus.upsert_rows(conn, [_row(case_id="ca9/78", opinion_text=None, summary=None)])
+        corpus.upsert_rows(conn, [_row(case_id="ca9/78")])  # the first link still lands
+        linked = corpus.get_row(conn, "ca9/78")
+    assert survived is not None and survived.has_opinion is True
+    assert linked is not None and linked.has_opinion is True
+
+
 def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
     # Weight 1 means "included with certainty"; once known, a walker re-serve
     # of the sampled serial (weight N) must not regress it — and the other
@@ -1346,6 +1549,71 @@ def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
 
 
 # --- interim-application signal columns and rotation --------------------------------
+
+
+def test_merits_judgment_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
+    # Round-trip through the normal API, and a DB created before the columns
+    # existed gains them on connect with the never-parsed NULL sentinel intact.
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/24001",
+        court="scotus",
+        docket_number="23-101",
+        date_cert_granted=date(2024, 1, 12),
+        merits_judgment="reversed",
+        merits_decided=date(2024, 6, 27),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/24001")
+    assert fetched == row
+
+    # A pre-change DB: the current schema minus the two merits columns.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    merits = ("merits_judgment", "merits_decided")
+    columns = ",\n".join(
+        f"{name} {ddl}" for name, ddl in corpus._CASES_COLUMN_DDL.items() if name not in merits
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert set(merits) <= cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+    assert migrated is not None
+    assert migrated.merits_judgment is None  # never parsed, not an observed absence
+    assert migrated.merits_decided is None
+
+
+def test_from_record_tolerates_record_without_merits_columns() -> None:
+    """A ranged read of a remote blob packed before the merits columns existed."""
+    record = corpus._to_record(_row())
+    del record["merits_judgment"]
+    del record["merits_decided"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.merits_judgment is None and row.merits_decided is None
+    assert row == _row()
+
+
+def test_set_merits_judgment_stamps_and_overwrites_forward(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/24001", court="scotus")])
+        corpus.set_merits_judgment(conn, "scotus/24001", Judgment.vacated, date(2024, 6, 20))
+        first = corpus.get_row(conn, "scotus/24001")
+        # A corrected parse self-heals forward, an undated entry stores NULL.
+        corpus.set_merits_judgment(conn, "scotus/24001", Judgment.reversed, None)
+        second = corpus.get_row(conn, "scotus/24001")
+    assert first is not None
+    assert first.merits_judgment == "vacated" and first.merits_decided == date(2024, 6, 20)
+    assert second is not None
+    assert second.merits_judgment == "reversed" and second.merits_decided is None
 
 
 def test_interim_signal_columns_roundtrip_and_migrate(tmp_path: Path) -> None:
@@ -1879,3 +2147,164 @@ def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
     assert stored.counsel == entries
     assert stored.counsel[0].counsel_of_record is True
     assert stored.counsel[1].counsel_of_record is False
+
+
+def test_event_stage_round_trips_and_null_stays_null(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-appeal-disposition",
+                    case_id="ca9/2",
+                    court="ca9",
+                    kind=EventKind.appeal,
+                ),
+            ],
+        )
+        staged = corpus.events_for_case(conn, "scotus/1")
+        unstaged = corpus.events_for_case(conn, "ca9/2")
+    assert staged[0].stage == "cert"
+    assert unstaged[0].stage is None
+
+
+def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
+    """A corpus written before the column existed opens cleanly and reads
+    its pre-existing events with no stage, rather than failing the SELECT."""
+    db = tmp_path / "corpus.db"
+    raw = sqlite3.connect(db)
+    raw.executescript(
+        """
+        CREATE TABLE events (
+            case_id         TEXT NOT NULL,
+            event_id        TEXT NOT NULL,
+            court           TEXT NOT NULL,
+            kind            TEXT NOT NULL,
+            title           TEXT NOT NULL DEFAULT '',
+            description     TEXT,
+            docket_entry_id INTEGER,
+            decision_target TEXT NOT NULL DEFAULT 'disposition',
+            opened_at       TEXT,
+            resolved        INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (case_id, event_id)
+        );
+        INSERT INTO events (case_id, event_id, court, kind)
+        VALUES ('scotus/7', 'evt-petition-disposition', 'scotus', 'petition');
+        """
+    )
+    raw.commit()
+    raw.close()
+    with corpus.connect(db) as conn:
+        events = corpus.events_for_case(conn, "scotus/7")
+    assert len(events) == 1
+    assert events[0].stage is None
+
+
+def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
+    """The ranged backend serves the remote blob as-is, so an events row from a
+    blob written before the column existed must read with no stage rather than
+    failing the SELECT wholesale."""
+    columns = [
+        "case_id",
+        "event_id",
+        "court",
+        "kind",
+        "title",
+        "description",
+        "docket_entry_id",
+        "decision_target",
+        "opened_at",
+        "resolved",
+    ]
+    names = {name: i for i, name in enumerate(columns)}
+    record = corpus_ranged.Row(
+        names,
+        (
+            "scotus/7",
+            "evt-petition-disposition",
+            "scotus",
+            "petition",
+            "t",
+            None,
+            None,
+            "disposition",
+            None,
+            0,
+        ),
+    )
+    event = corpus._event_from_record(record)
+    assert event.stage is None
+    assert event.event_id == "evt-petition-disposition"
+
+
+# --- the merits pair latch ---------------------------------------------------------
+
+
+def test_merits_pair_survives_a_writer_with_no_parse(tmp_path: Path) -> None:
+    # A writer carrying no judgment (a REST enrichment, a bulk row, a degraded
+    # live payload) keeps BOTH stored values: the pair latch keys on the
+    # incoming judgment, so the backfill's stamp and the live channel's
+    # ingest-time parse cannot wipe each other.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="reversed",
+                    merits_decided=date(2023, 6, 27),
+                )
+            ],
+        )
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="22-451")])
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None
+    assert stored.merits_judgment == "reversed"
+    assert stored.merits_decided == date(2023, 6, 27)
+
+
+def test_merits_pair_moves_as_a_pair_on_a_fresh_parse(tmp_path: Path) -> None:
+    # A fresh parse takes both halves — its date included even when that is
+    # NULL (an undated entry): keeping the old date beside the new judgment
+    # would fabricate a mismatched pair.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="reversed",
+                    merits_decided=date(2023, 6, 27),
+                )
+            ],
+        )
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    merits_judgment="vacated",
+                    merits_decided=None,
+                )
+            ],
+        )
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None
+    assert stored.merits_judgment == "vacated"
+    assert stored.merits_decided is None

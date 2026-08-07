@@ -299,6 +299,164 @@ def test_live_rotation_orders_recent_term_then_staleness(tmp_path: Path) -> None
         # A case with no open event (scotus/6 above) never enters the rotation.
 
 
+def test_live_rotation_keeps_a_granted_docket_with_an_open_merits_event(tmp_path: Path) -> None:
+    """A granted docket carrying the open merits event stays in the rotation.
+
+    The cert grant latches the row's disposition, but the merits proceeding is
+    live until the judgment — only the merits-stage open event (minted at the
+    grant) re-admits it. A granted docket without one (a GVR, a summary
+    reversal, or history from before minting) still exits, as does any granted
+    docket once `date_decided` lands.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Granted, open merits event -> retained.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                ),
+                # Granted-set, no merits event (a GVR terminates at the cert
+                # order, so none was minted) -> excluded, even though an open
+                # interim motion (below) rides the docket.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-2",
+                    disposition="gvr",
+                    date_cert_granted=date(2026, 1, 12),
+                ),
+                # Granted with a merits event but the docket-level decision has
+                # landed -> the matter is over, excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    disposition="granted",
+                    date_cert_granted=date(2025, 10, 6),
+                    date_decided=date(2026, 6, 29),
+                ),
+                # Denied -> excluded, exactly as before.
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="25-4",
+                    disposition="denied",
+                ),
+                # Pending -> in, exactly as before.
+                corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="25-5"),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title=f"scotus/{n}",
+                    decision_target="judgment",
+                )
+                for n in (1, 3)
+            ]
+            + [
+                # The GVR docket also carries an *open* interim motion: retention
+                # requires an open MERITS-stage event specifically, so mere
+                # open-ness on a granted-set row must not re-admit it.
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay",
+                    case_id="scotus/2",
+                    court="scotus",
+                    kind="motion",
+                    stage="interim",
+                    title="scotus/2",
+                )
+            ]
+            + [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="petition",
+                    title=f"scotus/{n}",
+                    # The granted rows' petition events are already resolved; only
+                    # scotus/5's stays open.
+                    resolved=n != 5,
+                )
+                for n in (1, 2, 3, 4, 5)
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    # Both survivors are never-polled same-Term rows, so case_id breaks the tie.
+    assert picked == ["scotus/1", "scotus/5"]
+
+
+def test_live_rotation_granted_docket_never_leads_on_its_stale_conference_date(
+    tmp_path: Path,
+) -> None:
+    """A retained granted docket rotates on staleness, not its old distribution.
+
+    The distributed-petitions-lead ordering exists because a distributed pending
+    petition is days from its order-list result; a granted docket's latched
+    `distributed_for_conference` is the conference that produced the grant, so
+    letting it sort on that (always past) date would park the granted cohort at
+    the head of every cycle for the life of the merits proceeding.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Granted at its (past) conference, merits pending.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                    distributed_for_conference=date(2026, 1, 9),
+                ),
+                # Pending, distributed for an upcoming conference -> leads.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-2",
+                    distributed_for_conference=date(2026, 9, 29),
+                ),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title="scotus/1",
+                    decision_target="judgment",
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/2",
+                    court="scotus",
+                    kind="petition",
+                    title="scotus/2",
+                ),
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    assert picked == ["scotus/2", "scotus/1"]
+
+
 def test_last_live_polled_is_stamped_and_latched(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     row = from_live_docket(_payload(), live_docket_id(25, 100))
@@ -343,6 +501,57 @@ def test_ingest_live_payload_pending_then_decided(tmp_path: Path) -> None:
         snap = corpus.latest_snapshot(conn, first.case_id)
     assert stored is not None and stored.disposition == "denied"
     assert snap is not None and snap[1] == decided_payload  # raw JSON is the snapshot
+
+
+def test_a_tracked_petition_grant_mints_the_merits_event_and_stays_in_rotation(
+    tmp_path: Path,
+) -> None:
+    """The forward shape end to end: pending onboard, then the grant order lands.
+
+    Resolution (before re-extraction) records the petition outcome, minting
+    rides the same pass, and the granted docket — its petition closed — stays
+    in the live rotation on the open merits event's account.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 100)
+
+    ingest_live_payload(db, data_root, _payload(), docket_id, today=date(2026, 7, 9))
+    granted_payload = _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    granted = ingest_live_payload(
+        db, data_root, granted_payload, docket_id, today=date(2026, 7, 10)
+    )
+    assert granted.resolved == ["evt-petition-disposition"]
+    assert granted.unrecorded_events == []
+    with corpus.connect(db) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, granted.case_id)}
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+    assert events["evt-petition-disposition"].resolved is True
+    merits = events["evt-order-judgment"]
+    assert merits.resolved is False and merits.stage == "merits"
+    assert picked == [granted.case_id]
+
+
+def test_a_brand_new_decided_grant_ingest_mints_nothing(tmp_path: Path) -> None:
+    """The historical-walker shape: a grant ingested with no tracked open events.
+
+    Resolution runs before re-extraction and sees no open events, so no outcome
+    is recorded and no merits event is minted; extraction then latches the
+    petition event closed, and the decided row stays out of the rotation.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 100)
+
+    granted_payload = _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    result = ingest_live_payload(db, data_root, granted_payload, docket_id, today=date(2026, 7, 10))
+    assert result.resolved == []
+    with corpus.connect(db) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, result.case_id)}
+        picked = corpus.live_rotation(conn, limit=10)
+    assert "evt-order-judgment" not in events
+    assert events["evt-petition-disposition"].resolved is True
+    assert picked == []
 
 
 # --- discovery: frontier probing + identity reconciliation ------------------------
@@ -564,13 +773,15 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     assert relisted.distributed_for_conference == date(2026, 10, 10)
 
 
-def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
+def test_live_poll_all_repolls_an_unresolved_application_to_a_recorded_outcome(
     tmp_path: Path,
 ) -> None:
     """Interim acceptance: a discovered application is re-polled by the
     application rotation until it resolves — through the interim vocabulary,
-    with the escalation signals latched onto its row — and nothing about it is
-    ever queued to predict."""
+    with the escalation signals latched onto its row — and the machine-matched
+    resolution records an interim ``outcome.json`` on the motion/interim
+    baseline. Nothing was ever predicted for it, so the resolved event routes
+    to ``evaluate_skipped`` (nothing to score), never ``unrecorded``."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     config = LiveConfig()
@@ -628,16 +839,31 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
             data_root,
             term=25,
             config=config,
-            # The production scope: applications are permanently out of predict
-            # scope, and the application routing is deliberately ungated, so the
-            # resolution must surface even under the gate.
+            # The production scope: the application routing is deliberately
+            # ungated, so the resolution must surface even under the gate.
             scope=PredictScope.scotus_docket,
             today=date(2026, 7, 19),
         )
-    # Ground truth only: the resolution is recorded and surfaced (nothing
-    # predicted it, so it lands on evaluate_skipped), and predict stays empty.
+    # The poll that catches the resolution never queues forward (the seam
+    # closes on the row's disposition), and with no committed prediction the
+    # freshly-resolved event lands on `evaluate_skipped`; nothing is left for
+    # `unrecorded` triage.
     assert queues2.predict == [] and queues2.evaluate == []
-    assert [q["docket"] for q in queues2.evaluate_skipped] == [9_525_000_001]
+    (skipped,) = queues2.evaluate_skipped
+    assert skipped["docket"] == 9_525_000_001
+    assert skipped["events"] == ["evt-motion-disposition"]
+    assert queues2.unrecorded == []
+    # The interim outcome: recorded on the motion/interim baseline from the
+    # row's interim-matched disposition, dated by the disposing entry, with no
+    # cert-only signals block.
+    outcome = read_model(
+        CasePaths(data_root, "scotus", 9_525_000_001).event("evt-motion-disposition").outcome,
+        Outcome,
+    )
+    assert outcome.actual_disposition == Disposition.denied
+    assert outcome.actual_granted == 0
+    assert outcome.resolved_at == date(2026, 7, 18)
+    assert outcome.signals is None
     with corpus.connect(db) as conn:
         resolved = corpus.get_row(conn, case_id)
     assert resolved is not None
@@ -652,6 +878,257 @@ def test_live_poll_all_repolls_an_unresolved_application_ground_truth_only(
     # Cycle 3: resolved, so the rotation no longer re-polls it.
     with corpus.connect(db) as conn:
         assert corpus.application_rotation(conn, limit=10) == []
+
+
+def test_changed_substantive_application_queues_predict_once_a_day(tmp_path: Path) -> None:
+    """The interim predict trigger: a docket change on a still-unresolved
+    substantive application queues its interim baseline forward — once per
+    day, under the shared `predict_queued_at` debounce — and a same-day
+    second change never re-queues."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues1, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
+        )
+    # Onboarding alone queues nothing (an application is never distributed).
+    assert queues1.predict == []
+
+    # The docket moves: the Court requests a response. The rotation's re-poll
+    # sees the change on a pending substantive application and queues forward —
+    # and the same entry opens the interim stage's second forecast moment, so
+    # the queued case is owed a cell for both.
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 10 2026",
+            "Text": "Response to application (25A1) requested by The Chief Justice.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 10),
+        )
+    assert queues2.predict == [
+        {
+            "court": "scotus",
+            "docket": 9_525_000_001,
+            "events": [
+                "evt-motion-disposition",
+                "evt-order-response-requested-disposition",
+            ],
+        }
+    ]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None and row.predict_queued_at == date(2026, 7, 10)
+
+    # A second change the same day: debounced, not re-queued.
+    served["25A1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 10 2026", "Text": "Brief amicus curiae of Amicus Org filed."}
+    )
+    with _frontier_client(served) as client:
+        queues3, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config,
+            scope=PredictScope.scotus_docket,
+            today=date(2026, 7, 10),
+        )
+    assert queues3.predict == []
+
+
+def test_unmatched_application_disposal_diverts_instead_of_minting_a_forward_cell(
+    tmp_path: Path,
+) -> None:
+    """The leakage backstop: a disposal phrased past the interim vocabulary
+    (relief named, no "application" anchor) leaves the row unresolved, so the
+    change trigger fires — but the form-keyed disposal scan diverts the queue
+    entry to `predict_skipped_decided` rather than minting a forward cell
+    whose snapshot shows the outcome."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 18 2026",
+            "Text": "Stay of execution granted by The Chief Justice pending further order.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 19)
+        )
+    assert queues.predict == []
+    (diverted,) = queues.predict_skipped_decided
+    assert diverted["docket"] == 9_525_000_001
+    assert "interim disposal" in str(diverted["reason"])
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    # The vocabulary missed the disposal, so the row stays unresolved — the
+    # scan, not the resolver, is what kept the cell from minting.
+    assert row is not None and row.disposition is None
+
+
+def test_reserve_selected_application_is_swept_into_the_predict_queue(tmp_path: Path) -> None:
+    """The interim same-cycle gap is structural — an application has no
+    distribution transition — so the sweep must address the application form:
+    discovery onboards the pending stay, the cycle-end pass latches it through
+    the reserve, and the same cycle's sweep re-fetches it (application-form
+    JSON) and queues its interim baseline."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(interim_reserve_slots=1),
+            today=date(2026, 7, 9),
+        )
+    assert discovery.case_ids == ["scotus/9525000001"]
+    assert queues.predict == [
+        {"court": "scotus", "docket": 9_525_000_001, "events": ["evt-motion-disposition"]}
+    ]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None and row.salience_selected  # the reserve latch
+    assert row.predict_queued_at == date(2026, 7, 9)  # the sweep's stamp
+
+
+def test_changed_extension_application_never_queues_predict(tmp_path: Path) -> None:
+    """The non-substantive slice stays ground-truth only: an extension's
+    docket change re-polls and latches, but its baseline never earns a
+    forecast cell."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) to extend the time to file a petition "
+                    "for a writ of certiorari from July 15, 2026 to September 13, "
+                    "2026, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    served["25A1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 10 2026", "Text": "Letter of applicant filed."}
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
+        )
+    assert queues.predict == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9525000001")
+    assert row is not None
+    assert row.application_kind == "extension"
+    assert row.predict_queued_at is None  # never routed at the predict seam
+
+
+def test_scope_latched_application_resolves_silently_into_the_row(tmp_path: Path) -> None:
+    """The visibility boundary of the application rotation: while the scope
+    reconcile's `predict_excluded` latch stands on a row (a non-substantive
+    ask, or a substantive reading the reconcile has not yet caught up with),
+    `open_events` yields nothing, so the resolution surfaces on no queue at
+    all — the ground truth lands only as the row's latched disposition
+    columns."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    case_id = "scotus/9525000001"  # live_application_id(25, 1)
+
+    served = {
+        "25A1": _payload(
+            "25A1",
+            proceedings=[
+                {
+                    "Date": "Jul 01 2026",
+                    "Text": "Application (25A1) for a stay, submitted to The Chief Justice.",
+                }
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    # The scope reconcile's standing latch on application dockets.
+    with corpus.connect(db) as conn:
+        corpus.set_predict_excluded(conn, case_id, True)
+
+    served["25A1"]["ProceedingsandOrder"].append(
+        {
+            "Date": "Jul 18 2026",
+            "Text": "Application (25A1) for stay presented to The Chief Justice and "
+            "by him referred to the Court is denied.",
+        }
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 19)
+        )
+    assert queues2.predict == [] and queues2.evaluate == []
+    assert queues2.evaluate_skipped == [] and queues2.unrecorded == []
+    with corpus.connect(db) as conn:
+        resolved = corpus.get_row(conn, case_id)
+    assert resolved is not None
+    assert resolved.disposition == "denied"
+    assert resolved.date_decided == date(2026, 7, 18)
 
 
 def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:
@@ -1243,6 +1720,49 @@ def test_sweep_queues_the_selected_unpredicted_backlog(tmp_path: Path) -> None:
     assert [q["docket"] for q in queues.predict] == [docket_id]
 
 
+def test_sweep_queues_an_unselected_granted_docket_via_the_merits_bypass(tmp_path: Path) -> None:
+    """The merits bypass at the sweep seam: a scored-but-not-selected petition
+    the Court granted has no further distribution transition, so the sweep is
+    the ONLY path to its merits cell — the candidate filter must admit it on
+    the open merits event's account, never on selection."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    # Onboard pending, then the grant lands: the petition resolves and the
+    # merits event mints, leaving a decided row with one open merits event.
+    ingest_live_payload(db, data_root, _payload("25-1"), docket_id, today=date(2026, 7, 8))
+    granted = _payload("25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    result = ingest_live_payload(db, data_root, granted, docket_id, today=date(2026, 7, 9))
+    assert result.resolved == ["evt-petition-disposition"]
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/9025000001'"
+        )
+        conn.commit()
+    served = {"25-1": granted}
+    # Zero capacity and an unreachable floor: the pass can select nothing, so
+    # only the bypass can put the docket in front of the sweep.
+    cfg = _sweep_config(per_conference_capacity=0, long_conference_capacity=0, floor=1.0)
+
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict[0]["events"] == ["evt-order-judgment"]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and not row.salience_selected  # the bypass, not selection
+
+
 def test_sweep_debounces_a_case_polled_today_and_skips_a_predicted_one(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
@@ -1824,3 +2344,99 @@ def test_amicus_counsel_lands_under_other_and_is_not_arrival_time() -> None:
     assert by_role["other"] == ["Amici 0", "Amici 1", "Amici 2"]
     # All of them reach the flat list undifferentiated — the exposure the role fixes.
     assert len(row.attorneys) == 5
+
+
+# --- the ingest-time merits latch ---------------------------------------------------
+
+
+_JUDGMENT_ENTRY = {"Date": "Jun 27 2027", "Text": "Judgment REVERSED and case REMANDED."}
+# The canonical GVR order: it grants and disposes in one entry, and the judgment
+# parser's shapes are deliberately wide enough to read its vacatur.
+_GVR_ENTRY = {
+    "Date": "Jul 06 2026",
+    "Text": "Petition GRANTED.  Judgment VACATED and case REMANDED for further consideration.",
+}
+
+
+def test_a_granted_dockets_judgment_entry_latches_the_merits_pair() -> None:
+    # The live channel parses the last judgment-shaped entry through the shared
+    # parser (`pipeline.judgment`) whenever the docket carries a cert grant, so
+    # outcome detection can resolve the merits event from the columns alone.
+    payload = _payload(proceedings=[_GRANTED_ENTRY, _JUDGMENT_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.merits_judgment == "reversed"
+    assert row.merits_decided == date(2027, 6, 27)
+
+
+def test_a_granted_docket_without_a_judgment_entry_latches_nothing() -> None:
+    row = from_live_docket(_payload(proceedings=[_GRANTED_ENTRY]), live_docket_id(25, 100))
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_an_ungranted_docket_never_carries_a_merits_parse() -> None:
+    # The eligibility is the population the offline backfill walks, so a denied
+    # docket whose text happens to recite a judgment shape stays unparsed here.
+    payload = _payload(proceedings=[_DENIED_ENTRY, _JUDGMENT_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_a_gvr_never_carries_a_merits_parse() -> None:
+    """A GVR grants and vacates in one order, so its own vacatur must not land in
+    the column that means "what the Court did to the judgment below on the
+    merits". The order text parses — the shapes are anchored to catch it — so
+    the population predicate, not the parser, is what keeps it out; and this
+    column reaches the agent-facing retrieval surface, where a cert-stage
+    vacatur read as a merits judgment is a fact about the wrong stage."""
+    payload = _payload(proceedings=[_GVR_ENTRY])
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.disposition == Disposition.gvr.value
+    assert row.merits_judgment is None and row.merits_decided is None
+
+
+def test_the_judged_docket_exits_the_live_rotation(tmp_path: Path) -> None:
+    """Resolving the merits event ends the granted docket's retention.
+
+    The retention clause keys on an *open* merits-stage event; once judgment
+    detection closes it, the rotation predicate's EXISTS fails and the docket
+    leaves the poll set.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    disposition="granted",
+                    date_cert_granted=date(2026, 1, 12),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="petition",
+                    title="scotus/1",
+                    resolved=True,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="order",
+                    stage="merits",
+                    title="scotus/1",
+                    decision_target="judgment",
+                ),
+            ],
+        )
+        assert [r.case_id for r in corpus.live_rotation(conn, limit=10)] == ["scotus/1"]
+        corpus.set_event_resolved(conn, "scotus/1", "evt-order-judgment")
+        assert corpus.live_rotation(conn, limit=10) == []

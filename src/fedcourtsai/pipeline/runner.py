@@ -60,9 +60,23 @@ from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
 from ..pricing import DEFAULT_MODELS
-from ..schemas import Disposition, Engine, Evaluation, Outcome, Prediction, UsageRole
+from ..schemas import (
+    ClaimProbability,
+    Disposition,
+    Engine,
+    Evaluation,
+    Judgment,
+    JusticeVote,
+    Outcome,
+    PredictableEvent,
+    Prediction,
+    Stage,
+    UsageRole,
+    VoteValue,
+)
 from ..serialize import read_model, write_json
-from .evaluate import brier_score, is_correct, vote_accuracy
+from .claims import declared_claim_set
+from .evaluate import brier_score, is_correct, judgment_correct, vote_accuracy
 
 # Canned values the stub reports. Deterministic by construction — no clock, no
 # randomness — so the same request always produces byte-identical artifacts. The
@@ -77,6 +91,13 @@ _STUB_REASONING_QUALITY = 0.5
 # optional field a real predictor emits (exercised by the cert back-test's
 # big-case capture); a fixed value, like the reasoning-quality floor.
 _STUB_BIG_CASE_SCORE = 0.5
+# The stub's merits-cell floor, the merits mirror of the `denied`/0.0 pair: an
+# affirmance is the undisturbed outcome, so P(disturbed)=0.0 is the same
+# commit-to-nothing floor. The one-entry vote block satisfies the schema's
+# judgment=>votes contract with an obviously synthetic name — the stub knows no
+# roster, and inventing nine Justices would dress the floor up as a forecast.
+_STUB_JUDGMENT = Judgment.affirmed
+_STUB_MERITS_VOTES = (JusticeVote(justice="stub-justice", vote=VoteValue.majority),)
 
 
 @dataclass(frozen=True)
@@ -159,6 +180,20 @@ def _input_snapshot(request: RunRequest) -> str:
         return snapshot.as_posix()
 
 
+def _event_stage(events: EventPaths) -> Stage | None:
+    """The cell's decision stage, read off the materialized ``event.yaml``.
+
+    The provisioning step writes the event definition before any cell fans
+    out, so a real cell can always read it; the stub tolerates its absence
+    (some unit paths run without provisioning) and reads that as no stage —
+    the cert-shaped default the stub always produced.
+    """
+    if not events.event_file.is_file():
+        return None
+    stage = read_model(events.event_file, PredictableEvent).stage
+    return Stage(stage) if stage is not None else None
+
+
 def _write_text(path: Path, text: str) -> None:
     """Write a newline-terminated markdown note, creating parents."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -188,8 +223,41 @@ class StubRunner:
             return self._predict(request)
         return self._evaluate(request)
 
+    @staticmethod
+    def _claims(event_id: str) -> list[ClaimProbability] | None:
+        """The stub's answer to the event's declared claim set, or ``None`` for none.
+
+        Mirrors the prompt contract: a cell answers every declared claim, and an
+        event with no declared set (a motion, a non-merits order) declares none
+        — the serialized record then carries a null ``claims``, which is what an
+        agent omitting the field also produces. Every probability is the same
+        canned deterministic floor the rest of the stub uses, which is what
+        keeps the headline claims well-formed at either stage: the cert set's
+        ``disposition`` and the merits set's ``judgment-disturbed`` must each
+        restate ``probability`` exactly
+        (:func:`fedcourtsai.pipeline.claims.score_claims` voids a divergent
+        pair), and the stub's ``probability`` is that same floor. The cert
+        increments take it rather than a considered number, since the stub
+        reads no facts; both their baselines are ``None`` today, so neither
+        claim scores regardless.
+        """
+        declared = declared_claim_set(event_id)
+        if declared is None:
+            return None
+        _set_version, claim_ids = declared
+        return [
+            ClaimProbability(claim_id=claim_id, probability=_STUB_PROBABILITY)
+            for claim_id in claim_ids
+        ]
+
     def _predict(self, request: RunRequest) -> list[Path]:
         events = request.event_paths
+        # A merits-stage cell (the event definition the workflow materialized
+        # before fan-out says so) carries the merits contract: a judgment with
+        # its mandatory vote block, `other` as the disposition label the cert
+        # vocabulary cannot supply, and `probability` read as P(disturbed) —
+        # still the commit-to-nothing floor (affirmed / 0.0).
+        merits = _event_stage(events) == Stage.merits
         prediction = Prediction(
             case_id=request.case_id,
             event_id=request.event_id,
@@ -200,8 +268,11 @@ class StubRunner:
             input_snapshot=_input_snapshot(request),
             granted=_STUB_GRANTED,
             probability=_STUB_PROBABILITY,
-            predicted_disposition=_STUB_DISPOSITION,
+            predicted_disposition=Disposition.other if merits else _STUB_DISPOSITION,
+            judgment=_STUB_JUDGMENT if merits else None,
+            votes=list(_STUB_MERITS_VOTES) if merits else [],
             big_case_score=_STUB_BIG_CASE_SCORE,
+            claims=self._claims(request.event_id),
             predicted_reasoning_doc=events.predicted_reasoning(
                 request.actor_id, request.run_id
             ).name,
@@ -233,6 +304,7 @@ class StubRunner:
                 created_at=_created_at(request.run_id),
                 correct=is_correct(prediction, outcome),
                 brier_score=brier_score(prediction, outcome),
+                judgment_correct=judgment_correct(prediction, outcome),
                 vote_accuracy=vote_accuracy(prediction, outcome),
                 reasoning_quality=_STUB_REASONING_QUALITY,
             )

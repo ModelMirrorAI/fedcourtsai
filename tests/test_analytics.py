@@ -1,8 +1,9 @@
 """Tests for corpus base-rate aggregation (``fedcourts stats`` / :mod:`analytics`).
 
-Run over the deterministic synthetic corpus (``fixture_corpus``): six cases across
-ca9 / ca1 / scotus, four resolved (granted / two denied / dismissed) and two open, so
-the base-rate math has known answers.
+Run over the deterministic synthetic corpus (``fixture_corpus``): seven cases across
+ca9 / ca1 / scotus, five resolved (two granted / two denied / dismissed) and two open —
+the resolved grants are ca9/101 and the scotus/306 stay application — so the
+base-rate math has known answers.
 """
 
 from __future__ import annotations
@@ -42,26 +43,29 @@ def test_overall_base_rates(fixture_corpus: FixtureCorpus) -> None:
     assert report.group_by is None
     assert report.buckets == []
     total = report.total
-    assert (total.cases, total.resolved, total.open) == (6, 4, 2)
-    # Base rate over the 4 resolved cases: denied 2/4, dismissed 1/4, granted 1/4.
-    assert _shares(total) == {"denied": 0.5, "dismissed": 0.25, "granted": 0.25}
-    # Most common first; the two count-1 labels tie-break alphabetically.
-    assert [d.disposition for d in total.dispositions] == ["denied", "dismissed", "granted"]
+    assert (total.cases, total.resolved, total.open) == (7, 5, 2)
+    # Base rate over the 5 resolved cases: denied 2/5, granted 2/5, dismissed 1/5.
+    assert _shares(total) == {"denied": 0.4, "granted": 0.4, "dismissed": 0.2}
+    # Most common first; the two count-2 labels tie-break alphabetically.
+    assert [d.disposition for d in total.dispositions] == ["denied", "granted", "dismissed"]
 
 
 def test_group_by_court(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, group_by=GroupBy.court)
     assert report.group_by == "court"
-    # Buckets sort by case count descending: ca9 (3), scotus (2), ca1 (1).
-    assert [(b.key, b.cases) for b in report.buckets] == [("ca9", 3), ("scotus", 2), ("ca1", 1)]
+    # Buckets sort by case count descending, the ca9/scotus tie alphabetically.
+    assert [(b.key, b.cases) for b in report.buckets] == [("ca9", 3), ("scotus", 3), ("ca1", 1)]
     assert _shares(_bucket(report, "ca9")) == {"denied": 0.5, "granted": 0.5}
-    assert _shares(_bucket(report, "scotus")) == {"denied": 1.0}
+    # scotus resolves the denied petition (304) and the granted application (306).
+    assert _shares(_bucket(report, "scotus")) == {"denied": 0.5, "granted": 0.5}
     assert _shares(_bucket(report, "ca1")) == {"dismissed": 1.0}
 
 
 def test_group_by_term_year_parses_scotus_only(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, court="scotus", group_by=GroupBy.term_year)
-    assert {b.key for b in report.buckets} == {"2022", "2024"}
+    # The application docket's A-form number ("26A11") parses no modern cert
+    # Term, so it shares the visible (none) bucket rather than minting one.
+    assert {b.key for b in report.buckets} == {"2022", "2024", "(none)"}
     assert _shares(_bucket(report, "2022")) == {"denied": 1.0}
     # The open 2024 petition has no realized disposition, so no base rate.
     two_four = _bucket(report, "2024")
@@ -70,7 +74,7 @@ def test_group_by_term_year_parses_scotus_only(fixture_corpus: FixtureCorpus) ->
 
 
 def test_group_by_judge_is_multivalued(fixture_corpus: FixtureCorpus) -> None:
-    # A panel puts a case in each judge's bucket, so bucket cases exceed the 6 total.
+    # A panel puts a case in each judge's bucket, so bucket cases exceed the 7 total.
     report = _report(fixture_corpus, group_by=GroupBy.judge)
     assert sum(b.cases for b in report.buckets) > report.total.cases
     # smith sits on ca9/101 (granted) and ca9/102 (denied).
@@ -96,16 +100,17 @@ def test_filter_judge_overlap(fixture_corpus: FixtureCorpus) -> None:
 
 def test_filter_date_window(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, date_from=date(2024, 1, 1))
-    # Filed on/after 2024-01-01: ca9/103, scotus/304 (denied), scotus/305 — one resolved.
-    assert (report.total.cases, report.total.resolved) == (3, 1)
-    assert _shares(report.total) == {"denied": 1.0}
+    # Filed on/after 2024-01-01: ca9/103, scotus/304 (denied), scotus/305, and
+    # the scotus/306 application (granted) — two resolved.
+    assert (report.total.cases, report.total.resolved) == (4, 2)
+    assert _shares(report.total) == {"denied": 0.5, "granted": 0.5}
 
 
 def test_group_by_originating_court_keeps_unlinked_visible(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, group_by=GroupBy.originating_court)
     # Only the two SCOTUS petitions carry the lower-court linkage (both from ca9);
-    # the four unlinked cases share the (none) bucket so coverage stays visible.
-    assert [(b.key, b.cases) for b in report.buckets] == [("(none)", 4), ("ca9", 2)]
+    # the five unlinked cases share the (none) bucket so coverage stays visible.
+    assert [(b.key, b.cases) for b in report.buckets] == [("(none)", 5), ("ca9", 2)]
     ca9 = _bucket(report, "ca9")
     assert (ca9.resolved, ca9.open) == (1, 1)
     assert _shares(ca9) == {"denied": 1.0}
@@ -116,13 +121,20 @@ def test_group_by_cert_signal_dimensions(fixture_corpus: FixtureCorpus) -> None:
     # `fedcourts stats --group-by` gets them for free. Unweighted here — the
     # report is a raw-count view; weighting is the statpack's concern.
     relists = _report(fixture_corpus, court="scotus", group_by=GroupBy.relist_bucket)
-    # scotus/304 had two distributions (one relist); scotus/305 one (zero).
-    assert {(b.key, b.cases) for b in relists.buckets} == {("0", 1), ("1", 1)}
+    # scotus/304 had two distributions (one relist); scotus/305 one (zero). The
+    # scotus/306 application carries no parsed cert signals (nobody looks on an
+    # application docket), so it reads (unknown), never zero.
+    assert {(b.key, b.cases) for b in relists.buckets} == {("0", 1), ("1", 1), ("(unknown)", 1)}
     cvsg = _report(fixture_corpus, court="scotus", group_by=GroupBy.cvsg)
-    assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 1)}
+    assert {(b.key, b.cases) for b in cvsg.buckets} == {
+        ("cvsg", 1),
+        ("none", 1),
+        ("(unknown)", 1),
+    }
     fee = _report(fixture_corpus, court="scotus", group_by=GroupBy.fee_class)
-    # Both fixture petitions are paid-stream serials (845 and 12 < 5001).
-    assert [(b.key, b.cases) for b in fee.buckets] == [("paid", 2)]
+    # Both fixture petitions are paid-stream serials (845 and 12 < 5001); the
+    # A-form application docket has no fee class and stays visible as (none).
+    assert [(b.key, b.cases) for b in fee.buckets] == [("paid", 2), ("(none)", 1)]
 
 
 def test_filter_term_is_scotus_only(fixture_corpus: FixtureCorpus) -> None:
@@ -141,11 +153,11 @@ def test_filter_term_open_petition(fixture_corpus: FixtureCorpus) -> None:
 def test_group_by_era_buckets_by_decade(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, group_by=GroupBy.era)
     # Every fixture case is a 2020s matter (Term year or filing date).
-    assert [(b.key, b.cases) for b in report.buckets] == [("2020s", 6)]
+    assert [(b.key, b.cases) for b in report.buckets] == [("2020s", 7)]
 
 
 def test_filter_era(fixture_corpus: FixtureCorpus) -> None:
-    assert _report(fixture_corpus, era="2020s").total.cases == 6
+    assert _report(fixture_corpus, era="2020s").total.cases == 7
     assert _report(fixture_corpus, era="1890s").total.cases == 0
 
 
@@ -160,7 +172,7 @@ def test_filter_cert_stage_keeps_modern_cert_dockets_only(fixture_corpus: Fixtur
 
 def test_resolved_only_drops_open(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, resolved_only=True)
-    assert (report.total.cases, report.total.resolved, report.total.open) == (4, 4, 0)
+    assert (report.total.cases, report.total.resolved, report.total.open) == (5, 5, 0)
 
 
 def test_filter_disposition(fixture_corpus: FixtureCorpus) -> None:
@@ -213,7 +225,7 @@ def test_cli_stats_overall(fixture_corpus: FixtureCorpus) -> None:
     report = _stdout_report(result.stdout)
     total = report["total"]
     assert isinstance(total, dict)
-    assert (total["cases"], total["resolved"], total["open"]) == (6, 4, 2)
+    assert (total["cases"], total["resolved"], total["open"]) == (7, 5, 2)
 
 
 def test_cli_stats_group_by_court(fixture_corpus: FixtureCorpus) -> None:

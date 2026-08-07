@@ -166,17 +166,38 @@ def test_load_statpack_config_defaults_when_absent(tmp_path: Path) -> None:
 def test_repo_tracking_yaml_carries_the_two_base_rate_windows() -> None:
     # The segment base rate's lookback exists in two places — in code for the cert
     # back-test, and as the Term table the predict/evaluate agents read. Both are
-    # stated config; this pins the shipped values, because they are the ones every
-    # committed metrics artifact was generated under. Changing either re-bases
-    # published skill numbers, so it must be a deliberate diff and never a drift.
-    assert load_salience_config(Path("config")).base_rate_lookback_terms == 0
+    # stated config pinned to the same value, so the scored baseline and the table
+    # the agents anchor on share one window by construction. This pins the shipped
+    # values: changing either re-bases published skill numbers, so it must be a
+    # deliberate diff and never a drift.
+    assert load_salience_config(Path("config")).base_rate_lookback_terms == 10
     assert load_statpack_config(Path("config")).markdown_terms == 10
-    # Both loaders fall back to the field defaults, which are these same values, so
-    # the assertions above survive the keys being deleted. The point of the change
-    # is that the window is *stated*, so assert the keys are literally present.
+    # The window is *stated*, so assert the keys are literally present — the
+    # lookback's field default (0, unbounded) is the fallback for an absent file,
+    # not the shipped choice, so deleting its key would silently widen the pool.
     tracking = yaml.safe_load((Path("config") / "tracking.yaml").read_text())
     assert "base_rate_lookback_terms" in tracking["salience"]
     assert "markdown_terms" in tracking["statpack"]
+
+
+def test_repo_tracking_yaml_carries_the_salience_spend_controls() -> None:
+    """Pin the shipped, pre-registered spend controls of the salience gate.
+
+    These values size the tournament to the bootstrapping envelope
+    (``docs/budget.md``): capacities that bind at typical cohort sizes, the
+    always-include floor, and the interim reserve carved out inside the
+    per-conference envelope. A silent edit to any of them re-sizes the whole
+    program's spend and coverage, so it must fail a test the same way a lookback
+    drift does — a deliberate diff, never a drift.
+    """
+    cfg = load_salience_config(Path("config"))
+    assert cfg.per_conference_capacity == 12
+    assert cfg.long_conference_capacity == 24
+    assert cfg.interim_reserve_slots == 5
+    assert cfg.floor == 0.28
+    # The reserve is defined *inside* the per-conference envelope: the selection
+    # pass fills ranks up to ``capacity - reserve``, which must stay positive.
+    assert cfg.interim_reserve_slots < cfg.per_conference_capacity
 
 
 def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:

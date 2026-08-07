@@ -189,6 +189,7 @@ docs-only change needs none of the Python checks).
 uv sync                    # once, to sync the env the stages assume
 scripts/gate.sh            # every stage, in CI order — what CI enforces
 # or run just the stages that fit your change:
+scripts/gate.sh lock       # uv lock --check (the lock matches pyproject)
 scripts/gate.sh lint       # ruff format --check + ruff check
 scripts/gate.sh types      # mypy
 scripts/gate.sh test       # pytest  (GATE_COV=1 adds coverage, as CI does)
@@ -237,6 +238,12 @@ same PR.
   hand-build them (case = `<court_id>/<docket_id>`, events `evt-<kind>-<slug>`,
   run ids UTC timestamps). Writes go through `fedcourtsai.serialize`.
 - Conventional-commit style PR titles, e.g. `predict(claude-baseline): ca9/123 — evt-...`.
+- **Wrap a long string inside a list with an explicit `+`.** Adjacent string
+  literals concatenate implicitly, so a wrapped element and a *dropped comma*
+  between two elements are the same code — which in a list of docket-entry
+  fixtures silently merges two test inputs rather than failing. The `+` states
+  which one was meant, and CodeQL's `py/implicit-string-concatenation-in-list`
+  enforces it.
 - **Be cautious about creating new workflow files.** Prefer a job or mode on
   an existing workflow (e.g. `run-analytics` for anything that reads the
   corpus and answers a question); permissions are scoped per *job*, so a task
@@ -308,9 +315,10 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` |
-| How would a predicted outcome be decomposed and scored? (pre-registered, not implemented) | `docs/outcome-decomposition.md` |
-| How many votes decide this, and what can I ever observe? (pre-registered, not implemented) | `docs/decision-model.md` |
+| How is a predicted outcome decomposed and scored? (mechanical cert + merits-judgment claims implemented; vote/writing pre-registered; the semantic family a wired-but-inert alpha) | `docs/outcome-decomposition.md` |
+| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; votes/margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
+| What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |

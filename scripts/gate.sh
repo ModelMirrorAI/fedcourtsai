@@ -9,6 +9,7 @@
 #
 # Usage:
 #   scripts/gate.sh          every stage, in CI order, failing on first failure
+#   scripts/gate.sh lock     uv lock --check (the lockfile matches pyproject)
 #   scripts/gate.sh lint     ruff format --check + ruff check
 #   scripts/gate.sh types    mypy
 #   scripts/gate.sh test     pytest  (set GATE_COV=1 for coverage, as CI does)
@@ -19,6 +20,13 @@
 # fits the change (a docs-only change needs none of the Python stages). With no
 # argument every stage runs in the order CI runs them.
 set -euo pipefail
+
+# CI installs with `uv sync --locked`, which refuses a lock that has drifted
+# from pyproject.toml. Modelled here so that refusal is checkable where AGENTS.md
+# tells contributors to check things, rather than only on the PR.
+lock() {
+  uv lock --check
+}
 
 lint() {
   uv run ruff format --check .
@@ -50,6 +58,7 @@ schemas() {
 }
 
 all() {
+  lock
   lint
   types
   test_stage
@@ -59,6 +68,7 @@ all() {
 
 stage="${1:-all}"
 case "$stage" in
+  lock) lock ;;
   lint) lint ;;
   types) types ;;
   test) test_stage ;;
@@ -67,7 +77,7 @@ case "$stage" in
   all) all ;;
   *)
     echo "unknown stage: $stage" >&2
-    echo "usage: scripts/gate.sh [lint|types|test|data|schemas]" >&2
+    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas]" >&2
     exit 2
     ;;
 esac

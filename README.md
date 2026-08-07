@@ -69,7 +69,9 @@ model fits, the outcome is recoverable, and the forecast is worth its cost. The
 event model itself is general — cert petitions, emergency applications, and the
 merits events on a granted docket are all predictable *in principle* — but the
 funded scope narrows to the **cert docket** (the filters under *What's out of
-scope* draw that line). Everything outside the gate is still ingested for context
+scope* draw that line), plus two bounded additions: a **substantive** stay or
+injunction application under the interim stage, and the **merits judgment** of
+a docket whose cert grant opened a merits proceeding. Everything outside the gate is still ingested for context
 and retrieval — just not predicted.
 
 ### What triggers a prediction
@@ -146,9 +148,12 @@ discretionary-cert docket and off everything that does not fit it:
 - **Pro se / in-forma-pauperis petitions** — a deliberate choice to spend the
   fundable slice on the paid cert docket (IFP grants are rare but real, so this is
   a recorded decision, not a claim they never matter).
-- **Non-cert docket forms** — stay and emergency applications, and
-  original-jurisdiction matters, which resolve as stays or merits rulings rather
-  than a cert grant/deny.
+- **Non-cert docket forms** — original-jurisdiction and miscellaneous matters,
+  which resolve as merits rulings or procedural leave rather than a cert
+  grant/deny, and the non-substantive slice of the application docket (time
+  extensions, unreadable asks). A **substantive** stay/injunction application
+  is predicted — under the interim stage and a bounded reserve quota, not the
+  cert model (see [`docs/salience.md`](docs/salience.md)).
 - **Attorney-discipline and other non-cert dockets**, and cases whose outcome is
   not machine-readable (a published opinion with no clean disposition).
 
@@ -182,15 +187,21 @@ State lives in two stores, split by **kind of data**:
 
 ```
 data/cases/<court_id>/<docket_id>/events/<event_id>/
+  event.yaml                     # what is predicted: kind, stage, decision target
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
-    prediction.json              # quantitative: granted 1/0, P(granted), votes
+    prediction.json              # quantitative: granted 1/0, the stage's P (granted; disturbed at merits), votes, judgment on a merits cell, claim probabilities
     reasoning.md                 # qualitative: why this number
     predicted_reasoning.md       # qualitative: what the court will do, and why
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json
     evaluation.md
 ```
+
+What each of those files holds — every field of `prediction.json` at each of
+the three stages, the two prose documents, and the sidecars a cell writes (or
+does not) — is walked with worked examples in
+[`docs/predicted-artifacts.md`](docs/predicted-artifacts.md).
 
 The line is deliberate: raw facts are bulk and regenerable, so they live in
 the packed, access-gated corpus (per-case content objects stay behind index
@@ -245,8 +256,9 @@ docs/               design & operations references (see Documentation below)
 
 - [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
+- [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
-- [Outcome decomposition](docs/outcome-decomposition.md) (pre-registered scoring of predicted reasoning)
+- [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
 - [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)

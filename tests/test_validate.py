@@ -23,10 +23,14 @@ from fedcourtsai.schemas import (
     Evaluation,
     EventKind,
     FlagCategory,
+    Judgment,
+    JusticeVote,
     Outcome,
     PredictableEvent,
     Prediction,
+    Stage,
     UsageRole,
+    VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
@@ -35,6 +39,8 @@ from fedcourtsai.validate import (
     CHECK_EVALUATION_TARGETS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
+    CHECK_MERITS_EVALUATIONS,
+    CHECK_MERITS_PREDICTIONS,
     CHECK_NO_DUPLICATES,
     CHECK_PREDICTION_DOCS,
     CHECK_REQUIRED_COLUMNS,
@@ -642,7 +648,13 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     _write_evaluation(data_root, "ca9", 1, "evt-motion-stay", "p1", "e1")
     checks = run_ledger_referential_checks(data_root)
     names = {c.name for c in checks}
-    assert names == {CHECK_LEDGER_EVENTS_IN_GIT, CHECK_EVALUATION_TARGETS, CHECK_PREDICTION_DOCS}
+    assert names == {
+        CHECK_LEDGER_EVENTS_IN_GIT,
+        CHECK_EVALUATION_TARGETS,
+        CHECK_PREDICTION_DOCS,
+        CHECK_MERITS_PREDICTIONS,
+        CHECK_MERITS_EVALUATIONS,
+    }
     assert all(c.passed for c in checks)
 
 
@@ -965,3 +977,152 @@ def test_cli_failed_verdict_exits_nonzero(tmp_path: Path) -> None:
     assert "corpus-validation: FAIL" in result.output
     # The verdict is still written even though the check failed (loud-not-fatal).
     assert not read_model(out, CorpusValidation).ok
+
+
+# --- C: a merits-stage event's scored prediction carries its judgment ------------
+
+
+def _write_merits_event(data_root: Path, court: str = "scotus", docket: int = 22451) -> Path:
+    ep = CasePaths(data_root, court, docket).event("evt-order-judgment")
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id="evt-order-judgment",
+            case_id=f"{court}/{docket}",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Doe v. Roe",
+            decision_target="judgment",
+        ),
+    )
+    return ep.event_file
+
+
+def _write_merits_prediction(
+    data_root: Path,
+    *,
+    run: str,
+    judgment: Judgment | None,
+    predictor: str = "p1",
+    created_at: datetime,
+) -> None:
+    ep = CasePaths(data_root, "scotus", 22451).event("evt-order-judgment")
+    prediction = Prediction(
+        case_id="scotus/22451",
+        event_id="evt-order-judgment",
+        predictor_id=predictor,
+        engine=Engine.claude_code,
+        run_id=run,
+        created_at=created_at,
+        input_snapshot="record/snapshots/2026-01-01.json",
+        granted=1,
+        probability=0.7,
+        predicted_disposition=Disposition.other,
+        judgment=judgment,
+        votes=[JusticeVote(justice="roberts", vote=VoteValue.majority)] if judgment else [],
+    )
+    write_json(ep.prediction(predictor, run), prediction)
+    ep.reasoning(predictor, run).write_text("why this number\n")
+
+
+def _merits_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_MERITS_PREDICTIONS
+    )
+
+
+def test_a_merits_prediction_without_a_judgment_fails(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_prediction(data_root, run="r1", judgment=None, created_at=datetime(2026, 1, 1))
+    check = _merits_check(data_root)
+    assert not check.passed
+    assert any("carries no judgment" in p for p in check.problems)
+
+
+def test_a_merits_prediction_with_the_judgment_pair_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_prediction(
+        data_root, run="r1", judgment=Judgment.reversed, created_at=datetime(2026, 1, 1)
+    )
+    check = _merits_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_only_the_latest_prediction_per_predictor_is_held_to_the_contract(
+    tmp_path: Path,
+) -> None:
+    # The scoring joins read the predictor's latest prediction; an earlier
+    # judgment-less run superseded by a compliant one is history, not a defect.
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_prediction(data_root, run="r1", judgment=None, created_at=datetime(2026, 1, 1))
+    _write_merits_prediction(
+        data_root, run="r2", judgment=Judgment.reversed, created_at=datetime(2026, 2, 1)
+    )
+    assert _merits_check(data_root).passed
+
+
+def test_non_merits_events_are_outside_the_contract(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    check = _merits_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+def _write_merits_evaluation(data_root: Path, *, skill: float | None) -> None:
+    ep = CasePaths(data_root, "scotus", 22451).event("evt-order-judgment")
+    evaluation = Evaluation(
+        case_id="scotus/22451",
+        event_id="evt-order-judgment",
+        predictor_id="p1",
+        evaluator_id="e1",
+        engine=Engine.claude_code,
+        run_id="2026-02-01T00-00-00Z",
+        created_at=datetime(2026, 2, 1),
+        correct=1,
+        judgment_correct=1,
+        brier_score=0.09,
+        segment_base_rate=0.7,
+        brier_skill_score=skill,
+    )
+    write_json(ep.evaluation("e1", "p1", "2026-02-01T00-00-00Z"), evaluation)
+
+
+def _merits_evaluation_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_MERITS_EVALUATIONS
+    )
+
+
+def test_a_merits_evaluation_publishing_a_skill_score_fails(tmp_path: Path) -> None:
+    # The pre-registered prohibition, enforced rather than only prompted: the
+    # merits pool's GVR exclusion reads a forward-convention label, so no skill
+    # number may be published against it until a label-independent guard lands.
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_evaluation(data_root, skill=0.4)
+    check = _merits_evaluation_check(data_root)
+    assert not check.passed
+    assert any("brier_skill_score" in p for p in check.problems)
+
+
+def test_a_merits_evaluation_recording_only_its_baseline_passes(tmp_path: Path) -> None:
+    # `segment_base_rate` is deliberately unconstrained: recording the pool the
+    # cell faced is not publishing a skill claim over it.
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_merits_evaluation(data_root, skill=None)
+    check = _merits_evaluation_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_cert_evaluations_skill_score_is_untouched(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    _write_evaluation(data_root, "ca9", 1, "evt-motion-stay", "p1", "e1")
+    check = _merits_evaluation_check(data_root)
+    assert check.passed and check.checked == 0

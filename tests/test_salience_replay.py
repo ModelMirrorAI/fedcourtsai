@@ -15,7 +15,11 @@ from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig
 from fedcourtsai.pipeline import asof
 from fedcourtsai.pipeline.asof import CutoffPolicy
-from fedcourtsai.pipeline.salience import SALIENCE_VERSION
+from fedcourtsai.pipeline.salience import (
+    SALIENCE_VERSION,
+    SalienceScorer,
+    registered_versions,
+)
 from fedcourtsai.salience_replay import replay_gate, select_replay_population
 from fedcourtsai.schemas import Disposition, SalienceReplay
 from fedcourtsai.serialize import read_model
@@ -370,6 +374,34 @@ def test_distribution_1_replay_cohorts_on_the_first_conference(tmp_path: Path) -
     assert cell.largest_weighted_cohort == 12.0  # 1 + 10 + 1, all non-carve-out
 
 
+def test_the_report_spans_term_by_policy_by_registered_version(tmp_path: Path) -> None:
+    """Cells are (Term x policy x version), and every cell names its own scorer.
+
+    The version axis is what makes a candidate scorer comparable to the
+    incumbent: both score the same reconstructed dockets in one run, so any
+    difference between their cells is the scoring function and nothing else."""
+    db = _seed_replay_corpus(tmp_path / "corpus")
+    policies = [CutoffPolicy.arrival, CutoffPolicy.resolution]
+    report = replay_gate(db, terms=[2023], policies=policies, config=_CONFIG)
+
+    versions = registered_versions()
+    assert report.salience_versions == list(versions)
+    assert report.salience_version == SALIENCE_VERSION  # the ACTIVE one
+    assert report.cells_evaluated == len(policies) * len(versions)
+    assert {cell.salience_version for cell in report.cells} == set(versions)
+    for cell in report.cells:
+        assert cell.salience_version, "every cell names the scorer that produced it"
+
+    # Every version sees the same reconstruction, so the projection-derived
+    # counts are identical across versions of one (Term, policy) — only the
+    # scoring-derived ones may differ.
+    for policy in policies:
+        same_moment = [cell for cell in report.cells if cell.policy == str(policy)]
+        assert len({c.eligible for c in same_moment}) == 1
+        assert len({c.skipped_no_snapshot for c in same_moment}) == 1
+        assert len({tuple(sorted(c.provenance.items())) for c in same_moment}) == 1
+
+
 def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Path) -> None:
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
@@ -517,3 +549,34 @@ def test_cli_rejects_non_year_terms(tmp_path: Path) -> None:
         env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path)},
     )
     assert result.exit_code != 0
+
+
+def test_a_second_version_doubles_the_cells_over_one_shared_projection(
+    tmp_path: Path, two_versions: SalienceScorer
+) -> None:
+    """The version axis, exercised — the single shipped version cannot show it.
+
+    Two scorers, one reconstruction each (Term, policy). What must be identical
+    across a moment's cells is everything the projection decided: how many rows
+    were eligible, how many had no snapshot, and where each reconstruction came
+    from. What must differ is the banding, because that is the only thing the
+    comparison is entitled to attribute to the scorer."""
+    db = _seed_replay_corpus(tmp_path / "corpus")
+    report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
+
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy"]
+    assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
+    assert report.cells_evaluated == 2
+    active, toy = report.cells
+    assert (active.salience_version, toy.salience_version) == (SALIENCE_VERSION, "sal-toy")
+
+    # The projection is shared, so every projection-derived figure matches.
+    assert active.eligible == toy.eligible
+    assert active.skipped_no_snapshot == toy.skipped_no_snapshot
+    assert active.provenance == toy.provenance
+
+    # The banding is not: each cell reports its own scorer's vocabulary, and
+    # neither one's band names appear under the other.
+    assert set(active.bands) <= {"high", "elevated", "baseline", "unobservable"}
+    assert set(toy.bands) <= {"hot", "cold", "unobservable"}
+    assert sum(active.bands.values()) == sum(toy.bands.values())

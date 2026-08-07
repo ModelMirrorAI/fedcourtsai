@@ -307,6 +307,12 @@
       "title": "Provisioning",
       "type": "object"
     },
+    "salience_version": {
+      "default": "",
+      "description": "The frozen salience function whose bands segment this board. A band name means something only under the scorer that assigned it, so a per-band figure here is not comparable with one produced under another version; default empty only on a board built before the stamp existed.",
+      "title": "Salience Version",
+      "type": "string"
+    },
     "schema_version": {
       "const": "1.0",
       "default": "1.0",

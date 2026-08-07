@@ -78,10 +78,12 @@ The live source follows the replica guardrails exactly
   is stored as the case's dated **snapshot**, exactly like a REST pull. The
   proceedings list is the docket-entries analogue, so event extraction and
   resolution detection work unchanged. One caveat:
-  replay redaction has two halves. Derived, decision-only keys
-(`sJsonCreationDate`, `QPLink`, `disposition`, the decision dates) come off by a
-**key-name** blocklist, so a new channel's snapshot shape must be checked against
-it. The proceedings entries are removed by **date** instead — content offers no
+  replay redaction has two halves. Outcome-revealing keys — the derived,
+decision-only ones (`sJsonCreationDate`, `QPLink`, `disposition`, the decision
+dates) and the party/counsel blocks that accrue with every amicus filing (their
+size on a decided docket is a grant oracle) — come off by a **key-name**
+blocklist, so a new channel's snapshot shape must be checked against it. The
+proceedings entries are removed by **date** instead — content offers no
 rule separating a disposing order from a pre-decision entry, but an entry filed
 before a cutoff cannot record a decision that came after it. A new channel must
 therefore register its entries key in `PROCEEDINGS_KEYS` **and** expose a
@@ -100,8 +102,11 @@ outcome days later, all in the forward stratum.
 
 **Implemented:** the latest distribution entry per petition lands as the
 corpus's `distributed_for_conference` (a relist updates it; non-live writers
-preserve it); the refresh rotation leads with distributed petitions, nearest
-conference first; and **predict fires on the distribution transition** — a
+preserve it); the refresh rotation leads with distributed *pending* petitions,
+nearest conference first (a granted docket retained for its open merits event
+rotates on staleness instead — its latched conference date is the one that
+produced the grant, not a resolution about to happen); and **predict fires on
+the distribution transition** — a
 fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits (a
 deferred petition's transition only keeps it on the watchlist; the cycle-end
@@ -190,7 +195,11 @@ retention window), so it provisions replay cells like any other case. Decided
 history must never feed forward prediction: the loader files **no handoff
 queues at all**, records with no readable disposition are skipped (pending
 matters are the forward poller's charter), and resolved rows are structurally
-invisible to the pending refresh rotation.
+invisible to the live refresh rotation. (The one row that stays visible is
+the one whose ingest *itself* resolves a tracked open petition as granted:
+the grant mints the open merits event, exactly as the watchlist path would,
+and the rotation keeps that genuinely-live merits proceeding — see
+[data-pipeline.md](data-pipeline.md).)
 
 ## Later: push for the circuit courts
 

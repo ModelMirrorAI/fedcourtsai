@@ -6,8 +6,8 @@ standard, before a different bench. This module is the pair of readers both the
 scope decision and the event model turn on: what an application *is*, and what
 happened to it.
 
-**Most of the interim docket is administrative.** Measured over a spread sample
-of OT2023-OT2024 applications, roughly **85%** are requests to extend the time to
+**Most of the interim docket is administrative.** Over the parsed application
+dockets, roughly **80%** are requests to extend the time to
 file, granted by a single Justice as a matter of course. They are not forecasts:
 the answer is nearly always yes, one Justice gives it, and nothing about the case
 predicts it. Including them would do to the interim population what including IFP
@@ -25,9 +25,11 @@ import cycle around it.
 from __future__ import annotations
 
 import re
+from datetime import date
 from enum import StrEnum
 
 from ..schemas import Disposition
+from .cert_signals import entry_date
 
 
 class ApplicationKind(StrEnum):
@@ -180,7 +182,7 @@ def is_predictable_application(kind: ApplicationKind) -> bool:
     petitions are excluded from the cert tournament and for a stronger version of
     it: the answer is nearly always yes, one Justice gives it without the Court
     sitting, and no fact about the case moves it. A base rate over a population
-    that is ~85% extensions would describe the Court's calendar, and a predictor
+    that is ~80% extensions would describe the Court's calendar, and a predictor
     scored against it would be rewarded for saying "granted" every time.
 
     ``unknown`` is excluded too, and that is the conservative direction: an
@@ -203,6 +205,56 @@ _AMICUS_RE = re.compile(r"amicus\s+curiae", re.I)
 def response_requested(entry_texts: list[str]) -> bool:
     """Whether the Court or a Circuit Justice asked for a response."""
     return any(_RESPONSE_REQUESTED_RE.search(text) for text in entry_texts)
+
+
+# The respondent's answer arriving, which is a different event from the Court
+# asking for one: a respondent may answer uninvited, and a requested response
+# may never be filed. Anchored on the entry's own opening clause, and requiring
+# the filing verb, because the *request* shares the same opening — "Response to
+# application (25A97) requested by Justice Alito, due by 4pm" — and an
+# anchor-only pattern reads a third of the requests as filings.
+#
+# `.{0,200}?` rather than `[^.]{0,200}?`: respondent names carry periods ("et
+# al.", "Dep't"), and stopping at the first one drops a third of the real
+# filings.
+_RESPONSE_FILED_RE = re.compile(
+    r"^\s*response\s+to\s+(?:the\s+)?(?:application|request)\b.{0,200}?\bfiled\b", re.I
+)
+
+
+def response_requested_date(entries: list[tuple[str, str | None]]) -> date | None:
+    """When the Court asked for a response, or ``None``.
+
+    The dated sibling of :func:`response_requested`, which the escalation ladder
+    reads as a flag. The two disagree in exactly one place and deliberately: an
+    undated request sets the flag and yields no date, because a date here opens
+    an event and fixes the moment a forecast is taken from.
+    """
+    return _first_dated(entries, _RESPONSE_REQUESTED_RE)
+
+
+def response_filed_date(entries: list[tuple[str, str | None]]) -> date | None:
+    """When a response to the application was filed, or ``None``.
+
+    The **first** one wins: an application drawing several responses is
+    answered once the first arrives, which is the moment being named.
+    """
+    return _first_dated(entries, _RESPONSE_FILED_RE)
+
+
+def _first_dated(entries: list[tuple[str, str | None]], pattern: re.Pattern[str]) -> date | None:
+    """The earliest fully-dated entry matching ``pattern``, in docket order.
+
+    Undated entries are skipped rather than guessed at — the same discipline
+    every dated read in the pipeline applies, and it matters more here because
+    these dates open events.
+    """
+    for text, raw in entries:
+        if pattern.search(text):
+            filed = entry_date(raw)
+            if filed is not None:
+                return filed
+    return None
 
 
 def amicus_briefs(entry_texts: list[str]) -> int:

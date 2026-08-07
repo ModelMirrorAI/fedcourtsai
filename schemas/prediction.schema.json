@@ -1,5 +1,29 @@
 {
   "$defs": {
+    "ClaimProbability": {
+      "additionalProperties": false,
+      "description": "One declared claim's stated probability, inside ``Prediction.claims``.\n\nThe claim *set* is the harness's, never the predictor's: per event kind the\ndeclaration table in ``fedcourtsai.pipeline.claims`` fixes exactly which\nclaims a prediction carries, and the predictor states a probability for\nevery one of them \u2014 no additions, no declining (the mandatory-set rationale\nis in ``docs/outcome-decomposition.md``). This record carries only the\npredictor's number; the resolution, the baseline, and the score are\nharness-computed at evaluation time, never stated here.",
+      "properties": {
+        "claim_id": {
+          "description": "The declared claim this probability answers, e.g. 'disposition', 'relist-increment', 'cvsg-increment'",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "probability": {
+          "description": "The predictor's probability that the claim resolves true",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        }
+      },
+      "required": [
+        "claim_id",
+        "probability"
+      ],
+      "title": "ClaimProbability",
+      "type": "object"
+    },
     "Disposition": {
       "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). On mandatory-jurisdiction direct\nappeals the resolver latches only the vacatur-remand form (now ``gvr``); the\nother direct-appeal forms (probable jurisdiction noted, summary affirmance,\ndismissal for want of a substantial federal question) are deliberate resolver\nmisses that reach maintainer triage, where the convention is: grant-side for\nprobable jurisdiction, the denied/dismissed side for summary affirmance and\nwant-of-a-question.",
       "enum": [
@@ -23,6 +47,19 @@
         "gemini"
       ],
       "title": "Engine",
+      "type": "string"
+    },
+    "Judgment": {
+      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\nOn the merits **binary** \u2014 P(disturbed), the axis a merits cell's Brier is\nscored on \u2014 ``dig`` and ``equally_divided`` count as *undisturbed*, because\nboth leave the judgment below standing (a DIG dissolves the writ, an\nequally divided Court affirms by operation of law). They stay in the scored\npool rather than being routed out, because the pooled baseline's\ndenominator (the statpack merits section's ``parsed``) includes them, and a\nscored population that dropped them would face a baseline computed over a\ndifferent one. ``judgment_correct`` keeps them as their own labels, so the\nexact-match axis never confuses a DIG with an affirmance.",
+      "enum": [
+        "affirmed",
+        "reversed",
+        "vacated",
+        "affirmed-in-part-reversed-in-part",
+        "dismissed-as-improvidently-granted",
+        "affirmed-by-an-equally-divided-court"
+      ],
+      "title": "Judgment",
       "type": "string"
     },
     "JusticeVote": {
@@ -246,6 +283,30 @@
       "title": "ProcessVersion",
       "type": "object"
     },
+    "SemanticClaim": {
+      "additionalProperties": false,
+      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no\ncommitted prediction carries this block; the field exists so that turning\nthe family on is a declaration plus a prompt that asks for it, rather than\na new shape. One piece is still owed on this side and named in\n``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike\n``Prediction.claims``, nothing yet holds this list to the declared set, so\nthe mandatory-set discipline binds graders and not predictors.",
+      "properties": {
+        "claim_id": {
+          "description": "The declared semantic claim this proposition answers, e.g. 'majority-ground' \u2014 the id the harness declared, never one the predictor invented",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "proposition": {
+          "description": "The predicted proposition, stated so a grader can match it against the opinion: one specific, falsifiable assertion about what the Court's reasoning will be, not a hedged survey of possibilities",
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Proposition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "proposition"
+      ],
+      "title": "SemanticClaim",
+      "type": "object"
+    },
     "VoteValue": {
       "description": "How one Justice voted. Distinct from :class:`Disposition`, which is what the\n*Court* did \u2014 a vocabulary with no member for joining a majority or dissenting,\nand so unable to express a vote at all.\n\nSpans every stage, because the model does: ``grant``/``deny`` are the cert and\ninterim vocabulary, the rest are merits. A vote that does not exist is not a\nvote \u2014 ``recused`` and ``did_not_participate`` are recorded so the aggregation\ndenominator is legible, since a threshold counts *participating* Justices.",
       "enum": [
@@ -312,6 +373,22 @@
       "title": "Case Id",
       "type": "string"
     },
+    "claims": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ClaimProbability"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-claim probabilities over the harness-declared claim set for this event (`fedcourtsai.pipeline.claims`; for a cert-stage petition: disposition, relist-increment, cvsg-increment; for the merits event: judgment-disturbed). The set is fixed and mandatory \u2014 the harness declares it, the predictor states a probability for every declared claim, and it can neither add claims nor skip them. Optional (defaults None) only so predictions written before the field existed still validate.",
+      "title": "Claims"
+    },
     "confidence": {
       "anyOf": [
         {
@@ -351,7 +428,7 @@
       "type": "string"
     },
     "granted": {
-      "description": "Binary outcome prediction, 1=granted",
+      "description": "Binary outcome prediction on the stage's own axis: 1=granted on a cert or interim event, 1=the judgment below is disturbed on a merits event. The companion of `probability`, which states the same binary's P.",
       "maximum": 1,
       "minimum": 0,
       "title": "Granted",
@@ -361,6 +438,18 @@
       "description": "Repo-relative path to the snapshot used as input",
       "title": "Input Snapshot",
       "type": "string"
+    },
+    "judgment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Judgment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The predicted merits judgment \u2014 what the Court will do to the judgment below, the mirror of `Outcome.judgment`. Null on non-merits cells, which forecast no judgment. A merits-stage cell must set it (the `validate` gate holds the event's latest prediction to that), and setting it requires a non-empty `votes` block: a merits forecast is over per-Justice votes (docs/decision-model.md), so a judgment call with no vote block is malformed."
     },
     "model": {
       "anyOf": [
@@ -396,7 +485,7 @@
       "type": "string"
     },
     "probability": {
-      "description": "P(granted)",
+      "description": "P(granted); on a merits-stage event the same field is P(disturbed) \u2014 the probability the judgment below is reversed, vacated, or reversed in part. The stage names the binary, exactly as it does for `granted` (the Stage vocabulary).",
       "maximum": 1.0,
       "minimum": 0.0,
       "title": "Probability",
@@ -429,6 +518,22 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "semantic_claims": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SemanticClaim"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. Null on every committed prediction: the declaration tables are empty (`semantic-v0` is alpha, and no opinion body is ingested to ground a claim against), so no cell is asked for one.",
+      "title": "Semantic Claims"
     },
     "votes": {
       "items": {

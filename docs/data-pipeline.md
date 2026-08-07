@@ -27,8 +27,10 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   matters** (a bare, non-Term-prefixed docket number — a merits, not a
   discretionary-cert, disposition meaning), **stale still-open petitions** from
   long-past October Terms, cases whose only outcome signal is a **published
-  opinion with no machine-readable disposition**, **stay/emergency
-  applications** (`22A123`) and **original-jurisdiction** matters (`22O141`),
+  opinion with no machine-readable disposition**, **non-substantive
+  stay/emergency applications** (`22A123` — an extension or unreadable ask; a
+  *substantive* application is the interim predict scope, see
+  [salience.md](salience.md)) and **original-jurisdiction** matters (`22O141`),
   **pro se / in-forma-pauperis petitions** (the IFP docket serial ≥ 5001 — a
   documented scope decision so the salience gate spends the fundable slice on the
   paid cert docket; see [salience.md](salience.md)), **disbarment dockets**
@@ -37,9 +39,10 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   **internally inconsistent dates**. Each gates prediction only, never ingestion.
   The two-directional scope reconcile releases any case whose exclusion stops
   matching — one latched for **staleness**, a **bare published-opinion
-  import**, an undecided **disbarment** docket, or a **consolidated** parent
-  whose members later resolve. The purely **form-keyed** exclusions (IFP
-  serial, applications, original jurisdiction) are permanent by construction —
+  import**, an undecided **disbarment** docket, a **consolidated** parent
+  whose members later resolve, or an **application** whose ask a later poll
+  latches as substantive. The purely **form-keyed** exclusions (IFP
+  serial, original jurisdiction) are permanent by construction —
   the docket form never changes, so they never release. Because the corpus keys a case by
   `<court>/<docket>`, a case's SCOTUS docket and its originating
   court-of-appeals docket are **separate rows**: only the SCOTUS row is
@@ -106,7 +109,10 @@ Free Law Project offers **replication of the CourtListener Postgres database**
 current within replication lag, no request caps. The pivot swaps the
 **channels**, never the **corpus**: the replica arrives as one more source
 feeding the same normalized rows through the shared normalizer
-(`ingest.from_bulk_row`). Adoption also needs a terms review of the agreement;
+(`ingest.from_bulk_row`) — note the storage projection withholds the
+cluster-derived fields from bulk-sourced circuit rows (`to_corpus_row`; the
+predicate keys on the channel), so a replica with a sound cluster join must
+revisit that carve-out. Adoption also needs a terms review of the agreement;
 the access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches that shape. Until then, four guardrails keep interim work from
 blocking the pivot: ingestion stays channel-agnostic; the API budget governor
@@ -127,7 +133,7 @@ matters, while the shared `corpus-write` lock keeps at most one running at a tim
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
-| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications: discovery, watchlist, outcomes |
+| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           |
 | Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
@@ -180,7 +186,8 @@ live in different stores, split by **kind**:
    read/write paths: set on the `prod` environment, default
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
-   comes from `FEDCOURTS_CASESTORE_URL` (wired per writer job in `run-pull`);
+   comes from `FEDCOURTS_CASESTORE_URL` (wired at job level in the writer
+   jobs — `run-pull` and `run-seed`);
    mirroring is best-effort — a store failure logs, never breaking the SQLite
    write.
 2. **Derived judgments → the git ledger** under `data/`, where the
@@ -281,8 +288,8 @@ The commit-and-push is one shared retry loop —
 `.github/actions/commit-corpus-to-main/push_with_retry.sh` — that every writer
 reaches: the `pull` and `live` jobs through the `commit-corpus-to-main` composite
 action wrapping it (the action adds the stage/commit/no-op guard), and the
-historical walk's per-chunk checkpoint and scope-latch step by calling the script
-directly. It rebases onto any advance and retries a *transient* push failure (a
+historical walk's per-chunk checkpoint and its dedupe and scope-latch steps by
+calling the script directly. It rebases onto any advance and retries a *transient* push failure (a
 GitHub `commit_refs` blip, not a branch advance) with exponential backoff, long
 enough to outlast a brief server hiccup; a genuine pointer divergence still fails
 loudly and immediately.
@@ -404,8 +411,16 @@ that makes `--full` useful in production.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
 only) is the forward-cell guard at the provisioning seam: it refuses to
-provision a forward cell whose snapshot's latest entry reads terminal — a
-forward prediction on a decided case would be a mislabeled back-test. A refused
+provision a forward cell whose snapshot already discloses **its own event's**
+outcome — a forward prediction on a decided event would be a mislabeled
+back-test. The question is keyed on the event (`--event`), because one docket
+carries several events' outcomes at once: a granted cert docket's grant order
+is a disclosed *cert* outcome and is also what opens the merits proceeding, so
+the entry that must refuse a cert cell is the merits cell's own record. On the
+merits event the test is therefore a parsed merits judgment; on every other
+event it is the latest entry reading terminal, any entry carrying a
+machine-readable disposition order, or — on an application docket — a legible
+interim disposal. A refused
 cell is a legitimate outcome, not an error; the prompt contract tells the agent
 to note the gap in `flags.json` and predict from priors and base rates only,
 without retrieving the case's current docket state (the case already looks
@@ -440,7 +455,8 @@ and the full gate need no remote.
 
 Each corpus row is a normalized, **labeled** record: identifiers, dates, the
 realized `disposition` (making the corpus a ready-made back-testing set),
-judges/panel/parties, topic, citations, the live-parsed cert signals, and
+judges/panel/parties/attorneys/counsel, topic, citations, the live-parsed cert
+signals, and
 tracking state — defined and enforced in
 [`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py), with the column reference
 in [corpus/README.md](../corpus/README.md). The SQLite format is internal; the
@@ -490,7 +506,7 @@ or network.
 - **Each run** (deterministic, no agent, no API secret): loop
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
   October Terms' docket serials newest-first from the persisted per-(Term,
-  stream) cursors → ingest each sampled decided petition through the shared
+  stream) cursors → ingest each decided petition through the shared
   live path, landing it already resolved (label, snapshot, events latched
   closed, OT2021+ documents provisioned) → push the corpus and commit the
   pointer per chunk (under the `corpus-write` lock) → write progress to the
@@ -507,14 +523,29 @@ or network.
   skipped entirely (pending matters are the forward poller's charter), so the
   walker writes **no** predict/evaluate handoffs, ever.
 - **Re-walking:** a Term walked to its frontier is invisible to later runs, so
-  `fedcourts refresh-historical --term <NN> --apply` clears its cursors and the
-  next windows re-cover it. Re-walking **adds** — every re-served docket upserts
+  run-seed's manual dispatch carries `refresh_terms` / `refresh_streams` (blank
+  on every scheduled window): it runs `fedcourts refresh-historical --apply`
+  after the pull and before the loop, clearing the named Terms' cursors so the
+  reset and the re-walk it implies are one serialized operation under the
+  `corpus-write` lock. Re-walking **adds** — every re-served docket upserts
   through the same latches, so nothing is deleted and `case_id` never moves.
-  Dry-run by default; the cost is upstream traffic, not risk to the corpus.
-- **Scope maintenance:** after the loop, the job runs `fedcourts
-  reconcile-scope --apply` — the predict-scope latch sweep rides one run-seed
-  window a day (gated to keep its daily cadence) because the corpus is already
-  pulled and pushed there.
+  The CLI is dry-run by default; the cost is upstream traffic, not risk to the
+  corpus.
+- **Maintenance sweeps:** after the loop, one window a day also runs five
+  converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
+  live-minted duplicate rows), `fedcourts reconcile-scope --apply` (the
+  predict-scope latch sweep), `fedcourts relabel-application-events --apply`
+  (application baselines to their motion/interim identity), `fedcourts
+  backfill-merits-judgments --apply` (the judgment a merits-bound grant
+  received), and `fedcourts backfill-merits-events --apply` (the open merits
+  forecast events on granted, undecided dockets — ledger `event.yaml` files
+  staged in the same commit as the pointer, with the moment-column stamp
+  `fedcourts backfill-event-moments --apply` riding the step first). Dedupe
+  first, so the latch pass weighs deduped rows; the event mint immediately
+  after the judgment backfill, so pendency is judged on judgment columns as
+  latched as the stored snapshots allow; each is idempotent, so a converged
+  corpus costs seconds. All ride run-seed (gated to keep their daily cadence)
+  because the corpus is already pulled and pushed there.
 
 ## Pull — forward freshness
 
@@ -532,7 +563,7 @@ or network.
   the in-scope set rotates ahead of the much larger active set.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), queuing `run:predict` for
-     changed cases with open events — unless the refreshed docket already looks
+     changed cases with open case-baseline events — unless the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
      `predict_skipped_decided` list and surfaced on the job's Actions run log
@@ -545,7 +576,26 @@ or network.
      (ground-truth recording is ungated; the evaluator fan-out is). Anything
      ambiguous lands on the runner-local **unrecorded queue**, surfaced
      per-case on the pipeline-runs dashboard for maintainer triage; no issue
-     is filed.
+     is filed. A recorded cert **grant** that opens a merits proceeding —
+     `granted` / `granted-in-part`, not a GVR or summary reversal, which
+     terminate the case at the cert order — also mints the case's **open
+     merits event** (`evt-order-judgment`, kind `order`, stage `merits`,
+     opened on the grant date), so the granted docket stays in the live
+     rotation and keeps polling toward its judgment instead of exiting the
+     pipeline at the grant. On every later re-poll the
+     already-attributed cert disposition is recognized as the record of the
+     petition's resolution — a clean no-op, not a triage entry — until the
+     judgment lands: the live ingest latches the parsed merits pair onto the
+     row (`merits_judgment` / `merits_decided`, the shared
+     `pipeline/judgment.py` parser the offline backfill also runs),
+     detection resolves the open merits-stage
+     event from those columns (`Outcome.judgment` plus the disturbed binary
+     as `actual_granted`; an undated parse surfaces for triage instead of
+     guessing a `resolved_at`), and the docket exits the rotation with its
+     last open event. The merits event is forecastable while it stays open:
+     `store.forecastable_events` admits it on a row whose grant opened a merits
+     proceeding, so the granted docket queues a merits predict cell the way an
+     application docket queues its interim one.
 
 ## Event definition — deterministic, corpus-driven
 
@@ -554,7 +604,10 @@ Defining the **predictable events** of a docket is its own stage
 an ingested docket regardless of channel. It is classification, not analysis:
 every event is pinned to a single docket entry with a closed `kind` enum
 (`motion` / `petition` / `appeal` / `order`), and every docket carries the
-**baseline** event — the disposition of the appeal, or the petition at SCOTUS —
+**baseline** event — the disposition of the appeal; at SCOTUS, of the cert
+petition (`stage = cert`) on a `YY-NNNN` docket or of the application on a
+`YYAnnn` interim docket (a stay/injunction application is a motion under the
+interim standard, so its baseline is `kind = motion` / `stage = interim`) —
 even when no entries are machine-readable. An event is
 **predictable/unresolved** while no later disposing order references its entry
 (with no citation the stage does not guess); an entry matching more than one
@@ -576,8 +629,10 @@ and can never skip a real filing.
 History sits in the corpus, in the historical Term set the walker keeps growing
 newest-Term-first. **SCOTUS freshness is the live channel's**: frontier probing
 onboards new petitions within a cycle, the watchlist refresh catches
-distributions and resolutions within days of the conference, and the capped
-application rotation keeps re-polling unresolved interim applications until
+distributions and resolutions within days of the conference (and retains a
+granted docket, on its open merits event's account, until the judgment), and
+the capped application rotation keeps re-polling unresolved interim
+applications until
 their outcomes and escalation signals land; pull's windows
 spend the API budget on enrichment of the in-scope SCOTUS set. The
 *prediction-relevant* slice — every pending petition and its originating docket
@@ -622,4 +677,10 @@ corpus, the predict/evaluate workflows materialize each event's `event.yaml`
 into its ledger directory (`fedcourts materialize-event`) so the judgment PR
 carries it — and the deterministic outcome writer materializes it beside every
 `outcome.json` it writes, refusing to write an outcome whose event the corpus
-does not hold.
+does not hold. An event definition also names its **stage** — the decision
+standard that governs it (cert, interim, or merits) — carried from the corpus
+row into `event.yaml` so a cell and its consumers read the standard from the
+record rather than inferring it from the event id. The field is nullable and
+null means **no stage recorded**: either no Supreme Court standard governs the
+event (a circuit appeal), or the writer does not classify one there yet;
+consumers treat null as "no rule", never as a guess.

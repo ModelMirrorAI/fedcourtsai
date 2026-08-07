@@ -179,6 +179,7 @@ jobs:
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
           # Trusted repo code running before the agent: read-only credentials
           # ride this step's env only (from the sidecar action's outputs),
           # never the job env, so no agent step inherits them.
@@ -198,15 +199,19 @@ jobs:
         # event, and the mode in record/context.json keys the prompt contract's
         # retrieval etiquette; the cert back-test's replay provisioner
         # writes `replay` itself.
-        # `--refuse-terminal`: leakage guard — if the snapshot already shows
-        # the outcome (its latest entry reads terminal, or any entry carries a
-        # machine-readable disposition order — the docket resolved after
-        # fan-out, or an order the routing rule cannot see behind an
-        # administrative tail), refuse it (exit 3, nothing written) rather
-        # than hand the predictor the outcome. Only this workflow passes the
+        # `--refuse-terminal` + `--event`: leakage guard — if the snapshot
+        # already shows THIS EVENT's outcome, refuse it (exit 3, nothing
+        # written) rather than hand the predictor the answer. The event key is
+        # load-bearing because one docket carries several events' outcomes at
+        # once: on the merits event the outcome is the judgment, and the cert
+        # grant that opened the event is its legitimate record; on every other
+        # event it is a terminal latest entry, any machine-readable disposition
+        # order, or an application docket's legible interim disposal — the
+        # docket resolved after fan-out, or an order the routing rule cannot
+        # see behind an administrative tail. Only this workflow passes the
         # flag: run-evaluate provisions the same cell for an already-resolved
         # event, where a decided docket is the point.
-        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --mode forward --refuse-terminal
+        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal
 
       # A predictable event is a corpus fact, not a committed file. Project it into
       # the event's ledger directory so the prediction PR carries its event.yaml and
@@ -354,7 +359,7 @@ jobs:
         # (leaving the finalize step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
         timeout-minutes: 50
-        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1.0.180
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}

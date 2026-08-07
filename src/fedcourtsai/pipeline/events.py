@@ -35,7 +35,8 @@ from datetime import date
 from typing import Any
 
 from .. import corpus, ids
-from ..schemas import EventKind
+from ..schemas import EventKind, Stage
+from . import moments
 from .ingest import CorpusRow, default_event, from_api_docket
 
 # --- docket-entry classification ----------------------------------------------
@@ -77,6 +78,13 @@ _SUBJECT_PATTERNS: dict[EventKind, re.Pattern[str]] = {
 # The substantive SCOTUS applications worth an entry-pinned event; every other
 # SCOTUS motion (extensions, IFP leave, amicus leave, …) is administrative.
 _SCOTUS_SUBSTANTIVE_MOTION_RE = re.compile(r"\bstay\b|\binjunction\b|\bemergency\b", re.IGNORECASE)
+
+# The request kinds a SCOTUS docket carries only as its case-level baseline, so
+# an entry matching one mints nothing: both share the baseline id prefixes the
+# case-level disposition routes on (`CASE_BASELINE_ID_PREFIXES`), and a second
+# such event makes that routing ambiguous. Motions are deliberately absent —
+# a substantive application is its own predictable thing.
+_SCOTUS_BASELINE_ONLY_KINDS = frozenset({EventKind.petition, EventKind.appeal})
 
 # How a disposing order cites the entry it resolves: "Dkt. 12", "ECF No. 12",
 # "entry 12", "#12". The captured number is matched against an entry's number.
@@ -175,6 +183,16 @@ def _referenced_numbers(text: str) -> set[int]:
     return {int(m.group(1)) for m in _REFERENCE_RE.finditer(text)}
 
 
+def _entry_stage(kind: EventKind, court: str) -> Stage | None:
+    """The stage an entry-pinned event declares.
+
+    A SCOTUS motion that survived the substantive filter is a stay / injunction
+    / emergency application — the interim decision standard. A circuit entry has
+    no SCOTUS stage at all.
+    """
+    return Stage.interim if kind == EventKind.motion and court == "scotus" else None
+
+
 def extract_events(
     docket: Mapping[str, Any],
     *,
@@ -249,7 +267,7 @@ def extract_events(
             # earn an entry-pinned event; widening this is additive — a new
             # pattern extracts on the next refresh.
             continue
-        if kind == EventKind.petition and row.court == "scotus":
+        if kind in _SCOTUS_BASELINE_ONLY_KINDS and row.court == "scotus":
             # At SCOTUS the petition *is* the case: the "petition for a writ of
             # certiorari filed" entry (every live docket's first proceedings
             # line) duplicates the case-level baseline
@@ -259,6 +277,17 @@ def extract_events(
             # successive petitions collapse into the same baseline for the same
             # reason; stays and emergency applications are motions and still
             # extract as their own events.
+            #
+            # An appeal entry is the same case: nothing separately predictable
+            # arrives at SCOTUS by appeal, and the "notice of appeal" wording
+            # that matches here reaches the docket inside a *record-transmittal*
+            # line from the court below ("the record received … Also one
+            # envelope containing the Notice of Appeal, Clerk's Record"), long
+            # after the petition. Minting on it produces a second case-baseline
+            # id — the one shape `_cert_disposition_target` cannot disambiguate,
+            # since its stage-less fallback keys on a lone open baseline, so the
+            # case-level disposition attaches to whichever of the two it lands
+            # on rather than to the petition it decides.
             continue
         event_id = ids.event_id(kind.value, _subject_slug(entry.text, kind))
         # Guarantee within-case uniqueness deterministically (two like motions).
@@ -272,6 +301,13 @@ def extract_events(
                 case_id=row.case_id,
                 court=row.court,
                 kind=kind,
+                # A SCOTUS motion that survived the substantive filter is a
+                # stay / injunction / emergency application — the interim
+                # decision standard. A circuit entry has no SCOTUS stage.
+                stage=(stage := _entry_stage(kind, row.court)),
+                # An entry-pinned motion is the interim stage's arrival moment:
+                # it is the filing that first made the matter forecastable.
+                moment=moments.first_moment(stage) if stage is not None else None,
                 title=row.case_name or row.docket_number or row.case_id,
                 description=entry.text or None,
                 docket_entry_id=entry.entry_id,

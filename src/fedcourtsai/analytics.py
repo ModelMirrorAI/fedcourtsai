@@ -21,16 +21,25 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
-from .pipeline.outcome import is_machine_readable
-from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
+from .pipeline.interim_signals import ApplicationKind
+from .pipeline.judgment import grant_term_year, judgment_disturbed
+from .pipeline.outcome import granted_flag, is_machine_readable
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    registered_versions,
+    salience_band,
+    salience_bands,
+    scorer,
+)
 from .schemas import (
+    GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
     BaseRateBucket,
     Disposition,
@@ -39,12 +48,18 @@ from .schemas import (
     DocketPackTerm,
     FeeClass,
     GroupBy,
+    Judgment,
     StatPack,
     StatPackCoverage,
+    StatPackInterim,
+    StatPackInterimTerm,
+    StatPackMerits,
+    StatPackMeritsTerm,
     StatPackSection,
     StatPackTerm,
     StatPackTermClass,
     StatPackTermSegment,
+    StatPackTermVersionSegments,
     TimingStats,
 )
 from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
@@ -64,15 +79,14 @@ _UNKNOWN_KEY = "(unknown)"
 # GVR grants the petition, so it sums into the grant rate alongside a plain grant
 # (both were a single "granted" bucket before the `gvr` label split them out).
 # `granted-in-part` stays its own bucket, preserving the pre-`gvr` definition.
-# The grant family, as one definition. The rendered tables print a grant count and
-# a grant rate in adjacent columns, so two enumerations of "what counts as a
-# grant" would diverge somewhere visible. Mirrors `pipeline.outcome.granted_flag`,
-# which owns the same question for the binary scoring target.
-_GRANT_LABELS = (
-    Disposition.granted.value,
-    Disposition.gvr.value,
-    Disposition.summary_reversal.value,
-)
+# The label form of `schemas.GRANT_FAMILY_DISPOSITIONS`, which is the one
+# definition: the rendered tables print a grant count and a grant rate in
+# adjacent columns, and a consumer that reconstructs the count from the rate
+# subtracts on these terms — so two enumerations of "what counts as a grant"
+# would diverge somewhere visible. It is deliberately *not*
+# `pipeline.outcome.granted_flag`'s set, which owns the binary scoring target
+# and admits `granted-in-part`. Sorted, so the constant is order-stable.
+_GRANT_LABELS = tuple(sorted(d.value for d in GRANT_FAMILY_DISPOSITIONS))
 
 
 def _grant_family_share(bucket: BaseRateBucket) -> float | None:
@@ -458,7 +472,8 @@ _SCOTUS_BY_ERA = _SectionSpec("SCOTUS cases by era", "scotus", False, False, Fal
 # The same two cuts, reweighted, for the court-facing pack. Raw is defensible in
 # the statpack, whose reader is calibrating against a known frame; it is not
 # defensible in a citable artifact. Almost every labeled SCOTUS row is live
-# slice, where the walker keeps one denial in ten, so a raw disposition split
+# slice, where legacy walk rows keep one denial in ten (`sample_weight`
+# reconstructs the rest), so a raw disposition split
 # there overstates the grant family several-fold — while a bulk-import circuit
 # row carries weight 1 and is unaffected, which is why reweighting is the whole
 # fix rather than a trade.
@@ -665,7 +680,7 @@ class _Slice:
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
-    __slots__ = ("classes", "grant_days", "grants", "overall", "prefixes", "segments")
+    __slots__ = ("classes", "grant_days", "grants", "overall", "prefixes", "scorers", "segments")
 
     def __init__(self) -> None:
         self.overall = _Slice(cert_timing=True)
@@ -673,13 +688,24 @@ class _TermAcc:
             FeeClass.paid: _Slice(cert_timing=True),
             FeeClass.ifp: _Slice(cert_timing=True),
         }
-        # One slice per frozen sal-v1 band over the paid scored segment — the
-        # leakage-safe per-Term segment base rate. Pre-seeded for every band so a
-        # Term with no rows in a band still emits that band (a stable JSON shape).
-        self.segments: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        # One slice per band per registered salience version, over the paid scored
+        # segment — the leakage-safe per-Term segment base rate. Every version is
+        # accumulated in the same streaming pass, because a base-rate pool is
+        # pinned to the scorer that assigned the band it is quoting, so a
+        # prediction frozen at a non-active version still needs its own scorer's
+        # rate published. Pre-seeded for every band so a Term with no rows in a
+        # band still emits that band (a stable JSON shape).
+        self.segments: dict[str, dict[str, _Slice]] = {
+            version: {band: _Slice() for band in scorer(version).bands}
+            for version in registered_versions()
+        }
         # The same bands on a **risk-set** denominator: every row that ever
         # *reached* a band, not only those that ended in it. See `add`.
-        self.prefixes: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        self.prefixes: dict[str, dict[str, _Slice]] = {
+            version: {band: _Slice() for band in scorer(version).bands}
+            for version in registered_versions()
+        }
+        self.scorers = tuple((version, scorer(version)) for version in registered_versions())
         self.grants = 0
         self.grant_days: list[int] = []
 
@@ -689,23 +715,265 @@ class _TermAcc:
         if fee is not None:
             self.classes[fee].add(row)
         if _is_scored_segment_row(row):
-            band = salience_band(row)
-            self.segments[band].add(row)
-            # A band is monotone non-decreasing over a petition's life: the
-            # distribution count is max-latched and a CVSG date, once set, stays
-            # set. So "this petition has reached band b" is the same event as
-            # "its final band is b or stronger", and the risk set for b is every
-            # row at b or above it. `salience_bands()` is ordered strongest-first,
-            # so a row joins its own band's prefix slice and every weaker one.
-            order = salience_bands()
-            for weaker in order[order.index(band) :]:
-                self.prefixes[weaker].add(row)
+            # Hoisted per accumulator rather than resolved per row: this runs
+            # once for every scored row of a full-corpus pass.
+            for version, banding in self.scorers:
+                band = banding.band(row)
+                self.segments[version][band].add(row)
+                # A band is monotone non-decreasing over a petition's life: the
+                # distribution count is max-latched and a CVSG date, once set,
+                # stays set. So "this petition has reached band b" is the same
+                # event as "its final band is b or stronger", and the risk set
+                # for b is every row at b or above it. A scorer's `bands` are
+                # ordered strongest-first, so a row joins its own band's prefix
+                # slice and every weaker one.
+                order = banding.bands
+                for weaker in order[order.index(band) :]:
+                    self.prefixes[version][weaker].add(row)
         if row.disposition in _GRANT_LABELS:
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
                 days = (row.date_cert_granted - row.date_filed).days
                 if days >= 0:
                     self.grant_days.append(days)
+
+
+# The parsed-ask vocabulary, as stored strings — the membership check that keeps
+# a corrupt kind value from silently escaping the published kind split.
+_APPLICATION_KINDS = frozenset(kind.value for kind in ApplicationKind)
+
+
+class _InterimAcc:
+    """Streaming accumulator for one slice of the interim application docket.
+
+    Counts are raw throughout — the live channel polls every application it
+    discovers, so no row stands in for another and nothing here is reweighted
+    (``sample_weight`` is deliberately unread; the denial-sampling frame covers
+    cert petitions only, and every application row is written at weight 1 — if
+    a sampling design ever reaches applications, this accumulator must learn
+    to weight).
+    The kind tally keeps ``unknown`` (parsed, ask unreadable) apart from
+    ``unparsed`` (never application-parsed), so a coverage gap never masquerades
+    as a value; the resolved/granted counters and the escalation signals read the
+    **substantive** slice only, because that is the only slice any published rate
+    or ladder claim may be computed over.
+    """
+
+    __slots__ = (
+        "applications",
+        "kinds",
+        "referred_to_court",
+        "response_requested",
+        "substantive_granted",
+        "substantive_resolved",
+        "unparsed",
+        "with_amicus",
+    )
+
+    def __init__(self) -> None:
+        self.applications = 0
+        self.kinds: Counter[str] = Counter()
+        self.unparsed = 0
+        self.substantive_resolved = 0
+        self.substantive_granted = 0
+        self.response_requested = 0
+        self.referred_to_court = 0
+        self.with_amicus = 0
+
+    def add(self, row: CorpusRow) -> None:
+        self.applications += 1
+        if row.application_kind is None:
+            self.unparsed += 1
+            return
+        # The blob is external input to this pure function: a kind string
+        # outside the vocabulary counts with the unreadable asks rather than
+        # vanishing, so the kind split always sums to `applications`.
+        kind = (
+            row.application_kind
+            if row.application_kind in _APPLICATION_KINDS
+            else ApplicationKind.unknown.value
+        )
+        self.kinds[kind] += 1
+        if kind != ApplicationKind.substantive.value:
+            return
+        if row.disposition is not None:
+            disposition = Disposition(row.disposition)
+            # Machine-readable labels only, as the cert accumulators count and
+            # docs/salience.md states the interim rule: an application counts as
+            # resolved only when the interim vocabulary matched its disposing
+            # entry, so an `other` (or channel-crossed) label joins the visibly
+            # unresolved residue instead of entering the rate as a silent denial.
+            # The binary outcome mapping owns "what counts as granted"; the
+            # interim vocabulary (granted / denied / withdrawn / dismissed)
+            # projects through the same function as cert scoring.
+            if is_machine_readable(disposition):
+                self.substantive_resolved += 1
+                self.substantive_granted += granted_flag(disposition)
+        if row.response_requested:
+            self.response_requested += 1
+        if row.referred_to_court:
+            self.referred_to_court += 1
+        if row.amicus_briefs is not None and row.amicus_briefs > 0:
+            self.with_amicus += 1
+
+    def merge(self, other: _InterimAcc) -> None:
+        """Fold another slice's counters into this one (for the pack-level totals)."""
+        self.applications += other.applications
+        self.kinds.update(other.kinds)
+        self.unparsed += other.unparsed
+        self.substantive_resolved += other.substantive_resolved
+        self.substantive_granted += other.substantive_granted
+        self.response_requested += other.response_requested
+        self.referred_to_court += other.referred_to_court
+        self.with_amicus += other.with_amicus
+
+
+def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
+    """One interim slice's shared count block, keyed by the model's field names.
+
+    ``dict`` rather than a model so the same roll-up feeds both
+    :class:`StatPackInterim` and :class:`StatPackInterimTerm` without a copy that
+    could drift. The rate divides raw counts and exists only where something
+    substantive resolved — an all-denied slice has a real 0%, an unresolved one
+    no rate at all.
+    """
+    return {
+        "applications": acc.applications,
+        "extension": acc.kinds[ApplicationKind.extension.value],
+        "substantive": acc.kinds[ApplicationKind.substantive.value],
+        "unknown": acc.kinds[ApplicationKind.unknown.value],
+        "unparsed": acc.unparsed,
+        "substantive_resolved": acc.substantive_resolved,
+        "substantive_granted": acc.substantive_granted,
+        "substantive_grant_rate": (
+            acc.substantive_granted / acc.substantive_resolved if acc.substantive_resolved else None
+        ),
+        "response_requested": acc.response_requested,
+        "referred_to_court": acc.referred_to_court,
+        "with_amicus": acc.with_amicus,
+    }
+
+
+def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
+    """Roll the per-application-Term accumulators into the interim stage section.
+
+    ``None`` when the corpus holds no application rows: a stage section is shown
+    only once its feed exists, so the pack omits it entirely rather than emitting
+    an empty scaffold — and the serializer drops the absent section, so such a
+    pack carries no ``interim`` key at all.
+    """
+    if not accs:
+        return None
+    total = _InterimAcc()
+    for acc in accs.values():
+        total.merge(acc)
+    terms = [
+        StatPackInterimTerm(term=year, **_interim_counts(accs[year]))
+        for year in sorted(accs, reverse=True)
+    ]
+    return StatPackInterim(terms=terms, **_interim_counts(total))
+
+
+# The merits-judgment vocabulary, as stored strings — the membership check that
+# keeps a corrupt column value from silently entering the published distribution
+# (the TEXT column's readers re-validate, as `_APPLICATION_KINDS` does for the
+# ask column; an out-of-vocabulary value counts as unparsed, since there is no
+# `unknown` member to fold it into).
+_JUDGMENT_VALUES = frozenset(judgment.value for judgment in Judgment)
+
+
+class _MeritsAcc:
+    """Streaming accumulator for one slice of the granted-merits docket.
+
+    Counts are raw throughout — a grant is always ingested with certainty
+    (weight 1 under the denial-sampling frame), so no row stands in for
+    another and ``sample_weight`` is deliberately unread. ``granted`` counts
+    the whole cohort and ``parsed`` the rows the merits backfill could read, so
+    the published rate's coverage is visible beside it; the disturbed counter
+    projects each judgment through
+    :func:`fedcourtsai.pipeline.judgment.judgment_disturbed` — the single
+    definition of "disturbed" the merits baseline shares
+    (:func:`fedcourtsai.pipeline.evaluate.merits_base_rate` pools exactly
+    these per-Term counts, strictly-prior). The cohort admitted here is the
+    scored population itself: the caller
+    (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants
+    that decide in the cert order, so no near-certain GVR vacatur reaches a
+    counter.
+    """
+
+    __slots__ = ("disturbed", "granted", "judgments", "parsed")
+
+    def __init__(self) -> None:
+        self.granted = 0
+        self.parsed = 0
+        self.judgments: Counter[str] = Counter()
+        self.disturbed = 0
+
+    def add(self, row: CorpusRow) -> None:
+        self.granted += 1
+        value = row.merits_judgment
+        # The blob is external input to this pure function: an out-of-vocabulary
+        # value counts with the never-parsed rows rather than entering the
+        # distribution, so the six judgment counts always sum to `parsed`.
+        if value is None or value not in _JUDGMENT_VALUES:
+            return
+        self.parsed += 1
+        self.judgments[value] += 1
+        if judgment_disturbed(Judgment(value)):
+            self.disturbed += 1
+
+    def merge(self, other: _MeritsAcc) -> None:
+        """Fold another slice's counters into this one (for the pack-level totals)."""
+        self.granted += other.granted
+        self.parsed += other.parsed
+        self.judgments.update(other.judgments)
+        self.disturbed += other.disturbed
+
+
+def _merits_counts(acc: _MeritsAcc) -> dict[str, Any]:
+    """One merits slice's shared count block, keyed by the model's field names.
+
+    ``dict`` rather than a model so the same roll-up feeds both
+    :class:`StatPackMerits` and :class:`StatPackMeritsTerm` without a copy that
+    could drift. The rate divides raw counts and exists only where something
+    parsed — an all-affirmed slice has a real 0%, an unparsed one no rate.
+    """
+    return {
+        "granted": acc.granted,
+        "parsed": acc.parsed,
+        "affirmed": acc.judgments[Judgment.affirmed.value],
+        "reversed": acc.judgments[Judgment.reversed.value],
+        "vacated": acc.judgments[Judgment.vacated.value],
+        "affirmed_in_part": acc.judgments[Judgment.affirmed_in_part.value],
+        "dig": acc.judgments[Judgment.dig.value],
+        "equally_divided": acc.judgments[Judgment.equally_divided.value],
+        "disturbed": acc.disturbed,
+        "disturbed_rate": acc.disturbed / acc.parsed if acc.parsed else None,
+    }
+
+
+def _merits_section(accs: dict[int, _MeritsAcc]) -> StatPackMerits | None:
+    """Roll the per-grant-Term accumulators into the merits stage section.
+
+    ``None`` while no row carries a parsed judgment — a stage section is shown
+    only once its feed exists, exactly as the interim section joins on
+    application rows, and the serializer drops the absent section so such a
+    pack carries no ``merits`` key at all. The pack-level totals cover the
+    whole granted cohort (so coverage is honest), while the per-Term rows keep
+    to Terms with at least one parsed judgment — a Term of granted-but-unparsed
+    rows would render as pure noise.
+    """
+    total = _MeritsAcc()
+    for acc in accs.values():
+        total.merge(acc)
+    if total.parsed == 0:
+        return None
+    terms = [
+        StatPackMeritsTerm(term=year, **_merits_counts(accs[year]))
+        for year in sorted(accs, reverse=True)
+        if accs[year].parsed
+    ]
+    return StatPackMerits(terms=terms, **_merits_counts(total))
 
 
 # How each (Term, stream) cursor contributes to its fee class's census: the count
@@ -787,24 +1055,36 @@ def _term_entry(
                 timing=entry.timing(weighted=True),
             )
         )
-    segments = []
-    for band in salience_bands():
-        entry = acc.segments[band]
-        weighted = entry.bucket("", weighted=True)
-        prefix_acc = acc.prefixes[band]
-        prefix = prefix_acc.bucket("", weighted=True)
-        segments.append(
-            StatPackTermSegment(
-                band=band,
-                ingested=entry.cases,
-                resolved=entry.bucket("").resolved,
-                weighted_resolved=weighted.resolved,
-                est_grant_rate=_grant_family_share(weighted),
-                prefix_resolved=prefix_acc.bucket("").resolved,
-                prefix_weighted_resolved=prefix.resolved,
-                prefix_est_grant_rate=_grant_family_share(prefix),
+
+    def _segments_for(version: str) -> list[StatPackTermSegment]:
+        built = []
+        for band in scorer(version).bands:
+            entry = acc.segments[version][band]
+            weighted = entry.bucket("", weighted=True)
+            prefix_acc = acc.prefixes[version][band]
+            prefix = prefix_acc.bucket("", weighted=True)
+            built.append(
+                StatPackTermSegment(
+                    band=band,
+                    ingested=entry.cases,
+                    resolved=entry.bucket("").resolved,
+                    weighted_resolved=weighted.resolved,
+                    est_grant_rate=_grant_family_share(weighted),
+                    prefix_resolved=prefix_acc.bucket("").resolved,
+                    prefix_weighted_resolved=prefix.resolved,
+                    prefix_est_grant_rate=_grant_family_share(prefix),
+                )
             )
-        )
+        return built
+
+    segments = _segments_for(SALIENCE_VERSION)
+    # Non-active versions ride alongside rather than replacing, so a prediction
+    # frozen at an older scorer keeps finding its own version's base rate.
+    alt_segments = [
+        StatPackTermVersionSegments(salience_version=version, segments=_segments_for(version))
+        for version in registered_versions()
+        if version != SALIENCE_VERSION
+    ]
     grant_days = sorted(acc.grant_days)
     base_rates = acc.overall.bucket(str(year), weighted=True)
     return StatPackTerm(
@@ -817,6 +1097,7 @@ def _term_entry(
         grants=acc.grants,
         salience_version=SALIENCE_VERSION,
         segments=segments,
+        alt_segments=alt_segments,
         median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
     )
 
@@ -832,7 +1113,10 @@ class _CorpusScan:
     cleanly and publish a section's buckets under another's title — which in the
     docket pack would mean rendering the salience band the artifact exists to
     exclude. ``terms`` and ``cursor_rows`` back the per-Term census, which both
-    published artifacts carry.
+    published artifacts carry. ``interim`` holds the application-docket
+    accumulators (keyed by application-Term year) and ``merits`` the
+    granted-cohort accumulators (keyed by grant-Term year); only the statpack
+    rolls either into a section — the docket pack ignores them by design.
     """
 
     specs: tuple[_SectionSpec, ...]
@@ -840,8 +1124,45 @@ class _CorpusScan:
     live_slice: _Slice
     sections: tuple[defaultdict[str, _Slice], ...]
     terms: dict[int, _TermAcc]
+    interim: dict[int, _InterimAcc]
+    merits: dict[int, _MeritsAcc]
     cursor_rows: list[tuple[int, str, int, int | None]]
     corpus_through: date | None
+
+
+def _accumulate_scotus_terms(
+    row: CorpusRow,
+    row_is_live: bool,
+    term_accs: dict[int, _TermAcc],
+    interim_accs: dict[int, _InterimAcc],
+    merits_accs: dict[int, _MeritsAcc],
+) -> None:
+    """Offer one SCOTUS row to the per-Term accumulators of every stage axis.
+
+    A docket number parses as the cert ``YY-NNNN`` form or the application
+    ``YYAnnn`` form, never both, so a row contributes to at most one of those
+    stage populations. The cert entries keep their live-slice restriction; the
+    interim axis keys on the form alone, which is the live channel's
+    addressable population either way. The merits axis is a *projection* of the
+    cert population rather than a third form — the rows whose grant opens a
+    merits proceeding (:func:`fedcourtsai.corpus.opens_merits_proceeding`),
+    keyed on the Term of the grant — so such a row feeds both a cert Term entry
+    and a merits one, describing two different stages of the same case. A GVR
+    or summary reversal is a grant that decides in the cert order itself, so it
+    contributes no merits row: its vacatur is a cert-stage disposition, and
+    pooling it would put a near-certain disturbance into the rate that scores
+    merits forecasts, from a case no one was asked to predict.
+    """
+    if row_is_live:
+        year = corpus.scotus_term_year(row.docket_number)
+        if year is not None:
+            term_accs.setdefault(year, _TermAcc()).add(row)
+    application_year = corpus.scotus_application_term_year(row.docket_number)
+    if application_year is not None:
+        interim_accs.setdefault(application_year, _InterimAcc()).add(row)
+    if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
+        grant_year = grant_term_year(row.date_cert_granted)
+        merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
 
 
 def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _CorpusScan:
@@ -859,6 +1180,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
     corpus_through: date | None = None
     section_slices: tuple[defaultdict[str, _Slice], ...] = tuple(defaultdict(_Slice) for _ in specs)
     term_accs: dict[int, _TermAcc] = {}
+    interim_accs: dict[int, _InterimAcc] = {}
+    merits_accs: dict[int, _MeritsAcc] = {}
     with corpus.connect(corpus_db_path) as conn:
         cursor_rows = corpus.live_cursor_rows(conn)
         for row in corpus.iter_rows(conn):
@@ -886,10 +1209,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
                 )
                 for key in keys:
                     slices[key].add(row)
-            if row_is_live and row.court == "scotus":
-                year = corpus.scotus_term_year(row.docket_number)
-                if year is not None:
-                    term_accs.setdefault(year, _TermAcc()).add(row)
+            if row.court == "scotus":
+                _accumulate_scotus_terms(row, row_is_live, term_accs, interim_accs, merits_accs)
     return _CorpusScan(
         specs=specs,
         corpus_through=corpus_through,
@@ -897,6 +1218,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
         live_slice=live_slice_totals,
         sections=section_slices,
         terms=term_accs,
+        interim=interim_accs,
+        merits=merits_accs,
         cursor_rows=cursor_rows,
     )
 
@@ -948,6 +1271,10 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     cuts + per-Term entries the predict/evaluate prompts anchor on. The ``terms``
     array iterates the union of row-derived Terms and cursor-table Terms, so a
     Term the walkers have probed but not yet populated still shows its census.
+    Two more populations ride beside them as their own stage sections: the
+    interim application docket (``interim``), present only once the corpus
+    holds application rows, and the granted-merits cohort (``merits``), present
+    only once a row carries a parsed merits judgment.
     """
     if not corpus_db_path.exists():
         return StatPack(sections=_sections(_STATPACK_SECTIONS))
@@ -976,6 +1303,8 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         ),
         sections=sections,
         terms=[_term_entry(year, term_accs.get(year), census) for year in term_years],
+        interim=_interim_section(scan.interim),
+        merits=_merits_section(scan.merits),
     )
 
 
@@ -1110,8 +1439,9 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
     Leads with headline counts, the overall base rate, coverage, and decision
     timing; then one table per curated breakdown (capped per section — the JSON
     carries every bucket) and the per-Term live-slice detail table for the most
-    recent Terms. Deterministic; safe on the empty pack (renders a one-line
-    note).
+    recent Terms, with the stage sections last (the interim docket, then the
+    merits cohort) — each rendered only when the pack carries it.
+    Deterministic; safe on the empty pack (renders a one-line note).
 
     ``markdown_terms`` caps that per-Term detail; ``0`` renders every Term, and
     ``None`` takes :class:`~fedcourtsai.config.StatpackConfig`'s *field* default —
@@ -1142,8 +1472,10 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         f"**{pack.corpus_rows}** case(s): {pack.resolved} resolved, {pack.open} open.",
         "",
         f"**Live/historical slice:** {pack.coverage.live_slice_rows} case(s), "
-        f"{pack.coverage.live_slice_resolved} resolved — the population behind every "
-        f"live-slice section below; {census}.",
+        f"{pack.coverage.live_slice_resolved} resolved — the polled population the "
+        f"live-slice sections below draw from. It also carries the interim "
+        f"application rows, which no cert section aggregates, so a cert section's "
+        f"denominator can sit below this count; {census}.",
         "",
         f"**Overall base rate (resolved):** {_disposition_summary(pack.overall)}",
         "",
@@ -1169,7 +1501,7 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             "",
             (
                 "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "
-                "| est. grant rate | grants | median days | complete |"
+                + "| est. grant rate | grants | median days | complete |"
             ),
             "| --- | --- | --: | --: | --- | --- | --: | --: | --- |",
         ]
@@ -1214,11 +1546,160 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             "",
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                "anchor only on Term rows strictly preceding your clock — later Terms "
-                "post-date what you are allowed to know._"
+                + "anchor only on Term rows strictly preceding your clock — later Terms "
+                + "post-date what you are allowed to know._"
             ),
         ]
+    if pack.interim is not None:
+        lines += _interim_lines(pack.interim)
+    if pack.merits is not None:
+        lines += _merits_lines(pack.merits)
     return "\n".join(lines) + "\n"
+
+
+def _interim_lines(interim: StatPackInterim) -> list[str]:
+    """The interim-docket section of the statpack Markdown.
+
+    Rendered only when the pack carries the section, i.e. once the corpus holds
+    application rows. Raw counts with the substantive-only rate discipline the
+    schema states; the caption carries the interpretation contract so a quoted
+    figure cannot shed it.
+    """
+    lines = [
+        "",
+        "## The interim docket (applications)",
+        (
+            "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
+            + "time-extension requests that dominate the docket), split by application-Term "
+            + "year; raw counts, never reweighted. Descriptive only: the grant rate is "
+            + "computed over **resolved substantive** applications alone — extensions are "
+            + "counted so their dominance stays visible, but they never pool into any rate — "
+            + "and it is not a segment base rate: the interim stage's scored base rate "
+            + "publishes only at the pre-registered resolved-count floor (docs/salience.md), "
+            + "so until then no skill or calibration claim rests on these "
+            + "figures. Resolved means a machine-matched interim disposition — an unmatched "
+            + "resolution stays visibly unresolved rather than entering any denominator — "
+            + "and withdrawn/dismissed resolutions count as ungranted. This is not a "
+            + "salience-band product and carries no salience version. "
+            + "The escalation-signal columns count substantive applications only, and carry "
+            + "max-latched ending states rather than as-at-prediction values — no rate here "
+            + "conditions on them. "
+            + "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
+            + "too — anchor only on Term rows strictly preceding your clock._"
+        ),
+        "",
+        f"**{interim.applications}** application(s): {interim.extension} extension, "
+        f"{interim.substantive} substantive, {interim.unknown} unknown ask, "
+        f"{interim.unparsed} never parsed.",
+        "",
+        f"**Substantive slice:** {interim.substantive_resolved} resolved, "
+        f"{interim.substantive_granted} granted — grant rate {_interim_rate(interim)}. "
+        f"Escalation signals: response requested {interim.response_requested}, "
+        f"referred to the Court {interim.referred_to_court}, "
+        f"with amicus {interim.with_amicus}.",
+        "",
+        (
+            "| Term | applications | extension | substantive | unknown | unparsed "
+            + "| resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |"
+        ),
+        "| --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |",
+    ]
+    lines += [_interim_term_row(entry) for entry in interim.terms]
+    return lines
+
+
+def _merits_lines(merits: StatPackMerits) -> list[str]:
+    """The merits-cohort section of the statpack Markdown.
+
+    Rendered only when the pack carries the section, i.e. once a corpus row
+    holds a parsed merits judgment. Raw counts with the parsed-only rate
+    discipline the schema states; the caption carries the interpretation
+    contract so a quoted figure cannot shed it.
+    """
+    lines = [
+        "",
+        "## The merits docket (granted cases)",
+        (
+            "_SCOTUS cases whose cert grant opened a merits proceeding — a plain or "
+            + "partial grant; a GVR or summary reversal decides in the cert order itself, "
+            + "so it is a cert-stage fact and is excluded by its disposition label (only "
+            + "as exact as that label: a Term resolved before the `gvr` label existed "
+            + "carries its GVRs as plain `granted`, so its rate here reads high) — split "
+            + "by the October Term "
+            + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
+            + "with the cert tables' docket-number Terms (a petition docketed in Term T is "
+            + "routinely granted in T+1), and Terms with no parsed judgment are omitted "
+            + "from the table. Raw counts, never reweighted (a grant is always "
+            + "ingested with certainty). The judgment distribution and disturbed rate cover "
+            + "the **parsed** slice only — cases whose stored snapshot the deterministic "
+            + "merits parser could read — and `parsed` against `granted` states that "
+            + "coverage; the gap blends still-pending cases (granted, not yet decided) "
+            + "with genuine parse gaps, so a recent Term's thin `parsed` is mostly "
+            + "pendency, not parser failure. The per-Term disturbed rates "
+            + "(reversed + vacated + affirmed-in-part over parsed) are the committed "
+            + "feed of the registered merits Brier baseline: a merits cell's skill is "
+            + "scored against these rates pooled over grant Terms **strictly before** "
+            + "the case's (docs/decision-model.md), so a skill claim exists only where "
+            + "strictly-prior Terms carry parsed judgments — and the rate is measured "
+            + "over exactly the population a merits cell is drawn from, which is why the "
+            + "cert-order grants are excluded. "
+            + "A DIG or an equally divided affirmance counts as undisturbed "
+            + "(both leave the judgment below standing) and sits in the scored pool on "
+            + "that footing, since the baseline's denominator counts it the same way. "
+            + "This is not a salience-band product and carries "
+            + "no salience version. Replay/backtest cells: the cert Term tables' "
+            + "self-selection rule applies here too — anchor only on Term rows strictly "
+            + "preceding your clock._"
+        ),
+        "",
+        f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed judgment.",
+        "",
+        f"**Parsed slice:** {merits.affirmed} affirmed, {merits.reversed} reversed, "
+        f"{merits.vacated} vacated, {merits.affirmed_in_part} affirmed in part, "
+        f"{merits.dig} DIG, {merits.equally_divided} equally divided — "
+        f"disturbed rate {_merits_rate(merits)}.",
+        "",
+        (
+            "| Term | granted | parsed | affirmed | reversed | vacated | in part "
+            + "| DIG | equally divided | disturbed | disturbed rate |"
+        ),
+        "| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |",
+    ]
+    lines += [_merits_term_row(entry) for entry in merits.terms]
+    return lines
+
+
+def _merits_rate(entry: StatPackMerits | StatPackMeritsTerm) -> str:
+    """The disturbed rate with its raw denominator beside it, or a dash."""
+    if entry.disturbed_rate is None:
+        return "—"
+    return f"{_pct(entry.disturbed_rate)} (n={entry.parsed})"
+
+
+def _merits_term_row(entry: StatPackMeritsTerm) -> str:
+    """One grant-Term's row in the merits docket table."""
+    return (
+        f"| {entry.term} | {entry.granted} | {entry.parsed} | {entry.affirmed} "
+        f"| {entry.reversed} | {entry.vacated} | {entry.affirmed_in_part} | {entry.dig} "
+        f"| {entry.equally_divided} | {entry.disturbed} | {_merits_rate(entry)} |"
+    )
+
+
+def _interim_rate(entry: StatPackInterim | StatPackInterimTerm) -> str:
+    """The substantive grant rate with its raw denominator beside it, or a dash."""
+    if entry.substantive_grant_rate is None:
+        return "—"
+    return f"{_pct(entry.substantive_grant_rate)} (n={entry.substantive_resolved})"
+
+
+def _interim_term_row(entry: StatPackInterimTerm) -> str:
+    """One application-Term's row in the interim docket table."""
+    return (
+        f"| {entry.term} | {entry.applications} | {entry.extension} | {entry.substantive} "
+        f"| {entry.unknown} | {entry.unparsed} | {entry.substantive_resolved} "
+        f"| {entry.substantive_granted} | {_interim_rate(entry)} | {entry.response_requested} "
+        f"| {entry.referred_to_court} | {entry.with_amicus} |"
+    )
 
 
 def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
@@ -1298,21 +1779,21 @@ _GVR_SPLIT_CAVEAT = (
 _DOCKET_GAPS = (
     _GVR_SPLIT_CAVEAT,
     "**What the petitions are about.** A distribution of the questions presented "
-    "by subject matter needs a claim taxonomy to classify them against, and no "
-    "such taxonomy is built. Inventing one for this artifact alone would publish "
-    "a categorization nothing else in the project shares, and that no later work "
-    "could reproduce.",
+    + "by subject matter needs a claim taxonomy to classify them against, and no "
+    + "such taxonomy is built. Inventing one for this artifact alone would publish "
+    + "a categorization nothing else in the project shares, and that no later work "
+    + "could reproduce.",
     "**Summary reversals are not broken out.** The disposition vocabulary carries "
-    "a label for them, but no resolver rule reads one off an order, so none is "
-    "produced and a summary reversal is counted inside the grant family above "
-    "rather than being missing from it. "
-    "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
-    "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
-    "of a substantial federal question are deliberate resolver misses that reach "
-    "maintainer triage instead.",
+    + "a label for them, but no resolver rule reads one off an order, so none is "
+    + "produced and a summary reversal is counted inside the grant family above "
+    + "rather than being missing from it. "
+    + "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
+    + "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
+    + "of a substantial federal question are deliberate resolver misses that reach "
+    + "maintainer triage instead.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
-    "opinion authorship are per-justice facts; this corpus is docket-first and "
-    "holds no per-justice vote record.",
+    + "opinion authorship are per-justice facts; this corpus is docket-first and "
+    + "holds no per-justice vote record.",
 )
 
 
@@ -1350,11 +1831,11 @@ def render_docket_markdown(pack: DocketPack) -> str:
     )
     lines += [
         "Facts about the dockets themselves: what the Supreme Court is asked to take, "
-        "from which court below, on which fee stream, after how many relists, and how "
-        "it disposes of what it is asked. It carries **no claim about this project's "
-        "predictions** — no accuracy, no model ranking, no measure of which petitions "
-        "are worth predicting — so it is readable and citable without any interest in "
-        "whether those models are any good.",
+        + "from which court below, on which fee stream, after how many relists, and how "
+        + "it disposes of what it is asked. It carries **no claim about this project's "
+        + "predictions** — no accuracy, no model ranking, no measure of which petitions "
+        + "are worth predicting — so it is readable and citable without any interest in "
+        + "whether those models are any good.",
         "",
         f"**Corpus.** {pack.corpus_rows} case(s): {pack.resolved} resolved, {pack.open} open"
         f"{vintage}. Most rows are an unlabeled bulk import, so the two overview "
@@ -1362,50 +1843,51 @@ def render_docket_markdown(pack: DocketPack) -> str:
         "`cases` before quoting one.",
         "",
         f"**Live/historical slice.** {pack.coverage.live_slice_rows} case(s), "
-        f"{pack.coverage.live_slice_resolved} resolved — petitions read from the Court's "
-        "own docket pages, the population behind every cert statistic below; "
-        f"{census}.",
+        f"{pack.coverage.live_slice_resolved} resolved — matters read from the Court's "
+        "own docket pages, the population the cert statistics below draw from. It "
+        "also carries the interim application rows, which no cert statistic "
+        f"aggregates, so a cert denominator can sit below this count; {census}.",
         "",
         "**How to read the tables.** Each section states its own scope: the court, the "
-        "population, and whether its counts are denial-reweighted. That reweighting "
-        "matters. The historical walk ingests every decided petition except denials, "
-        "which it samples on a committed frame, so a raw count would badly overstate "
-        "the grant rate; a reweighted section counts each ingested petition for the "
-        "number of petitions it stands in for. **Every section here is reweighted**, "
-        "including the two overview cuts: nearly every labeled SCOTUS row is a "
-        "sampled one, so a raw disposition split there would overstate the grant "
-        "family several-fold, while a bulk-import circuit row carries weight 1 and is "
-        "unchanged by it. So every count is a population **estimate** rather than rows "
-        "on hand, and every denominator is written `est. n=`. In the breakdown tables "
-        "that denominator is the `resolved` column beside the rate; the per-Term "
-        "census states its own the same way.",
+        + "population, and whether its counts are denial-reweighted. That reweighting "
+        + "matters. The historical walk ingests every decided petition except denials, "
+        + "which it samples on a committed frame, so a raw count would badly overstate "
+        + "the grant rate; a reweighted section counts each ingested petition for the "
+        + "number of petitions it stands in for. **Every section here is reweighted**, "
+        + "including the two overview cuts: nearly every labeled SCOTUS row is a "
+        + "sampled one, so a raw disposition split there would overstate the grant "
+        + "family several-fold, while a bulk-import circuit row carries weight 1 and is "
+        + "unchanged by it. So every count is a population **estimate** rather than rows "
+        + "on hand, and every denominator is written `est. n=`. In the breakdown tables "
+        + "that denominator is the `resolved` column beside the rate; the per-Term "
+        + "census states its own the same way.",
         "",
         "**In the breakdown tables the estimate does not tell you** how many "
-        "petitions were actually read to produce it. An `est. n=` of a few hundred "
-        "rests on a raw row count several times smaller, and a breakdown row carries "
-        "no raw view of its own — so treat a small reweighted cell as weaker evidence "
-        "than its denominator suggests, and read a rate against the whole-population "
-        "figures above it rather than on its own. The per-Term census is the "
-        "exception and the place to calibrate that gap: it prints the observed "
-        "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
-        "is legible for every Term.",
+        + "petitions were actually read to produce it. An `est. n=` of a few hundred "
+        + "rests on a raw row count several times smaller, and a breakdown row carries "
+        + "no raw view of its own — so treat a small reweighted cell as weaker evidence "
+        + "than its denominator suggests, and read a rate against the whole-population "
+        + "figures above it rather than on its own. The per-Term census is the "
+        + "exception and the place to calibrate that gap: it prints the observed "
+        + "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
+        + "is legible for every Term.",
         "",
         "**Where a value is missing** the row still appears rather than being dropped, "
-        "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
-        "*no value on that dimension*, and what that stands for differs by cut, so "
-        "read it against the section rather than as one thing. On the circuit cut it "
-        "is mostly **not** an unknown court below: it is the petitions whose court "
-        "below is not a federal circuit — state supreme courts above all — and the "
-        "section that follows names them. On the era cut it is the absence of any "
-        "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
-        "a stricter serial parser than the one behind the Term cuts, so docket "
-        "numbers it cannot read — annotated ones such as a capital-case marker most "
-        "visibly, but also consolidated and prefixed spellings — land here. That "
-        "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
-        "split of the petitions whose numbers parse cleanly rather than a partition "
-        "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
-        "CVSG cuts, whose signal comes from parsed proceedings — it means *not yet "
-        "parsed* rather than *did not happen*.",
+        + "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
+        + "*no value on that dimension*, and what that stands for differs by cut, so "
+        + "read it against the section rather than as one thing. On the circuit cut it "
+        + "is mostly **not** an unknown court below: it is the petitions whose court "
+        + "below is not a federal circuit — state supreme courts above all — and the "
+        + "section that follows names them. On the era cut it is the absence of any "
+        + "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
+        + "a stricter serial parser than the one behind the Term cuts, so docket "
+        + "numbers it cannot read — annotated ones such as a capital-case marker most "
+        + "visibly, but also consolidated and prefixed spellings — land here. That "
+        + "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
+        + "split of the petitions whose numbers parse cleanly rather than a partition "
+        + "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
+        + "CVSG cuts, whose signal comes from parsed proceedings — it means *not yet "
+        + "parsed* rather than *did not happen*.",
     ]
     lines += _section_tables(pack.sections, sample_size=True)
     if pack.terms:
@@ -1413,35 +1895,35 @@ def render_docket_markdown(pack: DocketPack) -> str:
             "",
             "## SCOTUS cert petitions by Term",
             "_Live/historical slice. `filings` is the count of docketed serials across "
-            "the paid and IFP streams, read from the discovery cursors — exact for "
-            "docketed numbers, a slight upper bound on real petitions since withheld "
-            "serials still count. **The two columns are not nested**: `ingested` counts "
-            "rows on hand, and a row can sit outside the serial census — most visibly a "
-            "petition whose docket number carries an annotation the serial parser "
-            "cannot read (a capital-case marker, say), ingested under its Term but "
-            "belonging to no stream's census — so `ingested` can "
-            "exceed `filings`. `ingested` and `grants "
-            "observed` are raw counts of rows on hand; the grant rate is the "
-            "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
-            "count it divides by — which is why it too can exceed `ingested`. The "
-            "plain `n` beside the pace to grant is different: that one is a raw count "
-            "of the granted petitions carrying both dates. Dividing "
-            "`grants observed` by `ingested` does **not** reproduce the rate and is "
-            "not a rate at all; the raw grant count is comparable to the weighted "
-            "denominator only because a grant is always kept at weight 1 while "
-            "denials are sampled. The rate pools the paid and IFP streams, whose own "
-            "grant rates differ several-fold, so a Term-over-Term move can be a shift "
-            "in that mix rather than in the Court's appetite. A Term reads `complete` "
-            "only "
-            "once every probed stream was walked to its observed end; until then its "
-            "figures describe the walked prefix, and for a Term still in progress that "
-            "end moves as the Court dockets more petitions, so `complete` there means "
-            "current, not final. Every Term the walk has touched is listed, most recent "
-            "first._",
+            + "the paid and IFP streams, read from the discovery cursors — exact for "
+            + "docketed numbers, a slight upper bound on real petitions since withheld "
+            + "serials still count. **The two columns are not nested**: `ingested` counts "
+            + "rows on hand, and a row can sit outside the serial census — most visibly a "
+            + "petition whose docket number carries an annotation the serial parser "
+            + "cannot read (a capital-case marker, say), ingested under its Term but "
+            + "belonging to no stream's census — so `ingested` can "
+            + "exceed `filings`. `ingested` and `grants "
+            + "observed` are raw counts of rows on hand; the grant rate is the "
+            + "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
+            + "count it divides by — which is why it too can exceed `ingested`. The "
+            + "plain `n` beside the pace to grant is different: that one is a raw count "
+            + "of the granted petitions carrying both dates. Dividing "
+            + "`grants observed` by `ingested` does **not** reproduce the rate and is "
+            + "not a rate at all; the raw grant count is comparable to the weighted "
+            + "denominator only because a grant is always kept at weight 1 while "
+            + "denials are sampled. The rate pools the paid and IFP streams, whose own "
+            + "grant rates differ several-fold, so a Term-over-Term move can be a shift "
+            + "in that mix rather than in the Court's appetite. A Term reads `complete` "
+            + "only "
+            + "once every probed stream was walked to its observed end; until then its "
+            + "figures describe the walked prefix, and for a Term still in progress that "
+            + "end moves as the Court dockets more petitions, so `complete` there means "
+            + "current, not final. Every Term the walk has touched is listed, most recent "
+            + "first._",
             "",
             (
                 "| Term | filings | ingested (rows) | est. grant rate (weighted) "
-                "| grants observed (rows) | median days to grant | census |"
+                + "| grants observed (rows) | median days to grant | census |"
             ),
             "| --- | --: | --: | --- | --: | --- | --- |",
         ]
@@ -1451,9 +1933,9 @@ def render_docket_markdown(pack: DocketPack) -> str:
             "",
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                "this document sits in the same checkout as the statpack and the same rule "
-                "applies — anchor only on Term rows strictly preceding your clock, because "
-                "later Terms post-date what you are allowed to know._"
+                + "this document sits in the same checkout as the statpack and the same rule "
+                + "applies — anchor only on Term rows strictly preceding your clock, because "
+                + "later Terms post-date what you are allowed to know._"
             ),
         ]
     lines += ["", "## Not yet included", ""]

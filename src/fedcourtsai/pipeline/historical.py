@@ -38,7 +38,11 @@ forward frontier prober:
   matters are the forward poller's charter, and skipping them here keeps this
   walker's guarantee absolute: **it writes no predict/evaluate queues, and
   every row it ingests lands already RESOLVED**, so the pending rotation
-  (``corpus.live_rotation``) never picks it up either. The complement of that
+  (``corpus.live_rotation``) never picks it up either — except the row whose
+  ingest itself resolves a tracked open petition as *granted*: the shared
+  resolution seam then mints the open merits event, exactly as the watchlist
+  path would, and the rotation keeps that genuinely-live merits proceeding.
+  The complement of that
   guarantee: a decided petition whose existing case carries an open,
   **predicted** event is left to the watchlist rather than ingested (see
   :meth:`_Walk.ingest`), so the resolution reaches the evaluate handoff this
@@ -198,7 +202,7 @@ def _payload_disposition(payload: Mapping[str, Any]) -> Disposition | None:
     """The cert disposition the record's proceedings text carries, or ``None``.
 
     First match in docket order over the same entry text ingest-time resolution
-    reads, so the sampling decision always agrees with the label the ingested
+    reads, so the keep/skip decision always agrees with the label the ingested
     row will land with.
     """
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -293,7 +297,7 @@ class _Walk:
         )
 
     def ingest(self, payload: dict[str, Any], term: int, serial: int, label: Disposition) -> None:
-        """Land one sampled decided petition through the shared live-ingest path.
+        """Land one decided petition through the shared live-ingest path.
 
         One guard first: a serial that resolves to an existing case with an
         **open, predicted** event is left to the watchlist instead of ingested.

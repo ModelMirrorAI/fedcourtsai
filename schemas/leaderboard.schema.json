@@ -2,11 +2,11 @@
   "$defs": {
     "BigCaseLeaderboard": {
       "additionalProperties": false,
-      "description": "A predictor's big-case-score agreement with the independent evaluator panel.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' independent reads per event), across the\nscored events both sides rated (one per case in the current single-event\nmodel). Never enters the leaderboard ranking; reported alongside it.",
+      "description": "A predictor's big-case-score agreement with the independent evaluator panel.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' independent reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
       "properties": {
         "cases": {
           "default": 0,
-          "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read",
+          "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read \u2014 cases, not events: a case's forecast moments are averaged into one point",
           "minimum": 0,
           "title": "Cases",
           "type": "integer"
@@ -137,9 +137,113 @@
       "title": "LeaderboardEntry",
       "type": "object"
     },
+    "LeaderboardStage": {
+      "additionalProperties": false,
+      "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage, and only the cert segment\nreports a skill score today \u2014 the interim stage has no published base rate,\nand the merits stage has a registered one whose skill number is suppressed\nwhile the pool's GVR guard is unbuilt (docs/decision-model.md). So each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
+      "properties": {
+        "entries": {
+          "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
+          "items": {
+            "$ref": "#/$defs/LeaderboardStageEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "evaluations_total": {
+          "description": "Evaluations aggregated in this stage",
+          "minimum": 0,
+          "title": "Evaluations Total",
+          "type": "integer"
+        },
+        "forward_evaluations": {
+          "default": 0,
+          "description": "This stage's forward-forecast evaluations",
+          "minimum": 0,
+          "title": "Forward Evaluations",
+          "type": "integer"
+        },
+        "procedural_evaluations": {
+          "default": 0,
+          "description": "This stage's mootness-basis evaluations",
+          "minimum": 0,
+          "title": "Procedural Evaluations",
+          "type": "integer"
+        },
+        "retrospective_evaluations": {
+          "default": 0,
+          "description": "This stage's retrospective evaluations",
+          "minimum": 0,
+          "title": "Retrospective Evaluations",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluations_total"
+      ],
+      "title": "LeaderboardStage",
+      "type": "object"
+    },
+    "LeaderboardStageEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's aggregates within a single non-cert stage.\n\nThe same per-stratum aggregate shape as a ranked :class:`LeaderboardEntry`,\nminus the rank and the big-case dimension: a non-cert stage's cells resolve\non a different decision standard than the cert board's, so they report\nseparately and never rank \u2014 and never pool into any cert figure.",
+      "properties": {
+        "evaluators": {
+          "description": "Distinct evaluators that scored this predictor in this stage",
+          "minimum": 0,
+          "title": "Evaluators",
+          "type": "integer"
+        },
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's true forward forecasts; null when this predictor has none in the stage."
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "procedural": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's mootness-basis cells; null when this predictor has none in the stage."
+        },
+        "retrospective": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This stage's retrospective cells; null when this predictor has none in the stage."
+        }
+      },
+      "required": [
+        "predictor_id",
+        "evaluators"
+      ],
+      "title": "LeaderboardStageEntry",
+      "type": "object"
+    },
     "LeaderboardStratum": {
       "additionalProperties": false,
-      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.",
+      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns sit here, and they are never blended either. ``population_brier_skill_score``\nscores against the strictly-prior pooled band rate \u2014 the leakage-safe\nbaseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nBoth are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
       "properties": {
         "accuracy": {
           "description": "Mean correctness across evaluations",
@@ -175,20 +279,6 @@
           "description": "Mean Brier score where reported (lower is better)",
           "title": "Mean Brier Score"
         },
-        "mean_brier_skill_score": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Mean Brier skill score vs the salience-segment base rate where reported (higher is better; ~0 = no better than the segment's grant rate, negative = worse). Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate",
-          "title": "Mean Brier Skill Score"
-        },
         "mean_reasoning_quality": {
           "anyOf": [
             {
@@ -218,6 +308,48 @@
           "default": null,
           "description": "Mean panel-vote accuracy where reported",
           "title": "Mean Vote Accuracy"
+        },
+        "population_brier_skill_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Brier skill vs the stage's own segment base rate over the cells that report one (higher is better; ~0 = no better than that baseline, negative = worse). Despite the name it is the **population** skill \u2014 `1 - sum(cell Brier) / sum(cell baseline Brier)` \u2014 not a mean of per-cell ratios, which under cert's class imbalance would be dominated by low-baseline denial cells and would pay a predictor to under-forecast the rare event. Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate. On the cert board the baseline is the salience segment's grant rate; a merits cell reports no skill score at all while the merits pool's GVR guard is unbuilt (docs/decision-model.md), so a merits stage block's mean is null",
+          "title": "Population Brier Skill Score"
+        },
+        "population_realized_term_skill_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Brier skill against the **realized** rate of each case's own October Term, aggregated as the same population ratio population_brier_skill_score is \u2014 the same band and basis as population_brier_skill_score, with the baseline held at the level that actually obtained instead of the strictly-prior pool, and computed leave-one-out so a case never sits in the baseline that scores it. Holding the level fixed nets out level-knowledge and leaves discrimination: a predictor with the Term's level right but no ability to separate its cases reads positive on the prior-Term figure and ~0 here. Strictly **ex post** \u2014 no predictor could have known its Term's realized rate \u2014 so it never ranks and is never pooled or averaged with population_brier_skill_score, whose baseline answers a different question; the two are a per-cell decomposition and their board means, taken over different cell sets, must not be differenced. Cert stage only (no other stage has a salience band), and null wherever no cell scored",
+          "title": "Population Realized Term Skill Score"
+        },
+        "realized_term_skill_scored": {
+          "default": 0,
+          "description": "Evaluations contributing to population_realized_term_skill_score. Its own denominator, separate from `skill_scored`: this metric also needs the cell's own Term to carry the band under the matching salience version and to clear the stated minimum resolved count (`pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`) after the leave-one-out, so it is omitted \u2014 visibly, here \u2014 on a thin band rather than computed on a handful of cases",
+          "minimum": 0,
+          "title": "Realized Term Skill Scored",
+          "type": "integer"
+        },
+        "skill_scored": {
+          "default": 0,
+          "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count",
+          "minimum": 0,
+          "title": "Skill Scored",
+          "type": "integer"
         }
       },
       "required": [
@@ -230,9 +362,10 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). The ranked board is the **cert stage**: the entries and the\nevaluation counts cover cert-stage cells only (the big-case and\nevaluator-agreement blocks are stage-blind \u2014 they describe stakes reads,\nnot stage-scoped skill), while any non-cert stage reports its own\nunranked block under ``stages`` (omitted entirely while none exist \u2014 see the\nserializer). Computed by ``fedcourts leaderboard`` from the ledger and the\ncommitted ``metrics/statpack.json`` (the vintage the realized-Term skill\ncolumn is scored on); carries no timestamp, so the same two inputs always\nserialize identically.",
   "properties": {
     "entries": {
+      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation",
       "items": {
         "$ref": "#/$defs/LeaderboardEntry"
       },
@@ -240,7 +373,7 @@
       "type": "array"
     },
     "evaluations_total": {
-      "description": "Total evaluations aggregated",
+      "description": "Total cert-stage evaluations aggregated; each `stages` block carries its own counts, never pooled into these",
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
@@ -255,20 +388,20 @@
     },
     "forward_evaluations": {
       "default": 0,
-      "description": "Evaluations of true forward forecasts",
+      "description": "Cert-stage evaluations of true forward forecasts",
       "minimum": 0,
       "title": "Forward Evaluations",
       "type": "integer"
     },
     "predictors_ranked": {
-      "description": "Number of predictors on the board (a procedural-only predictor still appears, sorted after every ranked one)",
+      "description": "Number of predictors on the cert board (a procedural-only predictor still appears, sorted after every ranked one)",
       "minimum": 0,
       "title": "Predictors Ranked",
       "type": "integer"
     },
     "procedural_evaluations": {
       "default": 0,
-      "description": "Evaluations segmented out for a mootness-basis outcome (never ranked)",
+      "description": "Cert-stage evaluations segmented out for a mootness-basis outcome (never ranked)",
       "minimum": 0,
       "title": "Procedural Evaluations",
       "type": "integer"
@@ -285,16 +418,32 @@
     },
     "retrospective_evaluations": {
       "default": 0,
-      "description": "Evaluations of retrospective (leakage-suspect) cells",
+      "description": "Cert-stage evaluations of retrospective (leakage-suspect) cells",
       "minimum": 0,
       "title": "Retrospective Evaluations",
       "type": "integer"
+    },
+    "salience_versions": {
+      "description": "The distinct salience versions the ranked cells' baselines were read under, sorted. The gate decides WHICH petitions earn cells at all, so it partitions the population rather than the process \u2014 and unlike a process change it does not move any digest. More than one entry therefore means the aggregates pool two differently-gated populations and are coverage figures, not a ranking (the rule `declared_set_versions` states for a claim total). Empty on a board with no salience-banded baseline, which includes an all-merits board.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Salience Versions",
+      "type": "array"
     },
     "schema_version": {
       "const": "1.0",
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "stages": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LeaderboardStage"
+      },
+      "description": "Unranked blocks for every population outside the ranked board, keyed `<stage>@<moment>` (`interim@arrival`, `merits@briefed`) \u2014 a later forecast moment of a stage answers the same question with more evidence, so it is a separate population and never shares a mean with an earlier one. A stage with no recorded moment keys bare (`interim`), and a cell with no stage at all shares one `(none)` bucket, so coverage stays visible rather than guessed. Nothing here pools across blocks or into the cert board, and the key is omitted entirely while no such cell exists.",
+      "title": "Stages",
+      "type": "object"
     }
   },
   "required": [

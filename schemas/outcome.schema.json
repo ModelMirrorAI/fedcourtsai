@@ -16,7 +16,7 @@
       "type": "string"
     },
     "Judgment": {
-      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\n``dig`` and ``equally_divided`` route to the ``procedural`` stratum for the\nsame reason mootness practice does: scoring them as merits calls would\nconflate a prediction about the law with one about the Court's housekeeping.",
+      "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\nOn the merits **binary** \u2014 P(disturbed), the axis a merits cell's Brier is\nscored on \u2014 ``dig`` and ``equally_divided`` count as *undisturbed*, because\nboth leave the judgment below standing (a DIG dissolves the writ, an\nequally divided Court affirms by operation of law). They stay in the scored\npool rather than being routed out, because the pooled baseline's\ndenominator (the statpack merits section's ``parsed``) includes them, and a\nscored population that dropped them would face a baseline computed over a\ndifferent one. ``judgment_correct`` keeps them as their own labels, so the\nexact-match axis never confuses a DIG with an affirmance.",
       "enum": [
         "affirmed",
         "reversed",
@@ -62,7 +62,7 @@
     },
     "ResolutionSignals": {
       "additionalProperties": false,
-      "description": "The docket-progress signals as at resolution, frozen into the outcome.\n\nThe corpus carries these as live-parsed columns, but a corpus column holds the\n*current* value, not the value at any fixed moment. A forecast about them \u2014\nwhether the petition would be relisted, whether the Court would call for the\nSolicitor General's views \u2014 therefore has nothing immutable to resolve\nagainst: re-scoring the same cell later reads a column that has moved on, and\na pre-registration record cannot rest on that. Copying them onto the outcome\nat resolution fixes the *resolution* end of that comparison, and makes it\nreproducible.\n\nIt is not sufficient on its own. These signals only ever grow, so a forecast\nabout them is a forecast about an increment, and an increment needs both ends\n\u2014 the value as at prediction as well as as at resolution. Nothing committed\ncarries the prediction-time end today, so a claim resting on this block alone\ncan only be specified as an absolute level, which is trivially true wherever\nthe signal had already fired when the cell ran. See\n``docs/outcome-decomposition.md``.\n\nThe block is present only when the proceedings were live-parsed. That is the\nsame coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the\nsentinel for the whole live-signal family, so where it is absent nothing here\nwas observed. Absent block means *not observed*; present block means observed,\nand inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no\nrecord \u2014 which is the distinction a claim has to be able to make.",
+      "description": "The docket-progress signals as at resolution, frozen into the outcome.\n\nThe corpus carries these as live-parsed columns, but a corpus column holds the\n*current* value, not the value at any fixed moment. A forecast about them \u2014\nwhether the petition would be relisted, whether the Court would call for the\nSolicitor General's views \u2014 therefore has nothing immutable to resolve\nagainst: re-scoring the same cell later reads a column that has moved on, and\na pre-registration record cannot rest on that. Copying them onto the outcome\nat resolution fixes the *resolution* end of that comparison, and makes it\nreproducible.\n\nIt is not sufficient on its own. These signals only ever grow, so a forecast\nabout them is a forecast about an increment, and an increment needs both ends\n\u2014 the value as at prediction as well as as at resolution. The prediction end\nis ``Prediction.context`` (the harness-written ``PredictionContext``), so a\nclaim resting on this block alone can only be specified as an absolute\nlevel, which is trivially true wherever the signal had already fired when\nthe cell ran. See ``docs/outcome-decomposition.md``.\n\nThe block is present only when the proceedings were live-parsed. That is the\nsame coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the\nsentinel for the whole live-signal family, so where it is absent nothing here\nwas observed. Absent block means *not observed*; present block means observed,\nand inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no\nrecord \u2014 which is the distinction a claim has to be able to make.",
       "properties": {
         "cvsg_date": {
           "anyOf": [
@@ -155,9 +155,11 @@
   "description": "``outcome.json`` \u2014 realized ground truth, written once an event resolves.",
   "properties": {
     "actual_disposition": {
-      "$ref": "#/$defs/Disposition"
+      "$ref": "#/$defs/Disposition",
+      "description": "The realized disposition label. On a merits-stage outcome the cert/interim vocabulary has no member by design (Judgment values are deliberately not Dispositions), so the writer records `other` and `judgment` carries the result; the stage axis keeps such cells out of every cert-vocabulary figure."
     },
     "actual_granted": {
+      "description": "The stage's declared binary: 1 iff the disposition is in the granted set on a cert/interim event, and 1 iff the judgment below was disturbed (reversed / vacated / affirmed-in-part \u2014 `pipeline.judgment.judgment_disturbed`) on a merits event, so `(probability - actual_granted)^2` is the Brier score at every stage.",
       "maximum": 1,
       "minimum": 0,
       "title": "Actual Granted",
@@ -214,7 +216,7 @@
         }
       ],
       "default": null,
-      "description": "Docket-progress signals frozen as at resolution, fixing the resolution end of a forecast about them rather than leaving it on a corpus column that keeps moving. These signals only grow, so resolving an increment also needs the value as at prediction, which nothing committed carries. Absent on outcomes written before the block existed, and on events whose proceedings were never live-parsed"
+      "description": "Docket-progress signals frozen as at resolution, fixing the resolution end of a forecast about them rather than leaving it on a corpus column that keeps moving. These signals only grow, so resolving an increment also needs the value as at prediction \u2014 the `Prediction.context` block's half of the pair. Absent on outcomes written before the block existed, and on events whose proceedings were never live-parsed"
     },
     "source": {
       "anyOf": [

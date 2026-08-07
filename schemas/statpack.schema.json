@@ -150,6 +150,396 @@
       "title": "StatPackCoverage",
       "type": "object"
     },
+    "StatPackInterim": {
+      "additionalProperties": false,
+      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the accumulating cohort that\nwill eventually ground an interim segment base rate, published descriptively\nuntil then. A stage section exists only once its corpus feed does: the pack\nomits it entirely while the corpus holds no application rows \u2014 the same\njoining rule the merits sibling (:class:`StatPackMerits`) follows on the\n``merits_judgment`` column.",
+      "properties": {
+        "applications": {
+          "default": 0,
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "minimum": 0,
+          "title": "Applications",
+          "type": "integer"
+        },
+        "extension": {
+          "default": 0,
+          "description": "Applications whose parsed ask is an extension of time \u2014 the administrative majority, counted but never pooled into a rate",
+          "minimum": 0,
+          "title": "Extension",
+          "type": "integer"
+        },
+        "referred_to_court": {
+          "default": 0,
+          "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
+          "minimum": 0,
+          "title": "Referred To Court",
+          "type": "integer"
+        },
+        "response_requested": {
+          "default": 0,
+          "description": "Substantive applications where the Court (or a Circuit Justice) requested a response \u2014 the interim analogue of a CVSG",
+          "minimum": 0,
+          "title": "Response Requested",
+          "type": "integer"
+        },
+        "substantive": {
+          "default": 0,
+          "description": "Applications whose parsed ask is substantive (a stay, an injunction, a vacatur) \u2014 the interim docket proper, and the only slice any rate here is computed over",
+          "minimum": 0,
+          "title": "Substantive",
+          "type": "integer"
+        },
+        "substantive_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "substantive_granted / substantive_resolved \u2014 a descriptive rate over the resolved substantive slice only, never over extensions; withdrawn/dismissed resolutions count as ungranted. None when nothing substantive has resolved (no rate, not 0%)",
+          "title": "Substantive Grant Rate"
+        },
+        "substantive_granted": {
+          "default": 0,
+          "description": "Resolved substantive applications whose disposition lands on the granted side of the binary outcome mapping",
+          "minimum": 0,
+          "title": "Substantive Granted",
+          "type": "integer"
+        },
+        "substantive_resolved": {
+          "default": 0,
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "minimum": 0,
+          "title": "Substantive Resolved",
+          "type": "integer"
+        },
+        "terms": {
+          "description": "Per-application-Term detail, most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackInterimTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "unknown": {
+          "default": 0,
+          "description": "Applications whose proceedings were parsed but whose ask could not be read \u2014 a parser gap, folded into neither kind. Also absorbs any out-of-vocabulary kind value, so the four kind counts always sum to `applications`",
+          "minimum": 0,
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "unparsed": {
+          "default": 0,
+          "description": "Applications never application-parsed at all (a NULL `application_kind`) \u2014 a coverage gap, distinct from `unknown`, which asserts a parse happened",
+          "minimum": 0,
+          "title": "Unparsed",
+          "type": "integer"
+        },
+        "with_amicus": {
+          "default": 0,
+          "description": "Substantive applications whose docket records at least one amicus brief \u2014 a stakes proxy, flagged here rather than summed",
+          "minimum": 0,
+          "title": "With Amicus",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackInterim",
+      "type": "object"
+    },
+    "StatPackInterimTerm": {
+      "additionalProperties": false,
+      "description": "One application-Term's slice of the interim docket.\n\nThe Term is read from the application's own docket number (``24A1099`` ->\nOT2024), so the split needs no dates. Like the cert Term entries, the array\nis a replay self-selection surface: a time-masked cell anchors only on Term\nrows strictly preceding its clock.",
+      "properties": {
+        "applications": {
+          "default": 0,
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "minimum": 0,
+          "title": "Applications",
+          "type": "integer"
+        },
+        "extension": {
+          "default": 0,
+          "description": "Applications whose parsed ask is an extension of time \u2014 the administrative majority, counted but never pooled into a rate",
+          "minimum": 0,
+          "title": "Extension",
+          "type": "integer"
+        },
+        "referred_to_court": {
+          "default": 0,
+          "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
+          "minimum": 0,
+          "title": "Referred To Court",
+          "type": "integer"
+        },
+        "response_requested": {
+          "default": 0,
+          "description": "Substantive applications where the Court (or a Circuit Justice) requested a response \u2014 the interim analogue of a CVSG",
+          "minimum": 0,
+          "title": "Response Requested",
+          "type": "integer"
+        },
+        "substantive": {
+          "default": 0,
+          "description": "Applications whose parsed ask is substantive (a stay, an injunction, a vacatur) \u2014 the interim docket proper, and the only slice any rate here is computed over",
+          "minimum": 0,
+          "title": "Substantive",
+          "type": "integer"
+        },
+        "substantive_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "substantive_granted / substantive_resolved \u2014 a descriptive rate over the resolved substantive slice only, never over extensions; withdrawn/dismissed resolutions count as ungranted. None when nothing substantive has resolved (no rate, not 0%)",
+          "title": "Substantive Grant Rate"
+        },
+        "substantive_granted": {
+          "default": 0,
+          "description": "Resolved substantive applications whose disposition lands on the granted side of the binary outcome mapping",
+          "minimum": 0,
+          "title": "Substantive Granted",
+          "type": "integer"
+        },
+        "substantive_resolved": {
+          "default": 0,
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "minimum": 0,
+          "title": "Substantive Resolved",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year the application was docketed in",
+          "title": "Term",
+          "type": "integer"
+        },
+        "unknown": {
+          "default": 0,
+          "description": "Applications whose proceedings were parsed but whose ask could not be read \u2014 a parser gap, folded into neither kind. Also absorbs any out-of-vocabulary kind value, so the four kind counts always sum to `applications`",
+          "minimum": 0,
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "unparsed": {
+          "default": 0,
+          "description": "Applications never application-parsed at all (a NULL `application_kind`) \u2014 a coverage gap, distinct from `unknown`, which asserts a parse happened",
+          "minimum": 0,
+          "title": "Unparsed",
+          "type": "integer"
+        },
+        "with_amicus": {
+          "default": 0,
+          "description": "Substantive applications whose docket records at least one amicus brief \u2014 a stakes proxy, flagged here rather than summed",
+          "minimum": 0,
+          "title": "With Amicus",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "StatPackInterimTerm",
+      "type": "object"
+    },
+    "StatPackMerits": {
+      "additionalProperties": false,
+      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the per-Term disturbed rates are the committed feed of the\npre-registered merits Brier baseline\n(``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the\n``terms`` array is a scoring input as well as a description. The population\nis the grants that open a merits proceeding \u2014 the same rule that mints the\nevent a merits forecast is made on \u2014 so a GVR, whose vacatur rides in the\ncert order itself, never contributes a near-certain disturbance to a rate\nthat scores forecasts about argued cases.",
+      "properties": {
+        "affirmed": {
+          "default": 0,
+          "description": "Judgments affirmed outright",
+          "minimum": 0,
+          "title": "Affirmed",
+          "type": "integer"
+        },
+        "affirmed_in_part": {
+          "default": 0,
+          "description": "Mixed outcomes: affirmed in part and reversed (or vacated) in part",
+          "minimum": 0,
+          "title": "Affirmed In Part",
+          "type": "integer"
+        },
+        "dig": {
+          "default": 0,
+          "description": "Writs dismissed as improvidently granted \u2014 a non-merits exit that leaves the judgment below standing (undisturbed)",
+          "minimum": 0,
+          "title": "Dig",
+          "type": "integer"
+        },
+        "disturbed": {
+          "default": 0,
+          "description": "Parsed judgments that disturbed the decision below (reversed + vacated + affirmed-in-part)",
+          "minimum": 0,
+          "title": "Disturbed",
+          "type": "integer"
+        },
+        "disturbed_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "disturbed / parsed \u2014 the **scored** merits base rate's per-Term feed (`pipeline.evaluate.merits_base_rate` pools these strictly-prior), conditioned on exactly the population a merits cell is drawn from. The two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "title": "Disturbed Rate"
+        },
+        "equally_divided": {
+          "default": 0,
+          "description": "Affirmances by an equally divided Court \u2014 affirmed by operation of law, undisturbed, and precedent-free",
+          "minimum": 0,
+          "title": "Equally Divided",
+          "type": "integer"
+        },
+        "granted": {
+          "default": 0,
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded) \u2014 the cohort the merits backfill walks, parsed or not",
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "parsed": {
+          "default": 0,
+          "description": "Granted cases carrying a parsed `merits_judgment` \u2014 the denominator of every figure here, and the coverage numerator against `granted`",
+          "minimum": 0,
+          "title": "Parsed",
+          "type": "integer"
+        },
+        "reversed": {
+          "default": 0,
+          "description": "Judgments reversed",
+          "minimum": 0,
+          "title": "Reversed",
+          "type": "integer"
+        },
+        "terms": {
+          "description": "Per-grant-Term detail (Terms with at least one parsed judgment), most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackMeritsTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "vacated": {
+          "default": 0,
+          "description": "Judgments vacated \u2014 a vacate-and-remand after argument disturbs the judgment below (a GVR's vacatur is a cert-order disposition and is not in this population)",
+          "minimum": 0,
+          "title": "Vacated",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackMerits",
+      "type": "object"
+    },
+    "StatPackMeritsTerm": {
+      "additionalProperties": false,
+      "description": "One grant-Term's slice of the merits docket.\n\nThe Term is the October Term certiorari was **granted** in, read from\n`date_cert_granted` (October pivot) \u2014 the one date every eligible row\ncarries by construction, where the judgment's own `merits_decided` date is\nnullable (a judgment parsed from an undated entry) and so cannot key the\nsplit. This grant-date axis does **not** align with the cert tables'\ndocket-number Terms: a petition docketed in Term T is routinely granted in\nT+1, so identically labeled rows across the two tables cover different\ncohorts. Like the cert Term entries, the array is a replay self-selection\nsurface: a time-masked cell anchors only on Term rows strictly preceding\nits clock.",
+      "properties": {
+        "affirmed": {
+          "default": 0,
+          "description": "Judgments affirmed outright",
+          "minimum": 0,
+          "title": "Affirmed",
+          "type": "integer"
+        },
+        "affirmed_in_part": {
+          "default": 0,
+          "description": "Mixed outcomes: affirmed in part and reversed (or vacated) in part",
+          "minimum": 0,
+          "title": "Affirmed In Part",
+          "type": "integer"
+        },
+        "dig": {
+          "default": 0,
+          "description": "Writs dismissed as improvidently granted \u2014 a non-merits exit that leaves the judgment below standing (undisturbed)",
+          "minimum": 0,
+          "title": "Dig",
+          "type": "integer"
+        },
+        "disturbed": {
+          "default": 0,
+          "description": "Parsed judgments that disturbed the decision below (reversed + vacated + affirmed-in-part)",
+          "minimum": 0,
+          "title": "Disturbed",
+          "type": "integer"
+        },
+        "disturbed_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "disturbed / parsed \u2014 the **scored** merits base rate's per-Term feed (`pipeline.evaluate.merits_base_rate` pools these strictly-prior), conditioned on exactly the population a merits cell is drawn from. The two non-merits exits (DIG, equally divided) sit in the denominator as undisturbed, since both leave the judgment below intact. None when nothing has parsed (no rate, not 0%)",
+          "title": "Disturbed Rate"
+        },
+        "equally_divided": {
+          "default": 0,
+          "description": "Affirmances by an equally divided Court \u2014 affirmed by operation of law, undisturbed, and precedent-free",
+          "minimum": 0,
+          "title": "Equally Divided",
+          "type": "integer"
+        },
+        "granted": {
+          "default": 0,
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded) \u2014 the cohort the merits backfill walks, parsed or not",
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "parsed": {
+          "default": 0,
+          "description": "Granted cases carrying a parsed `merits_judgment` \u2014 the denominator of every figure here, and the coverage numerator against `granted`",
+          "minimum": 0,
+          "title": "Parsed",
+          "type": "integer"
+        },
+        "reversed": {
+          "default": 0,
+          "description": "Judgments reversed",
+          "minimum": 0,
+          "title": "Reversed",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year certiorari was granted in",
+          "title": "Term",
+          "type": "integer"
+        },
+        "vacated": {
+          "default": 0,
+          "description": "Judgments vacated \u2014 a vacate-and-remand after argument disturbs the judgment below (a GVR's vacatur is a cert-order disposition and is not in this population)",
+          "minimum": 0,
+          "title": "Vacated",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "StatPackMeritsTerm",
+      "type": "object"
+    },
     "StatPackSection": {
       "additionalProperties": false,
       "description": "One named base-rate breakdown: a dimension, its population, and its buckets.\n\nThe section shape both published base-rate artifacts are built from \u2014\n:class:`StatPack` and :class:`DocketPack` \u2014 so a cut computed for both carries\nidentical scope flags in each. ``court`` records the court filter the section\nwas computed under (``None`` = all courts), so the artifact is self-describing\n\u2014 e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the\nper-group base-rate breakdown, most cases first (the same shape ``fedcourts\nstats --group-by`` produces).",
@@ -213,6 +603,14 @@
       "additionalProperties": false,
       "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
       "properties": {
+        "alt_segments": {
+          "description": "The same per-band slices under every OTHER registered salience version, so a prediction frozen at a version the live pass no longer scores with still finds its own scorer's base rate. Empty \u2014 and absent from the serialized payload \u2014 while only one version is registered",
+          "items": {
+            "$ref": "#/$defs/StatPackTermVersionSegments"
+          },
+          "title": "Alt Segments",
+          "type": "array"
+        },
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
           "description": "This Term's live-slice counts and weighted base rates"
@@ -275,7 +673,7 @@
           "type": "string"
         },
         "segments": {
-          "description": "Per-salience-band grant-rate slices over this Term's paid modern-cert petitions (high, elevated, baseline), leakage-safe by construction \u2014 the segment base rate the predict prompt is designed to anchor on and the evaluator will score skill against",
+          "description": "Per-salience-band grant-rate slices over this Term's paid modern-cert petitions (high, elevated, baseline), leakage-safe by construction \u2014 the segment base rate the predict prompt is designed to anchor on and the evaluator will score skill against, under the ACTIVE salience version named above",
           "items": {
             "$ref": "#/$defs/StatPackTermSegment"
           },
@@ -462,6 +860,30 @@
       "title": "StatPackTermSegment",
       "type": "object"
     },
+    "StatPackTermVersionSegments": {
+      "additionalProperties": false,
+      "description": "One Term's band slices under a **non-active** salience version.\n\nA band name means nothing on its own: a ``high`` under one scorer and a\n``high`` under another are different populations that happen to share a\nlabel, so the base-rate pool is version-pinned\n(``pipeline.evaluate._pooled_band_rate``). A prediction freezes the version\nthat banded it and keeps that version for life \u2014 which would leave it\nwithout a baseline the moment the live pass moved on. This block is where a\nnon-active scorer's slices stay published, so the pin has something to match.",
+      "properties": {
+        "salience_version": {
+          "description": "The frozen salience function whose bands these slices segment",
+          "title": "Salience Version",
+          "type": "string"
+        },
+        "segments": {
+          "description": "Per-band grant-rate slices under that version \u2014 same shape and same leakage contract as the active version's `segments`",
+          "items": {
+            "$ref": "#/$defs/StatPackTermSegment"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "salience_version"
+      ],
+      "title": "StatPackTermVersionSegments",
+      "type": "object"
+    },
     "TimingStats": {
       "additionalProperties": false,
       "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided``; the per-Term\nstatistics key on the cert-stage resolution date and weight each row by its\n``sample_weight`` (each use states which). Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator \u2014 a raw count in unweighted uses, the weighted estimate in\nweighted ones. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
@@ -541,12 +963,36 @@
       "title": "Dated Resolved",
       "type": "integer"
     },
+    "interim": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackInterim"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The interim-docket stage section (SCOTUS applications by ask, with the substantive slice's descriptive grant rate); None \u2014 and omitted from the serialized pack \u2014 while the corpus holds no application rows"
+    },
     "machine_readable_resolved": {
       "default": 0,
       "description": "Resolved cases with a machine-readable disposition \u2014 the back-testable slice",
       "minimum": 0,
       "title": "Machine Readable Resolved",
       "type": "integer"
+    },
+    "merits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackMerits"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The merits stage section (granted cases' judgment distribution and descriptive disturbed rate); None \u2014 and omitted from the serialized pack \u2014 while no row carries a parsed merits judgment"
     },
     "open": {
       "default": 0,

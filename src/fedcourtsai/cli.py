@@ -11,7 +11,7 @@ import json
 import os
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -19,10 +19,11 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from . import (
     analytics,
+    blinding,
     cleanup,
     corpus,
     corpus_index,
@@ -43,6 +44,14 @@ from . import (
     tool_usage,
 )
 from .agent_feedback import post_agent_feedback, post_once
+from .application_migration import (
+    MOTION_BASELINE_EVENT_ID,
+    relabel_application_baseline_events,
+)
+from .attribution_migration import (
+    remove_unmintable_baseline_events,
+    reopen_misattributed_outcomes,
+)
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
@@ -53,6 +62,7 @@ from .cert_backtest import (
     run_cert_backtest,
     select_cert_backtest_set,
 )
+from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
     CellStatus,
     CollectPlan,
@@ -69,6 +79,7 @@ from .collect import (
 from .config import (
     CorpusBackend,
     PredictScope,
+    Settings,
     get_settings,
     load_courts,
     load_evaluate_config,
@@ -84,7 +95,12 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .leaderboard import big_case_agreement, build_leaderboard, evaluator_agreement
+from .leaderboard import (
+    big_case_agreement,
+    build_leaderboard,
+    evaluator_agreement,
+    skill_components,
+)
 from .matrix import (
     CappedMatrix,
     CaseRequest,
@@ -95,6 +111,10 @@ from .matrix import (
     parse_cases,
     predict_matrix,
 )
+from .merits_event_migration import (
+    backfill_event_moments,
+    backfill_merits_events,
+)
 from .ops import (
     build_ops_report,
     render_data_health,
@@ -103,17 +123,24 @@ from .ops import (
     summarize_substance,
     summarize_trigger_issues,
 )
-from .paths import CasePaths
-from .pipeline import cell_context, historical, liveprobe
+from .paths import CasePaths, EventPaths
+from .pipeline import cell_context, historical, liveprobe, moments
 from .pipeline.asof import CutoffPolicy
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
+from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
+from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
-from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
+from .pipeline.outcome import (
+    entry_descriptions,
+    interim_disposal_signal,
+    snapshot_shows_disposition,
+    snapshot_shows_judgment,
+)
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection
+from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection, registered_versions
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -130,6 +157,7 @@ from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
     CellFailure,
+    ClaimScoreBlock,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -140,6 +168,7 @@ from .schemas import (
     LiveFrontier,
     ModelUsage,
     OpsReport,
+    Outcome,
     PredictableEvent,
     Prediction,
     PredictionContext,
@@ -147,6 +176,7 @@ from .schemas import (
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
+    Stage,
     StatPack,
     UsageRole,
 )
@@ -154,6 +184,7 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
+    forecastable_events,
     iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
@@ -487,6 +518,159 @@ def dedupe_live_rows_cmd(
     typer.echo(result.model_dump_json())
 
 
+@app.command("backfill-merits-judgments")
+def backfill_merits_judgments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the parsed judgments; omit for a dry-run that only counts."
+        ),
+    ] = False,
+) -> None:
+    """Parse each granted SCOTUS case's stored snapshot for its merits judgment.
+
+    Over the rows with `date_cert_granted` set, read the latest stored snapshot
+    (SQLite, or the per-case content store under the corpus-split mode — the
+    same offline path the salience replay reads), parse the last
+    judgment-shaped terminal entry (`pipeline/judgment.py`), and stamp
+    `merits_judgment` / `merits_decided` — the offline reconciler behind the
+    columns the live poll also latches at ingest, feeding the statpack's merits
+    stage section, the merits base rate pooled from it, and merits outcome
+    detection. Idempotent; a row
+    whose snapshot is unreachable is counted `no_snapshot` and left as it is.
+    Dry-run by default; `--apply` writes (run where the corpus is pulled,
+    `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
+    corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_merits_judgments(conn, apply=apply)
+    verb = "stamped" if apply else "would stamp"
+    distribution = (
+        ", ".join(f"{value}: {count}" for value, count in result.judgments.items()) or "none"
+    )
+    typer.echo(
+        f"backfill-merits-judgments ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} granted case(s) — {result.parsed} parsed "
+        f"({result.unchanged} already stored, {verb} {result.updated}), "
+        f"{result.no_snapshot} without a reachable snapshot, "
+        f"{result.no_match} with no judgment-shaped entry"
+    )
+    if result.stale:
+        typer.echo(
+            f"  STALE: {result.stale} row(s) carry a stored judgment this pass could not "
+            "re-derive (never cleared automatically — triage them)"
+        )
+    typer.echo(f"  judgments: {distribution}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("backfill-merits-events")
+def backfill_merits_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Mint the missing events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Mint the open merits forecast events onto already-granted, undecided dockets.
+
+    The live mint opens a case's merits events at cert-grant *detection*, so a
+    docket whose grant is already latched in the corpus without a live
+    resolution pass carries none. This deterministic corpus-convergence sweep
+    mints, for each row whose grant opens a merits proceeding
+    (`corpus.opens_merits_proceeding`) and whose judgment is not latched
+    (forward-only: a decided grant leaves nothing to forecast), the
+    grant-moment event `evt-order-judgment` opened at `date_cert_granted` —
+    and, where the respondent's merits brief is latched, the briefed moment
+    `evt-brief-judgment` beside it — through the live mint's own write path,
+    corpus row first, ledger `event.yaml` second. A case already carrying an
+    open grant event is topped up with just the owed briefed moment; a
+    resolved grant event means the case is converged. A mint also requires the
+    docket shown still **pending** — a stored snapshot whose high-recall
+    judgment scan is clean, because a null `merits_judgment` means unlatched,
+    not pending — so run `backfill-merits-judgments --apply` immediately
+    before this sweep in the same corpus session. A case whose target id
+    already exists entry-pinned, with committed ledger artifacts under the
+    id and no corpus event row, with no stored snapshot, or whose snapshot
+    shows an unparsed judgment signal, is skipped and reported for triage.
+    Idempotent: a converged corpus mints nothing. Dry-run by default;
+    `--apply` writes. Run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_merits_events(conn, settings.data_root, apply=apply)
+    verb = "minted" if apply else "would mint"
+    cases = sorted({case_id for case_id, _ in result.minted})
+    typer.echo(
+        f"backfill-merits-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.minted)} merits event(s) on {len(cases)} case(s); "
+        f"{result.already_present} case(s) already converged; "
+        f"{result.decided} decided grant(s) outside the forecast population; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    preview = cases[:10]
+    if preview:
+        suffix = ", …" if len(cases) > len(preview) else ""
+        typer.echo(f"  {', '.join(preview)}{suffix}")
+    for case_id, reason in result.skipped:
+        typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("backfill-event-moments")
+def backfill_event_moments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Stamp the null moments; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Stamp stage-carrying event rows' null `moment` as the stage's first moment.
+
+    A null `moment` already reads downstream as the stage's first moment, so
+    the stamp changes no behavior — it materializes that reading into the
+    corpus column so moment-keyed grouping reads it directly. Stage-keyed off
+    the declared moments table (`pipeline.moments.first_moment`), written
+    through the corpus's own writer (casestore events mirror included).
+    Idempotent: a stamped row no longer matches. Dry-run by default; `--apply`
+    writes. Run where the corpus is pulled, `corpus-push` after an `--apply`.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_event_moments(conn, apply=apply)
+    verb = "stamped" if apply else "would stamp"
+    detail = ", ".join(f"{stage}: {count}" for stage, count in sorted(result.stamped.items()))
+    typer.echo(
+        f"backfill-event-moments ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {sum(result.stamped.values())} event row(s)" + (f" — {detail}" if detail else "")
+    )
+
+
 @app.command("migrate-gvr-labels")
 def migrate_gvr_labels_cmd(
     apply: Annotated[
@@ -496,7 +680,7 @@ def migrate_gvr_labels_cmd(
 ) -> None:
     """Relabel identifiable historical GVR outcomes to the `gvr` disposition.
 
-    A one-time, deterministic migration for the introduction of the `gvr` label
+    A deterministic convergence sweep for the introduction of the `gvr` label
     (see `docs/salience.md`): each committed `granted` outcome whose
     `disposition_basis` is `mootness` — an identifiable Munsingwear vacatur — is
     relabeled `actual_disposition = gvr`. Nothing else changes: `actual_granted`
@@ -512,6 +696,148 @@ def migrate_gvr_labels_cmd(
     )
     if result.relabeled:
         typer.echo(", ".join(result.relabeled))
+
+
+@app.command("relabel-application-events")
+def relabel_application_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rename the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Relabel application dockets' baseline events to the motion/interim form.
+
+    A SCOTUS `YYAnnn` application docket's baseline event is
+    `evt-motion-disposition` (`kind = motion`, `stage = interim`) — a stay or
+    injunction application is a motion under the interim standard, not a cert
+    petition. This deterministic convergence sweep renames any cert-shaped
+    baseline (`evt-petition-disposition`) still sitting on an application docket
+    to that form, carrying every field and the `resolved` latch, atomically per
+    case. A case with committed ledger artifacts under the old identity, or
+    whose existing `evt-motion-disposition` row is entry-pinned, is skipped and
+    reported for triage rather than folded. Idempotent: a converged corpus
+    renames nothing. Dry-run by default; `--apply` writes. Run where the corpus
+    is pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
+    absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the relabel.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = relabel_application_baseline_events(conn, settings.data_root, apply=apply)
+    verb = "renamed" if apply else "would rename"
+    typer.echo(
+        f"relabel-application-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.renamed)} baseline event(s) to "
+        f"{MOTION_BASELINE_EVENT_ID}; "
+        f"{result.already_relabeled} application docket(s) already carried it; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    preview = result.renamed[:10]
+    if preview:
+        suffix = ", …" if len(result.renamed) > len(preview) else ""
+        typer.echo(f"  {', '.join(preview)}{suffix}")
+    for case_id, reason in result.skipped:
+        typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("reopen-misattributed-outcomes")
+def reopen_misattributed_outcomes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Reopen the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Reopen committed outcomes copied from a sibling case-baseline event.
+
+    A deterministic repair over the committed ledger for the records an earlier
+    single-open-event attribution shortcut left behind: a non-case-baseline
+    event whose outcome duplicates a case-baseline sibling's
+    `(actual_disposition, resolved_at, actual_granted)` exactly — a stay motion
+    holding a copy of the petition's cert disposition. Each is deleted and its
+    event reopened in both stores (the ledger `event.yaml` and the corpus event
+    row), because the ledger does not carry the source order text, so no true
+    disposition is recoverable here and an open event is the honest state. Only
+    non-baseline events are repaired: reopening a case-baseline event makes it
+    the stage-less fallback's target, so the next resolution pass would rewrite
+    the deleted outcome — a duplication between two case-baseline events is
+    reported for triage instead. An event carrying committed predict/evaluate
+    output is likewise skipped. Idempotent, and convergent against the
+    resolution pass. Dry-run by default; `--apply` writes. Run where the corpus
+    is pulled; land the corpus side last (`corpus-push` after the ledger
+    commit). Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the repair.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = reopen_misattributed_outcomes(conn, settings.data_root, apply=apply)
+    verb = "reopened" if apply else "would reopen"
+    typer.echo(
+        f"reopen-misattributed-outcomes ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.reopened)} event(s); "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.reopened:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-unmintable-events")
+def remove_unmintable_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Drop entry-pinned SCOTUS events carrying a case-baseline id, in both stores.
+
+    A SCOTUS docket carries its petition and appeal request kinds only as the
+    case-level baseline — `extract_events` mints no entry-pinned event for
+    either — so an entry-pinned row whose id carries a case-baseline prefix is
+    one no re-ingest reproduces. It is also the shape that makes the case-level
+    disposition ambiguous, since `_cert_disposition_target`'s stage-less
+    fallback keys on a *lone* open baseline. Removal rather than a reopen: the
+    event names nothing the docket supports, and leaving it open would park a
+    permanent phantom on the case and keep it forecastable. An event carrying
+    committed predict/evaluate output is skipped and reported instead.
+    Idempotent. Dry-run by default; `--apply` writes. Run where the corpus is
+    pulled; the corpus row goes first, then the ledger directory. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the removal.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = remove_unmintable_baseline_events(conn, settings.data_root, apply=apply)
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-unmintable-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} event(s); skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.removed:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
 
 
 @app.command("scope-manifest")
@@ -687,9 +1013,20 @@ def leaderboard(
     Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
     each reported **per stratum** (forward forecasts vs retrospective cells vs
     procedural mootness-basis cells, never blended and with only the timing
-    strata ranked; see the ``Leaderboard`` schema) — and
-    writes it through the shared serializer for minimal diffs. Reruns over an
-    unchanged ledger reproduce the file byte for byte.
+    strata ranked; see the ``Leaderboard`` schema). The ranked board is the
+    **cert stage**; a non-cert stage's cells report in their own unranked
+    ``stages`` block, never pooled.
+
+    Each stratum also carries the **realized-Term** skill mean beside the
+    prior-Term one — the same band scored against the rate its own Term actually
+    realized, read from the committed ``metrics/statpack.json`` at build time
+    rather than from the cell, so the whole board shares one vintage. It is ex
+    post, never ranks, and is never pooled with the prior-Term mean; the claim
+    contract is ``metrics/README.md``. Without a readable pack the column is
+    absent altogether, which the command says out loud rather than leaving it to
+    read as "no cell qualified". The result
+    writes through the shared serializer for minimal diffs. Reruns over an
+    unchanged ledger and pack reproduce the file byte for byte.
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
     blessed frozen process. During the shakedown (no digest blessed yet) that is
@@ -698,11 +1035,17 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
+    cells = iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only)
+    # The realized-Term skill column is scored at render against the committed
+    # pack, so every cell on a board shares one vintage. Best-effort like the
+    # ops feeds: no pack means the column is absent, never partly computed.
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     board = build_leaderboard(
-        iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only),
+        cells,
         big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
+        skills=skill_components(cells, settings.data_root, statpack),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -711,12 +1054,67 @@ def leaderboard(
         if scope == "frozen" and board.predictors_ranked == 0
         else ""
     )
+    # An unreadable pack and a board where no cell qualified both render the
+    # realized-Term column as null/0, so the one that is an input failure has to
+    # say so — a suppressed column must never read as a computed zero.
+    if statpack is None:
+        typer.echo(
+            "leaderboard: no readable metrics/statpack.json — "
+            "realized-Term skill omitted from every stratum.",
+            err=True,
+        )
     typer.echo(
         f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
+    )
+
+
+@app.command("claim-scores")
+def claim_scores_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/claim-scores.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline "
+            "(the shakedown pooled view).",
+        ),
+    ] = False,
+) -> None:
+    """Roll the ledger's claim-score blocks into ``metrics/claim-scores.json``.
+
+    Deterministic and offline: aggregates every committed ``evaluation.json``
+    carrying a harness-computed ``claim_scores`` block into per-predictor,
+    per-stratum claim-total means (floor and lift beside them, per-claim means,
+    the largest single-claim contribution) plus the pre-registered **judge
+    validation** — Kendall tau-b between mechanical claim totals and
+    ``reasoning_quality`` grades, per stratum, suppressed below 10 pairs with
+    the counts still published. Advisory beside the leaderboard, never a rank
+    key; the interpretation contract is ``metrics/README.md``. Reruns over an
+    unchanged ledger reproduce the file byte for byte.
+
+    Defaults to the **frozen** headline exactly like ``leaderboard``; while no
+    committed evaluation carries a block the artifact renders its honest
+    fully-suppressed state (zero counts, every coefficient null).
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    board = build_claim_scores(
+        iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions),
+        process_scope=scope,
+    )
+    destination = out if out is not None else settings.metrics_root / "claim-scores.json"
+    write_json(destination, board)
+    typer.echo(
+        f"claim-scores [{scope}]: {board.cells_with_claims} of {board.evaluations_total} "
+        f"evaluation(s) carry a claim block; forward judge agreement: "
+        f"{agreement_summary(board.forward_agreement)} -> {destination}"
     )
 
 
@@ -999,9 +1397,8 @@ def salience_replay_cmd(
     policies: Annotated[
         str,
         typer.Option(
-            help="Comma-separated cutoff policies, each one cell per Term: "
-            + ", ".join(p.value for p in CutoffPolicy)
-            + "."
+            help="Comma-separated cutoff policies, each one cell per Term per "
+            "registered salience version: " + ", ".join(p.value for p in CutoffPolicy) + "."
         ),
     ] = "arrival,distribution-1,resolution",
     out: Annotated[
@@ -1011,11 +1408,12 @@ def salience_replay_cmd(
 ) -> None:
     """Replay the salience gate over past Terms into ``metrics/salience-replay.json``.
 
-    Runs the current frozen ``sal-v1`` scoring, banding, and per-conference
+    Runs **every registered** frozen scoring, banding, and per-conference
     selection over each named Term's resolved paid modern-cert petitions,
     projected to the state their dockets disclosed at each cutoff policy's
     moment (arrival / first distribution / the last pre-resolution
-    distribution), and scores the would-have-been selection against the
+    distribution) — one projection per moment, shared across versions — and
+    scores each would-have-been selection against the
     realized grant-family outcomes — what the numbers do and do not claim:
     ``metrics/README.md``. Deterministic, offline, and free: no model runs, no
     tokens are spent, and nothing under ``data/`` is touched.
@@ -1056,6 +1454,7 @@ def salience_replay_cmd(
             destination,
             SalienceReplay(
                 salience_version=SALIENCE_VERSION,
+                salience_versions=list(registered_versions()),
                 terms=term_years,
                 policies=[str(p) for p in policy_list],
             ),
@@ -1072,7 +1471,8 @@ def salience_replay_cmd(
     typer.echo(
         f"salience-replay: {report.cells_evaluated} cell(s) over "
         f"Term(s) {', '.join(str(t) for t in term_years)} x "
-        f"{len(policy_list)} policy(ies) -> {destination}"
+        f"{len(policy_list)} policy(ies) x "
+        f"{len(report.salience_versions)} version(s) -> {destination}"
     )
 
 
@@ -1315,7 +1715,13 @@ def stamp_cell(
     unstamped-but-frozen-looking prediction.
 
     For ``--role evaluator`` a single cell writes one ``evaluation.json`` per
-    scored predictor, so every one under this evaluator+event+run is stamped.
+    scored predictor, so every one under this evaluator+event+run is stamped —
+    and each also gets its ``claim_scores`` block computed and written here
+    (:func:`fedcourtsai.pipeline.claims.score_claims`, over the committed
+    prediction, outcome, and statpack), plus its ``base_rate_salience_version``
+    derived from the recorded ``base_rate_basis`` and the scored prediction's
+    frozen context (:func:`_base_rate_salience_version_for`), so both are the
+    harness's word and an evaluator-authored value never survives the stamp.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -1361,13 +1767,128 @@ def stamp_cell(
         if not path.is_file():
             continue
         record = read_model(path, model_cls)
-        write_json(path, record.model_copy(update=update))
+        cell_update = dict(update)
+        if isinstance(record, Evaluation):
+            # Assigned unconditionally, like `context` above: the claim block is
+            # the harness's word (docs/outcome-decomposition.md), so an
+            # evaluator-authored one is replaced — with the computed block where
+            # the committed inputs support one, with nothing otherwise.
+            cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
+            # The version half of the base-rate basis record, same discipline:
+            # derived deterministically from the basis the evaluation names and
+            # the same committed inputs, overwritten unconditionally so it is
+            # the harness's word and never the evaluator's.
+            cell_update["base_rate_salience_version"] = _base_rate_salience_version_for(
+                event_paths, record
+            )
+        write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
     if stamped == 0:
         typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
         return
     typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+
+
+def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluation) -> str | None:
+    """Which salience version the evaluation's segment base rate was read under.
+
+    Deterministic from the same inputs ``base_rate_basis`` names, so the stamp
+    records — never trusts — the evaluator: on the ``risk_set`` path the band
+    was the scored prediction's frozen one, so the version is that
+    prediction's ``context.salience_version`` (the latest prediction, the same
+    join every scoring surface uses); on the ``terminal`` path the band was
+    re-derived from the row under the live scorer, so the version is the live
+    ``SALIENCE_VERSION``. ``None`` where the evaluation records no basis (no
+    segment base rate was taken), or where the risk-set path's prediction or
+    frozen context cannot be resolved — a gap recorded as absence, never
+    guessed.
+    """
+    if evaluation.base_rate_basis == "terminal":
+        return SALIENCE_VERSION
+    if evaluation.base_rate_basis != "risk_set":
+        return None
+    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    if not predictions:
+        return None
+    latest = max(predictions, key=lambda p: p.created_at)
+    return latest.context.salience_version if latest.context is not None else None
+
+
+def _claim_scores_for(
+    event_paths: EventPaths, evaluation: Evaluation, settings: Settings
+) -> ClaimScoreBlock | None:
+    """The harness-computed claim block for one evaluation, or ``None``.
+
+    The join rule matches the leaderboard's: the scored prediction is the
+    predictor's **latest** for this event (an evaluation records its predictor,
+    not a prediction run id). Tolerant like the context stamp, because this
+    runs as a post-agent step: a missing outcome, statpack, or prediction is a
+    recorded gap — the stamp then clears the field rather than failing a cell
+    that already produced its output. The lookback is the same
+    ``salience.base_rate_lookback_terms`` the headline segment baseline uses,
+    so the block and the skill score answer to one window.
+
+    The **grant Term** is read here rather than derived from the prediction:
+    the merits event's ``opened_at`` *is* the cert-grant date, and the merits
+    baseline is keyed on the Term of the grant (the statpack merits section's
+    own axis), which the frozen context's docket-number Term does not reliably
+    equal. Absent or unreadable, it stays ``None`` and the merits claim goes
+    unscored rather than anchoring to the wrong Term.
+    """
+    outcome_path = event_paths.outcome
+    statpack_path = settings.metrics_root / "statpack.json"
+    if not outcome_path.is_file() or not statpack_path.is_file():
+        return None
+    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    if not predictions:
+        return None
+    return score_claims(
+        max(predictions, key=lambda p: p.created_at),
+        read_model(outcome_path, Outcome),
+        read_model(statpack_path, StatPack),
+        lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+        grant_term=_grant_term_for(event_paths),
+    )
+
+
+def _grant_term_for(event_paths: EventPaths) -> int | None:
+    """The October Term this event's cert **grant** fell in, or ``None``.
+
+    The merits baseline pools strictly-prior grant Terms, so this must be the
+    Term of the grant — never of the moment. The first merits moment opens on
+    the grant date, so its own ``event.yaml`` is the record; a **later** merits
+    moment opens on its own filing (a respondent's merits brief lands a median
+    ~80 days after the grant), which routinely falls in the next October Term.
+    Reading that as the grant Term would pool the case against a cohort it does
+    not belong to — including, at the boundary, its own.
+
+    So a later moment reads its sibling first-moment definition instead.
+    ``None`` for any event that is not a dated merits moment, and for a later
+    moment whose sibling is missing — suppressing the baseline rather than
+    guessing a Term.
+    """
+
+    def _opened(paths: EventPaths) -> tuple[Stage | None, date | None]:
+        event_file = paths.event_file
+        if not event_file.is_file():
+            return (None, None)
+        try:
+            event = read_model(event_file, PredictableEvent)
+        except (OSError, ValueError, ValidationError):
+            return (None, None)
+        return (event.stage, event.opened_at)
+
+    stage, opened_at = _opened(event_paths)
+    if stage != Stage.merits:
+        return None
+    spec = moments.spec_for(event_paths.base.name)
+    if spec is not None and spec.ordinal > 0:
+        first = moments.moments_for(Stage.merits)[0]
+        _, opened_at = _opened(event_paths.sibling(first.event_id))
+    return grant_term_year(opened_at) if opened_at is not None else None
 
 
 @app.command("process-digest")
@@ -1491,7 +2012,18 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         else event_paths.evaluation_retrieval_log(actor, run_id)
     )
     write_json(destination, record)
-    typer.echo(f"retrieval: {actor} {len(calls)} call(s) -> {destination}")
+    # Redaction is a rewrite, not a gate: it lets a run through that the collect
+    # scan would have withheld, so the fact that it fired has to be visible
+    # somewhere or the signal is simply gone. Advisory — an agent can type the
+    # marker itself — but a non-zero count is a maintainer's cue to look at the
+    # cell's engine transcript while the run's artifacts still exist.
+    redacted = sum(1 for call in calls if retrieval.carries_redaction(call))
+    typer.echo(f"retrieval: {actor} {len(calls)} call(s), {redacted} redacted -> {destination}")
+    if redacted:
+        typer.echo(
+            f"::warning::retrieval capture redacted credential-shaped text in {redacted} "
+            f"call(s) for {actor} ({ids.case_id(court, docket)} {event})"
+        )
 
 
 @app.command("usage-summary")
@@ -1663,8 +2195,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
-    # version-blind — it counts committed predictions, not scored cells.
-    stratified = iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions)
+    # version-blind — it counts committed predictions, not scored cells. The
+    # stage the join also carries is dropped here: the substance funnel is
+    # deliberately stage-blind throughput (a census over every scored cell,
+    # like the prediction counts beside it), so its counts pool stages by
+    # design; per-stage segmentation — and every claim that must not pool —
+    # is the leaderboard's job.
+    stratified = [
+        (ev, stratum)
+        for ev, stratum, _stage, _moment in iter_stratified_evaluations(
+            settings.data_root, frozen_only=not all_versions
+        )
+    ]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,
@@ -2700,6 +3242,71 @@ def paths(
             typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
+def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> str | None:
+    """Why a forward cell's snapshot already shows **its own** event's outcome.
+
+    A forward *prediction* cell forecasts a genuinely pending event, so a
+    snapshot disclosing that event's outcome must never be materialized — it
+    would hand the predictor the answer. The question is always keyed on the
+    event, because one docket carries outcomes of different events at once: a
+    granted cert docket's grant order *is* a disclosed cert outcome and is also
+    the thing that opens the merits proceeding, so the same entry that must
+    refuse a cert cell must not refuse the merits cell it created.
+
+    On the **merits** event the disclosed outcome is the judgment, tested two
+    ways because they fail differently. The shared merits parser
+    (:func:`fedcourtsai.pipeline.judgment.last_judgment_entry`) names the
+    judgment it read, which makes the refusal legible; it is deliberately
+    conservative, though, so :func:`snapshot_shows_judgment` runs beside it and
+    supplies the recall — every terminal shape the cert scan catches is a
+    decided merits docket too, and a miss here hands a forward cell its answer.
+    Nothing cert-shaped applies beyond that: the grant, the distributions, and
+    the CVSG are the merits cell's legitimate provisioned record.
+
+    On every other event the disclosed outcome is the cert or interim
+    disposition, and three checks run over either payload shape (REST
+    ``docket_entries`` or the raw live ``ProceedingsandOrder``):
+
+    - the high-recall terminal scan (:func:`snapshot_shows_disposition`, over
+      *every* entry) — provisioning's semantic is "outcome visible anywhere in
+      the snapshot", not docket pendency, so a disposition followed by
+      administrative notations ("Application ... denied as moot") that hide it
+      from the latest-entry rule, and the cert-before-judgment grant / merits
+      judgment the resolver omits, are still caught;
+    - the resolver (:func:`match_disposition_signal`) over *every* entry, which
+      adds the plain cert grant/denial orders that are not terminal-shaped;
+    - on an application-form docket, the high-recall interim disposal scan
+      (:func:`interim_disposal_signal`) — the cert-shaped checks above match no
+      application phrasing, and the interim resolver's exact vocabulary can
+      miss a disposal that names the relief instead of the application.
+
+    The pull-side routing skip and the resolver latch are the primary
+    protections; this refusal is defense-in-depth for cells fanned out before
+    the docket latched.
+    """
+    # Keyed on the event's declared STAGE, not on one event id: every merits
+    # moment forecasts the judgment, so every one of them must take the judgment
+    # branch. Testing an id would send a later merits moment down the cert
+    # branch, where the grant order that opened its own proceeding reads as a
+    # disclosed outcome — refusing the cell permanently, and silently.
+    spec = moments.spec_for(event_id)
+    if spec is not None and spec.stage is Stage.merits:
+        judgment = last_judgment_entry(payload)
+        if judgment is not None:
+            return f"snapshot carries a merits judgment: {judgment[0].value!r}"
+        return snapshot_shows_judgment(payload)
+    terminal = snapshot_shows_disposition(payload)
+    payload_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "")
+    if terminal is None and court == "scotus" and corpus.is_scotus_application_form(payload_number):
+        terminal = interim_disposal_signal(payload)
+    if terminal is None:
+        for text in entry_descriptions(payload):
+            matched = match_disposition_signal(text)
+            if matched is not None:
+                return f"snapshot carries a disposition order: {matched[2]!r}"
+    return terminal
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(
     court: Annotated[str, typer.Option()],
@@ -2729,6 +3336,15 @@ def provision_snapshot(
             "decided dockets, so the default provisions unconditionally.",
         ),
     ] = False,
+    event: Annotated[
+        str,
+        typer.Option(
+            help="The event this cell forecasts. Scopes --refuse-terminal to "
+            "that event's own outcome; omitted, the guard reads the "
+            "cert/interim disposition, which is the right question for every "
+            "case-baseline cell.",
+        ),
+    ] = "",
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -2745,7 +3361,8 @@ def provision_snapshot(
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
-    snapshot already reads decided (code 3, nothing written).
+    snapshot already discloses ``--event``'s own outcome (code 3, nothing
+    written; see :func:`_forward_leakage`).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -2767,37 +3384,14 @@ def provision_snapshot(
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
-    # Leakage guard (opt-in): a forward *prediction* cell predicts a genuinely
-    # pending event, so a snapshot that shows the outcome must never be
-    # materialized — it would hand the predictor the answer. Two checks, both
-    # over either payload shape (REST ``docket_entries`` or the raw live
-    # ``ProceedingsandOrder`` the live channel stores verbatim):
-    #   - the high-recall terminal scan (``snapshot_shows_disposition``,
-    #     ``_TERMINAL_ENTRY_RE`` over *every* entry) — provisioning's semantic
-    #     is "outcome visible anywhere in the snapshot", not docket pendency, so
-    #     a disposition followed by administrative notations ("Application ...
-    #     denied as moot") that hide it from the latest-entry rule, and the
-    #     cert-before-judgment grant / merits judgment the resolver omits, are
-    #     still caught;
-    #   - the resolver (``match_disposition_signal``) over *every* entry, which
-    #     adds the plain cert grant/denial orders that are not terminal-shaped.
-    # The pull-side routing skip and the resolver latch are the primary
-    # protections; this refusal is defense-in-depth for cells fanned out
-    # before the docket latched. Refuses before writing anything (no snapshot,
-    # no context.json); run-predict's provisioning step is continue-on-error,
-    # so the cell runs snapshot-less and the agent notes the gap per the
-    # prompt contract. Opt-in because the other callers *must* see decided
-    # dockets: run-evaluate provisions the same forward-mode cell for an
-    # already-resolved event, and the replay provisioner truncates
-    # point-in-time itself.
+    # Refuses before writing anything (no snapshot, no context.json);
+    # run-predict's provisioning step is continue-on-error, so the cell runs
+    # snapshot-less and the agent notes the gap per the prompt contract. Opt-in
+    # because the other callers *must* see decided dockets: run-evaluate
+    # provisions the same forward-mode cell for an already-resolved event, and
+    # the replay provisioner truncates point-in-time itself.
     if refuse_terminal and mode == "forward":
-        terminal = snapshot_shows_disposition(payload)
-        if terminal is None:
-            for text in entry_descriptions(payload):
-                matched = match_disposition_signal(text)
-                if matched is not None:
-                    terminal = f"snapshot carries a disposition order: {matched[2]!r}"
-                    break
+        terminal = _forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
                 f"refusing to provision forward cell for {case}: {terminal}",
@@ -2861,6 +3455,128 @@ def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
         # conditioning and is correctly rejected, or a provisioning bug.
         typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
         return None
+
+
+@app.command("provision-blinded-predictions")
+def provision_blinded_predictions_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="The resolved event whose predictions are graded.")],
+    run_id: Annotated[str, typer.Option(help="The evaluate run id; seeds the alias assignment.")],
+    map_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the alias map is written/read. Deliberately outside the "
+            "case tree the grader is told to open; point it at a runner-local "
+            "path (e.g. the runner temp dir) in CI.",
+        ),
+    ] = blinding.DEFAULT_MAP_DIR,
+) -> None:
+    """Stage every predictor's latest prediction under an opaque alias, for blind grading.
+
+    A pre-agent step of the evaluate cell. Copies each candidate into
+    ``record/blinded/<alias>/`` with its identity masked — ``predictor_id``
+    becomes the alias, ``engine`` and ``model`` become null, ``process_version``
+    is dropped, and every staged byte (the prose, ``retrieval.md``, and the
+    captured transcript's strings) is scrubbed of predictor ids, evaluator ids,
+    and engine/model names — and writes the alias map to ``--map-dir``.
+    ``usage.json``, ``tooling.json``, and ``flags.json`` are not staged at all.
+    ``record/`` is gitignored, so the masked copies never reach the ledger, and
+    the map is written to ``--map-dir`` — outside the case tree, because the
+    grader is sent into that tree and its key must not be found by an ``ls``
+    nobody had to intend.
+
+    Aliases are assigned by a keyed shuffle seeded on the run, case, and event —
+    never predictor-id sort order, which would make the alias a bijection any
+    reader could invert. Deterministic, so a re-run of the same cell assigns the
+    same aliases.
+
+    Exits 1 when the event carries no prediction: an evaluate cell with nothing
+    to score is a matrix fault, and an empty staging area would have the grader
+    write an empty cell instead of failing.
+
+    The paired step is ``unblind-evaluations``, which must run **before**
+    ``stamp-cell --role evaluator`` — see its help.
+    """
+    settings = get_settings()
+    try:
+        result = blinding.provision_blinded_predictions(
+            data_root=settings.data_root,
+            config_root=settings.config_root,
+            court=court,
+            docket=docket,
+            event_id=event,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"blinding failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for candidate in result.candidates:
+        typer.echo(f"{candidate.alias} <- {len(candidate.staged)} file(s)")
+    typer.echo(f"blinded {len(result.candidates)} candidate(s) -> {result.root}")
+
+
+@app.command("unblind-evaluations")
+def unblind_evaluations_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="The resolved event that was graded.")],
+    evaluator: Annotated[str, typer.Option(help="The evaluator id whose output is un-aliased.")],
+    run_id: Annotated[str, typer.Option(help="The evaluate run id the map was minted under.")],
+    map_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the alias map is written/read. Deliberately outside the "
+            "case tree the grader is told to open; point it at a runner-local "
+            "path (e.g. the runner temp dir) in CI.",
+        ),
+    ] = blinding.DEFAULT_MAP_DIR,
+) -> None:
+    """Rename an evaluate cell's alias-keyed output onto the real predictor ids.
+
+    The other half of ``provision-blinded-predictions``. Reads the alias map
+    from ``--map-dir`` (pass the same value both commands were given), moves each
+    ``evaluations/<evaluator>/<alias>/<run>/`` to
+    ``evaluations/<evaluator>/<predictor_id>/<run>/``, rewrites the
+    ``predictor_id`` field inside each ``evaluation.json``, and resolves every
+    alias the evaluator wrote into its prose, flags, tooling report, and captured
+    log — a `likely`-leakage note naming ``candidate-b`` would otherwise reach a
+    maintainer through the run PR with its only key thrown away with the runner.
+
+    **This must run before ``stamp-cell --role evaluator``.** The stamp joins an
+    evaluation to the prediction it scored on the ``predictor_id`` field and
+    returns nothing on no match, so an alias reaching the stamp costs the cell
+    its ``claim_scores`` block *and* its ``base_rate_salience_version`` — both
+    *silently*, since the stamp assigns whatever the join produced rather than
+    failing. The self-check is
+    ``validate data``'s ``check_evaluation_targets``, which resolves the same
+    join and reports an orphan loudly — so the cell's order is: un-alias, stamp,
+    validate.
+
+    Idempotent over an already-un-aliased cell. Exits 1 on anything else — a
+    missing or corrupt map, a map minted for another cell, an alias the map does
+    not name, a destination that already exists, or an alias-shaped directory
+    surviving the sweep — because degrading would ship alias-keyed evaluations
+    into the ledger.
+    """
+    settings = get_settings()
+    try:
+        moved = blinding.unblind_evaluations(
+            data_root=settings.data_root,
+            court=court,
+            docket=docket,
+            event_id=event,
+            evaluator_id=evaluator,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"un-aliasing failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for alias, predictor_id in moved:
+        typer.echo(f"{alias} -> {predictor_id}")
+    typer.echo(f"un-aliased {len(moved)} evaluation(s) for {evaluator}")
 
 
 @app.command("corpus-integration-check")
@@ -3166,6 +3882,8 @@ def materialize_event(
             event_id=match.event_id,
             case_id=match.case_id,
             kind=match.kind,
+            stage=match.stage,
+            moment=match.moment,
             title=match.title,
             description=match.description,
             docket_entry_id=match.docket_entry_id,
@@ -3403,13 +4121,16 @@ def live_poll(
     The live counterpart of ``pull-all``, fed by the supremecourt.gov
     docket JSON — no CourtListener token, no API budget; caps in the ``live``
     section of ``config/tracking.yaml`` bound wall clock and politeness.
-    Discovery probes the Term's numbering frontier from the persisted per-Term
-    cursor and onboards each served petition; the refresh re-polls the pending
+    Discovery probes the Term's numbering frontier across the paid, IFP, and
+    application streams from the persisted per-(Term, stream) cursors and
+    onboards each served petition or application; the refresh re-polls the pending
     modern-cert watchlist (recent Terms first), then the application rotation
-    re-polls unresolved interim applications under its own cap — ground-truth
-    only, with prediction queueing off. Resolution is detected from the
-    proceedings text, so a decided petition lands ``outcome.json``
-    deterministically. Writes the same three handoff queues as ``pull-all``.
+    re-polls unresolved interim applications under its own cap — queueing
+    predict for a changed, still-unresolved substantive application in scope
+    (daily-debounced), ground truth for the rest. Resolution is detected from
+    the proceedings text, so a decided petition or application lands
+    ``outcome.json`` deterministically. Writes the same three handoff queues
+    as ``pull-all``.
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -3716,7 +4437,12 @@ def _scope_filtered(
                 )
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
                 typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
-            elif corpus.is_salience_deferred(row):
+            elif corpus.is_salience_deferred(row) and not corpus.has_open_merits_event(
+                conn, row.case_id
+            ):
+                # The merits bypass: a below-cap petition still earns no cert
+                # cell, but once the Court grants it the funding question is a
+                # different one and the gate no longer answers it.
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: not selected this salience round "
                     f"(scored, below the capacity slice).",
@@ -3858,12 +4584,14 @@ def predict_matrix_cmd(
         int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
     ] = None,
     event: Annotated[
-        list[str] | None, typer.Option(help="Single-case event id(s); default: all open events.")
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: open case-baseline events."),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
-    A case with no listed ``events`` defaults to that case's open events.
+    A case with no listed ``events`` defaults to that case's open case-baseline
+    (petition/appeal-kind) events.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -3874,7 +4602,7 @@ def predict_matrix_cmd(
             settings.corpus_root,
             settings.corpus_backend,
         ),
-        lambda c, d: open_events(
+        lambda c, d: forecastable_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
     )

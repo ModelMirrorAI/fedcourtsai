@@ -1,10 +1,13 @@
 """The salience gate: deterministic scoring and per-conference selection.
 
 The write pass behind salience-ordered prediction scope (see ``docs/salience.md``).
-It scores every in-scope SCOTUS cert petition with the **frozen** ``sal-v1``
+It scores every in-scope SCOTUS case with the **active frozen** salience
 function and latches ``salience_selected`` on the fundable slice: each conference
 cohort's top-``N`` by score, plus the always-include carve-outs (CVSG petitions
-and anything at/above the salience floor), which sit *above* ``N``.
+and anything at/above the salience floor), which sit *above* ``N``, plus the
+**interim reserve** — up to ``interim_reserve_slots`` pending substantive
+applications per pass, which lower the current conference's rank-fill limit by
+the slots in use, so the reserve is defined inside ``N`` (``docs/budget.md``).
 
 Two invariants make the pass safe to re-run over a live conference:
 
@@ -28,21 +31,41 @@ The score is recomputed every run (a pure function of the row's current features
 only the selection latch persists. This module owns no destructive behavior — it
 writes only the ``salience_*`` columns; the read-time enforcement that consumes the
 latch lives elsewhere.
+
+**Scoring is versioned by registry, not by edit.** :data:`SCORERS` holds every
+frozen salience version as a :class:`SalienceScorer` — score function, band
+function, band names, and always-include rule together, because all four decide
+what a band label means. :data:`SALIENCE_VERSION` names the **active** one: the
+version the live pass scores with and stamps onto the corpus and onto every
+:class:`~fedcourtsai.schemas.PredictionContext`. A refit registers a new version
+beside the old rather than editing it, so a past ranking always replays against
+the function that produced it, and the base-rate pool stays pinned to the scorer
+whose band it is quoting (``pipeline.evaluate._pooled_band_rate``).
+
+The corpus itself is deliberately **single-version**: ``salience_score`` and
+``salience_version`` are one column each, holding the active scorer's view. What
+makes history safe is not the corpus but the frozen band and version on each
+committed prediction — so re-pointing the active version can never retroactively
+re-band a prediction already written.
 """
 
 from __future__ import annotations
 
 import sqlite3
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from datetime import date
+from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
 from ..schemas import SalienceSelectionResult
 
-# The frozen salience-function version. A refit is a NEW version, never an
-# in-place edit, so any past ranking replays against the function that produced it.
+# The **active** salience-function version: the one the live selection pass scores
+# and stamps with. A refit is a NEW version registered alongside, never an
+# in-place edit, so any past ranking replays against the function that produced
+# it — see :data:`SCORERS`.
 SALIENCE_VERSION = "sal-v1"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
@@ -101,14 +124,14 @@ def _relist_signal(row: corpus.CorpusRow) -> float:
     return _RELIST_GRANT_RATE[relists]
 
 
-def salience_score(row: corpus.CorpusRow) -> float:
+def _sal_v1_score(row: corpus.CorpusRow) -> float:
     """The frozen ``sal-v1`` ranking score, built from empirical grant rates.
 
     The primary signal is the stronger of the petition's own-trajectory grant
     rates — relist bucket and (if present) CVSG — nudged by a small fraction of its
     originating circuit's grant rate. Monotone in each feature. Fee class does not
-    enter: IFP petitions will be excluded at Tier 0 (a separate change adds the
-    ``OUT_OF_SCOPE_RULES`` predicate), leaving the scored set paid-only (see
+    enter: IFP petitions are excluded at Tier 0 (the ``OUT_OF_SCOPE_RULES``
+    predicate), leaving the scored set paid-only (see
     ``docs/salience.md``). A pure function of the row's features, so a rescoring
     reproduces the same value.
     """
@@ -135,22 +158,108 @@ _SALIENCE_BANDS: tuple[tuple[str, float], ...] = (
 )
 
 
-def salience_band(row: corpus.CorpusRow) -> str:
+def _sal_v1_band(row: corpus.CorpusRow) -> str:
     """The frozen ``sal-v1`` salience band of a row (see :data:`_SALIENCE_BANDS`).
 
-    A pure function of :func:`salience_score`, so it inherits the scorer's
+    A pure function of :func:`_sal_v1_score`, so it inherits the scorer's
     determinism: the same row features reproduce the same band.
     """
-    score = salience_score(row)
+    score = _sal_v1_score(row)
     for band, lower in _SALIENCE_BANDS:
         if score >= lower:
             return band
     return _SALIENCE_BANDS[-1][0]  # unreachable (the baseline cutpoint is 0.0); a guard
 
 
+def _sal_v1_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """``sal-v1``'s always-include rule: a CVSG petition, or a score at/above the floor."""
+    return row.cvsg_date is not None or score >= floor
+
+
+@dataclass(frozen=True)
+class SalienceScorer:
+    """One frozen salience version: everything that makes a ranking reproducible.
+
+    A version is not just a score function. The band cutpoints, the band *names*,
+    and the always-include rule are all part of what "sal-v1 high" means, so a
+    refit that changed any of them while reusing the label would silently
+    redefine a published segment. Bundling the four here makes a version a single
+    object to register, and makes "which function produced this band" answerable
+    by lookup rather than by reading the commit that was live at the time.
+
+    The pairing of ``carve_out`` with ``bands`` is load-bearing and pinned by
+    test: the always-include floor and the strongest band's cutpoint must select
+    the same petitions, or a refit opens a silent gap between "carved in" and the
+    band the statpack conditions its base rate on.
+    """
+
+    version: str
+    score: Callable[[corpus.CorpusRow], float]
+    band: Callable[[corpus.CorpusRow], str]
+    bands: tuple[str, ...]
+    carve_out: Callable[[corpus.CorpusRow, float, float], bool]
+
+
+_SAL_V1 = SalienceScorer(
+    version="sal-v1",
+    score=_sal_v1_score,
+    band=_sal_v1_band,
+    bands=tuple(band for band, _ in _SALIENCE_BANDS),
+    carve_out=_sal_v1_carve_out,
+)
+
+# Every registered version, keyed by label. A past ranking replays against the
+# function that produced it, so a version is only ever added here — never edited
+# and never removed, whatever the live pass currently scores with.
+SCORERS: Mapping[str, SalienceScorer] = MappingProxyType({_SAL_V1.version: _SAL_V1})
+
+
+def scorer(version: str | None = None) -> SalienceScorer:
+    """The registered scorer for ``version``, defaulting to the active one.
+
+    Raises :class:`KeyError` for an unregistered label rather than falling back
+    to the active scorer: a caller asking for a version the process cannot
+    produce wants an error, not silently re-banded output under a name it did
+    not ask for.
+    """
+    return SCORERS[version if version is not None else SALIENCE_VERSION]
+
+
+def registered_versions() -> tuple[str, ...]:
+    """The registered version labels, active first, then the rest sorted.
+
+    The order any all-versions consumer iterates in, so a report's cell order is
+    stable across runs and puts the live scorer's numbers first.
+    """
+    rest = sorted(version for version in SCORERS if version != SALIENCE_VERSION)
+    return (SALIENCE_VERSION, *rest)
+
+
+def salience_score(row: corpus.CorpusRow) -> float:
+    """The **active** scorer's ranking score for a row."""
+    return scorer().score(row)
+
+
+def salience_band(row: corpus.CorpusRow) -> str:
+    """The **active** scorer's salience band for a row."""
+    return scorer().band(row)
+
+
 def salience_bands() -> tuple[str, ...]:
-    """The band names strongest→weakest — the fixed segment order the statpack emits."""
-    return tuple(band for band, _ in _SALIENCE_BANDS)
+    """The active scorer's band names strongest→weakest — the statpack's segment order."""
+    return scorer().bands
+
+
+def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """The **active** scorer's always-include rule.
+
+    The version-agnostic entry point, for a caller that means "whatever the live
+    pass would carve in". A caller working with a specific version — the gate
+    replay, which must apply the same predicate the selector applied — reaches
+    :attr:`SalienceScorer.carve_out` on that version's record instead, so its
+    report cannot drift from the selection it describes.
+    """
+    return scorer().carve_out(row, score, floor)
 
 
 def _capacity(conference: date, config: SalienceConfig) -> int:
@@ -160,39 +269,66 @@ def _capacity(conference: date, config: SalienceConfig) -> int:
     return config.per_conference_capacity
 
 
-def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
-    """The always-include rule: a CVSG petition, or a score at/above the floor.
-
-    Public because the gate replay's carve-out/rank-fill reporting must apply
-    the same predicate selection does — one definition, so the report cannot
-    drift from the selector it describes.
-    """
-    return row.cvsg_date is not None or score >= floor
-
-
 def _select_cohort(
-    rows: list[corpus.CorpusRow], scores: dict[str, float], capacity: int, floor: float
+    rows: list[corpus.CorpusRow],
+    scores: dict[str, float],
+    capacity: int,
+    floor: float,
+    *,
+    reserve: int = 0,
+    version: SalienceScorer,
 ) -> set[str]:
     """The case ids to hold selected in one conference cohort.
 
     Carve-outs (:func:`carve_out` — CVSG petitions and anything at/above the
     floor) are selected unconditionally and sit *above* the ``N`` budget; the
     remainder is ranked by score (descending, case_id tie-break) and fills to
-    ``N``.
+    ``N`` minus ``reserve`` — the interim reserve slots in use this pass, which
+    displace the lowest-ranked rank-fill picks (never a carve-out) so the
+    reserve spends inside ``N``.
     """
-    selected = {row.case_id for row in rows if carve_out(row, scores[row.case_id], floor)}
+    selected = {row.case_id for row in rows if version.carve_out(row, scores[row.case_id], floor)}
     remainder = sorted(
         (row for row in rows if row.case_id not in selected),
         key=lambda row: (-scores[row.case_id], row.case_id),
     )
-    selected.update(row.case_id for row in remainder[: max(0, capacity)])
+    selected.update(row.case_id for row in remainder[: max(0, capacity - reserve)])
     return selected
 
 
+def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
+    """Reserve pick order: furthest up the escalation ladder first.
+
+    Two of the latched interim signals, strongest first — a requested response
+    (the Court's affirmative act of attention), then the amicus count — with
+    ``case_id`` for determinism. The referral signal stays on the ladder as a
+    latched observation but out of the pick order:
+    a referral is usually the disposition docket entry itself, so it carries
+    no forecast horizon — a slot spent on it funds a prediction of an already
+    written order. A deliberate *ordering*, not a scored rate: no grant
+    probability is asserted (the interim base rate is still accumulating —
+    ``docs/salience.md``), only which pending applications the bounded reserve
+    funds first. ``None`` signals sort as absent, so a never-parsed row never
+    outranks a parsed one.
+    """
+    return (
+        0 if row.response_requested else 1,
+        -(row.amicus_briefs or 0),
+        row.case_id,
+    )
+
+
 def plan_cohorts(
-    rows: Iterable[corpus.CorpusRow], config: SalienceConfig
+    rows: Iterable[corpus.CorpusRow],
+    config: SalienceConfig,
+    *,
+    version: SalienceScorer | None = None,
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
+
+    ``version`` selects the scorer, defaulting to the active one; the gate
+    replay passes each registered version in turn so one report can say what
+    every scorer would have picked at the same reconstructed moment.
 
     The connection-free core of the selection pass, shared with the gate replay
     (:mod:`fedcourtsai.salience_replay`), which feeds it point-in-time
@@ -203,16 +339,40 @@ def plan_cohorts(
     never de-selects). Cohorting keys on each row's
     ``distributed_for_conference``, so a replay caller sets that field to the
     as-of value it reconstructs.
+
+    An **application** row (the interim docket — only substantive applications
+    survive Tier 0) is never distributed for conference, so it competes for the
+    **interim reserve** instead of a cohort: pending (unresolved) applications
+    fill up to ``interim_reserve_slots``, escalation-ladder order
+    (:func:`_interim_ladder_key`), counting the still-pending already-selected
+    ones against the cap first (a slot frees only when its occupant resolves).
+    The slots in use lower the rank-fill limit in the **latest** conference
+    cohort of the pass — the conference cycle the applications are live in — so
+    the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
+    too: a lowered limit costs a cert pick wherever the eligible non-carve-out
+    remainder exceeds it — near the typical cohort's eligible size, and not
+    yet measured at the shipped capacity (``docs/budget.md``). An unfilled
+    reserve lowers nothing.
     """
+    active = version if version is not None else scorer()
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    applications: list[corpus.CorpusRow] = []
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
         eligible += 1
-        scores[row.case_id] = salience_score(row)
+        scores[row.case_id] = active.score(row)
         if row.salience_selected:
             already_selected.add(row.case_id)
+        if row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number):
+            # An application is never distributed for conference, so it can
+            # never enter a cert cohort; a pending one competes for the
+            # interim reserve instead. Resolved ones are scored only, exactly
+            # like decided petitions below.
+            if row.disposition is None and corpus.resolution_date(row) is None:
+                applications.append(row)
+            continue
         # A decided petition has no open event left to predict, so latching it
         # spends nothing — but it would still count toward "newly selected" and
         # muddy the salience board's "selected = tournament spend" reading with
@@ -221,9 +381,27 @@ def plan_cohorts(
         if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
 
-    to_select: list[str] = []
+    # The interim reserve: still-pending occupants hold their slots (sticky
+    # latch), new picks fill the remainder in ladder order.
+    occupants = [row for row in applications if row.salience_selected]
+    open_slots = max(0, config.interim_reserve_slots - len(occupants))
+    contenders = sorted(
+        (row for row in applications if not row.salience_selected), key=_interim_ladder_key
+    )
+    reserve_picks = [row.case_id for row in contenders[:open_slots]]
+    reserve_in_use = len(occupants) + len(reserve_picks)
+
+    to_select: list[str] = list(reserve_picks)
+    current_conference = max(cohorts) if cohorts else None
     for conference, cohort_rows in cohorts.items():
-        selected = _select_cohort(cohort_rows, scores, _capacity(conference, config), config.floor)
+        selected = _select_cohort(
+            cohort_rows,
+            scores,
+            _capacity(conference, config),
+            config.floor,
+            reserve=reserve_in_use if conference == current_conference else 0,
+            version=active,
+        )
         # Sticky + additive: latch only the not-yet-selected; never de-select.
         to_select.extend(case_id for case_id in selected if case_id not in already_selected)
     return scores, to_select, eligible, len(cohorts)
@@ -232,11 +410,12 @@ def plan_cohorts(
 def _selection_plan(
     conn: sqlite3.Connection, config: SalienceConfig
 ) -> tuple[dict[str, float], list[str], int, int]:
-    """Score the in-scope cert petitions and pick each cohort's selected slice.
+    """Score the in-scope SCOTUS cases and pick each cohort's selected slice.
 
     The pure planning half of the pass: the live corpus scan with the Tier-0
-    eligibility filter applied, delegating scoring and cohort selection to
-    :func:`plan_cohorts`.
+    eligibility filter applied (which admits cert petitions and substantive
+    applications), delegating scoring, cohort selection, and the interim
+    reserve to :func:`plan_cohorts`.
     """
     return plan_cohorts(
         (
@@ -267,7 +446,7 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
 def reconcile_salience_selection(
     conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
 ) -> SalienceSelectionResult:
-    """Score the in-scope cert petitions and latch the per-conference selected slice.
+    """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
     Dry run by default (scores and picks are computed but nothing is written);
     ``apply`` writes the scores/version on every in-scope case and latches

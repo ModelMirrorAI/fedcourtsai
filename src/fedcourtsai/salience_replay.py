@@ -1,7 +1,7 @@
 """Salience-gate replay: the frozen gate run over past Terms at reconstructed moments.
 
 The cert back-test (:mod:`fedcourtsai.cert_backtest`) replays *predictors*;
-this replays the **gate** — the deterministic ``sal-v1`` scoring, banding, and
+this replays the **gate** — the deterministic scoring, banding, and
 per-conference selection that decides which petitions the tournament funds at
 all. For each named Term it projects every resolved paid modern-cert petition
 to the state its docket disclosed at a policy-chosen moment
@@ -11,6 +11,12 @@ and runs the same selection core the live pass runs
 (:func:`fedcourtsai.pipeline.salience.plan_cohorts`). The report says what the
 gate *would have* selected then, and scores that selection against the
 realized grant-family outcomes with sample-weighted precision and recall.
+
+Cells span **(Term x policy x salience version)**: every version in
+:data:`~fedcourtsai.pipeline.salience.SCORERS` scores the same reconstruction,
+so a candidate scorer is measured against the incumbent over identical
+projected dockets in a single artifact — which is what makes the difference
+between two cells attributable to the scoring function alone.
 
 Two structural facts the numbers document:
 
@@ -37,7 +43,7 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from . import corpus
 from .analytics import _is_scored_segment_row
@@ -47,10 +53,11 @@ from .pipeline import asof
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import (
     SALIENCE_VERSION,
+    SalienceScorer,
     _capacity,
-    carve_out,
     plan_cohorts,
-    salience_band,
+    registered_versions,
+    scorer,
 )
 from .schemas import Disposition, SalienceReplay, SalienceReplayCell
 
@@ -133,14 +140,23 @@ def _project(
     return projected, label
 
 
-def _replay_cell(
-    conn: sqlite3.Connection,
-    term: int,
-    policy: asof.CutoffPolicy,
-    rows: list[corpus.CorpusRow],
-    config: SalienceConfig,
-) -> SalienceReplayCell:
-    """One (Term, policy) cell: project, run the selection core, score the pick."""
+class _Projection(NamedTuple):
+    """One (Term, policy) reconstruction, shared by every version's cell.
+
+    Built once and scored by each registered version in turn, because two
+    versions are comparable only if they saw the same reconstructed docket — and
+    reprojecting per version would re-read every snapshot for no gain.
+    """
+
+    rows: list[tuple[corpus.CorpusRow, asof.AsOfRow]]
+    provenance: Counter[str]
+    skipped: int
+
+
+def _project_cohort(
+    conn: sqlite3.Connection, policy: asof.CutoffPolicy, rows: list[corpus.CorpusRow]
+) -> _Projection:
+    """Project one Term's petitions to ``policy``'s moment, tallying provenance."""
     projected: list[tuple[corpus.CorpusRow, asof.AsOfRow]] = []
     provenance_mix: Counter[str] = Counter()
     skipped = 0
@@ -152,14 +168,29 @@ def _replay_cell(
         projection, label = found
         provenance_mix[label] += 1
         projected.append((row, projection))
+    return _Projection(projected, provenance_mix, skipped)
 
-    synthesized = [projection.row for _, projection in projected]
-    scores, to_select, _, conferences = plan_cohorts(synthesized, config)
+
+def _replay_cell(
+    term: int,
+    policy: asof.CutoffPolicy,
+    eligible: int,
+    projection: _Projection,
+    config: SalienceConfig,
+    version: SalienceScorer,
+) -> SalienceReplayCell:
+    """One (Term, policy, version) cell: run the selection core and score the pick."""
+    projected = projection.rows
+    provenance_mix = projection.provenance
+    skipped = projection.skipped
+
+    synthesized = [as_of.row for _, as_of in projected]
+    scores, to_select, _, conferences = plan_cohorts(synthesized, config, version=version)
     selected = set(to_select)  # no projected row is pre-latched, so this is the whole pick
     carved = {
         row.case_id
         for row in synthesized
-        if row.case_id in selected and carve_out(row, scores[row.case_id], config.floor)
+        if row.case_id in selected and version.carve_out(row, scores[row.case_id], config.floor)
     }
 
     cohort_members: dict[date, list[corpus.CorpusRow]] = {}
@@ -170,7 +201,9 @@ def _replay_cell(
         1
         for conference, members in cohort_members.items()
         if sum(
-            1 for member in members if not carve_out(member, scores[member.case_id], config.floor)
+            1
+            for member in members
+            if not version.carve_out(member, scores[member.case_id], config.floor)
         )
         > _capacity(conference, config)
     )
@@ -184,7 +217,7 @@ def _replay_cell(
             sum(
                 float(member.sample_weight or 1)
                 for member in members
-                if not carve_out(member, scores[member.case_id], config.floor)
+                if not version.carve_out(member, scores[member.case_id], config.floor)
             )
             for members in cohort_members.values()
         ),
@@ -192,8 +225,8 @@ def _replay_cell(
     )
 
     bands: Counter[str] = Counter()
-    for _, projection in projected:
-        bands[salience_band(projection.row) if projection.observable else "unobservable"] += 1
+    for _, as_of in projected:
+        bands[version.band(as_of.row) if as_of.observable else "unobservable"] += 1
 
     raw_selected_granted = raw_granted = 0
     weighted_selected = weighted_selected_granted = weighted_granted = weighted_population = 0.0
@@ -212,8 +245,9 @@ def _replay_cell(
 
     return SalienceReplayCell(
         term=term,
+        salience_version=version.version,
         policy=str(policy),
-        eligible=len(rows),
+        eligible=eligible,
         skipped_no_snapshot=skipped,
         cohorts=conferences,
         selected=len(selected),
@@ -241,7 +275,7 @@ def replay_gate(
     policies: Sequence[asof.CutoffPolicy],
     config: SalienceConfig,
 ) -> SalienceReplay:
-    """Replay the gate over each (Term, policy) cell into a :class:`SalienceReplay`.
+    """Replay the gate over each (Term, policy, version) cell into a :class:`SalienceReplay`.
 
     Deterministic and read-only: the population is ``case_id``-ordered, every
     projection is a pure function of stored payloads, and the selection core is
@@ -249,8 +283,15 @@ def replay_gate(
     so two runs over the same corpus produce the same report. A Term with no
     eligible petitions still yields its cells (zero counts), so an empty Term
     is visible rather than silently absent.
+
+    **Every registered salience version replays, in one report.** A candidate
+    scorer is judged against the incumbent at the same moment over the same
+    reconstructed dockets, so the projection is built once per (Term, policy)
+    and scored by each version in turn — the comparison then isolates the
+    scoring function, which is the only thing that differs between the cells.
     """
     cells: list[SalienceReplayCell] = []
+    versions = registered_versions()
     with corpus.connect(corpus_db_path) as conn:
         by_term: dict[int, list[corpus.CorpusRow]] = {}
         for row in select_replay_population(conn, terms=terms):
@@ -259,9 +300,15 @@ def replay_gate(
                 by_term.setdefault(term, []).append(row)
         for term in terms:
             for policy in policies:
-                cells.append(_replay_cell(conn, term, policy, by_term.get(term, []), config))
+                rows = by_term.get(term, [])
+                projection = _project_cohort(conn, policy, rows)
+                for version in versions:
+                    cells.append(
+                        _replay_cell(term, policy, len(rows), projection, config, scorer(version))
+                    )
     return SalienceReplay(
         salience_version=SALIENCE_VERSION,
+        salience_versions=list(versions),
         terms=list(terms),
         policies=[str(policy) for policy in policies],
         cells_evaluated=len(cells),

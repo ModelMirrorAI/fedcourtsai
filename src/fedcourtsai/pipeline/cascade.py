@@ -22,30 +22,40 @@ The steps mirror what ``run-predict`` / ``run-evaluate`` do around the agent cal
    ``event.yaml`` definition plus, for a resolved event, the ground-truth
    ``outcome.json`` the evaluator scores against.
 2. **Predict** the event with every enabled predictor.
-3. **Evaluate** every resolved target's predictions with every enabled evaluator.
+3. **Evaluate** every resolved target's predictions with every enabled evaluator,
+   bracketed by the blind-grading steps (:mod:`fedcourtsai.blinding`): the
+   candidates are staged under opaque aliases before the agent runs and its
+   output is un-aliased after, before ``validate``.
 4. **Validate** the produced ledger (schema + git-only referential checks), the
    same gate CI runs on the resulting PR.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from .. import corpus, ids
-from ..paths import CasePaths
+from ..blinding import (
+    latest_prediction_dirs,
+    provision_blinded_predictions,
+    unblind_evaluations,
+)
+from ..paths import CasePaths, EventPaths
 from ..registry import enabled_evaluators, enabled_predictors
-from ..schemas import Outcome, PredictableEvent, PredictorConfig, UsageRole
+from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from .outcome import (
+    build_merits_outcome,
     disposition_basis,
     granted_flag,
     is_machine_readable,
     resolution_signals,
 )
-from .runner import RunRequest, get_runner
+from .runner import Runner, RunRequest, get_runner
 
 
 class CascadeError(RuntimeError):
@@ -112,7 +122,7 @@ def _select_predictors(config_root: Path, predictor: str | None) -> list[Predict
 
 def _outcome_for_resolved(
     row: corpus.CorpusRow,
-    event_id: str,
+    event: corpus.CorpusEvent,
     basis: Literal["standard", "mootness"] = "standard",
 ) -> Outcome | None:
     """Ground-truth :class:`Outcome` for an already-resolved event, or ``None``.
@@ -120,20 +130,50 @@ def _outcome_for_resolved(
     ``pull``'s :func:`fedcourtsai.pipeline.outcome.detect_resolution` records an
     outcome for an event transitioning open→resolved; the cascade instead replays
     an event the corpus already marks resolved, so it builds the same outcome from
-    the stored row without that open-event gate. Returns ``None`` when the
-    disposition is not machine-readable or there is no decision date (the unrecorded
-    path), matching detection's rule so a guess is never recorded.
+    the stored row without that open-event gate — but under the same **stage
+    routing**: a merits-stage event takes the merits mapping from the row's
+    ``merits_*`` columns (:func:`fedcourtsai.pipeline.outcome.build_merits_outcome`
+    — the judgment axis, never the cert vocabulary), and every other event the
+    cert-vocabulary mapping. Returns ``None`` when the row cannot carry the
+    event's ground truth (an unreadable disposition, a missing decision date,
+    or a merits event with no dated parsed judgment) — the unrecorded path,
+    matching detection's rule so a guess is never recorded.
     """
+    if event.stage == Stage.merits:
+        if row.merits_judgment is None or row.merits_decided is None:
+            return None
+        try:
+            # The stored column is blob-tolerant TEXT whose readers re-validate
+            # against the vocabulary rather than failing the row (the field's
+            # own contract); an out-of-vocabulary value degrades to the
+            # unrecorded path, never a crash.
+            judgment = Judgment(row.merits_judgment)
+        except ValueError:
+            return None
+        return build_merits_outcome(
+            row.case_id,
+            event.event_id,
+            judgment,
+            row.merits_decided,
+            distribution_count=row.distribution_count,
+            cvsg_date=row.cvsg_date,
+            source=row.citations[0] if row.citations else None,
+        )
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):
         return None
     assert row.disposition is not None  # narrowed by is_machine_readable above
+    # An interim (application-docket) outcome never carries the cert `signals`
+    # block — distribution count and CVSG are observations nobody makes on an
+    # application — keyed on the same tolerant docket-form recognizer the live
+    # resolution path uses (`pipeline.outcome._build_outcome`).
+    interim = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     return Outcome(
         case_id=row.case_id,
-        event_id=event_id,
+        event_id=event.event_id,
         resolved_at=row.date_decided,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
-        signals=resolution_signals(row.distribution_count, row.cvsg_date),
+        signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )
@@ -145,6 +185,8 @@ def _event_definition(event: corpus.CorpusEvent) -> PredictableEvent:
         event_id=event.event_id,
         case_id=event.case_id,
         kind=event.kind,
+        stage=event.stage,
+        moment=event.moment,
         title=event.title or event.case_id,
         description=event.description,
         docket_entry_id=event.docket_entry_id,
@@ -152,6 +194,61 @@ def _event_definition(event: corpus.CorpusEvent) -> PredictableEvent:
         decision_target=event.decision_target,
         resolved=event.resolved,
     )
+
+
+def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
+    *,
+    runner: Runner,
+    request: Callable[[UsageRole, str, str, str], RunRequest],
+    event_paths: EventPaths,
+    data_root: Path,
+    config_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    run_id: str,
+    map_dir: Path,
+) -> list[Path]:
+    """Score one resolved event with every enabled evaluator, graded blind.
+
+    The blind-grading bracket is the same one ``run-evaluate`` puts around its
+    agent step (:mod:`fedcourtsai.blinding`): stage the candidates under opaque
+    aliases first, un-alias the evaluator's output after. The local loop has to
+    run the contract the evaluate prompt states, or a real-engine cascade reads a
+    staging area that was never built — and the un-aliasing has to happen before
+    ``run_cascade``'s closing ``validate``, since an alias resolves against no
+    prediction and that is exactly the check which says so.
+
+    Returns nothing for an event that is unresolved, or that no predictor
+    produced a cell for: there is no ground truth to score against in the first
+    case and nothing to score in the second.
+    """
+    if not event_paths.outcome.is_file() or not latest_prediction_dirs(event_paths):
+        return []
+    provision_blinded_predictions(
+        data_root=data_root,
+        config_root=config_root,
+        court=court,
+        docket=docket,
+        event_id=event_id,
+        run_id=run_id,
+        map_dir=map_dir,
+    )
+    written: list[Path] = []
+    for evaluator in enabled_evaluators(config_root / "evaluators.yaml"):
+        written.extend(
+            runner.run(request(UsageRole.evaluator, evaluator.id, evaluator.prompt, event_id))
+        )
+        unblind_evaluations(
+            data_root=data_root,
+            court=court,
+            docket=docket,
+            event_id=event_id,
+            evaluator_id=evaluator.id,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+    return written
 
 
 def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one arg each
@@ -227,7 +324,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         events = case_paths.event(ev.event_id)
         write_yaml(events.event_file, _event_definition(ev))
         if ev.resolved:
-            outcome = _outcome_for_resolved(row, ev.event_id, basis)
+            outcome = _outcome_for_resolved(row, ev, basis)
             if outcome is not None:
                 write_json(events.outcome, outcome)
                 outcomes.append(events.outcome)
@@ -254,11 +351,23 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
 
     evaluations: list[Path] = []
     for ev in targets:
-        if not case_paths.event(ev.event_id).outcome.is_file():
-            continue  # nothing to score until the event resolves
-        for evaluator in enabled_evaluators(config_root / "evaluators.yaml"):
-            request = _request(UsageRole.evaluator, evaluator.id, evaluator.prompt, ev.event_id)
-            evaluations.extend(runner.run(request))
+        evaluations.extend(
+            _evaluate_event(
+                runner=runner,
+                request=_request,
+                event_paths=case_paths.event(ev.event_id),
+                data_root=data_root,
+                config_root=config_root,
+                court=court,
+                docket=docket,
+                event_id=ev.event_id,
+                run_id=run_id,
+                # Runner-local, beside the ledger rather than inside it, so a
+                # local cascade over a real engine keeps the key out of the tree
+                # the agent browses just as CI does.
+                map_dir=data_root.parent / ".blinding",
+            )
+        )
 
     ledger = validate_ledger(data_root)
     references = run_ledger_referential_checks(data_root)

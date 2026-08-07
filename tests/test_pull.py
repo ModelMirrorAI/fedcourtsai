@@ -11,7 +11,7 @@ from fedcourtsai.courtlistener import CourtListenerClient, RateBudgetExceeded
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
-from fedcourtsai.schemas import EventKind
+from fedcourtsai.schemas import Disposition, EventKind, Stage
 from fedcourtsai.store import open_events, resolved_events
 from tests.conftest import seed_prediction
 
@@ -120,6 +120,27 @@ def test_refresh_extracts_a_post_onboarding_motion(tmp_path: Path) -> None:
         "evt-motion-stay-the-mandate",
     ]
     assert result.ambiguous == []
+
+
+def test_predict_queue_carries_only_case_baseline_events(tmp_path: Path) -> None:
+    # The seam the workflows' jq reads: a changed case with a stay motion open
+    # queues predict with the baseline event only — the motion is tracked
+    # (open_events serves it) but never earns a forecast cell.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    queues = pull_cases(
+        cast(
+            CourtListenerClient,
+            FakeClient(DOCKET, [{"id": 9, "description": "Motion to stay the mandate"}]),
+        ),
+        db,
+        tmp_path,
+        [("ca9", 64512345)],
+    )
+    assert set(open_events(db, "ca9", 64512345)) == {
+        "evt-appeal-disposition",
+        "evt-motion-stay-the-mandate",
+    }
+    assert [e["events"] for e in queues.predict] == [["evt-appeal-disposition"]]
 
 
 def test_refresh_event_extraction_is_idempotent(tmp_path: Path) -> None:
@@ -285,6 +306,47 @@ def test_in_predict_scope_defers_a_salience_unselected_case(tmp_path: Path) -> N
     assert _in_predict_scope(db, "scotus/sel") is True  # selected
     assert _in_predict_scope(db, "scotus/def") is False  # deferred
     assert _in_predict_scope(db, "scotus/raw") is True  # unscored → fail-open selected
+
+
+def test_in_predict_scope_admits_an_unselected_case_with_an_open_merits_event(
+    tmp_path: Path,
+) -> None:
+    # The merits bypass at the queue seam: the salience gate is a cert-stage
+    # funding decision, so a scored-but-not-selected petition the Court then
+    # granted is back in scope on its OPEN merits event — while the same row
+    # with that event resolved (judgment landed) stays deferred, because the
+    # bypass keys on the open event, not on the grant.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        rows = [
+            corpus.CorpusRow(
+                case_id=case_id,
+                court="scotus",
+                docket_number=number,
+                disposition=Disposition.granted,
+                date_cert_granted=date(2026, 1, 12),
+            )
+            for case_id, number in (("scotus/open", "24-4"), ("scotus/closed", "24-5"))
+        ]
+        corpus.upsert_rows(conn, rows)
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    resolved=resolved,
+                )
+                for case_id, resolved in (("scotus/open", False), ("scotus/closed", True))
+            ],
+        )
+        conn.execute("UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0")
+        conn.commit()
+    assert _in_predict_scope(db, "scotus/open") is True  # the merits bypass
+    assert _in_predict_scope(db, "scotus/closed") is False  # no open merits event
 
 
 class FakeDiscoverPullClient:

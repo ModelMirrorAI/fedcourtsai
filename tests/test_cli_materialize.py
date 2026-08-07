@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.schemas import Disposition, Engine, PredictableEvent, Prediction
+from fedcourtsai.schemas import Disposition, Engine, Moment, PredictableEvent, Prediction
 from fedcourtsai.serialize import read_model, write_json
 from tests.conftest import FixtureCorpus
 
@@ -62,7 +62,34 @@ def test_materialize_event_writes_event_yaml_from_corpus(fixture_corpus: Fixture
     assert event.event_id == "evt-petition-disposition"
     assert event.case_id == "scotus/305"
     assert event.kind == "petition"
+    assert event.stage == "cert"
     assert event.resolved is False
+
+
+def test_materialize_event_carries_the_moment_stamp(fixture_corpus: FixtureCorpus) -> None:
+    # The corpus row carries the stamp and the ledger file must keep it: a
+    # dropped moment reads as the stage's first at the metrics join, silently
+    # re-pooling a later-moment cell.
+    result = runner.invoke(
+        app,
+        [
+            "materialize-event",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    event = read_model(
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .event_file,
+        PredictableEvent,
+    )
+    assert event.moment == Moment.distribution
 
 
 def test_materialize_event_honors_explicit_out(

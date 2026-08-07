@@ -19,9 +19,15 @@ what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). It needs nothi
 secret.
 
 The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
-it drives provision → predict → evaluate → `validate` over the fixture corpus with no
-network, so a broken predict/evaluate cell fails in the gate in seconds. Run just it
-with `uv run pytest -k cascade_smoke`.
+it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
+network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
+predicted stage — a cert petition, and the opt-in CVSG docket whose later-moment cert
+cell answers the same `cert-v1` claim set; the fixture's substantive stay application,
+whose interim cell carries a Brier score but no segment baseline; and its granted docket,
+whose merits cell carries a judgment with its mandatory vote block and the one declared
+`merits-v1` claim. Each non-cert cell lands in the leaderboard's own unranked stage block
+rather than the ranked cert board, and the later-moment cert cell likewise aggregates
+into its own `cert@cvsg` block. Run just it with `uv run pytest -k cascade_smoke`.
 
 If you changed the pydantic models, the `schemas` stage regenerates the exported
 schemas and fails on drift — so regenerate and commit them in the same change.
@@ -81,9 +87,11 @@ trigger-issue close; the salvage cell
 rides the draft; a rerun updates in place) with no App token, no PR, and no
 matrix spend. It is the one scenario whose job binds no deployment
 environment at all — it needs no role variables and no secret — so it is the
-one scenario that still dispatches from any branch.
+one scenario no deployment-branch policy can ever refuse, and a dispatch from
+any branch runs it to completion.
 `engine-smoke` is the one token-spending scenario: a single real-engine
-predictor cell (the `engine` input picks which; one predict cell's spend
+predictor cell (the `engine` input picks which — an `all` dispatch ignores it
+and runs one smoke per engine; one predict cell's spend
 against the default open-event case — a resolved event also replays
 evaluator cells) driven through `local-cascade` with the agent's retrieval on the
 service sidecar and the cascade's own provisioning reads pinned to `ranged`
@@ -116,8 +124,8 @@ six real scenarios, with engine-smoke counted once per engine, or one green
 matrix leg does — green at exactly that
 staging head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. The collect scenario is outside
-the gate, and — binding no environment at all — is also the one scenario that
-succeeds from any branch.
+the gate, and — binding no environment at all — is the one scenario no
+deployment-branch policy can refuse from any branch.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
@@ -162,7 +170,7 @@ the committed cassette double as the fixture for that valid shape.
 run with no remote, no role assumption, and no tokens.
 
 **A one-command cascade.** `fedcourts local-cascade --court <id> --docket <id>`
-chains provision → predict → evaluate → `validate` over the fixture corpus:
+chains provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus:
 
 ```bash
 # offline, token-free — the default loop

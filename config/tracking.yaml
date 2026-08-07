@@ -56,26 +56,31 @@ pull:
 # SCOTUS freshness. No API budget — these caps bound per-cycle wall clock and
 # upstream politeness (~1 req/s), not spend.
 live:
-  # Pending petitions re-polled per cycle (recent Terms first, then stalest).
+  # Live petitions re-polled per cycle (recent Terms first, then stalest):
+  # pending ones plus the granted dockets retained until their merits
+  # judgment (a cohort of roughly a Term's grants, small against this cap).
   # Sized to re-poll the whole pending watchlist each cycle even at its seasonal
-  # peak — the September long conference distributes ~276 petitions at once
-  # (regular conferences run a median ~11, p90 ~37). This is a coverage ceiling,
+  # peak — the September long conference distributes ~180 petitions at once
+  # (regular conferences run a median ~34, p90 ~82). This is a coverage ceiling,
   # not the wall-clock bound: a re-poll that catches a distribution transition
   # also fetches up to two document PDFs, and those cluster exactly at that peak,
   # so cycle time is governed by the run-pull live job's `--max-run-seconds` soft
   # budget (which commits progress and resumes next cycle), not by this count.
-  # The poller only fetches what is actually pending, so off-peak cycles stay
-  # small; a high ceiling just stops the rotation from truncating coverage.
+  # The poller only fetches what is actually live — pending, or granted with
+  # the merits proceeding open — so off-peak cycles stay small; a high
+  # ceiling just stops the rotation from truncating coverage.
   max_cases_per_run: 300
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
-  # absorb the long-conference onboarding burst within a day (~276 over ~4
+  # absorb the long-conference onboarding burst within a day (~180 over ~2
   # cycles) rather than trickling it over a week; the same soft
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
   # Unresolved interim applications re-polled per cycle (recent Terms first,
-  # then stalest) — ground-truth collection only; prediction queueing is off
-  # for applications. Small because each re-poll is one request at the polite
+  # then stalest). A changed, still-unresolved substantive application in
+  # predict scope queues predict on the poll (daily-debounced; quota'd by
+  # salience.interim_reserve_slots below); the rest is ground-truth
+  # collection. Small because each re-poll is one request at the polite
   # ~1 req/s and applications resolve in days to weeks: the unresolved set
   # stays a short list that drains across cycles like the sweep backlog, so a
   # small cap keeps the interim tail cheap without ever starving it.
@@ -108,7 +113,7 @@ live:
 # for the statpack's per-Term base rates, secondarily the cert back-test set —
 # by walking October Terms over the supremecourt.gov docket JSON: the same
 # client/ingest path as `live:` above, so no API budget. This section IS the
-# set's sampling frame; it is committed so the set's construction stays
+# set's construction frame; it is committed so the set's construction stays
 # documented and reproducible.
 historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
@@ -118,9 +123,10 @@ historical:
   # whose existing case carries an open PREDICTED event to the watchlist (its
   # re-poll queues the evaluate handoff the walker never files); the two
   # walkers' cursors are disjoint, so neither rewinds the other. Note the
-  # sampling frame below applies to what the WALKER ingests — a Term the
-  # forward poller also onboarded (OT2025+) carries poller-full coverage on
-  # top of the walker's sample, so per-Term composition is not uniform there.
+  # frame below applies to what the WALKER ingests — a Term the forward
+  # poller also onboarded (OT2025+) carries the poller's pending-petition
+  # coverage on top of the walker's decided-only set, so per-Term composition
+  # is not uniform there.
   terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
   # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
@@ -214,15 +220,25 @@ evaluate:
 # up to a fundable capacity N. N is a guaranteed floor per conference, not a hard
 # ceiling — carve-outs and the sticky latch may push the realized count above it.
 salience:
-  # Bootstrapping-sized: the long-conference cap keeps the flagship three-engine
-  # OT2026 release inside the ~$10K bootstrapping budget (~$5K inference at the
-  # ~$13/fully-tournamented-case planning rate, over the ~$5K non-inference
-  # floor), with headroom left for the Term's first regular conferences; raised
-  # as funding lifts N (see docs/budget.md). The long conference (the Term's
-  # opening conference) clears the summer backlog at once, so it carries a
-  # larger cap than a regular conference.
-  per_conference_capacity: 150
-  long_conference_capacity: 200
+  # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
+  # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
+  # cohorts and select ~95% of the paid docket — a ranking, not a spend
+  # control, funding ~$21K/Term against a ~$10K inference envelope. At 12 the
+  # gate projects ~543 selections a Term (capped rank fill plus uncapped
+  # carve-outs), which with the other stages' moments lands the whole program
+  # at ~$10.2K (docs/budget.md).
+  #
+  # It costs coverage, and the trade is stated rather than hidden: the
+  # projection keeps ~80% of the Term's grants, against ~98% at 150. Raise
+  # both as funding lifts, keeping the ratio below.
+  per_conference_capacity: 12
+  # The Term's opening conference clears the summer backlog at once — ~180
+  # petitions against a regular conference's ~34 — so it carries a larger cap.
+  # The 2x ratio front-loads deliberately: the opening cohort is where the
+  # Term's arrivals concentrate, and at a fixed budget the shift is
+  # grant-neutral, so it buys breadth at the moment of highest volume for
+  # nothing.
+  long_conference_capacity: 24
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28
@@ -240,28 +256,39 @@ salience:
   # Lookback window for the salience-band segment base rate — how many October
   # Terms immediately before a case's own Term may contribute to the band grant
   # rate the evaluator scores Brier skill against and `cert-backtest.json`
-  # reports per band. 0 = unbounded: every prior Term in the statpack, which is
-  # today's behaviour and stays the default so no published skill number moves.
-  # The tension is real and deliberate (docs/salience.md, *Base rates &
-  # baselines for the predicted segment*): per-Term high-band grant rates run
-  # 25.8%-48.0% across OT2017-OT2025, so a long window is stable but assumes the
-  # Court's grant behaviour is stationary, while a short one tracks the drift on
-  # only 61-163 weighted-resolved petitions per Term. Anchored at an OT2026
-  # petition the high band reads roughly 37% (n~1000) unbounded, 34% (n~610) at
-  # 5, and 44% (n~70) at 1 — a ~10-point spread in the number skill is measured
-  # against. Move it on evidence, and before the freeze rather than part-way
-  # through a Term. Counted in Term YEARS, not statpack rows: a Term missing
-  # from the pack shortens the sample rather than pulling an older Term in. See
-  # also `statpack.markdown_terms`, the same window for the forward (agent)
-  # stratum.
-  base_rate_lookback_terms: 0
-  # Placeholder cap on interim-docket tournament slots (stays, injunctions —
-  # docs/salience.md "The interim docket", docs/budget.md), carved from the
-  # same per-conference spend envelope rather than added to it, so target
-  # total spend stays as published. Inert: no enforcement code reads this key
-  # yet — it holds the knob's place until interim predict scope lands, and is
-  # sized only once a measured interim base rate exists.
-  interim_reserve_slots: 0
+  # reports per band. Set to 10 to match `statpack.markdown_terms`: the scored
+  # baseline and the band table the agents anchor on then share one window by
+  # construction, so the two cannot silently diverge as walked Terms accumulate.
+  # With nine Terms walked (OT2017-OT2025) the bound excludes nothing today —
+  # every published skill number is unchanged — it only pins where the edge
+  # will sit. The bias/variance tension is real and deliberate
+  # (docs/salience.md, *Base rates & baselines for the predicted segment*):
+  # per-Term high-band grant rates run 25.8%-48.0% across OT2017-OT2025, so a
+  # long window is stable but assumes the Court's grant behaviour is
+  # stationary, while a short one tracks the drift on only 61-163
+  # weighted-resolved petitions per Term. Counted in Term YEARS, not statpack
+  # rows: a Term missing from the pack shortens the sample rather than pulling
+  # an older Term in. Move it between Terms, never part-way through one —
+  # a change re-bases every published skill number at once.
+  base_rate_lookback_terms: 10
+  # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
+  # "The interim docket", docs/budget.md). Defined INSIDE N by the selection pass
+  # (pipeline.salience.plan_cohorts): each pass, pending substantive
+  # applications fill up to this many reserve slots (escalation-ladder order —
+  # response requested, then amicus count; a still-pending selected
+  # application keeps its slot), and the slots in use
+  # lower the current conference cohort's rank-fill limit by the same number —
+  # carve-outs above N are untouched, and an unfilled reserve lowers nothing.
+  # That limit costs a real cert pick wherever the cohort's non-carve-out
+  # remainder exceeds it — which typical cohorts reach at
+  # per_conference_capacity 12, where a full reserve leaves a rank fill of 7 —
+  # so slots in use displace cert picks by design (docs/budget.md). Set well BELOW the
+  # observed concurrency (~16 substantive applications live at once against a
+  # walked Term's 219 arrivals): the reserve is a deliberate cap on how much of
+  # the interim stream is predicted at all, not a fit to it, which is why the
+  # predicted slice is a ladder-ordered subsample. Raising it widens interim
+  # coverage and narrows the cert rank fill one-for-one.
+  interim_reserve_slots: 5
 
 # statpack = publication knobs for `metrics/statpack.md`
 # (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and

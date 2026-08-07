@@ -9,6 +9,15 @@ runbook, [docs/security.md](docs/security.md).
 - **Pin actions to a full commit SHA**, with the version in a trailing comment.
   `zizmor` (in `lint-actions.yml`) fails the build on unpinned actions; Dependabot
   bumps the pins.
+- **Pin Python dependencies to `uv.lock`, and install with `--locked`.** The
+  lockfile carries a hash per artifact, so it is the supply-chain control for
+  the project's own dependencies — the counterpart of the action SHAs above.
+  Every job that installs them goes through
+  `.github/actions/setup-python-env`, whose `uv sync --locked` refuses a lock
+  that has drifted from `pyproject.toml` rather than re-resolving. Dependabot
+  bumps it. The packages `uvx` resolves at run time are *not* in that lock and
+  are pinned by version alone: the CourtListener MCP server named in
+  `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
@@ -62,7 +71,14 @@ runbook, [docs/security.md](docs/security.md).
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
   branch is likewise withheld, with a misconfiguration note on the trigger
-  issue in place of a findings report. The scan is a heuristic and the cell's
+  issue in place of a findings report. One surface is handled a layer earlier
+  instead: the harness-captured tool-call transcript (`retrieval_log.json`)
+  records whatever a tool call carried, which is not the agent's choice, so
+  credential-shaped runs there are **redacted at capture** — rewritten to a
+  `[redacted:…]` marker and the run allowed through, rather than costing a
+  whole fan-out's model spend to a withheld branch. Redaction is not a gate:
+  it spares only the shapes it can name, and anything it leaves still meets
+  the scan. The scan is a heuristic and the cell's
   uploaded artifacts remain downloadable from the Actions run by logged-in
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**
@@ -108,8 +124,8 @@ runbook, [docs/security.md](docs/security.md).
   — only a maintainer-installed App can apply a label that fires a workflow at
   all.
 - **Branch protection and the deployment boundary.** `main` requires a PR
-  passing `gate`, `paths`, and `promotion-gate`; the **data App** is the sole
-  bypass actor, so the deterministic `run-pull` writers push corpus facts
+  passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
+  is the sole bypass actor, so the deterministic `run-pull` writers push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
   non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
