@@ -120,7 +120,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe
+from .pipeline import cell_context, historical, liveprobe, moments
 from .pipeline.asof import CutoffPolicy
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
@@ -129,7 +129,6 @@ from .pipeline.discover import discover_cases
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import (
-    MERITS_EVENT_ID,
     entry_descriptions,
     interim_disposal_signal,
     snapshot_shows_disposition,
@@ -1754,24 +1753,40 @@ def _claim_scores_for(
 
 
 def _grant_term_for(event_paths: EventPaths) -> int | None:
-    """The October Term this event's cert grant fell in, or ``None``.
+    """The October Term this event's cert **grant** fell in, or ``None``.
 
-    The merits event is minted with ``opened_at`` set to the grant date
-    (``pipeline.outcome.merits_event_for``), so its committed ``event.yaml`` is
-    the durable record of the grant Term the merits baseline keys on. ``None``
-    for any event that is not a dated merits event — every cert cell, and a
-    merits event whose definition is missing or unreadable.
+    The merits baseline pools strictly-prior grant Terms, so this must be the
+    Term of the grant — never of the moment. The first merits moment opens on
+    the grant date, so its own ``event.yaml`` is the record; a **later** merits
+    moment opens on its own filing (a respondent's merits brief lands a median
+    ~80 days after the grant), which routinely falls in the next October Term.
+    Reading that as the grant Term would pool the case against a cohort it does
+    not belong to — including, at the boundary, its own.
+
+    So a later moment reads its sibling first-moment definition instead.
+    ``None`` for any event that is not a dated merits moment, and for a later
+    moment whose sibling is missing — suppressing the baseline rather than
+    guessing a Term.
     """
-    event_file = event_paths.event_file
-    if not event_file.is_file():
+
+    def _opened(paths: EventPaths) -> tuple[Stage | None, date | None]:
+        event_file = paths.event_file
+        if not event_file.is_file():
+            return (None, None)
+        try:
+            event = read_model(event_file, PredictableEvent)
+        except (OSError, ValueError, ValidationError):
+            return (None, None)
+        return (event.stage, event.opened_at)
+
+    stage, opened_at = _opened(event_paths)
+    if stage != Stage.merits:
         return None
-    try:
-        event = read_model(event_file, PredictableEvent)
-    except (OSError, ValueError, ValidationError):
-        return None
-    if event.stage != Stage.merits or event.opened_at is None:
-        return None
-    return grant_term_year(event.opened_at)
+    spec = moments.spec_for(event_paths.base.name)
+    if spec is not None and spec.ordinal > 0:
+        first = moments.moments_for(Stage.merits)[0]
+        _, opened_at = _opened(event_paths.sibling(first.event_id))
+    return grant_term_year(opened_at) if opened_at is not None else None
 
 
 @app.command("process-digest")
@@ -3167,7 +3182,13 @@ def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> s
     protections; this refusal is defense-in-depth for cells fanned out before
     the docket latched.
     """
-    if event_id == MERITS_EVENT_ID:
+    # Keyed on the event's declared STAGE, not on one event id: every merits
+    # moment forecasts the judgment, so every one of them must take the judgment
+    # branch. Testing an id would send a later merits moment down the cert
+    # branch, where the grant order that opened its own proceeding reads as a
+    # disclosed outcome — refusing the cell permanently, and silently.
+    spec = moments.spec_for(event_id)
+    if spec is not None and spec.stage is Stage.merits:
         judgment = last_judgment_entry(payload)
         if judgment is not None:
             return f"snapshot carries a merits judgment: {judgment[0].value!r}"

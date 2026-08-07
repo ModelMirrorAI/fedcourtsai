@@ -50,9 +50,9 @@ from ..schemas import (
     PredictionContext,
     StatPack,
 )
+from . import moments
 from .evaluate import claim_score, merits_base_rate, prediction_base_rate
 from .judgment import judgment_disturbed
-from .outcome import MERITS_EVENT_ID
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
 CLAIM_DISPOSITION = "disposition"
@@ -89,13 +89,22 @@ DECLARED_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
-# The merits declaration, keyed on the deterministic merits event id the cert
-# grant mints (`pipeline.outcome.MERITS_EVENT_ID`) — the one order-kind event
-# that carries the merits stage.
+# The merits declaration. Reached through the declared-moment table rather than
+# by event id: every merits moment carries it, because a forecast taken after
+# briefing answers the same claims as one taken at the grant — only the evidence
+# behind the answer differs, and that lives on the aggregation key.
 _MERITS_CLAIM_SET: tuple[str, tuple[str, ...]] = (
     CLAIM_SET_MERITS_V1,
     (CLAIM_JUDGMENT_DISTURBED,),
 )
+
+#: Set version -> its declaration, the resolution the moment table names by
+#: string. The table stays a leaf module; the claim ids stay here with their
+#: resolvers.
+_SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
+    CLAIM_SET_CERT_V1: DECLARED_CLAIM_SETS[EventKind.petition],
+    CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
+}
 
 # The claims that restate the prediction's headline `probability` — one belief
 # written twice so each set is self-describing (the cert disposition claim on a
@@ -107,13 +116,20 @@ _HEADLINE_CLAIMS = (CLAIM_DISPOSITION, CLAIM_JUDGMENT_DISTURBED)
 def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
     """The ``(set_version, claim_ids)`` an event declares, or ``None``.
 
-    The minted merits event declares the merits set by its exact id; every
-    other event declares by kind. ``None`` — no set, so no block — for a
-    malformed event id and for every kind without a declaration (a motion or a
-    non-merits order has no declared claims).
+    A **declared forecast moment** (:mod:`fedcourtsai.pipeline.moments`) declares
+    whatever its stage declares — every cert moment carries the cert set, every
+    merits moment the merits set. The claims do not change because the forecast
+    was taken later; only the information set does, and that lives on the
+    aggregation key rather than in the declaration. Bumping a set version per
+    moment would fragment every claim aggregate for no semantic gain.
+
+    Everything else declares by kind, unchanged: an entry-pinned motion, a
+    circuit appeal, a legacy id. ``None`` — no set, so no block — for a
+    malformed event id and for every kind without a declaration.
     """
-    if event_id == MERITS_EVENT_ID:
-        return _MERITS_CLAIM_SET
+    spec = moments.spec_for(event_id)
+    if spec is not None:
+        return _SETS_BY_VERSION.get(spec.claim_set_version or "")
     kind_slug = parse_event_kind(event_id)
     if kind_slug is None:
         return None

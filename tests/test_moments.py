@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from fedcourtsai import corpus
+from fedcourtsai.cli import _forward_leakage
 from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline.claims import declared_claim_set
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from fedcourtsai.store import normalized_moment
@@ -105,3 +109,67 @@ def test_the_moment_round_trips_through_the_corpus() -> None:
     # A record from before the column existed.
     del record["moment"]
     assert corpus._event_from_record(record).moment is None
+
+
+def test_a_later_merits_moment_declares_the_merits_claim_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keyed on the declaration, not on one event id.
+
+    The old rule compared against the single minted merits id, so a second
+    merits moment fell through to the kind lookup, found no `order` entry, and
+    declared **no claims** — while the stage-keyed validate check still demanded
+    a `judgment` on it. A silent, contradictory pair.
+    """
+    briefed = moments.MomentSpec(
+        event_id="evt-brief-judgment",
+        kind=EventKind.brief,
+        stage=Stage.merits,
+        moment=Moment.briefed,
+        ordinal=1,
+        decision_target="judgment",
+        description="test",
+        claim_set_version=moments.CLAIM_SET_MERITS_V1,
+    )
+    _register(monkeypatch, briefed)
+    assert declared_claim_set("evt-order-judgment") == declared_claim_set("evt-brief-judgment")
+    # And an undeclared order-kind event still declares nothing.
+    assert declared_claim_set("evt-order-something-else") is None
+
+
+def test_a_later_merits_moment_takes_the_judgment_leakage_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keyed on the declared stage, not on one event id.
+
+    A merits moment sent down the cert branch meets the grant order that opened
+    its own proceeding, reads it as a disclosed outcome, and refuses the cell —
+    permanently, on every attempt, with an exit code rather than a message.
+    """
+    briefed = moments.MomentSpec(
+        event_id="evt-brief-judgment",
+        kind=EventKind.brief,
+        stage=Stage.merits,
+        moment=Moment.briefed,
+        ordinal=1,
+        decision_target="judgment",
+        description="test",
+        claim_set_version=moments.CLAIM_SET_MERITS_V1,
+    )
+    _register(monkeypatch, briefed)
+    granted = {
+        "docket_number": "24-100",
+        "ProceedingsandOrder": [{"Date": "Mar 4 2025", "Text": "Petition GRANTED."}],
+    }
+    # The cert moment must refuse: its own outcome is on the docket.
+    assert _forward_leakage(granted, "scotus", "evt-petition-disposition") is not None
+    # Both merits moments must be admitted: the grant is their legitimate record.
+    assert _forward_leakage(granted, "scotus", "evt-order-judgment") is None
+    assert _forward_leakage(granted, "scotus", "evt-brief-judgment") is None
+
+
+def _register(monkeypatch: pytest.MonkeyPatch, *extra: moments.MomentSpec) -> None:
+    """Register additional moments for the duration of a test."""
+    declared = (*moments.DECLARED_MOMENTS, *extra)
+    monkeypatch.setattr(moments, "DECLARED_MOMENTS", declared)
+    monkeypatch.setattr(moments, "_BY_EVENT_ID", {s.event_id: s for s in declared})

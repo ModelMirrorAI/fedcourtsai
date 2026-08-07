@@ -1504,7 +1504,7 @@ def test_two_declared_moments_of_one_stage_both_resolve(monkeypatch: pytest.Monk
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_for=EventKind.petition,
+        claim_set_version=moments.CLAIM_SET_CERT_V1,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(
@@ -1548,7 +1548,7 @@ def test_one_undeclared_event_takes_the_whole_stage_to_triage(
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_for=EventKind.petition,
+        claim_set_version=moments.CLAIM_SET_CERT_V1,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(
