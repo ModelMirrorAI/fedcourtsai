@@ -178,9 +178,16 @@ def declares(event_id: str, stage: Stage) -> bool:
     The predicate outcome attribution widens on. Both halves matter: an
     undeclared id is not a moment, and a declared moment of a *different* stage
     has no claim on this stage's disposition.
+
+    Stage comparisons here and below are equality, never identity: callers
+    hand in real :class:`Stage` members from the corpus *and* the plain
+    strings a validated artifact carries (``use_enum_values``), and a
+    ``StrEnum`` is equal to its value where an ``is`` check silently fails —
+    turning every lookup total-miss for exactly the deserialized records the
+    normalization exists to serve.
     """
     spec = _BY_EVENT_ID.get(event_id)
-    return spec is not None and spec.stage is stage
+    return spec is not None and spec.stage == stage
 
 
 def first_moment(stage: Stage) -> Moment | None:
@@ -191,7 +198,7 @@ def first_moment(stage: Stage) -> Moment | None:
     that is only normalizing a legacy record.
     """
     ordered = sorted(
-        (spec for spec in DECLARED_MOMENTS if spec.stage is stage), key=lambda s: s.ordinal
+        (spec for spec in DECLARED_MOMENTS if spec.stage == stage), key=lambda s: s.ordinal
     )
     return ordered[0].moment if ordered else None
 
@@ -199,5 +206,5 @@ def first_moment(stage: Stage) -> Moment | None:
 def moments_for(stage: Stage) -> tuple[MomentSpec, ...]:
     """``stage``'s declared moments, earliest first."""
     return tuple(
-        sorted((spec for spec in DECLARED_MOMENTS if spec.stage is stage), key=lambda s: s.ordinal)
+        sorted((spec for spec in DECLARED_MOMENTS if spec.stage == stage), key=lambda s: s.ordinal)
     )

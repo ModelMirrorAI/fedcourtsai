@@ -404,7 +404,9 @@ def test_committed_interim_cell_lands_in_the_stages_block_not_the_cert_board(
     board = build_leaderboard(list(iter_stratified_evaluations(tmp_path, frozen_only=False)))
     assert [e.predictor_id for e in board.entries] == ["cert-p"]
     assert board.evaluations_total == 1  # cert only
-    interim = board.stages["interim"]
+    # The join normalizes the file's unrecorded moment to the stage's first,
+    # so the cell aggregates into the keyed block, not the bare-stage one.
+    interim = board.stages["interim@arrival"]
     assert [e.predictor_id for e in interim.entries] == ["interim-p"]
     assert interim.evaluations_total == 1
 

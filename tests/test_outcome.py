@@ -484,6 +484,47 @@ def test_record_outcomes_writes_outcome_and_marks_resolved(tmp_path: Path) -> No
     assert event.resolved is True
 
 
+def test_record_outcomes_preserves_the_moment_stamp(tmp_path: Path) -> None:
+    """Resolution rewrites the event.yaml, so the stamp must ride the rewrite.
+
+    A later-moment cell whose event file loses its moment at resolution is
+    re-labeled the stage's *first* moment at the metrics join (a null moment
+    normalizes to it), pooling the cell into exactly the population the
+    moment axis exists to keep it out of — and doing so at the moment the
+    cell becomes scoreable at all.
+    """
+    event = corpus.CorpusEvent(
+        event_id="evt-order-cvsg-disposition",
+        case_id="ca9/64512345",
+        court="ca9",
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        title="CVSG disposition",
+    )
+    with corpus.connect(_db(tmp_path)) as conn:
+        corpus.upsert_events(conn, [event])
+    resolution = Resolution(
+        outcomes={
+            "evt-order-cvsg-disposition": Outcome(
+                case_id="ca9/64512345",
+                event_id="evt-order-cvsg-disposition",
+                resolved_at=date(2025, 3, 10),
+                actual_disposition=Disposition.denied,
+                actual_granted=0,
+            )
+        }
+    )
+    written = record_outcomes(_db(tmp_path), tmp_path, "ca9", 64512345, resolution)
+    assert written == ["evt-order-cvsg-disposition"]
+    materialized = read_model(
+        CasePaths(tmp_path, "ca9", 64512345).event("evt-order-cvsg-disposition").event_file,
+        PredictableEvent,
+    )
+    assert materialized.stage == Stage.cert
+    assert materialized.moment == Moment.cvsg
+
+
 def test_resolve_case_end_to_end(tmp_path: Path) -> None:
     _open_event(tmp_path)
     row = from_api_docket(DECIDED_DOCKET)
