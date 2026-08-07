@@ -278,6 +278,25 @@ def test_redact_snapshot_strips_outcome_fields_only() -> None:
     assert set(redacted) == {"id", "case_name", "docket_number", "date_filed", "docket_entries"}
 
 
+def test_redact_snapshot_strips_accruing_counsel_blocks_but_keeps_captions() -> None:
+    payload = {
+        "id": 305,
+        "PetitionerTitle": "Pacific Mutual",
+        "RespondentTitle": "Haslip",
+        "Petitioner": [{"name": "A. Counsel", "title": "Counsel of Record"}],
+        "Respondent": [{"name": "B. Counsel", "title": "Counsel of Record"}],
+        "Other": [{"name": f"Amicus Counsel {n}"} for n in range(10)],
+        "AttorneyHeaderPetitioner": "Attorneys for Petitioner",
+        "AttorneyHeaderRespondent": "Attorneys for Respondent",
+        "AttorneyHeaderOther": "Other",
+    }
+    redacted = redact_snapshot(payload)
+    # The counsel blocks accrue with every amicus filing, so their size on a
+    # decided docket is a grant oracle — they go. The two title captions are
+    # the arrival-time case name a forward cell sees, so they stay.
+    assert set(redacted) == {"id", "PetitionerTitle", "RespondentTitle"}
+
+
 def test_scoring_reports_lift_over_the_always_deny_floor() -> None:
     # Three petitions, one granted: the always-deny floor scores 2/3.
     items = [
@@ -996,6 +1015,10 @@ def test_truncating_a_decided_payload_reproduces_the_real_pre_decision_snapshot(
         "disposition": "Certiorari denied",
         "date_terminated": "2025-03-10",
         "sJsonCreationDate": "2025-03-11",
+        # The accrual class: counsel blocks the decided docket has grown that
+        # the pre-decision view never carried. Reconstruction must shed them.
+        "Other": [{"name": "Amicus Counsel"}],
+        "AttorneyHeaderOther": "Other",
     }
     cutoff = replay_cutoff(decided, date(2025, 3, 10))
     reconstructed, _ = truncate_snapshot(redact_snapshot(decided), cutoff)
