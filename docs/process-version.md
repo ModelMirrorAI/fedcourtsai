@@ -143,8 +143,9 @@ the tournament predictors), so it carries no process version.
 
 ## Freezing: the cutover procedure
 
-The freeze is a deliberate, reviewable **one-line commit**, run when the process
-is settled and the first frozen predictions are about to land:
+The freeze centers on a deliberate, reviewable **one-line commit**, made when
+the process is settled and the first frozen predictions are about to land;
+recording and tagging that commit complete the procedure:
 
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.
@@ -153,7 +154,11 @@ is settled and the first frozen predictions are about to land:
 3. Commit. Because the digest excludes `pipeline_sha`, the blessed set survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
-4. Record that commit as the cutover in [milestones.md](milestones.md).
+4. Record that commit as the cutover in [milestones.md](milestones.md), and —
+   once the promotion carrying it lands on `main` — tag it `prereg/<label>`
+   (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
+   *Tags* section of [pipeline.md](pipeline.md) describes, protected against
+   update and deletion so the freeze point stays findable and immovable.
 
 From that commit forward, the first long-conference prediction lands under the
 stamped, frozen process and the headline fills in. When the process later changes

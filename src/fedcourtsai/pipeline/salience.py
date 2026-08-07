@@ -348,10 +348,11 @@ def plan_cohorts(
     ones against the cap first (a slot frees only when its occupant resolves).
     The slots in use lower the rank-fill limit in the **latest** conference
     cohort of the pass — the conference cycle the applications are live in — so
-    the reserve is defined inside ``N``. Whether it *spends* inside ``N``
-    depends on the cohort: a lowered limit costs a cert pick only where the
-    non-carve-out remainder exceeds it, which regular conferences do not reach
-    (``docs/budget.md``). An unfilled reserve lowers nothing.
+    the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
+    too: a lowered limit costs a cert pick wherever the eligible non-carve-out
+    remainder exceeds it — near the typical cohort's eligible size, and not
+    yet measured at the shipped capacity (``docs/budget.md``). An unfilled
+    reserve lowers nothing.
     """
     active = version if version is not None else scorer()
     scores: dict[str, float] = {}

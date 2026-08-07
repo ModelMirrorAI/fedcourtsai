@@ -388,8 +388,10 @@ The full path of a change, operator's view:
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
-   check right before merging, and merge with a **merge commit**. Live on
-   the next workflow run.
+   check right before merging, and merge with a **merge commit**; tag the
+   merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
+   second batch — the *Tags* subsection below). Live on the next workflow
+   run.
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
@@ -406,6 +408,24 @@ The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
 restricted to `staging`, read-only role trust, per-environment engine keys) is
 separate wiring, described in docs/security.md.
+
+### Tags
+
+Annotated tags on `main` record the project's public reference points, in
+three namespaces:
+
+- **`prereg/<label>`** — a pre-registration freeze commit, e.g.
+  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS`
+  (docs/process-version.md carries the freeze procedure).
+- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
+  `-2` suffix distinguishes a same-day second batch.
+- **`results/<term>-<milestone>`** — the commit carrying a published metrics
+  refresh, e.g. `results/ot2026-longconf`.
+
+One-time setup (maintainer): before the first tag is minted, add a tag
+ruleset blocking update and deletion on all three namespaces — a movable
+pre-registration marker defeats its purpose. Creating a tag is likewise a
+maintainer step, like the promotion merge it usually accompanies.
 
 ### Adding a required status check
 
