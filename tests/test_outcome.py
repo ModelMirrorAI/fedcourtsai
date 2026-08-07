@@ -5,6 +5,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
@@ -25,7 +26,14 @@ from fedcourtsai.pipeline.outcome import (
     snapshot_shows_disposition,
     termination_signal,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent, Stage
+from fedcourtsai.schemas import (
+    Disposition,
+    EventKind,
+    Moment,
+    Outcome,
+    PredictableEvent,
+    Stage,
+)
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import _FORECASTABLE_KINDS
 
@@ -194,7 +202,7 @@ def test_decided_application_without_an_interim_staged_event_stays_unrecorded() 
         assert not resolution.outcomes
         (unrecorded,) = resolution.unrecorded
         assert unrecorded.event_id == baseline
-        assert "interim baseline" in unrecorded.reason
+        assert "interim moments" in unrecorded.reason
 
 
 def test_unreadable_application_resolution_stays_unrecorded() -> None:
@@ -260,7 +268,7 @@ def test_tolerant_application_spelling_is_also_guarded() -> None:
     resolution = detect_resolution(row, "scotus", 9002, ["evt-petition-disposition"])
     assert not resolution.outcomes
     (unrecorded,) = resolution.unrecorded
-    assert "interim baseline" in unrecorded.reason
+    assert "interim moments" in unrecorded.reason
 
 
 def test_undecided_docket_is_a_noop() -> None:
@@ -376,8 +384,10 @@ def test_two_stage_less_events_still_refuse() -> None:
 
 
 def test_two_events_sharing_the_cert_stage_refuse() -> None:
-    # The stage must identify the target *unambiguously*: two cert-staged
-    # events (a data defect worth a human look) refuse rather than guess.
+    # A same-stage event that declares no forecast moment has no claim on the
+    # disposition — the spurious-duplicate-baseline shape, a data defect worth
+    # a human look. It refuses rather than guessing, and takes its co-staged
+    # siblings with it.
     row = from_api_docket(DECIDED_DOCKET)
     resolution = detect_resolution(
         row,
@@ -388,7 +398,10 @@ def test_two_events_sharing_the_cert_stage_refuse() -> None:
     )
     assert not resolution.outcomes
     assert {r.event_id for r in resolution.unrecorded} == {"evt-petition-a", "evt-petition-b"}
-    assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
+    # The refusal names the offenders rather than counting them: neither id
+    # declares a forecast moment, so neither has a claim on the disposition.
+    assert all("without declaring a forecast moment" in r.reason for r in resolution.unrecorded)
+    assert all("evt-petition-a, evt-petition-b" in r.reason for r in resolution.unrecorded)
 
 
 def test_an_unreadable_disposition_still_surfaces_every_open_event() -> None:
@@ -1469,3 +1482,83 @@ def test_a_circuit_grant_mints_no_merits_event() -> None:
         }
     )
     assert merits_event_for(circuit, resolution) is None
+
+
+def test_two_declared_moments_of_one_stage_both_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two forecasts of one question share one ground truth.
+
+    This is the whole point of the moment axis: a petition forecast at its
+    first distribution and again after a CVSG are two events, and the single
+    cert disposition decides both. Refusing to attribute — the old
+    exactly-one rule — would leave both permanently open and permanently in
+    triage.
+
+    Declared through the register rather than by id shape, so the widening is
+    exercised before the second real moment exists.
+    """
+    second = moments.MomentSpec(
+        event_id="evt-order-cvsg-disposition",
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        ordinal=1,
+        decision_target="disposition",
+        description="test",
+        claim_set_for=EventKind.petition,
+    )
+    monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
+    monkeypatch.setattr(
+        moments, "_BY_EVENT_ID", {s.event_id: s for s in (*moments.DECLARED_MOMENTS, second)}
+    )
+    row = from_api_docket(DECIDED_DOCKET)
+    both = ["evt-petition-disposition", "evt-order-cvsg-disposition"]
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        both,
+        stages=dict.fromkeys(both, Stage.cert),
+    )
+    assert not resolution.unrecorded
+    assert set(resolution.outcomes) == set(both)
+    # One disposition, so the recorded facts are identical on both — what makes
+    # the two comparable at all.
+    first, other = (resolution.outcomes[eid] for eid in both)
+    assert (first.actual_disposition, first.resolved_at, first.actual_granted) == (
+        other.actual_disposition,
+        other.resolved_at,
+        other.actual_granted,
+    )
+
+
+def test_one_undeclared_event_takes_the_whole_stage_to_triage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard narrows rather than loosening.
+
+    Widening to "any same-stage set" would have bought the second moment by
+    giving up the refusal that catches a spurious duplicate baseline. A
+    declared moment beside an undeclared event must still refuse both.
+    """
+    second = moments.MomentSpec(
+        event_id="evt-order-cvsg-disposition",
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        ordinal=1,
+        decision_target="disposition",
+        description="test",
+        claim_set_for=EventKind.petition,
+    )
+    monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
+    monkeypatch.setattr(
+        moments, "_BY_EVENT_ID", {s.event_id: s for s in (*moments.DECLARED_MOMENTS, second)}
+    )
+    row = from_api_docket(DECIDED_DOCKET)
+    mixed = ["evt-petition-disposition", "evt-order-cvsg-disposition", "evt-petition-spurious"]
+    resolution = detect_resolution(
+        row, "ca9", 64512345, mixed, stages=dict.fromkeys(mixed, Stage.cert)
+    )
+    assert not resolution.outcomes
+    assert {r.event_id for r in resolution.unrecorded} == set(mixed)
+    assert all("evt-petition-spurious" in r.reason for r in resolution.unrecorded)

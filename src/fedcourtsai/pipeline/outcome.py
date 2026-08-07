@@ -26,11 +26,17 @@ disposition's source and therefore its stage: on a cert docket the case-level
 disposition is the *cert*-stage decision, so it belongs to the open event whose
 ``stage`` is ``cert`` — even when other events (an interim motion) are open
 beside it, which then simply stay open — with stage-less events falling back to
-the case-baseline id-prefix rule (:func:`_cert_disposition_target`); on an
-application docket it is the *interim* disposition the interim vocabulary
-matched at ingest, so it belongs to the lone open ``interim``-stage event
-(:func:`_interim_disposition_target`). Anything the stage does not disambiguate
-is refused.
+the case-baseline id-prefix rule; on an application docket it is the *interim*
+disposition the interim vocabulary matched at ingest, so it belongs to the open
+``interim``-stage events. One routing function serves every stage
+(:func:`_stage_disposition_targets`).
+
+**A stage may carry several open events, and they all resolve together.** Two
+forecast moments of one question share one ground truth, so each gets its own
+``outcome.json`` carrying identical facts — which is what lets each be scored
+against the information set it actually had. What is refused is a same-stage
+event that declares no forecast moment: it has no claim on the disposition, and
+it takes the whole stage to triage rather than quietly receiving one.
 
 A recorded cert **grant** is also a birth: it opens the merits proceeding, so
 :func:`resolve_case` mints the case's open merits event
@@ -77,6 +83,7 @@ from ..schemas import (
 )
 from ..serialize import write_json, write_yaml
 from ..store import open_events
+from . import moments
 from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
 from .judgment import judgment_disturbed
@@ -542,41 +549,56 @@ CASE_BASELINE_ID_PREFIXES = tuple(
 )
 
 
-def _cert_disposition_target(
-    open_event_ids: list[str], stages: Mapping[str, Stage | None]
-) -> str | None:
-    """The one open event the case-level disposition attributes to, or ``None``.
+def _stage_disposition_targets(
+    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> list[str]:
+    """The open events one stage's case-level disposition attributes to.
 
-    The corpus row carries exactly one case-level disposition, and on a cert
-    docket it is the **cert**-stage decision
-    (:func:`fedcourtsai.corpus.resolution_date` is the petition-stage cert date
-    on a SCOTUS docket), so cert is the only stage routed here; an interim
-    disposition has a different case-level source (the application's own
-    resolving entry, matched by the interim vocabulary at ingest), and the
-    sibling stage → disposition-source branch that routes it is
-    :func:`_interim_disposition_target`.
+    The corpus row carries exactly one case-level disposition per stage — on a
+    cert docket the petition-stage cert decision
+    (:func:`fedcourtsai.corpus.resolution_date`), on an application docket the
+    interim vocabulary's match at ingest — and this routes it to the events
+    that decision actually decides.
 
-    Stage first: the open event tagged ``cert`` claims the disposition outright,
-    even with other (non-cert) events open beside it — those resolve on their
-    own filings' terms and simply stay open. Two events sharing the cert stage
-    is ambiguous, so nothing is attributed. Where no event carries the cert
-    stage, the stage-less fallback is the case-baseline id-prefix rule: a
-    *lone* open event with no recorded stage and a petition/appeal id prefix.
-    An event carrying an explicit non-cert stage never inherits the cert
-    disposition, whatever its id.
+    **A stage may carry several open events, and they all resolve together.**
+    Two forecast moments of one question — a petition at its first distribution
+    and the same petition after a CVSG — are two events sharing one ground
+    truth, so refusing to attribute would leave both permanently open and
+    permanently in triage. What is refused instead is an event that has no
+    claim on the disposition: every same-stage event must be a **declared
+    moment** of the stage (:mod:`fedcourtsai.pipeline.moments`), and one that is
+    not takes the whole stage to triage.
+
+    That is a narrower guard than "exactly one", not a looser one. The declared
+    table is closed and written only by the mint seams, so the shape it still
+    refuses is the one it was built to refuse: a *spurious* duplicate baseline,
+    which would otherwise take a case-level disposition it has no claim on.
+
+    Where no event carries the stage, the **cert** stage-less fallback applies:
+    a lone open event with no recorded stage and a case-baseline id prefix.
+    There is deliberately no interim fallback — the only stage-less baseline an
+    application docket carries is a historical spelling's petition-kind event,
+    whose cert-shaped id must never receive an interim disposition. An event
+    carrying an explicit other stage never inherits this one's disposition,
+    whatever its id.
     """
-    cert_staged = [eid for eid in open_event_ids if stages.get(eid) == Stage.cert]
-    if len(cert_staged) == 1:
-        return cert_staged[0]
-    if cert_staged:
-        return None  # two events share the cert stage: no unambiguous target
+    staged = [eid for eid in open_event_ids if stages.get(eid) == stage]
+    if len(staged) == 1:
+        return staged
+    if staged:
+        # Every one of them must be a declared moment of this stage, or the
+        # disposition has no unambiguous set of claimants.
+        if all(moments.declares(eid, stage) for eid in staged):
+            return sorted(staged)
+        return []
     if (
-        len(open_event_ids) == 1
+        stage is Stage.cert
+        and len(open_event_ids) == 1
         and stages.get(open_event_ids[0]) is None
         and open_event_ids[0].startswith(CASE_BASELINE_ID_PREFIXES)
     ):
-        return open_event_ids[0]
-    return None
+        return open_event_ids
+    return []
 
 
 def _cert_already_attributed(
@@ -597,26 +619,20 @@ def _cert_already_attributed(
     )
 
 
-def _interim_disposition_target(
-    open_event_ids: list[str], stages: Mapping[str, Stage | None]
-) -> str | None:
-    """The one open event an application's interim disposition attributes to, or ``None``.
+def _undeclared_same_stage(
+    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+) -> list[str]:
+    """The same-stage open events that declare no moment — the triage reason's detail.
 
-    The interim sibling of :func:`_cert_disposition_target`: on an application
-    docket the row's case-level disposition comes from the application's own
-    disposing entry (the interim vocabulary,
-    :func:`fedcourtsai.pipeline.interim_signals.match_interim_disposition`), so
-    it belongs to the open event whose ``stage`` is ``interim`` — the
-    motion-kind baseline the discovery mint stamps. Two events sharing the
-    stage is ambiguous, so nothing is attributed. There is deliberately **no
-    stage-less fallback** here: the only stage-less baseline an application
-    docket carries is a historical spelling's petition-kind event, whose
-    cert-shaped id must never receive an interim disposition.
+    Computed only to *name* the offenders in the surfaced reason, so a
+    maintainer reading the queue sees which event took the stage to triage
+    rather than a bare count.
     """
-    interim_staged = [eid for eid in open_event_ids if stages.get(eid) == Stage.interim]
-    if len(interim_staged) == 1:
-        return interim_staged[0]
-    return None
+    return sorted(
+        eid
+        for eid in open_event_ids
+        if stages.get(eid) == stage and not moments.declares(eid, stage)
+    )
 
 
 def detect_resolution(
@@ -681,14 +697,18 @@ def detect_resolution(
     # covered, not just the strict `YYAnnn` the baseline mint and the relabel
     # migration key on.
     application = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
-    target = (
-        _interim_disposition_target(open_event_ids, stages or {})
-        if application
-        else _cert_disposition_target(open_event_ids, stages or {})
-    )
-    if readable and target is not None:
+    stage = Stage.interim if application else Stage.cert
+    targets = _stage_disposition_targets(stage, open_event_ids, stages or {})
+    if readable and targets:
+        # One disposition, every declared moment of the stage. The moments are
+        # separate forecasts of one question, so they share one ground truth —
+        # each gets its own `outcome.json` carrying identical facts, which is
+        # what lets each be scored against the information set it actually had.
         return Resolution(
-            outcomes={target: _build_outcome(row, target, disposition_basis, interim=application)}
+            outcomes={
+                target: _build_outcome(row, target, disposition_basis, interim=application)
+                for target in targets
+            }
         )
 
     # The merits branch: a retained granted docket whose refreshed row carries
@@ -699,27 +719,32 @@ def detect_resolution(
     # their own filings' terms, exactly as under the cert stage routing. A
     # judgment parsed from an undated entry has no `resolved_at` to stamp, so
     # it surfaces for triage rather than being recorded on a guessed date.
-    merits_staged = [eid for eid in open_event_ids if stages and stages.get(eid) == Stage.merits]
-    if not application and row.merits_judgment is not None and len(merits_staged) == 1:
-        merits_event = merits_staged[0]
+    merits_events = _stage_disposition_targets(Stage.merits, open_event_ids, stages or {})
+    if not application and row.merits_judgment is not None and merits_events:
         # The column is blob-tolerant TEXT whose readers re-validate against the
         # vocabulary rather than failing the row (the field's own contract, and
         # the same guard the cascade's replay applies): an out-of-vocabulary
         # value surfaces for triage, never a crash in the poll.
         parsed = _known_judgment(row.merits_judgment)
         if parsed is not None and row.merits_decided is not None:
-            outcome = build_merits_outcome(
-                row.case_id,
-                merits_event,
-                parsed,
-                row.merits_decided,
-                distribution_count=row.distribution_count,
-                cvsg_date=row.cvsg_date,
-                source=row.citations[0] if row.citations else None,
+            return Resolution(
+                outcomes={
+                    merits_event: build_merits_outcome(
+                        row.case_id,
+                        merits_event,
+                        parsed,
+                        row.merits_decided,
+                        distribution_count=row.distribution_count,
+                        cvsg_date=row.cvsg_date,
+                        source=row.citations[0] if row.citations else None,
+                    )
+                    for merits_event in merits_events
+                }
             )
-            return Resolution(outcomes={merits_event: outcome})
+        # Every merits moment surfaces, not just the first: they share the one
+        # judgment, so an unusable judgment leaves all of them unresolved.
         return Resolution(
-            unrecorded=(
+            unrecorded=tuple(
                 UnrecordedOutcome(
                     case_id=row.case_id,
                     court_id=court_id,
@@ -735,7 +760,8 @@ def detect_resolution(
                             "entry is undated; no resolved_at can be stamped"
                         )
                     ),
-                ),
+                )
+                for merits_event in merits_events
             )
         )
 
@@ -745,18 +771,29 @@ def detect_resolution(
     # date_decided or a mutated disposition falls through to triage.
     if (
         not application
-        and target is None
+        and not targets
         and row.date_decided is None
         and row.disposition in GRANTED_DISPOSITIONS
         and _cert_already_attributed(resolved_event_ids or [], stages or {})
     ):
         return Resolution()
 
-    if application and readable:
+    undeclared = _undeclared_same_stage(stage, open_event_ids, stages or {})
+    if undeclared:
+        # The one same-stage shape still refused: an event that declares no
+        # forecast moment has no claim on the stage's disposition, and taking
+        # the whole stage to triage is what keeps a spurious duplicate baseline
+        # from quietly receiving one.
         reason = (
-            f"decided application docket ({row.disposition}) but no lone open "
+            f"docket decided ({row.disposition}) but {', '.join(undeclared)} "
+            f"share the {stage.value} stage without declaring a forecast moment; "
+            "the disposition is not attributed to any of them"
+        )
+    elif application and readable:
+        reason = (
+            f"decided application docket ({row.disposition}) but no open "
             "interim-stage event to attribute the interim disposition to; an "
-            "application's disposition belongs to its interim baseline only"
+            "application's disposition belongs to its interim moments only"
         )
     elif not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
