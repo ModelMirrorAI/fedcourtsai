@@ -1898,6 +1898,43 @@ def is_salience_deferred(row: CorpusRow) -> bool:
     return row.salience_version is not None and not row.salience_selected
 
 
+def has_open_merits_event(conn: ReadConnection, case_id: str) -> bool:
+    """Whether a case carries an open merits-stage event.
+
+    The **funding bypass** the salience seams consult: a case only reaches this
+    state after the Court has granted it, which is the Court's own selection
+    signal and a far stronger one than the gate's. The cert-stage funding
+    question — which of ~1,500 petitions is worth a forecast — simply does not
+    apply to a population of ~65 grants a Term, so a petition that missed the
+    cap must still be forecast at the merits stage.
+
+    Deliberately **not** a salience-column read. The gate stays a cert
+    construct: `salience_selected` keeps meaning "spent tournament budget at
+    cert", and latching it on granted rows to get this effect would corrupt the
+    one reading it is documented to carry (``docs/salience.md``).
+    """
+    cur = conn.execute(
+        "SELECT 1 FROM events WHERE case_id = ? AND resolved = 0 AND stage = ? LIMIT 1",
+        (case_id, Stage.merits.value),
+    )
+    return cur.fetchone() is not None
+
+
+def merits_open_case_ids(conn: ReadConnection) -> set[str]:
+    """Every case id carrying an open merits-stage event.
+
+    The bulk form of :func:`has_open_merits_event`, for a caller that walks the
+    whole SCOTUS table and would otherwise issue a point query per row. Served
+    by the partial open-events index, so it reads a small ordered slice rather
+    than scanning the table.
+    """
+    cur = conn.execute(
+        "SELECT DISTINCT case_id FROM events WHERE resolved = 0 AND stage = ?",
+        (Stage.merits.value,),
+    )
+    return {str(record["case_id"]) for record in cur}
+
+
 def is_disbarment_docket(row: CorpusRow) -> bool:
     """Whether a still-open SCOTUS docket is a disbarment (attorney-discipline) matter.
 

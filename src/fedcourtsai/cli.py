@@ -4334,7 +4334,12 @@ def _scope_filtered(
                 )
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
                 typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
-            elif corpus.is_salience_deferred(row):
+            elif corpus.is_salience_deferred(row) and not corpus.has_open_merits_event(
+                conn, row.case_id
+            ):
+                # The merits bypass: a below-cap petition still earns no cert
+                # cell, but once the Court grants it the funding question is a
+                # different one and the gate no longer answers it.
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: not selected this salience round "
                     f"(scored, below the capacity slice).",

@@ -760,6 +760,9 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
         [p.id for p in enabled_predictors(predictors_path)] if predictors_path is not None else None
     )
     with corpus.connect(corpus_db_path) as conn:
+        # Read once, not per row: this comprehension walks every SCOTUS row, and
+        # the set is a small ordered slice of the partial open-events index.
+        merits_open = corpus.merits_open_case_ids(conn)
         candidates = sorted(
             (
                 row
@@ -768,7 +771,15 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
                 # petition later latched out of scope must not spend a fetch slot
                 # every cycle only to be rejected post-fetch (the full exclusion
                 # reasoning still re-runs on the fresh row before queueing).
-                if row.salience_selected and not row.predict_excluded
+                #
+                # The merits bypass rides beside it, not through it: a granted
+                # docket has no further distribution transition, so this sweep is
+                # the ONLY path to a merits cell — and the cert-stage funding
+                # question does not apply to a case the Court has already agreed
+                # to hear. `predict_excluded` still refuses, so the hard-scope
+                # rules are untouched.
+                if (row.salience_selected or row.case_id in merits_open)
+                and not row.predict_excluded
             ),
             # Stalest first, so the catch-up backlog drains fairly under the
             # cap. A same-cycle first-selection was polled today and therefore

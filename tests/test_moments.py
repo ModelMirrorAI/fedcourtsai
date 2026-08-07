@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -324,3 +325,83 @@ def test_no_interim_moment_declares_claims() -> None:
     """
     for spec in moments.moments_for(Stage.interim):
         assert declared_claim_set(spec.event_id) is None
+
+
+def test_a_granted_case_reaches_the_predict_queue_without_being_salience_selected(
+    tmp_path: Path,
+) -> None:
+    """The merits bypass, at the seam that matters.
+
+    A granted docket has no further distribution transition, so the selection
+    sweep is the ONLY path to a merits cell — and the sweep gates on
+    `salience_selected`, which a below-cap petition never gets and, because the
+    selection pass never cohorts a resolved row, never will. Without the bypass
+    every grant the gate missed is unforecastable at the merits stage forever.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = corpus.CorpusRow(
+        case_id="scotus/5",
+        court="scotus",
+        docket_number="24-300",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2025, 3, 4),
+        salience_version="sal-v1",
+        salience_selected=False,  # scored, below the cap
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        # Not yet granted-with-an-open-merits-event: the gate still refuses.
+        assert corpus.is_salience_deferred(row) is True
+        assert corpus.has_open_merits_event(conn, row.case_id) is False
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=MERITS_EVENT_ID,
+                    case_id=row.case_id,
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    moment=Moment.grant,
+                )
+            ],
+        )
+        assert corpus.has_open_merits_event(conn, row.case_id) is True
+        assert corpus.merits_open_case_ids(conn) == {row.case_id}
+
+
+def test_the_bypass_does_not_reopen_the_cert_gate(tmp_path: Path) -> None:
+    """`salience_selected` keeps meaning "spent tournament budget at cert".
+
+    Latching it on granted rows would have been the easy way to get the bypass,
+    and it would corrupt the one reading the column is documented to carry —
+    leaking into the scope manifest and the salience board. The bypass is
+    conditioned on the event's stage instead, so the row is untouched.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = corpus.CorpusRow(
+        case_id="scotus/6",
+        court="scotus",
+        docket_number="24-301",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2025, 3, 4),
+        salience_version="sal-v1",
+        salience_selected=False,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=MERITS_EVENT_ID,
+                    case_id=row.case_id,
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    moment=Moment.grant,
+                )
+            ],
+        )
+        stored = corpus.get_row(conn, row.case_id)
+    assert stored is not None and stored.salience_selected is False
