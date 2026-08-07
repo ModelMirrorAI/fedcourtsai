@@ -220,21 +220,22 @@ evaluate:
 # up to a fundable capacity N. N is a guaranteed floor per conference, not a hard
 # ceiling — carve-outs and the sticky latch may push the realized count above it.
 salience:
-  # Bootstrapping-sized, and sized to BIND. Conference cohorts run a median 34
-  # petitions (p90 82, max 369), so a cap of 150 cut 8 of 251 cohorts and
-  # selected 96% of the paid docket — a ranking, not a spend control, funding
-  # ~$21K/Term against a ~$10K inference envelope. At 12 the gate selects ~543
-  # petitions a Term, which with the other stages' moments lands the whole
-  # program at ~$10.2K (docs/budget.md).
+  # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
+  # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
+  # cohorts and select ~95% of the paid docket — a ranking, not a spend
+  # control, funding ~$21K/Term against a ~$10K inference envelope. At 12 the
+  # gate projects ~543 selections a Term (capped rank fill plus uncapped
+  # carve-outs), which with the other stages' moments lands the whole program
+  # at ~$10.2K (docs/budget.md).
   #
-  # It costs coverage, and the trade is stated rather than hidden: ~80% of the
-  # Term's grants are still selected, against ~98% at 150. Raise both as funding
-  # lifts, keeping the ratio below.
+  # It costs coverage, and the trade is stated rather than hidden: the
+  # projection keeps ~80% of the Term's grants, against ~98% at 150. Raise
+  # both as funding lifts, keeping the ratio below.
   per_conference_capacity: 12
   # The Term's opening conference clears the summer backlog at once — ~180
   # petitions against a regular conference's ~34 — so it carries a larger cap.
-  # The 2x ratio (up from 1.33x) front-loads deliberately: the opening cohort is
-  # where the Term's arrivals concentrate, and at a fixed budget the shift is
+  # The 2x ratio front-loads deliberately: the opening cohort is where the
+  # Term's arrivals concentrate, and at a fixed budget the shift is
   # grant-neutral, so it buys breadth at the moment of highest volume for
   # nothing.
   long_conference_capacity: 24

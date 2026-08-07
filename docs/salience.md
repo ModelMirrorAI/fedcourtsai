@@ -356,14 +356,21 @@ past Term inherits. What the numbers may and may not be read as:
 budget's "more funding = more cases" equation and the milestones' funding milestone
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
-sized to the **bootstrapping** budget — the flagship three-engine long-conference
-release fits the ~$10K envelope (~$5K inference at the ~$13/fully-tournamented-case
-planning rate, ~$11 measured): **~150 per regular conference and ~200 for the long
-conference** (which clears the summer backlog of 1,000+ petitions at once). Those
-caps leave headroom inside the same envelope, deliberately — the long conference is
-the one cohort whose realized size has never been observed, so the default funds it
-plus the Term's first regular conferences rather than spending the envelope on a
-single guess. A per-conference cap
+sized to the **bootstrapping** budget — the flagship three-engine release fits the
+~$15K envelope: ≈$10K inference at the measured ~$11/fully-tournamented-case rate,
+~$10.2K funded at the $13 planning rate — **12 per regular conference and 24 for
+the long conference** (double, because that one cohort clears the summer backlog
+at once). The caps are sized to **bind**: raw paid cohorts run a median ~34
+petitions, though the eligible pool the rank fill actually ranks is smaller after
+the out-of-scope rules (~11 at the last live measurement, ~7 replay-reconstructed),
+so whether the cap binds at a typical conference is not yet measured — the census
+median bounds it from above. The projected yield is **~543 selected petitions a
+Term** carrying **~80% of the Term's grants** — a planning projection, not a
+census: the rank fill caps at ≈390 a Term (≈236 with the interim reserve
+continuously full) and the floor/CVSG carve-outs, riding above `N` uncapped,
+supply the rest and most of the grant coverage; a gate replay at the shipped
+capacity is what would measure both ([budget.md](budget.md) works the
+decomposition). A per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -687,9 +694,10 @@ it is visible as the application rotation's long-unresolved tail. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
-limit costs a real cert pick wherever the non-carve-out remainder exceeds it —
-which typical cohorts reach at the shipped capacity, where a full reserve
-leaves a rank fill of 7 ([budget.md](budget.md)). An
+limit costs a real cert pick wherever the *eligible* non-carve-out remainder
+exceeds it — at the shipped capacity a full reserve leaves a rank fill of 7,
+about where the eligible pool sits, so how often typical cohorts cross it is
+not yet measured ([budget.md](budget.md)). An
 unfilled reserve lowers nothing. Where it does bite, it bites prospectively, pass by
 pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
 sticky picks, and an application queued in the fail-open window before its
@@ -798,17 +806,22 @@ The knobs are settled for the first release; each is config, so changing one is 
 config edit, not a redesign. `N` **is a guaranteed floor, not a hard ceiling** —
 the posture below keeps selection additive and never destructive:
 
-- **Capacity `N`** — per-conference, OT2026 default ~150 / regular conference and
-  ~200 / long conference (the bootstrapping envelope above). **Whether the cap
-  binds at all depends on the Tier-0 IFP filter, which is larger than it sounds.**
-  Measured on the accumulating OT2026 long-conference cohort: of the petitions
-  distributed for it, **roughly two thirds are IFP** and leave at Tier 0, so the
-  eligible pool is about a third of the raw distribution volume. At that ratio the
-  200-case cap starts binding only once the conference draws more than ~600
-  petitions; below that every eligible petition is funded and `N` is inert. Read a
-  raw distribution count as a *ceiling* on the funded slice, never an estimate of
-  it — and re-measure the ratio rather than assuming it holds, since it is a
-  property of who files, not of the pipeline.
+- **Capacity `N`** — per-conference, OT2026 default 12 / regular conference and
+  24 / long conference (the bootstrapping envelope above). The caps sit well
+  under the raw median ~34-petition paid cohort, but the pool the rank fill
+  actually ranks is the *eligible* pool after the out-of-scope rules — ~11 per
+  conference at the last live measurement, ~7 in the replay-reconstructable
+  cohorts — so whether the cap binds at a typical conference is not yet
+  measured at the shipped size ([budget.md](budget.md)); carve-outs ride above
+  `N` untouched, the interim reserve's slots in use trade inside it, and the
+  cert rank fill is what remains. The Tier-0 IFP filter shapes that pool too,
+  and it is larger than it sounds — measured on the accumulating OT2026
+  long-conference cohort, **roughly two thirds** of the petitions distributed
+  are IFP and leave at Tier 0, so the eligible pool is about a third of the
+  raw distribution volume. Read a raw distribution count as a *ceiling* on the
+  candidate pool, never an estimate of it — and re-measure the ratio rather
+  than assuming it holds, since it is a property of who files, not of the
+  pipeline.
 - **Carve-outs sit above `N`** (not consuming it): CVSG and above-floor cases are
   guaranteed in, and `N` still fills with the next-best ranked cases, so no major
   case is ever crowded out.
