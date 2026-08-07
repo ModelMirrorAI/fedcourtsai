@@ -516,13 +516,19 @@ def test_the_cap_prefers_higher_scores_before_it_fills_with_ties(tmp_path: Path)
         reconcile_salience_selection(conn, config, apply=True)
 
     selected = _selected_ids(db)
-    # The 25 relist-1 petitions outrank all 240 relist-0 ones, so they are all in
-    # even though they are a minority of the cohort.
-    assert all(f"scotus/r1-{i:04d}" in selected for i in range(_LC_RELIST_1))
-    # The remaining capacity goes to relist-0 in case_id order, and the tail is cut.
+    capacity = config.long_conference_capacity
+    funded_r1 = sum(1 for s in selected if s.startswith("scotus/r1-"))
     funded_r0 = sum(1 for s in selected if s.startswith("scotus/r0-"))
-    assert funded_r0 == config.long_conference_capacity - _LC_RELIST_1
-    assert f"scotus/r0-{_LC_RELIST_0 - 1:04d}" not in selected  # the tail is not funded
+    # Relist-1 outranks relist-0, so the rank fill is spent on relist-1 first and
+    # reaches relist-0 only once every relist-1 petition is funded. Expressed
+    # against the configured capacity rather than a literal, so the property
+    # under test is the RANKING and the test survives a re-sizing of the gate.
+    assert funded_r1 == min(_LC_RELIST_1, capacity)
+    assert funded_r0 == max(0, capacity - _LC_RELIST_1)
+    assert funded_r0 + funded_r1 == capacity  # the fill is exactly the cap
+    # The tail of the weaker band is always cut: the cohort is far larger than
+    # any capacity this gate is funded at.
+    assert f"scotus/r0-{_LC_RELIST_0 - 1:04d}" not in selected
 
 
 def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:

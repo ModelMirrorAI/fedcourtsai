@@ -43,6 +43,30 @@ IFP-inclusive figure below is an estimate and these are not. The interim line is
 | Merits — cert grants opening a proceeding | 65 | paid `granted`, excluding the `gvr` label, which disposes of a petition without opening a proceeding |
 | Interim — substantive applications | 219 | 15.5% of the 1,410 parsed application dockets; 80.4% are extensions and 4.1% unreadable asks |
 
+**A case is forecast more than once.** Each stage asks one question and the case
+passes several points at which it can honestly be forecast, each with a
+different information set. The moments are separate events, separately scored
+and never pooled ([salience.md](salience.md)); each costs one fully-tournamented
+case-equivalent.
+
+| Stage | Moment | Events / Term | Coverage of the stage |
+|---|---|---:|---|
+| cert | first distribution | ~543 | the gate's selected slice, at `per_conference_capacity: 12` |
+| cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of all grants |
+| interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
+| interim | response requested | 8 | 12.3% of substantive applications |
+| interim | response filed | 21 | 30.6% |
+| merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
+| merits | briefed | 62 | 96.4% reach a respondent merits brief |
+| | **total** | **~786** | **≈$10.2K/Term** at the $13 planning rate |
+
+The later moments differ sharply in how much runway they leave, which is the
+figure to read before trusting any of their skill numbers: a merits brief
+precedes the judgment by a median 159 days (minimum 44), a requested interim
+response by a median 17 (minimum 3), and a *filed* interim response by a median
+of only 2 — so a material share of that last moment's cells will classify
+retrospective on commit latency alone.
+
 Two denominators are easy to confuse. The **≈5,500** the gate is priced on below
 counts cert decisions across both fee streams; the gate excludes IFP at Tier 0
 ([salience.md](salience.md)), so the pool it can ever select from is at most the
@@ -51,6 +75,14 @@ counts cert decisions across both fee streams; the gate excludes IFP at Tier 0
 that `out_of_scope_reason_full` adds. So the ≈$70K below is the whole-docket
 ceiling, and full coverage of what the gate can actually predict is
 `1,498 × 6 cells × $2.12 ≈ $19K`.
+
+**The gate had to be re-sized to be a gate at all.** Conference cohorts run a
+median 34 petitions (p90 82, max 369), so the shipped
+`per_conference_capacity: 150` cut **8 of 251** cohorts and excluded 5.3% of
+petitions — it selected **96%** of the paid docket and funded ~$21K/Term. That
+is a ranking, not a spend control. At `12` (long conference `24`) the gate
+selects ~543 petitions a Term and the whole program lands at ≈$10.2K. The trade
+is coverage: ~80% of the Term's grants are selected, against ~98% before.
 
 **A re-queue is not a re-run.** A selected cert petition re-queues on a
 distribution transition outside the same-day cooldown
@@ -73,13 +105,18 @@ interim slice is therefore a ladder-ordered subsample of the substantive stream
 rather than the stream itself.
 
 The reserve's slots are *defined* inside `N`: `_select_cohort` fills to
-`capacity` minus the slots in use. That subtraction only bites once a
-conference's non-carve-out remainder exceeds that reduced limit, and regular
-conferences run a median ~11 petitions against `per_conference_capacity: 150`,
-so at today's volumes it displaces nothing and the interim cells are additional
-spend — five cases' worth per pass at most. The trade the design describes
-begins at the long conference, and becomes the normal case only if the cohort
-ever approaches the cap.
+`capacity` minus the slots in use. **Since the gate was re-sized that
+subtraction bites.** It costs a cert pick once a conference's non-carve-out
+remainder exceeds the reduced limit, and at `per_conference_capacity: 12` a full
+reserve leaves 7 — well under the median 34-petition cohort. So the reserve now
+trades inside `N` as the design describes, rather than adding spend as it did at
+150, and five cert rank-fill picks per pass genuinely go to the interim stream.
+
+That makes the reserve a materially larger share of a small `N` than of a large
+one, and worth revisiting alongside it: at 12 it claims about 40% of the
+rank-fill limit. Lowering `N` further without lowering the reserve would zero
+the cert rank fill entirely — at `N ≤ 5` only the always-include carve-outs
+would be funded.
 
 Two things bound the interim figures. Lifespans run from each docket's first
 entry to its disposing entry rather than from the `date_filed` /
@@ -345,13 +382,16 @@ predictor count.
 The non-inference lines — misc floor ($350/mo), CourtListener ($250–1,200/yr), S3
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
 Actions ($0) — sum to a near-constant **≈$5K/yr floor**. Everything
-above it is inference `= N × per-case`, so funding moves a single dial: `N`, where
-`N ≈ inference_budget ÷ (≈$13 per fully-tournamented case)`. Each order of
-magnitude in funding buys roughly ten times the tournamented cases:
+above it is inference `= events × per-case`, and `N` is the dial that moves the
+cert stage — much the largest of the three. The other stages scale on the
+Court's own volume rather than on funding: every granted petition is forecast at
+the merits stage whatever `N` is, and the interim stream is bounded by
+`interim_reserve_slots`. So a scenario is read as "how much of the *cert* docket,
+plus a fixed ~220 events from the other two":
 
 | Scenario | ≈ Annual | Inference (= total − ≈$5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$10K | ≈$5K | ≈390 fully-tournamented cases: the OT2026 long-conference cert release (≈200 petitions at the `long_conference_capacity` cap, ≈$2.6K) **plus** the Term's first regular conferences from the same envelope |
+| Bootstrapping | ≈$15K | ≈$10K | ≈770 forecast events across all three stages — a **whole OT2026 Term**, not a slice of one: ~563 cert (`per_conference_capacity: 12`, long conference 24), ~96 interim, ~127 merits. Keeps ~80% of the Term's grants; the shipped 150 kept ~98% and cost ≈$21K |
 | Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
