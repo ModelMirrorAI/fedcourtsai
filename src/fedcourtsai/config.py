@@ -398,8 +398,8 @@ class SalienceConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    per_conference_capacity: int = Field(default=150, ge=0)
-    long_conference_capacity: int = Field(default=200, ge=0)
+    per_conference_capacity: int = Field(default=12, ge=0)
+    long_conference_capacity: int = Field(default=24, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
     # Bounds the live cycle's selection sweep (selected petitions with open,
     # never-predicted events — the rescue/catch-up/retry path). Each swept case
@@ -453,8 +453,12 @@ class SalienceConfig(BaseModel):
 def load_salience_config(config_root: Path) -> SalienceConfig:
     """Read the salience selection knobs from ``config_root/tracking.yaml``.
 
-    Falls back to the documented OT2026 defaults if the file or its ``salience``
-    section is absent, so the pass runs with a conservative cap rather than failing.
+    Falls back to the field defaults if the file or its ``salience`` section is
+    absent. The capacity defaults mirror the shipped ``config/tracking.yaml``
+    sizing — capacities that bind at typical cohort sizes and fit the
+    bootstrapping spend envelope (``docs/budget.md``) — so a config-less run
+    keeps the gate a spend control rather than un-binding it. (The lookback
+    keeps its deliberately conservative unbounded fallback; see the field.)
     """
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}

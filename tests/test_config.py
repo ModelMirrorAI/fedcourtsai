@@ -180,6 +180,26 @@ def test_repo_tracking_yaml_carries_the_two_base_rate_windows() -> None:
     assert "markdown_terms" in tracking["statpack"]
 
 
+def test_repo_tracking_yaml_carries_the_salience_spend_controls() -> None:
+    """Pin the shipped, pre-registered spend controls of the salience gate.
+
+    These values size the tournament to the bootstrapping envelope
+    (``docs/budget.md``): capacities that bind at typical cohort sizes, the
+    always-include floor, and the interim reserve carved out inside the
+    per-conference envelope. A silent edit to any of them re-sizes the whole
+    program's spend and coverage, so it must fail a test the same way a lookback
+    drift does — a deliberate diff, never a drift.
+    """
+    cfg = load_salience_config(Path("config"))
+    assert cfg.per_conference_capacity == 12
+    assert cfg.long_conference_capacity == 24
+    assert cfg.interim_reserve_slots == 5
+    assert cfg.floor == 0.28
+    # The reserve is defined *inside* the per-conference envelope: the selection
+    # pass fills ranks up to ``capacity - reserve``, which must stay positive.
+    assert cfg.interim_reserve_slots < cfg.per_conference_capacity
+
+
 def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:
     # The workflows wire FEDCOURTS_CORPUS_SPLIT from a repository variable; an
     # unset variable lands in the job env as the empty string, which must read
