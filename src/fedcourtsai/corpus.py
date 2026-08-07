@@ -1510,7 +1510,28 @@ def is_modern_cert(row: CorpusRow) -> bool:
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
 
 
-def opens_merits_proceeding(row: CorpusRow) -> bool:
+class MeritsProceedingRow(Protocol):
+    """The three fields :func:`opens_merits_proceeding` reads.
+
+    Structural, because the rule has to hold at both ends of the pipeline and
+    the two ends carry different row models: ingestion builds a
+    ``pipeline.ingest.CorpusRow`` and everything downstream reads a
+    :class:`CorpusRow`. Restating the predicate against each would let the mint
+    and the population that scores it drift apart — which is precisely the
+    failure the rule exists to prevent.
+    """
+
+    @property
+    def court(self) -> str: ...
+
+    @property
+    def date_cert_granted(self) -> date | None: ...
+
+    @property
+    def disposition(self) -> str | None: ...
+
+
+def opens_merits_proceeding(row: MeritsProceedingRow) -> bool:
     """Whether a SCOTUS row's cert grant is followed by a merits proceeding.
 
     A cert grant date alone does not mean a merits decision follows: a GVR and a
