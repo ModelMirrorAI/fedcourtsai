@@ -1,0 +1,11 @@
+case_id: scotus/72472748
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-10-29'
+resolved: true
+schema_version: '1.0'
+title: Santa Fe Alliance for Public Health and Safety, et al., Petitioners v. City
+  of Santa Fe, New Mexico, et al.

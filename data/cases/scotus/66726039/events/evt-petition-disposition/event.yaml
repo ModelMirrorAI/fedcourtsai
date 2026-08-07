@@ -1,0 +1,12 @@
+case_id: scotus/66726039
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-26'
+resolved: true
+schema_version: '1.0'
+title: Gale Zamore, Petitioner v. Deutsche Bank National Trust Company, Individually
+  and as Trustee for JP Morgan Mortgage Acquisition Trust 2007-CH5 Asset Backed Pass-Through
+  Certificates Series 2007-CH5, et al.

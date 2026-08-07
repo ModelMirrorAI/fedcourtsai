@@ -1,0 +1,11 @@
+case_id: scotus/72466170
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-09-28'
+resolved: true
+schema_version: '1.0'
+title: Jung Hyun Cho, et al., Petitioners v. Select Portfolio Servicing, Inc., et
+  al.

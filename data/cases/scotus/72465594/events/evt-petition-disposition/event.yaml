@@ -1,0 +1,11 @@
+case_id: scotus/72465594
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-05-05'
+resolved: true
+schema_version: '1.0'
+title: TCL Communication Technology Holdings Limited, et al., Petitioners v. Godo
+  Kaisha IP Bridge 1

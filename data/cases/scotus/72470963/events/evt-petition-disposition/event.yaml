@@ -1,0 +1,11 @@
+case_id: scotus/72470963
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-07-08'
+resolved: true
+schema_version: '1.0'
+title: David Hargreaves, Petitioner v. Nuverra Environmental Solutions, Inc., aka
+  Heckmann Corporation, aka Rough Rider Escrow, Inc., et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72470715
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-04-26'
+resolved: true
+schema_version: '1.0'
+title: Audubon Imports, LLC, dba Mercedes Benz of Baton Rouge, et al., Petitioners
+  v. Bayerische Motoren Werke Aktiengesellschaft (BMW AG), et al.

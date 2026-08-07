@@ -1,0 +1,11 @@
+case_id: scotus/72479520
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-05-14'
+resolved: true
+schema_version: '1.0'
+title: Tanishia Hubbard, Petitioner v. Service Employees International Union Local
+  2015, et al.

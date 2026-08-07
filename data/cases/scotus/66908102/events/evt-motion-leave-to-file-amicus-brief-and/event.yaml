@@ -1,0 +1,11 @@
+case_id: scotus/66908102
+decision_target: disposition
+description: Motion for leave to file amicus brief and brief in support of application
+  to vacate injunction filed by Former Representative George Miller.
+docket_entry_id: 4
+event_id: evt-motion-leave-to-file-amicus-brief-and
+kind: motion
+opened_at: '2022-11-22'
+resolved: true
+schema_version: '1.0'
+title: Joseph R. Biden, President of the United States, et al. v. Nebraska, et al.

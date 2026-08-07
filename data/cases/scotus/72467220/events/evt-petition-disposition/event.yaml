@@ -1,0 +1,11 @@
+case_id: scotus/72467220
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-11-03'
+resolved: true
+schema_version: '1.0'
+title: Greg Vasquez, et al., Petitioners v. Maritza Amador, Individually and as Representative
+  of the Estate of Gilbert Flores and as Next Friend of Minor R. M. F., et al.

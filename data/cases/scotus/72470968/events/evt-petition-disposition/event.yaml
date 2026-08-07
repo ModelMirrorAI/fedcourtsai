@@ -1,0 +1,11 @@
+case_id: scotus/72470968
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-08-06'
+resolved: true
+schema_version: '1.0'
+title: David Louis Whitehead, Petitioner v. United States District Court for the Western
+  District of Arkansas

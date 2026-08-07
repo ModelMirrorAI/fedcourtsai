@@ -1,0 +1,11 @@
+case_id: scotus/66648994
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-09-05'
+resolved: true
+schema_version: '1.0'
+title: Ron Neal, Superintendent, Indiana State Prison, Petitioner v. Frederick Michael
+  Baer

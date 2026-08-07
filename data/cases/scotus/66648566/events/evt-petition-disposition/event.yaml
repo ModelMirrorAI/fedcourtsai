@@ -1,0 +1,11 @@
+case_id: scotus/66648566
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-09-06'
+resolved: true
+schema_version: '1.0'
+title: Alfred DeGennaro, Petitioner v. American Bankers Insurance Company of Florida,
+  et al.

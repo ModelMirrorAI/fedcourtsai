@@ -1,0 +1,11 @@
+case_id: scotus/66722229
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-04-02'
+resolved: true
+schema_version: '1.0'
+title: Comanche Nation of Oklahoma, Petitioner v. Ryan Zinke, Secretary of the Interior,
+  et al.

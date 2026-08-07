@@ -1,0 +1,11 @@
+case_id: scotus/72470317
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-01-18'
+resolved: true
+schema_version: '1.0'
+title: T. O., a Child, et al., Petitioners v. Fort Bend Independent School District,
+  et al.

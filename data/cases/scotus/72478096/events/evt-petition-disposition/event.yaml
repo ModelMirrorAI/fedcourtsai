@@ -1,0 +1,11 @@
+case_id: scotus/72478096
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-01-27'
+resolved: true
+schema_version: '1.0'
+title: American Petroleum Institute, et al., Petitioners v. Environmental Defense
+  Center, et al.

@@ -1,0 +1,10 @@
+case_id: scotus/72483341
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-14'
+resolved: true
+schema_version: '1.0'
+title: Estate of Arlene Townsend, et al., Petitioners v. Steven M. Berman, et al.

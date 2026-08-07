@@ -1,0 +1,12 @@
+case_id: scotus/72465149
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-02-19'
+resolved: true
+schema_version: '1.0'
+title: Nicholas L. Triantos, Petitioner v. Deutsche Bank National Trust Company, as
+  Trustee for Morgan Stanley ABS Capital I Inc. Trust 2004-HE4, Mortgage Pass-Through
+  Certificates, Series 2004-HE4, et al.

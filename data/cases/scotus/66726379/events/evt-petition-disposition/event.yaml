@@ -1,0 +1,11 @@
+case_id: scotus/66726379
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-11-06'
+resolved: true
+schema_version: '1.0'
+title: Eric O'Day, et al., Individually and on Behalf of the SunEdison, Inc. Retirement
+  Savings Plan, Petitioners v. Ahmad Chatila, et al.

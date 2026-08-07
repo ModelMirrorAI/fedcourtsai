@@ -1,0 +1,11 @@
+case_id: scotus/72460707
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-12'
+resolved: true
+schema_version: '1.0'
+title: EchoStar Satellite L.L.C., nka Dish Network L.L.C., Petitioner v. Florida Department
+  of Revenue, et al.

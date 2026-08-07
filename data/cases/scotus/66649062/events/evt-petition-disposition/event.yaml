@@ -1,0 +1,11 @@
+case_id: scotus/66649062
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-10-17'
+resolved: true
+schema_version: '1.0'
+title: Jean Coulter, Petitioner v. Cathy Bissoon, Judge, United States District Court
+  for the Western District of Pennsylvania, et al.

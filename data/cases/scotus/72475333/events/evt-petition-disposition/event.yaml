@@ -1,0 +1,11 @@
+case_id: scotus/72475333
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-08-05'
+resolved: true
+schema_version: '1.0'
+title: Micheal W. Buckner, as Trustee of the United Mine Workers of America 1992 Benefit
+  Plan, et al., Petitioners v. United States Pipe & Foundry Co., et al.

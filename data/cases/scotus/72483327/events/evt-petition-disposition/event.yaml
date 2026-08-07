@@ -1,0 +1,11 @@
+case_id: scotus/72483327
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-12'
+resolved: true
+schema_version: '1.0'
+title: West Flagler Associates, Ltd., dba Magic City Casino, et al., Petitioners v.
+  Deb Haaland, Secretary of the Interior, et al.

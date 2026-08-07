@@ -1,0 +1,11 @@
+case_id: scotus/72479390
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-04-08'
+resolved: true
+schema_version: '1.0'
+title: Call-A-Head Portable Toilets, Inc., et al., Petitioners v. New York State Department
+  of Environmental Conservation, et al.

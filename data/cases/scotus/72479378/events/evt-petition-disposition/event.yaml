@@ -1,0 +1,11 @@
+case_id: scotus/72479378
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-04-04'
+resolved: true
+schema_version: '1.0'
+title: Joseph Stafiniak, et al., Petitioners v. Marc Kirschner, as Trustee of the
+  NWHI Litigation Trust, et al.

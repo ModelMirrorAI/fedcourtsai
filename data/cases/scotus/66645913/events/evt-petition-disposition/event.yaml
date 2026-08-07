@@ -1,0 +1,10 @@
+case_id: scotus/66645913
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-03-01'
+resolved: true
+schema_version: '1.0'
+title: John R. Behrmann, et ux., Petitioners v. Michael Goldstein, et al.

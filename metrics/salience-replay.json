@@ -2,16 +2,16 @@
   "cells": [
     {
       "bands": {
-        "baseline": 215
+        "baseline": 1239
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
-      "eligible": 218,
+      "eligible": 1239,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 215
+        "truncated": 1239
       },
       "realized_granted": 90,
       "recall": 0.0,
@@ -19,84 +19,84 @@
       "selected_carve_out": 0,
       "selected_granted": 0,
       "selected_rank_fill": 0,
-      "skipped_no_snapshot": 3,
+      "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 90.0,
-      "weighted_population": 1232.0,
+      "weighted_population": 1239.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
     {
       "bands": {
-        "baseline": 204,
+        "baseline": 1228,
         "unobservable": 11
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 31,
-      "eligible": 218,
-      "largest_weighted_cohort": 144.0,
+      "cohorts": 33,
+      "eligible": 1239,
+      "largest_weighted_cohort": 160.0,
       "policy": "distribution-1",
-      "precision": 0.07043407043407043,
+      "precision": 0.07003257328990228,
       "provenance": {
         "blind-no-moment": 10,
         "blind-untrusted-cutoff": 1,
-        "truncated": 204
+        "truncated": 1228
       },
       "realized_granted": 90,
       "recall": 0.9555555555555556,
-      "selected": 204,
+      "selected": 1228,
       "selected_carve_out": 0,
       "selected_granted": 86,
-      "selected_rank_fill": 204,
-      "skipped_no_snapshot": 3,
+      "selected_rank_fill": 1228,
+      "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 90.0,
-      "weighted_population": 1232.0,
-      "weighted_selected": 1221.0,
+      "weighted_population": 1239.0,
+      "weighted_selected": 1228.0,
       "weighted_selected_granted": 86.0
     },
     {
       "bands": {
-        "baseline": 116,
-        "elevated": 40,
-        "high": 48,
+        "baseline": 957,
+        "elevated": 171,
+        "high": 100,
         "unobservable": 11
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 43,
-      "eligible": 218,
-      "largest_weighted_cohort": 121.0,
+      "cohorts": 49,
+      "eligible": 1239,
+      "largest_weighted_cohort": 163.0,
       "policy": "resolution",
-      "precision": 0.07043407043407043,
+      "precision": 0.07003257328990228,
       "provenance": {
         "blind-no-moment": 11,
-        "truncated": 204
+        "truncated": 1228
       },
       "realized_granted": 90,
       "recall": 0.9555555555555556,
-      "selected": 204,
-      "selected_carve_out": 48,
+      "selected": 1228,
+      "selected_carve_out": 100,
       "selected_granted": 86,
-      "selected_rank_fill": 156,
-      "skipped_no_snapshot": 3,
+      "selected_rank_fill": 1128,
+      "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 90.0,
-      "weighted_population": 1232.0,
-      "weighted_selected": 1221.0,
+      "weighted_population": 1239.0,
+      "weighted_selected": 1228.0,
       "weighted_selected_granted": 86.0
     },
     {
       "bands": {
-        "baseline": 239
+        "baseline": 1358
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
-      "eligible": 239,
+      "eligible": 1358,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 239
+        "truncated": 1358
       },
       "realized_granted": 108,
       "recall": 0.0,
@@ -107,152 +107,152 @@
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 108.0,
-      "weighted_population": 1328.0,
+      "weighted_population": 1358.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
     {
       "bands": {
-        "baseline": 230,
+        "baseline": 1349,
         "unobservable": 9
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 32,
-      "eligible": 239,
-      "largest_weighted_cohort": 198.0,
+      "cohorts": 36,
+      "eligible": 1358,
+      "largest_weighted_cohort": 193.0,
       "policy": "distribution-1",
-      "precision": 0.07733131159969674,
+      "precision": 0.07561156412157154,
       "provenance": {
         "blind-no-moment": 6,
         "blind-untrusted-cutoff": 3,
-        "truncated": 230
+        "truncated": 1349
       },
       "realized_granted": 108,
       "recall": 0.9444444444444444,
-      "selected": 230,
+      "selected": 1349,
       "selected_carve_out": 0,
       "selected_granted": 102,
-      "selected_rank_fill": 230,
+      "selected_rank_fill": 1349,
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 108.0,
-      "weighted_population": 1328.0,
-      "weighted_selected": 1319.0,
+      "weighted_population": 1358.0,
+      "weighted_selected": 1349.0,
       "weighted_selected_granted": 102.0
     },
     {
       "bands": {
-        "baseline": 117,
-        "elevated": 60,
-        "high": 53,
+        "baseline": 1025,
+        "elevated": 227,
+        "high": 97,
         "unobservable": 9
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 39,
-      "eligible": 239,
-      "largest_weighted_cohort": 163.0,
+      "cohorts": 46,
+      "eligible": 1358,
+      "largest_weighted_cohort": 192.0,
       "policy": "resolution",
-      "precision": 0.07733131159969674,
+      "precision": 0.07561156412157154,
       "provenance": {
         "blind-no-moment": 9,
-        "truncated": 230
+        "truncated": 1349
       },
       "realized_granted": 108,
       "recall": 0.9444444444444444,
-      "selected": 230,
-      "selected_carve_out": 53,
+      "selected": 1349,
+      "selected_carve_out": 97,
       "selected_granted": 102,
-      "selected_rank_fill": 177,
+      "selected_rank_fill": 1252,
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 108.0,
-      "weighted_population": 1328.0,
-      "weighted_selected": 1319.0,
+      "weighted_population": 1358.0,
+      "weighted_selected": 1349.0,
       "weighted_selected_granted": 102.0
     },
     {
       "bands": {
-        "baseline": 108
+        "baseline": 1312
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
-      "eligible": 227,
+      "eligible": 1312,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 108
+        "truncated": 1312
       },
-      "realized_granted": 38,
+      "realized_granted": 91,
       "recall": 0.0,
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
       "selected_rank_fill": 0,
-      "skipped_no_snapshot": 119,
+      "skipped_no_snapshot": 0,
       "term": 2024,
-      "weighted_granted": 38.0,
-      "weighted_population": 666.0,
+      "weighted_granted": 91.0,
+      "weighted_population": 1312.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
     {
       "bands": {
-        "baseline": 102,
-        "unobservable": 6
+        "baseline": 1303,
+        "unobservable": 9
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 18,
-      "eligible": 227,
-      "largest_weighted_cohort": 176.0,
+      "cohorts": 34,
+      "eligible": 1312,
+      "largest_weighted_cohort": 160.0,
       "policy": "distribution-1",
-      "precision": 0.05303030303030303,
+      "precision": 0.06753645433614736,
       "provenance": {
-        "blind-no-moment": 6,
-        "truncated": 102
+        "blind-no-moment": 9,
+        "truncated": 1303
       },
-      "realized_granted": 38,
-      "recall": 0.9210526315789473,
-      "selected": 102,
+      "realized_granted": 91,
+      "recall": 0.967032967032967,
+      "selected": 1303,
       "selected_carve_out": 0,
-      "selected_granted": 35,
-      "selected_rank_fill": 102,
-      "skipped_no_snapshot": 119,
+      "selected_granted": 88,
+      "selected_rank_fill": 1303,
+      "skipped_no_snapshot": 0,
       "term": 2024,
-      "weighted_granted": 38.0,
-      "weighted_population": 666.0,
-      "weighted_selected": 660.0,
-      "weighted_selected_granted": 35.0
+      "weighted_granted": 91.0,
+      "weighted_population": 1312.0,
+      "weighted_selected": 1303.0,
+      "weighted_selected_granted": 88.0
     },
     {
       "bands": {
-        "baseline": 56,
-        "elevated": 23,
-        "high": 23,
-        "unobservable": 6
+        "baseline": 1011,
+        "elevated": 177,
+        "high": 115,
+        "unobservable": 9
       },
       "capacity_bound_cohorts": 0,
-      "cohorts": 28,
-      "eligible": 227,
-      "largest_weighted_cohort": 172.0,
+      "cohorts": 47,
+      "eligible": 1312,
+      "largest_weighted_cohort": 148.0,
       "policy": "resolution",
-      "precision": 0.05303030303030303,
+      "precision": 0.06753645433614736,
       "provenance": {
-        "blind-no-moment": 6,
-        "truncated": 102
+        "blind-no-moment": 9,
+        "truncated": 1303
       },
-      "realized_granted": 38,
-      "recall": 0.9210526315789473,
-      "selected": 102,
-      "selected_carve_out": 23,
-      "selected_granted": 35,
-      "selected_rank_fill": 79,
-      "skipped_no_snapshot": 119,
+      "realized_granted": 91,
+      "recall": 0.967032967032967,
+      "selected": 1303,
+      "selected_carve_out": 115,
+      "selected_granted": 88,
+      "selected_rank_fill": 1188,
+      "skipped_no_snapshot": 0,
       "term": 2024,
-      "weighted_granted": 38.0,
-      "weighted_population": 666.0,
-      "weighted_selected": 660.0,
-      "weighted_selected_granted": 35.0
+      "weighted_granted": 91.0,
+      "weighted_population": 1312.0,
+      "weighted_selected": 1303.0,
+      "weighted_selected_granted": 88.0
     }
   ],
   "cells_evaluated": 9,

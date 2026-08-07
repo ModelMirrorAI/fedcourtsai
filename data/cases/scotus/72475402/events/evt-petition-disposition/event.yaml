@@ -1,0 +1,11 @@
+case_id: scotus/72475402
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-06-15'
+resolved: true
+schema_version: '1.0'
+title: Barbara Lindsey, Petitioner v. Max. F. Adler, M.D., P.A., fka Park Cities Dermatology
+  Center, aka Coppell Dermatology Center, et al.

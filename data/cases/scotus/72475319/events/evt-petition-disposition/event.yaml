@@ -1,0 +1,11 @@
+case_id: scotus/72475319
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-05-23'
+resolved: true
+schema_version: '1.0'
+title: Conference of Presidents of Major Italian American Organizations, Inc., et
+  al., Petitioners v. City of Philadelphia, Pennsylvania, et al.

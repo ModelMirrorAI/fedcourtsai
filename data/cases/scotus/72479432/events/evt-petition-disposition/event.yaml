@@ -1,0 +1,11 @@
+case_id: scotus/72479432
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-04-18'
+resolved: true
+schema_version: '1.0'
+title: Richard Roche, Petitioner v. LARC, Inc., aka Lee Association for Remarkable
+  Citizens, Inc., et al.

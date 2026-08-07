@@ -1,0 +1,11 @@
+case_id: scotus/66723782
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-29'
+resolved: true
+schema_version: '1.0'
+title: Saban Rent-A-Car LLC, et al., Petitioners v. Arizona Department of Revenue,
+  et al.

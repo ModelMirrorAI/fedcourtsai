@@ -1,0 +1,11 @@
+case_id: scotus/72483249
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-01-22'
+resolved: true
+schema_version: '1.0'
+title: Hope Medical Enterprises, Inc., dba Hope Pharmaceuticals, Petitioner v. Fagron
+  Compounding Services, LLC, et al.

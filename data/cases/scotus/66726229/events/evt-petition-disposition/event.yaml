@@ -1,0 +1,11 @@
+case_id: scotus/66726229
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-11-15'
+resolved: true
+schema_version: '1.0'
+title: Rita Guerrero, Individually and as the Special Administrator of the Estate
+  of Celso N. Guerrero, Petitioner v. BNSF Railway Company

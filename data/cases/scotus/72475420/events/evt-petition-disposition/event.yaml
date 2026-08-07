@@ -1,0 +1,11 @@
+case_id: scotus/72475420
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-06-23'
+resolved: true
+schema_version: '1.0'
+title: Laird J. Heal, Petitioner v. Wells Fargo, N.A., as Trustee for WaMu Mortgage
+  Pass-Through Certificates Services 2006-PR2 Trust, et al.

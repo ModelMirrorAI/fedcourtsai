@@ -1,0 +1,10 @@
+case_id: scotus/66647938
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-08-01'
+resolved: true
+schema_version: '1.0'
+title: Karen H. Scott, Petitioner v. District Hospital Partners, L.P., et al.

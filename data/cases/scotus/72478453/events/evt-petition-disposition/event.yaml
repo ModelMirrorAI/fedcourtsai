@@ -1,0 +1,11 @@
+case_id: scotus/72478453
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-02-07'
+resolved: true
+schema_version: '1.0'
+title: Kori Anderson, et al., Petitioners v. Tristen Calder, as Personal Representative
+  of the Estate of Coby Lee Paugh

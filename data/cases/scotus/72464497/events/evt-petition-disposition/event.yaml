@@ -1,0 +1,11 @@
+case_id: scotus/72464497
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-01-06'
+resolved: true
+schema_version: '1.0'
+title: George Artem, Petitioner v. King County Department of Adult & Juvenile Detention,
+  et al.

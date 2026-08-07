@@ -1,0 +1,11 @@
+case_id: scotus/72471655
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-10-12'
+resolved: true
+schema_version: '1.0'
+title: Jerome D. Lee, Stephen E. Brown-Bennett, and Taylor Lee & Associates LLC, Petitioners
+  v. United States

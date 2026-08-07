@@ -1,0 +1,11 @@
+case_id: scotus/72477761
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-01-20'
+resolved: true
+schema_version: '1.0'
+title: Robert G. Hicks, Petitioner v. City of Hopkinsville, Sewerage and Water Works
+  Commission, dba Hopkinsville Water Environment Authority

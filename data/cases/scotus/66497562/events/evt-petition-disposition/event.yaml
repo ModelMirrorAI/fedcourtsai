@@ -1,0 +1,11 @@
+case_id: scotus/66497562
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-07-23'
+resolved: true
+schema_version: '1.0'
+title: Marion Liu, Individually and as Successor in Interest to Augustine Liu, Deceased,
+  Petitioner v. Janssen Research & Development, LLC

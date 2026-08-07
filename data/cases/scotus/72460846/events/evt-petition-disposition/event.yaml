@@ -1,0 +1,11 @@
+case_id: scotus/72460846
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-10-11'
+resolved: true
+schema_version: '1.0'
+title: Southern California Alliance of Publicly Owned Treatment Works, Petitioner
+  v. Environmental Protection Agency, et al.

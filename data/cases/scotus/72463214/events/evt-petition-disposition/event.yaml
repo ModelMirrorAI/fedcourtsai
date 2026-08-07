@@ -1,0 +1,10 @@
+case_id: scotus/72463214
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-12-18'
+resolved: true
+schema_version: '1.0'
+title: June M. Cantrell, et al., Petitioners v. Capital One, N.A.

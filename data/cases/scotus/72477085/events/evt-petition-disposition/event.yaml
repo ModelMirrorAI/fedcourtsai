@@ -1,0 +1,11 @@
+case_id: scotus/72477085
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-01-04'
+resolved: true
+schema_version: '1.0'
+title: Marshall Spiegel, Petitioner v. 1618 Sheridan Road Condominium Association,
+  Inc., et al.

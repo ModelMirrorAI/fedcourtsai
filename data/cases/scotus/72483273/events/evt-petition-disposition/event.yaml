@@ -1,0 +1,11 @@
+case_id: scotus/72483273
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-01-26'
+resolved: true
+schema_version: '1.0'
+title: Peter Kleidman, Petitioner v. Martin R. Barash, Judge, United States Bankruptcy
+  Court for the Central District of California, et al.

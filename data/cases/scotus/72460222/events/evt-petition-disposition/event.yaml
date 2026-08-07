@@ -1,0 +1,11 @@
+case_id: scotus/72460222
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-01-19'
+resolved: true
+schema_version: '1.0'
+title: Dakotas and Western Minnesota Electrical Industry Health and Welfare Fund,
+  Petitioner v. First Agency, Inc., et al.

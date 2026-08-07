@@ -1,0 +1,10 @@
+case_id: scotus/72475507
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-08-30'
+resolved: true
+schema_version: '1.0'
+title: Mandy Mobley Li, Petitioner v. Commissioner of Internal Revenue

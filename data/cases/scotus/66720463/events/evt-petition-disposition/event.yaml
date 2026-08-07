@@ -1,0 +1,10 @@
+case_id: scotus/66720463
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-08'
+resolved: true
+schema_version: '1.0'
+title: Cynthia N. Almond, et al., Petitioners v. Singing River Health System, et al.

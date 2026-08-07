@@ -1,0 +1,10 @@
+case_id: scotus/72465988
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-08-26'
+resolved: true
+schema_version: '1.0'
+title: Kenneth Ratliff, Petitioner v. Aransas County, Texas, et al.

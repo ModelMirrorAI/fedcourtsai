@@ -1,0 +1,11 @@
+case_id: scotus/66659175
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-12-12'
+resolved: true
+schema_version: '1.0'
+title: Metropolitan Interpreters & Translators Inc., Petitioner v. Francisco Bates,
+  et al.

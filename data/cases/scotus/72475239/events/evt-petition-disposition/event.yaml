@@ -1,0 +1,11 @@
+case_id: scotus/72475239
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-05-02'
+resolved: true
+schema_version: '1.0'
+title: Jonathan B. Andry, Petitioner v. Lawyer Disciplinary Committee of the United
+  States District Court for the Eastern District of Louisiana

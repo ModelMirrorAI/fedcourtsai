@@ -1,0 +1,11 @@
+case_id: scotus/72474509
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-29'
+resolved: true
+schema_version: '1.0'
+title: James P. Crocker, Petitioner v. Steven Eric Beatty, Deputy Sheriff, Martin
+  County, Florida

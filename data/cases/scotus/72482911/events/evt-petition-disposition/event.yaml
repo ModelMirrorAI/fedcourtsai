@@ -1,0 +1,12 @@
+case_id: scotus/72482911
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-01-12'
+resolved: true
+schema_version: '1.0'
+title: Andrew S. Clyde, Individually and in His Official Capacity as a Member of the
+  U.S. House of Representatives, et al., Petitioners v. William McFarland, in His
+  Official Capacity as Sergeant at Arms of the U.S. House of Representatives, et al.

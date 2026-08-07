@@ -1,0 +1,11 @@
+case_id: scotus/72462841
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-12-08'
+resolved: true
+schema_version: '1.0'
+title: Michael Pratt, Administrator of the Estate of Eric J. Pratt, Deceased, Petitioner
+  v. National Railroad Passenger Corporation, dba Amtrak, et al.

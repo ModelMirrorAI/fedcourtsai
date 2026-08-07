@@ -1,0 +1,11 @@
+case_id: scotus/72471231
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-09-15'
+resolved: true
+schema_version: '1.0'
+title: First Midwest Bank, as Guardian of the Estate of Michael D. LaPorta, Petitioner
+  v. City of Chicago, Illinois

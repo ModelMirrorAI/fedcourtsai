@@ -1,0 +1,11 @@
+case_id: scotus/72463821
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-04-26'
+resolved: true
+schema_version: '1.0'
+title: Rita McDaniel, Individually and as Personal Representative of the Estate of
+  Johnny F. McDaniel, Deceased, Petitioner v. Upsher-Smith Laboratories, Inc.

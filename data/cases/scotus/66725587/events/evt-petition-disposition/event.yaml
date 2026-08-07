@@ -1,0 +1,11 @@
+case_id: scotus/66725587
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-06-28'
+resolved: true
+schema_version: '1.0'
+title: Jackson National Life Insurance Company, Petitioner v. Tamarin Lindenburg,
+  Individually and as Natural Guardian of Her Minor Children ZTL and SML

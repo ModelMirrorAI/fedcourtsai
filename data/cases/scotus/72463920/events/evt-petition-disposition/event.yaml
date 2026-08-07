@@ -1,0 +1,12 @@
+case_id: scotus/72463920
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-06-09'
+resolved: true
+schema_version: '1.0'
+title: AGI Consulting LLC, by Assaf Al-Assaf as Trustee/Owner/Plan Administrator of
+  an Alleged Non-Integrated Defined Benefit Plan, Petitioner v. American National
+  Insurance Company

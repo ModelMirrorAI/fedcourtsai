@@ -1,0 +1,11 @@
+case_id: scotus/72466042
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-09-02'
+resolved: true
+schema_version: '1.0'
+title: Barrington Boyd, Petitioner v. Teachers Insurance and Annuity Association of
+  America, et al.

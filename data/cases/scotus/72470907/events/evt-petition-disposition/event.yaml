@@ -1,0 +1,10 @@
+case_id: scotus/72470907
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-06-16'
+resolved: true
+schema_version: '1.0'
+title: Austin Roger Carter, Petitioner v. Genesis Alkali LLC, et al.

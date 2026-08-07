@@ -1,0 +1,10 @@
+case_id: scotus/66720415
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-10-12'
+resolved: true
+schema_version: '1.0'
+title: Behr Dayton Thermal Products LLC, et al., Petitioners v. Terry Martin, et al.

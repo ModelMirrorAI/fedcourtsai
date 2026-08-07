@@ -1,0 +1,11 @@
+case_id: scotus/72475452
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-08-10'
+resolved: true
+schema_version: '1.0'
+title: StarKist Co., et al., Petitioners v. Olean Wholesale Grocery Cooperative, Inc.,
+  On Behalf of Itself and All Others Similarly Situated, et al.

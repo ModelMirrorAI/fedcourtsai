@@ -1,0 +1,11 @@
+case_id: scotus/66645857
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-02-01'
+resolved: true
+schema_version: '1.0'
+title: Michael Higgins, Petitioner v. Kimberly J. Zion, Individually and as Successor
+  in Interest to Conor Zion

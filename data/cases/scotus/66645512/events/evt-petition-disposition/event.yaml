@@ -1,0 +1,11 @@
+case_id: scotus/66645512
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-10-31'
+resolved: true
+schema_version: '1.0'
+title: David Frank Campeau, Jr., Petitioner v. Edward Sandercock, Prothonotary, Court
+  of Common Pleas of Wayne County, Pennsylvania, et al.

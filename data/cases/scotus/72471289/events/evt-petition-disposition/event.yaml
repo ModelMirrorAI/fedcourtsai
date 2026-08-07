@@ -1,0 +1,11 @@
+case_id: scotus/72471289
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-09-30'
+resolved: true
+schema_version: '1.0'
+title: Nicole K., by Next Friend Linda R., et al., Petitioners v. Terry J. Stigdon,
+  Director, Indiana Department of Child Services, et al.

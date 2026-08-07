@@ -1,0 +1,12 @@
+case_id: scotus/66723006
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-11-21'
+resolved: true
+schema_version: '1.0'
+title: Cynthia Bauerly, Commissioner, Minnesota Department of Revenue, Petitioner
+  v. William Fielding, Trustee of the Reid and Ann MacDonald Irrevocable GST Trust
+  for Maria V. MacDonald, et al.

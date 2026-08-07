@@ -1,0 +1,11 @@
+case_id: scotus/72475851
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-11-29'
+resolved: true
+schema_version: '1.0'
+title: Tom Alonzo, et al., Petitioners v. Scott Schwab, Kansas Secretary of State,
+  et al.

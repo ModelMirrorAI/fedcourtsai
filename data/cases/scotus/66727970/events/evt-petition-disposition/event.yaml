@@ -1,0 +1,10 @@
+case_id: scotus/66727970
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-10-18'
+resolved: true
+schema_version: '1.0'
+title: W. M. V. C., et al., Petitioners v. William P. Barr, Attorney General

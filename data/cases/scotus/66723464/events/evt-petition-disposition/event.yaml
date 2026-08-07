@@ -1,0 +1,11 @@
+case_id: scotus/66723464
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-05-22'
+resolved: true
+schema_version: '1.0'
+title: William Mauldin, Individually and as Representative of the Estate of Pauline
+  Gibson, Deceased, Petitioner v. Allstate Insurance Company, et al.

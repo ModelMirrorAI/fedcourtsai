@@ -1,0 +1,11 @@
+case_id: scotus/72472838
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-01'
+resolved: true
+schema_version: '1.0'
+title: William Lee, Superintendent, Eastern Correctional Facility, Petitioner v. James
+  Garlick

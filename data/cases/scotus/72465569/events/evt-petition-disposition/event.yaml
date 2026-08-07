@@ -1,0 +1,11 @@
+case_id: scotus/72465569
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-08-13'
+resolved: true
+schema_version: '1.0'
+title: Anastasia Wullschleger, et al., Petitioners v. Royal Canin U.S.A., Inc., et
+  al.

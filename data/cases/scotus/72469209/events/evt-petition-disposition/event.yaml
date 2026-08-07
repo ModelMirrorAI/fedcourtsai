@@ -1,0 +1,11 @@
+case_id: scotus/72469209
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-12-03'
+resolved: true
+schema_version: '1.0'
+title: Mark E. O'Brien, Petitioner v. U.S. Bank Trust, N.A., as Trustee for LSF9 Master
+  Participation Trust

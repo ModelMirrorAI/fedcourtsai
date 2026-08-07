@@ -1,0 +1,11 @@
+case_id: scotus/72465489
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-04-16'
+resolved: true
+schema_version: '1.0'
+title: Patricia LaCourse, Individually and as Personal Representative of the Estate
+  of Lt. Colonel Matthew LaCourse, Petitioner v. PAE Worldwide Incorporated, et al.

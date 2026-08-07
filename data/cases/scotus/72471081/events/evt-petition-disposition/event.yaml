@@ -1,0 +1,11 @@
+case_id: scotus/72471081
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-08-25'
+resolved: true
+schema_version: '1.0'
+title: Betty E. Smith, as Attorney-In-Fact for Paul C. Smith, Individually and on
+  Behalf of the ERISA-Covered Plan, Petitioner v. HPR Clinic, LLC, et al.

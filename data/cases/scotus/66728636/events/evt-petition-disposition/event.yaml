@@ -1,0 +1,11 @@
+case_id: scotus/66728636
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-04-16'
+resolved: true
+schema_version: '1.0'
+title: Demetrias Taylor, as Representative of the Estate of Iretha Jean Lilly, Deceased,
+  et al., Petitioners v. McLennan County, Texas, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72470314
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-07-26'
+resolved: true
+schema_version: '1.0'
+title: Kevin Scott Karsjens, et al., Individually and on Behalf of All Others Similarly
+  Situated, Petitioners v. Tony Lourey, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72475170
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-06-30'
+resolved: true
+schema_version: '1.0'
+title: Lynn Brown, as Appointed Successor and Representative of Now Deceased Howard
+  M. Berry, Petitioner v. Christine E. Wormuth, Secretary of the Army, et al.

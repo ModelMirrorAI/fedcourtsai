@@ -1,0 +1,11 @@
+case_id: scotus/72483465
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-03-12'
+resolved: true
+schema_version: '1.0'
+title: Jeanna Norris, et al., Petitioners v. Samuel L. Stanley, Jr., in His Official
+  Capacity as President of Michigan State University, et al.

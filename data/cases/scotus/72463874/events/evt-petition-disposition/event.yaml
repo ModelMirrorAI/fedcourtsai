@@ -1,0 +1,10 @@
+case_id: scotus/72463874
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-05-20'
+resolved: true
+schema_version: '1.0'
+title: United Parcel Service, Inc., Petitioner v. New York, et al.

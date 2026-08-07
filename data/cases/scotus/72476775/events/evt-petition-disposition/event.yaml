@@ -1,0 +1,11 @@
+case_id: scotus/72476775
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-12-23'
+resolved: true
+schema_version: '1.0'
+title: "Children\u2019s Health Defense, et al., Petitioners v. Food and Drug Administration,\
+  \ et al."

@@ -1,0 +1,11 @@
+case_id: scotus/72473637
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-11-15'
+resolved: true
+schema_version: '1.0'
+title: CLMS Management Services Limited Partnership, et al., Petitioners v. Amwins
+  Brokerage of Georgia, LLC, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/66722122
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-04-18'
+resolved: true
+schema_version: '1.0'
+title: Edward Ronald Ates, Petitioner v. Gurbir Grewal, Attorney General of New Jersey,
+  et al.

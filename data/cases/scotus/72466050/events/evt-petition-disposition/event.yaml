@@ -1,0 +1,10 @@
+case_id: scotus/72466050
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-09-03'
+resolved: true
+schema_version: '1.0'
+title: Sheldon Carmon, Petitioner v. CSX Transportation, Inc.

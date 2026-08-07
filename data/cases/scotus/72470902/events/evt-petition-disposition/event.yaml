@@ -1,0 +1,12 @@
+case_id: scotus/72470902
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-06-14'
+resolved: true
+schema_version: '1.0'
+title: Reynaldo Antonio De Los Santos, et al., Petitioners v. William Bosworth, In
+  the Official Capacity as Employee and/or Administrator and/or Policymaker and/or
+  Official of Johnson County, Texas, et al.

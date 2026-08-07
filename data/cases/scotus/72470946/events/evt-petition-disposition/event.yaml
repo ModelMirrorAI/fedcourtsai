@@ -1,0 +1,11 @@
+case_id: scotus/72470946
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-06-29'
+resolved: true
+schema_version: '1.0'
+title: Canada Hockey, L.L.C., dba Epic Sports, et al., Petitioners v. Texas A&M University
+  Athletic Department, et al.

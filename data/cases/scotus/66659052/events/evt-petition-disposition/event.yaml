@@ -1,0 +1,11 @@
+case_id: scotus/66659052
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-09-28'
+resolved: true
+schema_version: '1.0'
+title: The Colorado Independent, Petitioner v. District Court for the Eighteenth Judicial
+  District of Colorado, et al.

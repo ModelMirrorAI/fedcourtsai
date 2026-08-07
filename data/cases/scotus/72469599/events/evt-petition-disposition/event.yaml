@@ -1,0 +1,11 @@
+case_id: scotus/72469599
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-12-11'
+resolved: true
+schema_version: '1.0'
+title: L. Lin Wood, Jr., Petitioner v. Brad Raffensperger, Georgia Secretary of State,
+  et al.

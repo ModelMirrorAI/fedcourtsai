@@ -1,0 +1,11 @@
+case_id: scotus/66723361
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-05-17'
+resolved: true
+schema_version: '1.0'
+title: Wilson J. Soto Nieves, et al., Petitioners v. Department of the Family of the
+  Commonwealth of Puerto Rico, et al.

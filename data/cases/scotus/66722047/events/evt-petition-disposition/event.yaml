@@ -1,0 +1,11 @@
+case_id: scotus/66722047
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-02-12'
+resolved: true
+schema_version: '1.0'
+title: Mitzi Johanknecht, Sheriff, King County, Washington, Petitioner v. Eva Moore,
+  et al.
