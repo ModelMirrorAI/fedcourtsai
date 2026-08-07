@@ -111,6 +111,10 @@ from .matrix import (
     parse_cases,
     predict_matrix,
 )
+from .merits_event_migration import (
+    backfill_event_moments,
+    backfill_merits_events,
+)
 from .ops import (
     build_ops_report,
     render_data_health,
@@ -567,6 +571,104 @@ def backfill_merits_judgments_cmd(
         )
     typer.echo(f"  judgments: {distribution}")
     typer.echo(result.model_dump_json())
+
+
+@app.command("backfill-merits-events")
+def backfill_merits_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Mint the missing events; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Mint the open merits forecast events onto already-granted, undecided dockets.
+
+    The live mint opens a case's merits events at cert-grant *detection*, so a
+    docket whose grant is already latched in the corpus without a live
+    resolution pass carries none. This deterministic corpus-convergence sweep
+    mints, for each row whose grant opens a merits proceeding
+    (`corpus.opens_merits_proceeding`) and whose judgment is not latched
+    (forward-only: a decided grant leaves nothing to forecast), the
+    grant-moment event `evt-order-judgment` opened at `date_cert_granted` —
+    and, where the respondent's merits brief is latched, the briefed moment
+    `evt-brief-judgment` beside it — through the live mint's own write path,
+    corpus row first, ledger `event.yaml` second. A case already carrying an
+    open grant event is topped up with just the owed briefed moment; a
+    resolved grant event means the case is converged. A mint also requires the
+    docket shown still **pending** — a stored snapshot whose high-recall
+    judgment scan is clean, because a null `merits_judgment` means unlatched,
+    not pending — so run `backfill-merits-judgments --apply` immediately
+    before this sweep in the same corpus session. A case whose target id
+    already exists entry-pinned, with committed ledger artifacts under the
+    id and no corpus event row, with no stored snapshot, or whose snapshot
+    shows an unparsed judgment signal, is skipped and reported for triage.
+    Idempotent: a converged corpus mints nothing. Dry-run by default;
+    `--apply` writes. Run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_merits_events(conn, settings.data_root, apply=apply)
+    verb = "minted" if apply else "would mint"
+    cases = sorted({case_id for case_id, _ in result.minted})
+    typer.echo(
+        f"backfill-merits-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.minted)} merits event(s) on {len(cases)} case(s); "
+        f"{result.already_present} case(s) already converged; "
+        f"{result.decided} decided grant(s) outside the forecast population; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    preview = cases[:10]
+    if preview:
+        suffix = ", …" if len(cases) > len(preview) else ""
+        typer.echo(f"  {', '.join(preview)}{suffix}")
+    for case_id, reason in result.skipped:
+        typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("backfill-event-moments")
+def backfill_event_moments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Stamp the null moments; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Stamp stage-carrying event rows' null `moment` as the stage's first moment.
+
+    A null `moment` already reads downstream as the stage's first moment, so
+    the stamp changes no behavior — it materializes that reading into the
+    corpus column so moment-keyed grouping reads it directly. Stage-keyed off
+    the declared moments table (`pipeline.moments.first_moment`), written
+    through the corpus's own writer (casestore events mirror included).
+    Idempotent: a stamped row no longer matches. Dry-run by default; `--apply`
+    writes. Run where the corpus is pulled, `corpus-push` after an `--apply`.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_event_moments(conn, apply=apply)
+    verb = "stamped" if apply else "would stamp"
+    detail = ", ".join(f"{stage}: {count}" for stage, count in sorted(result.stamped.items()))
+    typer.echo(
+        f"backfill-event-moments ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {sum(result.stamped.values())} event row(s)" + (f" — {detail}" if detail else "")
+    )
 
 
 @app.command("migrate-gvr-labels")
