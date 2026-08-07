@@ -11,7 +11,11 @@ from fedcourtsai.cli import _forward_leakage
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.claims import declared_claim_set
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
-from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID, briefed_merits_event_for
+from fedcourtsai.pipeline.outcome import (
+    MERITS_EVENT_ID,
+    briefed_merits_event_for,
+    cvsg_event_for,
+)
 from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
 from fedcourtsai.store import normalized_moment
 
@@ -230,3 +234,50 @@ def test_a_granted_application_mints_no_briefed_moment_either() -> None:
         merits_brief_filed=date(2025, 6, 1),
     )
     assert briefed_merits_event_for(application, [MERITS_EVENT_ID]) is None
+
+
+def test_the_cvsg_moment_mints_only_while_the_petition_is_open() -> None:
+    """Same forever-true trigger, same open-first-moment guard.
+
+    The CVSG date stays latched on the row for the life of the case, so this
+    re-fires on every poll. What makes that safe is that the cert baseline must
+    still be open: a CVSG on an already-decided petition would mint an event
+    with nothing left to forecast and no way to resolve it.
+    """
+    called = date(2025, 5, 12)
+    row = CorpusRow(
+        case_id="scotus/3",
+        court="scotus",
+        docket_id=3,
+        source="live",
+        docket_number="24-200",
+        cvsg_date=called,
+    )
+    baseline = moments.moments_for(Stage.cert)[0].event_id
+    minted = cvsg_event_for(row, [baseline])
+    assert minted is not None
+    assert (minted.event_id, minted.stage, minted.moment) == (
+        "evt-order-cvsg-disposition",
+        Stage.cert,
+        Moment.cvsg,
+    )
+    assert minted.opened_at == called  # the moment, not the filing date
+    assert minted.decision_target == "disposition"  # the same question as moment one
+    # The petition already resolved: nothing left to forecast.
+    assert cvsg_event_for(row, []) is None
+    # No CVSG on the docket.
+    assert cvsg_event_for(row.model_copy(update={"cvsg_date": None}), [baseline]) is None
+    # A circuit docket carries no cert stage at all.
+    circuit = row.model_copy(update={"court": "ca9", "case_id": "ca9/3"})
+    assert cvsg_event_for(circuit, [baseline]) is None
+
+
+def test_both_cert_moments_declare_the_same_claim_set() -> None:
+    """The claims do not change because the forecast was taken later.
+
+    Only the information set moves, and that lives on the aggregation key. A
+    per-moment set version would fragment every claim aggregate for nothing.
+    """
+    first, second = (s.event_id for s in moments.moments_for(Stage.cert))
+    assert declared_claim_set(first) == declared_claim_set(second)
+    assert declared_claim_set(first) is not None

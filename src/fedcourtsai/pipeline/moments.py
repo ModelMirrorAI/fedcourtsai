@@ -87,6 +87,19 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         claim_set_version=CLAIM_SET_CERT_V1,
     ),
     MomentSpec(
+        event_id=ids.event_id(EventKind.order.value, "cvsg-disposition"),
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        ordinal=1,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast after the Court called for "
+            "the Solicitor General's views."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V1,
+    ),
+    MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
         kind=EventKind.motion,
         stage=Stage.interim,
