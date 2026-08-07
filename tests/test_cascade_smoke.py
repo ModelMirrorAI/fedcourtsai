@@ -275,6 +275,74 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert board.evaluations_total == 0
 
 
+def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
+    """The fixture's CVSG docket runs the cert re-forecast cell end to end offline.
+
+    scotus/307 is a petition denied after a Call for the Views of the Solicitor
+    General, so beside its resolved cert baseline it carries the resolved
+    `evt-order-cvsg-disposition` event the CVSG mints (kind `order`,
+    `Stage.cert`, opened at the CVSG date): provision → stub predict (the whole
+    declared `cert-v1` set, since both cert moments declare the same claims) →
+    a cert-vocabulary outcome off the row's disposition → evaluate → validate.
+
+    What this proves is the *composition* — a later-moment cert cell reaches
+    every stage under the cert contract. The rules it composes are pinned at
+    their own seams: the fan-out admission and the switched-off-moment refusal
+    in ``tests/test_store.py``, the mint's open-first-moment guard in
+    ``tests/test_moments.py``, and the claim-board population filter in
+    ``tests/test_claim_metrics.py``.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+    cvsg_case = fixture.add_cvsg_fixture(db)
+    data_root = tmp_path / "data"
+    assert cvsg_case.case_id == "scotus/307"  # the literals the call below uses
+
+    report = run_cascade(
+        corpus_db_path=db,
+        data_root=data_root,
+        config_root=CONFIG_ROOT,
+        court="scotus",
+        docket=307,
+        event="evt-order-cvsg-disposition",
+        run_id=RUN,
+    )
+
+    assert report.valid, report.problems
+    assert report.events == ("evt-order-cvsg-disposition",)
+    assert report.predictions and report.outcomes and report.evaluations
+
+    # The ground truth took the cert vocabulary — the CVSG moment re-forecasts
+    # the same petition disposition, not a different quantity — with the cert
+    # signals block frozen in (this is a cert docket, not an application).
+    outcome = read_model(report.outcomes[0], Outcome)
+    assert outcome.actual_disposition == Disposition.denied
+    assert outcome.actual_granted == 0
+    assert outcome.signals is not None
+    assert outcome.signals.cvsg_date == cvsg_case.cvsg_date
+
+    # The prediction answers the whole declared cert-v1 set — the same set the
+    # baseline declares, because the claims do not change with the moment —
+    # with the disposition claim restating the headline probability exactly.
+    prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
+    prediction = read_model(prediction_path, Prediction)
+    assert prediction.claims is not None
+    assert [c.claim_id for c in prediction.claims] == [
+        CLAIM_DISPOSITION,
+        CLAIM_RELIST_INCREMENT,
+        CLAIM_CVSG_INCREMENT,
+    ]
+    assert prediction.claims[0].probability == prediction.probability
+    assert prediction.judgment is None  # the cert contract, not the merits one
+
+    # Scored on the cert axes: the stub's denied/0.0 floor against the denied
+    # outcome is a correct call and a perfect Brier score.
+    evaluation_path = next(p for p in report.evaluations if p.name == "evaluation.json")
+    evaluation = read_model(evaluation_path, Evaluation)
+    assert evaluation.correct == 1
+    assert evaluation.brier_score == 0.0
+
+
 def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> None:
     """A cert cell's stub prediction answers the whole declared cert-v1 set.
 

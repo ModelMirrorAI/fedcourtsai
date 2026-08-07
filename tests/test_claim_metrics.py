@@ -160,6 +160,26 @@ def test_non_cert_stage_cells_sit_outside_the_population() -> None:
     assert agreement.missing_claim_block == 1
 
 
+def test_a_later_cert_moment_sits_outside_the_population() -> None:
+    # The moment axis of the same rule: a CVSG cell carries the same `cert-v1`
+    # block as the distribution cell, so filtering on the stage alone would
+    # pool two information sets into one claim mean. Only the cert stage's
+    # FIRST moment is the population — the later moment neither inflates the
+    # counts nor contributes its block.
+    in_population = _cells((_evaluation("alpha", claim_scores=_block(0.4)), FORWARD))
+    later_moment = _cells(
+        (_evaluation("alpha", claim_scores=_block(0.2), event_id="evt-c"), FORWARD),
+        moment=Moment.cvsg,
+    )
+    board = build_claim_scores(in_population + later_moment, process_scope="all")
+    assert board.evaluations_total == 1
+    assert board.cells_with_claims == 1
+    [entry] = board.entries
+    assert entry.forward is not None
+    assert entry.forward.cells == 1
+    assert entry.forward.mean_total == pytest.approx(0.4)  # never pooled with 0.2
+
+
 def test_aggregates_per_predictor_per_stratum_and_never_pools() -> None:
     cells = _cells(
         (_evaluation("alpha", claim_scores=_block(0.4), event_id="evt-a"), FORWARD),

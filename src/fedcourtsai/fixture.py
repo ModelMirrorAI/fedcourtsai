@@ -461,3 +461,77 @@ def add_merits_fixture(db_path: Path) -> FixtureCase:
         corpus.upsert_events(conn, case.events())
         corpus.upsert_snapshot(conn, case.case_id, case.snapshot_date, case.snapshot_payload())
     return case
+
+
+# A denied-post-CVSG SCOTUS cert docket, deliberately OUTSIDE `FIXTURE_CASES`
+# for the same reason :data:`MERITS_FIXTURE_CASE` is: the base corpus is a
+# measured statistical surface, and folding another decided cert row in would
+# silently move every count and rate asserted over it. A test that wants the
+# cert stage's second forecast moment — the CVSG re-forecast cell — opts in
+# with :func:`add_cvsg_fixture`. The docket carries the full trajectory in its
+# entries — petition, the invitation to the Solicitor General, the United
+# States' brief, denial — with the row's cert columns stating the same facts
+# the live channel would latch from them.
+CVSG_FIXTURE_CASE = FixtureCase(
+    court="scotus",
+    docket=307,
+    docket_number="23-1150",
+    case_name="Harbor Wind LLC v. Federal Maritime Commission",
+    date_filed=date(2024, 10, 7),
+    snapshot_date=date(2025, 10, 6),
+    disposition=Disposition.denied,
+    date_decided=date(2025, 10, 6),
+    date_cert_denied=date(2025, 10, 6),
+    cvsg_date=date(2025, 1, 13),
+    originating_court="ca1",
+    originating_docket_number="23-1901",
+    last_live_polled=date(2026, 7, 1),
+    sample_weight=1,
+    distribution_count=3,
+    originating_court_name="United States Court of Appeals for the First Circuit",
+    entries=(
+        ("2024-10-07", "Petition for writ of certiorari filed."),
+        (
+            "2025-01-13",
+            "The Solicitor General is invited to file a brief in this case "
+            + "expressing the views of the United States.",
+        ),
+        ("2025-08-25", "Brief amicus curiae of United States filed."),
+        ("2025-10-06", "Petition DENIED."),
+    ),
+)
+
+
+def add_cvsg_fixture(db_path: Path) -> FixtureCase:
+    """Write :data:`CVSG_FIXTURE_CASE` into an existing fixture corpus.
+
+    The opt-in CVSG counterpart of :func:`add_merits_fixture`: the row (its
+    CVSG date included), the resolved cert baseline, the resolved
+    ``evt-order-cvsg-disposition`` event — shaped exactly as the production
+    mint (:func:`fedcourtsai.pipeline.outcome.cvsg_event_for`) writes it, from
+    the register's own spec, opened at the CVSG date and resolved because the
+    petition is decided — and the dated snapshot, all through the same corpus
+    write APIs, so the offline cascade can run the cert re-forecast cell end
+    to end. Returns the case, so the caller can address it without restating
+    literals.
+    """
+    case = CVSG_FIXTURE_CASE
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.cvsg)
+    cvsg_event = corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=case.case_id,
+        court=case.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=case.case_name,
+        description=spec.description,
+        opened_at=case.cvsg_date,
+        decision_target=spec.decision_target,
+        resolved=case.resolved,
+    )
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, [case.row()])
+        corpus.upsert_events(conn, [*case.events(), cvsg_event])
+        corpus.upsert_snapshot(conn, case.case_id, case.snapshot_date, case.snapshot_payload())
+    return case
