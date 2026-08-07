@@ -944,6 +944,58 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
     )
 
 
+def interim_response_events_for(
+    row: CorpusRow, open_event_ids: list[str]
+) -> list[corpus.CorpusEvent]:
+    """The interim stage's later forecast moments, in ordinal order.
+
+    An application is forecast on arrival, then again as the record fills: once
+    the Court **asks** for a response, and once one is **filed**. They are
+    different events and are kept apart deliberately — a respondent may answer
+    uninvited, and a requested response may never arrive — so each is scored on
+    its own and the next refit can drop whichever earns nothing.
+
+    Their horizons differ sharply, which is why they are separate moments rather
+    than one "the record filled" signal. Measured over 219 substantive
+    applications: a **requested** response precedes the disposition by a median
+    17 days and never fewer than 3, on 12.3% of applications, with a 37.0% grant
+    rate against a 7.8% base. A **filed** response covers more — 30.6% — but
+    precedes the disposition by a median of only 2 days, and 7 of 67 land the
+    same day. Expect a materially higher share of the filed moment's cells to
+    classify retrospective, because the pipeline's own commit latency eats a
+    two-day horizon.
+
+    Same forever-true triggers as the other later moments, and the same
+    open-first-moment guard: the interim baseline must still be open.
+    """
+    if row.court != "scotus":
+        return []
+    declared = moments.moments_for(Stage.interim)
+    if declared[0].event_id not in open_event_ids:
+        return []
+    dates = {
+        Moment.response_requested: row.response_requested_at,
+        Moment.response_filed: row.response_filed_at,
+    }
+    return [
+        corpus.CorpusEvent(
+            event_id=spec.event_id,
+            case_id=row.case_id,
+            court=row.court,
+            kind=spec.kind,
+            stage=spec.stage,
+            moment=spec.moment,
+            title=row.case_name or row.docket_number or row.case_id,
+            description=spec.description,
+            opened_at=opened,
+            decision_target=spec.decision_target,
+            resolved=False,
+        )
+        for spec in declared[1:]
+        if (opened := dates.get(spec.moment)) is not None
+    ]
+
+
 def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
     """The cert stage's **second** forecast moment, or ``None``.
 
@@ -1060,6 +1112,7 @@ def mint_moment_events(
         )
         if event is not None
     ]
+    minted.extend(interim_response_events_for(row, opens))
     if not minted:
         return []
     with corpus.connect(corpus_db_path) as conn:

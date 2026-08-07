@@ -471,6 +471,21 @@ class CorpusRow(BaseModel):
         "beside a non-None `merits_judgment`, and latched as a pair with it; "
         "the merits event's `resolved_at` when detection records the outcome.",
     )
+    response_requested_at: date | None = Field(
+        default=None,
+        description="When the Court or a Circuit Justice asked for a response to "
+        "the application — the interim stage's second forecast moment. Dated "
+        "sibling of the `response_requested` flag, which the escalation ladder "
+        "reads; the two disagree only on an undated request, where the flag is "
+        "set and no date can be.",
+    )
+    response_filed_at: date | None = Field(
+        default=None,
+        description="When a response to the application was filed — the interim "
+        "stage's third forecast moment. A different event from the Court asking: "
+        "a respondent may answer uninvited, and a requested response may never "
+        "arrive.",
+    )
     merits_brief_filed: date | None = Field(
         default=None,
         description="When the respondent filed its brief on the merits "
@@ -787,6 +802,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_judgment": "TEXT",
     "merits_decided": "TEXT",
     "merits_brief_filed": "TEXT",
+    "response_requested_at": "TEXT",
+    "response_filed_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1022,6 +1039,10 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "merits_brief_filed": (
             row.merits_brief_filed.isoformat() if row.merits_brief_filed else None
         ),
+        "response_requested_at": (
+            row.response_requested_at.isoformat() if row.response_requested_at else None
+        ),
+        "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
     }
 
 
@@ -1125,6 +1146,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_judgment=_optional_str(record, "merits_judgment"),
         merits_decided=_optional_date(record, "merits_decided"),
         merits_brief_filed=_optional_date(record, "merits_brief_filed"),
+        response_requested_at=_optional_date(record, "response_requested_at"),
+        response_filed_at=_optional_date(record, "response_filed_at"),
     )
 
 

@@ -233,6 +233,22 @@ relist-increment claims are unaffected.
 
 ### Stage: interim (a stay or injunction application)
 
+**Three interim cells, three moments.** `event.yaml`'s `moment` says which:
+
+- `moment: arrival` — event `evt-motion-disposition`, opened when the
+  application was docketed. The ordinary interim cell.
+- `moment: response-requested` — event
+  `evt-order-response-requested-disposition`, opened when the Court or a
+  Circuit Justice **asked** for a response. The strongest rung of the
+  escalation ladder: an affirmative act of attention.
+- `moment: response-filed` — event `evt-brief-response-disposition`, opened
+  when a response was **filed**. A different event from the request — a
+  respondent may answer uninvited, and a requested response may never arrive.
+
+Scored separately, never pooled. Be aware the later two often leave very little
+time: a filed response precedes the disposition by a median of two days. Forecast
+from this moment's record and commit; do not wait for more.
+
 An interim cell predicts a substantive application — a stay, an injunction, a
 vacatur pending certiorari — and the event resolves as the **grant or denial
 of the requested relief**:

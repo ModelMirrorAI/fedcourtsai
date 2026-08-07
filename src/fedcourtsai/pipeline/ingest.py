@@ -41,8 +41,14 @@ from ..supremecourt import (
     parse_scotus_docket_number,
 )
 from . import moments
-from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal
-from .interim_signals import application_kind, escalation_signals, match_interim_disposition
+from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal, proceedings_entries
+from .interim_signals import (
+    application_kind,
+    escalation_signals,
+    match_interim_disposition,
+    response_filed_date,
+    response_requested_date,
+)
 from .judgment import last_judgment_entry
 from .merits_signals import respondent_brief_date
 
@@ -156,6 +162,12 @@ class CorpusRow(BaseModel):
         "on a granted docket; None elsewhere — the storage latch keeps a "
         "stored parse when a writer carries none, and it moves as a pair with "
         "`merits_decided`.",
+    )
+    response_requested_at: date | None = Field(
+        default=None, description="When a response to the application was requested."
+    )
+    response_filed_at: date | None = Field(
+        default=None, description="When a response to the application was filed."
     )
     merits_brief_filed: date | None = Field(
         default=None,
@@ -463,6 +475,8 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         merits_judgment=_clean(record.get("merits_judgment")),
         merits_decided=_date(record.get("merits_decided")),
         merits_brief_filed=_date(record.get("merits_brief_filed")),
+        response_requested_at=_date(record.get("response_requested_at")),
+        response_filed_at=_date(record.get("response_filed_at")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -752,6 +766,8 @@ def map_live_docket(
     amici: int | None = None
     merits: tuple[Judgment, date | None] | None = None
     merits_brief: date | None = None
+    response_requested_on: date | None = None
+    response_filed_on: date | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -771,6 +787,11 @@ def map_live_docket(
         texts = [str(entry.get("description") or "") for entry in entries]
         ask = application_kind(texts).value
         requested, referred, amici = escalation_signals(texts)
+        # The two dated interim moments, read from the same entries the ladder
+        # flags come from. Dates rather than flags because these open events.
+        dated = proceedings_entries(payload)
+        response_requested_on = response_requested_date(dated)
+        response_filed_on = response_filed_date(dated)
     else:
         disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
         if cert_granted is not None and disposition in _MERITS_PROCEEDING_VALUES:
@@ -817,6 +838,10 @@ def map_live_docket(
         "merits_judgment": merits[0].value if merits else None,
         "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
         "merits_brief_filed": merits_brief.isoformat() if merits_brief else None,
+        "response_requested_at": (
+            response_requested_on.isoformat() if response_requested_on else None
+        ),
+        "response_filed_at": response_filed_on.isoformat() if response_filed_on else None,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,

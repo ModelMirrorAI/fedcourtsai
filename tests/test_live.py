@@ -908,7 +908,9 @@ def test_changed_substantive_application_queues_predict_once_a_day(tmp_path: Pat
     assert queues1.predict == []
 
     # The docket moves: the Court requests a response. The rotation's re-poll
-    # sees the change on a pending substantive application and queues forward.
+    # sees the change on a pending substantive application and queues forward —
+    # and the same entry opens the interim stage's second forecast moment, so
+    # the queued case is owed a cell for both.
     served["25A1"]["ProceedingsandOrder"].append(
         {
             "Date": "Jul 10 2026",
@@ -926,7 +928,14 @@ def test_changed_substantive_application_queues_predict_once_a_day(tmp_path: Pat
             today=date(2026, 7, 10),
         )
     assert queues2.predict == [
-        {"court": "scotus", "docket": 9_525_000_001, "events": ["evt-motion-disposition"]}
+        {
+            "court": "scotus",
+            "docket": 9_525_000_001,
+            "events": [
+                "evt-motion-disposition",
+                "evt-order-response-requested-disposition",
+            ],
+        }
     ]
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/9525000001")
