@@ -199,7 +199,13 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
             row
             and row.court == "scotus"
             and corpus.out_of_scope_reason_full(conn, row) is None
-            and not corpus.is_salience_deferred(row)
+            # The salience gate is a CERT-stage funding decision. A case whose
+            # merits proceeding is open was selected by the Court itself, and
+            # the question the gate answers — which of ~1,500 petitions is worth
+            # a forecast — has no bearing on a population of ~65 grants a Term.
+            and (
+                not corpus.is_salience_deferred(row) or corpus.has_open_merits_event(conn, case_id)
+            )
         )
 
 
