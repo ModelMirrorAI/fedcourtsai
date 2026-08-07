@@ -618,20 +618,55 @@ def test_unfilled_reserve_returns_to_cert(tmp_path: Path) -> None:
 
 
 def test_reserve_picks_climb_the_escalation_ladder(tmp_path: Path) -> None:
-    # Pick order is the ladder, strongest signal first — a requested response,
-    # then a referral, then amici — a deterministic ordering, not a scored rate.
+    # Pick order is the two-signal ladder, strongest first — a requested
+    # response, then the amicus count — a deterministic ordering, not a
+    # scored rate.
     rows = [
         _application("scotus/9525000001", "25A1"),  # no signals
         _application("scotus/9525000002", "25A2", requested=True),
-        _application("scotus/9525000003", "25A3", referred=True, amici=2),
+        _application("scotus/9525000003", "25A3", amici=2),
     ]
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
         reconcile_salience_selection(conn, config, apply=True)
-    # The requested-response application outranks the referred one; the
+    # The requested-response application outranks the amicus-carrying one; the
     # signal-less one waits for a freed slot.
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
+
+
+def test_reserve_ladder_orders_by_amicus_count_and_breaks_ties_on_case_id(
+    tmp_path: Path,
+) -> None:
+    # Within a rung the amicus count orders (more first); an exact tie breaks
+    # deterministically on case_id, ascending.
+    rows = [
+        _application("scotus/9525000004", "25A4", amici=1),
+        _application("scotus/9525000003", "25A3", amici=3),
+        _application("scotus/9525000002", "25A2", amici=1),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # amici=3 first, then the amici=1 tie resolves to the lower case_id.
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
+
+
+def test_reserve_ladder_ignores_the_referral_signal(tmp_path: Path) -> None:
+    # The exclusion is the contract: a referral is usually the disposition
+    # entry itself, so it carries no forecast horizon and buys no rank — a
+    # referred-but-otherwise-signal-less application does NOT outrank one
+    # carrying amici.
+    rows = [
+        _application("scotus/9525000001", "25A1", referred=True),
+        _application("scotus/9525000002", "25A2", amici=1),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000002"}
 
 
 def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
