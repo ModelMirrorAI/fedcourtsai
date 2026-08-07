@@ -670,12 +670,16 @@ two-directional reconcile releases an application's latch once a poll has
 latched its substantive reading. Selection is a **quota, not a ranking**: `sal-v1`'s
 features do not exist here, so each selection pass fills up to
 `salience.interim_reserve_slots` (5) with pending substantive applications in
-**escalation-ladder order** — requested response first, then referral, then
-the amicus count, `case_id` for determinism. That order is a deterministic
-*pick sequence*, not a scored rate: choosing by the ladder asserts no grant
-probability. A selected application occupies its slot until it resolves (the
-sticky latch never de-selects), so the reserve bounds *concurrent* live
-interim predictions and a slot frees only on resolution — where "resolves"
+**escalation-ladder order** — requested response first, then the amicus
+count, `case_id` for determinism. The referral signal sits on the ladder as
+an observation but not in the pick order: a referral usually arrives *as* the
+disposition entry itself, so it carries no forecast horizon — a slot it
+earned would fund a prediction of an already written order. The pick order is
+a deterministic *pick sequence*, not a scored rate: choosing by the ladder
+asserts no grant probability. A selected application occupies its slot until
+it resolves (the sticky latch never de-selects), so the reserve bounds
+*concurrent* live interim predictions and a slot frees only on resolution —
+where "resolves"
 means the machine-matched resolution the accumulation rule below requires, so
 an application decided in language the vocabulary misses pins its slot until a
 maintainer resolves the residue;
@@ -683,9 +687,9 @@ it is visible as the application rotation's long-unresolved tail. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
-limit costs a real cert pick only where the non-carve-out remainder exceeds it,
-which regular conferences do not reach, so today the slots are additional spend
-and the trade begins at the long conference ([budget.md](budget.md)). An
+limit costs a real cert pick wherever the non-carve-out remainder exceeds it —
+which typical cohorts reach at the shipped capacity, where a full reserve
+leaves a rank fill of 7 ([budget.md](budget.md)). An
 unfilled reserve lowers nothing. Where it does bite, it bites prospectively, pass by
 pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
 sticky picks, and an application queued in the fail-open window before its

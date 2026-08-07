@@ -296,20 +296,23 @@ def _select_cohort(
     return selected
 
 
-def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, int, str]:
+def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     """Reserve pick order: furthest up the escalation ladder first.
 
-    The three latched interim signals, strongest first — a requested response
-    (the Court's affirmative act of attention), then a referral to the full
-    bench, then the amicus count — with ``case_id`` for determinism. A
-    deliberate *ordering*, not a scored rate: no grant probability is asserted
-    (the interim base rate is still accumulating — ``docs/salience.md``), only
-    which pending applications the bounded reserve funds first. ``None``
-    signals sort as absent, so a never-parsed row never outranks a parsed one.
+    Two of the latched interim signals, strongest first — a requested response
+    (the Court's affirmative act of attention), then the amicus count — with
+    ``case_id`` for determinism. The referral signal stays on the ladder as a
+    latched observation but out of the pick order:
+    a referral is usually the disposition docket entry itself, so it carries
+    no forecast horizon — a slot spent on it funds a prediction of an already
+    written order. A deliberate *ordering*, not a scored rate: no grant
+    probability is asserted (the interim base rate is still accumulating —
+    ``docs/salience.md``), only which pending applications the bounded reserve
+    funds first. ``None`` signals sort as absent, so a never-parsed row never
+    outranks a parsed one.
     """
     return (
         0 if row.response_requested else 1,
-        0 if row.referred_to_court else 1,
         -(row.amicus_briefs or 0),
         row.case_id,
     )

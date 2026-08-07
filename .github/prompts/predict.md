@@ -293,9 +293,9 @@ of the requested relief**:
   record where each application *ended* on the ladder, not where it stood when
   a cell faced it, the same as-at-versus-terminal trap the cert band rules
   spend their length on. And the published cohort is **not the predicted
-  population**: selection fills its slots in escalation-ladder order, so a
-  predicted application sits systematically higher up the ladder than the
-  cohort behind that raw rate. Treat the section as shape, never as the
+  population**: selection fills its slots by the pick order's signals — a
+  requested response, then the amicus count — so a predicted application sits
+  systematically higher on those rungs than the cohort behind that raw rate. Treat the section as shape, never as the
   yardstick your number is scored against, and say in `reasoning.md` that you
   anchored without one. Where the pack carries no interim section yet, say so
   in `reasoning.md` and anchor on the record alone.

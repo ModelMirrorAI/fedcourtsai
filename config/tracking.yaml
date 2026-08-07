@@ -273,19 +273,20 @@ salience:
   # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
   # "The interim docket", docs/budget.md). Defined INSIDE N by the selection pass
   # (pipeline.salience.plan_cohorts): each pass, pending substantive
-  # applications fill up to this many reserve slots (escalation-ladder order;
-  # a still-pending selected application keeps its slot), and the slots in use
+  # applications fill up to this many reserve slots (escalation-ladder order —
+  # response requested, then amicus count; a still-pending selected
+  # application keeps its slot), and the slots in use
   # lower the current conference cohort's rank-fill limit by the same number —
   # carve-outs above N are untouched, and an unfilled reserve lowers nothing.
-  # That limit only costs a real cert pick where the cohort's non-carve-out
-  # remainder exceeds it, which regular conferences (median ~11 against
-  # per_conference_capacity 150) do not reach, so today the slots are additional
-  # spend and the trade begins at the long conference. Set well BELOW the
+  # That limit costs a real cert pick wherever the cohort's non-carve-out
+  # remainder exceeds it — which typical cohorts reach at
+  # per_conference_capacity 12, where a full reserve leaves a rank fill of 7 —
+  # so slots in use displace cert picks by design (docs/budget.md). Set well BELOW the
   # observed concurrency (~16 substantive applications live at once against a
   # walked Term's 219 arrivals): the reserve is a deliberate cap on how much of
   # the interim stream is predicted at all, not a fit to it, which is why the
   # predicted slice is a ladder-ordered subsample. Raising it widens interim
-  # coverage, and narrows the cert rank fill only once cohorts approach the cap.
+  # coverage and narrows the cert rank fill one-for-one.
   interim_reserve_slots: 5
 
 # statpack = publication knobs for `metrics/statpack.md`
