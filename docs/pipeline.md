@@ -121,7 +121,7 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs four
+the live job owns SCOTUS freshness for free). run-seed also runs five
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -133,11 +133,18 @@ shared exclusion rules — era, staleness, docket form, date consistency, and th
 snapshot-aware bare opinion-import profile) in the corpus so they leave the
 predictable set at the source; the **application-baseline relabel**
 (`fedcourts relabel-application-events`), which converges application dockets
-whose baseline event predates the motion/interim minting rule; and the
+whose baseline event predates the motion/interim minting rule; the
 **merits-judgment backfill** (`fedcourts backfill-merits-judgments`), which
 parses each merits-bound grant's stored snapshot for the judgment entered,
-feeding the statpack's merits section. The dedupe runs first so the latch pass
-weighs deduped rows; each then pushes the blob and commits the pointer like
+feeding the statpack's merits section; and the **merits-event backfill**
+(`fedcourts backfill-merits-events`, preceded in the same step by the
+moment-column stamp `fedcourts backfill-event-moments`), which mints the open
+merits forecast events — corpus rows plus their ledger `event.yaml` files,
+staged in the one pointer commit — onto granted, undecided dockets the live
+mint never opened. The dedupe runs first so the latch pass weighs deduped
+rows, and the event mint runs immediately after the judgment backfill so
+pendency is judged on judgment columns as latched as the stored snapshots
+allow; each then pushes the blob and commits the pointer like
 any other corpus write. The full design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).

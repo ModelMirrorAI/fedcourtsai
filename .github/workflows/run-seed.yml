@@ -420,6 +420,73 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "merits-judgment pointer"
 
+      # Mint the open merits forecast events onto already-granted, undecided
+      # dockets. The live mint opens a case's merits events at cert-grant
+      # *detection*, so a grant latched by the walker without a live resolution
+      # pass carries none — and the merits fan-out has no population there.
+      # Ordering contract with the step above: the mint treats a null
+      # `merits_judgment` as unlatched, not pending, so
+      # `backfill-merits-judgments --apply` must run immediately before this
+      # sweep in the same corpus session, leaving the judgment columns
+      # as-latched-as-possible before pendency is judged. Converges like the
+      # sweeps above — a converged corpus mints nothing.
+      - name: Backfill merits events
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason as the judgments pass: the pendency check
+        # reads a stored snapshot per candidate grant, an external-service loop
+        # with no internal cap on a non-converged corpus. On the first
+        # non-converged 02:31 window the job's 55m cap can still bind (the walk
+        # plus the judgments pass plus this step, each at its bound), and a cap
+        # hit cancels the run rather than continuing — so that window may raise
+        # a one-off guard escalation.
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to mint.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping merits-event backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The mint's skip guards read committed ledger artifacts out of
+          # `data/` and its writes land new `event.yaml` files beside them, and
+          # this checkout is only as fresh as the previous step's rebase — up to
+          # a window stale. Read the remote tip first so the guards and the
+          # writes both see the current ledger.
+          git fetch origin "$GITHUB_REF_NAME"
+          git reset --hard FETCH_HEAD
+          # Stamp the null moment columns first (trivially idempotent), so the
+          # events sweep and every moment-keyed reader group on materialized
+          # moments.
+          uv run fedcourts backfill-event-moments --apply
+          # Dry-run first so the step log carries the skip/triage report the
+          # maintainer reads, then apply through the live mint's write path.
+          uv run fedcourts backfill-merits-events
+          uv run fedcourts backfill-merits-events --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # Unlike the pointer-only sweeps above, this one writes ledger
+          # `event.yaml` files under `data/` as well as moving the pointer —
+          # stage BOTH in the one commit, or the pointer lands without the
+          # ledger half of the mint. The directory guard mirrors the walk's
+          # checkpoint: on a tip without data/ an unguarded add fails under
+          # `set -euo pipefail` AFTER the blob push, and continue-on-error
+          # would leave the sweep silently never converging.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Merits events already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (merits events)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "merits-event pointer"
+
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it
       # for run-ops to present and escalate — loud-not-fatal by contract. Gated to
