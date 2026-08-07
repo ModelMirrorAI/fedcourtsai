@@ -1,21 +1,21 @@
 # Corpus statpack
 
-**2151694** case(s): 51770 resolved, 2099924 open.
+**2151698** case(s): 51863 resolved, 2099835 open.
 
-**Live/historical slice:** 21399 case(s), 20803 resolved — the population behind every live-slice section below; 44740 docketed filing(s) across the walked Terms.
+**Live/historical slice:** 21492 case(s), 20896 resolved — the population behind every live-slice section below; 44740 docketed filing(s) across the walked Terms.
 
-**Overall base rate (resolved):** other 46.4%, denied 34.7%, dismissed 13.8%, granted 4.0%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
+**Overall base rate (resolved):** other 46.3%, denied 34.7%, dismissed 13.8%, granted 4.1%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 20826 of 27765 machine-readable resolved case(s) carry a resolution date (75.0%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 20919 of 27858 machine-readable resolved case(s) carry a resolution date (75.1%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 13d, p90 132d (mean 59.6d over 2388 dated case(s))
+**Filing → decision timing:** median 10d, p90 130d (mean 57.9d over 2477 dated case(s))
 
 ## Cases by court
 _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 589615 | 21099 | 568516 | denied 83.1%, granted 8.6%, dismissed 4.4%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
+| scotus | 589619 | 21192 | 568427 | denied 82.8%, granted 8.9%, dismissed 4.4%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -35,13 +35,13 @@ _Scope: scotus; includes the frozen bulk import._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126799 | 267 | 126532 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
+| (none) | 126791 | 267 | 126524 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
 | 2000s | 124840 | 13 | 124827 | other 100.0% |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% |
 | 2010s | 97059 | 6515 | 90544 | denied 87.5%, dismissed 5.2%, gvr 3.8%, granted 3.5% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 32917 | 14288 | 18629 | denied 82.7%, granted 11.1%, dismissed 3.8%, gvr 2.3%, withdrawn 0.0% |
+| 2020s | 32929 | 14381 | 18548 | denied 82.3%, granted 11.6%, dismissed 3.8%, gvr 2.3%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -100,8 +100,8 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 9861 | 9659 | 202 | denied 97.0%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
-| 1 | 2576 | 2544 | 32 | denied 86.3%, granted 8.2%, gvr 4.7%, dismissed 0.8% |
+| 0 | 9857 | 9659 | 198 | denied 97.0%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
+| 1 | 2580 | 2544 | 36 | denied 86.3%, granted 8.2%, gvr 4.7%, dismissed 0.8% |
 | 2 | 511 | 509 | 2 | denied 59.9%, granted 26.7%, gvr 12.8%, dismissed 0.6% |
 | 3+ | 456 | 451 | 5 | denied 61.0%, granted 23.3%, gvr 14.2%, dismissed 1.6% |
 
@@ -118,8 +118,8 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | salience_band | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| baseline | 9856 | 9657 | 199 | denied 97.1%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
-| elevated | 2512 | 2486 | 26 | denied 86.4%, granted 8.2%, gvr 4.6%, dismissed 0.8% |
+| baseline | 9852 | 9657 | 195 | denied 97.1%, dismissed 1.2%, granted 1.2%, gvr 0.5% |
+| elevated | 2516 | 2486 | 30 | denied 86.4%, granted 8.2%, gvr 4.6%, dismissed 0.8% |
 | high | 1036 | 1020 | 16 | denied 61.5%, granted 24.1%, gvr 13.1%, dismissed 1.3% |
 
 ## Petitions by originating court (incl. state courts)
