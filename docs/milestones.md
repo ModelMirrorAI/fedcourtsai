@@ -69,7 +69,10 @@ it passes through, and how the freeze is performed all belong to
 [process-version.md](process-version.md#freezing-the-cutover-procedure);
 **record the resulting commit here when it happens.**
 
-- Freeze commit: _not yet frozen — the shakedown is ongoing._
+- Freeze commit: `8bf09ed2bd1ee42e4475cc616536ebab6b1d5a4b` — the six proc-v1
+  digests (three predictors, three evaluators) blessed into
+  `FROZEN_PROCESS_DIGESTS`. The freeze takes effect on `main` at the promotion
+  that carries this commit.
 
 ## The near-term target: the OT2026 long-conference cert release
 

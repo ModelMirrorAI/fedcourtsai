@@ -38,12 +38,24 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v1"
 
-# The blessed process digests — the frozen-headline set. EMPTY during the
-# shakedown: the freeze is a future one-line commit that pastes the digest(s)
-# from `fedcourts process-digest --all` in here. Keyed on the digest, never the
-# label, so a process that drifted under an unchanged label is not silently
-# blessed.
-FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset()
+# The blessed process digests — the frozen-headline set: the six proc-v1
+# processes (three predictors, three evaluators) read off
+# `fedcourts process-digest --all` at the freeze. Keyed on the digest, never
+# the label, so a process that drifts under an unchanged label is not silently
+# blessed; a material change bumps CURRENT_PROCESS_LABEL and earns a fresh
+# blessing here.
+FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
+    {
+        # predictors: claude-baseline, codex-baseline, gemini-baseline
+        "sha256:460abab2fe175059ca588fd1f72cefb15fb3beaab2e2ec4732f8c42c7c6c66a7",
+        "sha256:940cd32d118bb174faed45cbcc2e8eeb18161b2c24c4c81fac85a56c686f205e",
+        "sha256:526b83dcd18ee0d1a4ee026f4f5f20ee115bdf546a1360a58828481951442494",
+        # evaluators: claude-judge, codex-judge, gemini-judge
+        "sha256:42a33a2d79f7ebccf79e6a00ae233b241314e863f60616562fc46063f98a3427",
+        "sha256:0cee3de6951543bb302104aa44260a5f066d23523951e9610b8b0efc43f84d95",
+        "sha256:3c0d725159f8dc4c4a58c384da9497bb44f1948e9d043b55b5e2e1345e82dc2a",
+    }
+)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
