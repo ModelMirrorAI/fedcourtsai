@@ -2949,6 +2949,36 @@ def set_event_resolved(
         sink.mirror_events_for_cases(conn, [case_id])
 
 
+def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) -> int:
+    """Stamp ``moment`` on every ``stage``-staged event row whose moment is null.
+
+    The ``backfill-event-moments`` sweep's sole writer. A null ``moment``
+    already *reads* downstream as the stage's first moment (the
+    :class:`CorpusEvent` field contract), so the stamp materializes that
+    reading into the column; the caller supplies the ``(stage, moment)`` pair
+    (:func:`fedcourtsai.pipeline.moments.first_moment`), keeping this module
+    below the declared-moments table. Idempotent — a stamped row no longer
+    matches the null predicate. Returns the number of rows stamped. A direct
+    UPDATE the ``upsert_events`` mirror hook never sees, so the touched cases
+    are re-mirrored here, as :func:`set_event_resolved` does.
+    """
+    with conn:
+        case_ids = [
+            str(record["case_id"])
+            for record in conn.execute(
+                "SELECT DISTINCT case_id FROM events WHERE stage = ? AND moment IS NULL",
+                (stage.value,),
+            )
+        ]
+        stamped = conn.execute(
+            "UPDATE events SET moment = ? WHERE stage = ? AND moment IS NULL",
+            (moment.value, stage.value),
+        ).rowcount
+    if case_ids and (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, case_ids)
+    return int(stamped)
+
+
 def rename_event(
     conn: sqlite3.Connection, case_id: str, old_event_id: str, new_event: CorpusEvent
 ) -> None:

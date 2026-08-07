@@ -61,11 +61,12 @@ The pure decision (:func:`detect_resolution`) is separated from the ledger write
 from __future__ import annotations
 
 import re
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from .. import corpus, ids
 from ..paths import CasePaths
@@ -112,6 +113,44 @@ def _known_judgment(value: str) -> Judgment | None:
 #: ``Stage`` docstring), and the thing to predict is the judgment. Declared in
 #: :mod:`fedcourtsai.pipeline.moments`; kept here as the name most callers know.
 MERITS_EVENT_ID = ids.event_id("order", "judgment")
+
+
+class MeritsMintRow(Protocol):
+    """The row fields the merits mint seams read.
+
+    Structural, for the same reason :class:`fedcourtsai.corpus.MeritsProceedingRow`
+    is: the mint runs at both ends of the pipeline — the live resolution pass
+    holds an ingestion-stage :class:`~fedcourtsai.pipeline.ingest.CorpusRow`,
+    the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) a persisted
+    :class:`fedcourtsai.corpus.CorpusRow` — and the two carry the same facts as
+    different models, so one construction rule serves both only by reading the
+    fields structurally.
+    """
+
+    @property
+    def case_id(self) -> str: ...
+
+    @property
+    def court(self) -> str: ...
+
+    @property
+    def docket_number(self) -> str: ...
+
+    @property
+    def case_name(self) -> str: ...
+
+    @property
+    def disposition(self) -> Disposition | None: ...
+
+    @property
+    def date_cert_granted(self) -> date | None: ...
+
+    @property
+    def merits_judgment(self) -> str | None: ...
+
+    @property
+    def merits_brief_filed(self) -> date | None: ...
 
 
 def granted_flag(disposition: Disposition) -> int:
@@ -886,6 +925,36 @@ def record_outcomes(
     return written
 
 
+def merits_grant_event(row: MeritsMintRow, opened_at: date) -> corpus.CorpusEvent:
+    """The open grant-moment merits event for ``row``, opened at ``opened_at``.
+
+    The construction half of :func:`merits_event_for`, kept apart from its
+    once-only guards because two callers date the same birth from different
+    records: the live resolution pass opens it at the grant outcome's
+    ``resolved_at``, and the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) at the row's latched
+    ``date_cert_granted`` — the same fact, read from whichever record the
+    caller holds. This constructs; the callers own the population guards
+    (:func:`fedcourtsai.corpus.opens_merits_proceeding`, and firing at most
+    once per case).
+    """
+    return corpus.CorpusEvent(
+        event_id=MERITS_EVENT_ID,
+        case_id=row.case_id,
+        court=row.court,
+        kind=EventKind.order,
+        stage=Stage.merits,
+        moment=Moment.grant,
+        # The same fallback chain the baseline event uses, so a payload with no
+        # petitioner title never yields an empty-titled event definition.
+        title=row.case_name or row.docket_number or row.case_id,
+        description="Disposition of the judgment below, following the cert grant.",
+        opened_at=opened_at,
+        decision_target="judgment",
+        resolved=False,
+    )
+
+
 def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEvent | None:
     """The open merits event a freshly-recorded cert grant implies, or ``None``.
 
@@ -927,21 +996,7 @@ def merits_event_for(row: CorpusRow, resolution: Resolution) -> corpus.CorpusEve
     )
     if grant is None:
         return None
-    return corpus.CorpusEvent(
-        event_id=MERITS_EVENT_ID,
-        case_id=row.case_id,
-        court=row.court,
-        kind=EventKind.order,
-        stage=Stage.merits,
-        moment=Moment.grant,
-        # The same fallback chain the baseline event uses, so a payload with no
-        # petitioner title never yields an empty-titled event definition.
-        title=row.case_name or row.docket_number or row.case_id,
-        description="Disposition of the judgment below, following the cert grant.",
-        opened_at=grant.resolved_at,
-        decision_target="judgment",
-        resolved=False,
-    )
+    return merits_grant_event(row, grant.resolved_at)
 
 
 def interim_response_events_for(
@@ -1034,9 +1089,13 @@ def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEv
 
 
 def briefed_merits_event_for(
-    row: CorpusRow, open_event_ids: list[str]
+    row: MeritsMintRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:
     """The merits stage's **second** forecast moment, or ``None``.
+
+    Takes the structural :class:`MeritsMintRow` rather than the ingestion row,
+    because the same rule serves the live poll and the merits-event backfill —
+    the reason the protocol exists.
 
     Once both sides' merits briefs are on the record the case is substantively
     ready to be decided, and the same judgment can be forecast again from a much
@@ -1087,13 +1146,11 @@ def mint_moment_events(
 ) -> list[str]:
     """Record every later forecast moment this poll opens; return their ids.
 
-    The write half of :func:`merits_event_for`: upsert the corpus event row —
-    idempotent by ``(case_id, event_id)``, and ``resolved`` MAX-latches, so a
-    re-detection can neither duplicate the event nor reopen a merits event a
-    later judgment has closed — and materialize its ``event.yaml`` in the
-    ledger, stamped with the **post-upsert** resolved state so the ledger file
-    honours the same latch (a re-mint after the merits event has closed must
-    not regress the committed definition to open). ``record_outcomes``
+    The live-poll driver over the mint seams: collect the events this
+    resolution and this row open, then write them through
+    :func:`persist_moment_events` — the shared write path whose upsert and
+    MAX-latched ``resolved`` make a re-detection unable to duplicate an event
+    or reopen a merits event a later judgment has closed. ``record_outcomes``
     materializes ``event.yaml`` only beside a
     written outcome, but the ledger's event definitions are
     materialized-on-touch and the merits event is *born at* an outcome write:
@@ -1116,9 +1173,35 @@ def mint_moment_events(
     if not minted:
         return []
     with corpus.connect(corpus_db_path) as conn:
-        corpus.upsert_events(conn, minted)
-        stored_all = {e.event_id: e for e in corpus.events_for_case(conn, minted[0].case_id)}
-    for event in minted:
+        return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def persist_moment_events(
+    conn: sqlite3.Connection,
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    events: list[corpus.CorpusEvent],
+) -> list[str]:
+    """Write one case's minted moment events to both stores; return their ids.
+
+    The one write path for a minted forecast moment, shared by the live mint
+    (:func:`mint_moment_events`) and the corpus-convergence backfill
+    (:mod:`fedcourtsai.merits_event_migration`) so both carry one idempotency
+    story: the corpus upsert is keyed on ``(case_id, event_id)`` and
+    ``resolved`` MAX-latches, so a re-mint can neither duplicate an event nor
+    reopen one a later judgment closed — and the ledger ``event.yaml`` is
+    written from the **post-upsert** row, so the committed definition honours
+    the same latch. Corpus first, ledger second: the ledger file is derived
+    from the corpus row, so an interruption leaves the corpus authoritative
+    and the next run converges the ledger. ``events`` must all belong to the
+    case ``(court_id, docket_id)`` names.
+    """
+    if not events:
+        return []
+    corpus.upsert_events(conn, events)
+    stored_all = {e.event_id: e for e in corpus.events_for_case(conn, events[0].case_id)}
+    for event in events:
         stored = stored_all[event.event_id]
         write_yaml(
             CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
@@ -1136,7 +1219,7 @@ def mint_moment_events(
                 resolved=stored.resolved,
             ),
         )
-    return [event.event_id for event in minted]
+    return [event.event_id for event in events]
 
 
 def resolve_case(
