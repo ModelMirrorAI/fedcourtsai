@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.corpus_ranged import RangedBackendError
-from fedcourtsai.schemas import Engine, EventKind, ModelUsage, UsageRole
+from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
@@ -401,6 +401,56 @@ def test_predict_matrix_drops_a_salience_unselected_case(tmp_path: Path) -> None
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
     assert "24002" in result.stderr
     assert "not selected this salience round" in result.stderr
+
+
+def test_predict_matrix_keeps_an_unselected_case_with_an_open_merits_event(
+    tmp_path: Path,
+) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # The merits bypass at the matrix backstop: 24002 was scored and NOT selected,
+    # but the Court granted it and its merits event is open — the cert funding
+    # question no longer applies, so the gate must not drop it.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24002",
+                    court="scotus",
+                    docket_number="24-2",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2026, 1, 12),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/24002",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                )
+            ],
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+    }
+    assert "not selected this salience round" not in result.stderr
 
 
 def test_predict_matrix_drops_bare_opinion_import_case(tmp_path: Path) -> None:

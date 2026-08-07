@@ -1,8 +1,12 @@
+import dataclasses
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import moments
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -336,6 +340,42 @@ def test_forecastable_events_keeps_an_application_row_out_of_the_cert_arm(
     assert forecastable_events(db, "scotus", 9525000010) == []
 
 
+def test_forecastable_events_honors_a_switched_off_moment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A declared moment with ``forecastable=False`` earns no cell anywhere.
+
+    The register's documented off-switch: a moment can stay declared, parsed,
+    and latched — its events minted, its ground truth tracked — while the
+    fan-out refuses it, because `_declares_forecastable` reads the flag off the
+    spec. This is the one dial an issue-class "does a moment earn its cells"
+    decision turns, so pin that turning it actually empties the fan-out rather
+    than merely re-labelling it.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 25)
+    spec = moments.spec_for("evt-order-cvsg-disposition")
+    assert spec is not None and spec.forecastable
+    switched_off = dataclasses.replace(spec, forecastable=False)
+    real_spec_for = moments.spec_for
+    monkeypatch.setattr(
+        moments,
+        "spec_for",
+        lambda event_id: (
+            switched_off if event_id == switched_off.event_id else real_spec_for(event_id)
+        ),
+    )
+
+    # The CVSG cell drops out of the fan-out; the baseline (admitted by the
+    # case-kind arm, which never consults the register) and the unfiltered
+    # ground-truth seam are untouched.
+    assert forecastable_events(db, "scotus", 25) == ["evt-petition-disposition"]
+    assert set(open_events(db, "scotus", 25)) == {
+        "evt-petition-disposition",
+        "evt-order-cvsg-disposition",
+    }
+
+
 def _granted_case(
     db: Path,
     docket_id: int,
@@ -455,6 +495,53 @@ def test_forecastable_events_requires_the_merits_stage_on_an_order(tmp_path: Pat
     assert open_events(db, "scotus", 13) == ["evt-order-judgment"]
 
 
+def _briefed_event(case_id: str) -> corpus.CorpusEvent:
+    """The merits stage's second moment, minted once both sides have briefed."""
+    return corpus.CorpusEvent(
+        event_id="evt-brief-judgment",
+        case_id=case_id,
+        court="scotus",
+        kind=EventKind.brief,
+        stage=Stage.merits,
+    )
+
+
+def test_forecastable_events_fans_out_the_briefed_merits_event(tmp_path: Path) -> None:
+    """The merits admission carries the briefed moment too: a brief-kind event
+    at the merits stage is admitted through the same `_merits_forecastable`
+    arm as the grant-moment order, because the arm reads the register's
+    kind/stage pair rather than hard-coding the order kind — so the later
+    moment's cells reach a predictor without a second admission existing
+    anywhere."""
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 16, disposition=Disposition.granted)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_briefed_event("scotus/16")])
+
+    assert set(forecastable_events(db, "scotus", 16)) == {
+        "evt-order-judgment",
+        "evt-brief-judgment",
+    }
+
+
+def test_forecastable_events_refuses_a_briefed_merits_event_on_a_cert_order_grant(
+    tmp_path: Path,
+) -> None:
+    # The refusal mirror: the briefed moment rides the same row predicate as
+    # the grant moment, so a GVR — whose judgment is a cert-stage fact — earns
+    # neither merits cell, while both events' ground truth stays tracked.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 17, disposition=Disposition.gvr)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_briefed_event("scotus/17")])
+
+    assert forecastable_events(db, "scotus", 17) == []
+    assert set(open_events(db, "scotus", 17)) == {
+        "evt-order-judgment",
+        "evt-brief-judgment",
+    }
+
+
 def _application_event(case_id: str, *, stage: Stage | None = Stage.interim) -> corpus.CorpusEvent:
     return corpus.CorpusEvent(
         event_id="evt-motion-disposition",
@@ -531,6 +618,85 @@ def test_forecastable_events_requires_the_interim_stage_on_a_motion(tmp_path: Pa
         )
         corpus.upsert_events(conn, [_application_event("scotus/9525000004", stage=None)])
     assert forecastable_events(db, "scotus", 9525000004) == []
+
+
+def _response_events(case_id: str) -> list[corpus.CorpusEvent]:
+    """The interim stage's later moments: response requested, response filed."""
+    return [
+        corpus.CorpusEvent(
+            event_id="evt-order-response-requested-disposition",
+            case_id=case_id,
+            court="scotus",
+            kind=EventKind.order,
+            stage=Stage.interim,
+        ),
+        corpus.CorpusEvent(
+            event_id="evt-brief-response-disposition",
+            case_id=case_id,
+            court="scotus",
+            kind=EventKind.brief,
+            stage=Stage.interim,
+        ),
+    ]
+
+
+def test_forecastable_events_fans_out_the_interim_response_moments(tmp_path: Path) -> None:
+    """The interim admission carries the later response moments too: the
+    order-kind requested event and the brief-kind filed event ride the same
+    `_interim_forecastable` arm as the motion baseline, because the arm reads
+    the register's kind/stage pair rather than hard-coding the motion kind —
+    so a substantive application fans out every declared interim moment."""
+    db = corpus.corpus_db_path(tmp_path)
+    case_id = "scotus/9525000005"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="25A5",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(conn, [_application_event(case_id), *_response_events(case_id)])
+
+    assert set(forecastable_events(db, "scotus", 9525000005)) == {
+        "evt-motion-disposition",
+        "evt-order-response-requested-disposition",
+        "evt-brief-response-disposition",
+    }
+
+
+def test_forecastable_events_refuses_the_response_moments_of_a_non_substantive_application(
+    tmp_path: Path,
+) -> None:
+    # The refusal mirror: the response moments ride the same row-only scope
+    # rules as the baseline, so an extension application earns none of the
+    # three interim cells — while every event's ground truth stays tracked.
+    db = corpus.corpus_db_path(tmp_path)
+    case_id = "scotus/9525000006"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="25A6",
+                    application_kind="extension",
+                )
+            ],
+        )
+        corpus.upsert_events(conn, [_application_event(case_id), *_response_events(case_id)])
+
+    assert forecastable_events(db, "scotus", 9525000006) == []
+    assert set(open_events(db, "scotus", 9525000006)) == {
+        "evt-motion-disposition",
+        "evt-order-response-requested-disposition",
+        "evt-brief-response-disposition",
+    }
 
 
 def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim_fan_out(

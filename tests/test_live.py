@@ -1720,6 +1720,49 @@ def test_sweep_queues_the_selected_unpredicted_backlog(tmp_path: Path) -> None:
     assert [q["docket"] for q in queues.predict] == [docket_id]
 
 
+def test_sweep_queues_an_unselected_granted_docket_via_the_merits_bypass(tmp_path: Path) -> None:
+    """The merits bypass at the sweep seam: a scored-but-not-selected petition
+    the Court granted has no further distribution transition, so the sweep is
+    the ONLY path to its merits cell — the candidate filter must admit it on
+    the open merits event's account, never on selection."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    # Onboard pending, then the grant lands: the petition resolves and the
+    # merits event mints, leaving a decided row with one open merits event.
+    ingest_live_payload(db, data_root, _payload("25-1"), docket_id, today=date(2026, 7, 8))
+    granted = _payload("25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _GRANTED_ENTRY])
+    result = ingest_live_payload(db, data_root, granted, docket_id, today=date(2026, 7, 9))
+    assert result.resolved == ["evt-petition-disposition"]
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/9025000001'"
+        )
+        conn.commit()
+    served = {"25-1": granted}
+    # Zero capacity and an unreachable floor: the pass can select nothing, so
+    # only the bypass can put the docket in front of the sweep.
+    cfg = _sweep_config(per_conference_capacity=0, long_conference_capacity=0, floor=1.0)
+
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict[0]["events"] == ["evt-order-judgment"]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and not row.salience_selected  # the bypass, not selection
+
+
 def test_sweep_debounces_a_case_polled_today_and_skips_a_predicted_one(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
