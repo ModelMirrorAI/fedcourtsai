@@ -224,13 +224,14 @@ salience:
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
   # control, funding ~$21K/Term against a ~$10K inference envelope. At 12 the
-  # gate projects ~543 selections a Term (capped rank fill plus uncapped
-  # carve-outs), which with the other stages' moments lands the whole program
-  # at ~$10.2K (docs/budget.md).
+  # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
+  # fill 398-413 plus uncapped carve-outs 97-115), which with the other
+  # stages' moments lands the whole program at ~$9.6-9.9K (docs/budget.md).
   #
   # It costs coverage, and the trade is stated rather than hidden: the
-  # projection keeps ~80% of the Term's grants, against ~98% at 150. Raise
-  # both as funding lifts, keeping the ratio below.
+  # selection keeps 0.76-0.81 of the Term's replay-reconstructable
+  # grant-family outcomes, against 0.944-0.967 measured at 150/200 on the
+  # same pool. Raise both as funding lifts, keeping the ratio below.
   per_conference_capacity: 12
   # The Term's opening conference clears the summer backlog at once — ~180
   # petitions against a regular conference's ~34 — so it carries a larger cap.
