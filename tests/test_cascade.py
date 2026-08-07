@@ -17,6 +17,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import (
     CascadeError,
     CascadeReport,
+    _event_definition,
     _outcome_for_resolved,
     run_cascade,
 )
@@ -25,6 +26,7 @@ from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
     EventKind,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -72,6 +74,24 @@ def _run(
         run_id=RUN,
         **kwargs,  # type: ignore[arg-type]
     )
+
+
+def test_event_definition_carries_the_moment_stamp() -> None:
+    # The cascade writes its own event.yaml; a dropped moment reads as the
+    # stage's first at the metrics join, silently re-pooling a later-moment
+    # cell — same contract as the resolution and materialize writers.
+    event = corpus.CorpusEvent(
+        event_id="evt-order-cvsg-disposition",
+        case_id="scotus/305",
+        court="scotus",
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.cvsg,
+        title="CVSG disposition",
+    )
+    definition = _event_definition(event)
+    assert definition.stage == Stage.cert
+    assert definition.moment == Moment.cvsg
 
 
 def test_resolved_case_runs_the_full_cascade(corpus_db: Path, tmp_path: Path) -> None:

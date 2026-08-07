@@ -100,6 +100,12 @@ def test_a_null_moment_reads_as_the_stages_first() -> None:
     assert normalized_moment(Stage.cert, Moment.cvsg) == Moment.cvsg
     # No stage means no moment to normalize to.
     assert normalized_moment(None, None) is None
+    # A validated artifact hands back the plain string (`use_enum_values`),
+    # and the register must normalize it identically — the lookups compare by
+    # equality, because an identity check silently misses every deserialized
+    # record and drops the cell to a bare-stage block.
+    assert normalized_moment("cert", None) == Moment.distribution  # type: ignore[arg-type]
+    assert moments.declares("evt-order-cvsg-disposition", "cert") is True  # type: ignore[arg-type]
 
 
 def test_the_moment_round_trips_through_the_corpus() -> None:

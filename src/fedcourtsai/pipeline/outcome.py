@@ -910,6 +910,7 @@ def record_outcomes(
                     case_id=event.case_id,
                     kind=event.kind,
                     stage=event.stage,
+                    moment=event.moment,
                     title=event.title,
                     description=event.description,
                     docket_entry_id=event.docket_entry_id,

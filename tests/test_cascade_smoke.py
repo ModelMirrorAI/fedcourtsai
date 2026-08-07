@@ -179,11 +179,13 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
 
-    # The leaderboard build puts the cell in the unranked `interim` stages
-    # block; nothing enters the ranked cert board from this ledger.
+    # The leaderboard build puts the cell in the unranked `interim@arrival`
+    # stages block — the event's moment stamp survives resolution, so the cell
+    # aggregates under its moment rather than falling to the bare stage-known-
+    # moment-not block; nothing enters the ranked cert board from this ledger.
     board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
-    assert "interim" in board.stages
-    assert board.stages["interim"].evaluations_total >= 1
+    assert "interim@arrival" in board.stages
+    assert board.stages["interim@arrival"].evaluations_total >= 1
     assert board.evaluations_total == 0
 
 
@@ -267,11 +269,13 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
 
-    # The leaderboard build puts the cell in the unranked `merits` stages
-    # block; nothing enters the ranked cert board from this ledger.
+    # The leaderboard build puts the cell in the unranked `merits@grant`
+    # stages block — the event's moment stamp survives resolution, so the cell
+    # aggregates under its moment rather than falling to the bare stage-known-
+    # moment-not block; nothing enters the ranked cert board from this ledger.
     board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
-    assert "merits" in board.stages
-    assert board.stages["merits"].evaluations_total >= 1
+    assert "merits@grant" in board.stages
+    assert board.stages["merits@grant"].evaluations_total >= 1
     assert board.evaluations_total == 0
 
 
