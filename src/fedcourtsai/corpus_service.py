@@ -152,9 +152,11 @@ class CorpusService:
     not at construction: ``sqlite3`` connections refuse cross-thread use, and
     the server that owns this service may (in tests, or a future embedding) be
     driven from a different thread than the one that built it. Single-threaded
-    serving means every request thereafter runs in that same thread. It also
-    makes ``/healthz`` honest: a green health check proves the corpus is
-    actually readable, not just that the socket is bound.
+    serving means every request thereafter runs in that same thread. And
+    ``/healthz`` runs a real point read, not just the open — green means the
+    corpus is actually answerable, the connection's first-statement cost
+    (schema load, first descent) paid — so the launch step's readiness gate
+    absorbs the startup latency the first client query would otherwise race.
     """
 
     def __init__(
@@ -236,8 +238,35 @@ class CorpusService:
         )
 
     def health(self) -> dict[str, object]:
-        self._connection()  # a green health check proves the corpus opens
-        return {"status": "ok", "backend": self._backend, "schema_version": SCHEMA_VERSION}
+        conn, before = self._baseline()
+        # Opening proves little by itself on the ranged backend: the open
+        # fetches only the header block, and SQLite defers the schema load and
+        # every b-tree page to the first statement — so without this point
+        # read, "ready" would mean listening, and the connection's whole
+        # first-statement cost (schema pages, first descent, the first real S3
+        # round trip) would land on the first client query racing
+        # _CLIENT_TIMEOUT_SECONDS. What it warms is the connection, not the
+        # corpus: later queries still fetch their own data pages.
+        conn.execute("SELECT case_id FROM cases LIMIT 1").fetchone()
+        payload: dict[str, object] = {
+            "status": "ok",
+            "backend": self._backend,
+            "schema_version": SCHEMA_VERSION,
+        }
+        reads = self._counters_since(conn, before)
+        if reads is not None:
+            # The transfer, as evidence: a warm re-check honestly reports zero.
+            payload["reads"] = reads.model_dump()
+            if reads.gets:
+                # The readiness gate discards the response body, so this
+                # transfer's durable record is the sidecar log (where the data
+                # pipeline docs point for it). Integers only — the log policy
+                # admits no client-derived bytes — phrased like the CLI's
+                # evidence line so one grep covers both surfaces.
+                logger.info(
+                    "health-check corpus read: %d GET(s), %d byte(s)", reads.gets, reads.bytes
+                )
+        return payload
 
 
 class _CorpusHTTPServer(HTTPServer):
