@@ -548,7 +548,8 @@ or network.
   refusing to apply above its per-run blast-radius cap), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
   bulk cluster fields, dropped from the never-pulled rows nothing re-serves —
-  the ingest projection's carve-out, converged). Dedupe
+  the ingest projection's carve-out, converged, refusing above its own
+  blast-radius bound). Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
   latched as the stored snapshots allow; each is idempotent, so a converged

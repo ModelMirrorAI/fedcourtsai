@@ -190,7 +190,13 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Wall-clock budget for the whole loop, kept under timeout-minutes with
           # room for setup + the trailing steps, and inside the token's 1h life.
-          LOOP_BUDGET_SECONDS: "2400" # 40m
+          # The 02:31 window carries the daily maintenance sweeps after the
+          # loop, so it trades walk time for sweep headroom: the sweeps'
+          # bounded worst case only ever binds on a non-converged window, but
+          # a cap hit is a cancellation — the one outcome continue-on-error
+          # cannot absorb — so the budget yields rather than gambling the
+          # trailing verdict.
+          LOOP_BUDGET_SECONDS: ${{ github.event.schedule == '31 2 * * *' && '1500' || '2400' }} # 25m sweep window / 40m
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -571,17 +577,23 @@ jobs:
       # cluster fields; the ingest projection withholds them from a re-served
       # bulk row, and this converges the rows nothing re-serves (a
       # REST-refreshed row keeps its fields — they were re-projected from the
-      # API's sound per-docket join). Corpus-only: no ledger surface, so a
-      # pointer-only commit like the judgments sweep. Idempotent — a scrubbed
-      # corpus matches nothing, so after the first window this costs one
-      # count query.
+      # API's sound per-docket join). The apply refuses above the command's
+      # blast-radius bound, sized just over the measured slice — the
+      # predicate is a provenance proxy, and a widened proxy should fail
+      # loudly, not null a channel the carve-out never covered. Corpus-only:
+      # no ledger surface, so a pointer-only commit like the judgments sweep.
+      # Idempotent — a scrubbed corpus matches nothing, so a converged
+      # window's cost is the apply's own count scan, seconds over the cases
+      # table.
       - name: Scrub the bulk slice's misjoined cluster fields
         if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
         continue-on-error: true
-        # One UPDATE over the cases table against the pulled blob; the first
-        # non-converged window rewrites ~1.36M rows in seconds, so the bound
-        # is really for the blob push.
-        timeout-minutes: 8
+        # Bounded for the same reason as the sibling sweeps — a cap hit
+        # cancels the whole run, which continue-on-error cannot absorb — and
+        # tightly: one UPDATE against the pulled blob (the first
+        # non-converged window rewrites ~1.36M rows in seconds), then the
+        # blob push the walk pays on every window anyway.
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
@@ -592,9 +604,10 @@ jobs:
             echo "no corpus pointer yet; skipping cluster scrub"; exit 0
           fi
           gh auth setup-git # persist-credentials is false on checkout
-          # Dry-run first, mirrored into the run summary, then apply.
-          uv run fedcourts scrub-bulk-cluster-fields | tee -a "$GITHUB_STEP_SUMMARY"
-          uv run fedcourts scrub-bulk-cluster-fields --apply
+          # One apply, its count line mirrored into the run summary: a
+          # separate dry run would repeat the same full-table count for a
+          # one-line report the apply already prints.
+          uv run fedcourts scrub-bulk-cluster-fields --apply | tee -a "$GITHUB_STEP_SUMMARY"
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref

@@ -89,6 +89,23 @@ def test_apply_is_idempotent(tmp_path: Path) -> None:
     assert again.scrubbed == 0
 
 
+def test_cli_apply_refuses_above_the_bound(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The blast-radius cap: an over-bound apply exits non-zero and writes nothing.
+
+    The predicate is a provenance proxy, so the bound is what turns a widened
+    proxy — a lost filter reaching rows the carve-out never covered — into a
+    loud refusal in the writer lane instead of an unattended mass nulling.
+    """
+    db = _seeded(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["scrub-bulk-cluster-fields", "--apply", "--max-scrub", "0"])
+    assert result.exit_code == 1
+    assert "refusing to apply 1 scrubs (--max-scrub 0)" in result.output
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "ca1/1883")
+    assert row is not None and row.summary is not None  # nothing was nulled
+
+
 def test_cli_dry_run_then_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _seeded(tmp_path)
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))

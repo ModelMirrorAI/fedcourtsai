@@ -430,6 +430,13 @@ def scrub_bulk_cluster_fields_cmd(
         bool,
         typer.Option("--apply", help="Scrub the matching rows; omit for a dry-run count."),
     ] = False,
+    max_scrub: Annotated[
+        int,
+        typer.Option(
+            "--max-scrub",
+            help="Blast-radius bound: refuse to apply more scrubs than this.",
+        ),
+    ] = 1_500_000,
 ) -> None:
     """Scrub the bulk export's misjoined cluster fields from the stored slice.
 
@@ -441,8 +448,12 @@ def scrub_bulk_cluster_fields_cmd(
     converges it: one UPDATE nulling those fields on every never-pulled
     non-SCOTUS row still carrying any (a REST-refreshed row keeps its fields —
     they were re-projected from the API's sound per-docket join). Idempotent.
-    Run where the corpus is pulled (run-seed's writer lane in production).
-    Fails loud if the corpus is absent.
+    `--apply` refuses above `--max-scrub`, whose default sits just over the
+    measured bulk slice: the predicate is a provenance proxy, so a count past
+    it means the predicate widened (a lost filter reaches rows the carve-out
+    never covered), not that the slice grew. Run where the corpus is pulled
+    (run-seed's writer lane in production). Fails loud if the corpus is
+    absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -454,6 +465,17 @@ def scrub_bulk_cluster_fields_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
+        if apply:
+            preview = scrub_bulk_cluster_fields(conn, apply=False)
+            if preview.scrubbed > max_scrub:
+                typer.echo(
+                    f"scrub-bulk-cluster-fields: refusing to apply {preview.scrubbed} "
+                    f"scrubs (--max-scrub {max_scrub}). The predicate is a provenance "
+                    "proxy sized to the measured bulk slice; a count past the bound "
+                    "means it widened — triage before raising it.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
         result = scrub_bulk_cluster_fields(conn, apply=apply)
     verb = "scrubbed" if apply else "would scrub"
     typer.echo(
