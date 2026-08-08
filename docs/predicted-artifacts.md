@@ -15,13 +15,11 @@ the numbers. None of them is a real docket, a real vote, or a real outcome.
 the same files. What varies is `prediction.json`: `granted`, `probability`, and
 `predicted_disposition` change *meaning* with the event's stage (`event.yaml`'s
 `stage` — `cert`, `interim`, or `merits`), `judgment` is mandatory at one stage
-and null at the others, and the declared claim set changes *shape*. Cert and
-interim cells fan out today. The merits cell's contract is registered end to
-end — the schema, the `validate` gate, the scoring axis, and the minted
-`evt-order-judgment` event — but the merits event is not a forecastable kind
-(`fedcourtsai.store`), so no merits cell fans out until the merits prompt
-sections ship; its section below describes the registered shape, not a cell
-that runs. See [decision-model.md](decision-model.md).
+and null at the others, and the declared claim set changes *shape*. All three
+stages fan out: the merits admission is `store._merits_forecastable` (an open
+merits event on a granted, undecided docket, every one bypassing the salience
+gate), with the prompt's merits section carrying the cell contract. See
+[decision-model.md](decision-model.md).
 
 ## Where the files land
 
