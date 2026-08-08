@@ -263,7 +263,15 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     could drift: a docket re-resolved to ``gvr`` after its merits event was
     minted leaves the cert order carrying the disposition, so its judgment is a
     cert-stage fact the merits baseline excludes, and a cell forecasting it
-    would be scored against a rate its own case is not in.
+    would be scored against a rate its own case is not in. (The baseline side
+    applies one further predicate this side cannot: its pool guard excludes
+    parsed judgments dated on their own grant — unreachable here, since a
+    forecastable merits event requires ``merits_judgment`` unlatched, so the
+    gap does not exist yet at admission time. The seam that survives: a
+    stale-labeled cert-order vacatur whose event mints and is forecast before
+    the poll latches its judgment would score a near-certain disturbance
+    against a pool its own class was removed from — bounded by the latch
+    window, and named in ``metrics/README.md`` rather than hidden here.)
 
     The scope rules narrow the forecast population *inside* the baseline's
     rather than matching it exactly, and the gap is not small: predict scope

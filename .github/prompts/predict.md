@@ -422,18 +422,15 @@ was worth.
     figure you cite.
   - **The population is the grants that open a merits proceeding** — the same
     rule that minted your event — so a GVR or summary reversal, which decides
-    in the cert order itself, is excluded. That exclusion is only as good as
-    the row's disposition label, and the `gvr` label is a **forward
-    convention**: a Term resolved into the corpus before the label existed
-    carries its GVRs as plain `granted`, and their near-certain vacaturs then
-    sit inside the disturbed rate. Over such a Term the published rate is an
-    **upper bound**, not the rate argued cases face. Read a pooled rate that
-    looks high against that possibility before reading it as the Court's
-    behaviour, and say in `reasoning.md` which reading you took. It is also
-    why no merits **skill** number is published at all today: the evaluator
-    omits `brier_skill_score` on every merits cell until a guard that does not
-    depend on that label lands, so the pooled rate is an anchor for your
-    reasoning and never a bar you are scored over.
+    in the cert order itself, is excluded, and the exclusion does not rest on
+    the disposition label alone: the `gvr` label is a forward convention, so
+    the section also excludes, label-independently, any row whose parsed
+    judgment carries its own grant's date or no date the gap could be tested
+    on (a disposition riding in the cert order carries the grant's own date —
+    `docs/decision-model.md`). Every parsed judgment in the pool therefore
+    provably postdates its grant, and the pooled rate is the rate argued cases
+    face — the baseline your cell's `brier_skill_score` **is scored against**,
+    so treat it as the bar, not merely an anchor.
   - **A DIG and an equally divided affirmance count as undisturbed** and stay
     in the denominator, so the rate answers exactly the binary you are
     forecasting.

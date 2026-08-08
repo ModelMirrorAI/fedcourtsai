@@ -1574,9 +1574,9 @@ class LeaderboardStratum(_Strict):
         "dominated by low-baseline denial cells and would pay a predictor to "
         "under-forecast the rare event. Distinct from raw Brier: it credits beating the biased "
         "predicted-segment base rate, not the whole-docket rate. On the cert board "
-        "the baseline is the salience segment's grant rate; a merits cell reports "
-        "no skill score at all while the merits pool's GVR guard is unbuilt "
-        "(docs/decision-model.md), so a merits stage block's mean is null",
+        "the baseline is the salience segment's grant rate; a merits cell's is the "
+        "statpack merits section's guarded disturbed rate pooled strictly "
+        "prior (docs/decision-model.md), null below its stated minimum sample",
     )
     skill_scored: int = Field(
         default=0,
@@ -1769,10 +1769,10 @@ class LeaderboardStage(_Strict):
     vocabulary) and a moment is the point in the case's life the forecast was
     taken from, so the pair — not the stage alone — identifies a population.
     Skill figures are only meaningful within one: `granted`
-    answers a different question at each stage, and only the cert segment
-    reports a skill score today — the interim stage has no published base rate,
-    and the merits stage has a registered one whose skill number is suppressed
-    while the pool's GVR guard is unbuilt (docs/decision-model.md). So each
+    answers a different question at each stage — the cert segment's is its
+    salience band's grant rate, the merits stage's the guarded disturbed rate
+    pooled strictly prior (docs/decision-model.md), and the interim stage has
+    no published base rate, so its skill stays null. Each
     stage carries its own counts and entries,
     listed by ``predictor_id`` (never ranked), and nothing here blends into the
     cert board or another stage.
@@ -3616,8 +3616,23 @@ class _StatPackMeritsCounts(_Strict):
         ge=0,
         description="SCOTUS cases in this slice whose grant opens a merits "
         "proceeding (a plain or partial grant with `date_cert_granted` set; a "
-        "GVR or summary reversal decides in the cert order and is excluded) — "
-        "the cohort the merits backfill walks, parsed or not",
+        "GVR or summary reversal decides in the cert order and is excluded, "
+        "as is — label-independently — any row whose parsed judgment carries "
+        "its grant's own date, whatever its label says: see "
+        "cert_order_excluded). A parsed judgment with no date stays here as "
+        "a visible coverage gap, outside the parsed slice, since the gap "
+        "test cannot run on it. Parsed or not",
+    )
+    cert_order_excluded: int = Field(
+        default=0,
+        ge=0,
+        description="Rows the label-independent pool guard removed from this "
+        "slice: a parsed judgment dated on or before its own grant rode the "
+        "cert order (docs/decision-model.md), so the row is outside granted, "
+        "parsed, and the rate alike. Zero is only meaningful beside a "
+        "healthy parse: a guard that stops firing and a guard with nothing "
+        "to fire on render the same zero, which is why the count is "
+        "published rather than implied.",
     )
     parsed: int = Field(
         default=0,
@@ -3702,9 +3717,11 @@ class StatPackMerits(_StatPackMeritsCounts):
     (``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the
     ``terms`` array is a scoring input as well as a description. The population
     is the grants that open a merits proceeding — the same rule that mints the
-    event a merits forecast is made on — so a GVR, whose vacatur rides in the
-    cert order itself, never contributes a near-certain disturbance to a rate
-    that scores forecasts about argued cases.
+    event a merits forecast is made on — minus, label-independently, any row
+    whose parsed judgment carries its grant's own date or no date at all
+    (``docs/decision-model.md``'s pool guard), so a GVR, whose vacatur rides
+    in the cert order itself, never contributes a near-certain disturbance to
+    a rate that scores forecasts about argued cases, whatever its label says.
     """
 
     terms: list[StatPackMeritsTerm] = Field(

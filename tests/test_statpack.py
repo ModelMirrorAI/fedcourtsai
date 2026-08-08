@@ -1148,12 +1148,18 @@ def _seed_granted_cohort(db_path: Path) -> None:
     """Insert a known granted-merits cohort split across two grant Terms.
 
     OT2023 (granted Jan 2024 -> Term 2023): a reversal, a vacatur, an
-    affirmance, a DIG, and a granted row with no parsed judgment (coverage
+    affirmance, a DIG — every parsed judgment dated after its grant, as the
+    pool guard requires — and a granted row with no parsed judgment (coverage
     gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
     equally-divided affirmance and one mixed in-part outcome. Plus a granted
     row carrying an out-of-vocabulary judgment string (counts as unparsed, so
-    the distribution always sums to `parsed`), a denial, and a GVR — the last
-    two never eligible, the GVR because its vacatur is a cert-stage disposition.
+    the distribution always sums to `parsed`), a denial, a GVR, and a
+    stale-labeled GVR (labeled plain `granted`, its vacatur dated on the
+    grant itself) — the last three never in the cohort: the labeled GVR
+    because its
+    vacatur is a cert-stage disposition, the stale-labeled one because the
+    label-independent guard reads the same fact off the grant→judgment gap
+    and counts it as `cert_order_excluded`.
     """
     ot23 = date(2024, 1, 12)
     ot24 = date(2024, 10, 7)
@@ -1183,6 +1189,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="affirmed",
+            merits_decided=date(2024, 6, 14),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000004",
@@ -1191,6 +1198,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="dismissed-as-improvidently-granted",
+            merits_decided=date(2024, 5, 20),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000005",
@@ -1206,6 +1214,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-by-an-equally-divided-court",
+            merits_decided=date(2025, 5, 12),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000007",
@@ -1214,6 +1223,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-in-part-reversed-in-part",
+            merits_decided=date(2025, 6, 2),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000008",
@@ -1241,6 +1251,22 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.gvr,
             date_cert_granted=ot23,
             merits_judgment="vacated",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000011",
+            court="scotus",
+            docket_number="23-208",
+            # The stale-labeled GVR shape: the `gvr` label is a forward
+            # convention and labels lag their cert orders (measured, most
+            # recently on IFP GVRs), so this row reads plain `granted` —
+            # passing the disposition exclusion — while its vacatur rode the
+            # cert order and carries the grant's own date. The
+            # label-independent guard keeps it out of the cohort entirely,
+            # exactly as the labeled GVR above is, and counts it.
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
+            merits_decided=ot23,
         ),
     ]
     with corpus.connect(db_path) as conn:
@@ -1335,6 +1361,7 @@ def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
                     disposition=Disposition.granted,
                     date_cert_granted=date(2024, 1, 12),
                     merits_judgment="affirmed",
+                    merits_decided=date(2024, 6, 14),
                 )
             ],
         )
@@ -1373,12 +1400,17 @@ def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
     assert "excluded by its disposition label" in merits_section
     assert "strictly before" in merits_section
     assert "undisturbed" in merits_section
-    assert "**8** granted case(s): 6 with a parsed judgment." in merits_section
+    assert (
+        "**8** granted case(s): 6 with a parsed, dated judgment; 1 excluded by the "
+        "pool guard (judgment dated on or before its own grant)." in merits_section
+    )
     # Rates print raw-count denominators beside them; per-Term rows carry the
     # coverage pair, the six-way distribution, and the disturbed rate.
     assert "disturbed rate 50.0% (n=6)." in merits_section
-    assert "| 2024 | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
-    assert "| 2023 | 5 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section
+    # The excluded column sits between granted and parsed: OT2023 carries the
+    # stale-labeled cert-order vacatur the guard removed and counted.
+    assert "| 2024 | 3 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
+    assert "| 2023 | 5 | 1 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section
 
 
 def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
@@ -1398,6 +1430,7 @@ def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
             disposition=Disposition.granted_in_part if n == 0 else Disposition.granted,
             date_cert_granted=granted,
             merits_judgment="reversed" if n < 28 else "affirmed",
+            merits_decided=date(2024, 6, 20),
         )
         for n in range(40)
     ] + [
@@ -1486,3 +1519,71 @@ def test_both_versions_count_the_same_rows_into_their_own_bands(
         (alt,) = term.alt_segments
         assert sum(s.ingested for s in term.segments) == sum(s.ingested for s in alt.segments)
         assert sum(s.resolved for s in term.segments) == sum(s.resolved for s in alt.segments)
+
+
+def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path: Path) -> None:
+    """The label-independent twin of the GVR exclusion, loud on its own.
+
+    A stale-labeled cert-order vacatur reads plain `granted` (the `gvr` label
+    is a forward convention, and labels lag on recent IFP GVRs), so the
+    disposition exclusion cannot see it — but its parsed vacatur carries the
+    grant's own date, and the pool guard excludes it from the cohort entirely
+    (not in `granted`, not in `parsed`, not in the rate) while counting it as
+    `cert_order_excluded`. An undated parse is different: membership unknown,
+    so it stays in `granted` as a visible coverage gap while its judgment
+    stays out of the parsed slice — and the retained affirmance is what makes
+    the RATE discriminate, not just the counts (guarded 1/2 vs 2/3 unguarded).
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000021",
+                    court="scotus",
+                    docket_number="19-101",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 10),
+                    merits_judgment="reversed",
+                    merits_decided=date(2020, 6, 22),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/910000022",
+                    court="scotus",
+                    docket_number="19-102",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 13),
+                    merits_judgment="vacated",
+                    merits_decided=date(2020, 1, 13),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/910000023",
+                    court="scotus",
+                    docket_number="19-103",
+                    # The undated parse: the gap cannot be evaluated, so its
+                    # membership is unknown — kept in `granted` as coverage,
+                    # kept out of the parsed slice and the rate.
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 13),
+                    merits_judgment="vacated",
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/910000024",
+                    court="scotus",
+                    docket_number="19-104",
+                    # A genuine argued affirmance: what makes the rate itself
+                    # discriminate between the guarded and unguarded pool.
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 13),
+                    merits_judgment="affirmed",
+                    merits_decided=date(2020, 6, 29),
+                ),
+            ],
+        )
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    assert (merits.granted, merits.parsed, merits.disturbed) == (3, 2, 1)
+    assert merits.cert_order_excluded == 1
+    assert merits.terms[0].cert_order_excluded == 1
+    assert merits.disturbed_rate == pytest.approx(0.5)

@@ -29,7 +29,11 @@ from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.judgment import grant_term_year, judgment_disturbed
+from .pipeline.judgment import (
+    grant_term_year,
+    judgment_disturbed,
+    judgment_rode_the_grant_order,
+)
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -882,6 +886,28 @@ def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
 _JUDGMENT_VALUES = frozenset(judgment.value for judgment in Judgment)
 
 
+def _judgment_rode_its_grant_order(row: CorpusRow) -> bool:
+    """Whether a row's parsed, dated judgment fails the label-independent pool guard.
+
+    The label-independent twin of the GVR/summary-reversal disposition
+    exclusion: a parsed judgment dated on (or before) its own grant rode the
+    cert order (:func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order`),
+    so the row is that same decides-in-the-cert-order class whatever its
+    disposition label says — the labels lag on exactly this class, most
+    recently on IFP GVRs — and it is excluded from the cohort entirely,
+    exactly as a labeled GVR is, not merely from the parsed slice. Only a
+    dated parse can fail the test: an undated parse's membership is unknown,
+    so :class:`_MeritsAcc` keeps it in ``granted`` as a visible coverage gap
+    while its judgment stays out of the parsed slice and the rate.
+    """
+    value = row.merits_judgment
+    if value is None or value not in _JUDGMENT_VALUES:
+        return False
+    if row.date_cert_granted is None or row.merits_decided is None:
+        return False
+    return judgment_rode_the_grant_order(row.merits_decided, row.date_cert_granted)
+
+
 class _MeritsAcc:
     """Streaming accumulator for one slice of the granted-merits docket.
 
@@ -897,14 +923,20 @@ class _MeritsAcc:
     these per-Term counts, strictly-prior). The cohort admitted here is the
     scored population itself: the caller
     (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants
-    that decide in the cert order, so no near-certain GVR vacatur reaches a
-    counter.
+    that decide in the cert order, and its label-independent twin
+    (:func:`_judgment_rode_its_grant_order`) keeps out — and counts, as
+    ``cert_order_excluded`` — the rows whose parsed judgment carries the
+    grant's own date, whatever the label says. Every judgment in the *parsed*
+    slice therefore provably postdates its grant; an undated parse stays in
+    ``granted`` as a visible coverage gap, since only a dated parse can be
+    gap-tested.
     """
 
-    __slots__ = ("disturbed", "granted", "judgments", "parsed")
+    __slots__ = ("cert_order_excluded", "disturbed", "granted", "judgments", "parsed")
 
     def __init__(self) -> None:
         self.granted = 0
+        self.cert_order_excluded = 0
         self.parsed = 0
         self.judgments: Counter[str] = Counter()
         self.disturbed = 0
@@ -914,17 +946,25 @@ class _MeritsAcc:
         value = row.merits_judgment
         # The blob is external input to this pure function: an out-of-vocabulary
         # value counts with the never-parsed rows rather than entering the
-        # distribution, so the six judgment counts always sum to `parsed`.
-        if value is None or value not in _JUDGMENT_VALUES:
+        # distribution, so the six judgment counts always sum to `parsed`. A
+        # parsed judgment with NO date counts the same way — its membership in
+        # the argued cohort is untestable (the pool guard needs the gap), so it
+        # stays a visible coverage gap rather than touching the rate.
+        if value is None or value not in _JUDGMENT_VALUES or row.merits_decided is None:
             return
         self.parsed += 1
         self.judgments[value] += 1
         if judgment_disturbed(Judgment(value)):
             self.disturbed += 1
 
+    def exclude(self) -> None:
+        """Record a row the pool guard removed (outside granted and the rate)."""
+        self.cert_order_excluded += 1
+
     def merge(self, other: _MeritsAcc) -> None:
         """Fold another slice's counters into this one (for the pack-level totals)."""
         self.granted += other.granted
+        self.cert_order_excluded += other.cert_order_excluded
         self.parsed += other.parsed
         self.judgments.update(other.judgments)
         self.disturbed += other.disturbed
@@ -940,6 +980,7 @@ def _merits_counts(acc: _MeritsAcc) -> dict[str, Any]:
     """
     return {
         "granted": acc.granted,
+        "cert_order_excluded": acc.cert_order_excluded,
         "parsed": acc.parsed,
         "affirmed": acc.judgments[Judgment.affirmed.value],
         "reversed": acc.judgments[Judgment.reversed.value],
@@ -1162,7 +1203,11 @@ def _accumulate_scotus_terms(
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
         grant_year = grant_term_year(row.date_cert_granted)
-        merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
+        acc = merits_accs.setdefault(grant_year, _MeritsAcc())
+        if _judgment_rode_its_grant_order(row):
+            acc.exclude()
+        else:
+            acc.add(row)
 
 
 def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _CorpusScan:
@@ -1622,9 +1667,13 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         (
             "_SCOTUS cases whose cert grant opened a merits proceeding — a plain or "
             + "partial grant; a GVR or summary reversal decides in the cert order itself, "
-            + "so it is a cert-stage fact and is excluded by its disposition label (only "
-            + "as exact as that label: a Term resolved before the `gvr` label existed "
-            + "carries its GVRs as plain `granted`, so its rate here reads high) — split "
+            + "so it is a cert-stage fact and is excluded by its disposition label and, "
+            + "label-independently, by the grant-to-judgment gap: a parsed judgment "
+            + "dated on or before its own grant rode the cert order, whatever the "
+            + "label says, and sits outside this cohort in the excluded count its "
+            + "slice publishes — so every judgment in the parsed slice provably "
+            + "postdates its grant, while a parsed judgment with no date to test "
+            + "stays in `granted` as a visible coverage gap — split "
             + "by the October Term "
             + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
             + "with the cert tables' docket-number Terms (a petition docketed in Term T is "
@@ -1652,7 +1701,9 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "preceding your clock._"
         ),
         "",
-        f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed judgment.",
+        f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed, dated "
+        f"judgment; {merits.cert_order_excluded} excluded by the pool guard "
+        f"(judgment dated on or before its own grant).",
         "",
         f"**Parsed slice:** {merits.affirmed} affirmed, {merits.reversed} reversed, "
         f"{merits.vacated} vacated, {merits.affirmed_in_part} affirmed in part, "
@@ -1660,10 +1711,10 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         f"disturbed rate {_merits_rate(merits)}.",
         "",
         (
-            "| Term | granted | parsed | affirmed | reversed | vacated | in part "
-            + "| DIG | equally divided | disturbed | disturbed rate |"
+            "| Term | granted | excluded | parsed | affirmed | reversed | vacated "
+            + "| in part | DIG | equally divided | disturbed | disturbed rate |"
         ),
-        "| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |",
+        "| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |",
     ]
     lines += [_merits_term_row(entry) for entry in merits.terms]
     return lines
@@ -1679,7 +1730,8 @@ def _merits_rate(entry: StatPackMerits | StatPackMeritsTerm) -> str:
 def _merits_term_row(entry: StatPackMeritsTerm) -> str:
     """One grant-Term's row in the merits docket table."""
     return (
-        f"| {entry.term} | {entry.granted} | {entry.parsed} | {entry.affirmed} "
+        f"| {entry.term} | {entry.granted} | {entry.cert_order_excluded} | {entry.parsed} "
+        f"| {entry.affirmed} "
         f"| {entry.reversed} | {entry.vacated} | {entry.affirmed_in_part} | {entry.dig} "
         f"| {entry.equally_divided} | {entry.disturbed} | {_merits_rate(entry)} |"
     )

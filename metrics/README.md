@@ -155,9 +155,9 @@ stays outside the gate:
 
   Scope rules travel with the figure. It is **cert stage only** — no other
   stage has a salience band, so none has a band rate to realize, and every
-  non-cert `stages` block reports it null with a zero count (this is not the
-  merits GVR-guard suppression described below; merits would have nothing to
-  realize even once that guard lands). It is **version-pinned** exactly like
+  non-cert `stages` block reports it null with a zero count (a scope fact,
+  not a merits skill rule: merits has no band, so it has nothing to
+  realize). It is **version-pinned** exactly like
   the prior-Term pool: a band name means something only under the salience
   version that assigned it, so a Term carrying another version contributes
   nothing rather than a blend. It rests on a **stated minimum** —
@@ -473,28 +473,39 @@ registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is claimable **only against that declared
 baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
 the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind. What keeps a merits cell out of that mean is a `validate` check
-(`merits_evaluations_score_no_skill`), not the averaging — see the next
-paragraph — and only
+stage-blind — and only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
 no skill score, and no substitute rate. Three things travel with any merits
 figure. The baseline's population is the section's population is the scored
-population: the grants that open a merits proceeding, with the two procedural
-exits counted as undisturbed (a DIG and an equally divided affirmance leave
+population — up to predict scope: the section admits every grant that opens
+a merits proceeding while the forecast side further excludes IFP,
+consolidated-out-of-scope, and date-inconsistent rows, a small residue now
+that the guard removes the (mostly IFP) stale-labeled vacaturs. The two
+procedural
+exits count as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and
-with GVRs and summary reversals absent because they are cert-stage
-dispositions that mint no merits cell. That exclusion is only as good as the
-row's disposition label, and two classes escape it: the `gvr` label is a
-forward convention, so a Term resolved before it existed carries its GVRs as
-plain `granted`, and no resolver produces `summary-reversal` at all — both
-parse as near-certain vacaturs, so the rate over any Term with unlabelled GVRs
-is an **upper bound**, and no merits skill number may be published against a
-pool drawing on such a Term — which, until the label-independent guard
-`docs/decision-model.md` names is built, is honoured by omitting
-`brier_skill_score` on every merits cell, in the evaluate prompt and in the
-`validate` gate behind it. And the window is the same ten-Term
+GVRs and summary reversals are absent because they are cert-stage
+dispositions that mint no merits cell. That exclusion does not rest on the
+row's disposition label alone: the `gvr` label is a forward convention, a
+row's label can lag its own cert order (measured, the stale labels sit on
+recent IFP GVRs), and no
+resolver produces `summary-reversal` at all — both classes parse as
+near-certain
+vacaturs — so the section also applies the label-independent guard
+`docs/decision-model.md` registers
+(`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
+on or before its own grant rode the cert order and is excluded from the
+cohort entirely, whatever its label says, with the removed rows published as
+the section's `cert_order_excluded`. The pooled **rate** is therefore clean
+of every cert-order vacatur whose judgment parsed with a date. Three residues
+survive, and they travel with any quoted figure: a summary reversal issued in
+a later order than its grant is caught by neither guard; an *unparsed*
+cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
+figure can still carry it even though the rate cannot; and a parsed judgment
+with no date stays in `granted` the same way, since the gap test cannot run
+on it. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -506,15 +517,13 @@ skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
 publishes.
 
-No merits **skill** number is published, and two separate things hold it back.
-The prohibition above is the binding one: until the label-independent guard
-lands, `brier_skill_score` is omitted on every merits cell by rule, so the
-merits stage block's skill figure is null and its `skill_scored` zero for the
-same reason the interim block's are. And the pack gates the baseline itself —
-the merits section publishes only once a corpus row carries a parsed judgment,
-and the pooled prior-Term sample must clear the minimum, below which the
-declared claim goes unscored too, so nothing realizes the registered baseline
-at all. What a merits cell does record is `segment_base_rate`, read from the
+A merits **skill** number exists only where the pack can support it: the
+merits section publishes only once a corpus row carries a parsed judgment
+(the guarded cohort above), and the pooled prior-Term sample must clear the
+stated minimum — below it there is no baseline, the declared claim goes
+unscored, and the merits stage block's skill figure is null with
+`skill_scored` zero, exactly as the interim block's are. A merits cell
+records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
 
@@ -702,10 +711,11 @@ the rendered table) and
   disposition rides in the cert order itself, are absent: their vacaturs are
   cert-stage facts, already counted in the cert sections, and would otherwise
   count as disturbed judgments in cases no one forecast at the merits stage.
-  The exclusion reads the row's cert disposition label, so it is exact only
-  where that label is (the `gvr`/`summary-reversal` caveat above the stage
-  blocks applies here too: over a Term whose GVRs are unlabelled the rate is an
-  upper bound).
+  The exclusion reads the row's cert disposition label and, where the label
+  cannot be trusted, the grant→judgment gap: a parsed judgment dated on or
+  before its own grant — or carrying no date the gap could be tested on —
+  is excluded label-independently, so every parsed judgment in the cohort
+  provably postdates its grant.
   **What may be
   claimed from it:** the counts are *descriptive* facts about the parsed
   cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of
