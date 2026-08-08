@@ -838,13 +838,18 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
 def _migrate_events(conn: sqlite3.Connection) -> None:
     """Back-fill `events` columns added after table creation.
 
-    The events table's counterpart of :func:`_migrate_cases`. ``stage`` is
-    nullable with no DEFAULT — a pre-existing row simply carries no stage until
-    the next re-ingest stamps one. Idempotent on a current-schema table.
+    The events table's counterpart of :func:`_migrate_cases`. Both columns are
+    nullable with no DEFAULT — a pre-existing row simply carries no stage or
+    moment until the next re-ingest (or the moment-stamp sweep) writes one.
+    Every column the writers bind must be here: `_event_upsert_sql` names the
+    full column list, so one missing column fails the first event write on a
+    pre-migration blob outright rather than degrading. Idempotent on a
+    current-schema table.
     """
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
-    if "stage" not in existing:
-        conn.execute("ALTER TABLE events ADD COLUMN stage TEXT")
+    for column in ("stage", "moment"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {column} TEXT")
 
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label

@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai import corpus, corpus_ranged
-from fedcourtsai.schemas import Disposition, EventKind, Judgment, Stage
+from fedcourtsai.schemas import Disposition, EventKind, Judgment, Moment, Stage
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -2206,6 +2206,61 @@ def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
         events = corpus.events_for_case(conn, "scotus/7")
     assert len(events) == 1
     assert events[0].stage is None
+    assert events[0].moment is None
+
+
+def test_migrate_events_backfills_every_written_column(tmp_path: Path) -> None:
+    """A pre-moment blob accepts an event write after migration.
+
+    The failure shape this pins: `_event_upsert_sql` binds the full column
+    list, so a blob whose `events` table predates any written column fails
+    the first upsert with "no column named ..." — the corpus writers' whole
+    lane, not one row. Build the pre-moment schema (stage present, moment
+    not), then prove connect() migrates it far enough that a current-code
+    upsert round-trips.
+    """
+    db = tmp_path / "corpus.db"
+    raw = sqlite3.connect(db)
+    raw.executescript(
+        """
+        CREATE TABLE events (
+            case_id         TEXT NOT NULL,
+            event_id        TEXT NOT NULL,
+            court           TEXT NOT NULL,
+            kind            TEXT NOT NULL,
+            stage           TEXT,
+            title           TEXT NOT NULL DEFAULT '',
+            description     TEXT,
+            docket_entry_id INTEGER,
+            decision_target TEXT NOT NULL DEFAULT 'disposition',
+            opened_at       TEXT,
+            resolved        INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (case_id, event_id)
+        );
+        """
+    )
+    raw.commit()
+    raw.close()
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/7",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    moment=Moment.grant,
+                    title="Cascade Timber Co. v. United States",
+                    decision_target="judgment",
+                    resolved=False,
+                )
+            ],
+        )
+        (event,) = corpus.events_for_case(conn, "scotus/7")
+    assert event.stage == Stage.merits
+    assert event.moment == Moment.grant
 
 
 def test_event_from_pre_stage_ranged_row_reads_stage_as_unset() -> None:
