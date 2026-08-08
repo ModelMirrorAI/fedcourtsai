@@ -543,8 +543,9 @@ or network.
   `fedcourts backfill-event-moments --apply` riding the step first), and the
   attribution repairs (`fedcourts remove-unmintable-events --apply` then
   `fedcourts reopen-misattributed-outcomes --apply` — ledger deletions and
-  rewrites staged in the one pointer commit, removal first so the reopen
-  sweep's baseline-pair triage clears in the same window). Dedupe
+  rewrites staged in the one pointer commit, removal first so the entry-pinned
+  case clears the reopen sweep's baseline-pair triage in the same window, each
+  refusing to apply above its per-run blast-radius cap). Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
   latched as the stored snapshots allow; each is idempotent, so a converged

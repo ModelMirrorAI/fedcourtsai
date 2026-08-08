@@ -323,6 +323,26 @@ def test_cli_apply_repairs_both_stores(tmp_path: Path, monkeypatch) -> None:  # 
     assert rows == {_BASELINE: True, _MOTION: False}
 
 
+def test_cli_apply_refuses_above_the_reopen_bound(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The blast-radius cap: over-bound applies exit non-zero and write nothing.
+
+    The population this sweep repairs is finite and non-growing, so the bound
+    converts a widened predicate from an unattended mass deletion in the
+    writer lane into a loud refusal the next window's log names.
+    """
+    _, motion = _seed_copied_motion(tmp_path)
+    with _seeded(tmp_path, _copied_motion_rows()):
+        pass
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["reopen-misattributed-outcomes", "--apply", "--max-reopens", "0"])
+    assert result.exit_code == 1
+    assert "refusing to apply 1 reopens (--max-reopens 0)" in result.output
+    assert motion.outcome.is_file()  # nothing was deleted
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        assert all(e.resolved for e in corpus.events_for_case(conn, _CASE))
+
+
 def test_cli_dry_run_reports_without_writing(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     _, motion = _seed_copied_motion(tmp_path)
     with _seeded(tmp_path, _copied_motion_rows()):
@@ -541,3 +561,18 @@ def test_cli_removal_apply_drops_both_stores(tmp_path: Path, monkeypatch) -> Non
     assert appeal.base.exists() is False
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         assert [e.event_id for e in corpus.events_for_case(conn, _CASE)] == [_BASELINE]
+
+
+def test_cli_removal_refuses_above_the_bound(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The removal cap mirrors the reopen cap: over-bound applies write nothing."""
+    _, appeal = _seed_unmintable(tmp_path)
+    with _seeded(tmp_path, _unmintable_rows()):
+        pass
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["remove-unmintable-events", "--apply", "--max-removals", "0"])
+    assert result.exit_code == 1
+    assert "refusing to apply 1 removals (--max-removals 0)" in result.output
+    assert appeal.base.exists()  # the ledger directory survived
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        assert len(corpus.events_for_case(conn, _CASE)) == 2

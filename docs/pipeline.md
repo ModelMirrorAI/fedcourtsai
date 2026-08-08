@@ -136,16 +136,17 @@ predictable set at the source; the **application-baseline relabel**
 whose baseline event predates the motion/interim minting rule; the
 **merits-judgment backfill** (`fedcourts backfill-merits-judgments`), which
 parses each merits-bound grant's stored snapshot for the judgment entered,
-feeding the statpack's merits section; and the **merits-event backfill**
+feeding the statpack's merits section; the **merits-event backfill**
 (`fedcourts backfill-merits-events`, preceded in the same step by the
 moment-column stamp `fedcourts backfill-event-moments`), which mints the open
 merits forecast events — corpus rows plus their ledger `event.yaml` files,
 staged in the one pointer commit — onto granted, undecided dockets the live
 mint never opened; and the **attribution repairs** (`fedcourts
 remove-unmintable-events` then `fedcourts reopen-misattributed-outcomes`),
-which converge the two misattribution shapes the closed single-open-event
-shortcut left in the ledger — removal first, so the reopen sweep's
-baseline-pair triage clears in the same window. The dedupe runs first so the
+which converge the misattribution shape an earlier single-open-event
+attribution shortcut wrote and its cause — removal first, clearing the
+entry-pinned case of the reopen sweep's baseline-pair triage in the same
+window, each bounded by a per-run blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like

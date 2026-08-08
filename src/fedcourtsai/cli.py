@@ -753,6 +753,13 @@ def reopen_misattributed_outcomes_cmd(
         bool,
         typer.Option("--apply", help="Reopen the matching events; omit for a dry-run report."),
     ] = False,
+    max_reopens: Annotated[
+        int,
+        typer.Option(
+            "--max-reopens",
+            help="Blast-radius bound: refuse to apply more reopens than this.",
+        ),
+    ] = 20,
 ) -> None:
     """Reopen committed outcomes copied from a sibling case-baseline event.
 
@@ -769,7 +776,10 @@ def reopen_misattributed_outcomes_cmd(
     the deleted outcome — a duplication between two case-baseline events is
     reported for triage instead. An event carrying committed predict/evaluate
     output is likewise skipped. Idempotent, and convergent against the
-    resolution pass. Dry-run by default; `--apply` writes. Run where the corpus
+    resolution pass. Dry-run by default; `--apply` writes, and refuses above
+    `--max-reopens`: the population this sweep repairs is finite and
+    non-growing, so a large count means the predicate widened, not that the
+    ledger did — triage before raising the bound. Run where the corpus
     is pulled (run-seed's writer lane in production, after
     `remove-unmintable-events`). Fails loud if the corpus is absent.
     """
@@ -783,6 +793,18 @@ def reopen_misattributed_outcomes_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
+        if apply:
+            preview = reopen_misattributed_outcomes(conn, settings.data_root, apply=False)
+            if len(preview.reopened) > max_reopens:
+                typer.echo(
+                    f"reopen-misattributed-outcomes: refusing to apply "
+                    f"{len(preview.reopened)} reopens (--max-reopens {max_reopens}). "
+                    "The population this sweep repairs is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
         result = reopen_misattributed_outcomes(conn, settings.data_root, apply=apply)
     verb = "reopened" if apply else "would reopen"
     typer.echo(
@@ -802,6 +824,13 @@ def remove_unmintable_events_cmd(
         bool,
         typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
     ] = False,
+    max_removals: Annotated[
+        int,
+        typer.Option(
+            "--max-removals",
+            help="Blast-radius bound: refuse to apply more removals than this.",
+        ),
+    ] = 20,
 ) -> None:
     """Drop entry-pinned SCOTUS events carrying a case-baseline id, in both stores.
 
@@ -814,8 +843,11 @@ def remove_unmintable_events_cmd(
     event names nothing the docket supports, and leaving it open would park a
     permanent phantom on the case and keep it forecastable. An event carrying
     committed predict/evaluate output is skipped and reported instead.
-    Idempotent. Dry-run by default; `--apply` writes. Run where the corpus is
-    pulled (run-seed's writer lane in production); the ledger directory goes
+    Idempotent. Dry-run by default; `--apply` writes, and refuses above
+    `--max-removals`: the population this sweep removes is finite and
+    non-growing (the mint refuses the shape), so a large count means the
+    predicate widened — triage before raising the bound. Run where the corpus
+    is pulled (run-seed's writer lane in production); the ledger directory goes
     first, then the corpus row, so an interrupted run leaves the row as the
     detection handle for the next pass. Fails loud if the corpus is absent.
     """
@@ -829,6 +861,18 @@ def remove_unmintable_events_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
+        if apply:
+            preview = remove_unmintable_baseline_events(conn, settings.data_root, apply=False)
+            if len(preview.removed) > max_removals:
+                typer.echo(
+                    f"remove-unmintable-events: refusing to apply "
+                    f"{len(preview.removed)} removals (--max-removals {max_removals}). "
+                    "The population this sweep removes is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
         result = remove_unmintable_baseline_events(conn, settings.data_root, apply=apply)
     verb = "removed" if apply else "would remove"
     typer.echo(
