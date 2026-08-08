@@ -112,7 +112,10 @@ feeding the same normalized rows through the shared normalizer
 (`ingest.from_bulk_row`) — note the storage projection withholds the
 cluster-derived fields from bulk-sourced circuit rows (`to_corpus_row`; the
 predicate keys on the channel), so a replica with a sound cluster join must
-revisit that carve-out. Adoption also needs a terms review of the agreement;
+revisit that carve-out — and the bulk-cluster scrub sweep beside it, whose
+stored-state predicate treats those fields as bulk-provenance marks on any
+non-SCOTUS row (the REST channel cannot supply them; a replica channel can,
+so the sweep must be retired or re-scoped before the replica writes them). Adoption also needs a terms review of the agreement;
 the access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches that shape. Until then, four guardrails keep interim work from
 blocking the pivot: ingestion stays channel-agnostic; the API budget governor
@@ -510,7 +513,8 @@ or network.
   live path, landing it already resolved (label, snapshot, events latched
   closed, OT2021+ documents provisioned) → push the corpus and commit the
   pointer per chunk (under the `corpus-write` lock) → write progress to the
-  Actions step summary. Each window is a bounded chunk (≤40 min) under one App
+  Actions step summary. Each window is a bounded chunk (≤40 min; the daily sweep window
+  walks 25 to fund its trailing sweeps) under one App
   token, so no mid-loop token re-mint is needed. The cursors advance over every
   served serial (a 404 never advances them), so a capped or crashed run resumes
   gap-free; see [live-sources.md](live-sources.md) for the walk design.
@@ -547,14 +551,16 @@ or network.
   case clears the reopen sweep's baseline-pair triage in the same window, each
   refusing to apply above its per-run blast-radius cap), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
-  bulk cluster fields, dropped from the never-pulled rows nothing re-serves —
-  the ingest projection's carve-out, converged, refusing above its own
-  blast-radius bound). Dedupe
+  bulk cluster fields, dropped from the rows nothing re-serves — keyed on
+  the fields the REST channel cannot supply, the ingest projection's
+  carve-out converged, refusing above its own blast-radius bound). Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
   latched as the stored snapshots allow; each is idempotent, so a converged
   corpus costs seconds. All ride run-seed (gated to keep their daily cadence)
-  because the corpus is already pulled and pushed there.
+  because the corpus is already pulled and pushed there; the sweep window's
+  walk budget yields time for them (25 min against the other windows' 40),
+  so the sweeps' bounded worst case never gambles the job cap.
 
 ## Pull — forward freshness
 

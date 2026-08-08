@@ -445,15 +445,18 @@ def scrub_bulk_cluster_fields_cmd(
     from a bulk-sourced non-SCOTUS row — the bulk docket-to-cluster join is
     misjoined on the circuit slices — but that rule reaches a stored row only
     on a re-serve, and nothing re-serves the historical bulk slice. This
-    converges it: one UPDATE nulling those fields on every never-pulled
-    non-SCOTUS row still carrying any (a REST-refreshed row keeps its fields —
-    they were re-projected from the API's sound per-docket join). Idempotent.
-    `--apply` refuses above `--max-scrub`, whose default sits just over the
-    measured bulk slice: the predicate is a provenance proxy, so a count past
-    it means the predicate widened (a lost filter reaches rows the carve-out
-    never covered), not that the slice grew. Run where the corpus is pulled
-    (run-seed's writer lane in production). Fails loud if the corpus is
-    absent.
+    converges it: one UPDATE over every non-SCOTUS row a bulk-only field
+    marks. The mark is provable, not inferred: the REST client reads docket
+    records only, so a populated `summary`, `precedential_status`,
+    `citations`, or `citation_count` can only be the bulk join's, whatever
+    the row's pull history — while `judges`/`panel`, which discovery and
+    pull re-derive from the docket record itself, clear only on marked rows
+    and survive everywhere else. Idempotent. `--apply` refuses above
+    `--max-scrub`, whose default sits just over the measured bulk slice: a
+    count past it means the predicate widened (a lost filter reaching rows
+    the carve-out never covered), not that the slice grew. Run where the
+    corpus is pulled (run-seed's writer lane in production). Fails loud if
+    the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -470,9 +473,9 @@ def scrub_bulk_cluster_fields_cmd(
             if preview.scrubbed > max_scrub:
                 typer.echo(
                     f"scrub-bulk-cluster-fields: refusing to apply {preview.scrubbed} "
-                    f"scrubs (--max-scrub {max_scrub}). The predicate is a provenance "
-                    "proxy sized to the measured bulk slice; a count past the bound "
-                    "means it widened — triage before raising it.",
+                    f"scrubs (--max-scrub {max_scrub}). The bound sits just over the "
+                    "measured bulk slice; a count past it means the predicate "
+                    "widened — triage before raising it.",
                     err=True,
                 )
                 raise typer.Exit(code=1)
@@ -480,7 +483,7 @@ def scrub_bulk_cluster_fields_cmd(
     verb = "scrubbed" if apply else "would scrub"
     typer.echo(
         f"scrub-bulk-cluster-fields ({'applied' if apply else 'dry-run'}): "
-        f"{verb} {result.scrubbed} never-pulled non-SCOTUS row(s)"
+        f"{verb} {result.scrubbed} bulk-marked non-SCOTUS row(s)"
     )
 
 

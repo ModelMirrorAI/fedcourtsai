@@ -10,16 +10,24 @@ row. That projection reaches a stored row only when the row is re-served,
 and nothing re-serves the historical bulk slice; this sweep converges those
 rows onto the same shape.
 
-The stored row carries no source column (the projection drops ingestion
-provenance), so the slice is read from the one channel stamp that separates
-it: a non-SCOTUS row the REST channel has refreshed carries ``last_pulled``,
-and its cluster fields — re-projected from the API's sound per-docket join
-on that refresh — are kept; a never-pulled non-SCOTUS row's cluster fields
-can only have come from the bulk join, and are dropped. SCOTUS rows are
-untouched, as in the projection: the misjoin is observed only on the circuit
-slices. Idempotent: a scrubbed row no longer matches the populated
-predicate. The freed pages stay in the blob for the daily walks to reuse —
-no vacuum, so the sweep never rewrites the file it is one UPDATE against.
+Provenance is provable for four of the six fields: the CourtListener REST
+client reads docket records only — no cluster or opinion endpoint exists —
+so a populated ``summary``, ``precedential_status``, ``citations``, or
+``citation_count`` on a non-SCOTUS row can only have come from the bulk
+join, whatever the row's pull history. Those four are the detection
+predicate, and are nulled wherever populated. ``judges`` and ``panel`` are
+different: discovery and pull re-derive them from the docket record itself,
+so a populated pair proves nothing on its own — they are cleared only on
+rows one of the four bulk-only fields marks, where the last cluster-bearing
+write was necessarily the bulk join's. The residue — a bulk row carrying
+judges or panel and none of the four — is left alone, indistinguishable
+from a discovery-onboarded row's sound values and measured in single digits
+against the 1.36M-row slice. SCOTUS rows are untouched, as in the
+projection: the misjoin is observed only on the circuit slices. Idempotent:
+a scrubbed row no longer matches the predicate. The one UPDATE rewrites the
+pages holding matched rows (most of the table on the first pass — the
+run-seed step's bound covers it); the space the nulled text frees is reused
+in place by the daily walks, so the sweep never vacuums.
 """
 
 from __future__ import annotations
@@ -27,15 +35,15 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-# A row still carrying any value the projection would have withheld. The
-# list-valued columns store JSON text (``'[]'`` when empty), the rest NULL.
-_CLUSTER_POPULATED = (
+# A row carrying any field the REST channel cannot supply — bulk provenance,
+# proven by the client's surface rather than inferred from channel stamps.
+# The list-valued column stores JSON text (``'[]'`` when empty), the rest NULL.
+_BULK_ONLY_POPULATED = (
     "summary IS NOT NULL OR precedential_status IS NOT NULL"
-    " OR citation_count IS NOT NULL OR judges != '[]' OR panel != '[]'"
-    " OR citations != '[]'"
+    " OR citation_count IS NOT NULL OR citations != '[]'"
 )
 
-_BULK_SLICE = f"court != 'scotus' AND last_pulled IS NULL AND ({_CLUSTER_POPULATED})"
+_BULK_SLICE = f"court != 'scotus' AND ({_BULK_ONLY_POPULATED})"
 
 
 @dataclass(frozen=True)
@@ -47,19 +55,22 @@ class BulkScrubResult:
 
 
 def scrub_bulk_cluster_fields(conn: sqlite3.Connection, *, apply: bool) -> BulkScrubResult:
-    """Null the cluster-derived fields on the never-pulled non-SCOTUS slice.
+    """Null the cluster-derived fields on the bulk-marked non-SCOTUS slice.
 
     One UPDATE over the ``cases`` table; see the module docstring for why the
     predicate is the faithful projection of the ingest carve-out onto stored
-    rows. Dry run counts the same predicate it would rewrite.
+    rows. ``judges``/``panel`` clear in the same statement on the same
+    predicate, so the four bulk-only fields mark the rows before being
+    nulled. The dry run counts the same predicate the apply rewrites; the
+    apply reports the UPDATE's own rowcount inside one transaction.
     """
-    row = conn.execute(f"SELECT COUNT(*) FROM cases WHERE {_BULK_SLICE}").fetchone()
-    matched = int(row[0])
-    if apply and matched:
-        conn.execute(
+    if not apply:
+        row = conn.execute(f"SELECT COUNT(*) FROM cases WHERE {_BULK_SLICE}").fetchone()
+        return BulkScrubResult(applied=False, scrubbed=int(row[0]))
+    with conn:
+        cursor = conn.execute(
             "UPDATE cases SET summary = NULL, precedential_status = NULL,"
             " citation_count = NULL, judges = '[]', panel = '[]', citations = '[]'"
             f" WHERE {_BULK_SLICE}"
         )
-        conn.commit()
-    return BulkScrubResult(applied=apply, scrubbed=matched)
+        return BulkScrubResult(applied=True, scrubbed=int(cursor.rowcount))

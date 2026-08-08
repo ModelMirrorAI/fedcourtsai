@@ -16,8 +16,9 @@ name: run-seed
 # forward windows (`:17` pull, `:47` live) and yield the lock before the next
 # one fires.
 #
-# Each window is a bounded ~40-min chunk that fits inside one App installation
-# token's 1h life, so there is no self-refreshing-token loop — one token up
+# Each window is a bounded chunk — ≤40 min of walk, except the daily sweep
+# window, which walks 25 to fund its trailing sweeps — inside one App
+# installation token's 1h life, so there is no self-refreshing-token loop — one token up
 # front covers the walk and the trailing steps.
 on:
   schedule:
@@ -575,12 +576,12 @@ jobs:
 
       # The stored circuit slice still carries the bulk export's misjoined
       # cluster fields; the ingest projection withholds them from a re-served
-      # bulk row, and this converges the rows nothing re-serves (a
-      # REST-refreshed row keeps its fields — they were re-projected from the
-      # API's sound per-docket join). The apply refuses above the command's
-      # blast-radius bound, sized just over the measured slice — the
-      # predicate is a provenance proxy, and a widened proxy should fail
-      # loudly, not null a channel the carve-out never covered. Corpus-only:
+      # bulk row, and this converges the rows nothing re-serves. Detection is
+      # provable bulk provenance — fields the REST channel cannot supply —
+      # so docket-derived judges/panel on discovery-onboarded rows survive.
+      # The apply refuses above the command's blast-radius bound, sized just
+      # over the measured slice: a widened predicate should fail loudly, not
+      # null a channel the carve-out never covered. Corpus-only:
       # no ledger surface, so a pointer-only commit like the judgments sweep.
       # Idempotent — a scrubbed corpus matches nothing, so a converged
       # window's cost is the apply's own count scan, seconds over the cases
