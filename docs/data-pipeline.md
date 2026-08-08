@@ -531,7 +531,7 @@ or network.
   through the same latches, so nothing is deleted and `case_id` never moves.
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
-- **Maintenance sweeps:** after the loop, one window a day also runs six
+- **Maintenance sweeps:** after the loop, one window a day also runs seven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows), `fedcourts reconcile-scope --apply` (the
   predict-scope latch sweep), `fedcourts relabel-application-events --apply`
@@ -545,7 +545,10 @@ or network.
   `fedcourts reopen-misattributed-outcomes --apply` — ledger deletions and
   rewrites staged in the one pointer commit, removal first so the entry-pinned
   case clears the reopen sweep's baseline-pair triage in the same window, each
-  refusing to apply above its per-run blast-radius cap). Dedupe
+  refusing to apply above its per-run blast-radius cap), and `fedcourts
+  scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
+  bulk cluster fields, dropped from the never-pulled rows nothing re-serves —
+  the ingest projection's carve-out, converged). Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
   latched as the stored snapshots allow; each is idempotent, so a converged

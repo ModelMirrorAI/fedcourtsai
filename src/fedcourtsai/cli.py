@@ -126,6 +126,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments
 from .pipeline.asof import CutoffPolicy
+from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
@@ -421,6 +422,44 @@ def reconcile_scope_cmd(
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
     )
     typer.echo(result.model_dump_json())
+
+
+@app.command("scrub-bulk-cluster-fields")
+def scrub_bulk_cluster_fields_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Scrub the matching rows; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Scrub the bulk export's misjoined cluster fields from the stored slice.
+
+    The ingest projection withholds the cluster-derived fields (`summary`,
+    `precedential_status`, `judges`, `panel`, `citations`, `citation_count`)
+    from a bulk-sourced non-SCOTUS row — the bulk docket-to-cluster join is
+    misjoined on the circuit slices — but that rule reaches a stored row only
+    on a re-serve, and nothing re-serves the historical bulk slice. This
+    converges it: one UPDATE nulling those fields on every never-pulled
+    non-SCOTUS row still carrying any (a REST-refreshed row keeps its fields —
+    they were re-projected from the API's sound per-docket join). Idempotent.
+    Run where the corpus is pulled (run-seed's writer lane in production).
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the scrub.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = scrub_bulk_cluster_fields(conn, apply=apply)
+    verb = "scrubbed" if apply else "would scrub"
+    typer.echo(
+        f"scrub-bulk-cluster-fields ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {result.scrubbed} never-pulled non-SCOTUS row(s)"
+    )
 
 
 @app.command("reconcile-salience-selection")

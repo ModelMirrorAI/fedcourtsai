@@ -567,6 +567,45 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "attribution-repair pointer"
 
+      # The stored circuit slice still carries the bulk export's misjoined
+      # cluster fields; the ingest projection withholds them from a re-served
+      # bulk row, and this converges the rows nothing re-serves (a
+      # REST-refreshed row keeps its fields — they were re-projected from the
+      # API's sound per-docket join). Corpus-only: no ledger surface, so a
+      # pointer-only commit like the judgments sweep. Idempotent — a scrubbed
+      # corpus matches nothing, so after the first window this costs one
+      # count query.
+      - name: Scrub the bulk slice's misjoined cluster fields
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # One UPDATE over the cases table against the pulled blob; the first
+        # non-converged window rewrites ~1.36M rows in seconds, so the bound
+        # is really for the blob push.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to scrub.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping cluster scrub"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, mirrored into the run summary, then apply.
+          uv run fedcourts scrub-bulk-cluster-fields | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts scrub-bulk-cluster-fields --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Bulk cluster fields already scrubbed; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (bulk cluster scrub)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "cluster-scrub pointer"
+
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it
       # for run-ops to present and escalate — loud-not-fatal by contract. Gated to
