@@ -135,8 +135,10 @@ A semantic grade is formed with the predictor's name removed, because a grader
 who knows whose claim it is will anchor on it, and the judge validation below —
 tau-b of the grade against the mechanical record — would then partly measure the
 anchor instead of the claim. The qualifier is load-bearing and is stated with
-the claim rather than after it: what the harness removes is the *name*, and one
-identifying channel is left open by design. Both are set out below.
+the claim rather than after it: what the harness removes is the *name*, and
+two identifying channels stay open by design — prose style, and the staged
+transcript's call-class profile (its tool names are respelled as neutral
+classes; their shape survives). Both are set out below.
 
 ## The scoring rule
 
@@ -626,9 +628,14 @@ authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 ingestion (`has_opinion` is 0 on every corpus row). Their blind-grading
-precondition above is met on the explicit-identifier channel; the engine channel
-named there is what remains owed before a semantic grade is published as
-blind. The alpha that will meet them when they land — and what it deliberately
+precondition above is met on the explicit-identifier channel and on the
+engine channel's tool names — the staged retrieval log respells them as
+engine-neutral classes (`fedcourtsai.blinding.neutral_tool_class`), so the
+staged *log* carries no per-engine vocabulary — though the call-class
+*profile* still narrows the guessing space the way prose style does, and a
+candidate's own `retrieval.md` prose can name a tool the scrub's identity
+terms do not cover (the blinding module's residual list states these). The alpha
+that will meet them when they land — and what it deliberately
 does not yet decide — is *The semantic family, alpha*.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
@@ -749,7 +756,8 @@ estimator under exactly these rules, with the evaluator's
 judge-graded number the ledger already carries — pending the semantic claim
 family itself, which awaits opinion ingestion. That grade is formed under the
 blinding bracket above, so the pair's semantic side carries no *named* anchor on
-which predictor wrote the rationale; it carries the engine-channel residual and
+which predictor wrote the rationale; it carries the residuals the blinding
+module names — the call-class profile and prose style — and
 every other caveat `reasoning_quality` does. The reading contract for the
 artifact is `metrics/README.md`, which is also where the rule against pooling
 blinded with unblinded grades lives.
@@ -882,7 +890,7 @@ third is a fact about the record only because the claim's **axis is fixed by
 the declaration** rather than by the predictor's free-text proposition — that
 is the load-bearing reason nothing a predictor writes can move a claim into the
 mask, and it is an intent the declaration does not yet represent (*What remains
-unbuilt*, item 4). It has **no position on the ordinal scale**: counted apart, never
+unbuilt*, item 3). It has **no position on the ordinal scale**: counted apart, never
 averaged with the ordinal levels, never inside a share's denominator, and never
 inside the agreement coefficient. A masked claim never reads as one the
 predictor got wrong.
@@ -1038,8 +1046,9 @@ checkable rather than merely unfound.
   **precondition** on this family, inherited unchanged: no grade is published
   from a pass that could see whose prediction it was grading, because a grader
   who knows anchors, and the agreement number would then partly measure the
-  anchor. The harness cannot deliver it today; that is a precondition on
-  grading, not a detail of it.
+  anchor. The harness delivers it through the blinding bracket, with the
+  residuals its module names; a semantic grade inherits those residuals as
+  published caveats, not as license.
 - **One grade per declared claim, and every declared claim graded.** The set is
   mandatory exactly as the mechanical set is, for the same reason: a grader who
   may skip claims selects the graded population. A grader that finds the record
@@ -1171,13 +1180,10 @@ In dependency order, most binding first:
 1. **Opinion ingest.** `has_opinion` is 0 on every corpus row. Nothing can be
    graded against text that is not there, and no amount of methodology
    substitutes.
-2. **Blind grading.** The evaluate contract has the evaluator read
-   `predictions/<predictor_id>/<run_id>/prediction.json` and write under a path
-   keyed on the same id, so grader-side identity is unavoidable today.
-3. **A grader prompt.** None exists, deliberately: writing one moves a digest
+2. **A grader prompt.** None exists, deliberately: writing one moves a digest
    and makes cells produce data under a methodology that has never met an
    opinion.
-4. **A declared set — and an axis to go with each claim in it.** The tables in
+3. **A declared set — and an axis to go with each claim in it.** The tables in
    `pipeline.semantic` are empty, and the candidates above are a sketch rather
    than a declaration. A table entry also carries less than the mask rule
    above needs: it holds claim ids, and "the opinion is silent on the claim's
@@ -1185,8 +1191,8 @@ In dependency order, most binding first:
    against. Today that is design intent carried in prose, not something the
    declaration represents, so the third mask mode rests on a convention rather
    than on a structure.
-5. **Any baseline.** Left open as an empirical question above.
-6. **The predictor-side mandatory set.** The grader side is enforced —
+4. **Any baseline.** Left open as an empirical question above.
+5. **The predictor-side mandatory set.** The grader side is enforced —
    `graded_units` reads the declaration first, refuses a block stamped with a
    different declaration, drops one that skips a declared claim, and ignores
    rows outside the set. The *predictor* side has no equivalent refusal:
@@ -1196,7 +1202,7 @@ In dependency order, most binding first:
    chose). Until something does, *Why the set is mandatory* holds for graders
    and not for predictors — and differential coverage across predictors would
    reweight a pooled census with no visible change in any denominator.
-7. **A published surface.** No artifact under `metrics/` carries semantic
+6. **A published surface.** No artifact under `metrics/` carries semantic
    grades. `metrics/README.md` states the rules any such surface would publish
    under, so the reading contract exists before the artifact does. Two of those
    rules the roll-up cannot enforce for itself, because a graded unit carries
@@ -1205,8 +1211,12 @@ In dependency order, most binding first:
    and an undeclared census is not publishable.
 
 What *is* built is the seam: the schema blocks, the empty declaration tables
-with the lookup that treats them as authoritative, and the descriptive roll-up
-with its agreement number, unit tested against synthetic graded fixtures. So
+with the lookup that treats them as authoritative, the descriptive roll-up
+with its agreement number, unit tested against synthetic graded fixtures — and
+the blind-grading bracket itself (`fedcourtsai.blinding`, wired around every
+evaluate cell), whose alias staging and engine-neutral tool classes remove
+identity from the staged bytes — with the residuals its module docstring
+names, the call-class profile among them. So
 turning the family on is a declaration plus a prompt that asks for it, rather
-than a new shape — with the two items above still owed before anything from it
-is published.
+than a new shape — with the predictor-side mandatory set and the published surface still owed
+before anything from it is published.
