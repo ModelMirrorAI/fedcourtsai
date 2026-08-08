@@ -188,8 +188,11 @@ def judgment_rode_the_grant_order(merits_decided: date, date_cert_granted: date)
     `opens_merits_proceeding` — with a vacatur that parses the day it was
     granted. What separates that class without reading the label is the
     grant→judgment gap: a disposition riding in the cert order carries the
-    grant's own date, while an argued judgment lands months later (an
-    expedited argued case still lands days later, never same-day). `<=` rather
+    grant's own date, while an argued judgment lands months later — measured
+    over the walked corpus, every labeled GVR sits at exactly gap 0 and the
+    nearest genuine judgment (an expedited argued case) a full month after
+    its grant, so the separation the guard rests on is 0 versus 30 days, not
+    0 versus 1. `<=` rather
     than `==` so a data-noise judgment date *before* its grant is excluded on
     the same reasoning rather than admitted by accident.
     """

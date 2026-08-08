@@ -3618,7 +3618,21 @@ class _StatPackMeritsCounts(_Strict):
         "proceeding (a plain or partial grant with `date_cert_granted` set; a "
         "GVR or summary reversal decides in the cert order and is excluded, "
         "as is — label-independently — any row whose parsed judgment carries "
-        "its grant's own date or no date at all), parsed or not",
+        "its grant's own date, whatever its label says: see "
+        "cert_order_excluded). A parsed judgment with no date stays here as "
+        "a visible coverage gap, outside the parsed slice, since the gap "
+        "test cannot run on it. Parsed or not",
+    )
+    cert_order_excluded: int = Field(
+        default=0,
+        ge=0,
+        description="Rows the label-independent pool guard removed from this "
+        "slice: a parsed judgment dated on or before its own grant rode the "
+        "cert order (docs/decision-model.md), so the row is outside granted, "
+        "parsed, and the rate alike. Zero is only meaningful beside a "
+        "healthy parse: a guard that stops firing and a guard with nothing "
+        "to fire on render the same zero, which is why the count is "
+        "published rather than implied.",
     )
     parsed: int = Field(
         default=0,

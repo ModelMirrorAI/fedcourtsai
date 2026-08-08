@@ -258,7 +258,9 @@ fails the cell.
       date) and never from the docket number, since a petition docketed into
       the incoming Term and granted before it opens carries a docket Term one
       later and would pull its own cohort into its own baseline. The window is
-      the ten Terms before it (`grant_term - 10 <= T < grant_term`), and here
+      the configured lookback (`salience.base_rate_lookback_terms` in
+      `config/tracking.yaml` — ten as shipped, so
+      `grant_term - 10 <= T < grant_term`), and here
       you must count Terms rather than take what you are shown: unlike the cert
       Term tables, the merits table renders **every** Term the pack holds, so
       the rendered window is not the window. State the window with the figure,

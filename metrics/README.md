@@ -479,20 +479,33 @@ stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
 no skill score, and no substitute rate. Three things travel with any merits
 figure. The baseline's population is the section's population is the scored
-population: the grants that open a merits proceeding, with the two procedural
-exits counted as undisturbed (a DIG and an equally divided affirmance leave
+population — up to predict scope: the section admits every grant that opens
+a merits proceeding while the forecast side further excludes IFP,
+consolidated-out-of-scope, and date-inconsistent rows, a small residue now
+that the guard removes the (mostly IFP) stale-labeled vacaturs. The two
+procedural
+exits count as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and
-with GVRs and summary reversals absent because they are cert-stage
+GVRs and summary reversals are absent because they are cert-stage
 dispositions that mint no merits cell. That exclusion does not rest on the
-row's disposition label alone: the `gvr` label is a forward convention, so a
-Term resolved before it existed carries its GVRs as plain `granted`, and no
-resolver produces `summary-reversal` at all — both parse as near-certain
+row's disposition label alone: the `gvr` label is a forward convention, a
+row's label can lag its own cert order (measured, the stale labels sit on
+recent IFP GVRs), and no
+resolver produces `summary-reversal` at all — both classes parse as
+near-certain
 vacaturs — so the section also applies the label-independent guard
 `docs/decision-model.md` registers
 (`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
 on or before its own grant rode the cert order and is excluded from the
-cohort entirely, whatever its label says. The pooled rate is therefore the
-rate argued cases face on labeled and pre-convention Terms alike. And the window is the same ten-Term
+cohort entirely, whatever its label says, with the removed rows published as
+the section's `cert_order_excluded`. The pooled **rate** is therefore clean
+of every cert-order vacatur whose judgment parsed with a date. Three residues
+survive, and they travel with any quoted figure: a summary reversal issued in
+a later order than its grant is caught by neither guard; an *unparsed*
+cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
+figure can still carry it even though the rate cannot; and a parsed judgment
+with no date stays in `granted` the same way, since the gap test cannot run
+on it. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
