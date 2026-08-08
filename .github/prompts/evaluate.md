@@ -359,8 +359,10 @@ candidate:
 
 1. Read its `record/blinded/<alias>/retrieval_log.json` — the
    tool-call transcript the harness captured from the engine's own log (never
-   the agent's word), staged with its `actor_id` masked to the alias and its
-   `engine` nulled: tool names, query slices, and `retrieved_doc_date` where
+   the agent's word), staged with its `actor_id` masked to the alias, its
+   `engine` nulled, and each call's tool respelled as an engine-neutral class
+   (`shell`, `file-read`, `web-search`, `mcp:<server>:<method>`, …): call
+   classes, query slices, and `retrieved_doc_date` where
    a document date was legible. Two kinds of `[redacted:…]` marker appear and
    neither is evidence of leakage on its own — `[redacted:identity]` is the
    blinding removing a name, and any other marker is the harness removing a

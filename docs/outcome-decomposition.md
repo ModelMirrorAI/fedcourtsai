@@ -626,9 +626,11 @@ authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 ingestion (`has_opinion` is 0 on every corpus row). Their blind-grading
-precondition above is met on the explicit-identifier channel; the engine channel
-named there is what remains owed before a semantic grade is published as
-blind. The alpha that will meet them when they land — and what it deliberately
+precondition above is met on the explicit-identifier channel and on the
+engine channel — the staged retrieval log's tool names are respelled as
+engine-neutral classes (`fedcourtsai.blinding.neutral_tool_class`), so the
+grader's required reading path carries no per-engine vocabulary. The alpha
+that will meet them when they land — and what it deliberately
 does not yet decide — is *The semantic family, alpha*.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
@@ -1171,13 +1173,10 @@ In dependency order, most binding first:
 1. **Opinion ingest.** `has_opinion` is 0 on every corpus row. Nothing can be
    graded against text that is not there, and no amount of methodology
    substitutes.
-2. **Blind grading.** The evaluate contract has the evaluator read
-   `predictions/<predictor_id>/<run_id>/prediction.json` and write under a path
-   keyed on the same id, so grader-side identity is unavoidable today.
-3. **A grader prompt.** None exists, deliberately: writing one moves a digest
+2. **A grader prompt.** None exists, deliberately: writing one moves a digest
    and makes cells produce data under a methodology that has never met an
    opinion.
-4. **A declared set — and an axis to go with each claim in it.** The tables in
+3. **A declared set — and an axis to go with each claim in it.** The tables in
    `pipeline.semantic` are empty, and the candidates above are a sketch rather
    than a declaration. A table entry also carries less than the mask rule
    above needs: it holds claim ids, and "the opinion is silent on the claim's
@@ -1185,8 +1184,8 @@ In dependency order, most binding first:
    against. Today that is design intent carried in prose, not something the
    declaration represents, so the third mask mode rests on a convention rather
    than on a structure.
-5. **Any baseline.** Left open as an empirical question above.
-6. **The predictor-side mandatory set.** The grader side is enforced —
+4. **Any baseline.** Left open as an empirical question above.
+5. **The predictor-side mandatory set.** The grader side is enforced —
    `graded_units` reads the declaration first, refuses a block stamped with a
    different declaration, drops one that skips a declared claim, and ignores
    rows outside the set. The *predictor* side has no equivalent refusal:
@@ -1196,7 +1195,7 @@ In dependency order, most binding first:
    chose). Until something does, *Why the set is mandatory* holds for graders
    and not for predictors — and differential coverage across predictors would
    reweight a pooled census with no visible change in any denominator.
-7. **A published surface.** No artifact under `metrics/` carries semantic
+6. **A published surface.** No artifact under `metrics/` carries semantic
    grades. `metrics/README.md` states the rules any such surface would publish
    under, so the reading contract exists before the artifact does. Two of those
    rules the roll-up cannot enforce for itself, because a graded unit carries
@@ -1205,8 +1204,11 @@ In dependency order, most binding first:
    and an undeclared census is not publishable.
 
 What *is* built is the seam: the schema blocks, the empty declaration tables
-with the lookup that treats them as authoritative, and the descriptive roll-up
-with its agreement number, unit tested against synthetic graded fixtures. So
+with the lookup that treats them as authoritative, the descriptive roll-up
+with its agreement number, unit tested against synthetic graded fixtures — and
+the blind-grading bracket itself (`fedcourtsai.blinding`, wired around every
+evaluate cell), whose alias staging and engine-neutral tool classes meet the
+mask rule's precondition on both identity channels. So
 turning the family on is a declaration plus a prompt that asks for it, rather
 than a new shape — with the two items above still owed before anything from it
 is published.

@@ -50,18 +50,13 @@ number depends on naming them:
 - **The committed record is still on disk.** ``events/<event_id>/predictions/``
   names every predictor, and the checkout carries its history. The prompt
   forbids reading it; nothing prevents it.
-- **The engine is legible from the transcript, and the engine names the
-  predictor.** This is the residual to state plainly rather than file under
-  style. ``mask_retrieval_log`` keeps ``calls`` intact because the leakage
-  grading reads it, and each engine's tool vocabulary is disjoint from the
-  others' — while the registry holds exactly one predictor per engine. So on any
-  candidate whose log carries a call, the engine, and with it the predictor, is
-  readable on the grader's own required reading path. Normalizing the staged
-  ``tool`` names to an engine-neutral vocabulary would close it without costing
-  the leakage grading anything it reads (the call class, the query slice, and
-  ``retrieved_doc_date``); that is the next step, not a property this has.
 - **Style is not masked.** Three candidates over three known engines is a small
-  guessing space, and an engine may recognise its own prose.
+  guessing space, and an engine may recognise its own prose. This is the one
+  transcript channel left open by design: the staged ``calls`` keep everything
+  the leakage grading reads, but their ``tool`` names are normalized to the
+  engine-neutral classes below — each engine's raw tool vocabulary is disjoint
+  from the others' while the registry holds one predictor per engine, so a raw
+  name on the grader's required reading path would name the candidate.
 
 The first two routes run through a tool call, and tool calls are captured
 harness-side into the cell's own ``retrieval_log.json`` — best-effort capture
@@ -376,6 +371,44 @@ def mask_prediction(
     return masked
 
 
+# Each engine logs its own tool vocabulary and the vocabularies are disjoint,
+# so on the staged copy a raw name is an engine fingerprint. The classes keep
+# what the leakage grading distinguishes — whether a call reached the shell,
+# the local tree, the web, or an MCP surface — and MCP names keep their
+# server and method (the outcome-bearing detail), spelled one way for every
+# engine. Anything outside the map collapses to "other": pass-through would
+# leak whatever engine-specific name the map has not met.
+_MCP_TOOL = re.compile(r"^mcp_{1,2}([a-zA-Z0-9-]+)_{1,2}(.+)$")
+_NEUTRAL_TOOL_CLASSES: dict[str, str] = {
+    "bash": "shell",
+    "exec": "shell",
+    "run_shell_command": "shell",
+    "read": "file-read",
+    "read_file": "file-read",
+    "write": "file-write",
+    "edit": "file-write",
+    "write_file": "file-write",
+    "replace": "file-write",
+    "glob": "file-search",
+    "grep": "file-search",
+    "grep_search": "file-search",
+    "list_directory": "file-search",
+    "websearch": "web-search",
+    "google_web_search": "web-search",
+    "web_search": "web-search",
+    "webfetch": "web-fetch",
+    "web_fetch": "web-fetch",
+}
+
+
+def neutral_tool_class(tool: str) -> str:
+    """The engine-neutral class a staged call's ``tool`` name is spelled as."""
+    mcp = _MCP_TOOL.match(tool)
+    if mcp:
+        return f"mcp:{mcp.group(1).lower()}:{mcp.group(2).lower()}"
+    return _NEUTRAL_TOOL_CLASSES.get(tool.lower(), "other")
+
+
 def mask_retrieval_log(
     payload: Mapping[str, Any], *, alias: str, pattern: re.Pattern[str]
 ) -> dict[str, Any]:
@@ -385,13 +418,23 @@ def mask_retrieval_log(
     string is scrubbed, because a query slice routinely quotes the cell's own
     output path (``predictions/<predictor_id>/…``). ``mode`` and the call list
     survive — the leakage grading is keyed on the first and reads the second, and
-    a blinded log the grader cannot grade would trade one contract for another.
+    a blinded log the grader cannot grade would trade one contract for another —
+    but each call's ``tool`` is respelled as its engine-neutral class
+    (:func:`neutral_tool_class`): the raw vocabularies are disjoint per engine,
+    so a raw name would identify the candidate on the grader's own required
+    reading path. The query slice and ``retrieved_doc_date`` pass through
+    untouched.
     """
     masked = scrub_json(dict(payload), pattern)
     if not isinstance(masked, dict):  # pragma: no cover - a JSON object by construction
         raise BlindingError("retrieval_log.json does not decode to a JSON object")
     masked["actor_id"] = alias
     masked["engine"] = None
+    calls = masked.get("calls")
+    if isinstance(calls, list):
+        for call in calls:
+            if isinstance(call, dict) and isinstance(call.get("tool"), str):
+                call["tool"] = neutral_tool_class(call["tool"])
     return masked
 
 
