@@ -473,9 +473,7 @@ registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is claimable **only against that declared
 baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
 the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind. What keeps a merits cell out of that mean is a `validate` check
-(`merits_evaluations_score_no_skill`), not the averaging — see the next
-paragraph — and only
+stage-blind — and only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
@@ -485,16 +483,16 @@ population: the grants that open a merits proceeding, with the two procedural
 exits counted as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and
 with GVRs and summary reversals absent because they are cert-stage
-dispositions that mint no merits cell. That exclusion is only as good as the
-row's disposition label, and two classes escape it: the `gvr` label is a
-forward convention, so a Term resolved before it existed carries its GVRs as
-plain `granted`, and no resolver produces `summary-reversal` at all — both
-parse as near-certain vacaturs, so the rate over any Term with unlabelled GVRs
-is an **upper bound**, and no merits skill number may be published against a
-pool drawing on such a Term — which, until the label-independent guard
-`docs/decision-model.md` names is built, is honoured by omitting
-`brier_skill_score` on every merits cell, in the evaluate prompt and in the
-`validate` gate behind it. And the window is the same ten-Term
+dispositions that mint no merits cell. That exclusion does not rest on the
+row's disposition label alone: the `gvr` label is a forward convention, so a
+Term resolved before it existed carries its GVRs as plain `granted`, and no
+resolver produces `summary-reversal` at all — both parse as near-certain
+vacaturs — so the section also applies the label-independent guard
+`docs/decision-model.md` registers
+(`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
+on or before its own grant rode the cert order and is excluded from the
+cohort entirely, whatever its label says. The pooled rate is therefore the
+rate argued cases face on labeled and pre-convention Terms alike. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -506,15 +504,13 @@ skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
 publishes.
 
-No merits **skill** number is published, and two separate things hold it back.
-The prohibition above is the binding one: until the label-independent guard
-lands, `brier_skill_score` is omitted on every merits cell by rule, so the
-merits stage block's skill figure is null and its `skill_scored` zero for the
-same reason the interim block's are. And the pack gates the baseline itself —
-the merits section publishes only once a corpus row carries a parsed judgment,
-and the pooled prior-Term sample must clear the minimum, below which the
-declared claim goes unscored too, so nothing realizes the registered baseline
-at all. What a merits cell does record is `segment_base_rate`, read from the
+A merits **skill** number exists only where the pack can support it: the
+merits section publishes only once a corpus row carries a parsed judgment
+(the guarded cohort above), and the pooled prior-Term sample must clear the
+stated minimum — below it there is no baseline, the declared claim goes
+unscored, and the merits stage block's skill figure is null with
+`skill_scored` zero, exactly as the interim block's are. A merits cell
+records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
 

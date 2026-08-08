@@ -53,7 +53,6 @@ from .schemas import (
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
-    Evaluation,
     EventKind,
     LedgerValidation,
     PredictableEvent,
@@ -91,7 +90,6 @@ CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
-CHECK_MERITS_EVALUATIONS = "merits_evaluations_score_no_skill"
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -623,50 +621,6 @@ def check_merits_predictions(data_root: Path) -> CorpusCheck:
     return _check(CHECK_MERITS_PREDICTIONS, problems, checked=checked)
 
 
-def check_merits_evaluations(data_root: Path) -> CorpusCheck:
-    """A merits-stage event's evaluations must record no Brier skill score.
-
-    The code-side half of a pre-registered prohibition the prompts otherwise
-    carry alone: no merits skill number may be published against a pool whose
-    grant Terms may carry unlabelled GVRs, and the label-independent guard that
-    would let one be published is not built (``docs/decision-model.md``). The
-    leaderboard averages ``brier_skill_score`` stage-blind, so a single merits
-    cell that wrote one would enter a stage mean nothing else checks.
-
-    Every evaluation, not the latest per predictor as the prediction check
-    uses: an evaluation is a committed judgment on its own terms, and a
-    superseded one carrying a forbidden number is still a published number.
-    ``segment_base_rate`` is deliberately unconstrained — recording the pool the
-    cell faced is not publishing a skill claim over it. A file that does not
-    parse is ``validate_ledger``'s concern and is skipped here; the directory
-    test precedes the parse for the same cost reason as the prediction check.
-    """
-    problems: list[str] = []
-    checked = 0
-    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
-        evaluations_root = event_file.parent / "evaluations"
-        if not evaluations_root.is_dir():
-            continue
-        try:
-            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
-        except (OSError, ValueError, ValidationError):
-            continue
-        if event.stage != Stage.merits:
-            continue
-        for path in sorted(evaluations_root.glob("*/*/*/evaluation.json")):
-            try:
-                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
-            except (OSError, ValueError, ValidationError):
-                continue
-            checked += 1
-            if evaluation.brier_skill_score is not None:
-                problems.append(
-                    f"evaluation {path}: merits-stage event {event.event_id!r} carries a "
-                    f"brier_skill_score, which no merits cell may publish"
-                )
-    return _check(CHECK_MERITS_EVALUATIONS, problems, checked=checked)
-
-
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -735,7 +689,6 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
         check_merits_predictions(data_root),
-        check_merits_evaluations(data_root),
     ]
 
 
@@ -763,7 +716,6 @@ def _run_checks(
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
         check_merits_predictions(data_root),
-        check_merits_evaluations(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

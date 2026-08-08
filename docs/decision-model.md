@@ -385,22 +385,25 @@ it is granted, an argued judgment six to eighteen months later, so the
 *parsed* slice is enriched in the escapees beyond their population share. So:
 the section's rate over such a Term is an **upper bound**, and no merits skill
 number may be published against a pool drawing on Terms whose GVRs are
-unlabelled. The **label-independent guard is owed**, and the deterministic one
-available is the grant→judgment gap, since a disposition riding in the cert
-order carries the grant's own date. Until it lands the prohibition is honoured
-the only way that does not depend on the label: `brier_skill_score` is omitted
-on **every** merits cell, so no merits skill number exists to be published. The
-evaluate prompt states the rule and `validate`'s
-`merits_evaluations_score_no_skill` check enforces it against the committed
-ledger, so the prohibition holds whatever an evaluator writes. Detecting the contaminated Terms per cell was considered and
+unlabelled. The **label-independent guard** is the deterministic one this
+constraint always admitted — the grant→judgment gap, since a disposition
+riding in the cert order carries the grant's own date — and it is applied
+where the pool is built
+(`pipeline.judgment.judgment_rode_the_grant_order`, at the statpack merits
+accumulator's admission): a row whose parsed judgment is dated on or before
+its own grant is excluded from the cohort entirely, exactly as a labeled GVR
+is, so every published per-Term rate is clean of the escapees whatever their
+labels say, and `brier_skill_score` is computed on merits cells against the
+guarded pool. Detecting the contaminated Terms per cell was considered and
 rejected — the escapees show up as a partly-labelled Term rather than an empty
 one, and the cert Term table an evaluator can read is keyed on the
 docket-number Term, so the test would pass exactly the Terms the pack's own
-caveat names. A heuristic that cannot separate a partly-labelled Term from a
-clean one is not an enforcement of this constraint. `segment_base_rate` is
-still recorded on a merits cell, because the pool the cell faced is a fact
-about the run; the harness's `judgment-disturbed` claim baseline reads the same
-pool and applies no guard either, so its scores carry this caveat too.
+caveat names; the guard therefore lives at the pool, where one predicate
+cleans every consumer at once (the merits base rate and the harness's
+`judgment-disturbed` claim baseline pool the same per-Term counts). `segment_base_rate` is
+recorded on a merits cell as the baseline its skill is scored against; the
+harness's `judgment-disturbed` claim baseline reads the same guarded pool, so
+both carry the guard by construction.
 
 **Two guards on the pool, both stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —

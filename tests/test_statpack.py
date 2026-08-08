@@ -1152,8 +1152,11 @@ def _seed_granted_cohort(db_path: Path) -> None:
     gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
     equally-divided affirmance and one mixed in-part outcome. Plus a granted
     row carrying an out-of-vocabulary judgment string (counts as unparsed, so
-    the distribution always sums to `parsed`), a denial, and a GVR — the last
-    two never eligible, the GVR because its vacatur is a cert-stage disposition.
+    the distribution always sums to `parsed`), a denial, a GVR, and a
+    pre-convention GVR (labeled plain `granted`, its vacatur dated on the
+    grant itself) — the last three never eligible: the labeled GVR because its
+    vacatur is a cert-stage disposition, the pre-convention one because the
+    label-independent guard reads the same fact off the grant→judgment gap.
     """
     ot23 = date(2024, 1, 12)
     ot24 = date(2024, 10, 7)
@@ -1241,6 +1244,21 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.gvr,
             date_cert_granted=ot23,
             merits_judgment="vacated",
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/910000011",
+            court="scotus",
+            docket_number="23-208",
+            # The pre-convention GVR shape: the `gvr` label is a forward
+            # convention, so a Term resolved before it existed carries this
+            # row as plain `granted` — passing the disposition exclusion —
+            # while its vacatur rode the cert order and carries the grant's
+            # own date. The label-independent guard keeps it out of the
+            # cohort entirely, exactly as the labeled GVR above is.
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment="vacated",
+            merits_decided=ot23,
         ),
     ]
     with corpus.connect(db_path) as conn:
@@ -1486,3 +1504,43 @@ def test_both_versions_count_the_same_rows_into_their_own_bands(
         (alt,) = term.alt_segments
         assert sum(s.ingested for s in term.segments) == sum(s.ingested for s in alt.segments)
         assert sum(s.resolved for s in term.segments) == sum(s.resolved for s in alt.segments)
+
+
+def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path: Path) -> None:
+    """The label-independent twin of the GVR exclusion, loud on its own.
+
+    A pre-convention GVR is labeled plain `granted` (the `gvr` label is a
+    forward convention), so the disposition exclusion cannot see it — but its
+    parsed vacatur carries the grant's own date, and the grant→judgment gap
+    guard (`pipeline.judgment.judgment_rode_the_grant_order`) excludes it from
+    the cohort entirely: not in `granted`, not in `parsed`, not in the rate.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000021",
+                    court="scotus",
+                    docket_number="19-101",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 10),
+                    merits_judgment="reversed",
+                    merits_decided=date(2020, 6, 22),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/910000022",
+                    court="scotus",
+                    docket_number="19-102",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 13),
+                    merits_judgment="vacated",
+                    merits_decided=date(2020, 1, 13),
+                ),
+            ],
+        )
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    assert (merits.granted, merits.parsed, merits.disturbed) == (1, 1, 1)
+    assert merits.disturbed_rate == pytest.approx(1.0)

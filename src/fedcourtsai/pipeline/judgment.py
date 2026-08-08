@@ -178,6 +178,24 @@ def judgment_disturbed(judgment: Judgment) -> bool:
     return judgment in _DISTURBED
 
 
+def judgment_rode_the_grant_order(merits_decided: date, date_cert_granted: date) -> bool:
+    """Whether a parsed judgment's disposition rode the cert order itself.
+
+    The label-independent guard on the merits pool (`docs/decision-model.md`):
+    the `gvr` label is a forward convention and `summary-reversal` has no
+    resolver, so a grant Term resolved into the corpus before those labels
+    existed carries such grants as plain `granted` — passing
+    `opens_merits_proceeding` — with a vacatur that parses the day it was
+    granted. What separates that class without reading the label is the
+    grant→judgment gap: a disposition riding in the cert order carries the
+    grant's own date, while an argued judgment lands months later (an
+    expedited argued case still lands days later, never same-day). `<=` rather
+    than `==` so a data-noise judgment date *before* its grant is excluded on
+    the same reasoning rather than admitted by accident.
+    """
+    return merits_decided <= date_cert_granted
+
+
 def grant_term_year(granted: date) -> int:
     """The October Term a cert-grant date falls in (a new Term opens in October).
 

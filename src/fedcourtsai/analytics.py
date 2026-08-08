@@ -29,7 +29,11 @@ from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.judgment import grant_term_year, judgment_disturbed
+from .pipeline.judgment import (
+    grant_term_year,
+    judgment_disturbed,
+    judgment_rode_the_grant_order,
+)
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -897,8 +901,11 @@ class _MeritsAcc:
     these per-Term counts, strictly-prior). The cohort admitted here is the
     scored population itself: the caller
     (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants
-    that decide in the cert order, so no near-certain GVR vacatur reaches a
-    counter.
+    that decide in the cert order, and its label-independent twin
+    (:func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order`)
+    keeps out the pre-convention rows whose parsed judgment carries the
+    grant's own date — so no near-certain cert-order vacatur reaches a
+    counter, labeled or not.
     """
 
     __slots__ = ("disturbed", "granted", "judgments", "parsed")
@@ -1160,7 +1167,19 @@ def _accumulate_scotus_terms(
     application_year = corpus.scotus_application_term_year(row.docket_number)
     if application_year is not None:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
-    if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
+    if (
+        corpus.opens_merits_proceeding(row)
+        and row.date_cert_granted is not None
+        # The label-independent twin of the GVR/summary-reversal exclusion
+        # above: a parsed judgment dated on (or before) its own grant rode the
+        # cert order, so the row is that same decides-in-the-cert-order class
+        # wearing a pre-convention label — excluded from the cohort entirely,
+        # exactly as a labeled GVR is, not merely from the parsed slice.
+        and not (
+            row.merits_decided is not None
+            and judgment_rode_the_grant_order(row.merits_decided, row.date_cert_granted)
+        )
+    ):
         grant_year = grant_term_year(row.date_cert_granted)
         merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
 

@@ -237,25 +237,19 @@ fails the cell.
     merits outcome writer records **no** votes today, so a null there is the
     record's silence, never the predictor's failure, and must not be scored as
     a zero. Then:
-    - **`brier_skill_score` is omitted on every merits cell.** Not a judgment
-      call and not conditional on the pack: the merits pool's exclusion of
-      GVRs and summary reversals reads the row's cert disposition label, the
-      `gvr` label is a forward convention, and a grant Term resolved into the
-      corpus before it existed carries its GVRs as plain `granted` — so their
-      near-certain vacaturs sit inside that Term's disturbed rate and the
-      pooled rate is an **upper bound** rather than the rate argued cases face.
-      `docs/decision-model.md` pre-registers that no merits skill number may be
-      published against such a pool and that the fan-out owes a
-      label-independent guard first; that guard is not built, so the number is
-      suppressed outright rather than published behind a heuristic that cannot
-      tell a partly-labelled Term from a clean one. Leave the field null and
-      say in `evaluation.md` that it is omitted by rule. No flag: this is the
-      stage's standing rule, not a per-cell anomaly. `validate` enforces it, so
-      a merits cell that writes one fails the gate rather than reaching the
-      leaderboard.
-    - **`segment_base_rate` is still recorded, and it is the merits baseline,
+    - **`brier_skill_score` is computed against the merits baseline** — the
+      same formula as a cert cell's, over the `segment_base_rate` the next
+      bullet has you pool, and null whenever that rate is omitted. The pool
+      you are pooling from is already guarded: the statpack's merits section
+      excludes any row whose parsed judgment carries its own grant's date (a
+      disposition riding in the cert order — the label-independent twin of
+      the GVR exclusion, `docs/decision-model.md`), so the pooled rate is the
+      rate argued cases face, not an upper bound inflated by pre-convention
+      cert-order vacaturs. You apply no such check yourself: the guard lives
+      where the pool is built, and your job is the pooling arithmetic below.
+    - **`segment_base_rate` is recorded, and it is the merits baseline,
       not the cert band.** The pool the cell faced is a fact about the run
-      worth committing even while no skill number is scored against it. Read
+      and the baseline the skill number above is scored against. Read
       the committed `metrics/statpack.md`'s **"The merits docket (granted
       cases)"** section and pool its `disturbed` over its `parsed` across grant
       Terms **strictly before** this case's — the October Term certiorari was
