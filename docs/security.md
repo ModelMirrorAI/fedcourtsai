@@ -19,8 +19,8 @@ lands via a PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow (that the PR is *reviewed* is a
 convention `AGENTS.md` carries, not something identity enforces):
 
-- **data App** — used by the deterministic writer `run-pull`. Its
-  client id is the `DATA_APP_CLIENT_ID` variable and its private key the
+- **data App** — used by the deterministic writers `run-pull` and `run-seed`.
+  Its client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
@@ -73,10 +73,12 @@ commits onto either branch would break that shared history and rewrite the
 pre-registration record's commit ids.
 
 - **`main: require PR`** — requires a pull request plus the status checks below
-  to merge. **Bypass: the data App only**, so the deterministic
-  `run-pull` writer jobs push corpus facts (the corpus blob — rows and point-in-time
-  snapshots — to the S3 corpus remote; its pointer and deterministic `outcome.json` to
-  `main`) while all agent code changes — including anything the dev App holds —
+  to merge. **Bypass: the data App only**, so the deterministic writer jobs
+  (`run-pull`, `run-seed`) push corpus facts (the corpus blob — rows and
+  point-in-time snapshots — to the S3 corpus remote; its pointer, deterministic
+  `outcome.json` and `event.yaml` records, and the seed lane's bounded
+  attribution repairs to `main`) while all agent code changes — including
+  anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
   **absent** from this bypass list. Required approvals are `0` — the maintainer
   reviews at merge time by convention, not by rule; set to `1` if a second
@@ -129,9 +131,13 @@ pre-registration record's commit ids.
     reviews and merges it — so this is review-time defense-in-depth. No-op on
     other branches.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
-  bypass — neither App.** This is what guarantees the predictions, outcomes,
-  and evaluations under `data/` cannot be rewritten or dropped, even by a
-  misbehaving writer that holds the data App's bypass token.
+  bypass — neither App.** This is what guarantees the committed *history* of
+  the predictions, outcomes, and evaluations under `data/` cannot be rewritten
+  or dropped, even by a misbehaving writer that holds the data App's bypass
+  token: a forward commit can delete a ledger record — the writer lane's
+  attribution repairs do, bounded by their per-run blast-radius cap — but the
+  deletion is itself a permanent, attributable commit, visible and revertible
+  rather than silent.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
   requires a pull request plus the required checks that can report on a
   staging-targeted PR: `gate` and `paths`. (`main`'s other two,
