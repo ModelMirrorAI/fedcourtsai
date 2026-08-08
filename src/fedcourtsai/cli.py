@@ -770,8 +770,8 @@ def reopen_misattributed_outcomes_cmd(
     reported for triage instead. An event carrying committed predict/evaluate
     output is likewise skipped. Idempotent, and convergent against the
     resolution pass. Dry-run by default; `--apply` writes. Run where the corpus
-    is pulled; land the corpus side last (`corpus-push` after the ledger
-    commit). Fails loud if the corpus is absent.
+    is pulled (run-seed's writer lane in production, after
+    `remove-unmintable-events`). Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -815,8 +815,9 @@ def remove_unmintable_events_cmd(
     permanent phantom on the case and keep it forecastable. An event carrying
     committed predict/evaluate output is skipped and reported instead.
     Idempotent. Dry-run by default; `--apply` writes. Run where the corpus is
-    pulled; the corpus row goes first, then the ledger directory. Fails loud if
-    the corpus is absent.
+    pulled (run-seed's writer lane in production); the ledger directory goes
+    first, then the corpus row, so an interrupted run leaves the row as the
+    detection handle for the next pass. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)

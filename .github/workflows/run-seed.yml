@@ -487,6 +487,66 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "merits-event pointer"
 
+      # Repair the two misattribution shapes the closed single-open-event
+      # attribution shortcut left in the ledger: entry-pinned SCOTUS events
+      # carrying a case-baseline id are removed (no re-ingest reproduces one —
+      # `extract_events` refuses the kind at SCOTUS), then non-baseline events
+      # whose outcome byte-copies a case-baseline sibling's are deleted and
+      # reopened. Removal runs first: it takes the second baseline out of the
+      # reopen sweep's baseline-pair triage, so one window converges both.
+      # Both sweeps skip and report any event carrying committed
+      # predict/evaluate output. Ledger deletions and rewrites ride this lane
+      # because the collect jails admit adds only; here they stage into the
+      # one pointer commit, atomic with the corpus they must match. Converges
+      # like the sweeps above — a repaired ledger removes and reopens nothing.
+      - name: Repair misattributed baseline outcomes
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded like the siblings, and comfortably: both scans are local
+        # (committed outcomes against corpus rows), no external-service loop.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to repair.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping attribution repairs"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Both sweeps read committed ledger artifacts out of `data/` and
+          # delete or rewrite beside them, and this checkout is only as fresh
+          # as the previous step's rebase — read the remote tip first so the
+          # skip guards see every collect PR merged in the gap.
+          git fetch origin "$GITHUB_REF_NAME"
+          git reset --hard FETCH_HEAD
+          # Dry-run first so the step log carries each sweep's report — every
+          # removal, reopen, and skip with its reason — then apply.
+          uv run fedcourts remove-unmintable-events
+          uv run fedcourts remove-unmintable-events --apply
+          uv run fedcourts reopen-misattributed-outcomes
+          uv run fedcourts reopen-misattributed-outcomes --apply
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers
+          # resolve the committed pointer, and the next window re-detects from
+          # the still-committed ledger and reconverges.
+          uv run fedcourts corpus-push
+          # `git add data/` stages the deletions and rewrites along with the
+          # pointer — one commit, so the ledger and the corpus it must match
+          # land together or not at all.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Attribution already repaired; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (attribution repairs)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "attribution-repair pointer"
+
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it
       # for run-ops to present and escalate — loud-not-fatal by contract. Gated to
