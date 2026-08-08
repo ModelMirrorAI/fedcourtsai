@@ -48,8 +48,10 @@ off the pipeline is byte-for-byte unchanged, and a mirror failure with the flag 
 only logs (it never breaks the SQLite write that is the phase-1 system of record).
 ``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
 current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
-reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``) and
-``backfill_live_signals`` — are *not* mirrored, so ``case.json`` can lag the corpus
+reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``),
+``backfill_live_signals``, and the bulk-cluster scrub
+(``pipeline.bulk_scrub``, which nulls case-fact columns a store browser
+reads) — are *not* mirrored, so ``case.json`` can lag the corpus
 until the case is next re-ingested. Provisioning does not read ``case.json`` (only
 snapshot/documents/events), so this does not affect the phase-3 casestore
 provisioning parity; a later phase that builds the index from the store will close

@@ -121,7 +121,7 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs six
+the live job owns SCOTUS freshness for free). run-seed also runs seven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -146,7 +146,13 @@ remove-unmintable-events` then `fedcourts reopen-misattributed-outcomes`),
 which converge the misattribution shape an earlier single-open-event
 attribution shortcut wrote and its cause — removal first, clearing the
 entry-pinned case of the reopen sweep's baseline-pair triage in the same
-window, each bounded by a per-run blast-radius cap. The dedupe runs first so the
+window, each bounded by a per-run blast-radius cap; and, last, the
+**bulk-cluster scrub** (`fedcourts scrub-bulk-cluster-fields`), which
+converges the stored circuit slice onto the ingest projection's carve-out —
+the bulk export's misjoined cluster fields are withheld from a re-served
+bulk row, and the scrub drops them from the rows nothing re-serves, keyed
+on the fields the REST channel cannot supply and bounded by its own
+blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
@@ -270,7 +276,8 @@ pattern rather than rediscovering it:
   has a hard 1h life and an AWS OIDC session defaults to 1h. A corpus-writer loop
   must therefore stay within that hour, or re-mint the App token before it ages
   out and raise `role-duration-seconds` to cover the run. `run-seed`'s walk takes
-  the first path: each window is a bounded chunk (≤40 min) under one token, so it
+  the first path: each window is a bounded chunk (≤40 min; the daily sweep window walks 25
+  to fund its trailing sweeps) under one token, so it
   needs no re-mint — a deliberate simplification over a longer walk that would.
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather

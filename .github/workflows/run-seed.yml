@@ -16,8 +16,9 @@ name: run-seed
 # forward windows (`:17` pull, `:47` live) and yield the lock before the next
 # one fires.
 #
-# Each window is a bounded ~40-min chunk that fits inside one App installation
-# token's 1h life, so there is no self-refreshing-token loop — one token up
+# Each window is a bounded chunk — ≤40 min of walk, except the daily sweep
+# window, which walks 25 to fund its trailing sweeps — inside one App
+# installation token's 1h life, so there is no self-refreshing-token loop — one token up
 # front covers the walk and the trailing steps.
 on:
   schedule:
@@ -190,7 +191,13 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Wall-clock budget for the whole loop, kept under timeout-minutes with
           # room for setup + the trailing steps, and inside the token's 1h life.
-          LOOP_BUDGET_SECONDS: "2400" # 40m
+          # The 02:31 window carries the daily maintenance sweeps after the
+          # loop, so it trades walk time for sweep headroom: the sweeps'
+          # bounded worst case only ever binds on a non-converged window, but
+          # a cap hit is a cancellation — the one outcome continue-on-error
+          # cannot absorb — so the budget yields rather than gambling the
+          # trailing verdict.
+          LOOP_BUDGET_SECONDS: ${{ github.event.schedule == '31 2 * * *' && '1500' || '2400' }} # 25m sweep window / 40m
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -566,6 +573,52 @@ jobs:
           git commit -m "seed: converge corpus (attribution repairs)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "attribution-repair pointer"
+
+      # The stored circuit slice still carries the bulk export's misjoined
+      # cluster fields; the ingest projection withholds them from a re-served
+      # bulk row, and this converges the rows nothing re-serves. Detection is
+      # provable bulk provenance — fields the REST channel cannot supply —
+      # so docket-derived judges/panel on discovery-onboarded rows survive.
+      # The apply refuses above the command's blast-radius bound, sized just
+      # over the measured slice: a widened predicate should fail loudly, not
+      # null a channel the carve-out never covered. Corpus-only:
+      # no ledger surface, so a pointer-only commit like the judgments sweep.
+      # Idempotent — a scrubbed corpus matches nothing, so a converged
+      # window's cost is the apply's own count scan, seconds over the cases
+      # table.
+      - name: Scrub the bulk slice's misjoined cluster fields
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason as the sibling sweeps — a cap hit
+        # cancels the whole run, which continue-on-error cannot absorb — and
+        # tightly: one UPDATE against the pulled blob (the first
+        # non-converged window rewrites ~1.36M rows in seconds), then the
+        # blob push the walk pays on every window anyway.
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to scrub.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping cluster scrub"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One apply, its count line mirrored into the run summary: a
+          # separate dry run would repeat the same full-table count for a
+          # one-line report the apply already prints.
+          uv run fedcourts scrub-bulk-cluster-fields --apply | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Bulk cluster fields already scrubbed; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (bulk cluster scrub)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "cluster-scrub pointer"
 
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it
