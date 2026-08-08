@@ -50,13 +50,16 @@ number depends on naming them:
 - **The committed record is still on disk.** ``events/<event_id>/predictions/``
   names every predictor, and the checkout carries its history. The prompt
   forbids reading it; nothing prevents it.
+- **The call-class profile is not masked, though the tool names are.** The
+  staged ``calls`` keep everything the leakage grading reads, with each
+  ``tool`` normalized to the engine-neutral classes below — each engine's raw
+  vocabulary is disjoint from the others' while the registry holds one
+  predictor per engine, so a raw name on the grader's required reading path
+  would name the candidate. What the rename cannot hide is the *shape*: an
+  engine that reads through its shell stages a log of nothing but ``shell``,
+  which narrows the guessing space the way prose style does.
 - **Style is not masked.** Three candidates over three known engines is a small
-  guessing space, and an engine may recognise its own prose. This is the one
-  transcript channel left open by design: the staged ``calls`` keep everything
-  the leakage grading reads, but their ``tool`` names are normalized to the
-  engine-neutral classes below — each engine's raw tool vocabulary is disjoint
-  from the others' while the registry holds one predictor per engine, so a raw
-  name on the grader's required reading path would name the candidate.
+  guessing space, and an engine may recognise its own prose.
 
 The first two routes run through a tool call, and tool calls are captured
 harness-side into the cell's own ``retrieval_log.json`` — best-effort capture
@@ -376,15 +379,30 @@ def mask_prediction(
 # what the leakage grading distinguishes — whether a call reached the shell,
 # the local tree, the web, or an MCP surface — and MCP names keep their
 # server and method (the outcome-bearing detail), spelled one way for every
-# engine. Anything outside the map collapses to "other": pass-through would
-# leak whatever engine-specific name the map has not met.
-_MCP_TOOL = re.compile(r"^mcp_{1,2}([a-zA-Z0-9-]+)_{1,2}(.+)$")
-_NEUTRAL_TOOL_CLASSES: dict[str, str] = {
+# engine. The map includes the payload-TYPE names the capture falls back to
+# where a provider-side call carries no tool name (``web_search_call``,
+# ``local_shell_call`` — see ``retrieval._tool_name``'s callers): the hosted
+# web search is exactly the row the leakage doctrine singles out, so it must
+# stage as ``web-search``, not vanish into ``other``. Anything outside the
+# map collapses to "other": pass-through would leak whatever engine-specific
+# name the map has not met. The MCP server segment is ``[a-z0-9]+`` because
+# the registry schema constrains server ids to exactly that — an underscore
+# in a server id would make the two engines' spellings normalize differently
+# and the surviving separator would fingerprint the engine; the schema's
+# ``id`` rule is the guarantee this class depends on, as ``tool_usage``'s
+# twin regex already records. Neutrality of the ``mcp:`` class itself rests
+# on the registry giving every predictor the same server set — a
+# per-predictor server would name its candidate straight through this seam.
+_MCP_TOOL: Final = re.compile(r"^mcp_{1,2}([a-z0-9]+)_{1,2}(.+)$")
+_NEUTRAL_TOOL_CLASSES: Final[dict[str, str]] = {
     "bash": "shell",
     "exec": "shell",
+    "local_shell_call": "shell",
     "run_shell_command": "shell",
     "read": "file-read",
     "read_file": "file-read",
+    "read_many_files": "file-read",
+    "apply_patch": "file-write",
     "write": "file-write",
     "edit": "file-write",
     "write_file": "file-write",
@@ -393,9 +411,11 @@ _NEUTRAL_TOOL_CLASSES: dict[str, str] = {
     "grep": "file-search",
     "grep_search": "file-search",
     "list_directory": "file-search",
+    "search_file_content": "file-search",
     "websearch": "web-search",
     "google_web_search": "web-search",
     "web_search": "web-search",
+    "web_search_call": "web-search",
     "webfetch": "web-fetch",
     "web_fetch": "web-fetch",
 }
@@ -403,10 +423,11 @@ _NEUTRAL_TOOL_CLASSES: dict[str, str] = {
 
 def neutral_tool_class(tool: str) -> str:
     """The engine-neutral class a staged call's ``tool`` name is spelled as."""
-    mcp = _MCP_TOOL.match(tool)
+    lowered = tool.lower()
+    mcp = _MCP_TOOL.match(lowered)
     if mcp:
-        return f"mcp:{mcp.group(1).lower()}:{mcp.group(2).lower()}"
-    return _NEUTRAL_TOOL_CLASSES.get(tool.lower(), "other")
+        return f"mcp:{mcp.group(1)}:{mcp.group(2)}"
+    return _NEUTRAL_TOOL_CLASSES.get(lowered, "other")
 
 
 def mask_retrieval_log(

@@ -30,10 +30,10 @@ Two rules follow, and they are not optional:
 - **Do not attempt to identify a candidate.** Do not search for the masked text,
   reason about which engine writes which way, or ask any tool who wrote what.
 - **A guess is not evidence.** The masking removes the *name*, not every trace:
-  three candidates over three engines is a small guessing space, and the tool
-  vocabulary in a candidate's transcript is characteristic of the engine that
-  produced it (the transcript is staged unchanged because the leakage grading
-  reads it). So you may well form a suspicion. It carries no weight: it must not
+  three candidates over three engines is a small guessing space, prose style is
+  not masked, and the staged transcript's call-class profile (its tool names
+  are respelled as neutral classes, but their shape survives) still narrows
+  it. So you may well form a suspicion. It carries no weight: it must not
   enter `reasoning_quality`, `big_case`, the leakage grading, or `evaluation.md`,
   and you must not act on it by going to check.
 
@@ -361,8 +361,9 @@ candidate:
    tool-call transcript the harness captured from the engine's own log (never
    the agent's word), staged with its `actor_id` masked to the alias, its
    `engine` nulled, and each call's tool respelled as an engine-neutral class
-   (`shell`, `file-read`, `web-search`, `mcp:<server>:<method>`, …): call
-   classes, query slices, and `retrieved_doc_date` where
+   (`shell`, `file-read`, `web-search`, `mcp:<server>:<method>`, …; an
+   unrecognised tool reads as `other` — a collapsed name, not a suspicious
+   call): call classes, query slices, and `retrieved_doc_date` where
    a document date was legible. Two kinds of `[redacted:…]` marker appear and
    neither is evidence of leakage on its own — `[redacted:identity]` is the
    blinding removing a name, and any other marker is the harness removing a

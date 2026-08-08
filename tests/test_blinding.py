@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import blinding
+from fedcourtsai import blinding, tool_usage
 from fedcourtsai.blinding import (
     ALIAS_PREFIX,
     ENGINE_TERMS,
@@ -405,10 +405,31 @@ def test_staged_tool_names_are_engine_neutral() -> None:
     )
     assert blinding.neutral_tool_class("google_web_search") == "web-search"
     assert blinding.neutral_tool_class("WebFetch") == "web-fetch"
+    # The payload-TYPE fallbacks a provider-side call is captured under: the
+    # hosted web search is the row the leakage doctrine singles out, so it
+    # must stage as web-search — and "web-search" appearing on every engine
+    # is also what stops the class reading as "not codex".
+    assert blinding.neutral_tool_class("web_search_call") == "web-search"
+    assert blinding.neutral_tool_class("local_shell_call") == "shell"
+    assert blinding.neutral_tool_class("apply_patch") == "file-write"
+    assert blinding.neutral_tool_class("search_file_content") == "file-search"
+    assert blinding.neutral_tool_class("read_many_files") == "file-read"
     # An unmapped name collapses rather than passing through — pass-through
     # would leak any engine-specific name the map has not met.
     assert blinding.neutral_tool_class("update_topic") == "other"
     assert blinding.neutral_tool_class("ToolSearch") == "other"
+
+
+def test_every_known_web_tool_stages_as_a_web_class() -> None:
+    """The web-tool inventory and the neutral classes cannot drift apart.
+
+    ``tool_usage`` owns the canonical set of names the engines' web calls are
+    logged under; a member missing from the blinding map would stage as
+    "other", making the web class an inverse engine fingerprint and the
+    hosted-search leakage instruction unexecutable on the staged copy.
+    """
+    for name in tool_usage._WEB_TOOLS:
+        assert blinding.neutral_tool_class(name).startswith("web-"), name
 
 
 def test_free_text_cell_files_are_not_staged_at_all(ledger: Path) -> None:
