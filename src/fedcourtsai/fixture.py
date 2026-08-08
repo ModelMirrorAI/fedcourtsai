@@ -418,10 +418,13 @@ def build_fixture_corpus(db_path: Path) -> Path:
 # wants the merits cell contract opts in with :func:`add_merits_fixture`
 # instead. The docket carries the full trajectory in its entries — petition,
 # grant, argument, judgment — with the row's cert/merits columns stating the
-# same facts the live channel would latch from them.
+# same facts the live channel would latch from them. Like every opt-in
+# fixture, it takes a docket id the base corpus never mints, so opting in
+# adds a row and never merges over a base-surface row another suite asserts
+# counts against.
 MERITS_FIXTURE_CASE = FixtureCase(
     court="scotus",
-    docket=306,
+    docket=308,
     docket_number="23-980",
     case_name="Cascade Timber Co. v. United States",
     date_filed=date(2024, 3, 4),
