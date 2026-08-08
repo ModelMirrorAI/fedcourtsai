@@ -19,7 +19,6 @@ from fedcourtsai.backtest import (
 from fedcourtsai.cert_backtest import (
     _kept_entries_show_a_disposition,
     redact_snapshot,
-    replay_cutoff,
     replay_predictors,
     replayable_items,
     run_cert_backtest,
@@ -28,6 +27,7 @@ from fedcourtsai.cert_backtest import (
 )
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
