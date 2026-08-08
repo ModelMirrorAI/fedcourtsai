@@ -1148,7 +1148,8 @@ def _seed_granted_cohort(db_path: Path) -> None:
     """Insert a known granted-merits cohort split across two grant Terms.
 
     OT2023 (granted Jan 2024 -> Term 2023): a reversal, a vacatur, an
-    affirmance, a DIG, and a granted row with no parsed judgment (coverage
+    affirmance, a DIG — every parsed judgment dated after its grant, as the
+    pool guard requires — and a granted row with no parsed judgment (coverage
     gap). OT2024 (granted Oct 2024 -> Term 2024, October pivot): one
     equally-divided affirmance and one mixed in-part outcome. Plus a granted
     row carrying an out-of-vocabulary judgment string (counts as unparsed, so
@@ -1186,6 +1187,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="affirmed",
+            merits_decided=date(2024, 6, 14),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000004",
@@ -1194,6 +1196,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot23,
             merits_judgment="dismissed-as-improvidently-granted",
+            merits_decided=date(2024, 5, 20),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000005",
@@ -1209,6 +1212,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-by-an-equally-divided-court",
+            merits_decided=date(2025, 5, 12),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000007",
@@ -1217,6 +1221,7 @@ def _seed_granted_cohort(db_path: Path) -> None:
             disposition=Disposition.granted,
             date_cert_granted=ot24,
             merits_judgment="affirmed-in-part-reversed-in-part",
+            merits_decided=date(2025, 6, 2),
         ),
         corpus.CorpusRow(
             case_id="scotus/910000008",
@@ -1353,6 +1358,7 @@ def test_merits_all_affirmed_term_has_a_real_zero_rate(tmp_path: Path) -> None:
                     disposition=Disposition.granted,
                     date_cert_granted=date(2024, 1, 12),
                     merits_judgment="affirmed",
+                    merits_decided=date(2024, 6, 14),
                 )
             ],
         )
@@ -1416,6 +1422,7 @@ def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
             disposition=Disposition.granted_in_part if n == 0 else Disposition.granted,
             date_cert_granted=granted,
             merits_judgment="reversed" if n < 28 else "affirmed",
+            merits_decided=date(2024, 6, 20),
         )
         for n in range(40)
     ] + [
@@ -1511,9 +1518,9 @@ def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path
 
     A pre-convention GVR is labeled plain `granted` (the `gvr` label is a
     forward convention), so the disposition exclusion cannot see it — but its
-    parsed vacatur carries the grant's own date, and the grant→judgment gap
-    guard (`pipeline.judgment.judgment_rode_the_grant_order`) excludes it from
-    the cohort entirely: not in `granted`, not in `parsed`, not in the rate.
+    parsed vacatur carries the grant's own date — or no date the gap could be
+    tested on — and the pool guard excludes it from the cohort entirely: not
+    in `granted`, not in `parsed`, not in the rate.
     """
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
@@ -1537,6 +1544,18 @@ def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path
                     date_cert_granted=date(2020, 1, 13),
                     merits_judgment="vacated",
                     merits_decided=date(2020, 1, 13),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/910000023",
+                    court="scotus",
+                    docket_number="19-103",
+                    # The undated parse: the gap cannot be evaluated, so the
+                    # guard excludes it on its own reasoning rather than
+                    # admitting the untestable — the shape likeliest on
+                    # exactly the old Terms whose GVRs are unlabelled.
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 13),
+                    merits_judgment="vacated",
                 ),
             ],
         )

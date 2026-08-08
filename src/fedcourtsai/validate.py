@@ -679,8 +679,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     The subset of layer-C checks that need only the git ledger under ``data/``:
     every judgment references an event defined in git, every evaluation targets
     a prediction that exists, every prose document a prediction names is there,
-    every merits-stage event's scored prediction carries its judgment, and no
-    merits evaluation publishes a Brier skill score.
+    and every merits-stage event's scored prediction carries its judgment.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """

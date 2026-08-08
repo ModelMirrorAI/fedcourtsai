@@ -401,10 +401,13 @@ def merits_base_rate(
     **The baseline's population is the scored population.** The merits section
     admits exactly the grants that open a merits proceeding
     (:func:`fedcourtsai.corpus.opens_merits_proceeding`), which is where a
-    merits cell comes from: a GVR and a summary reversal terminate at the cert
+    merits cell comes from — further guarded, label-independently, against
+    parsed judgments dated on (or missing relative to) their own grant, the
+    pre-convention cert-order class (``docs/decision-model.md``): a GVR and a
+    summary reversal terminate at the cert
     order and never mint one, so their near-certain vacaturs — a cert-stage
     fact the cert sections already carry — never anchor a merits forecast to a
-    rate its own population does not face.
+    rate its own population does not face, whatever the row's label says.
 
     ``grant_term`` is the October Term certiorari was **granted** in
     (:func:`fedcourtsai.pipeline.judgment.grant_term_year` over the merits

@@ -354,7 +354,7 @@
     },
     "StatPackMerits": {
       "additionalProperties": false,
-      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the per-Term disturbed rates are the committed feed of the\npre-registered merits Brier baseline\n(``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the\n``terms`` array is a scoring input as well as a description. The population\nis the grants that open a merits proceeding \u2014 the same rule that mints the\nevent a merits forecast is made on \u2014 so a GVR, whose vacatur rides in the\ncert order itself, never contributes a near-certain disturbance to a rate\nthat scores forecasts about argued cases.",
+      "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the per-Term disturbed rates are the committed feed of the\npre-registered merits Brier baseline\n(``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the\n``terms`` array is a scoring input as well as a description. The population\nis the grants that open a merits proceeding \u2014 the same rule that mints the\nevent a merits forecast is made on \u2014 minus, label-independently, any row\nwhose parsed judgment carries its grant's own date or no date at all\n(``docs/decision-model.md``'s pool guard), so a GVR, whose vacatur rides\nin the cert order itself, never contributes a near-certain disturbance to\na rate that scores forecasts about argued cases, whatever its label says.",
       "properties": {
         "affirmed": {
           "default": 0,
@@ -408,7 +408,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded) \u2014 the cohort the merits backfill walks, parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date or no date at all), parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"
@@ -502,7 +502,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded) \u2014 the cohort the merits backfill walks, parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date or no date at all), parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"

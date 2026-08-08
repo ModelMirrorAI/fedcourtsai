@@ -155,9 +155,9 @@ stays outside the gate:
 
   Scope rules travel with the figure. It is **cert stage only** — no other
   stage has a salience band, so none has a band rate to realize, and every
-  non-cert `stages` block reports it null with a zero count (this is not the
-  merits GVR-guard suppression described below; merits would have nothing to
-  realize even once that guard lands). It is **version-pinned** exactly like
+  non-cert `stages` block reports it null with a zero count (a scope fact,
+  not a merits skill rule: merits has no band, so it has nothing to
+  realize). It is **version-pinned** exactly like
   the prior-Term pool: a band name means something only under the salience
   version that assigned it, so a Term carrying another version contributes
   nothing rather than a blend. It rests on a **stated minimum** —
@@ -698,10 +698,11 @@ the rendered table) and
   disposition rides in the cert order itself, are absent: their vacaturs are
   cert-stage facts, already counted in the cert sections, and would otherwise
   count as disturbed judgments in cases no one forecast at the merits stage.
-  The exclusion reads the row's cert disposition label, so it is exact only
-  where that label is (the `gvr`/`summary-reversal` caveat above the stage
-  blocks applies here too: over a Term whose GVRs are unlabelled the rate is an
-  upper bound).
+  The exclusion reads the row's cert disposition label and, where the label
+  cannot be trusted, the grant→judgment gap: a parsed judgment dated on or
+  before its own grant — or carrying no date the gap could be tested on —
+  is excluded label-independently, so every parsed judgment in the cohort
+  provably postdates its grant.
   **What may be
   claimed from it:** the counts are *descriptive* facts about the parsed
   cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of

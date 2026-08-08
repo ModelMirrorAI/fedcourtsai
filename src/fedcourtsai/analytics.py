@@ -886,6 +886,33 @@ def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
 _JUDGMENT_VALUES = frozenset(judgment.value for judgment in Judgment)
 
 
+def _judgment_rode_or_cannot_be_cleared(row: CorpusRow) -> bool:
+    """Whether a row's parsed judgment fails the label-independent pool guard.
+
+    The label-independent twin of the GVR/summary-reversal disposition
+    exclusion: a parsed judgment dated on (or before) its own grant rode the
+    cert order (:func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order`),
+    so the row is that same decides-in-the-cert-order class wearing a
+    pre-convention label — excluded from the cohort entirely, exactly as a
+    labeled GVR is, not merely from the parsed slice. A parsed judgment with
+    **no** date is excluded on the guard's own reasoning: the gap cannot be
+    evaluated, undated parses are likeliest on exactly the old Terms whose
+    GVRs are unlabelled, and admitting the untestable would reopen the hole
+    the guard closes — so the pool's invariant stays exact: every parsed
+    judgment in it provably postdates its grant. An *unparsed* row (no
+    judgment, or an out-of-vocabulary value) passes: it enters ``granted`` as
+    a visible coverage gap and can never touch the rate.
+    """
+    value = row.merits_judgment
+    if value is None or value not in _JUDGMENT_VALUES:
+        return False
+    if row.date_cert_granted is None:  # unreachable at the admission site
+        return False
+    if row.merits_decided is None:
+        return True
+    return judgment_rode_the_grant_order(row.merits_decided, row.date_cert_granted)
+
+
 class _MeritsAcc:
     """Streaming accumulator for one slice of the granted-merits docket.
 
@@ -902,10 +929,10 @@ class _MeritsAcc:
     scored population itself: the caller
     (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants
     that decide in the cert order, and its label-independent twin
-    (:func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order`)
-    keeps out the pre-convention rows whose parsed judgment carries the
-    grant's own date — so no near-certain cert-order vacatur reaches a
-    counter, labeled or not.
+    (:func:`_judgment_rode_or_cannot_be_cleared`) keeps out the rows whose
+    parsed judgment carries the grant's own date or no date at all — so no
+    near-certain cert-order vacatur reaches a counter, labeled or not, and
+    every parsed judgment in the pool provably postdates its grant.
     """
 
     __slots__ = ("disturbed", "granted", "judgments", "parsed")
@@ -1170,15 +1197,7 @@ def _accumulate_scotus_terms(
     if (
         corpus.opens_merits_proceeding(row)
         and row.date_cert_granted is not None
-        # The label-independent twin of the GVR/summary-reversal exclusion
-        # above: a parsed judgment dated on (or before) its own grant rode the
-        # cert order, so the row is that same decides-in-the-cert-order class
-        # wearing a pre-convention label — excluded from the cohort entirely,
-        # exactly as a labeled GVR is, not merely from the parsed slice.
-        and not (
-            row.merits_decided is not None
-            and judgment_rode_the_grant_order(row.merits_decided, row.date_cert_granted)
-        )
+        and not _judgment_rode_or_cannot_be_cleared(row)
     ):
         grant_year = grant_term_year(row.date_cert_granted)
         merits_accs.setdefault(grant_year, _MeritsAcc()).add(row)
@@ -1641,9 +1660,11 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         (
             "_SCOTUS cases whose cert grant opened a merits proceeding — a plain or "
             + "partial grant; a GVR or summary reversal decides in the cert order itself, "
-            + "so it is a cert-stage fact and is excluded by its disposition label (only "
-            + "as exact as that label: a Term resolved before the `gvr` label existed "
-            + "carries its GVRs as plain `granted`, so its rate here reads high) — split "
+            + "so it is a cert-stage fact and is excluded by its disposition label and, "
+            + "label-independently, by the grant-to-judgment gap: a parsed judgment "
+            + "dated on or before its own grant, or carrying no date the gap could be "
+            + "tested on, rode the cert order and is outside this cohort, so every "
+            + "parsed judgment below provably postdates its grant — split "
             + "by the October Term "
             + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
             + "with the cert tables' docket-number Terms (a petition docketed in Term T is "

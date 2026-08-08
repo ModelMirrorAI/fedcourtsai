@@ -455,10 +455,11 @@ Three per-stage differences are worth knowing when reading a scored cell:
   segment base rate is published, so there is nothing to score skill against.
   The omission is keyed on the stage, not on whether a band happens to be
   frozen.
-- **A merits cell's baseline is registered** — the statpack's pooled
-  strictly-prior disturbed rate, keyed on the grant Term and returning nothing
-  below a stated minimum of parsed judgments — but it is realized today through
-  the claim block's difference form alone.
+- **A merits cell's baseline is registered and scored** — the statpack's
+  pooled strictly-prior disturbed rate (its cohort guarded label-independently
+  against cert-order-dated judgments), keyed on the grant Term and returning
+  nothing below a stated minimum of parsed judgments — feeding both the
+  evaluator's `brier_skill_score` and the claim block's difference form.
 
 An evaluation of the cert prediction above, had that petition been denied
 without a further relist. Its `process_version` stamp is omitted for brevity,

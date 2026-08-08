@@ -241,8 +241,9 @@ fails the cell.
       same formula as a cert cell's, over the `segment_base_rate` the next
       bullet has you pool, and null whenever that rate is omitted. The pool
       you are pooling from is already guarded: the statpack's merits section
-      excludes any row whose parsed judgment carries its own grant's date (a
-      disposition riding in the cert order — the label-independent twin of
+      excludes any row whose parsed judgment carries its own grant's date, or
+      no date the gap could be tested on (a disposition riding in the cert
+      order — the label-independent twin of
       the GVR exclusion, `docs/decision-model.md`), so the pooled rate is the
       rate argued cases face, not an upper bound inflated by pre-convention
       cert-order vacaturs. You apply no such check yourself: the guard lives
@@ -291,9 +292,9 @@ fails the cell.
       prediction's headline probability — and the harness computes the block
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. Note for reading
-      the two together: the harness applies no GVR check of its own, so the
-      claim's baseline carries the same upper-bound caveat the suppressed skill
-      score does — which is a property of the pool, not of the predictor.
+      the two together: the claim's baseline pools the same guarded statpack
+      counts your `segment_base_rate` does, so the two carry the same pool by
+      construction — a property of the pool, not of the predictor.
 
     Say in `evaluation.md` that the cell is merits, which baseline you took or
     why none was available, and what the vote block could and could not be
