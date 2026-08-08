@@ -205,16 +205,18 @@ def test_repo_tracking_yaml_arms_the_spend_backstop() -> None:
     """Pin the shipped ex-post spend ceiling and its window.
 
     The one control that reads measured spend rather than bounding a single
-    run, so the shipped value is what turns a mis-set capacity knob into a
-    deferral instead of an invoice. Sized to clear the long-conference peak
-    and the merits backlog drain (~2.3x the Term's average month, headroom
-    for the ledger lag) — see the sizing comment beside the value. A silent
-    edit re-sizes the program's worst-case spend, so it fails a test the way
-    the salience capacities do.
+    run: sized to sit above every legitimate month and within days of a
+    runaway burst — a mis-set capacity knob minting whole cohorts — per the
+    derivation in docs/budget.md. A silent edit re-sizes the program's
+    worst-case spend, so it fails a test the way the salience capacities do.
     """
     cfg = load_spend_config(Path("config"))
     assert cfg.ceiling_usd == 2500.0
     assert cfg.window_days == 30
+    # The window is *stated*: its field default is also 30, so deleting the
+    # key would still pass the assertion above — require the literal key.
+    tracking = yaml.safe_load((Path("config") / "tracking.yaml").read_text())
+    assert "window_days" in tracking["spend"]
 
 
 def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:

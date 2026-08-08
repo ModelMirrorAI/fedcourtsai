@@ -323,21 +323,22 @@ statpack:
 # evaluate plan seams before either mints a matrix.
 spend:
   # Trailing-window ceiling on measured spend, USD (0 would DISABLE the
-  # backstop, the convention the other caps use — the pydantic default, so a
+  # backstop, the convention the other caps use — the code default, so a
   # missing section can never wedge the pipeline). Reaching the ceiling DEFERS
   # new cells — the predict queue and the evaluate backlog are untouched and
-  # re-derive next cycle — it never destroys queued work. Sized against the
-  # bootstrapping envelope in docs/budget.md: ~2.3x the Term's average month
-  # (~$1.1K of the ~$10K inference envelope over ~9 months), so the October
-  # peak — the long conference's 24-cap cohort plus the merits backlog drain —
-  # clears without deferral, while a mis-set capacity knob (the failure this
-  # backstop exists for; a regression to a non-binding cap would burn $4-5K a
-  # month) defers within its first weeks instead of compounding for a billing
-  # cycle. The headroom above the average also absorbs the ledger lag noted
-  # below — the measured figure the ceiling reads is a floor on true spend.
+  # re-derive next cycle — it never destroys queued work. The value guards
+  # against a BURST, not a rate: it sits above every legitimate month
+  # (~2.3x the Term's average, clear of the heaviest month's build-up — whose
+  # carve-out band is uncapped by construction — and of the lagging ledger)
+  # and within days of a runaway burst, a mis-set capacity knob minting whole
+  # cohorts in single runs. The derivation, the measured figures it rests on,
+  # and the two breach consequences (a deferred forward cell can re-mint as a
+  # non-claimable retrospective cell; replay campaigns draw on the same
+  # ceiling) are in docs/budget.md's ex-post backstop section.
   ceiling_usd: 2500.0
-  # The window the ceiling applies over, days. Sized to the billing period being
-  # protected, not to a run. NOTE the measurement lags: a cell's usage.json
+  # The window the ceiling applies over, days. Sized to approximate the billing
+  # period being protected, not a run (trailing, so it never aligns exactly
+  # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
   # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
   # on spend within the window, never a live figure.
   window_days: 30

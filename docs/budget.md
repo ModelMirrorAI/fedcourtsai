@@ -318,19 +318,45 @@ trailing-window ceiling on **measured** cost, read from the committed `usage.jso
 ledger by both plan seams before either mints a matrix. Reaching it **defers**:
 the predict queue and the evaluate backlog are untouched and re-derive next cycle.
 
-The shipped value is **$2,500 over a 30-day window** — ~2.3× the Term's average
-month (~$1.1K of the ≈$10K inference envelope over ~9 months), sized so the
-October peak (the long conference's 24-cap cohort plus the merits backlog
-drain) clears without deferral while a mis-set capacity knob — the failure the
-backstop exists for; a regression to a non-binding cap would burn $4–5K a month
-— defers within its first weeks instead of compounding for a billing cycle.
-Two limits it is set *with* rather than against. A ceiling of `0` disables the
-backstop (the pydantic default, so a missing section can never wedge the
+The shipped value is **$2,500 over a 30-day trailing window** — ~2.3× the
+Term's average month (≈$1.1K: the measured 738–765 events/Term at the $13
+planning rate, spread over the ~9 months the Term spans; on a 12-month spread
+the multiple is 3.0×, so the claim is conservative). What it protects against
+is a **burst, not a rate**. The steady state cannot reach it: even a
+regression to a non-binding cap burns $1.8–2.3K per 30 days (the prior
+150/200 replay selected 1,228–1,349/Term ≈ $16–17.5K, and the 150-cap
+scenario above funds ≈$21K/Term), a trailing sum that asymptotes *below* the
+ceiling. What a mis-set capacity knob actually does is mint whole cohorts in
+single runs: one unbound long-conference cohort is 148–193 replay-weighted
+petitions (raw cohorts reach 369) × 3 predict cells ≈ **$0.9–2.3K in a day**,
+against a measured legitimate peak day of ≈$400 — so the backstop fires
+within days of a runaway burst and stays silent through any legitimate month.
+The heaviest legitimate month clears with room: the capped component is
+deliberately flattened to ≈ the mean month (the `C` = 60 build-up below,
+≈$780), the **uncapped** carve-out band adds $200–250 in a typical month
+(unbounded by construction — the one channel that can legitimately run hot),
+the steady interim/merits stream ≈$320, and the one-time merits backlog drain
+is small — a dry-run over the committed corpus finds **31 mintable grants**
+(≈$200–400 with their briefed moments; the un-adjudicated population behind
+that measurement is 674 grant-opening rows, which is why the sweep is bounded
+rather than trusted) — totalling ≈$1.55–1.75K, which leaves ≈$0.8–0.95K of
+window for the lagging ledger.
+Two limits it is set *with* rather than against. A ceiling of `0` disables
+the backstop (the code default, so a missing section can never wedge the
 pipeline — a cost control that wedges when misconfigured is worse than none).
 And the ledger **lags** — a cell's `usage.json` reaches `data/`
 only when its run's collect PR merges — so the figure it compares is a *floor* on
-spend inside the window, never a live balance; the headroom above the average
-month is also what absorbs that lag.
+spend inside the window, never a live balance.
+Two consequences of a breach belong beside the value. Deferral never destroys
+queued work, but it can destroy a **claim**: a forward cert cell deferred past
+its petition's resolution re-mints as a retrospective cell
+([`metrics/README.md`](../metrics/README.md)), permanently outside the
+headline strata — a genuine breach trades forward coverage, which is why the
+ceiling sits above every legitimate month rather than at the envelope's
+average. And the ceiling reads **all** measured spend, replay and backtest
+campaigns included — money is money by design — so a large iteration campaign
+inside one window can itself defer forward cells; time such campaigns away
+from conference-dense weeks.
 
 **Monthly spend by provider.** The per-case cost splits across the three API
 bills — one predict cell and one evaluate cell per provider per case, both
