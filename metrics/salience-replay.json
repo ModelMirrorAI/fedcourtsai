@@ -15,6 +15,7 @@
       },
       "realized_granted": 90,
       "recall": 0.0,
+      "salience_version": "sal-v1",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -31,29 +32,30 @@
         "baseline": 1228,
         "unobservable": 11
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 33,
       "eligible": 1239,
       "largest_weighted_cohort": 160.0,
       "policy": "distribution-1",
-      "precision": 0.07003257328990228,
+      "precision": 0.08808290155440414,
       "provenance": {
         "blind-no-moment": 10,
         "blind-untrusted-cutoff": 1,
         "truncated": 1228
       },
       "realized_granted": 90,
-      "recall": 0.9555555555555556,
-      "selected": 1228,
+      "recall": 0.37777777777777777,
+      "salience_version": "sal-v1",
+      "selected": 386,
       "selected_carve_out": 0,
-      "selected_granted": 86,
-      "selected_rank_fill": 1228,
+      "selected_granted": 34,
+      "selected_rank_fill": 386,
       "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 90.0,
       "weighted_population": 1239.0,
-      "weighted_selected": 1228.0,
-      "weighted_selected_granted": 86.0
+      "weighted_selected": 386.0,
+      "weighted_selected_granted": 34.0
     },
     {
       "bands": {
@@ -62,28 +64,29 @@
         "high": 100,
         "unobservable": 11
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 49,
       "eligible": 1239,
       "largest_weighted_cohort": 163.0,
       "policy": "resolution",
-      "precision": 0.07003257328990228,
+      "precision": 0.13840155945419103,
       "provenance": {
         "blind-no-moment": 11,
         "truncated": 1228
       },
       "realized_granted": 90,
-      "recall": 0.9555555555555556,
-      "selected": 1228,
+      "recall": 0.7888888888888889,
+      "salience_version": "sal-v1",
+      "selected": 513,
       "selected_carve_out": 100,
-      "selected_granted": 86,
-      "selected_rank_fill": 1128,
+      "selected_granted": 71,
+      "selected_rank_fill": 413,
       "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 90.0,
       "weighted_population": 1239.0,
-      "weighted_selected": 1228.0,
-      "weighted_selected_granted": 86.0
+      "weighted_selected": 513.0,
+      "weighted_selected_granted": 71.0
     },
     {
       "bands": {
@@ -100,6 +103,7 @@
       },
       "realized_granted": 108,
       "recall": 0.0,
+      "salience_version": "sal-v1",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -116,29 +120,30 @@
         "baseline": 1349,
         "unobservable": 9
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 36,
       "eligible": 1358,
       "largest_weighted_cohort": 193.0,
       "policy": "distribution-1",
-      "precision": 0.07561156412157154,
+      "precision": 0.14248704663212436,
       "provenance": {
         "blind-no-moment": 6,
         "blind-untrusted-cutoff": 3,
         "truncated": 1349
       },
       "realized_granted": 108,
-      "recall": 0.9444444444444444,
-      "selected": 1349,
+      "recall": 0.5092592592592593,
+      "salience_version": "sal-v1",
+      "selected": 386,
       "selected_carve_out": 0,
-      "selected_granted": 102,
-      "selected_rank_fill": 1349,
+      "selected_granted": 55,
+      "selected_rank_fill": 386,
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 108.0,
       "weighted_population": 1358.0,
-      "weighted_selected": 1349.0,
-      "weighted_selected_granted": 102.0
+      "weighted_selected": 386.0,
+      "weighted_selected_granted": 55.0
     },
     {
       "bands": {
@@ -147,28 +152,29 @@
         "high": 97,
         "unobservable": 9
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 46,
       "eligible": 1358,
       "largest_weighted_cohort": 192.0,
       "policy": "resolution",
-      "precision": 0.07561156412157154,
+      "precision": 0.16565656565656567,
       "provenance": {
         "blind-no-moment": 9,
         "truncated": 1349
       },
       "realized_granted": 108,
-      "recall": 0.9444444444444444,
-      "selected": 1349,
+      "recall": 0.7592592592592593,
+      "salience_version": "sal-v1",
+      "selected": 495,
       "selected_carve_out": 97,
-      "selected_granted": 102,
-      "selected_rank_fill": 1252,
+      "selected_granted": 82,
+      "selected_rank_fill": 398,
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 108.0,
       "weighted_population": 1358.0,
-      "weighted_selected": 1349.0,
-      "weighted_selected_granted": 102.0
+      "weighted_selected": 495.0,
+      "weighted_selected_granted": 82.0
     },
     {
       "bands": {
@@ -185,6 +191,7 @@
       },
       "realized_granted": 91,
       "recall": 0.0,
+      "salience_version": "sal-v1",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -201,28 +208,29 @@
         "baseline": 1303,
         "unobservable": 9
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 34,
       "eligible": 1312,
       "largest_weighted_cohort": 160.0,
       "policy": "distribution-1",
-      "precision": 0.06753645433614736,
+      "precision": 0.09736842105263158,
       "provenance": {
         "blind-no-moment": 9,
         "truncated": 1303
       },
       "realized_granted": 91,
-      "recall": 0.967032967032967,
-      "selected": 1303,
+      "recall": 0.4065934065934066,
+      "salience_version": "sal-v1",
+      "selected": 380,
       "selected_carve_out": 0,
-      "selected_granted": 88,
-      "selected_rank_fill": 1303,
+      "selected_granted": 37,
+      "selected_rank_fill": 380,
       "skipped_no_snapshot": 0,
       "term": 2024,
       "weighted_granted": 91.0,
       "weighted_population": 1312.0,
-      "weighted_selected": 1303.0,
-      "weighted_selected_granted": 88.0
+      "weighted_selected": 380.0,
+      "weighted_selected_granted": 37.0
     },
     {
       "bands": {
@@ -231,28 +239,29 @@
         "high": 115,
         "unobservable": 9
       },
-      "capacity_bound_cohorts": 0,
+      "capacity_bound_cohorts": 29,
       "cohorts": 47,
       "eligible": 1312,
       "largest_weighted_cohort": 148.0,
       "policy": "resolution",
-      "precision": 0.06753645433614736,
+      "precision": 0.1417624521072797,
       "provenance": {
         "blind-no-moment": 9,
         "truncated": 1303
       },
       "realized_granted": 91,
-      "recall": 0.967032967032967,
-      "selected": 1303,
+      "recall": 0.8131868131868132,
+      "salience_version": "sal-v1",
+      "selected": 522,
       "selected_carve_out": 115,
-      "selected_granted": 88,
-      "selected_rank_fill": 1188,
+      "selected_granted": 74,
+      "selected_rank_fill": 407,
       "skipped_no_snapshot": 0,
       "term": 2024,
       "weighted_granted": 91.0,
       "weighted_population": 1312.0,
-      "weighted_selected": 1303.0,
-      "weighted_selected_granted": 88.0
+      "weighted_selected": 522.0,
+      "weighted_selected_granted": 74.0
     }
   ],
   "cells_evaluated": 9,
@@ -262,6 +271,9 @@
     "resolution"
   ],
   "salience_version": "sal-v1",
+  "salience_versions": [
+    "sal-v1"
+  ],
   "schema_version": "1.0",
   "stratum": "retrospective",
   "terms": [
