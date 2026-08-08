@@ -8,7 +8,9 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping
@@ -3069,6 +3071,12 @@ def corpus_serve(
     a background step, and locally it pairs with
     ``FEDCOURTS_CORPUS_BACKEND=service`` for a tokenless `query`.
     """
+    # The sidecar log IS this process's stderr, and the service module's
+    # per-request records and health-check transfer evidence are INFO-level —
+    # without a configured handler the root default (WARNING) discards them
+    # and the log carries only the startup banner and tracebacks. Configured
+    # here, not at import: the CLI's other commands own their stderr contract.
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
     if backend not in ("local", "ranged"):
         typer.echo(f"corpus-serve serves the local or ranged backend, not '{backend}'.", err=True)

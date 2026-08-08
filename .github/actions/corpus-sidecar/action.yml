@@ -90,12 +90,25 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # /healthz opens the corpus connection, so green here proves the
-        # ranged read genuinely works — and it fails the job before any model
-        # token is spent, the same posture as an OIDC failure today. A dead
-        # sidecar process fails fast instead of waiting out the loop.
-        for _ in $(seq 1 30); do
-          if curl -fsS http://127.0.0.1:8377/healthz >/dev/null 2>&1; then
+        # /healthz runs a real point read (the open alone proves nothing —
+        # SQLite defers page reads to the first statement), so green here
+        # proves the corpus is genuinely answerable, with the cold ranged
+        # transfer paid before any model token is spent — the same posture as
+        # an OIDC failure today; the sidecar log records the transfer as
+        # `health-check corpus read: ...`. A dead sidecar process fails fast
+        # instead of waiting out the loop. Two bounds, because the two
+        # unready modes differ: --max-time caps one attempt (a hung backend
+        # read), while not-yet-listening returns instantly and wants many
+        # cheap retries — and the single-threaded server keeps grinding a
+        # slow read while curl retries queue behind it, so a slow-but-
+        # succeeding read costs attempts, never a false failure. The deadline
+        # caps the whole gate: a readiness that limps to success late would
+        # otherwise eat the caller job's non-agent slack and kill the cell
+        # mid-agent with the tokens already spent — strictly worse than
+        # failing here (degrade, never hang).
+        deadline=$((SECONDS + 180))
+        while [ "$SECONDS" -lt "$deadline" ]; do
+          if curl -fsS --max-time 20 http://127.0.0.1:8377/healthz >/dev/null 2>&1; then
             exit 0
           fi
           if ! kill -0 "$(cat corpus-sidecar.pid)" 2>/dev/null; then
