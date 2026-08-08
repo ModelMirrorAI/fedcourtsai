@@ -318,12 +318,19 @@ trailing-window ceiling on **measured** cost, read from the committed `usage.jso
 ledger by both plan seams before either mints a matrix. Reaching it **defers**:
 the predict queue and the evaluate backlog are untouched and re-derive next cycle.
 
-Two limits to set it with rather than against. It is **off by default** (a ceiling
-of `0`), because a cost control that wedges the pipeline when misconfigured is
-worse than none. And the ledger **lags** — a cell's `usage.json` reaches `data/`
+The shipped value is **$2,500 over a 30-day window** — ~2.3× the Term's average
+month (~$1.1K of the ≈$10K inference envelope over ~9 months), sized so the
+October peak (the long conference's 24-cap cohort plus the merits backlog
+drain) clears without deferral while a mis-set capacity knob — the failure the
+backstop exists for; a regression to a non-binding cap would burn $4–5K a month
+— defers within its first weeks instead of compounding for a billing cycle.
+Two limits it is set *with* rather than against. A ceiling of `0` disables the
+backstop (the pydantic default, so a missing section can never wedge the
+pipeline — a cost control that wedges when misconfigured is worse than none).
+And the ledger **lags** — a cell's `usage.json` reaches `data/`
 only when its run's collect PR merges — so the figure it compares is a *floor* on
-spend inside the window, never a live balance. Leave the gap between the ceiling
-and the number you genuinely cannot exceed.
+spend inside the window, never a live balance; the headroom above the average
+month is also what absorbs that lag.
 
 **Monthly spend by provider.** The per-case cost splits across the three API
 bills — one predict cell and one evaluate cell per provider per case, both
