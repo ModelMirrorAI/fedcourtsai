@@ -4480,10 +4480,12 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
     the step summary inside Actions), never on stdout, which carries only the
     matrix JSON.
 
-    Disabled by default (a ceiling of ``0``), in which case this is silent and the
-    ledger is never read. See :mod:`fedcourtsai.spend` for what the ceiling can and
-    cannot promise — chiefly that the ledger lags by however long a collect PR
-    takes to merge, so it is a floor on spend rather than a live figure.
+    Disabled at the code default (a ceiling of ``0``), in which case this is
+    silent and the ledger is never read; the shipped ``config/tracking.yaml``
+    arms it ($2,500 over a trailing 30 days). See :mod:`fedcourtsai.spend` for
+    what the ceiling can and cannot promise — chiefly that the ledger lags by
+    however long a collect PR takes to merge, so it is a floor on spend rather
+    than a live figure.
     """
     settings = get_settings()
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))

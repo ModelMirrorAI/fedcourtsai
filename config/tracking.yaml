@@ -322,16 +322,23 @@ statpack:
 # long conference. This section is the bound above them, read by the predict and
 # evaluate plan seams before either mints a matrix.
 spend:
-  # Trailing-window ceiling on measured spend, USD. 0 DISABLES the backstop (the
-  # convention the other caps use) and is the default: turning it on is a
-  # deliberate act, and a missing section can never wedge the pipeline. Reaching
-  # the ceiling DEFERS new cells — the predict queue and the evaluate backlog are
-  # untouched and re-derive next cycle — it never destroys queued work. Set it
-  # against the envelope in docs/budget.md, and leave room for the ledger lag
-  # below rather than at the exact figure you cannot afford to exceed.
-  ceiling_usd: 0.0
-  # The window the ceiling applies over, days. Sized to the billing period being
-  # protected, not to a run. NOTE the measurement lags: a cell's usage.json
+  # Trailing-window ceiling on measured spend, USD (0 would DISABLE the
+  # backstop, the convention the other caps use — the code default, so a
+  # missing section can never wedge the pipeline). Reaching the ceiling DEFERS
+  # new cells — the predict queue and the evaluate backlog are untouched and
+  # re-derive next cycle — it never destroys queued work. The value guards
+  # against a BURST, not a rate: it sits above every legitimate month
+  # (~2.3x the Term's average, clear of the heaviest month's build-up — whose
+  # carve-out band is uncapped by construction — and of the lagging ledger)
+  # and within days of a runaway burst, a mis-set capacity knob minting whole
+  # cohorts in single runs. The derivation, the measured figures it rests on,
+  # and the two breach consequences (a deferred forward cell can re-mint as a
+  # non-claimable retrospective cell; replay campaigns draw on the same
+  # ceiling) are in docs/budget.md's ex-post backstop section.
+  ceiling_usd: 2500.0
+  # The window the ceiling applies over, days. Sized to approximate the billing
+  # period being protected, not a run (trailing, so it never aligns exactly
+  # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
   # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
   # on spend within the window, never a live figure.
   window_days: 30

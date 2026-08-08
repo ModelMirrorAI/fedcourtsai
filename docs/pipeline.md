@@ -498,10 +498,14 @@ would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
 in the first place; this is the backstop for a manually-filed or partial one.) Note
 the volume cap above can also empty the matrix (when it defers *every* case), and
-that close step cannot tell cap-empty from scope-empty — so it closes with the
-out-of-scope note either way; the cap surfaces its own escalated `::error::` for
-correct attribution, and it is safe because the deferred cases stay in the corpus
-predict queue and re-queue next cycle regardless of the close.
+so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
+— armed, see [budget.md](budget.md)) when the trailing window's measured spend
+reaches the ceiling; the close step cannot tell either from scope-empty, so it
+closes with the out-of-scope note in all three cases. Each cap surfaces its own
+escalated `::error::` for correct attribution, and the close is safe because the
+deferred cases stay in their queues and re-queue next cycle regardless. A
+spend-breach deferral clears on its own when the window rolls past the burst
+that tripped it (or when the maintainer raises `spend.ceiling_usd`).
 
 ### The evaluate cell grades blind
 
