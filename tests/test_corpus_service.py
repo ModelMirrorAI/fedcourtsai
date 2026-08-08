@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -183,6 +184,40 @@ def test_health_pays_the_cold_ranged_read(tmp_path: Path) -> None:
     assert warmed_query.reads is not None and cold_query.reads is not None
     assert warmed_query.reads.gets < cold_query.reads.gets
     assert warmed_query.rows == cold_query.rows
+
+
+def test_health_logs_the_transfer_at_info(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """The health check's transfer evidence is an INFO record on the module logger.
+
+    The sidecar log is the serve process's stderr, and `corpus-serve`
+    configures INFO logging for exactly this line — so the record existing at
+    INFO is what makes the launch-step and docs claims about the sidecar log
+    true. A warm re-check transfers nothing and logs nothing.
+    """
+    pointer, transport = _ranged_conn(tmp_path)
+    service = corpus_service.CorpusService(
+        lambda: corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport),
+        backend="ranged",
+    )
+    try:
+        with caplog.at_level(logging.INFO, logger="fedcourtsai.corpus_service"):
+            service.health()
+            cold_lines = [
+                r.getMessage()
+                for r in caplog.records
+                if "health-check corpus read:" in r.getMessage()
+            ]
+            caplog.clear()
+            service.health()
+            warm_lines = [
+                r.getMessage()
+                for r in caplog.records
+                if "health-check corpus read:" in r.getMessage()
+            ]
+    finally:
+        service.close()
+    assert len(cold_lines) == 1 and "GET(s)" in cold_lines[0]
+    assert warm_lines == []
 
 
 def test_ranged_reads_delta_per_request(tmp_path: Path) -> None:

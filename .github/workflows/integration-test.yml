@@ -475,12 +475,14 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # The sidecar's log carries the startup lines the health contract now
-      # produces (the `health-check corpus read:` transfer evidence) and the
-      # per-request records (server noise, no secrets — GitHub masks the
-      # credentials regardless): surface it in the job log, as the cell
-      # workflows do, so a cold-read stall or a mid-scenario sidecar death is
-      # diagnosable from the failed run instead of a rerun.
+      # The sidecar's log carries the startup lines (the `health-check corpus
+      # read:` transfer evidence among them) and the per-request records
+      # (server noise, no secrets — GitHub masks the credentials regardless):
+      # surface it in the job log, as the cell workflows do, so a cold-read
+      # stall or a mid-scenario sidecar death is diagnosable from the failed
+      # run instead of a rerun. Head and tail both, because the evidence
+      # lines are at the top and an engine-smoke's query records scroll them
+      # off a tail alone.
       - name: Show the corpus sidecar log
         if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke') }}
         continue-on-error: true
@@ -489,7 +491,15 @@ jobs:
           # Indent every replayed line: a line starting with ::<command>::
           # would otherwise be parsed as a workflow command by the runner.
           if [ -f corpus-sidecar.log ]; then
-            tail -n 100 corpus-sidecar.log | sed 's/^/  /'
+            echo "--- corpus-sidecar.log"
+            lines=$(wc -l < corpus-sidecar.log)
+            if [ "$lines" -le 120 ]; then
+              sed 's/^/  /' corpus-sidecar.log
+            else
+              head -n 20 corpus-sidecar.log | sed 's/^/  /'
+              echo "  [... $((lines - 120)) line(s) elided ...]"
+              tail -n 100 corpus-sidecar.log | sed 's/^/  /'
+            fi
           fi
 
       # --- mcp-sidecar: the tokenless CourtListener MCP surface --------------
