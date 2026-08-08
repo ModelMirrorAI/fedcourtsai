@@ -30,7 +30,7 @@ import sqlite3
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -46,6 +46,7 @@ from .backtest import (
 from .config import SalienceConfig
 from .paths import CasePaths
 from .pipeline import cell_context, cert_signals
+from .pipeline.asof import replay_cutoff
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.evaluate import brier_skill, segment_base_rate
 from .pipeline.outcome import (
@@ -278,33 +279,6 @@ def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     reopens the seam on every decided one.
     """
     return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
-
-
-def replay_cutoff(payload: Mapping[str, Any], resolved_at: date) -> date | None:
-    """The day after the last distribution entry that predates ``resolved_at``.
-
-    A forward cell is queued by a **distribution transition**, so that is the
-    moment a replay has to reproduce if the two channels are to be comparable.
-    Taking the last such entry before resolution puts the replay at the latest
-    posture a forward cell would have seen — the hardest and most realistic one,
-    and exactly one cell per petition.
-
-    ``None`` when the payload shows no dated distribution before resolution, in
-    which case there is no forward moment to reproduce and the caller drops the
-    entries wholesale rather than guessing a cutoff.
-
-    Reading entry dates rather than the conference dates they name is deliberate:
-    the entry "DISTRIBUTED for Conference of March 7" is *filed* in late February,
-    and February is when a forward cell would have run.
-    """
-    latest: date | None = None
-    for text, raw in cert_signals.proceedings_entries(payload):
-        if not cert_signals.DISTRIBUTED_RE.search(text):
-            continue
-        filed = cert_signals.entry_date(raw)
-        if filed is not None and filed < resolved_at and (latest is None or filed > latest):
-            latest = filed
-    return latest + timedelta(days=1) if latest is not None else None
 
 
 def truncate_snapshot(

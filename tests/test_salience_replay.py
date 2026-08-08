@@ -10,11 +10,10 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import casestore, corpus
-from fedcourtsai.cert_backtest import replay_cutoff
 from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig
 from fedcourtsai.pipeline import asof
-from fedcourtsai.pipeline.asof import CutoffPolicy
+from fedcourtsai.pipeline.asof import CutoffPolicy, replay_cutoff
 from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
     SalienceScorer,

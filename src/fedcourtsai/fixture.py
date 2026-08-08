@@ -213,6 +213,9 @@ class FixtureCase:
 # A handful of synthetic cases across three courts (ca9, ca1, scotus), a mix of
 # resolved and open, populating the fields retrieval (court / topic / judges /
 # citations / disposition / recency) and provisioning (the dated snapshot) read.
+# The opt-in fixtures below this tuple take docket ids the base corpus never
+# mints — the upsert latches rather than replaces, so a reused id would merge
+# two cases into one row (see the opt-in tests' disjointness pin).
 # The SCOTUS petitions carry lower-court linkage onto the ca9 dockets (304 →
 # ca9/102, 305 → ca9/103) and are live-slice rows, so the statpack's
 # originating-circuit and weighted cert cuts have material to aggregate. The
@@ -418,10 +421,11 @@ def build_fixture_corpus(db_path: Path) -> Path:
 # wants the merits cell contract opts in with :func:`add_merits_fixture`
 # instead. The docket carries the full trajectory in its entries — petition,
 # grant, argument, judgment — with the row's cert/merits columns stating the
-# same facts the live channel would latch from them.
+# same facts the live channel would latch from them. Its docket id honors the
+# disjointness rule stated above `FIXTURE_CASES`.
 MERITS_FIXTURE_CASE = FixtureCase(
     court="scotus",
-    docket=306,
+    docket=308,
     docket_number="23-980",
     case_name="Cascade Timber Co. v. United States",
     date_filed=date(2024, 3, 4),

@@ -8,7 +8,9 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping
@@ -126,6 +128,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments
 from .pipeline.asof import CutoffPolicy
+from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
@@ -421,6 +424,69 @@ def reconcile_scope_cmd(
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
     )
     typer.echo(result.model_dump_json())
+
+
+@app.command("scrub-bulk-cluster-fields")
+def scrub_bulk_cluster_fields_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Scrub the matching rows; omit for a dry-run count."),
+    ] = False,
+    max_scrub: Annotated[
+        int,
+        typer.Option(
+            "--max-scrub",
+            help="Blast-radius bound: refuse to apply more scrubs than this.",
+        ),
+    ] = 1_500_000,
+) -> None:
+    """Scrub the bulk export's misjoined cluster fields from the stored slice.
+
+    The ingest projection withholds the cluster-derived fields (`summary`,
+    `precedential_status`, `judges`, `panel`, `citations`, `citation_count`)
+    from a bulk-sourced non-SCOTUS row — the bulk docket-to-cluster join is
+    misjoined on the circuit slices — but that rule reaches a stored row only
+    on a re-serve, and nothing re-serves the historical bulk slice. This
+    converges it: one UPDATE over every non-SCOTUS row a bulk-only field
+    marks. The mark is provable, not inferred: the REST client reads docket
+    records only, so a populated `summary`, `precedential_status`,
+    `citations`, or `citation_count` can only be the bulk join's, whatever
+    the row's pull history — while `judges`/`panel`, which discovery and
+    pull re-derive from the docket record itself, clear only on marked rows
+    and survive everywhere else. Idempotent. `--apply` refuses above
+    `--max-scrub`, whose default sits just over the measured bulk slice: a
+    count past it means the predicate widened (a lost filter reaching rows
+    the carve-out never covered), not that the slice grew. Run where the
+    corpus is pulled (run-seed's writer lane in production). Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the scrub.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        if apply:
+            preview = scrub_bulk_cluster_fields(conn, apply=False)
+            if preview.scrubbed > max_scrub:
+                typer.echo(
+                    f"scrub-bulk-cluster-fields: refusing to apply {preview.scrubbed} "
+                    f"scrubs (--max-scrub {max_scrub}). The bound sits just over the "
+                    "measured bulk slice; a count past it means the predicate "
+                    "widened — triage before raising it.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+        result = scrub_bulk_cluster_fields(conn, apply=apply)
+    verb = "scrubbed" if apply else "would scrub"
+    typer.echo(
+        f"scrub-bulk-cluster-fields ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {result.scrubbed} bulk-marked non-SCOTUS row(s)"
+    )
 
 
 @app.command("reconcile-salience-selection")
@@ -753,6 +819,13 @@ def reopen_misattributed_outcomes_cmd(
         bool,
         typer.Option("--apply", help="Reopen the matching events; omit for a dry-run report."),
     ] = False,
+    max_reopens: Annotated[
+        int,
+        typer.Option(
+            "--max-reopens",
+            help="Blast-radius bound: refuse to apply more reopens than this.",
+        ),
+    ] = 20,
 ) -> None:
     """Reopen committed outcomes copied from a sibling case-baseline event.
 
@@ -769,9 +842,12 @@ def reopen_misattributed_outcomes_cmd(
     the deleted outcome — a duplication between two case-baseline events is
     reported for triage instead. An event carrying committed predict/evaluate
     output is likewise skipped. Idempotent, and convergent against the
-    resolution pass. Dry-run by default; `--apply` writes. Run where the corpus
-    is pulled; land the corpus side last (`corpus-push` after the ledger
-    commit). Fails loud if the corpus is absent.
+    resolution pass. Dry-run by default; `--apply` writes, and refuses above
+    `--max-reopens`: the population this sweep repairs is finite and
+    non-growing, so a large count means the predicate widened, not that the
+    ledger did — triage before raising the bound. Run where the corpus
+    is pulled (run-seed's writer lane in production, after
+    `remove-unmintable-events`). Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -783,6 +859,18 @@ def reopen_misattributed_outcomes_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
+        if apply:
+            preview = reopen_misattributed_outcomes(conn, settings.data_root, apply=False)
+            if len(preview.reopened) > max_reopens:
+                typer.echo(
+                    f"reopen-misattributed-outcomes: refusing to apply "
+                    f"{len(preview.reopened)} reopens (--max-reopens {max_reopens}). "
+                    "The population this sweep repairs is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
         result = reopen_misattributed_outcomes(conn, settings.data_root, apply=apply)
     verb = "reopened" if apply else "would reopen"
     typer.echo(
@@ -802,6 +890,13 @@ def remove_unmintable_events_cmd(
         bool,
         typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
     ] = False,
+    max_removals: Annotated[
+        int,
+        typer.Option(
+            "--max-removals",
+            help="Blast-radius bound: refuse to apply more removals than this.",
+        ),
+    ] = 20,
 ) -> None:
     """Drop entry-pinned SCOTUS events carrying a case-baseline id, in both stores.
 
@@ -814,9 +909,13 @@ def remove_unmintable_events_cmd(
     event names nothing the docket supports, and leaving it open would park a
     permanent phantom on the case and keep it forecastable. An event carrying
     committed predict/evaluate output is skipped and reported instead.
-    Idempotent. Dry-run by default; `--apply` writes. Run where the corpus is
-    pulled; the corpus row goes first, then the ledger directory. Fails loud if
-    the corpus is absent.
+    Idempotent. Dry-run by default; `--apply` writes, and refuses above
+    `--max-removals`: the population this sweep removes is finite and
+    non-growing (the mint refuses the shape), so a large count means the
+    predicate widened — triage before raising the bound. Run where the corpus
+    is pulled (run-seed's writer lane in production); the ledger directory goes
+    first, then the corpus row, so an interrupted run leaves the row as the
+    detection handle for the next pass. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -828,6 +927,18 @@ def remove_unmintable_events_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
+        if apply:
+            preview = remove_unmintable_baseline_events(conn, settings.data_root, apply=False)
+            if len(preview.removed) > max_removals:
+                typer.echo(
+                    f"remove-unmintable-events: refusing to apply "
+                    f"{len(preview.removed)} removals (--max-removals {max_removals}). "
+                    "The population this sweep removes is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
         result = remove_unmintable_baseline_events(conn, settings.data_root, apply=apply)
     verb = "removed" if apply else "would remove"
     typer.echo(
@@ -3024,6 +3135,12 @@ def corpus_serve(
     a background step, and locally it pairs with
     ``FEDCOURTS_CORPUS_BACKEND=service`` for a tokenless `query`.
     """
+    # The sidecar log IS this process's stderr, and the service module's
+    # per-request records and health-check transfer evidence are INFO-level —
+    # without a configured handler the root default (WARNING) discards them
+    # and the log carries only the startup banner and tracebacks. Configured
+    # here, not at import: the CLI's other commands own their stderr contract.
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
     if backend not in ("local", "ranged"):
         typer.echo(f"corpus-serve serves the local or ranged backend, not '{backend}'.", err=True)
@@ -4480,10 +4597,12 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
     the step summary inside Actions), never on stdout, which carries only the
     matrix JSON.
 
-    Disabled by default (a ceiling of ``0``), in which case this is silent and the
-    ledger is never read. See :mod:`fedcourtsai.spend` for what the ceiling can and
-    cannot promise — chiefly that the ledger lags by however long a collect PR
-    takes to merge, so it is a floor on spend rather than a live figure.
+    Disabled at the code default (a ceiling of ``0``), in which case this is
+    silent and the ledger is never read; the shipped ``config/tracking.yaml``
+    arms it ($2,500 over a trailing 30 days). See :mod:`fedcourtsai.spend` for
+    what the ceiling can and cannot promise — chiefly that the ledger lags by
+    however long a collect PR takes to merge, so it is a floor on spend rather
+    than a live figure.
     """
     settings = get_settings()
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))

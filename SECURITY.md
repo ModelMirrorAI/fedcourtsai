@@ -125,7 +125,8 @@ runbook, [docs/security.md](docs/security.md).
   all.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
-  is the sole bypass actor, so the deterministic `run-pull` writers push corpus facts
+  is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
+  `run-seed`) push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
   non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
@@ -136,8 +137,12 @@ runbook, [docs/security.md](docs/security.md).
   deterministic sync push — neither App bypasses it, and the `sync-staging`
   workflow's write token reaches the branch only through a PR that satisfies
   the same checks). A ruleset with **no** bypass blocks force-pushes and branch
-  deletion for everyone, so the predictions, outcomes, and evaluations under
-  `data/` cannot be rewritten or dropped. Secrets and the S3 roles live in the
+  deletion for everyone, so the committed *history* of the predictions,
+  outcomes, and evaluations under `data/` is immutable — every forward change
+  is a new, attributable commit. Forward deletions of ledger records are
+  confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
+  lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
+  refuses to apply above a per-run blast-radius cap. Secrets and the S3 roles live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -72,6 +73,8 @@ def test_health_unknown_path_and_malformed_body(fixture_corpus: FixtureCorpus) -
         assert health.status_code == 200
         assert health.json()["status"] == "ok"
         assert health.json()["backend"] == "local"
+        # Read counters are the ranged backend's evidence; local reports none.
+        assert "reads" not in health.json()
         assert httpx.get(f"{url}/nope", timeout=5).status_code == 404
         assert httpx.post(f"{url}/v1/nope", content=b"{}", timeout=5).status_code == 404
         bad = httpx.post(f"{url}/v1/query", content=b'{"schema_version":"1.0"}', timeout=5)
@@ -130,6 +133,93 @@ def _ranged_conn(tmp_path: Path) -> tuple[Path, _FileTransport]:
     return pointer, _FileTransport(blob)
 
 
+def test_health_pays_the_cold_ranged_read(tmp_path: Path) -> None:
+    """Green readiness means answerable: the health check's point read transfers.
+
+    At page-sized blocks (one block == one page) the bare open fetches only
+    the header block, and SQLite defers the schema load and first descent to
+    the first statement — so the health check's GETs must exceed the open's
+    one, and a query run behind a health check must transfer strictly less
+    than the same query on a fresh connection. Without that point read the
+    whole first-statement cost lands on the first client query, racing the
+    client's per-request timeout — the integration scenario's observed
+    first-attempt flake. A warm re-check honestly reports zero; the counters'
+    durable record is the sidecar log (the readiness curl discards the body).
+    """
+    pointer, transport = _ranged_conn(tmp_path)
+    block = corpus.RANGED_PAGE_SIZE
+    request = corpus_service.QueryRequest(
+        schema_version="1.0", query=corpus.PriorQuery(court="ca9"), limit=5, full=False
+    )
+    service = corpus_service.CorpusService(
+        lambda: corpus_ranged.connect_ranged(
+            pointer, REMOTE_URL, transport=transport, block_size=block
+        ),
+        backend="ranged",
+    )
+    try:
+        cold = service.health()
+        warm = service.health()
+        warmed_query = service.query(request)
+    finally:
+        service.close()
+    fresh_transport = _FileTransport(transport.blob)
+    fresh = corpus_service.CorpusService(
+        lambda: corpus_ranged.connect_ranged(
+            pointer, REMOTE_URL, transport=fresh_transport, block_size=block
+        ),
+        backend="ranged",
+    )
+    try:
+        cold_query = fresh.query(request)
+    finally:
+        fresh.close()
+    assert cold["status"] == "ok" and warm["status"] == "ok"
+    cold_reads = cold["reads"]
+    assert isinstance(cold_reads, dict)
+    gets = cold_reads["gets"]
+    assert isinstance(gets, int) and gets > 1  # the open's header block alone is one
+    assert warm["reads"] == {"gets": 0, "bytes": 0}
+    # The query behind the health check skips what readiness already fetched.
+    assert warmed_query.reads is not None and cold_query.reads is not None
+    assert warmed_query.reads.gets < cold_query.reads.gets
+    assert warmed_query.rows == cold_query.rows
+
+
+def test_health_logs_the_transfer_at_info(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """The health check's transfer evidence is an INFO record on the module logger.
+
+    The sidecar log is the serve process's stderr, and `corpus-serve`
+    configures INFO logging for exactly this line — so the record existing at
+    INFO is what makes the launch-step and docs claims about the sidecar log
+    true. A warm re-check transfers nothing and logs nothing.
+    """
+    pointer, transport = _ranged_conn(tmp_path)
+    service = corpus_service.CorpusService(
+        lambda: corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport),
+        backend="ranged",
+    )
+    try:
+        with caplog.at_level(logging.INFO, logger="fedcourtsai.corpus_service"):
+            service.health()
+            cold_lines = [
+                r.getMessage()
+                for r in caplog.records
+                if "health-check corpus read:" in r.getMessage()
+            ]
+            caplog.clear()
+            service.health()
+            warm_lines = [
+                r.getMessage()
+                for r in caplog.records
+                if "health-check corpus read:" in r.getMessage()
+            ]
+    finally:
+        service.close()
+    assert len(cold_lines) == 1 and "GET(s)" in cold_lines[0]
+    assert warm_lines == []
+
+
 def test_ranged_reads_delta_per_request(tmp_path: Path) -> None:
     pointer, transport = _ranged_conn(tmp_path)
     request = corpus_service.QueryRequest(
@@ -172,6 +262,9 @@ def test_backend_failure_returns_redacted_500(
             corpus_service.CorpusServiceError, match="rejected /v1/query \\(500\\)"
         ) as exc_info:
             corpus_service.client_query(url, q, limit=1, full=False)
+        # The health check runs a real read now, so it fails the same honest
+        # way — a 500 the readiness loop keeps retrying, never a crash.
+        assert httpx.get(f"{url}/healthz", timeout=5).status_code == 500
     finally:
         server.shutdown()
         server.server_close()

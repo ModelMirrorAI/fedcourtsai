@@ -143,8 +143,35 @@ class CutoffPolicy(StrEnum):
     #: trigger most often fires at.
     distribution_1 = "distribution-1"
     #: The last distribution before resolution — the latest posture a forward
-    #: cell would have seen (:func:`fedcourtsai.cert_backtest.replay_cutoff`).
+    #: cell would have seen (:func:`replay_cutoff`).
     resolution = "resolution"
+
+
+def replay_cutoff(payload: Mapping[str, Any], resolved_at: date) -> date | None:
+    """The day after the last distribution entry that predates ``resolved_at``.
+
+    A forward cell is queued by a **distribution transition**, so that is the
+    moment a replay has to reproduce if the two channels are to be comparable.
+    Taking the last such entry before resolution puts the replay at the latest
+    posture a forward cell would have seen — the hardest and most realistic one,
+    and exactly one cell per petition.
+
+    ``None`` when the payload shows no dated distribution before resolution, in
+    which case there is no forward moment to reproduce and the caller drops the
+    entries wholesale rather than guessing a cutoff.
+
+    Reading entry dates rather than the conference dates they name is deliberate:
+    the entry "DISTRIBUTED for Conference of March 7" is *filed* in late February,
+    and February is when a forward cell would have run.
+    """
+    latest: date | None = None
+    for text, raw in cert_signals.proceedings_entries(payload):
+        if not cert_signals.DISTRIBUTED_RE.search(text):
+            continue
+        filed = cert_signals.entry_date(raw)
+        if filed is not None and filed < resolved_at and (latest is None or filed > latest):
+            latest = filed
+    return latest + timedelta(days=1) if latest is not None else None
 
 
 def policy_cutoff(
@@ -175,9 +202,4 @@ def policy_cutoff(
     resolved_at = corpus.resolution_date(row)
     if resolved_at is None:
         return None
-    # Deferred: cert_backtest imports the provisioners this module must stay a
-    # leaf under (cell_context imports asof), so the resolution policy reaches
-    # its cutoff rule at call time rather than at import.
-    from ..cert_backtest import replay_cutoff  # noqa: PLC0415
-
     return replay_cutoff(payload, resolved_at)

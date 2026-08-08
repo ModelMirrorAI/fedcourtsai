@@ -57,10 +57,10 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
 
     # ca9/101 is resolved → predict + materialize outcome + evaluate;
     # ca9/103 is open → predict only, nothing to score;
-    # scotus/306 is granted and judged → the merits cell contract end to end.
+    # scotus/308 is granted and judged → the merits cell contract end to end.
     resolved = _run("ca9", 101)
     open_case = _run("ca9", 103)
-    merits = _run("scotus", 306)
+    merits = _run("scotus", 308)
 
     assert resolved.valid, resolved.problems
     assert resolved.predictions and resolved.outcomes and resolved.evaluations
@@ -98,7 +98,7 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
     )
     prediction = json.loads(prediction_path.read_text())
     assert prediction["judgment"] == "affirmed" and prediction["votes"]
-    assert merits_case.case_id == "scotus/306"
+    assert merits_case.case_id == "scotus/308"
 
     # The blind-grading bracket ran around every evaluate cell: a candidate was
     # staged per predictor, and nothing alias-keyed reached the ledger (the stub
@@ -192,16 +192,16 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
 def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     """The fixture's granted docket runs the merits cell end to end offline.
 
-    scotus/306's cert grant opened a merits proceeding, so it carries the
+    scotus/308's cert grant opened a merits proceeding, so it carries the
     `evt-order-judgment` event the grant mints (kind `order`, `Stage.merits`):
     provision → stub predict (a judgment with its mandatory vote block, and the
     whole declared `merits-v1` set) → merits outcome off the judgment axis →
     evaluate → validate, then the leaderboard build segments the cell into the
     unranked `merits` stages block, never the cert board.
 
-    Addressed by event id, because `add_merits_fixture` writes its row over the
-    interim application docket's: without it the cascade would target that
-    case's motion baseline too and the assertions would read a mixed ledger.
+    Addressed by event id, because the merits docket carries its resolved cert
+    baseline beside the judgment event: without it the cascade would target
+    the baseline too and the assertions would read a mixed ledger.
 
     What this proves is the *composition* — a merits cell reaches every stage
     and lands in the right block. The rules it composes are pinned at their own
@@ -216,14 +216,14 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     fixture.build_fixture_corpus(db)
     merits_case = fixture.add_merits_fixture(db)
     data_root = tmp_path / "data"
-    assert merits_case.case_id == "scotus/306"  # the literals the call below uses
+    assert merits_case.case_id == "scotus/308"  # the literals the call below uses
 
     report = run_cascade(
         corpus_db_path=db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
         court="scotus",
-        docket=306,
+        docket=308,
         event="evt-order-judgment",
         run_id=RUN,
     )

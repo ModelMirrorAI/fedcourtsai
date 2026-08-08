@@ -835,16 +835,46 @@ def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE live_discovery_cursors ADD COLUMN frontier_serial INTEGER")
 
 
+# Per-column DDL for `events`, in storage order — mirrors the `events`
+# definition in `_SCHEMA` and drives both the writers' bound column list
+# (`_EVENT_COLUMNS`) and the migration below, the same one-object construction
+# that keeps `cases` immune to migration gaps: a column added here cannot be
+# bound without also being migrated. As with `_CASES_COLUMN_DDL`, the base
+# NOT-NULL-no-DEFAULT columns could never be ALTER-added onto a populated
+# table — unreachable, since every table ever created carries them from its
+# CREATE TABLE.
+_EVENTS_COLUMN_DDL: dict[str, str] = {
+    "case_id": "TEXT NOT NULL",
+    "event_id": "TEXT NOT NULL",
+    "court": "TEXT NOT NULL",
+    "kind": "TEXT NOT NULL",
+    "stage": "TEXT",
+    "moment": "TEXT",
+    "title": "TEXT NOT NULL DEFAULT ''",
+    "description": "TEXT",
+    "docket_entry_id": "INTEGER",
+    "decision_target": "TEXT NOT NULL DEFAULT 'disposition'",
+    "opened_at": "TEXT",
+    "resolved": "INTEGER NOT NULL DEFAULT 0",
+}
+
+
 def _migrate_events(conn: sqlite3.Connection) -> None:
     """Back-fill `events` columns added after table creation.
 
-    The events table's counterpart of :func:`_migrate_cases`. ``stage`` is
-    nullable with no DEFAULT — a pre-existing row simply carries no stage until
-    the next re-ingest stamps one. Idempotent on a current-schema table.
+    The events table's counterpart of :func:`_migrate_cases`, driven by the
+    same DDL map the writers' bound column list is built from — so a column
+    the writers bind cannot miss the migration, and `_event_upsert_sql`
+    naming the full column list can never fail a pre-migration blob's first
+    event write again. A back-filled column starts NULL (or its constant
+    DEFAULT); a pre-existing row simply carries no stage or moment until the
+    next re-ingest (or the moment-stamp sweep) writes one. Idempotent on a
+    current-schema table.
     """
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
-    if "stage" not in existing:
-        conn.execute("ALTER TABLE events ADD COLUMN stage TEXT")
+    for column, ddl in _EVENTS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {column} {ddl}")
 
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
@@ -2780,20 +2810,9 @@ def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -
 
 # --- predictable event definitions (raw facts) ---------------------------------
 
-_EVENT_COLUMNS = (
-    "case_id",
-    "event_id",
-    "court",
-    "kind",
-    "stage",
-    "moment",
-    "title",
-    "description",
-    "docket_entry_id",
-    "decision_target",
-    "opened_at",
-    "resolved",
-)
+# The writers' bound column list IS the migration's DDL map (see
+# `_EVENTS_COLUMN_DDL`): one object, so the two sets cannot drift.
+_EVENT_COLUMNS = tuple(_EVENTS_COLUMN_DDL)
 
 
 def _event_to_record(event: CorpusEvent) -> dict[str, object]:

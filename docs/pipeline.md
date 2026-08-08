@@ -121,7 +121,7 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs five
+the live job owns SCOTUS freshness for free). run-seed also runs seven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -136,15 +136,26 @@ predictable set at the source; the **application-baseline relabel**
 whose baseline event predates the motion/interim minting rule; the
 **merits-judgment backfill** (`fedcourts backfill-merits-judgments`), which
 parses each merits-bound grant's stored snapshot for the judgment entered,
-feeding the statpack's merits section; and the **merits-event backfill**
+feeding the statpack's merits section; the **merits-event backfill**
 (`fedcourts backfill-merits-events`, preceded in the same step by the
 moment-column stamp `fedcourts backfill-event-moments`), which mints the open
 merits forecast events — corpus rows plus their ledger `event.yaml` files,
 staged in the one pointer commit — onto granted, undecided dockets the live
-mint never opened. The dedupe runs first so the latch pass weighs deduped
-rows, and the event mint runs immediately after the judgment backfill so
-pendency is judged on judgment columns as latched as the stored snapshots
-allow; each then pushes the blob and commits the pointer like
+mint never opened; and the **attribution repairs** (`fedcourts
+remove-unmintable-events` then `fedcourts reopen-misattributed-outcomes`),
+which converge the misattribution shape an earlier single-open-event
+attribution shortcut wrote and its cause — removal first, clearing the
+entry-pinned case of the reopen sweep's baseline-pair triage in the same
+window, each bounded by a per-run blast-radius cap; and, last, the
+**bulk-cluster scrub** (`fedcourts scrub-bulk-cluster-fields`), which
+converges the stored circuit slice onto the ingest projection's carve-out —
+the bulk export's misjoined cluster fields are withheld from a re-served
+bulk row, and the scrub drops them from the rows nothing re-serves, keyed
+on the fields the REST channel cannot supply and bounded by its own
+blast-radius cap. The dedupe runs first so the
+latch pass weighs deduped rows, and the event mint runs immediately after the
+judgment backfill so pendency is judged on judgment columns as latched as the
+stored snapshots allow; each then pushes the blob and commits the pointer like
 any other corpus write. The full design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
@@ -265,7 +276,8 @@ pattern rather than rediscovering it:
   has a hard 1h life and an AWS OIDC session defaults to 1h. A corpus-writer loop
   must therefore stay within that hour, or re-mint the App token before it ages
   out and raise `role-duration-seconds` to cover the run. `run-seed`'s walk takes
-  the first path: each window is a bounded chunk (≤40 min) under one token, so it
+  the first path: each window is a bounded chunk (≤40 min; the daily sweep window walks 25
+  to fund its trailing sweeps) under one token, so it
   needs no re-mint — a deliberate simplification over a longer walk that would.
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
@@ -498,10 +510,14 @@ would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
 in the first place; this is the backstop for a manually-filed or partial one.) Note
 the volume cap above can also empty the matrix (when it defers *every* case), and
-that close step cannot tell cap-empty from scope-empty — so it closes with the
-out-of-scope note either way; the cap surfaces its own escalated `::error::` for
-correct attribution, and it is safe because the deferred cases stay in the corpus
-predict queue and re-queue next cycle regardless of the close.
+so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
+— armed, see [budget.md](budget.md)) when the trailing window's measured spend
+reaches the ceiling; the close step cannot tell either from scope-empty, so it
+closes with the out-of-scope note in all three cases. Each cap surfaces its own
+escalated `::error::` for correct attribution, and the close is safe because the
+deferred cases stay in their queues and re-queue next cycle regardless. A
+spend-breach deferral clears on its own when the window rolls past the burst
+that tripped it (or when the maintainer raises `spend.ceiling_usd`).
 
 ### The evaluate cell grades blind
 

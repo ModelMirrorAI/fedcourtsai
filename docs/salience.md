@@ -358,19 +358,24 @@ both hang on. It is a **per-conference** config value, and raising it **deepens 
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release fits the
 ~$15K envelope: ≈$10K inference at the measured ~$11/fully-tournamented-case rate,
-~$10.2K funded at the $13 planning rate — **12 per regular conference and 24 for
-the long conference** (double, because that one cohort clears the summer backlog
-at once). The caps are sized to **bind**: raw paid cohorts run a median ~34
-petitions, though the eligible pool the rank fill actually ranks is smaller after
-the out-of-scope rules (~11 at the last live measurement, ~7 replay-reconstructed),
-so whether the cap binds at a typical conference is not yet measured — the census
-median bounds it from above. The projected yield is **~543 selected petitions a
-Term** carrying **~80% of the Term's grants** — a planning projection, not a
-census: the rank fill caps at ≈390 a Term (≈236 with the interim reserve
-continuously full) and the floor/CVSG carve-outs, riding above `N` uncapped,
-supply the rest and most of the grant coverage; a gate replay at the shipped
-capacity is what would measure both ([budget.md](budget.md) works the
-decomposition). A per-conference cap
+~$9.6–9.9K funded at the $13 planning rate — **12 per regular conference and 24
+for the long conference** (double, because that one cohort clears the summer
+backlog at once). The caps are sized to **bind**, and the gate replay at this
+capacity (`metrics/salience-replay.json`, sal-v1, OT2022–24) measures that they
+do: the mean replay-reconstructable conference cohort runs ~37–38 petitions
+against a cap of 12, and the cap binds **29 of each Term's 33–36
+reconstructable first-distribution cohorts**. The measured yield is **495–522
+selected petitions a Term** — rank fill 398–413 plus floor/CVSG carve-outs of
+97–115, riding above `N` uncapped — carrying **0.76–0.81 of the Term's
+replay-reconstructable grant-family outcomes** (grant denominators 90/108/91
+for OT2022/23/24, GVRs and summary reversals included). Of those grants, 4/6/3
+a Term sit on blind rows — no reconstructable selection moment, so no gate
+could select them — leaving selectable denominators of 86/102/88: recall of
+the *selectable* outcomes is 0.80–0.84, and 0.944–0.967 is the achievable
+ceiling at any capacity (the prior committed replay, at the then-shipped
+150/200 caps on this same pool, measured exactly that ceiling), with the
+carve-outs supplying most of the grant coverage
+([budget.md](budget.md) works the decomposition). A per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -696,8 +701,10 @@ conference cohort of the pass** — never a carve-out — so the reserve is defi
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
 limit costs a real cert pick wherever the *eligible* non-carve-out remainder
 exceeds it — at the shipped capacity a full reserve leaves a rank fill of 7,
-about where the eligible pool sits, so how often typical cohorts cross it is
-not yet measured ([budget.md](budget.md)). An
+far below the ~37–38-petition mean replay-reconstructable cohort, so a full
+reserve would displace a pick at essentially every capacity-bound conference;
+the displacement *frequency* itself is unmeasured, because the gate replay
+runs with no reserve occupancy ([budget.md](budget.md)). An
 unfilled reserve lowers nothing. Where it does bite, it bites prospectively, pass by
 pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
 sticky picks, and an application queued in the fail-open window before its
@@ -808,13 +815,13 @@ the posture below keeps selection additive and never destructive:
 
 - **Capacity `N`** — per-conference, OT2026 default 12 / regular conference and
   24 / long conference (the bootstrapping envelope above). The caps sit well
-  under the raw median ~34-petition paid cohort, but the pool the rank fill
-  actually ranks is the *eligible* pool after the out-of-scope rules — ~11 per
-  conference at the last live measurement, ~7 in the replay-reconstructable
-  cohorts — so whether the cap binds at a typical conference is not yet
-  measured at the shipped size ([budget.md](budget.md)); carve-outs ride above
-  `N` untouched, the interim reserve's slots in use trade inside it, and the
-  cert rank fill is what remains. The Tier-0 IFP filter shapes that pool too,
+  under the raw median ~34-petition paid cohort and well under the pool the
+  replay ranks — the mean replay-reconstructable conference cohort runs ~37–38
+  petitions — and the gate replay at this capacity measures the cap binding
+  **29 of each Term's 33–36 reconstructable first-distribution cohorts** across
+  OT2022–24 (`metrics/salience-replay.json`; [budget.md](budget.md)); carve-outs ride
+  above `N` untouched, the interim reserve's slots in use trade inside it, and
+  the cert rank fill is what remains. The Tier-0 IFP filter shapes that pool too,
   and it is larger than it sounds — measured on the accumulating OT2026
   long-conference cohort, **roughly two thirds** of the petitions distributed
   are IFP and leave at Tier 0, so the eligible pool is about a third of the

@@ -16,8 +16,9 @@ name: run-seed
 # forward windows (`:17` pull, `:47` live) and yield the lock before the next
 # one fires.
 #
-# Each window is a bounded ~40-min chunk that fits inside one App installation
-# token's 1h life, so there is no self-refreshing-token loop — one token up
+# Each window is a bounded chunk — ≤40 min of walk, except the daily sweep
+# window, which walks 25 to fund its trailing sweeps — inside one App
+# installation token's 1h life, so there is no self-refreshing-token loop — one token up
 # front covers the walk and the trailing steps.
 on:
   schedule:
@@ -190,7 +191,13 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Wall-clock budget for the whole loop, kept under timeout-minutes with
           # room for setup + the trailing steps, and inside the token's 1h life.
-          LOOP_BUDGET_SECONDS: "2400" # 40m
+          # The 02:31 window carries the daily maintenance sweeps after the
+          # loop, so it trades walk time for sweep headroom: the sweeps'
+          # bounded worst case only ever binds on a non-converged window, but
+          # a cap hit is a cancellation — the one outcome continue-on-error
+          # cannot absorb — so the budget yields rather than gambling the
+          # trailing verdict.
+          LOOP_BUDGET_SECONDS: ${{ github.event.schedule == '31 2 * * *' && '1500' || '2400' }} # 25m sweep window / 40m
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -371,9 +378,12 @@ jobs:
           # checkpoint rebase — up to a window stale. A collect PR merging
           # artifacts for an application docket in that gap would be invisible
           # here, and the rename would orphan exactly what the guard exists to
-          # prevent. Read the remote tip instead.
+          # prevent. Read the remote tip instead — fast-forward only, so a
+          # sibling step's unpushed local commit (its push retries exhausted)
+          # fails this step closed rather than being discarded while its
+          # corpus mutations survive in the workspace DB.
           git fetch origin "$GITHUB_REF_NAME"
-          git reset --hard FETCH_HEAD
+          git merge --ff-only FETCH_HEAD
           uv run fedcourts relabel-application-events --apply
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
@@ -455,9 +465,10 @@ jobs:
           # `data/` and its writes land new `event.yaml` files beside them, and
           # this checkout is only as fresh as the previous step's rebase — up to
           # a window stale. Read the remote tip first so the guards and the
-          # writes both see the current ledger.
+          # writes both see the current ledger — fast-forward only, failing
+          # closed on a sibling step's unpushed commit (see the relabel step).
           git fetch origin "$GITHUB_REF_NAME"
-          git reset --hard FETCH_HEAD
+          git merge --ff-only FETCH_HEAD
           # Stamp the null moment columns first (trivially idempotent), so the
           # events sweep and every moment-keyed reader group on materialized
           # moments.
@@ -486,6 +497,128 @@ jobs:
           git commit -m "seed: converge corpus (merits events)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "merits-event pointer"
+
+      # Repair the misattribution shape an earlier single-open-event
+      # attribution shortcut wrote, and its cause: entry-pinned SCOTUS events
+      # carrying a case-baseline id are removed (no re-ingest reproduces one —
+      # `extract_events` refuses the kind at SCOTUS), then non-baseline events
+      # whose outcome duplicates a case-baseline sibling's outcome triple are
+      # deleted and reopened. Removal runs first: it clears the entry-pinned
+      # case of the reopen sweep's baseline-pair triage, so one window
+      # converges both. Both sweeps skip and report any event carrying
+      # committed predict/evaluate output, and both refuse to apply above
+      # their blast-radius bound — the population is finite and non-growing,
+      # so a large count means a widened predicate, not a dirtier ledger. The
+      # ledger deletions and rewrites ride this lane because no collect jail
+      # admits them (`assert_within_jail` takes adds only,
+      # `assert_cleanup_within_jail` deletes under `predictions/` only); here
+      # they stage into the one pointer commit, atomic with the corpus they
+      # must match. Converges like the sweeps above — a repaired ledger
+      # removes and reopens nothing.
+      - name: Repair misattributed baseline outcomes
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded like the siblings, and comfortably: both scans are local
+        # (committed outcomes against corpus rows), no external-service loop.
+        # This raises the 02:31 window's bounded sweep tail to 36m over the
+        # 40m loop, against the job's 55m cap — but only a non-converged
+        # window pays a sweep's bound, and this pair's backlog is two events;
+        # every later window costs seconds.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to repair.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping attribution repairs"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Both sweeps read committed ledger artifacts out of `data/` and
+          # delete or rewrite beside them, and this checkout is only as fresh
+          # as the previous step's rebase — read the remote tip first so the
+          # skip guards see every collect PR merged in the gap. Fast-forward
+          # only: if a sibling step's push retries were exhausted, its local
+          # commit is unpushed while its corpus mutations survive in the
+          # workspace DB, and a hard reset would publish that split — failing
+          # closed here leaves the next window to reconverge instead.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, mirrored into the run summary so each sweep's
+          # report — every removal, reopen, and skip with its reason — stays
+          # answerable after step-log retention; then apply.
+          uv run fedcourts remove-unmintable-events | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts remove-unmintable-events --apply
+          uv run fedcourts reopen-misattributed-outcomes | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts reopen-misattributed-outcomes --apply
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers
+          # resolve the committed pointer, and the next window re-detects from
+          # the still-committed ledger and reconverges.
+          uv run fedcourts corpus-push
+          # `git add data/` stages the deletions and rewrites along with the
+          # pointer — one commit, so the ledger and the corpus it must match
+          # land together or not at all. (The directory guard is inherited
+          # from the add sweeps' shape; a repair with anything to stage always
+          # has a `data/` tree.)
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Attribution already repaired; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (attribution repairs)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "attribution-repair pointer"
+
+      # The stored circuit slice still carries the bulk export's misjoined
+      # cluster fields; the ingest projection withholds them from a re-served
+      # bulk row, and this converges the rows nothing re-serves. Detection is
+      # provable bulk provenance — fields the REST channel cannot supply —
+      # so docket-derived judges/panel on discovery-onboarded rows survive.
+      # The apply refuses above the command's blast-radius bound, sized just
+      # over the measured slice: a widened predicate should fail loudly, not
+      # null a channel the carve-out never covered. Corpus-only:
+      # no ledger surface, so a pointer-only commit like the judgments sweep.
+      # Idempotent — a scrubbed corpus matches nothing, so a converged
+      # window's cost is the apply's own count scan, seconds over the cases
+      # table.
+      - name: Scrub the bulk slice's misjoined cluster fields
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason as the sibling sweeps — a cap hit
+        # cancels the whole run, which continue-on-error cannot absorb — and
+        # tightly: one UPDATE against the pulled blob (the first
+        # non-converged window rewrites ~1.36M rows in seconds), then the
+        # blob push the walk pays on every window anyway.
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to scrub.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping cluster scrub"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One apply, its count line mirrored into the run summary: a
+          # separate dry run would repeat the same full-table count for a
+          # one-line report the apply already prints.
+          uv run fedcourts scrub-bulk-cluster-fields --apply | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Bulk cluster fields already scrubbed; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (bulk cluster scrub)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "cluster-scrub pointer"
 
       # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
       # produce the correctness verdict on the now-current corpus and publish it
