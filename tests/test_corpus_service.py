@@ -72,6 +72,8 @@ def test_health_unknown_path_and_malformed_body(fixture_corpus: FixtureCorpus) -
         assert health.status_code == 200
         assert health.json()["status"] == "ok"
         assert health.json()["backend"] == "local"
+        # Read counters are the ranged backend's evidence; local reports none.
+        assert "reads" not in health.json()
         assert httpx.get(f"{url}/nope", timeout=5).status_code == 404
         assert httpx.post(f"{url}/v1/nope", content=b"{}", timeout=5).status_code == 404
         bad = httpx.post(f"{url}/v1/query", content=b'{"schema_version":"1.0"}', timeout=5)
@@ -128,6 +130,35 @@ def _ranged_conn(tmp_path: Path) -> tuple[Path, _FileTransport]:
         + "\n"
     )
     return pointer, _FileTransport(blob)
+
+
+def test_health_pays_the_cold_ranged_read(tmp_path: Path) -> None:
+    """Green readiness means answerable: the health check itself transfers.
+
+    SQLite defers every page read to the first statement, so without the
+    health check's point read the whole cold transfer would land on the first
+    client query — racing the client's per-request timeout, which is the
+    integration scenario's observed first-attempt flake. The counters in the
+    payload put the startup cost in the launch step's curl output, and a warm
+    re-check honestly reports zero.
+    """
+    pointer, transport = _ranged_conn(tmp_path)
+    service = corpus_service.CorpusService(
+        lambda: corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport),
+        backend="ranged",
+    )
+    try:
+        cold = service.health()
+        warm = service.health()
+    finally:
+        service.close()
+    assert transport.calls  # readiness paid the transfer, not the first query
+    assert cold["status"] == "ok" and warm["status"] == "ok"
+    cold_reads = cold["reads"]
+    assert isinstance(cold_reads, dict)
+    gets = cold_reads["gets"]
+    assert isinstance(gets, int) and gets > 0
+    assert warm["reads"] == {"gets": 0, "bytes": 0}
 
 
 def test_ranged_reads_delta_per_request(tmp_path: Path) -> None:
