@@ -43,6 +43,31 @@ def test_fixture_overwrites_existing_db(tmp_path: Path) -> None:
         assert corpus.count(conn) == len(fixture.FIXTURE_CASES)
 
 
+def test_opt_in_fixtures_take_their_own_docket_ids(tmp_path: Path) -> None:
+    """An opt-in fixture adds a row; it never merges over a base-surface row.
+
+    The base corpus is a measured statistical surface, and the corpus upsert
+    latches rather than replaces — an opt-in case reusing a base docket id
+    would silently rewrite that row's identity while its latched escalation
+    columns survived, and the cell would provision from whichever snapshot is
+    newer. The id-disjointness assertion is the rule; the behavioral half pins
+    that opting in is purely additive.
+    """
+    base_ids = {case.case_id for case in fixture.FIXTURE_CASES}
+    opt_ins = (fixture.MERITS_FIXTURE_CASE, fixture.CVSG_FIXTURE_CASE)
+    assert {case.case_id for case in opt_ins}.isdisjoint(base_ids)
+
+    db = fixture.build_fixture_corpus(tmp_path / "corpus.db")
+    with corpus.connect(db) as conn:
+        before = corpus.count(conn)
+        base_application = corpus.get_row(conn, "scotus/306")
+    added = fixture.add_merits_fixture(db)
+    with corpus.connect(db) as conn:
+        assert corpus.count(conn) == before + 1
+        assert corpus.get_row(conn, "scotus/306") == base_application
+        assert corpus.get_row(conn, added.case_id) is not None
+
+
 def test_fixture_spans_courts_with_mixed_resolution(tmp_path: Path) -> None:
     """A faithful miniature: ≥2 courts, a mix of resolved and open, all consistent."""
     db = fixture.build_fixture_corpus(tmp_path / "corpus.db")
