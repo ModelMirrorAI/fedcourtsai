@@ -1,0 +1,952 @@
+{
+  "cases": 189,
+  "entries": [
+    {
+      "case_id": "scotus/65876280",
+      "docket_number": "25-52",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/68237529",
+      "docket_number": "23-719",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/68265345",
+      "docket_number": "23-51",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/68305309",
+      "docket_number": "23-3",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/68354674",
+      "docket_number": "23-14",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/68371309",
+      "docket_number": "23-250",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/68371352",
+      "docket_number": "23-21",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/68381466",
+      "docket_number": "23-370",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/68381998",
+      "docket_number": "23-146",
+      "label": "tax"
+    },
+    {
+      "case_id": "scotus/68436996",
+      "docket_number": "23-108",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/68436997",
+      "docket_number": "23-50",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/68458751",
+      "docket_number": "23-175",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/68462680",
+      "docket_number": "23-367",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/68462681",
+      "docket_number": "23-334",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/69231925",
+      "docket_number": "23-191",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/69232353",
+      "docket_number": "23-677",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/69235413",
+      "docket_number": "23-852",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/69236429",
+      "docket_number": "23-621",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/69262307",
+      "docket_number": "23-365",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/69262312",
+      "docket_number": "23-583",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/69267680",
+      "docket_number": "23-713",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69268742",
+      "docket_number": "23-753",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/69344701",
+      "docket_number": "23-715",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69345060",
+      "docket_number": "23-217",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/69366590",
+      "docket_number": "23-929",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/69367030",
+      "docket_number": "23-825",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/69428986",
+      "docket_number": "23-824",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/69432337",
+      "docket_number": "23-867",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/69437012",
+      "docket_number": "23-477",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/69448731",
+      "docket_number": "23-909",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/69449215",
+      "docket_number": "23-861",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69457007",
+      "docket_number": "23-900",
+      "label": "intellectual-property"
+    },
+    {
+      "case_id": "scotus/69797216",
+      "docket_number": "24-354",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69822931",
+      "docket_number": "24-154",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/69830688",
+      "docket_number": "24-20",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/69920276",
+      "docket_number": "24-275",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/69920277",
+      "docket_number": "24-316",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69926223",
+      "docket_number": "24-297",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/69926779",
+      "docket_number": "24-416",
+      "label": "tax"
+    },
+    {
+      "case_id": "scotus/69930833",
+      "docket_number": "24-7",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/69954840",
+      "docket_number": "24-249",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/69955962",
+      "docket_number": "24-320",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69981163",
+      "docket_number": "24-304",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/70003535",
+      "docket_number": "24-394",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/70377100",
+      "docket_number": "24-410",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/70670998",
+      "docket_number": "24-809",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/71563321",
+      "docket_number": "24-557",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71563327",
+      "docket_number": "24-440",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71573389",
+      "docket_number": "24-539",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/71574136",
+      "docket_number": "24-5774",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71584151",
+      "docket_number": "24-568",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71585798",
+      "docket_number": "24-351",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71644700",
+      "docket_number": "24-482",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71644707",
+      "docket_number": "24-5438",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/71658732",
+      "docket_number": "24-624",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71867004",
+      "docket_number": "24-1056",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71867005",
+      "docket_number": "24-924",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/71872250",
+      "docket_number": "24-724",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71872251",
+      "docket_number": "24-808",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71895450",
+      "docket_number": "24-758",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71902746",
+      "docket_number": "24-556",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71903502",
+      "docket_number": "24-820",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71951498",
+      "docket_number": "24-1159",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/71978741",
+      "docket_number": "24-777",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/71978744",
+      "docket_number": "24-171",
+      "label": "intellectual-property"
+    },
+    {
+      "case_id": "scotus/71983743",
+      "docket_number": "24-781",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/71988984",
+      "docket_number": "24-993",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72003633",
+      "docket_number": "25-180",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/72010643",
+      "docket_number": "24-621",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/72017726",
+      "docket_number": "24-345",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/72138143",
+      "docket_number": "24-38",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72138839",
+      "docket_number": "24-43",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72143460",
+      "docket_number": "24-1021",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72163396",
+      "docket_number": "24-1046",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72187113",
+      "docket_number": "25-51",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72315900",
+      "docket_number": "24-983",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72317507",
+      "docket_number": "24-699",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72321650",
+      "docket_number": "24-783",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72328872",
+      "docket_number": "25-95",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72350770",
+      "docket_number": "24-1234",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72356394",
+      "docket_number": "24-1063",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72479786",
+      "docket_number": "23-236",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72479804",
+      "docket_number": "23-253",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72479851",
+      "docket_number": "23-290",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72480144",
+      "docket_number": "23-506",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/72483263",
+      "docket_number": "23-80",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/72483326",
+      "docket_number": "23-860",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72483489",
+      "docket_number": "24-1016",
+      "label": "intellectual-property"
+    },
+    {
+      "case_id": "scotus/72483540",
+      "docket_number": "24-1068",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/72483591",
+      "docket_number": "24-1113",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72483760",
+      "docket_number": "24-1260",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72483803",
+      "docket_number": "24-130",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72483856",
+      "docket_number": "24-151",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72483874",
+      "docket_number": "24-17",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72483992",
+      "docket_number": "24-280",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72484107",
+      "docket_number": "24-396",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/72484126",
+      "docket_number": "24-413",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72484134",
+      "docket_number": "24-422",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72484222",
+      "docket_number": "24-5006",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484233",
+      "docket_number": "24-5016",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484261",
+      "docket_number": "24-5040",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484347",
+      "docket_number": "24-5118",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484502",
+      "docket_number": "24-5258",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484566",
+      "docket_number": "24-5315",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484579",
+      "docket_number": "24-5328",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484649",
+      "docket_number": "24-5391",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484666",
+      "docket_number": "24-5406",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484717",
+      "docket_number": "24-5453",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484720",
+      "docket_number": "24-5456",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484724",
+      "docket_number": "24-5460",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72484755",
+      "docket_number": "24-5488",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72484924",
+      "docket_number": "24-5640",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72485037",
+      "docket_number": "24-5744",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72485122",
+      "docket_number": "24-5820",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72485316",
+      "docket_number": "24-5997",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72485440",
+      "docket_number": "24-6107",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72485820",
+      "docket_number": "24-6451",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72485924",
+      "docket_number": "24-6543",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72485932",
+      "docket_number": "24-6550",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72485951",
+      "docket_number": "24-6569",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72486314",
+      "docket_number": "24-6892",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72486545",
+      "docket_number": "24-710",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72486658",
+      "docket_number": "24-720",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72486769",
+      "docket_number": "24-7300",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72487051",
+      "docket_number": "24-780",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72487129",
+      "docket_number": "24-856",
+      "label": "sovereignty-and-foreign-relations"
+    },
+    {
+      "case_id": "scotus/72487134",
+      "docket_number": "24-860",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72487155",
+      "docket_number": "24-880",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72487163",
+      "docket_number": "24-889",
+      "label": "intellectual-property"
+    },
+    {
+      "case_id": "scotus/72487215",
+      "docket_number": "24-935",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/72528904",
+      "docket_number": "25-297",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72598770",
+      "docket_number": "25-6",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72610778",
+      "docket_number": "25-5",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/73112739",
+      "docket_number": "25-83",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73112741",
+      "docket_number": "25-5146",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73213319",
+      "docket_number": "25-248",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73215956",
+      "docket_number": "25-197",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73215957",
+      "docket_number": "25-466",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73221533",
+      "docket_number": "25-406",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73228193",
+      "docket_number": "25-429",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/73250786",
+      "docket_number": "25-112",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73272653",
+      "docket_number": "25-3",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73272826",
+      "docket_number": "25-73",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73272837",
+      "docket_number": "25-84",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73272848",
+      "docket_number": "25-93",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73272851",
+      "docket_number": "25-97",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73272855",
+      "docket_number": "25-99",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73272882",
+      "docket_number": "25-5018",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73273041",
+      "docket_number": "25-5095",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73274812",
+      "docket_number": "25-129",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73274853",
+      "docket_number": "25-159",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/73274859",
+      "docket_number": "25-170",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/73274866",
+      "docket_number": "25-183",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/73274902",
+      "docket_number": "25-145",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73275144",
+      "docket_number": "25-209",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/73275156",
+      "docket_number": "25-218",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275161",
+      "docket_number": "25-222",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73275179",
+      "docket_number": "25-238",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73275187",
+      "docket_number": "25-246",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73275223",
+      "docket_number": "25-280",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/73275260",
+      "docket_number": "25-5220",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73275328",
+      "docket_number": "25-5280",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73277468",
+      "docket_number": "25-352",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73277583",
+      "docket_number": "25-5343",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73278415",
+      "docket_number": "25-410",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73278422",
+      "docket_number": "25-417",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73278510",
+      "docket_number": "25-459",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73278555",
+      "docket_number": "25-498",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/73278577",
+      "docket_number": "25-5420",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73278652",
+      "docket_number": "25-5470",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73279009",
+      "docket_number": "25-566",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73279012",
+      "docket_number": "25-567",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73279024",
+      "docket_number": "25-579",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73279026",
+      "docket_number": "25-581",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/73279092",
+      "docket_number": "25-5520",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73279865",
+      "docket_number": "25-735",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73279881",
+      "docket_number": "25-748",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73279923",
+      "docket_number": "25-767",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73280341",
+      "docket_number": "25-840",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73281007",
+      "docket_number": "25-966",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73281056",
+      "docket_number": "25-1017",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/73281102",
+      "docket_number": "25-5930",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73282192",
+      "docket_number": "25-6490",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73282277",
+      "docket_number": "25-6623",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73282409",
+      "docket_number": "25-6600",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73282565",
+      "docket_number": "25-6770",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73323350",
+      "docket_number": "25-7350",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73361383",
+      "docket_number": "25-7410",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73500212",
+      "docket_number": "25-1311",
+      "label": "civil-procedure"
+    }
+  ],
+  "schema_version": "1.0",
+  "vocabulary": "qp-topic-v0"
+}

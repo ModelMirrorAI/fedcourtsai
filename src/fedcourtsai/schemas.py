@@ -1,6 +1,7 @@
 """Pydantic models defining the on-disk data contract for the pipeline.
 
-Every artifact written under ``data/cases/`` validates against one of these
+Every artifact committed under ``data/`` — the per-case tree, the scope
+manifest, the qp-topic reference set — validates against one of these
 models. They are the single source of truth for the data shape and are also
 exported to JSON Schema (see ``fedcourts export-schemas``) so that coding
 agents and Codex ``--output-schema`` can target them directly.
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -3068,6 +3069,97 @@ class ScopeManifest(_Strict):
     )
 
 
+QpTopicLabel = Literal[
+    "administrative-law-and-benefit-programs",
+    "business-and-financial-regulation",
+    "civil-procedure",
+    "constitutional-rights",
+    "criminal-law",
+    "election-law",
+    "employment-and-antidiscrimination",
+    "environment-energy-and-property",
+    "firearms",
+    "first-amendment",
+    "habeas-and-postconviction",
+    "immigration",
+    "intellectual-property",
+    "sovereignty-and-foreign-relations",
+    "tax",
+    "unclassifiable",
+]
+"""A ``qp-topic-v0`` subject-matter label for a question presented.
+
+The vocabulary is declared and bounded in ``docs/qp-topic.md`` — fifteen
+subjects plus ``unclassifiable``, which is reserved for texts with no subject
+or no cognizable question present, never for texts that are merely hard to
+place.
+"""
+
+QP_TOPIC_LABELS: Final[tuple[QpTopicLabel, ...]] = get_args(QpTopicLabel)
+
+
+class QpTopicReferenceEntry(_Strict):
+    """One hand-labeled question-presented text: a case and its primary topic.
+
+    The label is the single mandatory *primary* under the ``qp-topic-v0``
+    contract, assigned from the stored ``questions-presented`` text alone — no
+    docket context — so any text-only labeler can be scored against it on
+    identical input.
+    """
+
+    case_id: str = Field(
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and ``data/cases``"
+    )
+    docket_number: str = Field(
+        description="The Court's own docket number (e.g. ``25-52``) — the "
+        "human-readable key the labels were recorded against, kept so the set "
+        "is reviewable in a diff"
+    )
+    label: QpTopicLabel = Field(
+        description="The primary ``qp-topic-v0`` label; secondaries are not part "
+        "of the reference set"
+    )
+
+
+class QpTopicReference(_Strict):
+    """``data/qp-topics/qp-topic-reference.json`` — the hand-labeled topic reference set.
+
+    The measurement baseline for any ``qp-topic-v0`` labeler: cases whose stored
+    ``questions-presented`` texts were read and labeled by hand against the
+    vocabulary in ``docs/qp-topic.md``. A labeler's agreement with this set is
+    measured and recorded before anything it produces is published. The set is
+    append-only in spirit — relabeling an entry is a judgment change that
+    belongs in its own reviewed diff, not a side effect of another change — and
+    each ``docket_number`` appears at most once, so the two keys stay a
+    verifiable pair. Its selection frame is outcome-conditioned and disclosed
+    in ``docs/qp-topic.md``: membership encodes cert outcomes, which is why the
+    cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v0"] = Field(
+        default="qp-topic-v0",
+        description="The label vocabulary every entry draws from",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Number of hand-labeled cases (== len(entries))"
+    )
+    entries: list[QpTopicReferenceEntry] = Field(
+        default_factory=list,
+        description="One entry per hand-labeled case, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicReference:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -4655,6 +4747,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
+    "qp-topic-reference.json": QpTopicReference,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -4685,4 +4778,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "cell_failure": CellFailure,
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
+    "qp_topic_reference": QpTopicReference,
 }

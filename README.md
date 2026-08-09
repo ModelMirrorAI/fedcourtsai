@@ -210,7 +210,11 @@ worth reading in a diff, so they live in git, validating against the pydantic
 models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
 Alongside the per-case tree, two repo-level roll-ups are regenerated
 deterministically and committed for review: `metrics/` and `data/scope/scope.json`
-(the published prediction-scope decision for the already-public case set). Full
+(the published prediction-scope decision for the already-public case set) —
+plus one committed artifact that is not a roll-up at all:
+`data/qp-topics/qp-topic-reference.json`, the hand-labeled topic reference set
+(`docs/qp-topic.md`), authored as a judgment and changed only in its own
+reviewed diff. Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop
@@ -259,6 +263,7 @@ docs/               design & operations references (see Documentation below)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
 - [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
+- [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, and the hand-labeled reference set)
 - [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)

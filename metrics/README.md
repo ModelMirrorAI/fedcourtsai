@@ -768,8 +768,9 @@ the rendered table) and
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
   *not yet parsed*, not *did not happen*. The document names the statistics it
-  cannot yet compute (what the petitions are about, which needs a claim taxonomy
-  that does not exist; summary reversals, which have a disposition label
+  cannot yet compute (what the petitions are about, whose claim taxonomy —
+  `qp-topic-v0`, `docs/qp-topic.md` — is declared but has had no labeler run
+  over the stored texts; summary reversals, which have a disposition label
   but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 

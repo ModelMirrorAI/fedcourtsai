@@ -46,8 +46,9 @@ prompts and statpack schema call a tier, and an upstream API rate-limit tier in
 This is also not a "claim taxonomy", though that phrase fits it. That term is
 already spoken for: `metrics/docket.md` and `metrics/README.md` use it for a
 subject-matter classification of the questions presented — what petitions are
-*about* — which does not exist and is a different problem. This document
-decomposes a predicted *outcome* into scoreable propositions.
+*about* — which is a different problem with its own vocabulary
+(`docs/qp-topic.md`). This document decomposes a predicted *outcome* into
+scoreable propositions.
 
 ## What a claim is
 

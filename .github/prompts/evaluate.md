@@ -401,7 +401,9 @@ candidate:
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
-   or opinion, or the candidate's own disclosure in its prose or `retrieval.md`
+   or opinion, a `file-read` or `file-search` call whose query names
+   `data/qp-topics/` (membership there encodes cert outcomes; the prompts forbid
+   the read), or the candidate's own disclosure in its prose or `retrieval.md`
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted
@@ -469,6 +471,11 @@ advisory and never graded.
   paths (the `flags.json` / `tooling.json` above live there too). Never edit
   predictions, outcomes, snapshots, the blinded staging area, or another
   evaluator's output.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing an
+  evaluation may use, and a read of that path in your logged tool calls is itself
+  a leakage event. If you have already read it, say so in `flags.json`
+  (`category` `other`) and disregard what you saw.
 - **Keep the blind.** Read candidates only from `record/blinded/<alias>/`, key
   every output on the alias, and do not try to work out who a candidate is by any
   route. The routes are named so there is no ambiguity about what is off limits:

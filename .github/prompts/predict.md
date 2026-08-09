@@ -678,6 +678,11 @@ willing to be scored on, not a hedge.
   already decided (a mis-provisioned cell — see the forward-mode caveat under
   *Retrieval* above); use `other` when you simply carry the outcome from training
   on a well-known case.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing a
+  prediction may use, and a read of that path in your logged tool calls is graded
+  as retrieved outcome material by the evaluation. If you have already read it,
+  say so in `flags.json` (`category` `other`) and disregard what you saw.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or
