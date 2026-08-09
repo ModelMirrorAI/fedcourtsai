@@ -169,7 +169,6 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
-    GroupBy,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -1811,6 +1810,13 @@ def docket(
         Path | None,
         typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
     ] = None,
+    qp_topics: Annotated[
+        Path | None,
+        typer.Option(
+            help="QP-topic labels artifact backing the topic cut "
+            "(default: <data_root>/qp-topics/qp-topics.json; the cut is omitted when absent).",
+        ),
+    ] = None,
 ) -> None:
     """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
 
@@ -1825,10 +1831,18 @@ def docket(
     offline: a pure function of the corpus, so reruns reproduce both files byte
     for byte. Writes the empty zero-count pack when the corpus is absent (run
     after a corpus pull).
+
+    The question-presented topic cut renders only where a ``qp-topic-v0`` labels
+    artifact is on disk, always beside its labeler and measured agreement and
+    always carrying the coverage caveat of ``docs/qp-topic.md``; with none there,
+    the document names the missing distribution among its gaps instead.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    pack = analytics.build_docket_pack(corpus_db_path=db_path)
+    labels_path = (
+        qp_topics if qp_topics is not None else settings.data_root / "qp-topics" / "qp-topics.json"
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels_path)
     json_dest = out if out is not None else settings.metrics_root / "docket.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
     write_json(json_dest, pack)
@@ -3401,11 +3415,13 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     group_by: Annotated[
         str,
         typer.Option(
-            # Rendered from the enum, not restated: a hand-kept list drifts
-            # silently every time a dimension lands, and `--help` is what a cell
-            # agent reads to discover the cuts it can ask for.
+            # Rendered from the accepted set, not restated: a hand-kept list
+            # drifts silently every time a dimension lands, and `--help` is what a
+            # cell agent reads to discover the cuts it can ask for. Dimensions
+            # keyed off an artifact rather than a corpus row are section-only and
+            # excluded, so nothing is offered that this command cannot compute.
             help="Break base-rates down by a dimension: "
-            + ", ".join(g.value for g in GroupBy)
+            + ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
             + ". Omit for the overall base rate only."
         ),
     ] = "",
@@ -3437,12 +3453,11 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         choices = ", ".join(d.value for d in Disposition)
         typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
         raise typer.Exit(code=2) from exc
-    try:
-        dimension = GroupBy(group_by) if group_by else None
-    except ValueError as exc:
-        choices = ", ".join(g.value for g in GroupBy)
+    dimension = next((g for g in analytics.STATS_DIMENSIONS if g.value == group_by), None)
+    if group_by and dimension is None:
+        choices = ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
         typer.echo(f"Unknown --group-by '{group_by}'; choose one of: {choices}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=2)
     try:
         parsed_from = date.fromisoformat(date_from) if date_from else None
         parsed_to = date.fromisoformat(date_to) if date_to else None

@@ -458,6 +458,7 @@
       "court": null,
       "group_by": "court",
       "live_slice": false,
+      "scope_note": null,
       "title": "Cases by court",
       "weighted": false
     },
@@ -677,6 +678,7 @@
       "court": "scotus",
       "group_by": "era",
       "live_slice": false,
+      "scope_note": null,
       "title": "SCOTUS cases by era",
       "weighted": false
     },
@@ -746,6 +748,7 @@
       "court": "scotus",
       "group_by": "disposition",
       "live_slice": true,
+      "scope_note": null,
       "title": "Modern discretionary-cert petitions by disposition",
       "weighted": true
     },
@@ -1373,6 +1376,7 @@
       "court": "scotus",
       "group_by": "originating_court",
       "live_slice": true,
+      "scope_note": null,
       "title": "Modern cert petitions by originating circuit",
       "weighted": true
     },
@@ -1495,6 +1499,7 @@
       "court": "scotus",
       "group_by": "relist_bucket",
       "live_slice": true,
+      "scope_note": null,
       "title": "Cert petitions by relist count (paid scored segment)",
       "weighted": true
     },
@@ -1561,6 +1566,7 @@
       "court": "scotus",
       "group_by": "cvsg",
       "live_slice": true,
+      "scope_note": null,
       "title": "Cert petitions by CVSG status (paid scored segment)",
       "weighted": true
     },
@@ -1655,6 +1661,7 @@
       "court": "scotus",
       "group_by": "salience_band",
       "live_slice": true,
+      "scope_note": null,
       "title": "Cert petitions by salience band",
       "weighted": true
     },
@@ -6386,6 +6393,7 @@
       "court": "scotus",
       "group_by": "originating_court",
       "live_slice": true,
+      "scope_note": null,
       "title": "Petitions by originating court (incl. state courts)",
       "weighted": false
     }

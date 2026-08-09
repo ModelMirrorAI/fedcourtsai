@@ -293,6 +293,12 @@ class GroupBy(StrEnum):
     ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
     (high / elevated / baseline) over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
+    ``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's
+    questions-presented text (``docs/qp-topic.md``) — distinct from ``topic``,
+    which is the corpus's upstream nature-of-suit column and empty on SCOTUS
+    rows. It is read from a labeler's artifact rather than off a corpus row, so
+    a section supplies its own key function for it and ``stats`` does not offer
+    it as a cut.
     """
 
     court = "court"
@@ -306,6 +312,7 @@ class GroupBy(StrEnum):
     cvsg = "cvsg"
     fee_class = "fee_class"
     salience_band = "salience_band"
+    qp_topic = "qp_topic"
 
 
 class UsageRole(StrEnum):
@@ -3463,6 +3470,13 @@ class StatPackSection(_Strict):
         "otherwise",
     )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
+    scope_note: str | None = Field(
+        default=None,
+        description="Scope the boolean flags above cannot express, appended verbatim to "
+        "the rendered scope line and carried here so a share quoted out of the JSON keeps "
+        "it. Where a population caveat is mandatory for a cut — the `qp-topic-v0` coverage "
+        "caveat, say — this is where it travels; None where the flags say everything",
+    )
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
 
@@ -4210,6 +4224,43 @@ class DocketPackTerm(_Strict):
     )
 
 
+class DocketPackQpTopics(_Strict):
+    """The question-presented topic distribution, inseparable from who labeled it.
+
+    A topic share is only readable beside the labeler that produced it and that
+    labeler's measured agreement with the ``qp-topic-v0`` reference rater, so the
+    two travel in one object rather than as a section a quotation can lift alone.
+    ``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,
+    reference error and labeler error cannot be separated, and the reference
+    frame is grant-enriched, so the figure certifies the grant stream only
+    (``docs/qp-topic.md``).
+
+    ``section`` counts **primary labels only** — secondary labels and the vehicle
+    flag are unmeasured in v0 and appear in no published cut — over the labeled
+    cases alone, and its ``scope_note`` carries the coverage caveat every
+    published share must render beside it.
+    """
+
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the labels — the free-form actor string from the labels "
+        "artifact, so a quoted share names what produced it",
+    )
+    agree: int = Field(
+        ge=0,
+        description="Reference entries where the labeler matched the v0 reference rater — "
+        "agreement, not accuracy",
+    )
+    n: int = Field(
+        ge=0,
+        description="Reference entries the labeler covered and was compared on — the "
+        "denominator of `agree`, which is agreement, not accuracy",
+    )
+    section: StatPackSection = Field(
+        description="The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+    )
+
+
 class DocketPack(_Strict):
     """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
 
@@ -4257,6 +4308,12 @@ class DocketPack(_Strict):
         default_factory=list,
         description="Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), "
         "most recent Term first",
+    )
+    qp_topics: DocketPackQpTopics | None = Field(
+        default=None,
+        description="The question-presented topic distribution with its labeler provenance, "
+        "present only once a labels artifact exists; None while none has been produced, in "
+        "which case the rendered document names it among the gaps instead",
     )
 
 

@@ -767,10 +767,14 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. The document names the statistics it
-  cannot yet compute (what the petitions are about, whose claim taxonomy —
-  `qp-topic-v0`, `docs/qp-topic.md` — is declared but has had no labeler run
-  over the stored texts; summary reversals, which have a disposition label
+  *not yet parsed*, not *did not happen*. What the petitions are about — the
+  `qp-topic-v0` claim taxonomy of `docs/qp-topic.md` — renders as its own cut of
+  primary labels the moment a labels artifact exists, always beside the labeler
+  that produced it, that labeler's agreement with the reference rater (agreement,
+  **not** accuracy), and the inline scope string that vocabulary requires: no
+  labeler has run, so the document names the missing distribution among its gaps
+  instead. The document names the other statistics it
+  cannot yet compute the same way (summary reversals, which have a disposition label
   but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 

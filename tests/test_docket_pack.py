@@ -23,14 +23,25 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus
 from fedcourtsai.analytics import _DOCKET_SECTIONS, _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import Disposition, DocketPack, GroupBy, StatPackSection
+from fedcourtsai.schemas import (
+    Disposition,
+    DocketPack,
+    GroupBy,
+    QpTopicAgreement,
+    QpTopicLabel,
+    QpTopicLabelEntry,
+    QpTopicLabels,
+    QpTopicShadow,
+    StatPackSection,
+)
+from fedcourtsai.serialize import write_json
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
 
-def _pack(db_path: Path) -> DocketPack:
-    return analytics.build_docket_pack(corpus_db_path=db_path)
+def _pack(db_path: Path, qp_topics_path: Path | None = None) -> DocketPack:
+    return analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=qp_topics_path)
 
 
 def _section(pack: DocketPack, title: str) -> StatPackSection:
@@ -380,6 +391,185 @@ def test_the_reader_cut_names_state_courts_and_reweights_them(tmp_path: Path) ->
     )
     (raw_nevada,) = [b for b in raw.buckets if b.key == "Supreme Court of Nevada"]
     assert raw_nevada.cases == 2
+
+
+def _qp_corpus(db: Path) -> None:
+    """Three modern live-slice cert petitions, so a labeled subset is a real subset."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/{serial}",
+                    court="scotus",
+                    docket_number=f"24-{serial}",
+                    disposition=disposition,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=weight,
+                    distribution_count=1,
+                )
+                for serial, disposition, weight in (
+                    (101, Disposition.granted, 1),
+                    (102, Disposition.denied, 4),
+                    (103, Disposition.denied, 4),
+                )
+            ],
+        )
+
+
+def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel]) -> Path:
+    """Write a labels artifact for ``case_id -> primary``, through the real model."""
+    artifact = QpTopicLabels(
+        labeler="stub-labeler",
+        cases=len(primaries),
+        agreement=QpTopicAgreement(
+            overall_agree=170,
+            overall_n=189,
+            overall_rate=170 / 189,
+            uncovered=0,
+            floor=0.25,
+            gate_passed=True,
+        ),
+        shadow=QpTopicShadow(texts=len(primaries), fired=0, disagreements=0),
+        entries=[
+            QpTopicLabelEntry(
+                case_id=case_id, docket_number=case_id.removeprefix("scotus/"), label=label
+            )
+            for case_id, label in sorted(primaries.items())
+        ],
+    )
+    write_json(path, artifact)
+    return path
+
+
+def test_docket_pack_omits_the_topic_cut_without_a_labels_artifact(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # No labeler has run, so the pack is exactly what it was: no cut, and the gap
+    # bullet that says the distribution is not computed is still true.
+    for path in (None, tmp_path / "absent.json"):
+        pack = _pack(fixture_corpus.db_path, path)
+        assert pack.qp_topics is None
+        assert [s.title for s in pack.sections] == [spec.title for spec in _DOCKET_SECTIONS]
+        assert "claim taxonomy" in analytics.render_docket_markdown(pack)
+
+
+def test_qp_topic_cut_buckets_primaries_over_the_labeled_rows_only(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+    )
+    pack = _pack(db, labels)
+    assert pack.qp_topics is not None
+    section = pack.qp_topics.section
+    # Same scope as the neighbouring cert cuts, and reweighted like every other
+    # section in this artifact — a raw share over the walker's sampled frame would
+    # misreport the topic mix exactly where denials dominate it.
+    assert (section.court, section.cert_stage, section.live_slice, section.weighted) == (
+        "scotus",
+        True,
+        True,
+        True,
+    )
+    assert section.group_by == GroupBy.qp_topic
+    # `scotus/102` carries no label, so it is out of the cut's population entirely
+    # rather than joining a `(none)` bucket: no one asked what it is about.
+    # `unclassifiable` is a bucket like any other — dropping it would inflate every
+    # other share.
+    assert [(b.key, b.cases) for b in section.buckets] == [
+        ("unclassifiable", 4),  # a sampled denial, reweighted
+        ("criminal-law", 1),
+    ]
+    # The provenance a quoted share needs travels with it: who labeled, and how
+    # well they agreed with the reference rater.
+    assert (pack.qp_topics.labeler, pack.qp_topics.agree, pack.qp_topics.n) == (
+        "stub-labeler",
+        170,
+        189,
+    )
+
+
+def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert "## Cert petitions by question-presented topic (`qp-topic-v0`)" in md
+    # The caveat travels inline with real numbers, because a section-level caveat
+    # does not survive a quoted figure (`docs/qp-topic.md`). Two of the three
+    # walked cert rows carry a label.
+    assert (
+        "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
+        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 walked "
+        "rows; grant-enriched; primaries only; not docket-representative. A naive share "
+        "partly counts coordinated filing campaigns rather than subjects; no "
+        "de-duplicated companion is published._" in md
+    )
+    # Reweighted like every other section, so its denominators are estimates.
+    assert "| unclassifiable | 4 | 4 | 0 | denied 100.0% (est. n=4) |" in md
+    # Agreement, never accuracy — the one thing a reader must not mistake.
+    assert "matched the `qp-topic-v0` reference rater on 170 of 189 reference case(s)" in md
+    assert "**agreement, not accuracy**" in md
+    # The gap bullet said no labeler had run; one has, so it goes. The other gaps
+    # are untouched.
+    assert "claim taxonomy" not in md
+    assert "Summary reversals" in md
+    assert "**The `granted` / `gvr` split is not comparable across Terms.**" in md
+
+
+def test_qp_topic_cut_publishes_no_secondary_or_vehicle_facet(tmp_path: Path) -> None:
+    # `docs/qp-topic.md` holds both out of every published cut while the reference
+    # set leaves them unmeasured, so a labeled secondary must change nothing about
+    # what the cut counts.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    path = tmp_path / "qp-topics.json"
+    plain = _pack(db, _qp_labels(path, {"scotus/101": "criminal-law"}))
+    artifact = QpTopicLabels.model_validate_json(path.read_text())
+    faceted = artifact.model_copy(
+        update={
+            "entries": [
+                entry.model_copy(update={"secondary": "civil-procedure", "vehicle": True})
+                for entry in artifact.entries
+            ]
+        }
+    )
+    write_json(path, faceted)
+    assert plain.qp_topics is not None
+    assert _pack(db, path).qp_topics == plain.qp_topics
+
+
+def test_stats_offers_only_the_dimensions_it_can_compute() -> None:
+    # `qp_topic` keys off a labels artifact, not a corpus row, so `stats` cannot
+    # serve it and must not advertise it — offering a `--group-by` the aggregation
+    # would `KeyError` on is the failure this pins.
+    assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
+    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
+    result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
+    assert result.exit_code == 2
+    assert "Unknown --group-by 'qp_topic'" in result.output
+
+
+def test_cli_docket_renders_the_topic_cut_from_the_data_root(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The command defaults to the artifact `fedcourts qp-topics` writes, so the cut
+    # appears without a flag as soon as a labeler run lands.
+    _qp_labels(
+        fixture_corpus.data_root / "qp-topics" / "qp-topics.json", {"scotus/304": "criminal-law"}
+    )
+    json_out = tmp_path / "docket.json"
+    md_out = tmp_path / "docket.md"
+    result = runner.invoke(app, ["docket", "--out", str(json_out), "--markdown-out", str(md_out)])
+    assert result.exit_code == 0, result.output
+    pack = DocketPack.model_validate_json(json_out.read_text())
+    assert pack.qp_topics is not None
+    assert [b.key for b in pack.qp_topics.section.buckets] == ["criminal-law"]
 
 
 def test_the_pack_states_its_corpus_vintage(fixture_corpus: FixtureCorpus) -> None:

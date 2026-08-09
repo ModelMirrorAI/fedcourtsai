@@ -34,12 +34,14 @@ prompt's digest moves and this stops being a free-moving vocabulary — that is 
 version bump and its own review, not an edit to this document.
 
 Of the machinery this document contracts for, the vocabulary, the reference set,
-and the labeler machinery exist: the labeling prompt
+the labeler machinery, and the published cut exist: the labeling prompt
 (`.github/prompts/qp-topic-label.md`), the extract and measurement commands
-(`fedcourts qp-corpus` / `fedcourts qp-topics`), and the shadow rules
-(`fedcourtsai.pipeline.qp_topics`). No run mode dispatches the labeler, no labels
-artifact has been produced, and no cut is published: those are declared here and
-not yet built.
+(`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
+(`fedcourtsai.pipeline.qp_topics`), and the court-facing docket pack's topic
+section, which renders — always with the inline scope string below — as soon as a
+labels artifact is on disk and names the missing distribution among its gaps
+until then. No run mode dispatches the labeler and no labels artifact has been
+produced, so nothing is published yet.
 
 ## The register
 
