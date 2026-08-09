@@ -76,7 +76,8 @@ question about the *Heck* bar quoting "habeas relief" from case law is not a
 habeas question), and a Strickland ineffective-assistance claim naming no
 collateral marker stays here. Illegal-entry and illegal-reentry prosecutions
 (§1325/§1326) are criminal law, not `immigration`; the boundary shifts real
-mass, and no reference text yet exercises it.
+mass, and one agreed reference text — a §1326 reentry prosecution — exercises
+it.
 
 **`civil-procedure`** is not sovereign immunity as such, and not
 agency-specific review procedure (which belongs to
@@ -201,81 +202,98 @@ else.
 
 ## The reference set
 
-`data/qp-topics/qp-topic-reference.json` — labels for 189 cases, assigned by
+`data/qp-topics/qp-topic-reference.json` — labels for 339 cases, assigned by
 reading the stored `questions-presented` texts under this document's rules
 (text-only, primaries only), recorded against the Court's docket numbers and
-joined to canonical case ids. The rater was a single agent session; there has
-been no blind second pass and no adjudication.
+joined to canonical case ids. The set is two blocks with different rater
+processes, both disclosed: the **founding block** (189 cases, a single agent
+session, no second pass) and the **stratified supplement** (150 cases — 100
+denied, 30 GVR, 20 dismissed, drawn as a deterministic every-k-th systematic
+sample in `case_id` order from the QP-bearing rows not already in the set —
+labeled by **two independent blind agent raters**, whose 12 primary
+disagreements were adjudicated case by case under this document's rules, with
+the rationale recorded in the introducing change).
 
 **The selection frame, disclosed in full.** The set is not a sample of the
 QP-bearing population: it contains **every QP-bearing granted petition (149 of
-149)**, 40 of 855 QP-bearing denials, and none of the 87 GVR or 83 dismissed
-QP-bearing rows; 147 paid / 42 IFP against a QP-bearing population of 725 /
-462. Composition measured against corpus pointer `0efacfd9…` (2026-08-08).
+149)**, 140 of 855 QP-bearing denials, 30 of 87 GVR and 20 of 83 dismissed
+rows; 244 paid / 95 IFP against a QP-bearing population of 725 / 462.
+Founding-block composition measured against corpus pointer `0efacfd9…`
+(2026-08-08); the supplement was drawn against the same pointer.
 Three consequences bind every use of the set:
 
-- **Agreement measured on this set certifies the grant stream only.** The
-  denial/IFP stream that dominates any denial-reweighted published cut is
-  essentially unmeasured until a denial- and GVR-stratified supplement block
-  is added — and no topic cut may be published before that block exists and
-  is measured.
-- **Membership is an outcome oracle.** Because every QP-bearing grant is in
-  the file, presence of a case in it predicts grant and absence predicts
-  non-grant within the QP-bearing population as of the frame date. The file is
-  committed, so it is in every cell's checkout: for that reason **no predict
-  or evaluate cell may read anything under `data/qp-topics/`** — the cell
-  prompts state the prohibition, and any read of the path in a cell's logged
-  tool calls is a flaggable leakage event on audit. The cell workflows also
-  delete the directory before an agent starts, so in a cell's working tree
-  there is nothing to read.
-- **The set enumerates ingested-but-unpublished dockets, deliberately.** 188
-  of the 189 case ids have no directory under `data/cases`, so this artifact
+- **Agreement is measured per stream, and both major streams are now
+  covered.** The founding block certifies the grant stream; the supplement is
+  the denial/GVR-stratified block that a published cut's quality was
+  conditioned on, so the publication prerequisite it named is discharged. The
+  dismissed stratum is thin (n=20) and the IFP share still runs below the
+  population's; per-stream `n=` travels with any quoted rate.
+- **Membership is an outcome oracle.** Every QP-bearing grant is in the file,
+  so presence still shifts the odds toward grant (149 of 339 members are
+  grants, against ~13% of the QP-bearing population) and absence still implies
+  non-grant as of the frame date. The file is committed, so it is in every
+  cell's checkout: for that reason **no predict or evaluate cell may read
+  anything under `data/qp-topics/`** — the cell prompts state the prohibition,
+  any read of the path in a cell's logged tool calls is a flaggable leakage
+  event on audit, and the cell workflows delete the directory before an agent
+  starts, so in a cell's working tree there is nothing to read.
+- **The set enumerates ingested-but-unpublished dockets, deliberately.** 338
+  of the 339 case ids have no directory under `data/cases`, so this artifact
   is a stated exception to the boundary that committed surfaces do not
   enumerate the ingested corpus (`docs/security.md`). What it discloses is
-  identity-level: because the frame above is disclosed, a reader learns
-  exactly which dockets are the QP-bearing grants — a complete enumeration of
-  a subpopulation, not a sample. That is accepted because the subpopulation
-  is maximally public (granted SCOTUS petitions, named on the Court's own
-  site) and no QP text is republished; the extent-by-counts the coverage
-  caveat also carries is the posture the docket pack already publishes. The
-  exception is accepted for exactly this artifact and is not precedent for
-  machine-generated ones.
+  identity-level: every QP-bearing grant is a member (a complete enumeration
+  of that subpopulation), though with the supplement mixed in, membership
+  alone no longer says which members the grants are. That is accepted because
+  the dockets named are maximally public (SCOTUS petitions, named on the
+  Court's own site) and no QP text is republished; the extent-by-counts the
+  coverage caveat also carries is the posture the docket pack already
+  publishes. The exception is accepted for exactly this artifact and is not
+  precedent for machine-generated ones.
 
-**What a measurement is.** With one rater, the quantity any labeler run
-produces against this set is *agreement with the v0 reference rater*, not
-accuracy — reference error and labeler error cannot be separated, least of all
-on the boundary labels. The reference rater was itself an agent session, so
-agreement with an agent labeler of the same model family partly measures
-shared convention; that caveat travels with any reported number. The recorded
-instruments are: overall agreement with `n=`, per-label agreement with `n=`
-(floor-gated, below), and the 3×3 confusion matrix on the
-`constitutional-rights` / `criminal-law` / `civil-procedure` triangle (78 of
-189 entries), written into the labels artifact alongside the labels
-themselves. The honest ceiling instrument, recommended before the first cut
-publishes, is a blind re-label of the triangle cases reported as a
-self-agreement rate. The publication gate: a labeler whose overall agreement
+**What a measurement is.** The quantity any labeler run produces against this
+set is *agreement with the reference raters*, not accuracy — reference error
+and labeler error cannot be separated, least of all on the boundary labels.
+Every reference rater was an agent session, so agreement with an agent
+labeler of the same model family partly measures shared convention; that
+caveat travels with any reported number. The recorded instruments are:
+overall agreement with `n=`, per-label agreement with `n=` (floor-gated,
+below), and the 3×3 confusion matrix on the
+`constitutional-rights` / `criminal-law` / `civil-procedure` triangle (161 of
+339 entries), written into the labels artifact alongside the labels
+themselves. **The ceiling is measured**: on the 150-case supplement, two
+independent blind raters agreed on 138 primaries — 92.0% (91.0% on denied
+n=100, 100% on GVR n=30, 85.0% on dismissed n=20) — so a labeler's agreement
+number should be read against ~92%, not 100%, and a rate meaningfully above
+it is measuring shared convention, not extra correctness. The publication
+gate: a labeler whose overall agreement
 on the measured stream is below **80%**, which labeled fewer than **90%** of
 the reference cases in its extract, or whose triangle confusion matrix is
 unpublished, publishes nothing — `fedcourts qp-topics` enforces the first two
 mechanically and refuses to write.
 
 **The bounds that matter** are boundary agreements, not the overall rate: the
-triangle (n=78), criminal vs habeas (n=47 combined), criminal vs immigration
-(n=44 combined, with the §1325/§1326 rule unexercised), and the
-`unclassifiable` rate (n=4), which sets the denominator of every published
-share.
+triangle (n=161), criminal vs habeas (n=83 combined), criminal vs immigration
+(n=75 combined), and the `unclassifiable` rate (n=14), which sets the
+denominator of every published share.
 
-**Per-label support floor.** Nine of sixteen labels have fewer than 10
-reference examples (`first-amendment` 9, `habeas-and-postconviction` 8,
-`employment-and-antidiscrimination` 7, `immigration` 5,
-`environment-energy-and-property` 5, `intellectual-property` 4,
-`unclassifiable` 4, `election-law` 3, `tax` 2). Per-label agreement under the
-floor is **unmeasured in v0**: it is reported as a raw count, never as a rate.
+**Per-label support floor.** Five of sixteen labels have fewer than 10
+reference examples (`environment-energy-and-property` 6, `immigration` 5,
+`intellectual-property` 5, `election-law` 5, `tax` 3). Per-label agreement
+under the floor is **unmeasured in v0**: it is reported as a raw count, never
+as a rate.
 
-**Contamination.** Three near-duplicate pairs sit inside the set (two in
-`firearms`, one in `sovereignty-and-foreign-relations`) — the same
-coordinated-filing clusters the coverage caveat names, present in the baseline
-too.
+**The vehicle flag is structurally near-empty under this contract.** Across
+the 30 GVR-disposed supplement texts, both raters independently flagged
+exactly one vehicle — the same one, a hold-for-a-named-lead-case ask —
+because a stored QP text is written before the disposition, so a text-only
+labeler can rarely see "vehicle" at all. The GVR-stratum correction the flag
+was declared for is therefore bounded near zero in v0; a cut must not lean on
+it.
+
+**Contamination.** Three near-duplicate pairs sit inside the founding block
+(two in `firearms`, one in `sovereignty-and-foreign-relations`) — the same
+coordinated-filing clusters the coverage caveat names, present in the
+baseline too.
 
 Relabeling an entry is a judgment change and travels in its own reviewed
 diff. The set exercises every label in the vocabulary, and
