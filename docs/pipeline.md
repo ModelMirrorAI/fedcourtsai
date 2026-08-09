@@ -12,7 +12,7 @@ stage.
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
-| _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
+| _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -79,8 +79,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
-  direct commit to `main`, never auto-merged. This is the workflow's only
-  write-capable job (it alone mints the dev App token). The branch is fixed
+  direct commit to `main`, never auto-merged. It mints the dev App token to do
+  so; `qp-topic-label` below is the only other job here that does. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
@@ -89,6 +89,29 @@ each as its own least-privilege job holding only the credentials its mode needs:
   engine / actor. It reads `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
+- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over every
+  questions-presented text the pulled corpus carries and lands the measured
+  per-case labels file
+  (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
+  branch `qp-topics/refresh`, force-pushed, never auto-merged. It is the only
+  mode that runs an agent, and therefore the only one **split across two jobs**,
+  because `corpus-readonly` exports the assumed role's credentials job-wide:
+  `qp-topic-extract` holds the read-only S3 role and writes the extract
+  (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
+  inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
+  no role at all, downloads that artifact, and runs the labeler with no cloud
+  credential in its environment and no MCP config (the vocabulary is text-only,
+  so the extract is the agent's entire evidentiary input). It applies the same
+  structural prohibition the cell workflows do — `data/qp-topics/` is moved out
+  of the tree for the duration of the agent step, since reading the reference
+  set would not improve the labels, only destroy the measurement — and restores
+  it from the commit afterwards, then asserts the tree is otherwise untouched
+  (the gate constants live in the checkout too). After the agent, the
+  tested `fedcourts qp-topics` measures the labels against the hand reference
+  set and enforces the agreement/coverage gate — below it, nothing is written,
+  the measured block still reaches the step summary, and the job fails. The
+  `label_model` dispatch input picks the labeler's model. See
+  [qp-topic.md](qp-topic.md).
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
@@ -337,7 +360,8 @@ The mechanics:
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
   only on a PR to `main` whose head is not `staging` or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh, cert-backtest, and salience-replay PRs); on those
+  metrics-refresh, cert-backtest, and salience-replay PRs, and the qp-topic
+  labeling run's `qp-topics/refresh` PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).

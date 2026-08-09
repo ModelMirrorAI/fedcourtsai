@@ -18,8 +18,8 @@ silently declined rather than arbitrated. Declining costs recall, which the
 shadow check can afford; guessing costs precision, which is the only thing it
 has.
 
-Measured against the committed reference set's 189 labels (the labels are
-committed; their texts are corpus-only, read at corpus pointer ``0efacfd9…``, so
+Measured against the reference set's founding block (189 labels; the labels are
+committed, their texts are corpus-only, read at corpus pointer ``0efacfd9…``, so
 no test can pin the table below and this docstring is its whole record):
 
 ===================================  ======  =======  ==========================
@@ -31,9 +31,14 @@ Rule                                  fired  correct  in-sample precision (bound
 ``employment-and-antidiscrimination``     7        7  1.000
 ===================================  ======  =======  ==========================
 
-Jointly, exactly one rule fires on 36 of the 189 texts and is right on all 36;
-no text trips two rules, and each rule fires on every reference entry of its own
-label, so in-sample *recall* is likewise 1.000 and an equally weak bound.
+Jointly, exactly one rule fires on 36 of the 189 founding texts and is right on
+all 36; no founding text trips two rules, and each rule fires on every founding
+entry of its own label, so in-sample *recall* is likewise 1.000 and an equally
+weak bound. The reference supplement (164 texts these patterns were never tuned
+on) is the out-of-sample check, and it lands where the warning below predicts:
+32 firings, 23 in agreement — 71.9% — with ``firearms`` holding (12/13) and
+``tax``/``intellectual-property`` collapsing to 1/3 each on exactly the
+``taxpayer``-standing and trademark-speech contaminations named there.
 
 Read all of it as **bounds, not estimates**. The patterns were tuned on the same
 189 texts they are measured on; the labels they cover rest on 2 to 23 reference

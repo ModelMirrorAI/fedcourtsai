@@ -54,9 +54,16 @@ working set, not a public dataset.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
-reasoning text that explains them — and the hand-labeled qp-topic reference set
-(`docs/qp-topic.md`), our own subject-matter judgments keyed by case id and
-public-record docket number, republishing no source text. That reasoning may quote or summarize
+reasoning text that explains them — and the two qp-topic artifacts
+(`docs/qp-topic.md`), the hand-labeled reference set and a labeling run's
+per-case labels: subject-matter judgments keyed by case id and public-record
+docket number, republishing no source text. One **non-git** public channel is
+argued in the same place and nowhere else: the labeling run passes its extract
+of stored questions-presented text between its two jobs as a one-day GitHub
+Actions artifact, which on a public repository any logged-in user can download.
+That text is derived from petition PDFs fetched from supremecourt.gov — public
+records, outside the CC BY-ND term above — and the channel is accepted for that
+run alone, not as a route for corpus content generally. That reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction; it is original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain
