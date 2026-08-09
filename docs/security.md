@@ -518,7 +518,7 @@ a holder *enumerate* the ingested-set extent — the compilation extent, the sam
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
 bounded exception to that boundary covers exactly two committed artifacts, both
-argued and accepted in `docs/qp-topic.md` and nowhere else: the 189-row
+argued and accepted in `docs/qp-topic.md` and nowhere else: the
 hand-labeled qp-topic reference set, and a labeling run's per-case qp-topic
 labels file over the roughly 1,200 QP-bearing rows. Each names
 ingested-but-unpublished dockets by public docket number; the reference set's

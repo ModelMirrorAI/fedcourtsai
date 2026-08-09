@@ -3240,16 +3240,18 @@ class QpTopicTriangleRow(_Strict):
 
 
 class QpTopicAgreement(_Strict):
-    """A labeler's measured agreement with the ``qp-topic-v0`` reference rater.
+    """A labeler's measured agreement with the ``qp-topic-v0`` reference raters.
 
-    Every quantity here is **agreement with a single hand rater**, never
+    Every quantity here is **agreement with the reference raters**, never
     accuracy: reference error and labeler error cannot be separated, least of
-    all on the boundary labels, and a labeler of the reference rater's own model
-    family partly measures shared convention. The reference set's frame is
-    grant-enriched (``docs/qp-topic.md``), so these numbers certify the grant
-    stream and say nothing about the denial stream. Only reference entries the
-    labeler actually covered are compared; the rest are counted in
-    ``uncovered``.
+    all on the boundary labels, and a labeler of the reference raters' own
+    model family partly measures shared convention. The reference set's
+    two-block, outcome-stratified frame is disclosed in ``docs/qp-topic.md``;
+    the pooled rate here spans both streams, and the per-stream split is
+    derived at measurement review by joining the reference to the corpus's
+    dispositions — deliberately not carried in the committed artifacts. Only
+    reference entries the labeler actually covered are compared; the rest are
+    counted in ``uncovered``.
     """
 
     overall_agree: int = Field(ge=0, description="Compared entries where the two labels match")
