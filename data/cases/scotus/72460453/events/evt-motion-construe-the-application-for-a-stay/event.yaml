@@ -6,7 +6,9 @@ description: Motion to construe the application for a stay as a jurisdictional s
 docket_entry_id: 11
 event_id: evt-motion-construe-the-application-for-a-stay
 kind: motion
+moment: null
 opened_at: '2018-01-23'
-resolved: true
+resolved: false
 schema_version: '1.0'
+stage: null
 title: Robert A. Rucho, et al. v. Common Cause, et al.
