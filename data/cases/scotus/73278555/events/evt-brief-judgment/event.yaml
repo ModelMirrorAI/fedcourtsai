@@ -1,0 +1,14 @@
+case_id: scotus/73278555
+decision_target: judgment
+description: Disposition of the judgment below, forecast once both sides' merits briefs
+  are on the record.
+docket_entry_id: null
+event_id: evt-brief-judgment
+kind: brief
+moment: briefed
+opened_at: '2026-07-02'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee,
+  et al.
