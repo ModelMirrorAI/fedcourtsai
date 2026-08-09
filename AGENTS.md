@@ -315,7 +315,7 @@ task-specific instructions: the prompt file named in your run
 | Where does upstream data come from, and on what terms? | `docs/data-sources.md`, `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, and run mode built; the cut not) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; no labels artifact yet produced) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` |
 | How is a predicted outcome decomposed and scored? (mechanical cert + merits-judgment claims implemented; vote/writing pre-registered; the semantic family a wired-but-inert alpha) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; votes/margins pre-registered only) | `docs/decision-model.md` |

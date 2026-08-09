@@ -293,6 +293,12 @@ class GroupBy(StrEnum):
     ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
     (high / elevated / baseline) over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
+    ``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's
+    questions-presented text (``docs/qp-topic.md``) — distinct from ``topic``,
+    which is the corpus's upstream nature-of-suit column and empty on SCOTUS
+    rows. It is read from a labeler's artifact rather than off a corpus row, so
+    a section supplies its own key function for it and ``stats`` does not offer
+    it as a cut.
     """
 
     court = "court"
@@ -306,6 +312,7 @@ class GroupBy(StrEnum):
     cvsg = "cvsg"
     fee_class = "fee_class"
     salience_band = "salience_band"
+    qp_topic = "qp_topic"
 
 
 class UsageRole(StrEnum):
@@ -3465,6 +3472,13 @@ class StatPackSection(_Strict):
         "otherwise",
     )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
+    scope_note: str | None = Field(
+        default=None,
+        description="Scope the boolean flags above cannot express, appended verbatim to "
+        "the rendered scope line and carried here so a share quoted out of the JSON keeps "
+        "it. Where a population caveat is mandatory for a cut — the `qp-topic-v0` coverage "
+        "caveat, say — this is where it travels; None where the flags say everything",
+    )
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
 
@@ -4212,6 +4226,81 @@ class DocketPackTerm(_Strict):
     )
 
 
+class DocketPackQpTopics(_Strict):
+    """The question-presented topic distribution, inseparable from who labeled it.
+
+    A topic share is only readable beside the labeler that produced it and that
+    labeler's measured agreement with the ``qp-topic-v0`` reference rater, so the
+    two travel in one object rather than as a section a quotation can lift alone.
+    ``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,
+    reference error and labeler error cannot be separated, and the reference
+    frame is grant-enriched, so the figure certifies the grant stream only
+    (``docs/qp-topic.md``).
+
+    Three fields exist because the headline rate alone is unreadable. ``floor``
+    is what a constant labeler scores on the same entries — the distance from it
+    is the only part that is skill. ``uncovered`` is the reference entries the
+    labeler never labeled, so ``n`` is not mistaken for the whole reference set.
+    ``unmeasured_labels`` names the buckets whose per-label agreement is
+    unmeasured in v0 (under the reference support floor), so a row quoted from
+    the table is not read as certified by the headline figure.
+
+    ``section`` counts **primary labels only** — secondary labels and the vehicle
+    flag are unmeasured in v0 and appear in no published cut — over the labeled
+    cases alone, and its ``scope_note`` carries the coverage caveat every
+    published share must render beside it.
+    """
+
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the labels — the free-form actor string from the labels "
+        "artifact, so a quoted share names what produced it",
+    )
+    agree: int = Field(
+        ge=0,
+        description="Reference entries where the labeler matched the v0 reference rater — "
+        "agreement, not accuracy",
+    )
+    n: int = Field(
+        ge=0,
+        description="Reference entries the labeler covered and was compared on — the "
+        "denominator of `agree`, which is agreement, not accuracy",
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries. An "
+        "agreement rate is unreadable without it: on a sixteen-label vocabulary most of "
+        "the rate is the floor, and only the distance from it is skill",
+    )
+    uncovered: int = Field(
+        default=0,
+        ge=0,
+        description="Reference entries the labeler produced no label for, so `n` is not "
+        "read as the whole reference set",
+    )
+    labeled_cases: int = Field(
+        default=0, ge=0, description="Cases the labels artifact carries a primary label for"
+    )
+    matched_cases: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, the ones that joined a row in this section's population — the "
+        "cut's raw row count. Far below `labeled_cases` means the labels were produced "
+        "against a different corpus vintage, which reads as thin coverage unless both are here",
+    )
+    unmeasured_labels: list[QpTopicLabel] = Field(
+        default_factory=list,
+        description="Buckets whose per-label agreement is unmeasured in v0 — fewer reference "
+        "examples than the support floor, where one entry moves the ratio by tens of points. "
+        "The headline agreement certifies none of these rows",
+    )
+    section: StatPackSection = Field(
+        description="The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+    )
+
+
 class DocketPack(_Strict):
     """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
 
@@ -4259,6 +4348,12 @@ class DocketPack(_Strict):
         default_factory=list,
         description="Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), "
         "most recent Term first",
+    )
+    qp_topics: DocketPackQpTopics | None = Field(
+        default=None,
+        description="The question-presented topic distribution with its labeler provenance, "
+        "present only once a labels artifact exists; None while none has been produced, in "
+        "which case the rendered document names it among the gaps instead",
     )
 
 

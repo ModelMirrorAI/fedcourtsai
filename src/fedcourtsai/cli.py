@@ -169,7 +169,6 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
-    GroupBy,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -1121,7 +1120,7 @@ def qp_topics_cmd(
     thing standing between a drifted labeler and a published topic distribution.
     """
     settings = get_settings()
-    reference_path = settings.data_root / "qp-topics" / "qp-topic-reference.json"
+    reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
         raise typer.Exit(code=1)
@@ -1157,7 +1156,7 @@ def qp_topics_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    destination = out if out is not None else settings.data_root / "qp-topics" / "qp-topics.json"
+    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
     write_json(destination, artifact)
     typer.echo(f"qp-topics: gate passed -> {destination}")
 
@@ -1811,6 +1810,16 @@ def docket(
         Path | None,
         typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
     ] = None,
+    qp_topics_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--qp-topics",
+            exists=True,
+            help="QP-topic labels artifact backing the topic cut "
+            "(default: <data_root>/qp-topics/qp-topics.json, silently absent until a "
+            "labeler run lands; naming one that does not exist is an error).",
+        ),
+    ] = None,
 ) -> None:
     """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
 
@@ -1822,13 +1831,25 @@ def docket(
     interest in the models. Every cert cut is denial-reweighted, so its rates
     estimate the population rather than the walked sample, and each states its
     own denominator. Deterministic and
-    offline: a pure function of the corpus, so reruns reproduce both files byte
-    for byte. Writes the empty zero-count pack when the corpus is absent (run
-    after a corpus pull).
+    offline: a pure function of the corpus and, where one is on disk, the
+    ``qp-topic-v0`` labels artifact — so reruns over unchanged inputs reproduce
+    both files byte for byte. Writes the empty zero-count pack when the corpus is
+    absent (run after a corpus pull).
+
+    The question-presented topic cut renders only from a gate-passing
+    ``qp-topic-v0`` labels artifact, always beside its labeler and measured
+    agreement and always carrying the coverage caveat of ``docs/qp-topic.md``;
+    with none there, the document names the missing distribution among its gaps
+    instead. The **default** path is allowed to be absent — that is the standing
+    state until a labeler run lands — while a path named on the command line is
+    checked, so a typo cannot quietly publish the pack without its cut.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    pack = analytics.build_docket_pack(corpus_db_path=db_path)
+    labels = (
+        qp_topics_path if qp_topics_path is not None else qp_topics.labels_path(settings.data_root)
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels)
     json_dest = out if out is not None else settings.metrics_root / "docket.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
     write_json(json_dest, pack)
@@ -3401,11 +3422,13 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     group_by: Annotated[
         str,
         typer.Option(
-            # Rendered from the enum, not restated: a hand-kept list drifts
-            # silently every time a dimension lands, and `--help` is what a cell
-            # agent reads to discover the cuts it can ask for.
+            # Rendered from the accepted set, not restated: a hand-kept list
+            # drifts silently every time a dimension lands, and `--help` is what a
+            # cell agent reads to discover the cuts it can ask for. Dimensions
+            # keyed off an artifact rather than a corpus row are section-only and
+            # excluded, so nothing is offered that this command cannot compute.
             help="Break base-rates down by a dimension: "
-            + ", ".join(g.value for g in GroupBy)
+            + ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
             + ". Omit for the overall base rate only."
         ),
     ] = "",
@@ -3437,12 +3460,11 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         choices = ", ".join(d.value for d in Disposition)
         typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
         raise typer.Exit(code=2) from exc
-    try:
-        dimension = GroupBy(group_by) if group_by else None
-    except ValueError as exc:
-        choices = ", ".join(g.value for g in GroupBy)
+    dimension = next((g for g in analytics.STATS_DIMENSIONS if g.value == group_by), None)
+    if group_by and dimension is None:
+        choices = ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
         typer.echo(f"Unknown --group-by '{group_by}'; choose one of: {choices}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=2)
     try:
         parsed_from = date.fromisoformat(date_from) if date_from else None
         parsed_to = date.fromisoformat(date_to) if date_to else None

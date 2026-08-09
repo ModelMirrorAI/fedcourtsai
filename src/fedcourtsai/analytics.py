@@ -21,7 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -49,10 +49,12 @@ from .schemas import (
     Disposition,
     DispositionShare,
     DocketPack,
+    DocketPackQpTopics,
     DocketPackTerm,
     FeeClass,
     GroupBy,
     Judgment,
+    QpTopicLabels,
     StatPack,
     StatPackCoverage,
     StatPackInterim,
@@ -66,6 +68,7 @@ from .schemas import (
     StatPackTermVersionSegments,
     TimingStats,
 )
+from .serialize import read_model
 from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 
 if TYPE_CHECKING:
@@ -264,6 +267,16 @@ _KEY_FNS: dict[GroupBy, Callable[[CorpusRow], str | None]] = {
     GroupBy.fee_class: _fee_class_key,
     GroupBy.salience_band: _salience_band_key,
 }
+
+
+# The dimensions a key can be read off a corpus row for, so `fedcourts stats`
+# offers exactly the cuts it can compute. `judge` joins them by hand because it is
+# multi-valued and handled apart. A dimension whose keys come from an artifact
+# rather than a row — `qp_topic` — is a section dimension only, and advertising it
+# here would offer a `--group-by` the aggregation cannot serve.
+STATS_DIMENSIONS: Final[tuple[GroupBy, ...]] = tuple(
+    dimension for dimension in GroupBy if dimension is GroupBy.judge or dimension in _KEY_FNS
+)
 
 
 def _bucket_keys(row: CorpusRow, group_by: GroupBy) -> list[str]:
@@ -612,6 +625,65 @@ _DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
     _PETITIONS_BY_ORIGINATING_COURT_WEIGHTED,
     _CERT_BY_FEE_CLASS,
 )
+
+# The question-presented topic cut, which is not a module constant because its
+# buckets come from a labeler's artifact rather than a corpus column: the spec
+# closes over that run's label map, so it can only be built once the map is read.
+# It rides beside the cert cuts above under the same scope and the same
+# reweighting, narrowed to the labeled rows — an unlabeled petition is out of the
+# cut's population, not a `(none)` topic, because no one asked what it is about.
+_QP_TOPIC_TITLE = "Cert petitions by question-presented topic (`qp-topic-v0`)"
+
+
+def _qp_topic_spec(labels: QpTopicLabels) -> _SectionSpec:
+    """The QP-topic section spec for one labeler run's artifact.
+
+    Buckets on the **primary** label alone: ``docs/qp-topic.md`` holds secondary
+    labels and the vehicle flag out of every published cut while the reference set
+    leaves them unmeasured, and primaries-only is also what keeps a distribution
+    from summing past 100%. ``unclassifiable`` is a label like any other here — it
+    absorbs the extractor's edge failures, so dropping it would quietly inflate
+    every other share.
+    """
+    primaries = {entry.case_id: entry.label for entry in labels.entries}
+    return _SectionSpec(
+        _QP_TOPIC_TITLE,
+        "scotus",
+        True,
+        True,
+        True,
+        GroupBy.qp_topic,
+        key_fn=lambda row: primaries.get(row.case_id),
+        row_filter=lambda row: row.case_id in primaries,
+    )
+
+
+def _qp_topic_scope_note(rows: _SectionRows) -> str:
+    """The coverage caveat ``docs/qp-topic.md`` requires beside every published share.
+
+    Carried as a field on the section rather than as prose the renderer emits, so
+    the caveat survives a section lifted out of the JSON, and carried with real
+    numbers rather than as a standing sentence.
+
+    The mandated string leads and stays contiguous, so it is quotable whole. Its
+    two counts are **ingested rows** — rows on hand — not walked serials: this
+    document reserves *walked* for the discovery cursors' census, which runs
+    several-fold above the ingested count because the historical walk samples
+    denials. The clauses after it carry what the flags and that string leave
+    unsaid: which counts are raw and which reweighted, that reweighting does not
+    recover the docket, and that a grant-enriched population makes this section's
+    base-rate column incomparable to the cuts above it.
+    """
+    return (
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows; grant-enriched; "
+        "primaries only; not docket-representative. Those two counts are raw rows; the bucket "
+        "counts are denial-reweighted, and no reweighting recovers the docket — QP presence is "
+        "itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. "
+        "Coverage is uneven across Terms and zero on the earliest of them, so the mix is not "
+        "the whole slice's; the base-rate column is over a grant-enriched population and is not "
+        "comparable to the sections above. A naive share partly counts coordinated filing "
+        "campaigns rather than subjects; no de-duplicated companion is published."
+    )
 
 
 class _Slice:
@@ -1143,6 +1215,21 @@ def _term_entry(
     )
 
 
+class _SectionRows(NamedTuple):
+    """Raw row counts behind one section: its population, and what its filter kept.
+
+    Both count rows on hand, never reweighted estimates, and both are lost once a
+    weighted bucket is rolled up. A section scoped to a subset of its population —
+    the QP-topic cut, whose rows are the labeled ones — states its coverage as
+    ``kept`` of ``scoped``, which is a claim about how many petitions were read
+    and so cannot be made from an estimate. ``kept == scoped`` for a spec with no
+    ``row_filter``.
+    """
+
+    scoped: int
+    kept: int
+
+
 @dataclass(frozen=True)
 class _CorpusScan:
     """The counters one streamed pass over the corpus fills, for any published artifact.
@@ -1158,12 +1245,15 @@ class _CorpusScan:
     accumulators (keyed by application-Term year) and ``merits`` the
     granted-cohort accumulators (keyed by grant-Term year); only the statpack
     rolls either into a section — the docket pack ignores them by design.
+    ``section_rows`` holds the raw row counts behind each spec, which the
+    weighted buckets cannot be read back to.
     """
 
     specs: tuple[_SectionSpec, ...]
     overall: _Slice
     live_slice: _Slice
     sections: tuple[defaultdict[str, _Slice], ...]
+    section_rows: tuple[_SectionRows, ...]
     terms: dict[int, _TermAcc]
     interim: dict[int, _InterimAcc]
     merits: dict[int, _MeritsAcc]
@@ -1224,6 +1314,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
     # without reading a clock and stay a pure function of its input.
     corpus_through: date | None = None
     section_slices: tuple[defaultdict[str, _Slice], ...] = tuple(defaultdict(_Slice) for _ in specs)
+    scoped_rows = [0] * len(specs)
+    kept_rows = [0] * len(specs)
     term_accs: dict[int, _TermAcc] = {}
     interim_accs: dict[int, _InterimAcc] = {}
     merits_accs: dict[int, _MeritsAcc] = {}
@@ -1238,15 +1330,20 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
             row_is_live = corpus.is_live_slice(row)
             if row_is_live:
                 live_slice_totals.add(row)
-            for spec, slices in zip(specs, section_slices, strict=True):
+            for index, (spec, slices) in enumerate(zip(specs, section_slices, strict=True)):
                 if spec.court is not None and row.court != spec.court:
                     continue
                 if spec.live_slice and not row_is_live:
                     continue
                 if spec.cert_stage and not corpus.is_modern_cert(row):
                     continue
+                # Counted before the row filter: `scoped` is the section's whole
+                # population, the denominator a narrowed section states its
+                # coverage against.
+                scoped_rows[index] += 1
                 if spec.row_filter is not None and not spec.row_filter(row):
                     continue
+                kept_rows[index] += 1
                 keys = (
                     _bucket_keys(row, spec.group_by)
                     if spec.key_fn is None
@@ -1262,6 +1359,9 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
         overall=overall,
         live_slice=live_slice_totals,
         sections=section_slices,
+        section_rows=tuple(
+            _SectionRows(scoped, kept) for scoped, kept in zip(scoped_rows, kept_rows, strict=True)
+        ),
         terms=term_accs,
         interim=interim_accs,
         merits=merits_accs,
@@ -1388,7 +1488,7 @@ def _docket_term_entry(
     )
 
 
-def build_docket_pack(*, corpus_db_path: Path) -> DocketPack:
+def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = None) -> DocketPack:
     """Roll the corpus into the court-facing docket pack, or the empty pack if absent.
 
     The same streamed pass and the same section machinery as
@@ -1397,10 +1497,67 @@ def build_docket_pack(*, corpus_db_path: Path) -> DocketPack:
     census that pools the fee streams and drops the salience segments. Nothing
     here reads a prediction, an evaluation, or the leaderboard. Deterministic and
     offline, so reruns reproduce it byte for byte.
+
+    ``qp_topics_path`` names a ``qp-topic-v0`` labels artifact. A gate-passing one
+    adds the question-presented topic cut, carrying that run's labeler and measured
+    agreement; absent — no labeler has run — the pack omits the cut and the
+    rendered document names it among the gaps instead. ``gate_passed`` is re-read
+    here rather than assumed from the file's existence: ``fedcourts qp-topics``
+    declines to *write* a failing run, but the artifact records the flag either
+    way, and a hand-copied file is the case that flag exists for.
+
+    One further condition ``docs/qp-topic.md`` sets on publication is **not**
+    enforced here and cannot be: no cut may publish until the reference set's
+    denial- and GVR-stratified supplement block exists and is measured, which is a
+    property of the reference set that nothing in the labels artifact records. The
+    cell workflows also delete ``data/qp-topics/`` before an agent starts, so a
+    pack regenerated inside a cell's checkout omits the cut by construction rather
+    than by regression.
     """
+    # Read after the corpus check: the documented behaviour with no corpus is the
+    # empty pack, and a corrupt labels file must not turn that into an error.
     if not corpus_db_path.exists():
         return DocketPack(sections=_sections(_DOCKET_SECTIONS))
-    scan = _scan_corpus(corpus_db_path, _DOCKET_SECTIONS)
+    labels = (
+        read_model(qp_topics_path, QpTopicLabels)
+        if qp_topics_path is not None and qp_topics_path.is_file()
+        else None
+    )
+    if labels is not None and not labels.agreement.gate_passed:
+        labels = None
+    # The QP cut is appended last, so the scan's per-spec parallel arrays keep the
+    # docket sections at their own indices and the cut at the end.
+    specs = _DOCKET_SECTIONS if labels is None else (*_DOCKET_SECTIONS, _qp_topic_spec(labels))
+    scan = _scan_corpus(corpus_db_path, specs)
+    qp_topics: DocketPackQpTopics | None = None
+    if labels is None:
+        sections = _sections(specs, scan)
+    else:
+        *sections, qp_section = _sections(specs, scan)
+        rows = scan.section_rows[-1]
+        # A cut that matched no row publishes nothing: labels produced against a
+        # different corpus vintage would otherwise render an empty table *and*
+        # drop the gap bullet, which is the one state a reader most needs it in.
+        if rows.kept:
+            qp_topics = DocketPackQpTopics(
+                labeler=labels.labeler,
+                agree=labels.agreement.overall_agree,
+                n=labels.agreement.overall_n,
+                floor=labels.agreement.floor,
+                uncovered=labels.agreement.uncovered,
+                labeled_cases=labels.cases,
+                matched_cases=rows.kept,
+                # A rate the artifact withheld is a label the reference set cannot
+                # measure, so the bucket it names is uncertified by the headline
+                # figure — the one thing the table itself cannot show.
+                unmeasured_labels=[
+                    row.label for row in labels.agreement.per_label if row.rate is None
+                ],
+                # The scope note is set here rather than on the spec because its
+                # numbers are the scan's: how many rows carry a label is not known
+                # until the rows have been walked.
+                section=qp_section.model_copy(update={"scope_note": _qp_topic_scope_note(rows)}),
+            )
     census = _census(scan.cursor_rows)
     term_years = sorted({*scan.terms, *(term for term, _ in census)}, reverse=True)
     total = scan.overall.bucket("")
@@ -1416,8 +1573,9 @@ def build_docket_pack(*, corpus_db_path: Path) -> DocketPack:
             live_slice_resolved=live_total.resolved,
             census_filings=sum(census_values) if census_values else None,
         ),
-        sections=_sections(_DOCKET_SECTIONS, scan),
+        sections=sections,
         terms=[_docket_term_entry(year, scan.terms.get(year), census) for year in term_years],
+        qp_topics=qp_topics,
     )
 
 
@@ -1428,7 +1586,13 @@ _MARKDOWN_BUCKETS = 25
 
 
 def _scope_line(section: StatPackSection) -> str:
-    """The self-describing scope sentence under a section heading."""
+    """The self-describing scope sentence(s) under a section heading.
+
+    Composed from the section's own flags, then followed verbatim by
+    ``scope_note`` where the section carries one — the seam for scope the flags
+    cannot express, so a cut with a mandatory population caveat states it here
+    rather than in a renderer branch of its own.
+    """
     scope = "all courts" if section.court is None else section.court
     if section.cert_stage:
         scope += ", modern discretionary-cert dockets"
@@ -1438,7 +1602,10 @@ def _scope_line(section: StatPackSection) -> str:
         scope += "; includes the frozen bulk import"
     if section.weighted:
         scope += "; counts are denial-reweighted estimates"
-    return f"_Scope: {scope}._"
+    sentences = [f"Scope: {scope}."]
+    if section.scope_note is not None:
+        sentences.append(section.scope_note)
+    return "_" + " ".join(sentences) + "_"
 
 
 def _section_tables(sections: list[StatPackSection], *, sample_size: bool = False) -> list[str]:
@@ -1825,16 +1992,22 @@ _GVR_SPLIT_CAVEAT = (
 )
 
 
+# True only while no labels artifact exists; the cut closes the gap it names, so
+# the renderer drops this bullet when the pack carries one.
+_QP_TOPIC_GAP = (
+    "**What the petitions are about.** The claim taxonomy for this cut exists — "
+    "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no labeler has run "
+    "over the stored questions-presented texts, so the distribution is not yet "
+    "computed. When it is, it carries that vocabulary's coverage caveat: QP "
+    "presence is a document-fetch artifact, not a sample of the docket."
+)
+
 # The statistics a reader of a published court stat pack expects and this
 # artifact cannot yet compute. Named in the document rather than left as silent
 # gaps, so a citation is not read as a claim that the number is zero.
 _DOCKET_GAPS = (
     _GVR_SPLIT_CAVEAT,
-    "**What the petitions are about.** The claim taxonomy for this cut exists — "
-    + "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no labeler has run "
-    + "over the stored questions-presented texts, so the distribution is not yet "
-    + "computed. When it is, it carries that vocabulary's coverage caveat: QP "
-    + "presence is a document-fetch artifact, not a sample of the docket.",
+    _QP_TOPIC_GAP,
     "**Summary reversals are not broken out.** The disposition vocabulary carries "
     + "a label for them, but no resolver rule reads one off an order, so none is "
     + "produced and a summary reversal is counted inside the grant family above "
@@ -1849,6 +2022,44 @@ _DOCKET_GAPS = (
 )
 
 
+def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
+    """The lines that make the topic table's numbers readable, under the table.
+
+    Three claims a share cannot be quoted without. The agreement figure never
+    appears without its ``n``, without the rate a **constant** labeler scores on
+    the same entries — on a sixteen-label vocabulary most of any rate is that
+    floor, and only the distance from it is skill — or without the word
+    *agreement*, since with a single hand rater accuracy is not what was measured.
+    The join count separates thin coverage from a labels file produced against a
+    different corpus vintage, which look identical in the coverage figure. And the
+    labels the reference set cannot measure are named, because the headline rate
+    certifies none of those rows.
+    """
+    floor = "unmeasured" if topics.floor is None else _pct(topics.floor)
+    rate = _pct(topics.agree / topics.n) if topics.n else "—"
+    lines = [
+        "",
+        f"_Labeled by {topics.labeler}, whose primaries matched the `qp-topic-v0` reference "
+        + f"rater on {topics.agree} of {topics.n} reference case(s) ({rate}), against the "
+        + f"{floor} a constant labeler scores on the same entries — **agreement, not "
+        + "accuracy**: with a single hand rater, rater error and labeler error cannot be "
+        + "separated, and the reference frame is grant-enriched, so the figure certifies the "
+        + f"grant stream only. {topics.uncovered} reference entr(ies) went uncovered. "
+        + f"{topics.matched_cases} of {topics.labeled_cases} labeled case(s) joined a row in "
+        + "this section's population; far apart, read that as labels produced against another "
+        + "corpus vintage rather than as thin coverage._",
+    ]
+    if topics.unmeasured_labels:
+        lines += [
+            "",
+            "_Per-label agreement is **unmeasured in v0** for "
+            + ", ".join(f"`{label}`" for label in topics.unmeasured_labels)
+            + " — fewer reference examples than the support floor, where one entry moves the "
+            + "ratio by tens of points. The figure above certifies none of those rows._",
+        ]
+    return lines
+
+
 def render_docket_markdown(pack: DocketPack) -> str:
     """Render a :class:`DocketPack` as a publishable Markdown document.
 
@@ -1856,8 +2067,13 @@ def render_docket_markdown(pack: DocketPack) -> str:
     reader who does not care how well this project's models forecast the Court
     should still be able to read and cite every figure in it. Then the coverage
     denominators, a how-to-read note covering the denial reweighting, one table
-    per docket-composition breakdown, the per-Term census, and the named gaps.
+    per docket-composition breakdown, the question-presented topic cut where the
+    pack carries one, the per-Term census, and the named gaps.
     Deterministic; safe on the empty pack (renders a one-line note).
+
+    The topic cut and the gap bullet naming its absence are mutually exclusive:
+    the bullet says no labeler has run, which stops being true exactly when the
+    cut renders.
 
     Every Term is rendered rather than capped. The statpack's cap bounds what the
     predict/evaluate prompts point agents at; this document is not that surface,
@@ -1942,6 +2158,9 @@ def render_docket_markdown(pack: DocketPack) -> str:
         + "parsed* rather than *did not happen*.",
     ]
     lines += _section_tables(pack.sections, sample_size=True)
+    if pack.qp_topics is not None:
+        lines += _section_tables([pack.qp_topics.section], sample_size=True)
+        lines += _qp_topic_provenance(pack.qp_topics)
     if pack.terms:
         lines += [
             "",
@@ -1991,7 +2210,9 @@ def render_docket_markdown(pack: DocketPack) -> str:
             ),
         ]
     lines += ["", "## Not yet included", ""]
-    lines += [f"- {gap}" for gap in _DOCKET_GAPS]
+    lines += [
+        f"- {gap}" for gap in _DOCKET_GAPS if pack.qp_topics is None or gap is not _QP_TOPIC_GAP
+    ]
     return "\n".join(lines) + "\n"
 
 
