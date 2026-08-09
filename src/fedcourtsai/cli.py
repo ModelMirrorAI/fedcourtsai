@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import sys
 import tempfile
 import time
@@ -19,6 +20,7 @@ from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
+from urllib.parse import quote
 
 import typer
 from pydantic import BaseModel, ValidationError
@@ -126,7 +128,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe, moments
+from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.cascade import CascadeError, run_cascade
@@ -176,6 +178,7 @@ from .schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    QpTopicReference,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -988,6 +991,175 @@ def scope_manifest_cmd(
         f"scope-manifest: {manifest.cases} public case(s), {manifest.eligible} eligible, "
         f"{manifest.excluded} excluded -> {destination}"
     )
+
+
+def _work_tree_root() -> Path | None:
+    """The git work tree the process is running in, or ``None`` outside one.
+
+    Walks up for the ``.git`` entry — a directory in a normal clone, a file in a
+    linked worktree — so a caller cannot land a never-commit working file in the
+    checkout by aiming outside ``data/``.
+    """
+    here = Path.cwd().resolve()
+    for candidate in (here, *here.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+@app.command("qp-corpus")
+def qp_corpus(
+    out: Annotated[Path, typer.Option(help="JSON output path for the extracted texts.")],
+    corpus_db: Annotated[
+        Path | None,
+        typer.Option("--corpus", help="Corpus database (default: <corpus_root>/corpus.db)."),
+    ] = None,
+) -> None:
+    """Extract the stored ``questions-presented`` texts a topic labeler reads.
+
+    Writes a JSON list of ``{case_id, docket_number, text}`` in ``case_id``
+    order — the whole input a ``qp-topic-v0`` labeler is entitled to, since the
+    vocabulary is text-only (``docs/qp-topic.md``): no docket context, no case
+    name, no outcome, so a label can never encode a decision the text predates.
+    Opens the corpus strictly read-only and never migrates it, so it is safe to
+    run against a pulled blob. A row whose case carries no docket number, or
+    whose stored text is empty, is skipped and counted rather than guessed at —
+    the docket number is half the key the reference join is checked on, and an
+    empty extraction is nothing to label. The extract is a working file for one
+    labeler run, **never a committed artifact**: it enumerates the ingested
+    corpus and republishes stored petition text, neither of which any committed
+    surface does, so writing it anywhere inside the work tree is refused
+    outright rather than left to reviewer attention — an untracked file in the
+    checkout is one ``git add -A`` from being committed.
+    """
+    settings = get_settings()
+    destination = out.resolve()
+    for boundary in (_work_tree_root(), settings.data_root.resolve()):
+        if boundary is not None and (destination == boundary or boundary in destination.parents):
+            typer.echo(
+                f"qp-corpus: refusing to write the extract inside the checkout ({boundary}); "
+                "it republishes stored petition text and enumerates the ingested corpus",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.is_file():
+        typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
+        raise typer.Exit(code=1)
+    rows: list[dict[str, str]] = []
+    skipped = 0
+    conn = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro&immutable=1", uri=True)
+    try:
+        cursor = conn.execute(
+            "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
+            "LEFT JOIN cases AS c ON c.case_id = d.case_id "
+            "WHERE d.kind = 'questions-presented'"
+        )
+        for case_id, docket_number, text in cursor:
+            if not (docket_number or "").strip() or not (text or "").strip():
+                skipped += 1
+                continue
+            rows.append({"case_id": case_id, "docket_number": docket_number, "text": text})
+    except sqlite3.OperationalError as exc:
+        typer.echo(f"qp-corpus: cannot read stored documents from {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    finally:
+        conn.close()
+    if not rows:
+        # An empty extract is a mis-wired run, never a labeling task: the blob
+        # carries no document text (a payload-free index, or a split-mode blob
+        # whose texts live in the content store), so exiting 0 here would hand a
+        # labeler an empty file and call it done.
+        typer.echo(
+            f"qp-corpus: no question-presented text in {db_path} "
+            f"({skipped} row(s) skipped) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    rows.sort(key=lambda row: row["case_id"])
+    write_raw_json(out, rows)
+    if skipped:
+        typer.echo(
+            f"qp-corpus: skipped {skipped} row(s) with no docket number or no text", err=True
+        )
+    typer.echo(f"qp-corpus: {len(rows)} question(s) presented -> {out}")
+
+
+@app.command("qp-topics")
+def qp_topics_cmd(
+    labels: Annotated[
+        Path,
+        typer.Option(exists=True, help="Labeler's JSONL: one object per labeled text."),
+    ],
+    texts: Annotated[
+        Path,
+        typer.Option(exists=True, help="The `qp-corpus` extract, for the shadow pass."),
+    ],
+    labeler: Annotated[
+        str, typer.Option(help="Who assigned the labels — engine and model, free-form.")
+    ],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
+    ] = None,
+) -> None:
+    """Measure a topic labeler against the reference set and write its labels artifact.
+
+    Reads the labeler's JSONL intermediate, validates every label against the
+    ``qp-topic-v0`` vocabulary, joins it to the hand reference set on ``case_id``
+    **and** ``docket_number`` — a pair that half-matches is a mis-join and stops
+    the run rather than measuring one case's label against another's text — and
+    records the resulting agreement, the triangle confusion matrix, and the
+    shadow rules' disagreement rate. What comes out is agreement with a single
+    v0 reference rater, not accuracy (``docs/qp-topic.md``).
+
+    Below the publication gate the artifact is **not written**: the measured rate
+    is printed and the command exits non-zero. The gate takes two conditions —
+    the agreement rate, and how much of the reference set the run actually
+    covered, since a high rate over a handful of self-chosen entries measures
+    nothing. There is no override flag for either, because the gate is the only
+    thing standing between a drifted labeler and a published topic distribution.
+    """
+    settings = get_settings()
+    reference_path = settings.data_root / "qp-topics" / "qp-topic-reference.json"
+    if not reference_path.is_file():
+        typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        artifact = qp_topics.build_labels(
+            entries=qp_topics.read_label_lines(labels),
+            texts=qp_topics.read_texts(texts),
+            reference=read_model(reference_path, QpTopicReference),
+            labeler=labeler,
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-topics: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"qp-topics: {artifact.cases} labeled case(s) by {artifact.labeler}")
+    typer.echo(qp_topics.render_agreement(artifact.agreement))
+    typer.echo(
+        f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "
+        f"{artifact.shadow.fired} rule firing(s) over {artifact.shadow.texts} text(s) — "
+        "the rules are unmeasured off the reference set, so only the movement between "
+        "runs of one labeler reads"
+    )
+    if not artifact.agreement.gate_passed:
+        agreement = artifact.agreement
+        rate = agreement.overall_rate
+        measured = "nothing measured" if rate is None else f"{rate:.1%}"
+        reference_cases = agreement.overall_n + agreement.uncovered
+        covered = agreement.overall_n / reference_cases if reference_cases else 0.0
+        typer.echo(
+            f"qp-topics: refusing to write — agreement {measured} of n={agreement.overall_n} "
+            f"against the {qp_topics.AGREEMENT_GATE:.0%} publication gate, over "
+            f"{covered:.1%} of the reference set against a {qp_topics.COVERAGE_FLOOR:.0%} "
+            "coverage floor",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    destination = out if out is not None else settings.data_root / "qp-topics" / "qp-topics.json"
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
 
 
 @app.command("corpus-status")

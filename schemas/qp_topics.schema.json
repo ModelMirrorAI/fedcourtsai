@@ -1,0 +1,378 @@
+{
+  "$defs": {
+    "QpTopicAgreement": {
+      "additionalProperties": false,
+      "description": "A labeler's measured agreement with the ``qp-topic-v0`` reference rater.\n\nEvery quantity here is **agreement with a single hand rater**, never\naccuracy: reference error and labeler error cannot be separated, least of\nall on the boundary labels, and a labeler of the reference rater's own model\nfamily partly measures shared convention. The reference set's frame is\ngrant-enriched (``docs/qp-topic.md``), so these numbers certify the grant\nstream and say nothing about the denial stream. Only reference entries the\nlabeler actually covered are compared; the rest are counted in\n``uncovered``.",
+      "properties": {
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler would score on the same compared entries \u2014 the largest reference class's share. An agreement rate is unreadable without it; the distance from it is the only part that is skill",
+          "title": "Floor"
+        },
+        "gate_passed": {
+          "description": "Overall agreement reached the publication gate **and** the run covered enough of the reference set to have measured the stream; failing either, a labeler publishes nothing",
+          "title": "Gate Passed",
+          "type": "boolean"
+        },
+        "overall_agree": {
+          "description": "Compared entries where the two labels match",
+          "minimum": 0,
+          "title": "Overall Agree",
+          "type": "integer"
+        },
+        "overall_n": {
+          "description": "Reference entries the labeler covered and compared",
+          "minimum": 0,
+          "title": "Overall N",
+          "type": "integer"
+        },
+        "overall_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "overall_agree / overall_n \u2014 agreement with the v0 reference rater, not accuracy. Null when nothing was compared",
+          "title": "Overall Rate"
+        },
+        "per_label": {
+          "description": "Per-reference-label agreement, floor-gated, in the vocabulary's own alphabetical order",
+          "items": {
+            "$ref": "#/$defs/QpTopicLabelAgreement"
+          },
+          "title": "Per Label",
+          "type": "array"
+        },
+        "triangle": {
+          "description": "The 3x3 confusion matrix on the constitutional-rights / criminal-law / civil-procedure triangle, one row per reference label",
+          "items": {
+            "$ref": "#/$defs/QpTopicTriangleRow"
+          },
+          "title": "Triangle",
+          "type": "array"
+        },
+        "uncovered": {
+          "description": "Reference entries the labeler produced no label for, so unmeasured",
+          "minimum": 0,
+          "title": "Uncovered",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "overall_agree",
+        "overall_n",
+        "uncovered",
+        "gate_passed"
+      ],
+      "title": "QpTopicAgreement",
+      "type": "object"
+    },
+    "QpTopicLabelAgreement": {
+      "additionalProperties": false,
+      "description": "One label's agreement between a labeler and the v0 reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
+      "properties": {
+        "agree": {
+          "description": "Compared entries where the labeler assigned this label",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "label": {
+          "description": "The reference label this row counts",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "n": {
+          "description": "Compared reference entries carrying this label",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "agree / n \u2014 agreement with the v0 reference rater, not accuracy. Null below the support floor, where the label is unmeasured in v0",
+          "title": "Rate"
+        }
+      },
+      "required": [
+        "label",
+        "agree",
+        "n"
+      ],
+      "title": "QpTopicLabelAgreement",
+      "type": "object"
+    },
+    "QpTopicLabelEntry": {
+      "additionalProperties": false,
+      "description": "One labeled question-presented text: a case, its primary topic, and its optional facets.\n\n``secondary`` and ``vehicle`` are recorded but **unpublishable in v0**: the\nreference set carries primaries only, so neither facet has a measured\nagreement, and ``docs/qp-topic.md`` holds both out of every published cut\nuntil a reference block exercises them. They are written here so the\njudgment survives the run that made it, not so a cut can count them.",
+      "properties": {
+        "case_id": {
+          "description": "Canonical ``<court>/<docket>`` id \u2014 joins the corpus row and ``data/cases``",
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "docket_number": {
+          "description": "The Court's own docket number (e.g. ``25-52``) \u2014 the second half of the key pair the extract and reference joins are checked against",
+          "minLength": 1,
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "label": {
+          "description": "The primary ``qp-topic-v0`` label: mandatory, single, and the only field any published count sums over",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "enum": [
+                "administrative-law-and-benefit-programs",
+                "business-and-financial-regulation",
+                "civil-procedure",
+                "constitutional-rights",
+                "criminal-law",
+                "election-law",
+                "employment-and-antidiscrimination",
+                "environment-energy-and-property",
+                "firearms",
+                "first-amendment",
+                "habeas-and-postconviction",
+                "immigration",
+                "intellectual-property",
+                "sovereignty-and-foreign-relations",
+                "tax",
+                "unclassifiable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An advisory second subject for a smuggled question \u2014 never counted, and unpublishable in v0",
+          "title": "Secondary"
+        },
+        "vehicle": {
+          "default": false,
+          "description": "The petition asks for a GVR in light of a named decision; the label is the underlying subject. Recorded, unpublishable in v0",
+          "title": "Vehicle",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "docket_number",
+        "label"
+      ],
+      "title": "QpTopicLabelEntry",
+      "type": "object"
+    },
+    "QpTopicShadow": {
+      "additionalProperties": false,
+      "description": "The deterministic shadow rules' standing disagreement with the agent labeler.\n\nThe rules publish nothing and pre-empt nothing: they are a regression\ntrip-wire, so a drifting labeler shows up as a moving disagreement rate\nbefore it shows up in a published cut. **Only the movement is readable, not\nthe level**: the rules' precision was measured on the reference set and is\nunmeasured on the labeled stream, which is denial-heavy where the reference\nset is grant-enriched \u2014 so a disagreement here is as likely a rule being\nwrong as a labeler being wrong. Compare a run only against another run of the\nsame labeler over the same extract.\n\n``texts`` is the denominator that makes ``fired`` readable: without it a run\nwhose extract covered nothing reports the same clean zeros as a run no rule\nhappened to fire on.",
+      "properties": {
+        "disagreements": {
+          "description": "Of those, texts where the agent label differs from the rule's label",
+          "minimum": 0,
+          "title": "Disagreements",
+          "type": "integer"
+        },
+        "fired": {
+          "description": "Of those, texts exactly one shadow rule fired on",
+          "minimum": 0,
+          "title": "Fired",
+          "type": "integer"
+        },
+        "texts": {
+          "description": "Labeled cases the extract supplied a text for \u2014 the rules' denominator",
+          "minimum": 0,
+          "title": "Texts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "texts",
+        "fired",
+        "disagreements"
+      ],
+      "title": "QpTopicShadow",
+      "type": "object"
+    },
+    "QpTopicTriangleRow": {
+      "additionalProperties": false,
+      "description": "One row of the ``constitutional-rights`` / ``criminal-law`` / ``civil-procedure`` matrix.\n\nThe row is a reference label; ``counts`` are the labeler's assignments over\nthe same three labels in that fixed order, so ``counts[i]`` of the row for\nlabel *i* is the diagonal. A labeler label from outside the triangle lands\nin ``other``, which keeps every row summing to ``n`` without widening the\nmatrix past the three labels whose boundaries are the error sink.",
+      "properties": {
+        "counts": {
+          "description": "Labeler assignments in the fixed order constitutional-rights, criminal-law, civil-procedure",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Counts",
+          "type": "array"
+        },
+        "n": {
+          "description": "Compared reference entries carrying this row's label",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Compared entries the labeler placed outside the three triangle labels",
+          "minimum": 0,
+          "title": "Other",
+          "type": "integer"
+        },
+        "reference": {
+          "description": "The reference label this row counts",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference",
+        "counts",
+        "other",
+        "n"
+      ],
+      "title": "QpTopicTriangleRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/qp-topics/qp-topics.json`` \u2014 one labeler run's ``qp-topic-v0`` labels.\n\nThe primary label for every question-presented text the labeler read,\nassigned from that text alone, carrying its own measurement: agreement with\nthe hand reference set, the triangle confusion matrix, and the shadow rules'\ndisagreement rate. The artifact is written only when the agreement gate\npasses, so a labels file on disk is one whose measurement is on the record\nbeside it. Labels here are a corpus description, not a prediction claim, and\nnothing frozen reads them. Every published cut drawn from this file carries\nthe coverage caveat in ``docs/qp-topic.md``, and neither ``secondary`` nor\n``vehicle`` may appear in one while the reference set leaves them unmeasured.\n\n``gate_passed`` is necessary and **not sufficient** for publication: the\nreference set's frame certifies the grant stream only, and ``docs/qp-topic.md``\nbars every cut until a denial- and GVR-stratified supplement block exists and\nis measured. A cut-builder that reads no further than this file will publish\ntoo early.",
+  "properties": {
+    "agreement": {
+      "$ref": "#/$defs/QpTopicAgreement",
+      "description": "This run's measured agreement with the v0 reference rater"
+    },
+    "cases": {
+      "default": 0,
+      "description": "Number of labeled cases (== len(entries))",
+      "minimum": 0,
+      "title": "Cases",
+      "type": "integer"
+    },
+    "entries": {
+      "description": "One entry per labeled case, in case_id order",
+      "items": {
+        "$ref": "#/$defs/QpTopicLabelEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "labeler": {
+      "description": "Who assigned the labels \u2014 a free-form actor string (engine and model), so a measured agreement is attributable to what produced it",
+      "minLength": 1,
+      "title": "Labeler",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "shadow": {
+      "$ref": "#/$defs/QpTopicShadow",
+      "description": "The deterministic shadow rules' firing and disagreement counts"
+    },
+    "vocabulary": {
+      "const": "qp-topic-v0",
+      "default": "qp-topic-v0",
+      "description": "The label vocabulary every entry draws from",
+      "title": "Vocabulary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "labeler",
+    "agreement",
+    "shadow"
+  ],
+  "title": "QpTopicLabels",
+  "type": "object"
+}
