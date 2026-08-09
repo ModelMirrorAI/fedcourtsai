@@ -352,6 +352,15 @@ jobs:
           fi
           echo "agent env is credential-free"
 
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
+      # the prompts forbid cells from reading it. Deleting it leaves the agent's
+      # working tree nothing to read; deliberate access through git history
+      # stays covered by the prompt prohibition and the logged-tool-call audit.
+      # The collect union only copies cell output, so the deletion never
+      # propagates.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
+
       - name: Predict with Claude Code
         id: predict_claude
         if: matrix.engine == 'claude-code'

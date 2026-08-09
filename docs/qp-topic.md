@@ -188,7 +188,10 @@ precise rules, **selected post hoc from the same data** (`firearms`,
 fired on 39 with 36 correct (92.3%). All of these are in-sample,
 post-selection figures — bounds on out-of-sample behaviour, not estimates of
 it — and three of the four precise rules rest on ≤7 reference positives
-(`tax`: 2), where a single error moves the rate by tens of points.
+(`tax`: 2), where a single error moves the rate by tens of points. The landed
+shadow rules are a re-derivation, not the originals: against the committed
+set they fire on 36 of 189, all in agreement, and
+`fedcourtsai.pipeline.qp_topics` carries their per-rule table.
 
 Those four rules' declared role is a **shadow check only**: they publish
 nothing and pre-empt nothing; their disagreement rate with the agent labeler
@@ -222,7 +225,9 @@ Three consequences bind every use of the set:
   committed, so it is in every cell's checkout: for that reason **no predict
   or evaluate cell may read anything under `data/qp-topics/`** — the cell
   prompts state the prohibition, and any read of the path in a cell's logged
-  tool calls is a flaggable leakage event on audit.
+  tool calls is a flaggable leakage event on audit. The cell workflows also
+  delete the directory before an agent starts, so in a cell's working tree
+  there is nothing to read.
 - **The set enumerates ingested-but-unpublished dockets, deliberately.** 188
   of the 189 case ids have no directory under `data/cases`, so this artifact
   is a stated exception to the boundary that committed surfaces do not
@@ -249,8 +254,10 @@ instruments are: overall agreement with `n=`, per-label agreement with `n=`
 themselves. The honest ceiling instrument, recommended before the first cut
 publishes, is a blind re-label of the triangle cases reported as a
 self-agreement rate. The publication gate: a labeler whose overall agreement
-on the measured stream is below **80%**, or whose triangle confusion matrix is
-unpublished, publishes nothing.
+on the measured stream is below **80%**, which labeled fewer than **90%** of
+the reference cases in its extract, or whose triangle confusion matrix is
+unpublished, publishes nothing — `fedcourts qp-topics` enforces the first two
+mechanically and refuses to write.
 
 **The bounds that matter** are boundary agreements, not the overall rate: the
 triangle (n=78), criminal vs habeas (n=47 combined), criminal vs immigration

@@ -215,6 +215,14 @@ jobs:
         with:
           persist-credentials: false
 
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
+      # every workflow that starts an agent deletes it first; the engine-smoke
+      # scenario runs real cells and is the freshness evidence for cell
+      # behaviour, so it must reproduce the cell environment it certifies.
+      # Elsewhere in the matrix the step is a harmless no-op.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
+
       - uses: ./.github/actions/setup-python-env
 
       # --- ranged-reads: the fixed read set against the blob in place --------
