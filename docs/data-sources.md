@@ -54,7 +54,9 @@ working set, not a public dataset.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
-reasoning text that explains them. That reasoning may quote or summarize
+reasoning text that explains them — and the hand-labeled qp-topic reference set
+(`docs/qp-topic.md`), our own subject-matter judgments keyed by case id and
+public-record docket number, republishing no source text. That reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction; it is original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain
