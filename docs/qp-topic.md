@@ -33,9 +33,13 @@ The trip-wire: the moment a *cell* prompt asks an agent for a topic label, that
 prompt's digest moves and this stops being a free-moving vocabulary — that is a
 version bump and its own review, not an edit to this document.
 
-Of the machinery this document contracts for, only the vocabulary and the
-reference set exist: the labeler, the shadow rules, and any published cut are
-declared here and not yet built.
+Of the machinery this document contracts for, the vocabulary, the reference set,
+and the labeler machinery exist: the labeling prompt
+(`.github/prompts/qp-topic-label.md`), the extract and measurement commands
+(`fedcourts qp-corpus` / `fedcourts qp-topics`), and the shadow rules
+(`fedcourtsai.pipeline.qp_topics`). No run mode dispatches the labeler, no labels
+artifact has been produced, and no cut is published: those are declared here and
+not yet built.
 
 ## The register
 

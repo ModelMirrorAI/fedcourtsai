@@ -3160,6 +3160,213 @@ class QpTopicReference(_Strict):
         return self
 
 
+class QpTopicLabelEntry(_Strict):
+    """One labeled question-presented text: a case, its primary topic, and its optional facets.
+
+    ``secondary`` and ``vehicle`` are recorded but **unpublishable in v0**: the
+    reference set carries primaries only, so neither facet has a measured
+    agreement, and ``docs/qp-topic.md`` holds both out of every published cut
+    until a reference block exercises them. They are written here so the
+    judgment survives the run that made it, not so a cut can count them.
+    """
+
+    case_id: str = Field(
+        min_length=1,
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and ``data/cases``",
+    )
+    docket_number: str = Field(
+        min_length=1,
+        description="The Court's own docket number (e.g. ``25-52``) — the second half of the "
+        "key pair the extract and reference joins are checked against",
+    )
+    label: QpTopicLabel = Field(
+        description="The primary ``qp-topic-v0`` label: mandatory, single, and the only "
+        "field any published count sums over"
+    )
+    secondary: QpTopicLabel | None = Field(
+        default=None,
+        description="An advisory second subject for a smuggled question — never counted, "
+        "and unpublishable in v0",
+    )
+    vehicle: bool = Field(
+        default=False,
+        description="The petition asks for a GVR in light of a named decision; the label is "
+        "the underlying subject. Recorded, unpublishable in v0",
+    )
+
+
+class QpTopicLabelAgreement(_Strict):
+    """One label's agreement between a labeler and the v0 reference rater.
+
+    Counted over the reference entries carrying this label, so ``n`` is the
+    *reference* support, not the labeler's. ``rate`` is withheld below the
+    per-label support floor: under it the count is reported and the ratio is
+    not, because a single entry moves it by tens of points.
+    """
+
+    label: QpTopicLabel = Field(description="The reference label this row counts")
+    agree: int = Field(ge=0, description="Compared entries where the labeler assigned this label")
+    n: int = Field(ge=0, description="Compared reference entries carrying this label")
+    rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="agree / n — agreement with the v0 reference rater, not accuracy. Null "
+        "below the support floor, where the label is unmeasured in v0",
+    )
+
+
+class QpTopicTriangleRow(_Strict):
+    """One row of the ``constitutional-rights`` / ``criminal-law`` / ``civil-procedure`` matrix.
+
+    The row is a reference label; ``counts`` are the labeler's assignments over
+    the same three labels in that fixed order, so ``counts[i]`` of the row for
+    label *i* is the diagonal. A labeler label from outside the triangle lands
+    in ``other``, which keeps every row summing to ``n`` without widening the
+    matrix past the three labels whose boundaries are the error sink.
+    """
+
+    reference: QpTopicLabel = Field(description="The reference label this row counts")
+    counts: list[int] = Field(
+        min_length=3,
+        max_length=3,
+        description="Labeler assignments in the fixed order constitutional-rights, "
+        "criminal-law, civil-procedure",
+    )
+    other: int = Field(
+        ge=0, description="Compared entries the labeler placed outside the three triangle labels"
+    )
+    n: int = Field(ge=0, description="Compared reference entries carrying this row's label")
+
+
+class QpTopicAgreement(_Strict):
+    """A labeler's measured agreement with the ``qp-topic-v0`` reference rater.
+
+    Every quantity here is **agreement with a single hand rater**, never
+    accuracy: reference error and labeler error cannot be separated, least of
+    all on the boundary labels, and a labeler of the reference rater's own model
+    family partly measures shared convention. The reference set's frame is
+    grant-enriched (``docs/qp-topic.md``), so these numbers certify the grant
+    stream and say nothing about the denial stream. Only reference entries the
+    labeler actually covered are compared; the rest are counted in
+    ``uncovered``.
+    """
+
+    overall_agree: int = Field(ge=0, description="Compared entries where the two labels match")
+    overall_n: int = Field(ge=0, description="Reference entries the labeler covered and compared")
+    overall_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="overall_agree / overall_n — agreement with the v0 reference rater, not "
+        "accuracy. Null when nothing was compared",
+    )
+    uncovered: int = Field(
+        ge=0, description="Reference entries the labeler produced no label for, so unmeasured"
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler would score on the same compared entries — the "
+        "largest reference class's share. An agreement rate is unreadable without it; the "
+        "distance from it is the only part that is skill",
+    )
+    per_label: list[QpTopicLabelAgreement] = Field(
+        default_factory=list,
+        description="Per-reference-label agreement, floor-gated, in the vocabulary's own "
+        "alphabetical order",
+    )
+    triangle: list[QpTopicTriangleRow] = Field(
+        default_factory=list,
+        description="The 3x3 confusion matrix on the constitutional-rights / criminal-law / "
+        "civil-procedure triangle, one row per reference label",
+    )
+    gate_passed: bool = Field(
+        description="Overall agreement reached the publication gate **and** the run covered "
+        "enough of the reference set to have measured the stream; failing either, a "
+        "labeler publishes nothing"
+    )
+
+
+class QpTopicShadow(_Strict):
+    """The deterministic shadow rules' standing disagreement with the agent labeler.
+
+    The rules publish nothing and pre-empt nothing: they are a regression
+    trip-wire, so a drifting labeler shows up as a moving disagreement rate
+    before it shows up in a published cut. **Only the movement is readable, not
+    the level**: the rules' precision was measured on the reference set and is
+    unmeasured on the labeled stream, which is denial-heavy where the reference
+    set is grant-enriched — so a disagreement here is as likely a rule being
+    wrong as a labeler being wrong. Compare a run only against another run of the
+    same labeler over the same extract.
+
+    ``texts`` is the denominator that makes ``fired`` readable: without it a run
+    whose extract covered nothing reports the same clean zeros as a run no rule
+    happened to fire on.
+    """
+
+    texts: int = Field(
+        ge=0, description="Labeled cases the extract supplied a text for — the rules' denominator"
+    )
+    fired: int = Field(ge=0, description="Of those, texts exactly one shadow rule fired on")
+    disagreements: int = Field(
+        ge=0, description="Of those, texts where the agent label differs from the rule's label"
+    )
+
+
+class QpTopicLabels(_Strict):
+    """``data/qp-topics/qp-topics.json`` — one labeler run's ``qp-topic-v0`` labels.
+
+    The primary label for every question-presented text the labeler read,
+    assigned from that text alone, carrying its own measurement: agreement with
+    the hand reference set, the triangle confusion matrix, and the shadow rules'
+    disagreement rate. The artifact is written only when the agreement gate
+    passes, so a labels file on disk is one whose measurement is on the record
+    beside it. Labels here are a corpus description, not a prediction claim, and
+    nothing frozen reads them. Every published cut drawn from this file carries
+    the coverage caveat in ``docs/qp-topic.md``, and neither ``secondary`` nor
+    ``vehicle`` may appear in one while the reference set leaves them unmeasured.
+
+    ``gate_passed`` is necessary and **not sufficient** for publication: the
+    reference set's frame certifies the grant stream only, and ``docs/qp-topic.md``
+    bars every cut until a denial- and GVR-stratified supplement block exists and
+    is measured. A cut-builder that reads no further than this file will publish
+    too early.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v0"] = Field(
+        default="qp-topic-v0",
+        description="The label vocabulary every entry draws from",
+    )
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the labels — a free-form actor string (engine and model), "
+        "so a measured agreement is attributable to what produced it",
+    )
+    cases: int = Field(default=0, ge=0, description="Number of labeled cases (== len(entries))")
+    agreement: QpTopicAgreement = Field(
+        description="This run's measured agreement with the v0 reference rater"
+    )
+    shadow: QpTopicShadow = Field(
+        description="The deterministic shadow rules' firing and disagreement counts"
+    )
+    entries: list[QpTopicLabelEntry] = Field(
+        default_factory=list,
+        description="One entry per labeled case, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicLabels:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -4748,6 +4955,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
     "qp-topic-reference.json": QpTopicReference,
+    "qp-topics.json": QpTopicLabels,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -4779,4 +4987,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
     "qp_topic_reference": QpTopicReference,
+    "qp_topics": QpTopicLabels,
 }
