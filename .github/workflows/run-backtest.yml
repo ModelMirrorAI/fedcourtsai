@@ -151,6 +151,16 @@ jobs:
           codex --version
           gemini --version
 
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
+      # the prompts forbid cells from reading it. Replay cells are the ones the
+      # oracle would actually inform, and they inherit this checkout as their
+      # working directory; deleting it leaves them nothing to read, while
+      # deliberate access through git history stays covered by the prompt
+      # prohibition and the logged-tool-call audit. Nothing here commits
+      # data/, so the deletion never propagates.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
+
       # The replay provisions redacted snapshots from the corpus, so it must be
       # on disk; without a pointer there is nothing to back-test.
       - uses: ./.github/actions/corpus-readonly
