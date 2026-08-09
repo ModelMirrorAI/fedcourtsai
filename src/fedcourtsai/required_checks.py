@@ -4,7 +4,7 @@ A required context is satisfied only by a check run that *reports* on the PR,
 and the workflow that would report it has to exist on the branch whose
 workflows the PR runs. PRs into ``main`` from the bot lanes — the collect run
 branches, ``cleanup/*``, ``metrics/refresh``, ``metrics/cert-backtest``,
-``metrics/salience-replay`` — are
+``metrics/salience-replay``, ``qp-topics/refresh`` — are
 cut **from** ``main``, so they run ``main``'s own workflow files. Requiring a
 context that no workflow on that branch produces leaves every such PR pending
 forever, and the auto-merging collect PRs are the ones that hang first: data

@@ -33,13 +33,15 @@ The trip-wire: the moment a *cell* prompt asks an agent for a topic label, that
 prompt's digest moves and this stops being a free-moving vocabulary — that is a
 version bump and its own review, not an edit to this document.
 
-Of the machinery this document contracts for, the vocabulary, the reference set,
-and the labeler machinery exist: the labeling prompt
+Of the machinery this document contracts for, everything up to the labels
+artifact exists: the vocabulary, the reference set, the labeling prompt
 (`.github/prompts/qp-topic-label.md`), the extract and measurement commands
-(`fedcourts qp-corpus` / `fedcourts qp-topics`), and the shadow rules
-(`fedcourtsai.pipeline.qp_topics`). No run mode dispatches the labeler, no labels
-artifact has been produced, and no cut is published: those are declared here and
-not yet built.
+(`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
+(`fedcourtsai.pipeline.qp_topics`), and the run mode that dispatches the labeler
+(`run-analytics`'s `qp-topic-label`, which lands `data/qp-topics/qp-topics.json`
+as a reviewed PR — see `docs/pipeline.md`). The cut is what remains: no topic
+distribution is published, and none may be until the denial- and GVR-stratified
+supplement block below exists and is measured.
 
 ## The register
 
@@ -227,7 +229,11 @@ Three consequences bind every use of the set:
   prompts state the prohibition, and any read of the path in a cell's logged
   tool calls is a flaggable leakage event on audit. The cell workflows also
   delete the directory before an agent starts, so in a cell's working tree
-  there is nothing to read.
+  there is nothing to read. The labeling run does the same in the one place a
+  read would be self-defeating rather than leaking: it moves the directory out
+  for the duration of its agent step and restores it from the commit before
+  measuring, because agreement with a file the labeler copied from is agreement
+  with nothing.
 - **The set enumerates ingested-but-unpublished dockets, deliberately.** 188
   of the 189 case ids have no directory under `data/cases`, so this artifact
   is a stated exception to the boundary that committed surfaces do not
@@ -238,8 +244,52 @@ Three consequences bind every use of the set:
   is maximally public (granted SCOTUS petitions, named on the Court's own
   site) and no QP text is republished; the extent-by-counts the coverage
   caveat also carries is the posture the docket pack already publishes. The
-  exception is accepted for exactly this artifact and is not precedent for
-  machine-generated ones.
+  exception is accepted for **exactly two committed artifacts** — this set, and
+  the labeler's per-case labels file `data/qp-topics/qp-topics.json`, which a
+  labeling run commits in full so a reviewer can read every label the measured
+  block reports over. Neither is precedent for a third: any further committed
+  surface that enumerates the ingested corpus is argued here, before it exists.
+
+  **What the second artifact adds, stated plainly.** Its own membership is
+  **fetch-conditioned** — a case is in it because a questions-presented
+  document is stored for it — which is weaker than this set's
+  outcome-conditioned membership but not innocent: QP-bearing rows are
+  grant-enriched by roughly an order of magnitude (see the coverage caveat), so
+  presence is already a weak grant signal. The sharper effect is **joint**, and
+  it is the reason to say so here rather than to argue each file alone. Because
+  this set contains *every* QP-bearing grant as of its frame date and the labels
+  file enumerates the whole QP-bearing population, the difference between the
+  two committed files is, by construction, the QP-bearing **non-grants** — the
+  labels file supplies the frame this set's "absence predicts non-grant"
+  inference previously had to range over. That is accepted on the same ground as
+  the first: cert outcomes are published on the Court's own order lists, so what
+  the pair reconstructs is a public fact in a more convenient shape, and no QP
+  text is republished by either. What it is *not* is a licence to relax the cell
+  boundary — which is why the predict and evaluate prompts prohibit the whole
+  `data/qp-topics/` **path** rather than the reference set by name, and why that
+  path prohibition is what has to hold as artifacts are added under it.
+
+  **One non-committed channel is in scope too, because the boundary is about
+  disclosure and not about git.** The labeling run's extract (`fedcourts
+  qp-corpus`) is both things no committed surface carries — the stored petition
+  text and the full enumeration of the QP-bearing ingested population — and the
+  run mode passes it between its two jobs as a GitHub Actions artifact. This
+  repository is public, so that artifact is downloadable by any logged-in user
+  for its retention window, which the workflow sets to the shortest GitHub
+  offers (one day) and which fires on every dispatch, including runs whose gate
+  fails and which open no PR. It is accepted on two grounds and no others: the
+  population it enumerates is the one the committed pair above already
+  discloses, and the text is petition PDFs fetched from supremecourt.gov —
+  public records of the Court, outside the CC BY-ND term that
+  `docs/data-sources.md` applies to CourtListener's own content and that keeps
+  the rest of the corpus access-gated. It is *not* accepted as a general route
+  for corpus content into Actions artifacts, and it is the reason the extract
+  command refuses to write anywhere inside the checkout: the run artifact is the
+  one sanctioned copy, and it is meant to be short-lived. Encrypting it under a
+  run-scoped key, or collapsing the two jobs behind step-scoped credentials so
+  the extract never leaves the runner, would close the channel outright; both
+  cost more than the exposure is currently judged to be worth, and that judgment
+  is the thing to revisit if the extract ever carries more than this.
 
 **What a measurement is.** With one rater, the quantity any labeler run
 produces against this set is *agreement with the v0 reference rater*, not
