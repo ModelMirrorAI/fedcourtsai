@@ -177,9 +177,11 @@ citation to key on, and keywords actively mislead — background prose fires
 rules, cited statutes belong to different subjects than the question, and
 case-name mentions contaminate ("habeas relief" inside a *Heck* discussion).
 
-Measured once at declaration time against the 189-case reference set (the
-shadow implementation, when it lands, must reproduce these counts): a rule set
-tuned **on that same set** fired on 145 of 189 texts and was right on 117 —
+Measured once at declaration time, against the reference set *as first
+labeled* — two entries have since been relabeled under the collateral-marker
+rule, and the landed shadow rules record their own measurement in the labels
+artifact, which supersedes these declaration figures: a rule set tuned **on
+that same set** fired on 145 of 189 texts and was right on 117 —
 80.7% (117/145) where it fired, 61.9% (117/189) end to end. The four most
 precise rules, **selected post hoc from the same data** (`firearms`,
 `intellectual-property`, `tax`, `employment-and-antidiscrimination`), jointly
@@ -225,10 +227,14 @@ Three consequences bind every use of the set:
   of the 189 case ids have no directory under `data/cases`, so this artifact
   is a stated exception to the boundary that committed surfaces do not
   enumerate the ingested corpus (`docs/security.md`). What it discloses is
-  189 public SCOTUS docket numbers, their internal ids, and a topic label
-  each — no QP text is republished, and a 189-row hand-labeled set does not
-  reveal the corpus's extent. The exception is accepted for exactly this
-  artifact and is not precedent for machine-generated ones.
+  identity-level: because the frame above is disclosed, a reader learns
+  exactly which dockets are the QP-bearing grants — a complete enumeration of
+  a subpopulation, not a sample. That is accepted because the subpopulation
+  is maximally public (granted SCOTUS petitions, named on the Court's own
+  site) and no QP text is republished; the extent-by-counts the coverage
+  caveat also carries is the posture the docket pack already publishes. The
+  exception is accepted for exactly this artifact and is not precedent for
+  machine-generated ones.
 
 **What a measurement is.** With one rater, the quantity any labeler run
 produces against this set is *agreement with the v0 reference rater*, not
