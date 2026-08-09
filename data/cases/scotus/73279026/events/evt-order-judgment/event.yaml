@@ -1,0 +1,14 @@
+case_id: scotus/73279026
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-04-20'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official
+  Capacity as Executive Director of the Colorado Department of Early Childhood, et
+  al.

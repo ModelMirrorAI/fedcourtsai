@@ -1,0 +1,13 @@
+case_id: scotus/73253921
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-06-29'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Kevin Isaac Montoya Palacios v. Vernon Liggins, Acting Field Office Director,
+  Baltimore Field Office, United States Immigration and Customs Enforcement, et al.

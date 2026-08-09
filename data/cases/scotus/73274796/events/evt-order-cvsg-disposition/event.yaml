@@ -1,0 +1,14 @@
+case_id: scotus/73274796
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for the
+  Solicitor General's views.
+docket_entry_id: null
+event_id: evt-order-cvsg-disposition
+kind: order
+moment: cvsg
+opened_at: '2025-10-14'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Breanna Renteria, et al. v. New Mexico Office of the Superintendent of Insurance,
+  et al.

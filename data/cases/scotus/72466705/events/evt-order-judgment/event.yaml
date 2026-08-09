@@ -1,0 +1,13 @@
+case_id: scotus/72466705
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2021-02-22'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Oregon, et al. v. Xavier Becerra, Secretary of Health and Human Services, et
+  al.

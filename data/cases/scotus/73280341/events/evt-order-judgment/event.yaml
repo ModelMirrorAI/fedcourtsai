@@ -1,0 +1,13 @@
+case_id: scotus/73280341
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-06-29'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor
+  of Washington, et al.

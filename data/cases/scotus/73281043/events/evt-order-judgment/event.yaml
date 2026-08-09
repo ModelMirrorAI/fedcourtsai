@@ -1,0 +1,13 @@
+case_id: scotus/73281043
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-06-15'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional
+  Institutions Division v. Dexter Johnson

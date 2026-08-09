@@ -1,0 +1,12 @@
+case_id: scotus/73281007
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-04-27'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Department of Labor, et al. v. Sun Valley Orchards, LLC
