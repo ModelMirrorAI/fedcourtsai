@@ -1,0 +1,13 @@
+case_id: scotus/73280386
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-06-15'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Kenneth Genalo, Director of the New York Field Office of U.S. Immigration and
+  Customs Enforcement, et al. v. Carol Williams Black, et al.

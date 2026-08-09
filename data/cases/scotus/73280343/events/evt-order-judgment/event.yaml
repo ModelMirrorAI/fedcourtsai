@@ -1,0 +1,12 @@
+case_id: scotus/73280343
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-06-29'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Tamer S. Wassily, et al. v. Todd Blanche, Acting Attorney General

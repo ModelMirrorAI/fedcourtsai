@@ -1,0 +1,12 @@
+case_id: scotus/72464349
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2020-07-09'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Federal Trade Commission v. Credit Bureau Center, LLC, et al.

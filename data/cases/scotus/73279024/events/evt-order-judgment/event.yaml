@@ -1,0 +1,12 @@
+case_id: scotus/73279024
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-03-09'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan

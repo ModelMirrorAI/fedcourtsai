@@ -1,0 +1,12 @@
+case_id: scotus/73278510
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-01-26'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Michael Salazar v. Paramount Global, dba 247Sports

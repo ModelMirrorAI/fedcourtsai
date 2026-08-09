@@ -1,0 +1,13 @@
+case_id: scotus/73274866
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-05-18'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Thomas Crowther, et al. v. Board of Regents of the University System of Georgia,
+  et al.
