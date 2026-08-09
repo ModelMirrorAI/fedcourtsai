@@ -41,6 +41,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
+| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and the agent step is passed no `github_token` input, leaving it only the job's own `contents: read` ambient token |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -418,6 +419,8 @@ Access mirrors each workflow's role in the pipeline:
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
+| `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
+| `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
@@ -461,7 +464,15 @@ alarm bounds the egress-spend abuse case. On-runner step-scoping is a strict
 improvement, not hard isolation: processes of the same runner user are not a
 security boundary against a determined co-resident process; the boundary this
 buys is that no agent's env, config file, or casual file read ever contains a
-credential. The cert back-test's replay cells hold the same line at a
+credential. The **qp-topic labeler** is the third agent surface and takes the
+strictest form of the same line, because it needs no corpus access at all while
+it runs: the credentialed half is a separate job, and the labeling job assumes
+no role, declares no `id-token: write`, launches no sidecar, and is passed no
+MCP config — so its whole evidentiary input is one downloaded extract, and its
+guard step asserts both the `AWS_*` and the OIDC request variables are absent
+before the agent starts. It also holds no write-capable GitHub token while it
+runs: the App token is minted only after the agent finishes and the publication
+gate passes. The cert back-test's replay cells hold the same line at a
 different seam: their workflow process legitimately keeps the read-only
 credentials job-wide (`corpus-readonly` — the replay needs a full local pull,
 and under the corpus-split mode mid-replay content-store reads), so the shared
@@ -505,11 +516,20 @@ the key from the committed pointer). The residual this leaves is bounded and
 understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
-(it can enumerate keys for ingested-but-unpublished dockets). One committed
-artifact holds a stated, bounded exception to that boundary: the 189-row
-hand-labeled qp-topic reference set names ingested-but-unpublished dockets by
-public docket number, argued and accepted in `docs/qp-topic.md` for that
-artifact alone. But it widens
+(it can enumerate keys for ingested-but-unpublished dockets). The stated,
+bounded exception to that boundary covers exactly two committed artifacts, both
+argued and accepted in `docs/qp-topic.md` and nowhere else: the 189-row
+hand-labeled qp-topic reference set, and a labeling run's per-case qp-topic
+labels file over the roughly 1,200 QP-bearing rows. Each names
+ingested-but-unpublished dockets by public docket number; the reference set's
+membership is outcome-conditioned (presence predicts a cert grant), the labels
+file's is fetch-conditioned (a questions-presented document is stored for that
+case), and because the two are committed together the pair reconstructs the
+QP-bearing non-grants by difference. That composition is the thing argued in
+`docs/qp-topic.md`, alongside the one non-git channel the labeling run adds:
+its extract of stored petition text rides between the mode's two jobs as a
+one-day Actions artifact, publicly downloadable on this repository. But it
+widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see
 [data-sources.md](data-sources.md)), not identity-based, so enumeration reads

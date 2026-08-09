@@ -165,8 +165,9 @@ jobs:
   main-base:
     # Merge routing, on the `paths` pattern: code reaches `main` only through
     # the staging→main promotion or a reviewed non-feature lane — the collect
-    # run branches, the maintainer's cleanup sweep, and the metrics-refresh /
-    # cert-backtest / salience-replay PRs. This job runs (and fails) only on a
+    # run branches, the maintainer's cleanup sweep, the metrics-refresh /
+    # cert-backtest / salience-replay PRs, and the qp-topic labeling run's
+    # labels PR. This job runs (and fails) only on a
     # PR to `main` from any other head; every legitimate PR skips it, and the
     # skipped run satisfies the requirement. It is among `main`'s required
     # contexts (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs
@@ -191,7 +192,8 @@ jobs:
           startsWith(github.head_ref, 'cleanup/') ||
           github.head_ref == 'metrics/refresh' ||
           github.head_ref == 'metrics/cert-backtest' ||
-          github.head_ref == 'metrics/salience-replay'
+          github.head_ref == 'metrics/salience-replay' ||
+          github.head_ref == 'qp-topics/refresh'
         )
       )
     runs-on: ubuntu-latest

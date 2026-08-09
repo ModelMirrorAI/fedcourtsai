@@ -194,6 +194,18 @@ reason to keep that prefix stable. Budget the range, not the point. The evaluate
 means come from a single event, so treat them as a first measurement rather than a
 settled figure; the planning rate below is held deliberately above both.
 
+**One agentic surface sits outside the registry**, and outside the per-cell
+accounting above: `run-analytics`'s `qp-topic-label` mode, which runs a single
+Claude Code session over the whole extract of stored questions-presented texts
+(roughly 1,200 at current coverage) rather than one cell per case. It is a
+manual dispatch, not a scheduled or cascade-triggered job, so it spends only
+when a maintainer asks for a labeling run; its model is the dispatch's
+`label_model` input, defaulting to the cheapest Claude tier because the task is
+classification against a fixed sixteen-label vocabulary rather than forecasting.
+It writes no `usage.json` — the ledger is keyed by cell, and a labeling run is
+not one — so its spend does not appear in the totals above and has to be read
+off the run's own engine log until a labeler-shaped accounting exists.
+
 **Scope: the SCOTUS-docket gate.** The pilot predicts and evaluates only SCOTUS
 dockets. Ingestion is unchanged — the channels still assemble all fourteen courts
 deterministically (≈$0 model spend) so the full history stays queryable for

@@ -141,8 +141,8 @@ same entries, how many reference entries you left uncovered, per-label agreement
 matrix on the constitutional-rights / criminal-law / civil-procedure triangle,
 and the shadow rules' disagreement count. **Report that block verbatim in your
 final message**, and say what it is: agreement with a single v0 reference rater,
-not accuracy — and never the rate without the floor beside it, since on a
-sixteen-label vocabulary most of the rate is the floor.
+not accuracy — and never the rate without the floor beside it, since only the
+distance above the floor is anything you did.
 
 Below the publication gate the command refuses to write the artifact and exits
 non-zero. That is a **result to report, not a problem to fix**: there is no
