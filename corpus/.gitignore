@@ -8,3 +8,4 @@
 /corpus.db-shm
 *.parquet
 /index.db
+corpus.db\?*
