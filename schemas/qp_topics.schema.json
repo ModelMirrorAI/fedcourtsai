@@ -2,7 +2,7 @@
   "$defs": {
     "QpTopicAgreement": {
       "additionalProperties": false,
-      "description": "A labeler's measured agreement with the ``qp-topic-v0`` reference rater.\n\nEvery quantity here is **agreement with a single hand rater**, never\naccuracy: reference error and labeler error cannot be separated, least of\nall on the boundary labels, and a labeler of the reference rater's own model\nfamily partly measures shared convention. The reference set's frame is\ngrant-enriched (``docs/qp-topic.md``), so these numbers certify the grant\nstream and say nothing about the denial stream. Only reference entries the\nlabeler actually covered are compared; the rest are counted in\n``uncovered``.",
+      "description": "A labeler's measured agreement with the ``qp-topic-v0`` reference raters.\n\nEvery quantity here is **agreement with the reference raters**, never\naccuracy: reference error and labeler error cannot be separated, least of\nall on the boundary labels, and a labeler of the reference raters' own\nmodel family partly measures shared convention. The reference set's\ntwo-block, outcome-stratified frame is disclosed in ``docs/qp-topic.md``;\nthe pooled rate here spans both streams, and the per-stream split is\nderived at measurement review by joining the reference to the corpus's\ndispositions \u2014 deliberately not carried in the committed artifacts. Only\nreference entries the labeler actually covered are compared; the rest are\ncounted in ``uncovered``.",
       "properties": {
         "floor": {
           "anyOf": [

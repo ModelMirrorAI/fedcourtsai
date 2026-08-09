@@ -246,12 +246,17 @@ read opposite sources, so their disclosure properties differ. The **scope
 manifest** (`fedcourts scope-manifest`) is enumerated from the committed
 `data/cases` tree alone, never a corpus scan, so it discloses only the
 already-public set and cannot enumerate the wider ingested corpus; regenerate it
-when that set or its scope latches move. One committed `data/` artifact is
-**not** a roll-up: `data/qp-topics/qp-topic-reference.json` is hand-authored
-judgment (the `qp-topic-v0` measurement baseline, `docs/qp-topic.md`), edited
-only in an interactive session and only via its own reviewed staging PR —
-neither the deterministic writers nor any workflow regenerates it, and its
-deliberate disclosure exception is argued in `docs/qp-topic.md`. The **docket
+when that set or its scope latches move. The `data/qp-topics/` artifacts are
+**not** roll-ups, and both carry the deliberate disclosure exception argued in
+`docs/qp-topic.md`. `qp-topic-reference.json` is hand-authored judgment (the
+`qp-topic-v0` measurement baseline), edited only in an interactive session and
+only via its own reviewed staging PR — neither the deterministic writers nor any
+workflow regenerates it. `qp-topics.json` is machine-produced and appears once a
+labeling run has produced one: that run's per-case labels, written by
+`run-analytics`'s agent-backed `qp-topic-label` mode (`fedcourts qp-topics`,
+which refuses to write below the publication gate) and landed as a reviewed PR
+to `main` on the fixed `qp-topics/refresh` branch, never auto-merged. It is a
+whole-file replacement per run, not an accumulating ledger. The **docket
 pack** (`fedcourts
 docket`) aggregates the whole corpus — it publishes counts and rates over every
 ingested row, never a row itself — so it moves whenever the corpus does, and the

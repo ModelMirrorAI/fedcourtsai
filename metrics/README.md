@@ -791,6 +791,30 @@ data, e.g. a Supreme Court Database import), amicus-brief counts per petition
 (need transcript data), and a merits circuit scorecard (affirm/reverse by
 court below — needs judgment-entry parsing on decided merits cases).
 
+**What may be claimed from an agreement rate.** A `qp-topic-v0` labeling run
+(`data/qp-topics/qp-topics.json`, `docs/qp-topic.md`) produces one instrument
+this document does not otherwise carry, and it is not a skill number: it is
+**agreement with a single agent reference rater, never accuracy**. Reference
+error and labeler error cannot be separated — least of all on the boundary
+labels, which is where the disagreement lives — and the reference rater was
+itself an agent session, so agreement with a labeler of the same model family
+partly measures shared convention rather than correctness. Three rules travel
+with the figure. **Always with its `n`, and always beside the floor** a constant
+labeler would score on the same entries — the largest reference class's share,
+about 21% on the v0 set: the rate alone is unreadable, and only the distance
+above the floor is anything a labeler did. **Per-label rates only at or above
+the support floor** — nine of the sixteen labels have fewer than 10 reference
+examples, and under the floor a label is published as a raw count, not a rate.
+**Nothing transfers to a topic cut yet**: the reference frame contains every
+QP-bearing grant and 40 of 855 denials, so the rate certifies the grant stream
+only, and the denial/IFP stream that dominates any reweighted cut is unmeasured
+until the stratified supplement block exists. The deterministic shadow rules'
+disagreement count is a regression trip-wire on one labeler's movement between
+runs, not a second measurement — its *level* is uninterpretable off the
+reference set. No topic label enters a claim score, a leaderboard rank, or any
+denominator here; a labeling run describes the corpus and commits a predictor to
+nothing.
+
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
 `salience-replay.json`) are **iteration

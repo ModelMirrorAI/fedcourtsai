@@ -1,5 +1,5 @@
 {
-  "cases": 339,
+  "cases": 353,
   "entries": [
     {
       "case_id": "scotus/65875844",
@@ -1457,6 +1457,11 @@
       "label": "employment-and-antidiscrimination"
     },
     {
+      "case_id": "scotus/73278499",
+      "docket_number": "25-453",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73278510",
       "docket_number": "25-459",
       "label": "business-and-financial-regulation"
@@ -1485,6 +1490,11 @@
       "case_id": "scotus/73278664",
       "docket_number": "25-5473",
       "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73278996",
+      "docket_number": "25-551",
+      "label": "criminal-law"
     },
     {
       "case_id": "scotus/73279003",
@@ -1532,6 +1542,11 @@
       "label": "unclassifiable"
     },
     {
+      "case_id": "scotus/73279587",
+      "docket_number": "25-5609",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73279678",
       "docket_number": "25-5700",
       "label": "civil-procedure"
@@ -1572,9 +1587,24 @@
       "label": "civil-procedure"
     },
     {
+      "case_id": "scotus/73280362",
+      "docket_number": "25-862",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73280377",
+      "docket_number": "25-879",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
       "case_id": "scotus/73280508",
       "docket_number": "25-5820",
       "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73280526",
+      "docket_number": "25-5866",
+      "label": "criminal-law"
     },
     {
       "case_id": "scotus/73281007",
@@ -1602,6 +1632,11 @@
       "label": "habeas-and-postconviction"
     },
     {
+      "case_id": "scotus/73281164",
+      "docket_number": "25-5986",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73281344",
       "docket_number": "25-1060",
       "label": "firearms"
@@ -1612,9 +1647,19 @@
       "label": "constitutional-rights"
     },
     {
+      "case_id": "scotus/73281724",
+      "docket_number": "25-6124",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73281730",
       "docket_number": "25-6130",
       "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73281913",
+      "docket_number": "25-6218",
+      "label": "firearms"
     },
     {
       "case_id": "scotus/73281943",
@@ -1627,6 +1672,11 @@
       "label": "employment-and-antidiscrimination"
     },
     {
+      "case_id": "scotus/73282077",
+      "docket_number": "25-6385",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73282179",
       "docket_number": "25-6450",
       "label": "constitutional-rights"
@@ -1635,6 +1685,11 @@
       "case_id": "scotus/73282192",
       "docket_number": "25-6490",
       "label": "firearms"
+    },
+    {
+      "case_id": "scotus/73282195",
+      "docket_number": "25-6465",
+      "label": "criminal-law"
     },
     {
       "case_id": "scotus/73282196",
@@ -1662,6 +1717,11 @@
       "label": "firearms"
     },
     {
+      "case_id": "scotus/73282529",
+      "docket_number": "25-6710",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73282565",
       "docket_number": "25-6770",
       "label": "unclassifiable"
@@ -1672,8 +1732,18 @@
       "label": "unclassifiable"
     },
     {
+      "case_id": "scotus/73282919",
+      "docket_number": "25-6860",
+      "label": "criminal-law"
+    },
+    {
       "case_id": "scotus/73283246",
       "docket_number": "25-6910",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73283267",
+      "docket_number": "25-6850",
       "label": "criminal-law"
     },
     {
