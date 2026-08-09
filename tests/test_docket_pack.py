@@ -29,6 +29,7 @@ from fedcourtsai.schemas import (
     GroupBy,
     QpTopicAgreement,
     QpTopicLabel,
+    QpTopicLabelAgreement,
     QpTopicLabelEntry,
     QpTopicLabels,
     QpTopicShadow,
@@ -417,7 +418,7 @@ def _qp_corpus(db: Path) -> None:
         )
 
 
-def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel]) -> Path:
+def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel], *, gate_passed: bool = True) -> Path:
     """Write a labels artifact for ``case_id -> primary``, through the real model."""
     artifact = QpTopicLabels(
         labeler="stub-labeler",
@@ -426,9 +427,13 @@ def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel]) -> Path:
             overall_agree=170,
             overall_n=189,
             overall_rate=170 / 189,
-            uncovered=0,
+            uncovered=2,
             floor=0.25,
-            gate_passed=True,
+            per_label=[
+                QpTopicLabelAgreement(label="criminal-law", agree=35, n=39, rate=35 / 39),
+                QpTopicLabelAgreement(label="tax", agree=2, n=2),
+            ],
+            gate_passed=gate_passed,
         ),
         shadow=QpTopicShadow(texts=len(primaries), fired=0, disagreements=0),
         entries=[
@@ -482,13 +487,49 @@ def test_qp_topic_cut_buckets_primaries_over_the_labeled_rows_only(tmp_path: Pat
         ("unclassifiable", 4),  # a sampled denial, reweighted
         ("criminal-law", 1),
     ]
-    # The provenance a quoted share needs travels with it: who labeled, and how
-    # well they agreed with the reference rater.
+    # The provenance a quoted share needs travels with it: who labeled, how well
+    # they agreed with the reference rater, the rate a constant labeler would
+    # score (without which an agreement rate is unreadable), what went uncovered,
+    # the join health, and the labels the reference set cannot measure.
     assert (pack.qp_topics.labeler, pack.qp_topics.agree, pack.qp_topics.n) == (
         "stub-labeler",
         170,
         189,
     )
+    assert (pack.qp_topics.floor, pack.qp_topics.uncovered) == (0.25, 2)
+    assert (pack.qp_topics.labeled_cases, pack.qp_topics.matched_cases) == (2, 2)
+    # The cut rides beside `sections`, never inside it: a share lifted from the
+    # sections array would leave its labeler and its caveat behind.
+    assert [s.title for s in pack.sections] == [spec.title for spec in _DOCKET_SECTIONS]
+    # `tax` carries no rate in the artifact — under the reference support floor —
+    # so the cut names it as uncertified by the headline figure.
+    assert pack.qp_topics.unmeasured_labels == ["tax"]
+
+
+def test_qp_topic_cut_is_absent_when_no_labeled_case_joins_a_row(tmp_path: Path) -> None:
+    # Labels produced against a different corpus vintage join nothing. Publishing
+    # an empty table *and* dropping the gap bullet would leave the document
+    # silent in the one state a reader most needs it named in, so there is no cut.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(tmp_path / "qp-topics.json", {"scotus/999": "criminal-law"})
+    pack = _pack(db, labels)
+    assert pack.qp_topics is None
+    assert "claim taxonomy" in analytics.render_docket_markdown(pack)
+
+
+def test_qp_topic_cut_refuses_a_labels_artifact_that_failed_the_gate(tmp_path: Path) -> None:
+    # `fedcourts qp-topics` declines to write a failing run, but the artifact
+    # records the flag either way and a hand-copied file is what the flag is for:
+    # a below-gate labeler publishes nothing.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json", {"scotus/101": "criminal-law"}, gate_passed=False
+    )
+    pack = _pack(db, labels)
+    assert pack.qp_topics is None
+    assert "claim taxonomy" in analytics.render_docket_markdown(pack)
 
 
 def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) -> None:
@@ -503,18 +544,34 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     # The caveat travels inline with real numbers, because a section-level caveat
     # does not survive a quoted figure (`docs/qp-topic.md`). Two of the three
     # walked cert rows carry a label.
+    # The mandated string leads and stays contiguous, so it is quotable whole; the
+    # counts are ingested rows, which this document distinguishes from walked ones.
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
-        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 walked "
-        "rows; grant-enriched; primaries only; not docket-representative. A naive share "
-        "partly counts coordinated filing campaigns rather than subjects; no "
-        "de-duplicated companion is published._" in md
+        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 ingested "
+        "rows; grant-enriched; primaries only; not docket-representative." in md
+    )
+    assert "no reweighting recovers the docket" in md
+    assert "not comparable to the sections above" in md
+    assert (
+        "A naive share partly counts coordinated filing campaigns rather than subjects; "
+        "no de-duplicated companion is published._" in md
     )
     # Reweighted like every other section, so its denominators are estimates.
     assert "| unclassifiable | 4 | 4 | 0 | denied 100.0% (est. n=4) |" in md
-    # Agreement, never accuracy — the one thing a reader must not mistake.
-    assert "matched the `qp-topic-v0` reference rater on 170 of 189 reference case(s)" in md
+    # Agreement, never accuracy, and never without the constant-labeler floor: on a
+    # sixteen-label vocabulary most of any rate is the floor, and only the distance
+    # from it is skill.
+    assert (
+        "matched the `qp-topic-v0` reference rater on 170 of 189 reference case(s) (89.9%), "
+        "against the 25.0% a constant labeler scores on the same entries" in md
+    )
     assert "**agreement, not accuracy**" in md
+    assert "2 reference entr(ies) went uncovered" in md
+    assert "2 of 2 labeled case(s) joined a row" in md
+    # The labels the reference set cannot measure are named beside the table that
+    # publishes their shares.
+    assert "Per-label agreement is **unmeasured in v0** for `tax`" in md
     # The gap bullet said no labeler had run; one has, so it goes. The other gaps
     # are untouched.
     assert "claim taxonomy" not in md
@@ -544,17 +601,6 @@ def test_qp_topic_cut_publishes_no_secondary_or_vehicle_facet(tmp_path: Path) ->
     assert _pack(db, path).qp_topics == plain.qp_topics
 
 
-def test_stats_offers_only_the_dimensions_it_can_compute() -> None:
-    # `qp_topic` keys off a labels artifact, not a corpus row, so `stats` cannot
-    # serve it and must not advertise it — offering a `--group-by` the aggregation
-    # would `KeyError` on is the failure this pins.
-    assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
-    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
-    result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
-    assert result.exit_code == 2
-    assert "Unknown --group-by 'qp_topic'" in result.output
-
-
 def test_cli_docket_renders_the_topic_cut_from_the_data_root(
     fixture_corpus: FixtureCorpus, tmp_path: Path
 ) -> None:
@@ -570,6 +616,16 @@ def test_cli_docket_renders_the_topic_cut_from_the_data_root(
     pack = DocketPack.model_validate_json(json_out.read_text())
     assert pack.qp_topics is not None
     assert [b.key for b in pack.qp_topics.section.buckets] == ["criminal-law"]
+
+
+def test_cli_docket_refuses_a_named_labels_path_that_does_not_exist(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The default path is allowed to be absent — that is the standing state until
+    # a labeler run lands — but a path typed on the command line is checked, so a
+    # typo cannot quietly publish the pack without its cut.
+    result = runner.invoke(app, ["docket", "--qp-topics", str(tmp_path / "typo.json")])
+    assert result.exit_code == 2
 
 
 def test_the_pack_states_its_corpus_vintage(fixture_corpus: FixtureCorpus) -> None:

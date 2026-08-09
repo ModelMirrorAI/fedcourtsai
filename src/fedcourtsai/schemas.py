@@ -4235,6 +4235,14 @@ class DocketPackQpTopics(_Strict):
     frame is grant-enriched, so the figure certifies the grant stream only
     (``docs/qp-topic.md``).
 
+    Three fields exist because the headline rate alone is unreadable. ``floor``
+    is what a constant labeler scores on the same entries — the distance from it
+    is the only part that is skill. ``uncovered`` is the reference entries the
+    labeler never labeled, so ``n`` is not mistaken for the whole reference set.
+    ``unmeasured_labels`` names the buckets whose per-label agreement is
+    unmeasured in v0 (under the reference support floor), so a row quoted from
+    the table is not read as certified by the headline figure.
+
     ``section`` counts **primary labels only** — secondary labels and the vehicle
     flag are unmeasured in v0 and appear in no published cut — over the labeled
     cases alone, and its ``scope_note`` carries the coverage caveat every
@@ -4255,6 +4263,36 @@ class DocketPackQpTopics(_Strict):
         ge=0,
         description="Reference entries the labeler covered and was compared on — the "
         "denominator of `agree`, which is agreement, not accuracy",
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries. An "
+        "agreement rate is unreadable without it: on a sixteen-label vocabulary most of "
+        "the rate is the floor, and only the distance from it is skill",
+    )
+    uncovered: int = Field(
+        default=0,
+        ge=0,
+        description="Reference entries the labeler produced no label for, so `n` is not "
+        "read as the whole reference set",
+    )
+    labeled_cases: int = Field(
+        default=0, ge=0, description="Cases the labels artifact carries a primary label for"
+    )
+    matched_cases: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, the ones that joined a row in this section's population — the "
+        "cut's raw row count. Far below `labeled_cases` means the labels were produced "
+        "against a different corpus vintage, which reads as thin coverage unless both are here",
+    )
+    unmeasured_labels: list[QpTopicLabel] = Field(
+        default_factory=list,
+        description="Buckets whose per-label agreement is unmeasured in v0 — fewer reference "
+        "examples than the support floor, where one entry moves the ratio by tens of points. "
+        "The headline agreement certifies none of these rows",
     )
     section: StatPackSection = Field(
         description="The distribution: labeled cases bucketed by primary `qp-topic-v0` label"

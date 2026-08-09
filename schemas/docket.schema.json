@@ -89,7 +89,7 @@
     },
     "DocketPackQpTopics": {
       "additionalProperties": false,
-      "description": "The question-presented topic distribution, inseparable from who labeled it.\n\nA topic share is only readable beside the labeler that produced it and that\nlabeler's measured agreement with the ``qp-topic-v0`` reference rater, so the\ntwo travel in one object rather than as a section a quotation can lift alone.\n``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,\nreference error and labeler error cannot be separated, and the reference\nframe is grant-enriched, so the figure certifies the grant stream only\n(``docs/qp-topic.md``).\n\n``section`` counts **primary labels only** \u2014 secondary labels and the vehicle\nflag are unmeasured in v0 and appear in no published cut \u2014 over the labeled\ncases alone, and its ``scope_note`` carries the coverage caveat every\npublished share must render beside it.",
+      "description": "The question-presented topic distribution, inseparable from who labeled it.\n\nA topic share is only readable beside the labeler that produced it and that\nlabeler's measured agreement with the ``qp-topic-v0`` reference rater, so the\ntwo travel in one object rather than as a section a quotation can lift alone.\n``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,\nreference error and labeler error cannot be separated, and the reference\nframe is grant-enriched, so the figure certifies the grant stream only\n(``docs/qp-topic.md``).\n\nThree fields exist because the headline rate alone is unreadable. ``floor``\nis what a constant labeler scores on the same entries \u2014 the distance from it\nis the only part that is skill. ``uncovered`` is the reference entries the\nlabeler never labeled, so ``n`` is not mistaken for the whole reference set.\n``unmeasured_labels`` names the buckets whose per-label agreement is\nunmeasured in v0 (under the reference support floor), so a row quoted from\nthe table is not read as certified by the headline figure.\n\n``section`` counts **primary labels only** \u2014 secondary labels and the vehicle\nflag are unmeasured in v0 and appear in no published cut \u2014 over the labeled\ncases alone, and its ``scope_note`` carries the coverage caveat every\npublished share must render beside it.",
       "properties": {
         "agree": {
           "description": "Reference entries where the labeler matched the v0 reference rater \u2014 agreement, not accuracy",
@@ -97,11 +97,40 @@
           "title": "Agree",
           "type": "integer"
         },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler scores on the same compared entries. An agreement rate is unreadable without it: on a sixteen-label vocabulary most of the rate is the floor, and only the distance from it is skill",
+          "title": "Floor"
+        },
+        "labeled_cases": {
+          "default": 0,
+          "description": "Cases the labels artifact carries a primary label for",
+          "minimum": 0,
+          "title": "Labeled Cases",
+          "type": "integer"
+        },
         "labeler": {
           "description": "Who assigned the labels \u2014 the free-form actor string from the labels artifact, so a quoted share names what produced it",
           "minLength": 1,
           "title": "Labeler",
           "type": "string"
+        },
+        "matched_cases": {
+          "default": 0,
+          "description": "Of those, the ones that joined a row in this section's population \u2014 the cut's raw row count. Far below `labeled_cases` means the labels were produced against a different corpus vintage, which reads as thin coverage unless both are here",
+          "minimum": 0,
+          "title": "Matched Cases",
+          "type": "integer"
         },
         "n": {
           "description": "Reference entries the labeler covered and was compared on \u2014 the denominator of `agree`, which is agreement, not accuracy",
@@ -112,6 +141,39 @@
         "section": {
           "$ref": "#/$defs/StatPackSection",
           "description": "The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+        },
+        "uncovered": {
+          "default": 0,
+          "description": "Reference entries the labeler produced no label for, so `n` is not read as the whole reference set",
+          "minimum": 0,
+          "title": "Uncovered",
+          "type": "integer"
+        },
+        "unmeasured_labels": {
+          "description": "Buckets whose per-label agreement is unmeasured in v0 \u2014 fewer reference examples than the support floor, where one entry moves the ratio by tens of points. The headline agreement certifies none of these rows",
+          "items": {
+            "enum": [
+              "administrative-law-and-benefit-programs",
+              "business-and-financial-regulation",
+              "civil-procedure",
+              "constitutional-rights",
+              "criminal-law",
+              "election-law",
+              "employment-and-antidiscrimination",
+              "environment-energy-and-property",
+              "firearms",
+              "first-amendment",
+              "habeas-and-postconviction",
+              "immigration",
+              "intellectual-property",
+              "sovereignty-and-foreign-relations",
+              "tax",
+              "unclassifiable"
+            ],
+            "type": "string"
+          },
+          "title": "Unmeasured Labels",
+          "type": "array"
         }
       },
       "required": [

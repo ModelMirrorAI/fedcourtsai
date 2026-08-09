@@ -661,15 +661,28 @@ def _qp_topic_spec(labels: QpTopicLabels) -> _SectionSpec:
 def _qp_topic_scope_note(rows: _SectionRows) -> str:
     """The coverage caveat ``docs/qp-topic.md`` requires beside every published share.
 
-    Inline rather than section-level, and inline with real numbers, because a
-    section-level caveat does not survive a quoted figure. The counts are raw rows
-    on both sides — how many of the walked cert petitions carry a labeled QP text —
-    since the claim is about what was read, not about an estimated population.
+    Carried as a field on the section rather than as prose the renderer emits, so
+    the caveat survives a section lifted out of the JSON, and carried with real
+    numbers rather than as a standing sentence.
+
+    The mandated string leads and stays contiguous, so it is quotable whole. Its
+    two counts are **ingested rows** — rows on hand — not walked serials: this
+    document reserves *walked* for the discovery cursors' census, which runs
+    several-fold above the ingested count because the historical walk samples
+    denials. The clauses after it carry what the flags and that string leave
+    unsaid: which counts are raw and which reweighted, that reweighting does not
+    recover the docket, and that a grant-enriched population makes this section's
+    base-rate column incomparable to the cuts above it.
     """
     return (
-        f"QP-bearing rows only — {rows.kept} of {rows.scoped} walked rows; grant-enriched; "
-        "primaries only; not docket-representative. A naive share partly counts coordinated "
-        "filing campaigns rather than subjects; no de-duplicated companion is published."
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows; grant-enriched; "
+        "primaries only; not docket-representative. Those two counts are raw rows; the bucket "
+        "counts are denial-reweighted, and no reweighting recovers the docket — QP presence is "
+        "itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. "
+        "Coverage is uneven across Terms and zero on the earliest of them, so the mix is not "
+        "the whole slice's; the base-rate column is over a grant-enriched population and is not "
+        "comparable to the sections above. A naive share partly counts coordinated filing "
+        "campaigns rather than subjects; no de-duplicated companion is published."
     )
 
 
@@ -1485,41 +1498,66 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
     here reads a prediction, an evaluation, or the leaderboard. Deterministic and
     offline, so reruns reproduce it byte for byte.
 
-    ``qp_topics_path`` names a ``qp-topic-v0`` labels artifact. Present, it adds
-    the question-presented topic cut, carrying that run's labeler and measured
+    ``qp_topics_path`` names a ``qp-topic-v0`` labels artifact. A gate-passing one
+    adds the question-presented topic cut, carrying that run's labeler and measured
     agreement; absent — no labeler has run — the pack omits the cut and the
-    rendered document names it among the gaps instead. The artifact's existence is
-    the gate: ``fedcourts qp-topics`` refuses to write a run that fails the
-    agreement gate, and ``docs/qp-topic.md`` bars producing one at all until the
-    reference set's denial- and GVR-stratified supplement block is measured, so
-    this function does not re-decide either question.
+    rendered document names it among the gaps instead. ``gate_passed`` is re-read
+    here rather than assumed from the file's existence: ``fedcourts qp-topics``
+    declines to *write* a failing run, but the artifact records the flag either
+    way, and a hand-copied file is the case that flag exists for.
+
+    One further condition ``docs/qp-topic.md`` sets on publication is **not**
+    enforced here and cannot be: no cut may publish until the reference set's
+    denial- and GVR-stratified supplement block exists and is measured, which is a
+    property of the reference set that nothing in the labels artifact records. The
+    cell workflows also delete ``data/qp-topics/`` before an agent starts, so a
+    pack regenerated inside a cell's checkout omits the cut by construction rather
+    than by regression.
     """
+    # Read after the corpus check: the documented behaviour with no corpus is the
+    # empty pack, and a corrupt labels file must not turn that into an error.
+    if not corpus_db_path.exists():
+        return DocketPack(sections=_sections(_DOCKET_SECTIONS))
     labels = (
         read_model(qp_topics_path, QpTopicLabels)
         if qp_topics_path is not None and qp_topics_path.is_file()
         else None
     )
-    if not corpus_db_path.exists():
-        return DocketPack(sections=_sections(_DOCKET_SECTIONS))
+    if labels is not None and not labels.agreement.gate_passed:
+        labels = None
     # The QP cut is appended last, so the scan's per-spec parallel arrays keep the
     # docket sections at their own indices and the cut at the end.
     specs = _DOCKET_SECTIONS if labels is None else (*_DOCKET_SECTIONS, _qp_topic_spec(labels))
     scan = _scan_corpus(corpus_db_path, specs)
-    sections = _sections(specs, scan)
     qp_topics: DocketPackQpTopics | None = None
-    if labels is not None:
-        # The scope note is set here rather than on the spec because its numbers
-        # are the scan's: how many of the walked rows carry a label is not known
-        # until the rows have been walked.
-        qp_topics = DocketPackQpTopics(
-            labeler=labels.labeler,
-            agree=labels.agreement.overall_agree,
-            n=labels.agreement.overall_n,
-            section=sections[-1].model_copy(
-                update={"scope_note": _qp_topic_scope_note(scan.section_rows[-1])}
-            ),
-        )
-        sections = sections[: len(_DOCKET_SECTIONS)]
+    if labels is None:
+        sections = _sections(specs, scan)
+    else:
+        *sections, qp_section = _sections(specs, scan)
+        rows = scan.section_rows[-1]
+        # A cut that matched no row publishes nothing: labels produced against a
+        # different corpus vintage would otherwise render an empty table *and*
+        # drop the gap bullet, which is the one state a reader most needs it in.
+        if rows.kept:
+            qp_topics = DocketPackQpTopics(
+                labeler=labels.labeler,
+                agree=labels.agreement.overall_agree,
+                n=labels.agreement.overall_n,
+                floor=labels.agreement.floor,
+                uncovered=labels.agreement.uncovered,
+                labeled_cases=labels.cases,
+                matched_cases=rows.kept,
+                # A rate the artifact withheld is a label the reference set cannot
+                # measure, so the bucket it names is uncertified by the headline
+                # figure — the one thing the table itself cannot show.
+                unmeasured_labels=[
+                    row.label for row in labels.agreement.per_label if row.rate is None
+                ],
+                # The scope note is set here rather than on the spec because its
+                # numbers are the scan's: how many rows carry a label is not known
+                # until the rows have been walked.
+                section=qp_section.model_copy(update={"scope_note": _qp_topic_scope_note(rows)}),
+            )
     census = _census(scan.cursor_rows)
     term_years = sorted({*scan.terms, *(term for term, _ in census)}, reverse=True)
     total = scan.overall.bucket("")
@@ -1984,6 +2022,44 @@ _DOCKET_GAPS = (
 )
 
 
+def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
+    """The lines that make the topic table's numbers readable, under the table.
+
+    Three claims a share cannot be quoted without. The agreement figure never
+    appears without its ``n``, without the rate a **constant** labeler scores on
+    the same entries — on a sixteen-label vocabulary most of any rate is that
+    floor, and only the distance from it is skill — or without the word
+    *agreement*, since with a single hand rater accuracy is not what was measured.
+    The join count separates thin coverage from a labels file produced against a
+    different corpus vintage, which look identical in the coverage figure. And the
+    labels the reference set cannot measure are named, because the headline rate
+    certifies none of those rows.
+    """
+    floor = "unmeasured" if topics.floor is None else _pct(topics.floor)
+    rate = _pct(topics.agree / topics.n) if topics.n else "—"
+    lines = [
+        "",
+        f"_Labeled by {topics.labeler}, whose primaries matched the `qp-topic-v0` reference "
+        + f"rater on {topics.agree} of {topics.n} reference case(s) ({rate}), against the "
+        + f"{floor} a constant labeler scores on the same entries — **agreement, not "
+        + "accuracy**: with a single hand rater, rater error and labeler error cannot be "
+        + "separated, and the reference frame is grant-enriched, so the figure certifies the "
+        + f"grant stream only. {topics.uncovered} reference entr(ies) went uncovered. "
+        + f"{topics.matched_cases} of {topics.labeled_cases} labeled case(s) joined a row in "
+        + "this section's population; far apart, read that as labels produced against another "
+        + "corpus vintage rather than as thin coverage._",
+    ]
+    if topics.unmeasured_labels:
+        lines += [
+            "",
+            "_Per-label agreement is **unmeasured in v0** for "
+            + ", ".join(f"`{label}`" for label in topics.unmeasured_labels)
+            + " — fewer reference examples than the support floor, where one entry moves the "
+            + "ratio by tens of points. The figure above certifies none of those rows._",
+        ]
+    return lines
+
+
 def render_docket_markdown(pack: DocketPack) -> str:
     """Render a :class:`DocketPack` as a publishable Markdown document.
 
@@ -2084,15 +2160,7 @@ def render_docket_markdown(pack: DocketPack) -> str:
     lines += _section_tables(pack.sections, sample_size=True)
     if pack.qp_topics is not None:
         lines += _section_tables([pack.qp_topics.section], sample_size=True)
-        lines += [
-            "",
-            f"_Labeled by {pack.qp_topics.labeler}, whose primaries matched the "
-            + f"`qp-topic-v0` reference rater on {pack.qp_topics.agree} of "
-            + f"{pack.qp_topics.n} reference case(s) — **agreement, not accuracy**: with a "
-            + "single hand rater, rater error and labeler error cannot be separated, and the "
-            + "reference frame is grant-enriched, so the figure certifies the grant stream "
-            + "only._",
-        ]
+        lines += _qp_topic_provenance(pack.qp_topics)
     if pack.terms:
         lines += [
             "",

@@ -137,6 +137,21 @@ class QpTopicError(ValueError):
     """A labeler's output cannot be reconciled with the vocabulary or the reference set."""
 
 
+def reference_path(data_root: Path) -> Path:
+    """Where the hand reference set lives under a data root."""
+    return data_root / "qp-topics" / "qp-topic-reference.json"
+
+
+def labels_path(data_root: Path) -> Path:
+    """Where a labeler run's artifact lives under a data root.
+
+    One definition because the writer and every reader must agree on it: a
+    docket-pack build that looked one directory away from where ``qp-topics``
+    wrote would omit the topic cut and report it as "no labeler has run".
+    """
+    return data_root / "qp-topics" / "qp-topics.json"
+
+
 def _normalize(text: str) -> str:
     """Lowercase, rejoin hyphenated line breaks, and collapse whitespace.
 

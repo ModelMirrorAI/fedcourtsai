@@ -306,12 +306,25 @@ def test_the_dispatch_input_advertises_every_dimension() -> None:
 def test_every_advertised_dimension_actually_groups(
     dimension: GroupBy, fixture_corpus: FixtureCorpus
 ) -> None:
-    """Advertised implies works. The help renders from the accepted set, so a new
-    row-keyed member advertises itself the moment it is added; without this, a
-    member with no key function in `_KEY_FNS` would reach an agent as an offered
-    dimension and fail at runtime."""
+    """Advertised implies works, over the whole accepted set rather than a listed
+    subset. `STATS_DIMENSIONS` derives from `_KEY_FNS`, so a member with no key
+    function cannot reach an agent as an offered dimension; what this still pins is
+    that every offered dimension groups a real corpus without erroring — a key
+    function that is registered but broken, or that a filter interaction breaks."""
     result = runner.invoke(app, ["stats", "--group-by", dimension.value])
     assert result.exit_code == 0, result.output
+
+
+def test_stats_offers_only_the_dimensions_it_can_compute(fixture_corpus: FixtureCorpus) -> None:
+    # `qp_topic` keys off a labels artifact, not a corpus row, so `stats` cannot
+    # serve it and must not advertise it — offering a `--group-by` the aggregation
+    # would `KeyError` on is the failure this pins. It lives beside the other
+    # `STATS_DIMENSIONS` tests, where someone adding a dimension will look.
+    assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
+    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
+    result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
+    assert result.exit_code == 2
+    assert "Unknown --group-by 'qp_topic'" in result.stderr
 
 
 def test_cli_bad_disposition_errors(fixture_corpus: FixtureCorpus) -> None:

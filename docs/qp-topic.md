@@ -34,14 +34,18 @@ prompt's digest moves and this stops being a free-moving vocabulary — that is 
 version bump and its own review, not an edit to this document.
 
 Of the machinery this document contracts for, the vocabulary, the reference set,
-the labeler machinery, and the published cut exist: the labeling prompt
+the labeler machinery, and the cut exist: the labeling prompt
 (`.github/prompts/qp-topic-label.md`), the extract and measurement commands
 (`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
 (`fedcourtsai.pipeline.qp_topics`), and the court-facing docket pack's topic
-section, which renders — always with the inline scope string below — as soon as a
-labels artifact is on disk and names the missing distribution among its gaps
-until then. No run mode dispatches the labeler and no labels artifact has been
-produced, so nothing is published yet.
+section, which renders — always with the inline scope string below, and only from
+a gate-passing labels artifact — in place of the gap bullet that names the
+missing distribution until then. No run mode dispatches the labeler and no labels
+artifact has been produced, so no distribution is published. The publication bar
+the coverage caveat sets is **not** enforced by that code and cannot be: whether
+the denial- and GVR-stratified supplement block has landed is a property of the
+reference set, which the labels artifact does not record, so producing the first
+artifact is the decision that publishes the first cut.
 
 ## The register
 
@@ -316,7 +320,17 @@ the corpus is a **document-fetch artifact, not a sample**:
 
 The caveat travels **inline**: every published share renders with a one-line
 scope string beside it, of the form
-`(QP-bearing rows only — <pct> of walked Term-<T> rows; grant-enriched;
-primaries only; not docket-representative)`, with the numbers of the corpus
-it was computed from. A section-level caveat does not survive a quoted
-number; the scope string does.
+`(QP-bearing rows only — <coverage>; grant-enriched; primaries only; not
+docket-representative)`, with the numbers of the corpus it was computed from. A
+section-level caveat does not survive a quoted number; the scope string does.
+
+`<coverage>` is stated in the frame the cut is computed in, and the two frames
+are not interchangeable. A **per-Term** cut states `<pct> of walked Term-<T>
+rows` against that Term's serial census, the frame the coverage figures above
+are quoted in. A **pooled** cut — the docket pack's, computed over the whole
+modern discretionary-cert live slice — states `<n> of <N> ingested rows`:
+counts, because a pooled percentage against a census that spans Terms of 0% and
+16% coverage reads as a coverage level no Term has, and *ingested* rather than
+*walked*, because the denial sampling puts the walked serial count several-fold
+above the rows on hand. A pooled cut must also say that coverage is uneven
+across Terms, since its own ratio cannot show it.

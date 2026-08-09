@@ -1120,7 +1120,7 @@ def qp_topics_cmd(
     thing standing between a drifted labeler and a published topic distribution.
     """
     settings = get_settings()
-    reference_path = settings.data_root / "qp-topics" / "qp-topic-reference.json"
+    reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
         raise typer.Exit(code=1)
@@ -1156,7 +1156,7 @@ def qp_topics_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    destination = out if out is not None else settings.data_root / "qp-topics" / "qp-topics.json"
+    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
     write_json(destination, artifact)
     typer.echo(f"qp-topics: gate passed -> {destination}")
 
@@ -1810,11 +1810,14 @@ def docket(
         Path | None,
         typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
     ] = None,
-    qp_topics: Annotated[
+    qp_topics_path: Annotated[
         Path | None,
         typer.Option(
+            "--qp-topics",
+            exists=True,
             help="QP-topic labels artifact backing the topic cut "
-            "(default: <data_root>/qp-topics/qp-topics.json; the cut is omitted when absent).",
+            "(default: <data_root>/qp-topics/qp-topics.json, silently absent until a "
+            "labeler run lands; naming one that does not exist is an error).",
         ),
     ] = None,
 ) -> None:
@@ -1828,21 +1831,25 @@ def docket(
     interest in the models. Every cert cut is denial-reweighted, so its rates
     estimate the population rather than the walked sample, and each states its
     own denominator. Deterministic and
-    offline: a pure function of the corpus, so reruns reproduce both files byte
-    for byte. Writes the empty zero-count pack when the corpus is absent (run
-    after a corpus pull).
+    offline: a pure function of the corpus and, where one is on disk, the
+    ``qp-topic-v0`` labels artifact — so reruns over unchanged inputs reproduce
+    both files byte for byte. Writes the empty zero-count pack when the corpus is
+    absent (run after a corpus pull).
 
-    The question-presented topic cut renders only where a ``qp-topic-v0`` labels
-    artifact is on disk, always beside its labeler and measured agreement and
-    always carrying the coverage caveat of ``docs/qp-topic.md``; with none there,
-    the document names the missing distribution among its gaps instead.
+    The question-presented topic cut renders only from a gate-passing
+    ``qp-topic-v0`` labels artifact, always beside its labeler and measured
+    agreement and always carrying the coverage caveat of ``docs/qp-topic.md``;
+    with none there, the document names the missing distribution among its gaps
+    instead. The **default** path is allowed to be absent — that is the standing
+    state until a labeler run lands — while a path named on the command line is
+    checked, so a typo cannot quietly publish the pack without its cut.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    labels_path = (
-        qp_topics if qp_topics is not None else settings.data_root / "qp-topics" / "qp-topics.json"
+    labels = (
+        qp_topics_path if qp_topics_path is not None else qp_topics.labels_path(settings.data_root)
     )
-    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels_path)
+    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels)
     json_dest = out if out is not None else settings.metrics_root / "docket.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
     write_json(json_dest, pack)
