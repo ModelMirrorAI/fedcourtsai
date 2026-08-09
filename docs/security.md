@@ -505,7 +505,11 @@ the key from the committed pointer). The residual this leaves is bounded and
 understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
-(it can enumerate keys for ingested-but-unpublished dockets). But it widens
+(it can enumerate keys for ingested-but-unpublished dockets). One committed
+artifact holds a stated, bounded exception to that boundary: the 189-row
+hand-labeled qp-topic reference set names ingested-but-unpublished dockets by
+public docket number, argued and accepted in `docs/qp-topic.md` for that
+artifact alone. But it widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see
 [data-sources.md](data-sources.md)), not identity-based, so enumeration reads

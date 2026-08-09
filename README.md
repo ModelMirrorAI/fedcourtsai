@@ -210,7 +210,11 @@ worth reading in a diff, so they live in git, validating against the pydantic
 models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
 Alongside the per-case tree, two repo-level roll-ups are regenerated
 deterministically and committed for review: `metrics/` and `data/scope/scope.json`
-(the published prediction-scope decision for the already-public case set). Full
+(the published prediction-scope decision for the already-public case set) —
+plus one committed artifact that is not a roll-up at all:
+`data/qp-topics/qp-topic-reference.json`, the hand-labeled topic reference set
+(`docs/qp-topic.md`), authored as a judgment and changed only in its own
+reviewed diff. Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop

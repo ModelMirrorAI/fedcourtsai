@@ -1,21 +1,27 @@
-"""The committed qp-topic reference set stays valid, canonical, and measurable."""
+"""The committed qp-topic reference set stays valid, canonical, and complete."""
 
 import json
 from pathlib import Path
 
-from fedcourtsai.schemas import QP_TOPIC_LABELS, QpTopicReference
+import pytest
+from pydantic import ValidationError
+
+from fedcourtsai.schemas import QP_TOPIC_LABELS, QpTopicReference, QpTopicReferenceEntry
 from fedcourtsai.serialize import read_model
 
 _REFERENCE = Path(__file__).resolve().parents[1] / "data" / "qp-topics" / "qp-topic-reference.json"
 
 
+def _entry(case_id: str, docket_number: str) -> QpTopicReferenceEntry:
+    return QpTopicReferenceEntry(case_id=case_id, docket_number=docket_number, label="tax")
+
+
 def test_reference_set_is_valid_and_canonical() -> None:
     ref = read_model(_REFERENCE, QpTopicReference)
-    assert ref.cases == len(ref.entries)
-    case_ids = [e.case_id for e in ref.entries]
-    assert case_ids == sorted(case_ids)
-    assert len(set(case_ids)) == len(case_ids)
-    docket_numbers = [e.docket_number for e in ref.entries]
+    # cases == len(entries) and case_id order/uniqueness are schema-enforced by
+    # the model validator; docket_number uniqueness is the docstring's pairing
+    # contract, checked only here.
+    docket_numbers = [entry.docket_number for entry in ref.entries]
     assert len(set(docket_numbers)) == len(docket_numbers)
 
 
@@ -28,7 +34,20 @@ def test_reference_set_bytes_are_the_canonical_serialization() -> None:
 
 
 def test_reference_set_exercises_the_whole_vocabulary() -> None:
-    # A label with zero reference examples cannot be measured, so a vocabulary
-    # change and a reference change must travel together.
+    # Every label appears at least once, so a vocabulary change and a reference
+    # change must travel together. Presence is not measurability: per-label
+    # rates below the support floor stay unmeasured (docs/qp-topic.md).
     ref = read_model(_REFERENCE, QpTopicReference)
-    assert {e.label for e in ref.entries} == set(QP_TOPIC_LABELS)
+    assert {entry.label for entry in ref.entries} == set(QP_TOPIC_LABELS)
+
+
+def test_model_rejects_count_drift() -> None:
+    with pytest.raises(ValidationError, match="cases must equal"):
+        QpTopicReference(cases=2, entries=[_entry("scotus/1", "25-1")])
+
+
+def test_model_rejects_unsorted_or_duplicate_case_ids() -> None:
+    with pytest.raises(ValidationError, match="sorted by case_id"):
+        QpTopicReference(cases=2, entries=[_entry("scotus/2", "25-2"), _entry("scotus/1", "25-1")])
+    with pytest.raises(ValidationError, match="sorted by case_id"):
+        QpTopicReference(cases=2, entries=[_entry("scotus/1", "25-1"), _entry("scotus/1", "25-2")])

@@ -1830,11 +1830,11 @@ _GVR_SPLIT_CAVEAT = (
 # gaps, so a citation is not read as a claim that the number is zero.
 _DOCKET_GAPS = (
     _GVR_SPLIT_CAVEAT,
-    "**What the petitions are about.** A distribution of the questions presented "
-    + "by subject matter needs a claim taxonomy to classify them against, and no "
-    + "such taxonomy is built. Inventing one for this artifact alone would publish "
-    + "a categorization nothing else in the project shares, and that no later work "
-    + "could reproduce.",
+    "**What the petitions are about.** The claim taxonomy for this cut exists — "
+    + "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no labeler has run "
+    + "over the stored questions-presented texts, so the distribution is not yet "
+    + "computed. When it is, it carries that vocabulary's coverage caveat: QP "
+    + "presence is a document-fetch artifact, not a sample of the docket.",
     "**Summary reversals are not broken out.** The disposition vocabulary carries "
     + "a label for them, but no resolver rule reads one off an order, so none is "
     + "produced and a summary reversal is counted inside the grant family above "

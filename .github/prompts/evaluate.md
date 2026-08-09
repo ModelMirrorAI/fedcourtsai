@@ -469,6 +469,10 @@ advisory and never graded.
   paths (the `flags.json` / `tooling.json` above live there too). Never edit
   predictions, outcomes, snapshots, the blinded staging area, or another
   evaluator's output.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing an
+  evaluation may use, and a read of that path in your logged tool calls is treated
+  as a leakage event on audit.
 - **Keep the blind.** Read candidates only from `record/blinded/<alias>/`, key
   every output on the alias, and do not try to work out who a candidate is by any
   route. The routes are named so there is no ambiguity about what is off limits:

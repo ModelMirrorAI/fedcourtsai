@@ -682,6 +682,10 @@ willing to be scored on, not a hedge.
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or
   any other file.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing a
+  prediction may use, and a read of that path in your logged tool calls is treated
+  as a leakage event on audit.
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
   problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or

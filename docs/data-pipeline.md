@@ -246,7 +246,13 @@ read opposite sources, so their disclosure properties differ. The **scope
 manifest** (`fedcourts scope-manifest`) is enumerated from the committed
 `data/cases` tree alone, never a corpus scan, so it discloses only the
 already-public set and cannot enumerate the wider ingested corpus; regenerate it
-when that set or its scope latches move. The **docket pack** (`fedcourts
+when that set or its scope latches move. One committed `data/` artifact is
+**not** a roll-up: `data/qp-topics/qp-topic-reference.json` is hand-authored
+judgment (the `qp-topic-v0` measurement baseline, `docs/qp-topic.md`), edited
+only in an interactive session and only via its own reviewed staging PR —
+neither the deterministic writers nor any workflow regenerates it, and its
+deliberate disclosure exception is argued in `docs/qp-topic.md`. The **docket
+pack** (`fedcourts
 docket`) aggregates the whole corpus — it publishes counts and rates over every
 ingested row, never a row itself — so it moves whenever the corpus does, and the
 committed copy is a point-in-time snapshot that nothing schedules or gates (see

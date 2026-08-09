@@ -1,6 +1,7 @@
 """Pydantic models defining the on-disk data contract for the pipeline.
 
-Every artifact written under ``data/cases/`` validates against one of these
+Every artifact committed under ``data/`` — the per-case tree, the scope
+manifest, the qp-topic reference set — validates against one of these
 models. They are the single source of truth for the data shape and are also
 exported to JSON Schema (see ``fedcourts export-schemas``) so that coding
 agents and Codex ``--output-schema`` can target them directly.
@@ -3089,12 +3090,12 @@ QpTopicLabel = Literal[
 """A ``qp-topic-v0`` subject-matter label for a question presented.
 
 The vocabulary is declared and bounded in ``docs/qp-topic.md`` — fifteen
-subjects plus ``unclassifiable``, which is reserved for texts with *no subject
-present* (front matter, a table of contents, a parties list), never for texts
-that are merely hard to place.
+subjects plus ``unclassifiable``, which is reserved for texts with no subject
+or no cognizable question present, never for texts that are merely hard to
+place.
 """
 
-QP_TOPIC_LABELS: Final[tuple[str, ...]] = get_args(QpTopicLabel)
+QP_TOPIC_LABELS: Final[tuple[QpTopicLabel, ...]] = get_args(QpTopicLabel)
 
 
 class QpTopicReferenceEntry(_Strict):
@@ -3125,11 +3126,15 @@ class QpTopicReference(_Strict):
 
     The measurement baseline for any ``qp-topic-v0`` labeler: cases whose stored
     ``questions-presented`` texts were read and labeled by hand against the
-    vocabulary in ``docs/qp-topic.md``. A labeler's accuracy on this set is
-    measured and recorded before anything it produces is published, so the set
-    is append-only in spirit — relabeling an entry is a judgment change that
-    belongs in its own reviewed diff, not a side effect of another change.
-    Nothing frozen depends on it and no cell prompt reads it.
+    vocabulary in ``docs/qp-topic.md``. A labeler's agreement with this set is
+    measured and recorded before anything it produces is published. The set is
+    append-only in spirit — relabeling an entry is a judgment change that
+    belongs in its own reviewed diff, not a side effect of another change — and
+    each ``docket_number`` appears at most once, so the two keys stay a
+    verifiable pair. Its selection frame is outcome-conditioned and disclosed
+    in ``docs/qp-topic.md``: membership encodes cert outcomes, which is why the
+    cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -3137,11 +3142,22 @@ class QpTopicReference(_Strict):
         default="qp-topic-v0",
         description="The label vocabulary every entry draws from",
     )
-    cases: int = Field(ge=0, description="Number of hand-labeled cases (== len(entries))")
+    cases: int = Field(
+        default=0, ge=0, description="Number of hand-labeled cases (== len(entries))"
+    )
     entries: list[QpTopicReferenceEntry] = Field(
         default_factory=list,
         description="One entry per hand-labeled case, in case_id order",
     )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicReference:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
 
 
 class DispositionShare(_Strict):
