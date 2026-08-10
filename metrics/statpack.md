@@ -1,21 +1,21 @@
 # Corpus statpack
 
-**2151698** case(s): 51863 resolved, 2099835 open.
+**2151698** case(s): 51926 resolved, 2099772 open.
 
-**Live/historical slice:** 21492 case(s), 20896 resolved — the population behind every live-slice section below; 44740 docketed filing(s) across the walked Terms.
+**Live/historical slice:** 21555 case(s), 20959 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 44740 docketed filing(s) across the walked Terms.
 
-**Overall base rate (resolved):** other 46.3%, denied 34.7%, dismissed 13.8%, granted 4.1%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
+**Overall base rate (resolved):** other 46.2%, denied 34.7%, dismissed 13.8%, granted 4.2%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 20919 of 27858 machine-readable resolved case(s) carry a resolution date (75.1%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 20982 of 27921 machine-readable resolved case(s) carry a resolution date (75.1%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 10d, p90 130d (mean 57.9d over 2477 dated case(s))
+**Filing → decision timing:** median 7d, p90 127d (mean 56.8d over 2533 dated case(s))
 
 ## Cases by court
 _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 589619 | 21192 | 568427 | denied 82.8%, granted 8.9%, dismissed 4.4%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
+| scotus | 589619 | 21255 | 568364 | denied 82.7%, granted 9.1%, dismissed 4.4%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -35,13 +35,13 @@ _Scope: scotus; includes the frozen bulk import._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126791 | 267 | 126524 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
+| (none) | 126784 | 267 | 126517 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
 | 2000s | 124840 | 13 | 124827 | other 100.0% |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% |
 | 2010s | 97059 | 6515 | 90544 | denied 87.5%, dismissed 5.2%, gvr 3.8%, granted 3.5% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 32929 | 14381 | 18548 | denied 82.3%, granted 11.6%, dismissed 3.8%, gvr 2.3%, withdrawn 0.0% |
+| 2020s | 32936 | 14444 | 18492 | denied 82.1%, granted 11.8%, dismissed 3.8%, gvr 2.3%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -187,3 +187,57 @@ _Paid scored-segment grant rate per band, this Term's live slice only (denial-re
 | 2017 | 42.8% (n=138) [reached 42.8%, n=138] | 9.5% (n=296) [reached 20.0%, n=434] | 0.9% (n=1257) [reached 5.8%, n=1691] |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._
+
+## The interim docket (applications)
+_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the time-extension requests that dominate the docket), split by application-Term year; raw counts, never reweighted. Descriptive only: the grant rate is computed over **resolved substantive** applications alone — extensions are counted so their dominance stays visible, but they never pool into any rate — and it is not a segment base rate: the interim stage's scored base rate publishes only at the pre-registered resolved-count floor (docs/salience.md), so until then no skill or calibration claim rests on these figures. Resolved means a machine-matched interim disposition — an unmatched resolution stays visibly unresolved rather than entering any denominator — and withdrawn/dismissed resolutions count as ungranted. This is not a salience-band product and carries no salience version. The escalation-signal columns count substantive applications only, and carry max-latched ending states rather than as-at-prediction values — no rate here conditions on them. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding your clock._
+
+**27215** application(s): 1181 extension, 206 substantive, 66 unknown ask, 25762 never parsed.
+
+**Substantive slice:** 205 resolved, 29 granted — grant rate 14.1% (n=205). Escalation signals: response requested 45, referred to the Court 82, with amicus 43.
+
+| Term | applications | extension | substantive | unknown | unparsed | resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |
+| --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |
+| 2025 | 1365 | 1128 | 179 | 58 | 0 | 178 | 16 | 9.0% (n=178) | 27 | 60 | 24 |
+| 2024 | 1286 | 53 | 27 | 8 | 1198 | 27 | 13 | 48.1% (n=27) | 18 | 22 | 19 |
+| 2023 | 1177 | 0 | 0 | 0 | 1177 | 0 | 0 | — | 0 | 0 | 0 |
+| 2022 | 1133 | 0 | 0 | 0 | 1133 | 0 | 0 | — | 0 | 0 | 0 |
+| 2021 | 878 | 0 | 0 | 0 | 878 | 0 | 0 | — | 0 | 0 | 0 |
+| 2020 | 183 | 0 | 0 | 0 | 183 | 0 | 0 | — | 0 | 0 | 0 |
+| 2019 | 1073 | 0 | 0 | 0 | 1073 | 0 | 0 | — | 0 | 0 | 0 |
+| 2018 | 1371 | 0 | 0 | 0 | 1371 | 0 | 0 | — | 0 | 0 | 0 |
+| 2017 | 1425 | 0 | 0 | 0 | 1425 | 0 | 0 | — | 0 | 0 | 0 |
+| 2016 | 1268 | 0 | 0 | 0 | 1268 | 0 | 0 | — | 0 | 0 | 0 |
+| 2015 | 1303 | 0 | 0 | 0 | 1303 | 0 | 0 | — | 0 | 0 | 0 |
+| 2014 | 1314 | 0 | 0 | 0 | 1314 | 0 | 0 | — | 0 | 0 | 0 |
+| 2013 | 1287 | 0 | 0 | 0 | 1287 | 0 | 0 | — | 0 | 0 | 0 |
+| 2012 | 1252 | 0 | 0 | 0 | 1252 | 0 | 0 | — | 0 | 0 | 0 |
+| 2011 | 1255 | 0 | 0 | 0 | 1255 | 0 | 0 | — | 0 | 0 | 0 |
+| 2010 | 1277 | 0 | 0 | 0 | 1277 | 0 | 0 | — | 0 | 0 | 0 |
+| 2009 | 1267 | 0 | 0 | 0 | 1267 | 0 | 0 | — | 0 | 0 | 0 |
+| 2008 | 1166 | 0 | 0 | 0 | 1166 | 0 | 0 | — | 0 | 0 | 0 |
+| 2007 | 1043 | 0 | 0 | 0 | 1043 | 0 | 0 | — | 0 | 0 | 0 |
+| 2006 | 1243 | 0 | 0 | 0 | 1243 | 0 | 0 | — | 0 | 0 | 0 |
+| 2005 | 1238 | 0 | 0 | 0 | 1238 | 0 | 0 | — | 0 | 0 | 0 |
+| 2004 | 1079 | 0 | 0 | 0 | 1079 | 0 | 0 | — | 0 | 0 | 0 |
+| 2003 | 1064 | 0 | 0 | 0 | 1064 | 0 | 0 | — | 0 | 0 | 0 |
+| 2002 | 262 | 0 | 0 | 0 | 262 | 0 | 0 | — | 0 | 0 | 0 |
+| 2001 | 6 | 0 | 0 | 0 | 6 | 0 | 0 | — | 0 | 0 | 0 |
+
+## The merits docket (granted cases)
+_SCOTUS cases whose cert grant opened a merits proceeding — a plain or partial grant; a GVR or summary reversal decides in the cert order itself, so it is a cert-stage fact and is excluded by its disposition label (only as exact as that label: a Term resolved before the `gvr` label existed carries its GVRs as plain `granted`, so its rate here reads high) — split by the October Term certiorari was granted in: a grant-date-keyed axis that does **not** align with the cert tables' docket-number Terms (a petition docketed in Term T is routinely granted in T+1), and Terms with no parsed judgment are omitted from the table. Raw counts, never reweighted (a grant is always ingested with certainty). The judgment distribution and disturbed rate cover the **parsed** slice only — cases whose stored snapshot the deterministic merits parser could read — and `parsed` against `granted` states that coverage; the gap blends still-pending cases (granted, not yet decided) with genuine parse gaps, so a recent Term's thin `parsed` is mostly pendency, not parser failure. The per-Term disturbed rates (reversed + vacated + affirmed-in-part over parsed) are the committed feed of the registered merits Brier baseline: a merits cell's skill is scored against these rates pooled over grant Terms **strictly before** the case's (docs/decision-model.md), so a skill claim exists only where strictly-prior Terms carry parsed judgments — and the rate is measured over exactly the population a merits cell is drawn from, which is why the cert-order grants are excluded. A DIG or an equally divided affirmance counts as undisturbed (both leave the judgment below standing) and sits in the scored pool on that footing, since the baseline's denominator counts it the same way. This is not a salience-band product and carries no salience version. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding your clock._
+
+**674** granted case(s): 606 with a parsed judgment.
+
+**Parsed slice:** 147 affirmed, 261 reversed, 172 vacated, 10 affirmed in part, 12 DIG, 4 equally divided — disturbed rate 73.1% (n=606).
+
+| Term | granted | parsed | affirmed | reversed | vacated | in part | DIG | equally divided | disturbed | disturbed rate |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |
+| 2025 | 60 | 34 | 7 | 19 | 8 | 0 | 0 | 0 | 27 | 79.4% (n=34) |
+| 2024 | 109 | 107 | 19 | 39 | 45 | 0 | 2 | 2 | 84 | 78.5% (n=107) |
+| 2023 | 69 | 68 | 17 | 21 | 26 | 0 | 4 | 0 | 47 | 69.1% (n=68) |
+| 2022 | 75 | 73 | 22 | 23 | 27 | 0 | 1 | 0 | 50 | 68.5% (n=73) |
+| 2021 | 69 | 66 | 15 | 33 | 9 | 5 | 3 | 1 | 47 | 71.2% (n=66) |
+| 2020 | 87 | 71 | 12 | 44 | 15 | 0 | 0 | 0 | 59 | 83.1% (n=71) |
+| 2019 | 63 | 56 | 11 | 31 | 11 | 2 | 1 | 0 | 44 | 78.6% (n=56) |
+| 2018 | 81 | 76 | 24 | 29 | 19 | 3 | 1 | 0 | 51 | 67.1% (n=76) |
+| 2017 | 61 | 55 | 20 | 22 | 12 | 0 | 0 | 1 | 34 | 61.8% (n=55) |
