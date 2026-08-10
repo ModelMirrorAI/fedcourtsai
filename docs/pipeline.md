@@ -6,7 +6,7 @@ stage.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
-| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
+| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
@@ -143,8 +143,16 @@ per-Term base rates and the cert back-test set. It is a corpus writer split out
 of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
-CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs seven
+CourtListener enrichment from the rate-limited **REST API** (the live job owns
+SCOTUS freshness for free). One other consumer shares that REST budget:
+**run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
+the `max_cases` input) walks granted SCOTUS rows to their published opinion
+cluster and lands the reporter citations and opinion body
+(`fedcourts enrich-opinions`; scope and arithmetic in
+[data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
+never scheduled, and dispatched into a dead zone between pull windows so it
+neither queues on the corpus-write lock nor stacks API spend onto a pull
+window's. run-seed also runs seven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -286,7 +294,9 @@ pattern rather than rediscovering it:
 
 - **Concurrency is evaluated before the job `if`.** An `issues: labeled` event
   fans out to *every* workflow that listens for it, and the job-level label filter
-  runs only after the concurrency group is assigned. A corpus writer job (pull, live, historical)
+  runs only after the concurrency group is assigned. A label-reachable corpus
+  writer job (pull, live, historical — the dispatch-only enrich job never sees
+  a label)
   must therefore join the shared `corpus-write` group **only** when its own label
   matched — otherwise an unrelated label cancels a real writer. See the
   `concurrency:` expression in `run-pull.yml`. To dispatch one of
