@@ -143,9 +143,10 @@ classes; their shape survives). Both are set out below.
 
 ## The scoring rule
 
-The claim set is **fixed and mandatory**: the harness declares, per event kind,
-exactly which claims a prediction carries, and a predictor states a probability
-for every one of them. It cannot add claims and it cannot skip them. *Why the set
+The claim set is **fixed and mandatory**: the harness declares, per declared
+moment (with an event-kind fallback for events outside the moment table —
+entry-pinned events and legacy ids), exactly which claims a prediction
+carries, and a predictor states a probability for every one of them. It cannot add claims and it cannot skip them. *Why the set
 is mandatory* explains why that is not the obvious design and is nonetheless the
 right one.
 
