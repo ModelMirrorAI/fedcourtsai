@@ -1,6 +1,7 @@
 name: run-pull
 
-# Refresh tracked dockets — two forward writer jobs on one surface, at most one per run:
+# Refresh tracked dockets — three writer jobs on one surface, at most one per
+# run: two scheduled forward writers and one dispatch-only enrichment pass.
 #
 # - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
 #   targeted CourtListener *enrichment* for the tracked set —
@@ -12,6 +13,14 @@ name: run-pull
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
 #   same corpus-writer plumbing (corpus push, pointer commit, queue handoffs).
+# - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
+#   granted SCOTUS rows to their published opinion cluster and lands the
+#   reporter citations and the opinion body (`fedcourts enrich-opinions`,
+#   docs/data-pipeline.md). Dispatch-only because the pass spends the shared
+#   CourtListener budget (~3 requests/case against the same daily ceiling the
+#   pull windows draw on) and re-walks opinion-less grants (GVR/DIG residue)
+#   every run — an operator sizes and times each run deliberately, in a dead
+#   zone between pull windows.
 #
 # The historical Term walker (the backfill of past Terms) lives in its own
 # workflow, run-seed.yml, so its schedule is independent of these forward
@@ -66,8 +75,12 @@ on:
       mode:
         description: "Which refresh to run (the historical walker is dispatched via run-seed.yml)"
         type: choice
-        options: [pull, live]
+        options: [pull, live, enrich-opinions]
         default: pull
+      max_cases:
+        description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each)"
+        type: string
+        default: "25"
   issues:
     types: [labeled]
 
@@ -670,3 +683,111 @@ jobs:
             gh issue comment "$num" --repo "$REPO" --body "$body"
             echo "Reusing today's open live-log issue #${num}"
           fi
+
+  enrich:
+    # Dispatch-only writer: walk granted SCOTUS rows to their published opinion
+    # cluster and land the reporter citations and the opinion body
+    # (`fedcourts enrich-opinions`; scope and budget arithmetic in
+    # docs/data-pipeline.md). Never scheduled — see the mode note in the header.
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+    runs-on: ubuntu-latest
+    # <= max_cases dockets at ~3 CourtListener fetches each plus the corpus S3
+    # round-trip finishes well inside this; the cap frees the shared
+    # corpus-write lock if a network step hangs.
+    timeout-minutes: 30
+    environment: prod
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+    permissions:
+      contents: write # commit the refreshed corpus pointer to main
+      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # Persist the App token so the pointer commit can be pushed back to
+        # main; this job uploads no artifacts, so credential leakage is not a
+        # concern.
+        with: # zizmor: ignore[artipacked]
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the pull job: a run queued behind another
+        # corpus writer on the shared lock checked out a frozen sha, so reset
+        # to the live tip before pulling the corpus (the invariant the
+        # corpus-writer coordination in docs/data-pipeline.md relies on). The
+        # repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          # Bounded for the same reason as the pull job (see the note there).
+          action-timeout-s: 120
+
+      - name: Pull the current corpus from the remote
+        env:
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          # No committed pointer means no corpus and nothing to enrich, so the
+          # default missing-pointer failure is the right outcome: a dispatch
+          # against an empty corpus is an operator mistake to surface, not a
+          # first run to tolerate.
+          uv run fedcourts corpus-pull
+
+      - name: Enrich granted dockets with opinion clusters
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # Same tier knobs and fallbacks as the pull job's refresh step (see
+          # the note there for why the fallbacks are the held tier).
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
+          MAX_CASES: ${{ inputs.max_cases }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$MAX_CASES" =~ ^[0-9]+$ ]]; then
+            echo "::error::max_cases must be a non-negative integer, got '${MAX_CASES}'" >&2
+            exit 1
+          fi
+          # The pass prints its per-case ledger (enriched / refused / spent);
+          # tee it onto the summary so the operator reads the run without
+          # opening the log.
+          uv run fedcourts enrich-opinions --apply --max-cases "$MAX_CASES" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Push the corpus blob to the remote
+        env:
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          # Blob before pointer commit, so the committed pointer always
+          # resolves against the remote.
+          uv run fedcourts corpus-push
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      - name: Commit the corpus pointer to main
+        uses: ./.github/actions/commit-corpus-to-main
+        with:
+          message: "enrich: opinion clusters (citations + bodies)"
+          label: corpus pointer
+          append-date: 'true'
