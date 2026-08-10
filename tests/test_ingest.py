@@ -314,13 +314,19 @@ def test_bulk_circuit_rows_drop_the_cluster_joined_fields() -> None:
     """The bulk export's docket↔opinion-cluster join is misjoined on the circuit
     slices (19th-century cluster text on 2018-19 dockets), so the projection
     declines to store what the join cannot vouch for."""
-    store_row = to_corpus_row(from_bulk_row(BULK_ROW))
+    store_row = to_corpus_row(
+        from_bulk_row({**BULK_ROW, "summary": "Per curiam.", "opinion_text": "The body."})
+    )
     assert store_row.judges == []
     assert store_row.panel == []
     assert store_row.precedential_status is None
     assert store_row.summary is None
     assert store_row.citations == []
     assert store_row.citation_count is None
+    # The body is withheld with the rest, so no non-SCOTUS row can carry one and
+    # `has_opinion` never derives off a misjoined cluster's text.
+    assert store_row.opinion_text is None
+    assert store_row.has_opinion is False
     # Docket-side facts are unaffected: they come from the docket row itself.
     assert store_row.case_name == "Doe v. Roe"
     assert store_row.parties == ["Jane Roe", "United States"]
@@ -331,14 +337,35 @@ def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
     # A bulk SCOTUS row keeps the cluster fields — the misjoin is observed only
     # on the circuit slices — and the REST path keeps them on every court (the
     # projection test above pins the api row).
-    scotus = to_corpus_row(from_bulk_row({**BULK_ROW, "court_id": "scotus"}))
+    scotus = to_corpus_row(
+        from_bulk_row({**BULK_ROW, "court_id": "scotus", "opinion_text": "The body."})
+    )
     assert scotus.judges == ["Alan Lee", "Jane Smith"]
     assert scotus.precedential_status == "Published"
     assert scotus.citation_count == 5
+    # A SCOTUS bulk row's body reaches the store, so the presence bit derives.
+    assert scotus.opinion_text == "The body."
+    assert scotus.has_opinion is True
     api = to_corpus_row(from_api_docket(API_DOCKET))
     assert api.judges == ["Alan Lee", "Jane Smith"]
     assert api.precedential_status == "Published"
     assert api.citation_count == 5
+
+
+def test_a_summary_and_an_opinion_body_are_separate_columns() -> None:
+    """A short retrieval blurb and the decision's full text are different facts.
+
+    Folding a body into `summary` would leave `has_opinion` — the presence bit
+    every opinion-coverage reader ORs on — underivable from the row.
+    """
+    both = from_api_docket({**API_DOCKET, "summary": "Per curiam.", "opinion_text": "The body."})
+    assert both.summary == "Per curiam."
+    assert both.opinion_text == "The body."
+    # Each stands alone: a source serving only one fills only that column.
+    body_only = from_api_docket({**API_DOCKET, "opinion_text": "The body."})
+    assert body_only.summary is None and body_only.opinion_text == "The body."
+    summary_only = from_api_docket({**API_DOCKET, "summary": "Per curiam."})
+    assert summary_only.summary == "Per curiam." and summary_only.opinion_text is None
 
 
 def test_a_reserved_bulk_row_clears_a_stored_misjoin(tmp_path: Path) -> None:

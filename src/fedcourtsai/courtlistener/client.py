@@ -1,5 +1,11 @@
 """Thin, typed client for the CourtListener REST API v4.
 
+Reads dockets and their entries (the ``pull`` channel), plus the opinion
+cluster and opinion records a decided docket links (the opinion-enrichment
+channel — :mod:`fedcourtsai.pipeline.opinion_enrichment`). Every endpoint goes
+through one throttled, retried :meth:`CourtListenerClient._get`, so each shares
+the same rate governor, retry policy, and error classification.
+
 Used by the deterministic ``run-pull`` scripts. Agents that need
 richer, exploratory access use the official CourtListener MCP server instead
 (see ``.mcp.json``); this client exists so the routine docket fetching is
@@ -72,9 +78,27 @@ class CourtListenerClient:
         headers = {"Accept": "application/json"}
         if api_token:
             headers["Authorization"] = f"Token {api_token}"
-        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+        # Redirects are not followed, stated rather than inherited: the
+        # Authorization header rides every request, so a 3xx off the API origin
+        # would be a credential leak and a request this client did not address.
+        # A 3xx therefore reaches `raise_for_status` and surfaces as a permanent
+        # error the caller records, not as a silent hop to another origin.
+        self._client = httpx.Client(
+            base_url=base_url, headers=headers, timeout=timeout, follow_redirects=False
+        )
         # Throttle to CourtListener's per-token budget unless a limiter is supplied.
         self._rate_limiter = rate_limiter if rate_limiter is not None else default_rate_limiter()
+
+    @property
+    def base_url(self) -> str:
+        """The REST base every request is built against.
+
+        Exposed so a caller holding an upstream *hyperlink* (a snapshot
+        payload's ``clusters`` entry, say) can check it resolves under this
+        client's own API base before trusting the id inside it — the client
+        itself only ever takes ids and builds its own paths.
+        """
+        return str(self._client.base_url)
 
     def __enter__(self) -> CourtListenerClient:
         return self
@@ -108,6 +132,24 @@ class CourtListenerClient:
     def get_docket(self, docket_id: int) -> JsonDict:
         """Fetch a single docket by CourtListener docket id."""
         return self._get(f"dockets/{docket_id}/")
+
+    def get_cluster(self, cluster_id: int) -> JsonDict:
+        """Fetch a single opinion cluster by CourtListener cluster id.
+
+        A cluster is the decision a docket produced: its reporter ``citations``,
+        the ``citation_count`` of how often it has been cited since, and the
+        ``sub_opinions`` (majority, concurrences, dissents) whose bodies carry
+        the text.
+        """
+        return self._get(f"clusters/{cluster_id}/")
+
+    def get_opinion(self, opinion_id: int) -> JsonDict:
+        """Fetch a single opinion by CourtListener opinion id.
+
+        One sub-opinion of a cluster; ``plain_text`` carries the extracted body
+        where upstream holds one.
+        """
+        return self._get(f"opinions/{opinion_id}/")
 
     def list_docket_entries(self, docket_id: int, page: int = 1) -> JsonDict:
         """List docket entries (the timeline of filings/orders) for a docket."""

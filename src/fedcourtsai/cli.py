@@ -137,6 +137,8 @@ from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
+from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
+from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
     entry_descriptions,
     interim_disposal_signal,
@@ -445,17 +447,24 @@ def scrub_bulk_cluster_fields_cmd(
     """Scrub the bulk export's misjoined cluster fields from the stored slice.
 
     The ingest projection withholds the cluster-derived fields (`summary`,
-    `precedential_status`, `judges`, `panel`, `citations`, `citation_count`)
+    `opinion_text`, `precedential_status`, `judges`, `panel`, `citations`,
+    `citation_count`)
     from a bulk-sourced non-SCOTUS row — the bulk docket-to-cluster join is
     misjoined on the circuit slices — but that rule reaches a stored row only
     on a re-serve, and nothing re-serves the historical bulk slice. This
     converges it: one UPDATE over every non-SCOTUS row a bulk-only field
-    marks. The mark is provable, not inferred: the REST client reads docket
-    records only, so a populated `summary`, `precedential_status`,
-    `citations`, or `citation_count` can only be the bulk join's, whatever
+    marks. The mark is provable, not inferred, and the proof is scope: cluster
+    data reaches the corpus through the bulk join and the SCOTUS-only opinion
+    enrichment (`enrich-opinions`) and nothing else, so a populated `summary`,
+    `precedential_status`, `citations`, or `citation_count` on a **non-SCOTUS**
+    row can only be the bulk join's, whatever
     the row's pull history — while `judges`/`panel`, which discovery and
     pull re-derive from the docket record itself, clear only on marked rows
-    and survive everywhere else. Idempotent. `--apply` refuses above
+    and survive everywhere else. `opinion_text` is withheld at ingest but left
+    out of the sweep: every write to it flows through `upsert_rows`, whose
+    re-mirror is what `casestore.read_opinion_text` rests its freshness
+    invariant on, and this sweep is a direct UPDATE. Idempotent. `--apply`
+    refuses above
     `--max-scrub`, whose default sits just over the measured bulk slice: a
     count past it means the predicate widened (a lost filter reaching rows
     the carve-out never covered), not that the slice grew. Run where the
@@ -638,6 +647,90 @@ def backfill_merits_judgments_cmd(
             "re-derive (never cleared automatically — triage them)"
         )
     typer.echo(f"  judgments: {distribution}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("enrich-opinions")
+def enrich_opinions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the enriched rows; omit for a dry-run report."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
+    ] = DEFAULT_MAX_OPINION_CASES,
+) -> None:
+    """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
+
+    Over the cert-granted slice — SCOTUS rows carrying `date_cert_granted` and
+    not yet an opinion — resolve the docket's published opinion cluster (from a
+    stored REST-shaped snapshot's `clusters` links where it has one, else a
+    docket fetch), take the cluster's reporter `citations` and
+    `citation_count`, and take the cluster's first sub-opinion's `plain_text`
+    as the body. Each case is written through the corpus's own upsert as it
+    converges (casestore mirror included), so `has_opinion` derives and `query
+    --full` can hydrate the body.
+
+    Because `has_opinion` latches, a wrong body is permanent — so the pass
+    refuses rather than guesses: a docket linking several clusters is skipped,
+    a fetched cluster must name the docket it was reached from, and an opinion
+    whose upstream `type` marks it a separate writing (a concurrence, a
+    dissent) never becomes the body. Each refusal is counted and the citations
+    still land — a coverage gap, never fatal, as are a docket linking no
+    cluster and a per-case REST or parse failure.
+
+    Three REST requests a case (two where a REST-shaped snapshot already links
+    the cluster), so `--max-cases` bounds the run's spend on top of the
+    client's rate governor; the walk stops cleanly when the API budget is
+    exhausted, reporting the cases it never reached. Run it outside a pull
+    window: the governor is per-process, so two runs would each stay under the
+    ceiling while the account did not.
+
+    Idempotent: an enriched row no longer matches, while one that found no
+    cluster is retried, so a grant picks up its opinion the run after
+    publication. A grant that never publishes one (a GVR, a DIG) never
+    converges, so raise `--max-cases` past that residue when converging the
+    backlog. Dry-run by default (the
+    requests are spent either way — the dry run is how the spend is
+    inspected); run where the corpus is pulled, `corpus-push` after an
+    `--apply`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the opinion enrichment.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn, _client() as client:
+        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    verb = "enriched" if apply else "would enrich"
+    typer.echo(
+        f"enrich-opinions ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} granted case(s) without an opinion — walked "
+        f"{result.considered}, {verb} {result.enriched}, "
+        f"{result.no_cluster} with no linked cluster, {result.no_body} with no body; "
+        f"{result.requests} REST request(s)"
+    )
+    if result.ambiguous_cluster or result.foreign_cluster:
+        typer.echo(
+            f"  refused: {result.ambiguous_cluster} docket(s) linking several clusters, "
+            f"{result.foreign_cluster} cluster(s) naming another docket"
+        )
+    if result.live_only:
+        typer.echo(
+            f"  {result.live_only} granted row(s) carry a live-channel docket id, which "
+            "addresses nothing upstream — not walked"
+        )
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
+    for entry in result.failed:
+        typer.echo(f"  failed {entry['case_id']}: {entry['reason']}")
     typer.echo(result.model_dump_json())
 
 

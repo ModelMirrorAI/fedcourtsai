@@ -629,7 +629,8 @@ provenance denominator — and nothing records
 authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
-ingestion (`has_opinion` is 0 on every corpus row). Their blind-grading
+coverage — no corpus row carries a body yet, though the channel that fills
+them exists (`fedcourts enrich-opinions`). Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool names — the staged retrieval log respells them as
 engine-neutral classes (`fedcourtsai.blinding.neutral_tool_class`), so the
@@ -1179,9 +1180,11 @@ sides is not one series.
 
 In dependency order, most binding first:
 
-1. **Opinion ingest.** `has_opinion` is 0 on every corpus row. Nothing can be
-   graded against text that is not there, and no amount of methodology
-   substitutes.
+1. **Opinion coverage.** No corpus row carries an opinion body yet. The channel
+   that fills them exists — `fedcourts enrich-opinions`, scoped to the
+   cert-granted slice (`docs/data-pipeline.md`) — so what is missing is a run
+   of it, not a design. Until it lands, nothing can be graded against text that
+   is not there, and no amount of methodology substitutes.
 2. **A grader prompt.** None exists, deliberately: writing one moves a digest
    and makes cells produce data under a methodology that has never met an
    opinion.

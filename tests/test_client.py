@@ -100,6 +100,74 @@ def test_iter_dockets_stops_when_no_next_page() -> None:
     assert [d["id"] for d in got] == [1]
 
 
+def test_cluster_and_opinion_paths_are_built_from_ids() -> None:
+    # The enrichment endpoints take ids, never caller-supplied URLs, so the
+    # request path is always the client's own construction.
+    paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, json={"id": 7})
+
+    client = _client(httpx.MockTransport(handle))
+    assert client.get_cluster(4321) == {"id": 7}
+    assert client.get_opinion(8765) == {"id": 7}
+    client.close()
+
+    assert paths == [
+        "/api/rest/v4/clusters/4321/",
+        "/api/rest/v4/opinions/8765/",
+    ]
+
+
+def test_cluster_fetch_shares_the_rate_governor_and_retries() -> None:
+    # The enrichment endpoints inherit `_get`'s policy rather than a parallel
+    # one: a persistent 5xx is retried to the same cap, every attempt throttled.
+    limiter = _CountingLimiter()
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, json={"detail": "bad gateway"})
+
+    client = _client(httpx.MockTransport(handle), rate_limiter=limiter)
+    with pytest.raises(httpx.HTTPStatusError):
+        client.get_cluster(4321)
+    client.close()
+
+    assert limiter.calls == 4
+
+
+def test_redirects_are_not_followed() -> None:
+    # The Authorization header rides every request, so a 3xx must surface to the
+    # caller rather than carry the credential to whatever origin it names.
+    hosts: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        hosts.append(request.url.host)
+        return httpx.Response(
+            302, headers={"Location": "https://evil.test/api/rest/v4/clusters/1/"}
+        )
+
+    # Only the transport is swapped here, not the whole `httpx.Client`, so the
+    # redirect policy under test is the one the constructor sets.
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    client._client._transport = httpx.MockTransport(handle)
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        client.get_cluster(1)
+    client.close()
+
+    # The redirect raises rather than being followed, it is classified permanent
+    # (so no retry spends budget on it), and the named host was never contacted.
+    assert excinfo.value.response.status_code == 302
+    assert classify_error(excinfo.value) == "permanent"
+    assert hosts == ["www.courtlistener.com"]
+
+
+def test_base_url_is_exposed_for_link_checking() -> None:
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    assert client.base_url == "https://www.courtlistener.com/api/rest/v4/"
+    client.close()
+
+
 def test_retries_transient_failure_then_succeeds() -> None:
     # Two connection errors, then a good response: the call succeeds on attempt 3,
     # and every attempt — retries included — passed through the rate limiter.
