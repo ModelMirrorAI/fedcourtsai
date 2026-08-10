@@ -137,6 +137,8 @@ from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
+from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
+from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
     entry_descriptions,
     interim_disposal_signal,
@@ -638,6 +640,65 @@ def backfill_merits_judgments_cmd(
             "re-derive (never cleared automatically — triage them)"
         )
     typer.echo(f"  judgments: {distribution}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("enrich-opinions")
+def enrich_opinions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the enriched rows; omit for a dry-run report."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
+    ] = DEFAULT_MAX_OPINION_CASES,
+) -> None:
+    """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
+
+    Over the merits track — SCOTUS rows carrying `date_cert_granted` and not
+    yet an opinion — resolve the docket's published opinion cluster (from the
+    stored snapshot's `clusters` links where it has one, else a docket fetch),
+    take the cluster's reporter `citations` and `citation_count`, and take the
+    lead sub-opinion's `plain_text` as the body. The row is written through the
+    corpus's own upsert (casestore mirror included), so `has_opinion` derives
+    and `query --full` can hydrate the body.
+
+    Two REST requests a case (three where the snapshot links no cluster), so
+    `--max-cases` bounds the run's spend on top of the client's rate governor;
+    the walk stops cleanly when the API budget is exhausted, reporting the
+    cases it never reached. A docket linking no cluster, or an opinion with no
+    extracted text, is counted and left alone — a coverage gap, never fatal.
+    Idempotent: an enriched row no longer matches. Dry-run by default (the
+    requests are spent either way — the dry run is how the spend is
+    inspected); run where the corpus is pulled, `corpus-push` after an
+    `--apply`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the opinion enrichment.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn, _client() as client:
+        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    verb = "enriched" if apply else "would enrich"
+    typer.echo(
+        f"enrich-opinions ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} granted case(s) without an opinion — walked "
+        f"{result.considered}, {verb} {result.enriched}, "
+        f"{result.no_cluster} with no linked cluster, {result.no_body} with no body; "
+        f"{result.requests} REST request(s)"
+    )
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
+    for case_id, reason in result.failed:
+        typer.echo(f"  failed {case_id}: {reason}")
     typer.echo(result.model_dump_json())
 
 

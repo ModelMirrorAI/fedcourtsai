@@ -197,7 +197,17 @@ class CorpusRow(BaseModel):
     precedential_status: str | None = Field(
         default=None, description="Published / Unpublished / Errata"
     )
-    summary: str | None = Field(default=None, description="Opinion text or summary")
+    summary: str | None = Field(
+        default=None,
+        description="Short-form case summary for retrieval — never the opinion "
+        "body, which has its own column",
+    )
+    opinion_text: str | None = Field(
+        default=None,
+        description="Full opinion body, where the source serves one (the "
+        "opinion-enrichment channel's `plain_text`, or a bulk row's opinion "
+        "column). The storage row's `has_opinion` presence bit derives from it.",
+    )
     originating_court: str | None = Field(
         default=None, description="Lower court this docket came from (`appeal_from`)"
     )
@@ -486,7 +496,12 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         citations=_str_list(record.get("citations")),
         citation_count=_as_count(record.get("citation_count")),
         precedential_status=_clean(record.get("precedential_status")),
-        summary=_clean(record.get("summary") or record.get("opinion_text")),
+        # Two columns, two facts: a summary is a short retrieval blurb, an
+        # opinion body is the decision's full text and the thing `has_opinion`
+        # asserts the presence of. Folding one into the other would make the
+        # presence bit unreadable from the row.
+        summary=_clean(record.get("summary")),
+        opinion_text=_clean(record.get("opinion_text")),
         originating_court=_originating_court(record),
         originating_docket_number=_originating_docket_number(record),
         source=source,
@@ -972,15 +987,20 @@ def to_corpus_row(
     The bulk export's docket↔opinion-cluster join is misjoined on the circuit
     slices (19th-century cluster text and OCR-garbled judge names on
     2018-19 dockets — an id-space collision in the staged join), so the
-    cluster-derived fields — ``summary``, ``precedential_status``, ``judges``
+    cluster-derived fields — ``summary``, ``opinion_text``,
+    ``precedential_status``, ``judges``
     and the ``panel`` behind them, and ``citations`` / ``citation_count``,
     which the same join supplied — are dropped rather than stored for a bulk
-    circuit row. The projection, not ``_normalize``, is the seam because the
-    ingestion row faithfully records what upstream served; the store declines
-    to keep what the join cannot vouch for. These columns take the incoming
-    value on upsert (no latch), so a re-served bulk row also clears any stored
-    misjoin. SCOTUS bulk rows are untouched: the misjoin is observed only on
-    the circuit slices.
+    circuit row. ``opinion_text`` is in that set for the same reason as the
+    rest and for one more: the only other channel that fills it is the
+    SCOTUS-scoped opinion enrichment, so keeping the bulk join out of the
+    column leaves every stored non-SCOTUS body provably absent rather than
+    provably misjoined. The projection, not ``_normalize``, is the seam because
+    the ingestion row faithfully records what upstream served; the store
+    declines to keep what the join cannot vouch for. These columns take the
+    incoming value on upsert (no latch), so a re-served bulk row also clears
+    any stored misjoin. SCOTUS bulk rows are untouched: the misjoin is observed
+    only on the circuit slices.
     """
     cluster_join_unsound = row.source == CorpusSource.bulk and row.court != "scotus"
     return corpus.CorpusRow(
@@ -1004,6 +1024,7 @@ def to_corpus_row(
         citation_count=None if cluster_join_unsound else row.citation_count,
         precedential_status=None if cluster_join_unsound else row.precedential_status,
         summary=None if cluster_join_unsound else row.summary,
+        opinion_text=None if cluster_join_unsound else row.opinion_text,
         last_pulled=last_pulled,
         last_live_polled=last_live_polled,
         predict_eligible=is_predict_eligible(row),

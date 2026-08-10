@@ -4,22 +4,34 @@ The bulk export's docket-to-opinion-cluster join is misjoined on the circuit
 slices (nineteenth-century cluster text and OCR-garbled judge names on
 2018-19 dockets — an id-space collision in the staged join), so
 :func:`fedcourtsai.pipeline.ingest.to_corpus_row` withholds the
-cluster-derived fields — ``summary``, ``precedential_status``, ``judges``,
+cluster-derived fields — ``summary``, ``opinion_text``,
+``precedential_status``, ``judges``,
 ``panel``, ``citations``, ``citation_count`` — from a bulk-sourced non-SCOTUS
 row. That projection reaches a stored row only when the row is re-served,
 and nothing re-serves the historical bulk slice; this sweep converges those
 rows onto the same shape.
 
-Provenance is provable for four of the six fields: the CourtListener REST
-client reads docket records only — no cluster or opinion endpoint exists —
-so a populated ``summary``, ``precedential_status``, ``citations``, or
-``citation_count`` on a non-SCOTUS row can only have come from the bulk
-join, whatever the row's pull history. Those four are the detection
+Provenance is provable for four of the seven fields, and the proof is a
+**scope** argument rather than a claim about which endpoints exist. Cluster
+data reaches the corpus through exactly two channels: the bulk join, and the
+opinion enrichment (:mod:`fedcourtsai.pipeline.opinion_enrichment`), which
+walks the SCOTUS merits track alone and writes nothing outside it. So a
+populated ``summary``, ``precedential_status``, ``citations``, or
+``citation_count`` on a **non-SCOTUS** row can only have come from the bulk
+join, whatever the row's pull history — and the sweep's existing
+``court != 'scotus'`` filter is what keeps that true, not an incidental
+narrowing. Those four are the detection
 predicate, and are nulled wherever populated. ``judges`` and ``panel`` are
 different: discovery and pull re-derive them from the docket record itself,
 so a populated pair proves nothing on its own — they are cleared only on
 rows one of the four bulk-only fields marks, where the last cluster-bearing
-write was necessarily the bulk join's. The residue — a bulk row carrying
+write was necessarily the bulk join's. ``opinion_text`` is the seventh field
+and deliberately not swept at all: every write to that column flows through
+``upsert_rows``, which re-mirrors the case's stored ``case.json``, and
+:func:`fedcourtsai.casestore.read_opinion_text` rests its freshness invariant
+on no direct-``UPDATE`` writer touching it — this sweep is one, so it leaves
+the column to the ingest projection that keeps a bulk body out of it in the
+first place. The residue — a bulk row carrying
 judges or panel and none of the four — is left alone, indistinguishable
 from a discovery-onboarded row's sound values and measured in single digits
 against the 1.36M-row slice. SCOTUS rows are untouched, as in the
@@ -35,8 +47,10 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-# A row carrying any field the REST channel cannot supply — bulk provenance,
-# proven by the client's surface rather than inferred from channel stamps.
+# A row carrying any field no channel could have written here — bulk provenance,
+# proven by the writing channels' scope rather than inferred from channel stamps
+# (see the module docstring; the `court != 'scotus'` filter below is load-bearing
+# to that proof, not a convenience).
 # The list-valued column stores JSON text (``'[]'`` when empty), the rest NULL.
 _BULK_ONLY_POPULATED = (
     "summary IS NOT NULL OR precedential_status IS NOT NULL"

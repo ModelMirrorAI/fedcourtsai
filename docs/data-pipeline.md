@@ -414,14 +414,30 @@ rather than fails: a case whose `case.json` was never mirrored, and a store that
 cannot be read at all, both yield an empty body, because the rows are shaped and
 emitted one at a time and a raised error would truncate the result stream.
 
-Two **preconditions** gate whether a body actually comes back, and neither holds
-across the corpus today — so this reader is correct but largely latent:
-`has_opinion` is set only from a non-empty `opinion_text` at row construction, and
-the committed corpus carries the bit on no rows (while ~653k rows do have a linked
-opinion by citation); and `case.json` is mirrored only by `upsert_rows`, so a case
-last ingested before the store went live has no stored body and no backfill exists
-to give it one. Populating the presence bit and backfilling the store are the work
-that makes `--full` useful in production.
+Two **preconditions** gate whether a body actually comes back, and one write
+satisfies both: `has_opinion` is set only from a non-empty `opinion_text` at row
+construction, and `case.json` is mirrored only by `upsert_rows` — so a body that
+does not arrive through the ingestion upsert reaches neither the bit nor the
+store. **Opinion enrichment** (`enrich-opinions`) is the channel that supplies
+it. Per case it resolves the docket's published opinion cluster — from the
+stored snapshot's `clusters` links where there is one, else a docket fetch —
+takes the cluster's reporter citations and `citation_count`, and takes the lead
+sub-opinion's `plain_text` as the body; the row then goes through the same
+upsert every other channel writes through, so the presence bit derives and the
+content store re-mirrors in the same step. A cluster with no extracted text is
+counted and left alone rather than scraped out of the HTML rendering.
+
+Its **scope is its budget argument**. The pass walks the merits track only —
+SCOTUS rows carrying `date_cert_granted`, ≈1,250 all-time and ≈65 a Term
+ongoing — at two REST requests a case, three where the snapshot links no
+cluster. That is ≈2,500–3,750 requests to converge the standing population and
+≈130 a Term to hold it, against the held Tier-2 ceiling of 600/day of which the
+four daily pull windows commit ≈20% ([budget.md](budget.md)); `--max-cases`
+(default 25) bounds one run's spend ahead of the client's own governor, so the
+pace is the operator's choice rather than a race with the pull rotation. The
+same arithmetic is why the pass is *not* pointed at the whole corpus: opinion
+coverage at bulk scale is the replication channel's problem
+([data-sources.md](data-sources.md)), not more REST.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
 only) is the forward-cell guard at the provisioning seam: it refuses to

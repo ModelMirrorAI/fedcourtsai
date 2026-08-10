@@ -100,6 +100,48 @@ def test_iter_dockets_stops_when_no_next_page() -> None:
     assert [d["id"] for d in got] == [1]
 
 
+def test_cluster_and_opinion_paths_are_built_from_ids() -> None:
+    # The enrichment endpoints take ids, never caller-supplied URLs, so the
+    # request path is always the client's own construction.
+    paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, json={"id": 7})
+
+    client = _client(httpx.MockTransport(handle))
+    assert client.get_cluster(4321) == {"id": 7}
+    assert client.get_opinion(8765) == {"id": 7}
+    client.close()
+
+    assert paths == [
+        "/api/rest/v4/clusters/4321/",
+        "/api/rest/v4/opinions/8765/",
+    ]
+
+
+def test_cluster_fetch_shares_the_rate_governor_and_retries() -> None:
+    # The enrichment endpoints inherit `_get`'s policy rather than a parallel
+    # one: a persistent 5xx is retried to the same cap, every attempt throttled.
+    limiter = _CountingLimiter()
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, json={"detail": "bad gateway"})
+
+    client = _client(httpx.MockTransport(handle), rate_limiter=limiter)
+    with pytest.raises(httpx.HTTPStatusError):
+        client.get_cluster(4321)
+    client.close()
+
+    assert limiter.calls == 4
+
+
+def test_base_url_is_exposed_for_link_checking() -> None:
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    assert client.base_url == "https://www.courtlistener.com/api/rest/v4/"
+    client.close()
+
+
 def test_retries_transient_failure_then_succeeds() -> None:
     # Two connection errors, then a good response: the call succeeds on attempt 3,
     # and every attempt — retries included — passed through the rate limiter.
