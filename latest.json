@@ -1,7 +1,7 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1937.3,
+    "actions_minutes": 1935.2,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 5170.1,
     "fixed_monthly_usd": 40.0,
@@ -154,7 +154,7 @@
     "warnings": 0,
     "window_days": 14
   },
-  "generated_at": "2026-08-10T09:16:38.760090+00:00",
+  "generated_at": "2026-08-10T09:59:07.502876+00:00",
   "health": [
     {
       "failures": 0,
@@ -184,9 +184,9 @@
       "last_run_at": "2026-08-10T09:00:34Z",
       "median_seconds": 217,
       "p95_seconds": 242,
-      "runs_considered": 86,
-      "success_rate": 0.8488372093023255,
-      "successes": 73,
+      "runs_considered": 85,
+      "success_rate": 0.8470588235294118,
+      "successes": 72,
       "workflow": "ci"
     },
     {
@@ -258,12 +258,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-08-10T09:15:53Z",
+      "last_run_at": "2026-08-10T09:58:25Z",
       "median_seconds": 59,
       "p95_seconds": 59,
-      "runs_considered": 3,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 3,
       "workflow": "run-ops"
     },
     {
