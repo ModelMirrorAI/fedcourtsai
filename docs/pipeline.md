@@ -174,8 +174,9 @@ window, each bounded by a per-run blast-radius cap; and, last, the
 converges the stored circuit slice onto the ingest projection's carve-out —
 the bulk export's misjoined cluster fields are withheld from a re-served
 bulk row, and the scrub drops them from the rows nothing re-serves, keyed
-on the fields the REST channel cannot supply and bounded by its own
-blast-radius cap. The dedupe runs first so the
+on the fields no channel could have written to a non-SCOTUS row (the only
+other writer, the opinion enrichment, is SCOTUS-scoped) and bounded by its
+own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like

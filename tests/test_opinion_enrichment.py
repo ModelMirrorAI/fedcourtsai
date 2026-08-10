@@ -23,11 +23,15 @@ from fedcourtsai.courtlistener import (
     default_rate_limiter,
 )
 from fedcourtsai.pipeline.opinion_enrichment import (
+    MAX_OPINION_CHARS,
     OpinionEnrichmentResult,
     citation_strings,
+    cluster_names_docket,
     enrich_opinions,
+    is_separate_writing,
     resource_id,
 )
+from fedcourtsai.supremecourt import live_docket_id
 
 _BASE = "https://www.courtlistener.com/api/rest/v4/"
 _BODY = "JUSTICE KAGAN delivered the opinion of the Court. The judgment is reversed."
@@ -44,6 +48,9 @@ def test_resource_id_takes_a_well_formed_link() -> None:
     assert resource_id(_link("clusters", 4321), base_url=_BASE, resource="clusters") == 4321
     # A trailing slash is optional and surrounding whitespace is tolerated.
     assert resource_id(f"  {_BASE}opinions/9  ", base_url=_BASE, resource="opinions") == 9
+    # Hostnames are case-insensitive; everything else about the authority is not.
+    upper = "https://WWW.CourtListener.com/api/rest/v4/clusters/4321/"
+    assert resource_id(upper, base_url=_BASE, resource="clusters") == 4321
 
 
 @pytest.mark.parametrize(
@@ -54,6 +61,9 @@ def test_resource_id_takes_a_well_formed_link() -> None:
         "https://www.courtlistener.com/api/rest/v3/clusters/1/",  # another API base
         "https://www.courtlistener.com/clusters/1/",  # outside the API path
         "https://www.courtlistener.com/api/rest/v4/opinions/1/",  # another resource
+        "https://user:pw@www.courtlistener.com/api/rest/v4/clusters/1/",  # userinfo
+        "https://www.courtlistener.com:8443/api/rest/v4/clusters/1/",  # another port
+        "https://www.courtlistener.com.evil.test/api/rest/v4/clusters/1/",  # suffix host
         "https://www.courtlistener.com/api/rest/v4/clusters/1/extra/",  # nested route
         "https://www.courtlistener.com/api/rest/v4/clusters/../dockets/1/",  # traversal
         "https://www.courtlistener.com/api/rest/v4/clusters/abc/",  # non-numeric id
@@ -145,9 +155,12 @@ def _row(case_id: str, **fields: object) -> corpus.CorpusRow:
     )
 
 
-def _cluster(cluster_id: int, *, opinion_id: int, count: int = 12) -> dict[str, Any]:
+def _cluster(
+    cluster_id: int, *, docket_id: int, opinion_id: int, count: int = 12
+) -> dict[str, Any]:
     return {
         "id": cluster_id,
+        "docket": _link("dockets", docket_id),
         "citations": [{"volume": 602, "reporter": "U.S.", "page": 137}],
         "citation_count": count,
         "sub_opinions": [_link("opinions", opinion_id)],
@@ -155,13 +168,14 @@ def _cluster(cluster_id: int, *, opinion_id: int, count: int = 12) -> dict[str, 
 
 
 def _seeded(tmp_path: Path) -> Path:
-    """A corpus holding the four shapes the pass distinguishes.
+    """A corpus holding the five shapes the pass distinguishes.
 
     ``scotus/101`` is the ordinary case: granted, no opinion yet, and a stored
-    snapshot linking its cluster. ``scotus/102`` is the same but unsnapshotted,
-    so its cluster costs a docket fetch. ``scotus/103`` is already enriched
-    (the idempotency key). ``scotus/104`` is an ungranted petition — outside the
-    merits track entirely.
+    REST-shaped snapshot linking its cluster. ``scotus/102`` is the same but
+    unsnapshotted, so its cluster costs a docket fetch. ``scotus/103`` is
+    already enriched (the idempotency key). ``scotus/104`` is an ungranted
+    petition. The last is a granted live-first petition, whose reserved-range
+    id addresses nothing upstream.
     """
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
@@ -172,6 +186,7 @@ def _seeded(tmp_path: Path) -> Path:
                 _row("scotus/102"),
                 _row("scotus/103", opinion_text="Already stored."),
                 _row("scotus/104", date_cert_granted=None),
+                _row(f"scotus/{live_docket_id(24, 900)}"),
             ],
         )
         corpus.upsert_snapshot(
@@ -186,12 +201,12 @@ def _seeded(tmp_path: Path) -> Path:
 def _upstream() -> _Upstream:
     return _Upstream(
         clusters={
-            4321: _cluster(4321, opinion_id=8765),
-            5555: _cluster(5555, opinion_id=9999, count=3),
+            4321: _cluster(4321, docket_id=101, opinion_id=8765),
+            5555: _cluster(5555, docket_id=102, opinion_id=9999, count=3),
         },
         opinions={
-            8765: {"id": 8765, "plain_text": _BODY},
-            9999: {"id": 9999, "plain_text": "The judgment is affirmed."},
+            8765: {"id": 8765, "type": "020lead", "plain_text": _BODY},
+            9999: {"id": 9999, "type": "010combined", "plain_text": "The judgment is affirmed."},
         },
         dockets={102: {"id": 102, "clusters": [_link("clusters", 5555)]}},
     )
@@ -208,8 +223,10 @@ def test_dry_run_reports_coverage_and_writes_nothing(tmp_path: Path) -> None:
     result = _run(db, upstream, apply=False)
 
     assert result.applied is False
-    # Only the two granted, opinion-less rows are eligible.
+    # Only the two granted, opinion-less, CourtListener-addressable rows are
+    # eligible; the granted live-first petition is reported, never walked.
     assert result.eligible == 2 and result.considered == 2 and result.enriched == 2
+    assert result.live_only == 1
     # The snapshotted case costs cluster+opinion; the unsnapshotted one also
     # pays a docket fetch to find its cluster.
     assert result.requests == 5
@@ -305,8 +322,8 @@ def test_a_body_less_opinion_still_lands_its_citations(tmp_path: Path) -> None:
     db = _seeded(tmp_path)
     upstream = _upstream()
     upstream.opinions = {
-        8765: {"id": 8765, "plain_text": "   "},
-        9999: {"id": 9999, "plain_text": "The judgment is affirmed."},
+        8765: {"id": 8765, "type": "020lead", "plain_text": "   "},
+        9999: {"id": 9999, "type": "010combined", "plain_text": "The judgment is affirmed."},
     }
     result = _run(db, upstream, apply=True)
     assert result.no_body == 1 and result.enriched == 2
@@ -317,14 +334,179 @@ def test_a_body_less_opinion_still_lands_its_citations(tmp_path: Path) -> None:
     assert row.citations == ["602 U.S. 137"]
 
 
+def test_a_separate_writing_never_becomes_the_case_body(tmp_path: Path) -> None:
+    """A dissent sitting first in `sub_opinions` yields no body, not the wrong one.
+
+    `has_opinion` max-latches, so a body stored here is permanent — the row
+    stops matching this pass's own predicate and no later run revisits it.
+    """
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.opinions = {
+        8765: {"id": 8765, "type": "040dissent", "plain_text": "JUSTICE ALITO, dissenting."},
+        9999: {"id": 9999, "type": "010combined", "plain_text": "The judgment is affirmed."},
+    }
+    result = _run(db, upstream, apply=True)
+    assert result.no_body == 1
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/101")
+    assert row is not None
+    assert row.opinion_text is None and row.has_opinion is False
+    assert row.citations == ["602 U.S. 137"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "separate"),
+    [
+        ("010combined", False),
+        ("020lead", False),
+        ("025plurality", False),
+        ("030concurrence", True),
+        ("035concurrenceinpart", True),
+        ("040dissent", True),
+        ("050addendum", True),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_separate_writing_reads_the_type_vocabulary(kind: object, separate: bool) -> None:
+    assert is_separate_writing({"type": kind}) is separate
+    # An absent type is accepted rather than refused: an unknown shape must not
+    # turn the whole population into a silent no-op.
+    assert is_separate_writing({}) is False
+
+
+def test_an_oversize_body_is_refused(tmp_path: Path) -> None:
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.opinions = {
+        8765: {"id": 8765, "type": "020lead", "plain_text": "x" * (MAX_OPINION_CHARS + 1)},
+        9999: {"id": 9999, "type": "010combined", "plain_text": "The judgment is affirmed."},
+    }
+    result = _run(db, upstream, apply=True)
+    assert result.no_body == 1
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/101")
+    assert row is not None and row.opinion_text is None
+
+
+def test_several_clusters_are_refused_not_guessed_at(tmp_path: Path) -> None:
+    """Nothing in a `clusters` list says which is the case's decision."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.dockets = {
+        102: {"id": 102, "clusters": [_link("clusters", 5555), _link("clusters", 4321)]}
+    }
+    result = _run(db, upstream, apply=True)
+    assert result.ambiguous_cluster == 1 and result.enriched == 1
+    # The ambiguity cost one docket fetch and no cluster fetch.
+    assert not any(path.endswith("/clusters/5555/") for path in upstream.paths)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/102")
+    assert row is not None and row.has_opinion is False
+
+
+def test_a_cluster_naming_another_docket_is_skipped(tmp_path: Path) -> None:
+    """The link guard proves a cluster is on the API, not that it is this case's."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.clusters = {
+        4321: _cluster(4321, docket_id=999, opinion_id=8765),  # a different docket
+        5555: _cluster(5555, docket_id=102, opinion_id=9999, count=3),
+    }
+    result = _run(db, upstream, apply=True)
+    assert result.foreign_cluster == 1 and result.enriched == 1
+    # The misjoined cluster's opinion was never fetched.
+    assert not any(path.endswith("/opinions/8765/") for path in upstream.paths)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/101")
+    assert row is not None and row.citations == []
+
+
+def test_a_cluster_naming_no_docket_is_accepted() -> None:
+    # Fail-open on an absent field: refusing would make a served-shape change a
+    # silent corpus-wide no-op, and the cluster came from this docket's own list.
+    assert cluster_names_docket({}, base_url=_BASE, docket_id=101) is True
+    assert cluster_names_docket({"docket": None}, base_url=_BASE, docket_id=101) is True
+    assert (
+        cluster_names_docket({"docket": _link("dockets", 101)}, base_url=_BASE, docket_id=101)
+        is True
+    )
+    assert (
+        cluster_names_docket({"docket": _link("dockets", 999)}, base_url=_BASE, docket_id=101)
+        is False
+    )
+
+
+def test_a_non_json_response_costs_one_case(tmp_path: Path) -> None:
+    """An HTML interstitial raises a ValueError the walk must not unwind on."""
+    db = _seeded(tmp_path)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/clusters/4321/"):
+            return httpx.Response(200, text="<html>maintenance</html>")
+        return _upstream()(request)
+
+    with corpus.connect(db) as conn, _client(httpx.MockTransport(handle)) as client:
+        result = enrich_opinions(conn, client, apply=True)
+
+    assert [entry["case_id"] for entry in result.failed] == ["scotus/101"]
+    # The sibling case still converged, and its write survived the failure.
+    assert result.enriched == 1
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/102")
+    assert row is not None and row.has_opinion is True
+
+
+def test_enrichment_does_not_move_predict_scope(tmp_path: Path) -> None:
+    """A raw-facts channel must not silently change what is predictable.
+
+    `citations`, `citation_count`, and `has_opinion` are the three fields
+    `is_published_opinion_unresolvable` keys on, so a well-formed in-scope
+    granted docket is the case that proves the write is scope-neutral.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    "scotus/101",
+                    docket_number="23-719",
+                    case_name="Roe v. Doe",
+                    date_filed=date(2023, 9, 1),
+                    disposition="granted",
+                )
+            ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/101",
+            date(2024, 6, 1),
+            {"id": 101, "clusters": [_link("clusters", 4321)]},
+        )
+        before = corpus.get_row(conn, "scotus/101")
+        assert before is not None
+        assert corpus.out_of_scope_reason_full(conn, before) is None
+    _run(db, _upstream(), apply=True)
+    with corpus.connect(db) as conn:
+        after = corpus.get_row(conn, "scotus/101")
+        assert after is not None
+        assert after.has_opinion is True
+        assert corpus.out_of_scope_reason_full(conn, after) is None
+
+
 def test_one_bad_docket_does_not_cost_the_run(tmp_path: Path) -> None:
     db = _seeded(tmp_path)
     upstream = _upstream()
-    upstream.clusters = {5555: _cluster(5555, opinion_id=9999, count=3)}  # 4321 now 404s
+    # 4321 is gone from upstream, so the first case's cluster fetch 404s.
+    upstream.clusters = {5555: _cluster(5555, docket_id=102, opinion_id=9999, count=3)}
     result = _run(db, upstream, apply=True)
     assert result.enriched == 1
-    assert [case_id for case_id, _ in result.failed] == ["scotus/101"]
-    assert "404" in result.failed[0][1]
+    assert [entry["case_id"] for entry in result.failed] == ["scotus/101"]
+    assert "404" in result.failed[0]["reason"]
+    # The failed request is counted: an inspection of spend must include it.
+    assert result.requests == 4
     with corpus.connect(db) as conn:
         survivor = corpus.get_row(conn, "scotus/102")
     assert survivor is not None and survivor.has_opinion is True

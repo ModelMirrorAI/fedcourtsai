@@ -78,7 +78,14 @@ class CourtListenerClient:
         headers = {"Accept": "application/json"}
         if api_token:
             headers["Authorization"] = f"Token {api_token}"
-        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+        # Redirects are not followed, stated rather than inherited: the
+        # Authorization header rides every request, so a 3xx off the API origin
+        # would be a credential leak and a request this client did not address.
+        # A 3xx therefore reaches `raise_for_status` and surfaces as a permanent
+        # error the caller records, not as a silent hop to another origin.
+        self._client = httpx.Client(
+            base_url=base_url, headers=headers, timeout=timeout, follow_redirects=False
+        )
         # Throttle to CourtListener's per-token budget unless a limiter is supplied.
         self._rate_limiter = rate_limiter if rate_limiter is not None else default_rate_limiter()
 

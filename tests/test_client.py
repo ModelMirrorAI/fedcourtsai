@@ -136,6 +136,32 @@ def test_cluster_fetch_shares_the_rate_governor_and_retries() -> None:
     assert limiter.calls == 4
 
 
+def test_redirects_are_not_followed() -> None:
+    # The Authorization header rides every request, so a 3xx must surface to the
+    # caller rather than carry the credential to whatever origin it names.
+    hosts: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        hosts.append(request.url.host)
+        return httpx.Response(
+            302, headers={"Location": "https://evil.test/api/rest/v4/clusters/1/"}
+        )
+
+    # Only the transport is swapped here, not the whole `httpx.Client`, so the
+    # redirect policy under test is the one the constructor sets.
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    client._client._transport = httpx.MockTransport(handle)
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        client.get_cluster(1)
+    client.close()
+
+    # The redirect raises rather than being followed, it is classified permanent
+    # (so no retry spends budget on it), and the named host was never contacted.
+    assert excinfo.value.response.status_code == 302
+    assert classify_error(excinfo.value) == "permanent"
+    assert hosts == ["www.courtlistener.com"]
+
+
 def test_base_url_is_exposed_for_link_checking() -> None:
     client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
     assert client.base_url == "https://www.courtlistener.com/api/rest/v4/"

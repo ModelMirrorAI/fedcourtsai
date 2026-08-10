@@ -75,7 +75,7 @@ source.
 | `citation_count`      | integer         | times the decision has been cited            |
 | `precedential_status` | text            | Published / Unpublished / Errata             |
 | `opinion_text`        | text            | opinion body — NULL under the split mode (the content store holds it; `has_opinion` retains the presence signal) |
-| `summary`             | text            | short form for retrieval — never the opinion body, which has its own column |
+| `summary`             | text            | short form for retrieval; the normalizer never folds an opinion body into it (that has its own column), though a stored row whose source served the body here keeps it until a re-serve |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
 | `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
 | `predict_excluded`    | integer (0/1)   | out-of-scope latch, owned by the scope reconcile |

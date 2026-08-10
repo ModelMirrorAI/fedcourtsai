@@ -114,8 +114,10 @@ cluster-derived fields from bulk-sourced circuit rows (`to_corpus_row`; the
 predicate keys on the channel), so a replica with a sound cluster join must
 revisit that carve-out — and the bulk-cluster scrub sweep beside it, whose
 stored-state predicate treats those fields as bulk-provenance marks on any
-non-SCOTUS row (the REST channel cannot supply them; a replica channel can,
-so the sweep must be retired or re-scoped before the replica writes them). Adoption also needs a terms review of the agreement;
+non-SCOTUS row (the only other channel that writes them is the SCOTUS-scoped
+opinion enrichment, so a non-SCOTUS row's are the bulk join's; a replica
+channel writes them at every court, so the sweep must be retired or re-scoped
+before the replica does). Adoption also needs a terms review of the agreement;
 the access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches that shape. Until then, four guardrails keep interim work from
 blocking the pivot: ingestion stays channel-agnostic; the API budget governor
@@ -419,25 +421,47 @@ satisfies both: `has_opinion` is set only from a non-empty `opinion_text` at row
 construction, and `case.json` is mirrored only by `upsert_rows` — so a body that
 does not arrive through the ingestion upsert reaches neither the bit nor the
 store. **Opinion enrichment** (`enrich-opinions`) is the channel that supplies
-it. Per case it resolves the docket's published opinion cluster — from the
-stored snapshot's `clusters` links where there is one, else a docket fetch —
-takes the cluster's reporter citations and `citation_count`, and takes the lead
-sub-opinion's `plain_text` as the body; the row then goes through the same
+it. Per case it resolves the docket's published opinion cluster — from a stored
+REST-shaped snapshot's `clusters` links where there is one, else a docket fetch
+— takes the cluster's reporter citations and `citation_count`, and takes the
+first sub-opinion's `plain_text` as the body; the row then goes through the same
 upsert every other channel writes through, so the presence bit derives and the
-content store re-mirrors in the same step. A cluster with no extracted text is
-counted and left alone rather than scraped out of the HTML rendering.
+content store re-mirrors in the same step. Only the *body* is conditional: a
+cluster whose opinion carries no extracted text still lands its citations,
+rather than having a body scraped out of the HTML rendering.
 
-Its **scope is its budget argument**. The pass walks the merits track only —
-SCOTUS rows carrying `date_cert_granted`, ≈1,250 all-time and ≈65 a Term
-ongoing — at two REST requests a case, three where the snapshot links no
-cluster. That is ≈2,500–3,750 requests to converge the standing population and
-≈130 a Term to hold it, against the held Tier-2 ceiling of 600/day of which the
-four daily pull windows commit ≈20% ([budget.md](budget.md)); `--max-cases`
+Because `has_opinion` latches, a wrong body is permanent — the row stops
+matching the pass's own predicate and no later run revisits it — so the pass
+**refuses rather than guesses**: a docket linking several clusters is skipped
+(nothing in the list says which is the decision), a fetched cluster must name
+the docket it was reached from, and an opinion whose upstream `type` marks it a
+separate writing (a concurrence, a dissent) never becomes the case's body. Each
+refusal is a counted line in the run's report.
+
+Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
+slice only — rows carrying `date_cert_granted`, which is grants and GVRs
+together: ≈1,250 all-time and ≈120–130 a Term — at three REST requests a case
+(docket, cluster, opinion), dropping to two on the rare row whose newest
+snapshot is REST-shaped rather than the live channel's. That is ≈3,750 requests
+to converge the standing backlog and ≈400 a Term to hold it, against the held
+Tier-2 ceiling of 600/day of which the four daily pull windows commit ≈360
+(30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
+and [budget.md](budget.md)). `--max-cases`
 (default 25) bounds one run's spend ahead of the client's own governor, so the
-pace is the operator's choice rather than a race with the pull rotation. The
+pace is the operator's choice rather than a race with the pull rotation — and
+because the governor is per-process, not shared across runs, the pass is run
+outside a pull window rather than beside one. Convergence is not monotone: a
+grant that never publishes an opinion (a GVR, a DIG) is retried every run, so
+that residue has to be raised past, not waited out. The
 same arithmetic is why the pass is *not* pointed at the whole corpus: opinion
 coverage at bulk scale is the replication channel's problem
 ([data-sources.md](data-sources.md)), not more REST.
+
+Filling the bit for this slice is what makes the `--full` read path live, and it
+lands bodies for exactly the population the merits forecast stream is about — so
+a replay cell's prior retrieval can return full SCOTUS opinion text. The
+retrieval cutoff (`decided_before`) and the mode contract are the controls that
+keep that honest; they stop being latent hygiene the moment this pass runs.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
 only) is the forward-cell guard at the provisioning seam: it refuses to
@@ -579,7 +603,8 @@ or network.
   refusing to apply above its per-run blast-radius cap), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
   bulk cluster fields, dropped from the rows nothing re-serves — keyed on
-  the fields the REST channel cannot supply, the ingest projection's
+  the fields no channel could have written to a non-SCOTUS row, the ingest
+  projection's
   carve-out converged, refusing above its own blast-radius bound). Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as

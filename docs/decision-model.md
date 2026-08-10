@@ -217,10 +217,11 @@ withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **no
 clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
 it would have to be weighted for the corpus's legacy denial-subsampled rows, writings
-respecting denial are censored in an open Term, and `has_opinion` is 0 on every
-corpus row today — so a naive implementation would resolve "did not write" for
-all nine on every case and manufacture a base rate of zero out of an empty
-ingestion channel. Two more bite specifically because the claim is per-Justice:
+respecting denial are censored in an open Term, and no corpus row carries an
+opinion body yet (the channel that fills them, `fedcourts enrich-opinions`,
+exists but has not been run) — so a naive implementation would resolve "did not
+write" for all nine on every case and manufacture a base rate of zero out of an
+unpopulated column. Two more bite specifically because the claim is per-Justice:
 nine claims per event are not nine independent bets — writing is strongly
 correlated across Justices within a case, so summing them weights the writing
 dimension nine to one against the disposition and reports an event count nine

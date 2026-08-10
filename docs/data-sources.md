@@ -83,13 +83,17 @@ The automated consumer stays within CourtListener's published API limits by desi
   to the held Free Law Project tier — see [budget.md](budget.md)), with
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
   them.
-- **Opinion enrichment shares that budget**, through the same client and
-  governor: two requests a case (the opinion cluster, then its lead opinion),
-  three where the stored snapshot links no cluster. It is deliberately scoped
-  to the **merits track** — the ≈1,250 granted SCOTUS dockets, ≈65 a Term
-  ongoing — which puts the standing backlog at ≈2,500–3,750 requests and the
-  ongoing cost at ≈130 a Term, comfortably inside the allowance the four pull
-  windows leave; its own `--max-cases` bounds any single run. Opinion coverage
+- **Opinion enrichment shares that budget**, through the same client and the
+  same configured ceilings: three requests a case (the docket, its opinion
+  cluster, then the cluster's first opinion), dropping to two where a stored
+  REST-shaped snapshot already links the cluster. It is deliberately scoped to
+  the **cert-granted SCOTUS slice** — ≈1,250 dockets all-time, ≈120–130 a Term
+  ongoing — which puts the standing backlog at ≈3,750 requests and the ongoing
+  cost at ≈400 a Term, inside the allowance the four pull windows leave (they
+  commit ≈360 of the 600/day); its own `--max-cases` bounds any single run. The
+  governor is per-process rather than shared, so the pass is run outside a pull
+  window: two processes throttling independently would each stay under the
+  ceiling while the account did not. Opinion coverage
   at bulk scale is not a REST problem: the **database replication** channel
   named above remains the intended route to opinion bodies across the whole
   corpus, and nothing here is a step toward reading them out of the API
