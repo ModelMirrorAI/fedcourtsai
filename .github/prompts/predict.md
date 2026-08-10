@@ -309,10 +309,10 @@ of the requested relief**:
   the application will be **referred** to the full Court, and roughly **when**
   and how it will be disposed of. Merits-shaped content stays conditional,
   exactly as on the cert path.
-- **No `claims` block.** The harness declares no claim set for a motion-kind
-  event (`fedcourtsai.pipeline.claims` — a motion declares none), so write no
-  `claims` field at all, per the declared-set rule under `prediction.json`
-  below.
+- **No `claims` block.** The harness declares no claim set for any interim
+  moment, whatever the event's kind (`fedcourtsai.pipeline.moments` — every
+  interim moment declares no set), so write no `claims` field at all, per the
+  declared-set rule under `prediction.json` below.
 
 ### Stage: merits (the Court's judgment after argument)
 
@@ -515,7 +515,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     parties — never post-hoc press coverage). Optionally add a one-line
     `big_case_rationale`. It is judged later by an independent evaluator's
     agreement with its own read, never against a ground truth.
-  - `claims` — the **harness-declared claim set** for this event's kind, one
+  - `claims` — the **harness-declared claim set** for this event, one
     `{claim_id, probability}` entry per declared claim. The harness declares
     the set (`fedcourtsai.pipeline.claims`); you state a probability for every
     declared claim — no additions, no declining. The **merits** event declares
@@ -545,10 +545,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     the forward hazard from your state is not a row you can look up; the
     guidance under the forecast document below says what the shape does tell
     you. Where your event declares no set, write no `claims` field at all: an
-    interim application cell writes none (*Stage: interim* above). The
-    declaration is keyed on the event, not on a rule of thumb about its kind —
-    the merits event is order-kind and declares a set, while every other order
-    event and every motion declares none.
+    interim cell writes none (*Stage: interim* above). The declaration is
+    keyed on the event's declared moment, never on a rule of thumb about its
+    kind — both cert moments (the petition and the CVSG order) declare
+    `cert-v1`, both merits moments (the judgment order and the
+    respondent-brief re-predict) declare `merits-v1`, and no interim moment
+    declares a set.
   - `reasoning_doc` — `reasoning.md` (the default).
   - `predicted_reasoning_doc` — `predicted_reasoning.md`. Always write the
     document and name it. The field is nullable only so records written before it

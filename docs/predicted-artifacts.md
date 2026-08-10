@@ -163,8 +163,9 @@ absent optional field as null.
 
 ### Interim stage: a stay or injunction application
 
-The event is `evt-motion-disposition` (kind `motion`, stage `interim`), and it
-resolves as the grant or denial of the requested relief.
+The arrival event is `evt-motion-disposition` (kind `motion`, stage `interim`
+— the first of the stage's three declared moments), and it resolves as the
+grant or denial of the requested relief.
 
 - `probability` is P(the disposing entry reads as an **unqualified** grant),
   not P(any relief): the interim resolver matches denial language first, so a
@@ -175,8 +176,8 @@ resolves as the grant or denial of the requested relief.
 - `predicted_disposition` draws from four labels only — `granted`, `denied`,
   `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
   are cert-stage routes the interim vocabulary never records.
-- **No `claims` field.** A motion-kind event declares no set, so the cell
-  writes none and the stamped record carries a null.
+- **No `claims` field.** No interim moment declares a set, whatever the
+  event's kind, so the cell writes none and the stamped record carries a null.
 - `votes` is optional and `judgment` is null. None of the cert signals exists
   here either: an application is not distributed for conference and a CVSG is a
   cert-stage act, so the cell reads the escalation ladder — response requested,
@@ -211,8 +212,9 @@ every committed prediction carries them.
 
 ### Merits stage: what the Court does to the judgment below
 
-The event is `evt-order-judgment` (kind `order`, stage `merits`) — the grant
-order is the filing that opened it, and the thing to predict is the judgment.
+The event is `evt-order-judgment` (kind `order`, stage `merits` — the first
+of the stage's two declared moments) — the grant order is the filing that
+opened it, and the thing to predict is the judgment.
 It is minted by a cert grant that actually opens a merits proceeding, so a GVR
 and a summary reversal, which terminate at the cert order, mint nothing.
 

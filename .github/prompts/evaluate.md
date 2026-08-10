@@ -224,8 +224,8 @@ fails the cell.
     stage's standing rule, not a per-cell anomaly a maintainer needs surfaced —
     unlike the salience-version mismatch above. Say in `evaluation.md` that the
     cell is interim and the skill fields are omitted by rule. `claim_scores`
-    stays absent as always: a motion-kind event declares no claim set, so the
-    harness stamps nothing.
+    stays absent as always: no interim moment declares a claim set, whatever
+    the event's kind, so the harness stamps nothing.
   - **Merits-stage cells** (the event's stage is `merits` — the judgment the
     Court entered after argument). `correct` is the judgment match and
     `judgment_correct` records it in its own field, both as defined above.
