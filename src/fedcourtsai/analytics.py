@@ -1869,8 +1869,8 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         ),
         "",
         f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed, dated "
-        f"judgment; {merits.cert_order_excluded} excluded by the pool guard "
-        f"(judgment dated on or before its own grant).",
+        f"judgment; {_count_or_dash(merits.cert_order_excluded)} excluded by the pool "
+        f"guard (judgment dated on or before its own grant).",
         "",
         f"**Parsed slice:** {merits.affirmed} affirmed, {merits.reversed} reversed, "
         f"{merits.vacated} vacated, {merits.affirmed_in_part} affirmed in part, "
@@ -1894,10 +1894,16 @@ def _merits_rate(entry: StatPackMerits | StatPackMeritsTerm) -> str:
     return f"{_pct(entry.disturbed_rate)} (n={entry.parsed})"
 
 
+def _count_or_dash(count: int | None) -> str:
+    """A published count, or the dash of a build whose guard never ran."""
+    return "—" if count is None else str(count)
+
+
 def _merits_term_row(entry: StatPackMeritsTerm) -> str:
     """One grant-Term's row in the merits docket table."""
     return (
-        f"| {entry.term} | {entry.granted} | {entry.cert_order_excluded} | {entry.parsed} "
+        f"| {entry.term} | {entry.granted} | {_count_or_dash(entry.cert_order_excluded)} "
+        f"| {entry.parsed} "
         f"| {entry.affirmed} "
         f"| {entry.reversed} | {entry.vacated} | {entry.affirmed_in_part} | {entry.dig} "
         f"| {entry.equally_divided} | {entry.disturbed} | {_merits_rate(entry)} |"
