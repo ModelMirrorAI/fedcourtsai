@@ -1587,3 +1587,35 @@ def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path
     assert merits.cert_order_excluded == 1
     assert merits.terms[0].cert_order_excluded == 1
     assert merits.disturbed_rate == pytest.approx(0.5)
+
+
+def test_a_clean_guarded_build_publishes_zero_not_null(tmp_path: Path) -> None:
+    """The other side of the vintage distinction: a build the guard ran on
+    with nothing to remove publishes the measured `0`, never the pre-guard
+    `null`. `metrics/README.md` keys quotability on the null, so a regression
+    collapsing the two (an `or None`, an accumulator initialized to `None`)
+    would mark every clean guarded build unquotable while the fired-guard
+    assertions above stay green."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/910000031",
+                    court="scotus",
+                    docket_number="19-201",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2020, 1, 10),
+                    merits_judgment="reversed",
+                    merits_decided=date(2020, 6, 22),
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.merits is not None
+    assert pack.merits.cert_order_excluded == 0
+    assert pack.merits.terms[0].cert_order_excluded == 0
+    markdown = analytics.render_statpack_markdown(pack)
+    assert "0 excluded by the pool guard" in markdown
+    assert "— excluded by the pool guard" not in markdown
