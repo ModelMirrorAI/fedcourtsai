@@ -2126,11 +2126,26 @@ def stamp_cell(
         raise typer.Exit(code=2)
 
     digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+    if stamped_at:
+        # The stamp is the frozen/alpha partition's time key; a naive value
+        # has no defined order against the freeze instant and reads as
+        # pre-freeze, so refuse to write one rather than stamp a cell out of
+        # the headline by formatting accident.
+        try:
+            stamp_moment = datetime.fromisoformat(stamped_at)
+        except ValueError:
+            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
+            raise typer.Exit(code=2) from None
+        if stamp_moment.tzinfo is None:
+            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
+            raise typer.Exit(code=2)
+    else:
+        stamp_moment = datetime.now(UTC)
     stamp = ProcessVersion(
         label=process_version.CURRENT_PROCESS_LABEL,
         digest=digest,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
-        stamped_at=datetime.fromisoformat(stamped_at) if stamped_at else datetime.now(UTC),
+        stamped_at=stamp_moment,
     )
 
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
@@ -2299,11 +2314,12 @@ def process_digest_cmd(
     """Print an actor's process digest — the value a maintainer blesses to freeze.
 
     The freeze procedure: run ``fedcourts process-digest --all``, paste the
-    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py`` in
-    a one-line freeze commit, and record that commit as the cutover in the docs.
-    Because the digest excludes the pipeline commit, the blessed set survives
-    unrelated pipeline changes — predict/evaluate can resume at a newer HEAD and
-    still match.
+    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py``
+    **and set ``FROZEN_SINCE`` beside it** (the two move together — a test
+    pins it) in one small freeze commit, and record that commit as the cutover
+    in the docs. Because the digest excludes the pipeline commit, the blessed
+    set survives unrelated pipeline changes — predict/evaluate can resume at a
+    newer HEAD and still match.
     """
     settings = get_settings()
     if all_actors:

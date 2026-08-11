@@ -408,7 +408,7 @@
     },
     "process_scope": {
       "default": "frozen",
-      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
+      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process at or after the freeze instant, graded at or after it too) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
       "enum": [
         "frozen",
         "all"

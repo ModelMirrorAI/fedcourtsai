@@ -517,7 +517,14 @@ class ProcessVersion(_Strict):
         description="Git commit of the pipeline checkout that stamped this cell; "
         "provenance only, NOT part of `digest`.",
     )
-    stamped_at: datetime = Field(description="When the harness stamped the cell (UTC)")
+    stamped_at: datetime = Field(
+        description="When the harness stamped the cell (UTC, timezone-aware). "
+        "Provenance, and — with the digest — the frozen/alpha partition key: "
+        "the digest says which process ran, this stamp says whether it ran at "
+        "or after the pre-registration instant. The runner clock is the "
+        "witness, bounded independently by the workflow run's own timestamps "
+        "and the data commit's date; a naive value reads as pre-freeze."
+    )
 
 
 class PredictionContext(_Strict):
@@ -1826,7 +1833,8 @@ class Leaderboard(_Strict):
         default="frozen",
         description="Which process versions this board covers: `frozen` (the "
         "default headline — only cells whose predictor ran the blessed frozen "
-        "process) or `all` (every version, including the shakedown). A `frozen` "
+        "process at or after the freeze instant, graded at or after it too) "
+        "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
     )

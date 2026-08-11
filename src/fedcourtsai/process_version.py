@@ -14,8 +14,9 @@ inputs, so a silent prompt or config change is automatically a distinct version;
 deliberately excluded from the digest — see :class:`fedcourtsai.schemas.ProcessVersion`.
 
 The freeze is a **future, explicit** event. :data:`FROZEN_PROCESS_DIGESTS` is
-empty until a one-line "freeze commit" blesses the digest(s) a maintainer reads
-off ``fedcourts process-digest --all``. Until then the frozen headline is
+empty and :data:`FROZEN_SINCE` unset until one "freeze commit" fills both —
+the digest(s) a maintainer reads off ``fedcourts process-digest --all``, and
+the instant runs must postdate to count. Until then the frozen headline is
 legitimately empty — there is no frozen-process data yet.
 """
 
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 from .pricing import DEFAULT_MODELS
@@ -39,11 +41,20 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 CURRENT_PROCESS_LABEL = "proc-v1"
 
 # The blessed process digests — the frozen-headline set. EMPTY during the
-# shakedown: the freeze is a future one-line commit that pastes the digest(s)
-# from `fedcourts process-digest --all` in here. Keyed on the digest, never the
-# label, so a process that drifted under an unchanged label is not silently
-# blessed.
+# shakedown: the freeze is a future small commit that pastes the digest(s)
+# from `fedcourts process-digest --all` in here and sets FROZEN_SINCE below.
+# Keyed on the digest, never the label, so a process that drifted under an
+# unchanged label is not silently blessed.
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset()
+
+# The freeze instant, set in the same commit that fills the set above (a test
+# pins the coupling). The digest is a pure content hash, so a cell stamped
+# *before* the freeze with the very bytes about to be blessed would otherwise
+# read as frozen retroactively — pre-registration means the commitment
+# preceded the run, and only a time cutoff can say so. Compared against the
+# stamp's `stamped_at`, which the harness writes; anything at or after the
+# instant is in.
+FROZEN_SINCE: datetime | None = None
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
@@ -147,10 +158,46 @@ def _find(
     raise KeyError(f"{role} {actor_id!r} is not in the registry")
 
 
+def at_or_after_freeze(moment: datetime) -> bool:
+    """Whether a moment is at or after :data:`FROZEN_SINCE` (trivially true unfrozen).
+
+    A naive moment has no defined order against the timezone-aware freeze
+    instant, so it reads as **before** the freeze by rule — excluded, never a
+    comparison error taking down every scoreboard at once.
+    """
+    if FROZEN_SINCE is None:
+        return True
+    if moment.tzinfo is None:
+        return False
+    return moment >= FROZEN_SINCE
+
+
+def graded_post_freeze(process_version: ProcessVersion | None) -> bool:
+    """Whether an evaluation's own harness stamp is at or after the freeze.
+
+    The time half only: the evaluator's digest is recorded but deliberately
+    not enforced (the competitor being ranked is the predictor). Keyed on the
+    evaluation's **harness-written** stamp, never its agent-written
+    ``created_at`` — the pre-registration boundary must not rest on a clock
+    the agent controls. While unfrozen this is a no-op; after the freeze an
+    unstamped evaluation is out of frozen scope, the same doctrine as an
+    unstamped prediction (local runs are unstamped and stay diagnostic).
+    """
+    if FROZEN_SINCE is None:
+        return True
+    return process_version is not None and at_or_after_freeze(process_version.stamped_at)
+
+
 def is_frozen(process_version: ProcessVersion | None) -> bool:
-    """Whether a cell's stamp is in the blessed frozen set.
+    """Whether a cell's stamp is in the blessed frozen set, run post-freeze.
 
     An unstamped cell (``None``) is never frozen — its digest cannot be in the
-    set — so the shakedown ledger is excluded from the headline for free.
+    set — so the shakedown ledger is excluded from the headline for free. A
+    stamped cell's ``stamped_at`` must also be at or after
+    :data:`FROZEN_SINCE`: the digest says *which* process ran, never *when*,
+    and a shakedown run of the very bytes later blessed is still a shakedown
+    run.
     """
-    return process_version is not None and process_version.digest in FROZEN_PROCESS_DIGESTS
+    if process_version is None or process_version.digest not in FROZEN_PROCESS_DIGESTS:
+        return False
+    return at_or_after_freeze(process_version.stamped_at)

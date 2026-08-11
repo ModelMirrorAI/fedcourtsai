@@ -470,8 +470,8 @@ Annotated tags on `main` record the project's public reference points, in
 three namespaces:
 
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
-  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS`
-  (docs/process-version.md carries the freeze procedure).
+  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
+  `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
 - **`results/<term>-<milestone>`** — the commit carrying a published metrics

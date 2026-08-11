@@ -50,7 +50,7 @@ from typing import Literal
 
 from .pipeline.evaluate import realized_band_rate
 from .pipeline.moments import first_moment
-from .process_version import is_frozen
+from .process_version import graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     BigCaseLeaderboard,
@@ -315,9 +315,10 @@ def big_case_agreement(
     absent from the map (their ``big_case`` stays null).
 
     ``frozen_only`` (the default) keeps only events whose latest prediction was
-    produced by a frozen process, so this section defaults to the frozen headline
-    exactly like the score aggregates — a shakedown big-case read never rides
-    alongside a frozen-only board.
+    produced by a frozen process, and only reads whose evaluation carries a harness stamp at or
+    after the freeze instant, so this section defaults to the frozen headline exactly like the
+    score aggregates — a shakedown big-case read never rides alongside a
+    frozen-only board, even where its event was later re-run frozen.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -325,9 +326,12 @@ def big_case_agreement(
     reads: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
-        if evaluation.big_case is not None:
-            key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
-            reads[key].append(evaluation.big_case.evaluator_score)
+        if evaluation.big_case is None:
+            continue
+        if frozen_only and not graded_post_freeze(evaluation.process_version):
+            continue
+        key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
+        reads[key].append(evaluation.big_case.evaluator_score)
 
     # Collapsed to the CASE, not the event. Big-caseness is a property of the
     # case — the same dispute is the same size at cert and at merits — so a
@@ -423,8 +427,11 @@ def evaluator_agreement(
         evaluation = read_model(path, Evaluation)
         if evaluation.big_case is None:
             continue
-        if frozen_only and not _latest_prediction_is_frozen(
-            cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+        if frozen_only and not (
+            graded_post_freeze(evaluation.process_version)
+            and _latest_prediction_is_frozen(
+                cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+            )
         ):
             continue
         reads[evaluation.case_id][evaluation.evaluator_id].append(
