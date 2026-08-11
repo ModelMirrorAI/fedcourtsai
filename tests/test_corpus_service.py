@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -304,3 +305,45 @@ def test_query_empty_result_carries_coverage_notes(fixture_corpus: FixtureCorpus
     assert empty.rows == []
     assert len(empty.notes) == 1 and "citations filter" in empty.notes[0]
     assert matched.rows and matched.notes == []
+
+
+def test_a_slow_handler_outlasts_its_socket_timeout(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The invariant the client timeout's sizing rests on: `_Handler.timeout`
+    is a per-socket-operation guard on the request read, never a wall clock
+    over the handler's compute — a candidate-set scan may legitimately outlast
+    it, and the response must still arrive. If a refactor turns it into a real
+    request deadline, every query re-caps at the socket timeout and the
+    client-side budget becomes decorative."""
+    monkeypatch.setattr(corpus_service._Handler, "timeout", 1)
+    with _running_server(fixture_corpus.db_path) as url:
+        q = corpus.PriorQuery(court="ca9", judges=["smith"])
+        real_query = corpus_service.CorpusService.query
+
+        def slow_query(
+            self: corpus_service.CorpusService, request: corpus_service.QueryRequest
+        ) -> corpus_service.QueryResponse:
+            time.sleep(3)
+            return real_query(self, request)
+
+        monkeypatch.setattr(corpus_service.CorpusService, "query", slow_query)
+        response = corpus_service.client_query(url, q, limit=5, full=False)
+    assert response.rows
+
+
+def test_a_client_timeout_names_the_slow_read_not_a_dead_sidecar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A read outgrowing the client budget must not report as 'unreachable' —
+    that misdiagnosis is exactly how a healthy-but-slow sidecar reads as a
+    dead process."""
+
+    def raise_timeout(*args: object, **kwargs: object) -> None:
+        raise httpx.ReadTimeout("read timed out")
+
+    monkeypatch.setattr(httpx, "post", raise_timeout)
+    with pytest.raises(corpus_service.CorpusServiceError, match="slow corpus read"):
+        corpus_service.client_query(
+            "http://127.0.0.1:1", corpus.PriorQuery(court="ca9"), limit=5, full=False
+        )
