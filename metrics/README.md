@@ -1,7 +1,37 @@
 # Metrics
 
 Pipeline metrics: small, deterministic, git-tracked roll-ups whose reviewed
-diffs track predictor and corpus quality over time. The offline gate
+diffs track predictor and corpus quality over time.
+
+**Process scope: frozen vs alpha.** Every claimable figure here about
+*predictor performance* is scoped to the **frozen** process partition
+([docs/process-version.md](../docs/process-version.md)): a cell counts toward
+a frozen-scope performance artifact only if its **prediction's**
+`process_version` stamp carries a digest in `FROZEN_PROCESS_DIGESTS` with a
+stamp at or after the `FROZEN_SINCE` freeze instant — the partition keys on
+the prediction because the predictor is the competitor being ranked; the
+evaluator's own digest is recorded and never enforced — *and* the
+evaluation's own harness stamp is at or after that instant (the stamp, never
+the agent-written `created_at`: the boundary rests only on clocks the agent
+cannot write), both constants set in the
+pre-registration commit the `prereg/<label>` tag marks. Everything else in
+`data/` is the **alpha/shakedown ledger** — cells written before the stamp
+existed (they carry no `process_version` at all; the absent stamp is the
+marker) or run or graded before the freeze instant. Alpha cells stay
+committed with their timestamps, but they are **excluded from every
+frozen-scope performance artifact and from any claimed performance result** —
+they exercised the pipeline while the process was still moving, and nothing
+about them was pre-registered. `leaderboard.json` and `claim-scores.json`
+publish which scope they were built under as `process_scope` (`"frozen"` or
+`"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
+diagnostic view, never a results surface. The prediction census and the
+leakage digest deliberately stay version-blind (they are plumbing
+diagnostics, and shakedown contamination is exactly what the leakage digest
+exists to surface), and the corpus-descriptive artifacts here — the statpack,
+the docket pack, the salience replay — carry no process version at all: they
+are facts about the corpus, scoped by their own salience version and vintage.
+
+The offline gate
 (`fedcourts corpus-status`) checks that the five gate-tracked artifacts —
 `leaderboard.json`, `claim-scores.json`, `backtest.json`, `statpack.json`,
 `statpack.md` — exist

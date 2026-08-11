@@ -11,6 +11,8 @@ digest, never the label.
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from fedcourtsai import process_version
 from fedcourtsai.process_version import _config_canonical
 from fedcourtsai.registry import load_predictors
 from fedcourtsai.schemas import ProcessVersion
+from tests.conftest import bless_process
 
 CONFIG = Path("config")
 REPO = Path(".")
@@ -120,7 +123,7 @@ def _pv(digest: str) -> ProcessVersion:
 
 
 def test_is_frozen_gates_on_the_digest_not_the_label(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    monkeypatch.setattr(process_version, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     assert process_version.is_frozen(_pv("sha256:blessed"))
     # Same label, unblessed digest — a process that drifted under an unchanged
     # label must NOT read as frozen.
@@ -129,7 +132,83 @@ def test_is_frozen_gates_on_the_digest_not_the_label(monkeypatch) -> None:  # ty
     assert not process_version.is_frozen(None)
 
 
-def test_the_frozen_set_is_empty_until_the_freeze_commit() -> None:
-    """The shakedown state: nothing is blessed yet, so nothing is frozen."""
-    assert frozenset() == process_version.FROZEN_PROCESS_DIGESTS
-    assert not process_version.is_frozen(_pv("sha256:anything"))
+def test_the_frozen_set_and_the_freeze_instant_move_together() -> None:
+    """The freeze commit fills both or neither.
+
+    Digests without an instant would bless shakedown runs of the same bytes
+    retroactively; an instant without digests would freeze nothing. Either
+    half-state is a botched freeze commit, so the coupling is pinned — and
+    while both are unset (the shakedown state), nothing is frozen. Every
+    blessed digest must be a well-formed sha256 spelling, matching what
+    `stamp-cell` writes.
+    """
+    digests = process_version.FROZEN_PROCESS_DIGESTS
+    since = process_version.FROZEN_SINCE
+    assert (len(digests) > 0) == (since is not None), (
+        "FROZEN_PROCESS_DIGESTS and FROZEN_SINCE must be set in the same commit"
+    )
+    for digest in digests:
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", digest), digest
+    if since is not None:
+        assert since.tzinfo is not None, "the freeze instant must be timezone-aware"
+    if not digests:
+        assert not process_version.is_frozen(_pv("sha256:anything"))
+
+
+def test_a_naive_stamp_reads_as_pre_freeze_never_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stamp with no offset has no defined order against the aware freeze
+    instant, so it is excluded by rule — one malformed record must not take
+    every frozen-scope surface down with a comparison error."""
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 2, 1, tzinfo=UTC))
+    naive = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 3, 1)
+    )
+    assert not process_version.is_frozen(naive)
+    assert not process_version.at_or_after_freeze(datetime(2026, 3, 1))
+
+
+def test_no_committed_cell_predates_the_freeze_it_claims() -> None:
+    """The retroactive-blessing tripwire, on the real ledger.
+
+    A committed prediction carrying a blessed digest with a stamp before the
+    freeze instant is exactly the cell the pre-registration claim cannot
+    survive — the freeze procedure's step 0 in prose, enforced here so the
+    freeze commit fails loudly instead of relying on a maintainer's grep.
+    Trivially green while the set is empty, and forever after a clean freeze.
+    Predictions only, deliberately: the digest half of the claim lives there,
+    and the evaluation side's guard is the freeze procedure's instant rule,
+    not this test.
+    """
+    if not process_version.FROZEN_PROCESS_DIGESTS:
+        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    ledger = Path(__file__).resolve().parents[1] / "data" / "cases"
+    for path in sorted(ledger.glob("*/*/events/*/predictions/*/*/prediction.json")):
+        payload = json.loads(path.read_text())
+        stamp = payload.get("process_version")
+        if not stamp or stamp["digest"] not in process_version.FROZEN_PROCESS_DIGESTS:
+            continue
+        stamped_at = datetime.fromisoformat(stamp["stamped_at"])
+        assert process_version.at_or_after_freeze(stamped_at), (
+            f"{path}: blessed digest, pre-freeze stamp — list it in the freeze "
+            "record as pre-registration-excluded or the claim does not hold"
+        )
+
+
+def test_is_frozen_requires_the_stamp_to_postdate_the_freeze(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A shakedown run of the very bytes later blessed is still shakedown.
+
+    The digest says which process ran, never when — pre-registration means
+    the commitment preceded the run, so a stamp from before the freeze
+    instant stays out of the frozen headline even with a blessed digest.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 2, 1, tzinfo=UTC))
+    # _pv stamps 2026-01-01: same digest, pre-freeze run — excluded.
+    assert not process_version.is_frozen(_pv("sha256:blessed"))
+    at_freeze = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 2, 1, tzinfo=UTC)
+    )
+    assert process_version.is_frozen(at_freeze)

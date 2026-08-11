@@ -16,7 +16,7 @@ from types import MappingProxyType
 
 import pytest
 
-from fedcourtsai import casestore, corpus, fixture
+from fedcourtsai import casestore, corpus, fixture, process_version
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
@@ -162,3 +162,20 @@ def two_versions(monkeypatch: pytest.MonkeyPatch) -> SalienceScorer:
         salience_module, "SCORERS", MappingProxyType({**salience_module.SCORERS, toy.version: toy})
     )
     return toy
+
+
+def bless_process(
+    monkeypatch: pytest.MonkeyPatch,
+    *digests: str,
+    since: datetime | None = None,
+) -> None:
+    """Patch the frozen digest set AND the freeze instant together.
+
+    Patching the set alone is an incomplete freeze by construction: the real
+    module-level ``FROZEN_SINCE`` would leak into the test, which is exactly
+    how a test goes red on the actual freeze commit. ``since`` defaults to
+    ``None`` — no time gate — because most tests exercise digest membership;
+    pass an instant to exercise the cutoff itself.
+    """
+    monkeypatch.setattr(process_version, "FROZEN_PROCESS_DIGESTS", frozenset(digests))
+    monkeypatch.setattr(process_version, "FROZEN_SINCE", since)

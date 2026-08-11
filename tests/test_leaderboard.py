@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import process_version as pv
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
@@ -48,6 +47,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
+from tests.conftest import bless_process
 
 runner = CliRunner()
 
@@ -990,7 +990,7 @@ def test_frozen_leaderboard_excludes_unstamped_shakedown_cells(
 ) -> None:
     """The headline: a shakedown cell (no stamp) is out of the frozen board, a
     blessed-process cell is in. Same ledger, two scopes."""
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     data_root = tmp_path / "data"
     _write_cell(data_root, _evaluation("shakedown", event_id="evt-a"), process_version=None)
     _write_cell(data_root, _evaluation("frozen", event_id="evt-b"), process_version=_frozen_stamp())
@@ -1004,12 +1004,46 @@ def test_frozen_leaderboard_excludes_unstamped_shakedown_cells(
     assert {e.predictor_id for e in all_versions.entries} == {"shakedown", "frozen"}
 
 
+def test_a_shakedown_evaluation_cannot_ride_a_frozen_rerun_into_the_headline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The lossy-join seam, closed: an evaluation names its predictor but not
+    the prediction run it graded, so the frozen filter joins to the *latest*
+    prediction — and without the grading-side gate, a shakedown evaluation
+    (no harness stamp of its own) would enter the frozen headline the moment
+    its predictor re-ran the event under the frozen process. The same cell
+    whose evaluation carries a post-freeze harness stamp is in, so the gate
+    cuts on the evaluation's stamp and nothing more — never on the
+    agent-written `created_at`, which is not the harness's word.
+    """
+    freeze = datetime(2026, 9, 1, tzinfo=UTC)
+    bless_process(monkeypatch, "sha256:blessed", since=freeze)
+    stamp = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 9, 2, tzinfo=UTC)
+    )
+    data_root = tmp_path / "data"
+    # Unstamped evaluation (the shakedown shape); the predictor later re-ran
+    # under the frozen process, so the latest prediction's stamp alone would
+    # admit it.
+    _write_cell(data_root, _evaluation("frozen", event_id="evt-a"), process_version=stamp)
+    assert iter_stratified_evaluations(data_root) == []
+    # The identical cell whose evaluation the harness stamped post-freeze is
+    # in — even though its agent-written created_at (June) predates the
+    # freeze, which is exactly the field the gate must not consult.
+    _write_cell(
+        data_root,
+        _evaluation("frozen", event_id="evt-a", run_id="r2", process_version=stamp),
+        process_version=stamp,
+    )
+    assert [ev.run_id for ev, *_ in iter_stratified_evaluations(data_root)] == ["r2"]
+
+
 def test_a_cell_stamped_with_an_unblessed_digest_is_not_frozen(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Stamped is not enough — the digest must be blessed. A process that drifted
     under the same label carries a different digest and stays out of the headline."""
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     data_root = tmp_path / "data"
     _write_cell(
         data_root,
@@ -1033,7 +1067,7 @@ def test_big_case_agreement_defaults_to_frozen(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The big-case section must not show a shakedown read beside a frozen board."""
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "shakedown", "scotus/1", pred_score=0.5, eval_scores=[0.6, 0.4])
     # Frozen default: the unstamped shakedown read is excluded.
@@ -1061,7 +1095,7 @@ def _big_case_cell(
 def test_evaluator_agreement_is_positive_when_the_panel_orders_alike(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     root = tmp_path / "data"
     for case, (a, b, c) in {
         "ca9/1": (0.9, 0.8, 0.85),
@@ -1092,7 +1126,7 @@ def test_one_inverting_grader_drags_the_whole_small_panel_negative(
     disagreement by the grader carrying it. Read the whole map, not one row, and
     read it beside `events`.
     """
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     root = tmp_path / "data"
     for case, (a, b, c) in {
         "ca9/1": (0.9, 0.8, 0.1),
@@ -1119,7 +1153,7 @@ def test_one_inverting_grader_drags_the_whole_small_panel_negative(
 def test_an_evaluator_is_never_scored_against_a_panel_containing_itself(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     """Leave-one-out is the whole design. With a panel of two, a self-inclusive
     mean would correlate each grader half with itself, so two graders who disagree
     completely would still post positive agreement. They must post -1.
@@ -1136,7 +1170,7 @@ def test_an_evaluator_is_never_scored_against_a_panel_containing_itself(
 def test_an_event_only_one_evaluator_read_contributes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    bless_process(monkeypatch, "sha256:blessed")
     # Agreement needs a peer. A solo read is not a disagreement, and counting it
     # would let a single-grader event dilute the correlation toward zero.
     root = tmp_path / "data"

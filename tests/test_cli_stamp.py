@@ -76,6 +76,36 @@ def _stamp(role: str, actor: str, docket: int, event: str, run_id: str) -> Resul
     )
 
 
+def test_stamp_refuses_a_naive_stamped_at(_data_root: Path) -> None:
+    """The stamp is the frozen/alpha partition's time key: an offset-less
+    value has no defined order against the freeze instant and would read as
+    pre-freeze, silently stamping the cell out of the headline — refused at
+    the write end with a clean exit instead."""
+    seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
+    result = runner.invoke(
+        app,
+        [
+            "stamp-cell",
+            "--court",
+            "scotus",
+            "--docket",
+            "1",
+            "--event",
+            "evt-x",
+            "--run-id",
+            "20260101T000000Z",
+            "--role",
+            "predictor",
+            "--actor",
+            "claude-baseline",
+            "--stamped-at",
+            "2026-01-01T00:00:00",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "UTC offset" in result.output
+
+
 def test_stamp_injects_the_process_version_into_the_agents_prediction(_data_root: Path) -> None:
     seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
     path = (
