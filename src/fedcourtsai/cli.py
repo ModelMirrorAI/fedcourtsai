@@ -4020,9 +4020,11 @@ def corpus_integration_check(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "service":
-        # The sidecar counterpart of the fixed set: two reads through the same
-        # client a cell's `service` backend forwards with (the service exposes
-        # query and open-events; snapshot provisioning is not a cell surface).
+        # The sidecar counterpart of the fixed set: three reads through the
+        # same client a cell's `service` backend forwards with (the service
+        # exposes query and open-events; snapshot provisioning is not a cell
+        # surface), the third the full-query probe that fails when an
+        # opinion-bearing row hydrates no body.
         report = integration_check.run_service_check(
             service_url=_service_url_or_exit(),
             court=court,
