@@ -133,8 +133,9 @@ accepts (those runs are the promotion gate's freshness evidence; see
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every scenario but collect, with
-engine-smoke once per engine, so three cells' token spend) out of one run.
+fans the gate's whole required suite (every scenario — collect rides the run
+as its own environment-free job — with engine-smoke once per engine, so three
+cells' token spend) out of one run.
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),

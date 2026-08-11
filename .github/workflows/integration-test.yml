@@ -54,9 +54,10 @@ on:
       scenario:
         description: >-
           Which integration scenario to run. `all` fans the promotion gate's
-          whole required suite out of one dispatch — every scenario except
-          collect, with engine-smoke once per engine — and therefore SPENDS
-          MODEL TOKENS: three engine-smoke cells' worth, one per engine.
+          whole required suite out of one dispatch — the matrix legs plus the
+          environment-free collect job, with engine-smoke once per engine —
+          and therefore SPENDS MODEL TOKENS: three engine-smoke cells' worth,
+          one per engine.
         type: choice
         default: ranged-reads
         options:
@@ -142,7 +143,8 @@ concurrency:
 
 jobs:
   # Expands the dispatch into the {scenario, engine} legs the job below fans
-  # out over: `all` becomes the promotion gate's whole required suite, any
+  # out over: `all` becomes the required suite's matrix legs (collect rides
+  # the run as its own job, not a leg), any
   # other scenario one leg carrying the inputs unchanged — so a
   # single-scenario dispatch runs exactly the steps, env, and environment
   # binding it always has.
@@ -165,10 +167,12 @@ jobs:
           if [ "$SCENARIO" = all ]; then
             # The promotion gate's required suite — keep in lockstep with
             # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a
-            # workflow-shape test pins the two ends). collect stays out: it
-            # is not part of the gate and runs on its own job below. The
-            # engine field is meaningful only for engine-smoke; the other
-            # legs carry the engine input's default as a benign constant.
+            # workflow-shape test pins the two ends). collect is required
+            # evidence too, but it needs no environment or engine, so it
+            # stays out of this matrix and joins an `all` run through its
+            # own job below. The engine field is meaningful only for
+            # engine-smoke; the other legs carry the engine input's default
+            # as a benign constant.
             matrix='[
               {"scenario": "ranged-reads", "engine": "claude-code"},
               {"scenario": "corpus-service", "engine": "claude-code"},
@@ -557,7 +561,13 @@ jobs:
   # real token in the job is the ambient read-only one the composite's
   # downloader uses to list and fetch this run's own artifacts.
   collect-scenario:
-    if: ${{ inputs.scenario == 'collect' }}
+    # Fires on its own dispatch and inside an `all` run: the collect composite
+    # is the single writer for every predict/evaluate run's output, so the
+    # promotion freshness suite must include it — and because this job is a
+    # separate job in the same run, an `all` title is whole-suite evidence
+    # only if this job succeeded too (a run concludes success only when every
+    # job did).
+    if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -660,6 +670,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the ready codex cell
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -668,6 +683,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the salvage gemini cell
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -676,6 +696,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the cell whose download will be forced to fail
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -684,6 +709,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       # Every write surface the composite touches, stubbed or diverted before
       # it runs. The gh shim passes `api` and `run` through to the real gh

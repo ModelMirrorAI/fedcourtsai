@@ -61,8 +61,9 @@ That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
 dispatch, read-only role — the collect scenario none at all — strictly
 side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
-promotion gate's whole required suite as one matrix run (every scenario but
-collect, with engine-smoke once per engine, so three cells' token spend).
+promotion gate's whole required suite as one run (every scenario, with
+engine-smoke once per engine, so three cells' token spend; collect rides the
+run as its own environment-free job beside the matrix).
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
