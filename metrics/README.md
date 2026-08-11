@@ -498,8 +498,11 @@ vacaturs — so the section also applies the label-independent guard
 (`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
 on or before its own grant rode the cert order and is excluded from the
 cohort entirely, whatever its label says, with the removed rows published as
-the section's `cert_order_excluded`. The pooled **rate** is therefore clean
-of every cert-order vacatur whose judgment parsed with a date. Three residues
+the section's `cert_order_excluded`. When that count is a number, the pooled
+**rate** is clean of every cert-order vacatur whose judgment parsed with a
+date; when it is `null`, the pack predates the guard, and the section's
+figures carry whatever contamination the guard would have removed — quote
+nothing from a null-guard merits section. Three residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage

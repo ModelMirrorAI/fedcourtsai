@@ -399,7 +399,8 @@ accumulator's admission): a row whose parsed judgment is dated on or before
 its own grant is excluded from the cohort entirely, exactly as a labeled GVR
 is, and counted in the section's published `cert_order_excluded` — a guard
 that stops firing and a guard with nothing to fire on must not render the
-same artifact. A parsed judgment carrying **no** date cannot be gap-tested:
+same artifact. A pack parsed from a build the guard never ran on publishes
+`null` there, never a zero, for the same reason. A parsed judgment carrying **no** date cannot be gap-tested:
 its membership is unknown, so it stays in `granted` as a visible coverage
 gap while its judgment stays out of the parsed slice and the rate. The
 invariant the pool publishes under is therefore exact: **every judgment in

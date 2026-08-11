@@ -3938,8 +3938,8 @@ class _StatPackMeritsCounts(_Strict):
         "a visible coverage gap, outside the parsed slice, since the gap "
         "test cannot run on it. Parsed or not",
     )
-    cert_order_excluded: int = Field(
-        default=0,
+    cert_order_excluded: int | None = Field(
+        default=None,
         ge=0,
         description="Rows the label-independent pool guard removed from this "
         "slice: a parsed judgment dated on or before its own grant rode the "
@@ -3947,7 +3947,9 @@ class _StatPackMeritsCounts(_Strict):
         "parsed, and the rate alike. Zero is only meaningful beside a "
         "healthy parse: a guard that stops firing and a guard with nothing "
         "to fire on render the same zero, which is why the count is "
-        "published rather than implied.",
+        "published rather than implied. Null records a build the guard "
+        "never ran on at all — a pack parsed from before the guard existed "
+        "must not read as a measurement that it removed nothing.",
     )
     parsed: int = Field(
         default=0,
