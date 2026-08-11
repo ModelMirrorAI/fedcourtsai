@@ -169,17 +169,24 @@ def _all_matrix_entries() -> list[dict[str, str]]:
 
 def test_the_all_scenario_matrix_is_exactly_the_required_set() -> None:
     # `scenario=all` is freshness evidence for the whole required set, so the
-    # matrix it fans out and the set the gate demands must be the same seven —
-    # a leg missing here would let the gate accept an `all` run that never
-    # exercised a required scenario.
+    # legs it runs and the set the gate demands must coincide — a leg missing
+    # here would let the gate accept an `all` run that never exercised a
+    # required scenario. collect is required evidence too, but it rides its
+    # own environment-free job rather than the matrix, so the matrix must
+    # cover exactly the required set minus collect — and the whole-suite
+    # equivalence then rests on the collect job firing inside an `all` run,
+    # asserted here beside the coverage claim it completes.
     entries = _all_matrix_entries()
     as_required = [
         entry["scenario"] + (f"/{entry['engine']}" if entry["scenario"] == "engine-smoke" else "")
         for entry in entries
     ]
-    assert sorted(as_required) == sorted(_required_scenario_entries())
-    # collect is not part of the gate and runs on its own environment-free job.
+    required = _required_scenario_entries()
+    assert "collect" in required
+    assert sorted(as_required) == sorted(entry for entry in required if entry != "collect")
     assert all(entry["scenario"] != "collect" for entry in entries)
+    collect_if = _load(WORKFLOWS / "integration-test.yml")["jobs"]["collect-scenario"]["if"]
+    assert "inputs.scenario == 'all'" in collect_if
     # Every leg carries both keys with non-empty values: the engine-smoke
     # steps and their secret ternaries read matrix.engine, and an empty
     # engine would break the CLI install's case-switch and drop every key.
