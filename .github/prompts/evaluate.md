@@ -239,15 +239,18 @@ fails the cell.
     a zero. Then:
     - **`brier_skill_score` is computed against the merits baseline** — the
       same formula as a cert cell's, over the `segment_base_rate` the next
-      bullet has you pool, and null whenever that rate is omitted. The pool
-      you are pooling from is already guarded: the statpack's merits section
-      excludes any row whose parsed judgment carries its own grant's date, or
-      no date the gap could be tested on (a disposition riding in the cert
-      order — the label-independent twin of
-      the GVR exclusion, `docs/decision-model.md`), so the pooled rate is the
-      rate argued cases face, not an upper bound inflated by pre-convention
-      cert-order vacaturs. You apply no such check yourself: the guard lives
-      where the pool is built, and your job is the pooling arithmetic below.
+      bullet has you pool, and null whenever that rate is omitted. Where the
+      merits section publishes an `excluded` count, the pool you are pooling
+      from is already guarded: the section excludes any row whose parsed
+      judgment carries its own grant's date, or no date the gap could be
+      tested on (a disposition riding in the cert order — the
+      label-independent twin of the GVR exclusion, `docs/decision-model.md`),
+      so the pooled rate is the rate argued cases face, not an upper bound
+      inflated by pre-convention cert-order vacaturs. You apply no such
+      row-level check yourself — the guard lives where the pool is built, and
+      your job is the pooling arithmetic below — but you do check that the
+      count is published at all: a section without one is unquotable, per the
+      omit rule below.
     - **`segment_base_rate` is recorded, and it is the merits baseline,
       not the cert band.** The pool the cell faced is a fact about the run
       and the baseline the skill number above is scored against. Read
@@ -270,13 +273,15 @@ fails the cell.
       slice skewed toward the quicker dispositions.
     - **Omit it where the pack cannot support it, and say so plainly.** Omit
       `segment_base_rate` where the pack carries no merits section (it is
-      omitted entirely until a corpus row holds a parsed judgment — today that
-      is the ordinary case, not a broken cell), where no strictly-prior grant
-      Term carries a parsed judgment, or where the pooled `parsed` sample is
-      **below 30**. That minimum is pre-registered and its consequence is blunt
+      omitted entirely until a corpus row holds a parsed judgment), where the
+      section publishes no `excluded` count (no such column, or a dash where
+      the count belongs — a pre-guard pack, whose rate `metrics/README.md`
+      rules unquotable), where no strictly-prior grant Term carries a parsed
+      judgment, or where the pooled `parsed` sample is **below 30**. That
+      minimum is pre-registered and its consequence is blunt
       on purpose: below it there is no baseline and no substitute rate — not
       the pack-level disturbed rate, not a single Term's, not a remembered
-      figure. Record which of the three applied in `evaluation.md`.
+      figure. Record which of the four applied in `evaluation.md`.
     - **Leave `base_rate_basis` null.** Its two values both name salience-band
       populations, and the merits pool is neither: it is a Term-pooled
       disturbed rate over the grants that open a merits proceeding, carrying no
@@ -294,9 +299,12 @@ fails the cell.
       prediction's headline probability — and the harness computes the block
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. Note for reading
-      the two together: the claim's baseline pools the same guarded statpack
-      counts your `segment_base_rate` does, so the two carry the same pool by
-      construction — a property of the pool, not of the predictor.
+      the two together: the claim's baseline pools the same statpack counts
+      your `segment_base_rate` does, but the harness block does not itself
+      refuse a pre-guard section — so where the omit rule above nulls your
+      rate over a section with no `excluded` count, your omission is
+      deliberately the stricter of the two. Record the divergence in
+      `evaluation.md` rather than reconciling it.
 
     Say in `evaluation.md` that the cell is merits, which baseline you took or
     why none was available, and what the vote block could and could not be
@@ -430,7 +438,12 @@ local corpus service, which holds the ranged remote connection (the blob is not
 on your cell's disk, and your shell holds no cloud credentials); each `query`
 reports its transfer as a `ranged corpus reads: …` line on stderr — a warm
 service cache can honestly report `0 GET(s)`, so record the line either way
-(`open-events` prints none); the committed
+(`open-events` prints none); `query --full` hydrates a returned prior's
+opinion body where the corpus holds one (`has_opinion` on the row; extra
+egress per opinion-bearing row, so use it narrowly — e.g. to check a cited
+authority's actual holding — and note the `ranged corpus reads` line does not
+count a body served from the content store, so on a `--full` query treat it
+as a floor on egress, not the total); the committed
 `metrics/statpack.md` carries the base-rates (its cert statistics are
 live/historical-slice, denial-reweighted estimates — each section's scope line
 says so). When you grade a replay cell's base-rate use, the per-Term table is

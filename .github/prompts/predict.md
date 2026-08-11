@@ -156,7 +156,12 @@ cases-citing-authority search) and lives on SCOTUS rows, `--topic` is an
 exact nature-of-suit string on circuit rows only — both are sparse, and an
 empty result through them prints a `note:` line naming the coverage gap
 rather than meaning "no such precedent". Don't burn turns retrying sparse
-filters. For aggregate
+filters. Add `--full` to hydrate a returned prior's opinion body where the
+corpus holds one (`has_opinion` on the row says so) — it costs real extra
+egress per opinion-bearing row, and the `ranged corpus reads` line does not
+count a body served from the content store, so on a `--full` query treat that
+line as a floor on egress, not the total. Ask for `--full` only on the
+handful of priors you actually intend to read, not on a broad sweep. For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
 Its cert statistics are computed over the live/historical slice with
@@ -396,7 +401,9 @@ was worth.
   stage, not a defect in your cell — no flag is owed for it.
 - **The statpack's merits section is the anchor, on its stated terms.** Where
   the committed `metrics/statpack.md` carries a **"The merits docket (granted
-  cases)"** section, its per-Term **disturbed rate** is what a merits forecast
+  cases)"** section that publishes an `excluded` count (a section without one
+  is unquotable — the missing-or-unquotable bullet below governs), its
+  per-Term **disturbed rate** is what a merits forecast
   anchors on: pool `disturbed` over `parsed` across the ten grant Terms before
   your case's (`grant_term - 10 <= T < grant_term`, strictly before). Two
   qualifications on that arithmetic before the substantive ones. Count the ten
@@ -427,10 +434,12 @@ was worth.
     the section also excludes, label-independently, any row whose parsed
     judgment carries its own grant's date or no date the gap could be tested
     on (a disposition riding in the cert order carries the grant's own date —
-    `docs/decision-model.md`). Every parsed judgment in the pool therefore
-    provably postdates its grant, and the pooled rate is the rate argued cases
-    face — the baseline your cell's `brier_skill_score` **is scored against**,
-    so treat it as the bar, not merely an anchor.
+    `docs/decision-model.md`). Where the section publishes an `excluded`
+    count, every parsed judgment in the pool provably postdates its grant and
+    the pooled rate is the rate argued cases face — the baseline your cell's
+    `brier_skill_score` **is scored against**, so treat it as the bar, not
+    merely an anchor. A section with no `excluded` count was built before the
+    guard existed, and the missing-or-unquotable bullet below governs.
   - **A DIG and an equally divided affirmance count as undisturbed** and stay
     in the denominator, so the rate answers exactly the binary you are
     forecasting.
@@ -439,12 +448,15 @@ was worth.
     here too: anchor only on Term rows strictly preceding your clock, and never
     on the section's pack-level rate, which pools every Term including your
     own and later ones.
-  - **The pack may carry no merits section at all.** It publishes only once a
-    corpus row holds a parsed merits judgment, and it is omitted rather than
-    emitted empty while none does. Finding nothing is the ordinary case today,
-    not a broken cell: say so in `reasoning.md`, anchor on the record and on
-    what you know about the Court's disposition of argued cases, and do not
-    dress a remembered figure up as a committed base rate.
+  - **The merits section may be missing or unquotable.** It publishes only
+    once a corpus row holds a parsed merits judgment, and it is omitted rather
+    than emitted empty while none does; and a section that publishes **no
+    `excluded` count** (no such column, or a dash where the count belongs) was
+    built before the pool guard existed, so its rate carries whatever
+    contamination the guard would have removed and `metrics/README.md` rules
+    it unquotable. In either case say so in `reasoning.md`, anchor on the
+    record and on what you know about the Court's disposition of argued cases,
+    and do not dress a remembered figure up as a committed base rate.
 - **`predicted_reasoning.md` for a merits cell.** Doctrinal reasoning earns its
   place here in a way it does not at cert: there *will* be an opinion, the
   ground the Court decides on is a real forecast, and "if granted, the likely
