@@ -2,56 +2,552 @@
   "corpus_rows": 2151698,
   "coverage": {
     "census_filings": 44740,
-    "live_slice_resolved": 20896,
-    "live_slice_rows": 21492
+    "live_slice_resolved": 20959,
+    "live_slice_rows": 21555
   },
-  "dated_resolved": 20919,
-  "machine_readable_resolved": 27858,
-  "open": 2099835,
+  "dated_resolved": 20982,
+  "interim": {
+    "applications": 27215,
+    "extension": 1181,
+    "referred_to_court": 82,
+    "response_requested": 45,
+    "substantive": 206,
+    "substantive_grant_rate": 0.14146341463414633,
+    "substantive_granted": 29,
+    "substantive_resolved": 205,
+    "terms": [
+      {
+        "applications": 1365,
+        "extension": 1128,
+        "referred_to_court": 60,
+        "response_requested": 27,
+        "substantive": 179,
+        "substantive_grant_rate": 0.0898876404494382,
+        "substantive_granted": 16,
+        "substantive_resolved": 178,
+        "term": 2025,
+        "unknown": 58,
+        "unparsed": 0,
+        "with_amicus": 24
+      },
+      {
+        "applications": 1286,
+        "extension": 53,
+        "referred_to_court": 22,
+        "response_requested": 18,
+        "substantive": 27,
+        "substantive_grant_rate": 0.48148148148148145,
+        "substantive_granted": 13,
+        "substantive_resolved": 27,
+        "term": 2024,
+        "unknown": 8,
+        "unparsed": 1198,
+        "with_amicus": 19
+      },
+      {
+        "applications": 1177,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2023,
+        "unknown": 0,
+        "unparsed": 1177,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1133,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2022,
+        "unknown": 0,
+        "unparsed": 1133,
+        "with_amicus": 0
+      },
+      {
+        "applications": 878,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2021,
+        "unknown": 0,
+        "unparsed": 878,
+        "with_amicus": 0
+      },
+      {
+        "applications": 183,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2020,
+        "unknown": 0,
+        "unparsed": 183,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1073,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2019,
+        "unknown": 0,
+        "unparsed": 1073,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1371,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2018,
+        "unknown": 0,
+        "unparsed": 1371,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1425,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2017,
+        "unknown": 0,
+        "unparsed": 1425,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1268,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2016,
+        "unknown": 0,
+        "unparsed": 1268,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1303,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2015,
+        "unknown": 0,
+        "unparsed": 1303,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1314,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2014,
+        "unknown": 0,
+        "unparsed": 1314,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1287,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2013,
+        "unknown": 0,
+        "unparsed": 1287,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1252,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2012,
+        "unknown": 0,
+        "unparsed": 1252,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1255,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2011,
+        "unknown": 0,
+        "unparsed": 1255,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1277,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2010,
+        "unknown": 0,
+        "unparsed": 1277,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1267,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2009,
+        "unknown": 0,
+        "unparsed": 1267,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1166,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2008,
+        "unknown": 0,
+        "unparsed": 1166,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1043,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2007,
+        "unknown": 0,
+        "unparsed": 1043,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1243,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2006,
+        "unknown": 0,
+        "unparsed": 1243,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1238,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2005,
+        "unknown": 0,
+        "unparsed": 1238,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1079,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2004,
+        "unknown": 0,
+        "unparsed": 1079,
+        "with_amicus": 0
+      },
+      {
+        "applications": 1064,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2003,
+        "unknown": 0,
+        "unparsed": 1064,
+        "with_amicus": 0
+      },
+      {
+        "applications": 262,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2002,
+        "unknown": 0,
+        "unparsed": 262,
+        "with_amicus": 0
+      },
+      {
+        "applications": 6,
+        "extension": 0,
+        "referred_to_court": 0,
+        "response_requested": 0,
+        "substantive": 0,
+        "substantive_grant_rate": null,
+        "substantive_granted": 0,
+        "substantive_resolved": 0,
+        "term": 2001,
+        "unknown": 0,
+        "unparsed": 6,
+        "with_amicus": 0
+      }
+    ],
+    "unknown": 66,
+    "unparsed": 25762,
+    "with_amicus": 43
+  },
+  "machine_readable_resolved": 27921,
+  "merits": {
+    "affirmed": 147,
+    "affirmed_in_part": 10,
+    "dig": 12,
+    "disturbed": 443,
+    "disturbed_rate": 0.731023102310231,
+    "equally_divided": 4,
+    "granted": 674,
+    "parsed": 606,
+    "reversed": 261,
+    "terms": [
+      {
+        "affirmed": 7,
+        "affirmed_in_part": 0,
+        "dig": 0,
+        "disturbed": 27,
+        "disturbed_rate": 0.7941176470588235,
+        "equally_divided": 0,
+        "granted": 60,
+        "parsed": 34,
+        "reversed": 19,
+        "term": 2025,
+        "vacated": 8
+      },
+      {
+        "affirmed": 19,
+        "affirmed_in_part": 0,
+        "dig": 2,
+        "disturbed": 84,
+        "disturbed_rate": 0.7850467289719626,
+        "equally_divided": 2,
+        "granted": 109,
+        "parsed": 107,
+        "reversed": 39,
+        "term": 2024,
+        "vacated": 45
+      },
+      {
+        "affirmed": 17,
+        "affirmed_in_part": 0,
+        "dig": 4,
+        "disturbed": 47,
+        "disturbed_rate": 0.6911764705882353,
+        "equally_divided": 0,
+        "granted": 69,
+        "parsed": 68,
+        "reversed": 21,
+        "term": 2023,
+        "vacated": 26
+      },
+      {
+        "affirmed": 22,
+        "affirmed_in_part": 0,
+        "dig": 1,
+        "disturbed": 50,
+        "disturbed_rate": 0.684931506849315,
+        "equally_divided": 0,
+        "granted": 75,
+        "parsed": 73,
+        "reversed": 23,
+        "term": 2022,
+        "vacated": 27
+      },
+      {
+        "affirmed": 15,
+        "affirmed_in_part": 5,
+        "dig": 3,
+        "disturbed": 47,
+        "disturbed_rate": 0.7121212121212122,
+        "equally_divided": 1,
+        "granted": 69,
+        "parsed": 66,
+        "reversed": 33,
+        "term": 2021,
+        "vacated": 9
+      },
+      {
+        "affirmed": 12,
+        "affirmed_in_part": 0,
+        "dig": 0,
+        "disturbed": 59,
+        "disturbed_rate": 0.8309859154929577,
+        "equally_divided": 0,
+        "granted": 87,
+        "parsed": 71,
+        "reversed": 44,
+        "term": 2020,
+        "vacated": 15
+      },
+      {
+        "affirmed": 11,
+        "affirmed_in_part": 2,
+        "dig": 1,
+        "disturbed": 44,
+        "disturbed_rate": 0.7857142857142857,
+        "equally_divided": 0,
+        "granted": 63,
+        "parsed": 56,
+        "reversed": 31,
+        "term": 2019,
+        "vacated": 11
+      },
+      {
+        "affirmed": 24,
+        "affirmed_in_part": 3,
+        "dig": 1,
+        "disturbed": 51,
+        "disturbed_rate": 0.6710526315789473,
+        "equally_divided": 0,
+        "granted": 81,
+        "parsed": 76,
+        "reversed": 29,
+        "term": 2018,
+        "vacated": 19
+      },
+      {
+        "affirmed": 20,
+        "affirmed_in_part": 0,
+        "dig": 0,
+        "disturbed": 34,
+        "disturbed_rate": 0.6181818181818182,
+        "equally_divided": 1,
+        "granted": 61,
+        "parsed": 55,
+        "reversed": 22,
+        "term": 2017,
+        "vacated": 12
+      }
+    ],
+    "vacated": 172
+  },
+  "open": 2099772,
   "overall": {
     "cases": 2151698,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.4628540578061431
+        "share": 0.46229249316334786
       },
       {
-        "count": 17981,
+        "count": 17997,
         "disposition": "denied",
-        "share": 0.34670188766558047
+        "share": 0.34658937719061744
       },
       {
         "count": 7155,
         "disposition": "dismissed",
-        "share": 0.13795962439504078
+        "share": 0.1377922428070716
       },
       {
-        "count": 2136,
+        "count": 2183,
         "disposition": "granted",
-        "share": 0.04118543084665369
+        "share": 0.042040596233100955
       },
       {
         "count": 576,
         "disposition": "gvr",
-        "share": 0.011106183599097623
+        "share": 0.011092708854908909
       },
       {
         "count": 7,
         "disposition": "withdrawn",
-        "share": 0.00013497098123903362
+        "share": 0.00013480722566729578
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 5.784470624530012e-05
+        "share": 5.77745252859839e-05
       }
     ],
     "key": "",
-    "open": 2099835,
-    "resolved": 51863
+    "open": 2099772,
+    "resolved": 51926
   },
-  "resolved": 51863,
+  "resolved": 51926,
   "schema_version": "1.0",
   "sections": [
     {
@@ -60,39 +556,39 @@
           "cases": 589619,
           "dispositions": [
             {
-              "count": 17554,
+              "count": 17570,
               "disposition": "denied",
-              "share": 0.8283314458286146
+              "share": 0.8266290284638909
             },
             {
-              "count": 1892,
+              "count": 1939,
               "disposition": "granted",
-              "share": 0.089278973197433
+              "share": 0.09122559397788756
             },
             {
               "count": 934,
               "disposition": "dismissed",
-              "share": 0.04407323518308796
+              "share": 0.043942601740766876
             },
             {
               "count": 576,
               "disposition": "gvr",
-              "share": 0.027180067950169876
+              "share": 0.02709950599858857
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.010947527368818422
+              "share": 0.010915078804987061
             },
             {
               "count": 4,
               "disposition": "withdrawn",
-              "share": 0.00018875047187617969
+              "share": 0.00018819101387908727
             }
           ],
           "key": "scotus",
-          "open": 568427,
-          "resolved": 21192
+          "open": 568364,
+          "resolved": 21255
         },
         {
           "cases": 247637,
@@ -465,7 +961,7 @@
     {
       "buckets": [
         {
-          "cases": 126791,
+          "cases": 126784,
           "dispositions": [
             {
               "count": 204,
@@ -489,7 +985,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126524,
+          "open": 126517,
           "resolved": 267
         },
         {
@@ -578,37 +1074,37 @@
           "resolved": 3
         },
         {
-          "cases": 32929,
+          "cases": 32936,
           "dispositions": [
             {
-              "count": 11839,
+              "count": 11855,
               "disposition": "denied",
-              "share": 0.8232389958973646
+              "share": 0.8207560232622543
             },
             {
-              "count": 1663,
+              "count": 1710,
               "disposition": "granted",
-              "share": 0.11563868993811278
+              "share": 0.11838825810024924
             },
             {
               "count": 549,
               "disposition": "dismissed",
-              "share": 0.03817537028023086
+              "share": 0.03800886181113265
             },
             {
               "count": 326,
               "disposition": "gvr",
-              "share": 0.022668799109936723
+              "share": 0.022569925228468568
             },
             {
               "count": 4,
               "disposition": "withdrawn",
-              "share": 0.0002781447743550518
+              "share": 0.00027693159789531985
             }
           ],
           "key": "2020s",
-          "open": 18548,
-          "resolved": 14381
+          "open": 18492,
+          "resolved": 14444
         },
         {
           "cases": 107,
@@ -7741,9 +8237,9 @@
     }
   ],
   "timing": {
-    "cases": 2477,
-    "mean_days": 57.9,
-    "median_days": 10.0,
-    "p90_days": 130.0
+    "cases": 2533,
+    "mean_days": 56.8,
+    "median_days": 7.0,
+    "p90_days": 127.0
   }
 }
