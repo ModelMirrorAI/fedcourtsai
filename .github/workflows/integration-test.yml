@@ -72,8 +72,12 @@ on:
       # cascade reads — a snapshot in the per-case content store, which under
       # the live corpus split only cases the post-cutover channels mutate
       # (SCOTUS dockets) have. Pre-cutover index-only rows (circuit courts)
-      # can serve the query/open-events reads but never a snapshot. Swap the
-      # defaults if this case ever resolves out of shape.
+      # can serve the query/open-events reads but never a snapshot. The
+      # stub-cascade provisioning-guard step adds one more precondition: the
+      # case (or the `event` the dispatch narrows to) must be genuinely
+      # undisposed, since the guard rightly refuses a snapshot that already
+      # shows the outcome. Swap the defaults if this case ever resolves out
+      # of shape.
       court:
         description: Court id of a known case with an open event and a snapshot.
         type: string
@@ -210,6 +214,17 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the corpus reads
+    # Corpus-split read side, job-wide: under FEDCOURTS_CORPUS_SPLIT=1 (the
+    # clean-slate cutover switch; unset variable -> '0' -> off) snapshot
+    # payloads and opinion bodies are served from the per-case content store,
+    # which needs its URL. Job-level so every client-side read — the ranged
+    # read set, the stub cascade, the provisioning guard, the engine-smoke
+    # cascade — resolves the same mode; the sidecar process gets the same
+    # pair explicitly, as corpus-sidecar composite inputs, exactly as the
+    # cell workflows pass it. Inert while the flag is off.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -259,12 +274,6 @@ jobs:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-          # The set's provision-snapshot read: under the corpus split the
-          # ranged index carries no snapshot payloads — they are served from
-          # the per-case content store, which needs its URL. Inert while the
-          # flag is off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -287,10 +296,20 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          # Corpus-split read side for the sidecar process itself: under the
+          # split, `full` query bodies hydrate from the per-case content
+          # store server-side, and the sidecar is the credentialed process —
+          # without these the sidecar silently serves bodiless rows while
+          # every other read stays green. Inert while the flag is off.
+          casestore-url: ${{ vars.CASESTORE_URL }}
+          corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
 
       # The same tested command as the ranged read set, on the service
-      # backend: two reads through the exact client a cell's `service` backend
-      # forwards with, failing on an empty result or a blown budget.
+      # backend: three reads through the exact client a cell's `service`
+      # backend forwards with, failing on an empty result, a blown budget, or
+      # — the full-query hydration probe — an opinion-bearing row whose body
+      # hydrates empty (the content-store path degrades to None rather than
+      # raising, so only asking for a body can prove one arrives).
       - name: Run the service read set against the sidecar
         if: ${{ matrix.scenario == 'corpus-service' }}
         env:
@@ -305,6 +324,32 @@ jobs:
 
       # --- stub-cascade: provision -> predict -> validate, token-free --------
 
+      # The production provisioning command, exercised end to end before the
+      # cascade: run-predict's own step passes the same
+      # `--mode forward --refuse-terminal` but is continue-on-error there (a
+      # refusal must not burn the whole fan-out), so the guard drifting to
+      # always-refuse — or the flag silently dropping out — fails nothing at
+      # runtime, while local-cascade provisions in-process and never runs this
+      # CLI at all. Here the command must *succeed and write the record* for
+      # the known case: while that case is undisposed (part of the input
+      # contract on `court`/`docket` above), a refusal is by construction a
+      # guard regression. An isolated data root keeps its writes out of the
+      # cascade's tree.
+      - name: Provision the forward record through the production guard
+        if: ${{ matrix.scenario == 'stub-cascade' }}
+        env:
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          EVENT: ${{ inputs.event }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+          FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/provision-guard/data
+        run: |
+          set -euo pipefail
+          uv run fedcourts provision-snapshot --court "$COURT" --docket "$DOCKET" \
+            --mode forward --refuse-terminal ${EVENT:+--event "$EVENT"}
+          test -s "$FEDCOURTS_DATA_ROOT/cases/$COURT/$DOCKET/record/context.json"
+
       # One offline stub cascade cell with every corpus read on the ranged
       # backend. Deterministic and token-free; the cell writes derived
       # artifacts only into the runner's throwaway checkout — this job holds
@@ -317,12 +362,6 @@ jobs:
           EVENT: ${{ inputs.event }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
-          # Corpus-split read side, mirroring the cell workflows' provisioning
-          # steps: under FEDCOURTS_CORPUS_SPLIT=1 the ranged index carries no
-          # snapshot payloads — they are served from the per-case content
-          # store, which needs its URL. Inert while the flag is off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           {
@@ -445,12 +484,10 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: service
-          # Corpus-split read side for the cascade's own provisioning reads
-          # (see the stub-cascade step); the agent inherits these two
-          # non-secret pointers harmlessly — its own reads go via the sidecar,
-          # and the content store is unreachable without the scrubbed creds.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus-split pair rides the job env for the cascade's own
+          # provisioning reads; the agent inherits those two non-secret
+          # pointers harmlessly — its reads go via the sidecar, and the
+          # content store is unreachable without the scrubbed creds.
           ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
