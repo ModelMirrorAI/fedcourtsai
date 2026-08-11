@@ -1,0 +1,13 @@
+case_id: scotus/73277468
+decision_target: judgment
+description: Disposition of the judgment below, forecast once both sides' merits briefs
+  are on the record.
+docket_entry_id: null
+event_id: evt-brief-judgment
+kind: brief
+moment: briefed
+opened_at: '2026-08-03'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia
