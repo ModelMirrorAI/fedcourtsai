@@ -69,10 +69,17 @@ read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
 exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
-same corpus sidecar composite the cell workflows use and probes it through the
-exact CLI surface a cell retrieves with. `stub-cascade` runs one offline stub
-`local-cascade` cell over the ranged backend, covering provisioning end to
-end. `mcp-sidecar` launches the same CourtListener MCP sidecar composite the
+same corpus sidecar composite the cell workflows use — with the same
+corpus-split inputs, so under the split the sidecar hydrates from the content
+store exactly as the fleet's does — and probes it through the exact CLI
+surface a cell retrieves with. `stub-cascade` first runs the production
+`provision-snapshot --mode forward --refuse-terminal` command against the
+known case in an isolated data root, failing the leg on a refusal (the same
+command is `continue-on-error` in run-predict, so this is where a guard
+drifting to always-refuse surfaces; the dispatched case must be genuinely
+undisposed), then runs one offline stub `local-cascade` cell over the ranged
+backend, covering provisioning end to end. `mcp-sidecar` launches the same
+CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
 the tested `fedcourts mcp-integration-check` client against it (initialize +
 tools/list, failing unless the handshake completes and tools are advertised).

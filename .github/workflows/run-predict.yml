@@ -168,6 +168,13 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          # Corpus-split read side for the sidecar process itself: under the
+          # split, `full` query bodies hydrate from the per-case content
+          # store server-side, and the sidecar is the credentialed process —
+          # without these the sidecar silently serves bodiless rows while
+          # every other read stays green. Inert while the flag is off.
+          casestore-url: ${{ vars.CASESTORE_URL }}
+          corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
 
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
