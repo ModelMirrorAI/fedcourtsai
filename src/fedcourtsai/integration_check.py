@@ -37,7 +37,15 @@ from pydantic import BaseModel, Field
 
 from . import corpus, corpus_service, ids
 from .corpus_ranged import RangedConnection
+from .schemas import Disposition
 from .serialize import write_raw_json
+
+# The hydration probe's survey width. The survey is a cheap index-only read
+# (``full=False`` fetches no bodies) ranked newest-grant-first, so it must
+# sweep wide enough to reach past the newest grants — whose opinions do not
+# exist yet — into decided, enriched territory; on the production corpus 200
+# granted rows span roughly two Terms.
+HYDRATION_SURVEY_LIMIT = 200
 
 
 class IntegrationStep(BaseModel):
@@ -181,13 +189,31 @@ def run_service_check(
     Probes the corpus query sidecar through the same client the CLI's
     ``service`` backend forwards with — the exact surface a cell retrieves
     from — so a green run proves the sidecar serves non-empty priors and open
-    events for the known case. Two reads: the service exposes ``query`` and
-    ``open-events`` only (snapshot provisioning is a deterministic workflow
-    step's read, not a cell surface). Per-read transfer counters come from the
-    service's per-request deltas; a transport failure or refusal raises
+    events for the known case. Three reads on the two endpoints the service
+    exposes, ``query`` and ``open-events`` (snapshot provisioning is a
+    deterministic workflow step's read, not a cell surface): the plain query,
+    the open events, and the full-query hydration probe below. Per-read
+    transfer counters come from the service's per-request deltas; a transport
+    failure or refusal raises
     (:class:`~fedcourtsai.corpus_service.CorpusServiceError` — a setup
     problem, not a read regression), while an empty result reports as a
     failed step.
+
+    The **hydration probe** guards the opinion-body path, which degrades to
+    ``None`` at every layer rather than raising (so a dead content store
+    cannot truncate a query stream — see :func:`fedcourtsai.corpus.prior_payload`),
+    and would therefore pass every other read while returning bodiless rows to
+    every cell. A cheap ``full=False`` survey of granted priors finds the
+    first opinion-bearing row; the identical query re-asked with ``full=True``
+    and a limit just past that row's rank must — ranking is deterministic —
+    return the very row the survey found, and the probe fails if any returned
+    row that claims an opinion hydrates an empty body, or if the targeted row
+    is missing. Judging the rows the survey actually found is the point: a
+    fixed-size window ranked newest-first would sample exactly the grants
+    whose opinions do not exist yet and report their absence as health. Only
+    a survey with **no** opinion-bearing row at all reports **ok with an
+    UNVERIFIED note** rather than failing: before the first enrichment run
+    there is nothing to certify, and nothing live reads bodies either.
     """
     case_id = ids.case_id(court, docket)
     started = time.monotonic()
@@ -224,6 +250,74 @@ def run_service_check(
             else f"{case_id} has no open events; pick another case",
             gets=events.reads.gets if events.reads is not None else None,
             bytes_fetched=events.reads.bytes if events.reads is not None else None,
+            seconds=time.monotonic() - t0,
+        )
+    )
+
+    t0 = time.monotonic()
+    survey = corpus_service.client_query(
+        service_url,
+        corpus.PriorQuery(court=court, disposition=Disposition.granted),
+        limit=HYDRATION_SURVEY_LIMIT,
+        full=False,
+    )
+    first_bearing = next(
+        (rank for rank, row in enumerate(survey.rows) if row.get("has_opinion")), None
+    )
+    if first_bearing is None:
+        ok = True
+        detail = (
+            f"no opinion-bearing prior among {len(survey.rows)} granted row(s) surveyed — "
+            "hydration UNVERIFIED until an enrichment pass has landed opinion bodies"
+        )
+        hydrated = None
+    else:
+        # The identical query, re-asked with bodies, cut just past the first
+        # bearing row's rank: ranking is deterministic (relevance, recency,
+        # case_id), so the response must contain that exact row — hydration is
+        # judged on the rows the survey actually found, never on a window that
+        # might miss them, and the row's absence is itself a failure. Bodies
+        # are fetched only for opinion-bearing rows, so the wider limit costs
+        # index bytes, not content-store GETs.
+        target_id = str(survey.rows[first_bearing].get("case_id"))
+        hydrated = corpus_service.client_query(
+            service_url,
+            corpus.PriorQuery(court=court, disposition=Disposition.granted),
+            limit=first_bearing + 1,
+            full=True,
+        )
+        claimed = [row for row in hydrated.rows if row.get("has_opinion")]
+        empty = [
+            str(row.get("case_id"))
+            for row in claimed
+            if not str(row.get("opinion_text") or "").strip()
+        ]
+        if not any(str(row.get("case_id")) == target_id for row in claimed):
+            ok = False
+            detail = (
+                f"the hydration query did not return the opinion-bearing row it "
+                f"targeted ({target_id}, survey rank {first_bearing + 1}) — "
+                "ranking drifted between reads"
+            )
+        elif empty:
+            ok = False
+            detail = (
+                f"{len(empty)} of {len(claimed)} opinion-bearing prior(s) hydrated no "
+                f"body (content store unreachable or inconsistent): " + ", ".join(empty[:5])
+            )
+        else:
+            ok = True
+            detail = f"{len(claimed)} opinion-bearing prior(s), every body hydrated"
+    # The hydration read's counters only: the step's egress evidence is the
+    # content-store fetch, not the survey's index sweep.
+    reads = hydrated.reads if hydrated is not None else None
+    steps.append(
+        IntegrationStep(
+            name="service full-query hydration",
+            ok=ok,
+            detail=detail,
+            gets=reads.gets if reads is not None else None,
+            bytes_fetched=reads.bytes if reads is not None else None,
             seconds=time.monotonic() - t0,
         )
     )

@@ -15,6 +15,7 @@ import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import ClassVar
@@ -24,7 +25,7 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, corpus_ranged, corpus_service
+from fedcourtsai import casestore, corpus, corpus_ranged, corpus_service
 from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
 from fedcourtsai.integration_check import (
@@ -36,6 +37,7 @@ from fedcourtsai.integration_check import (
     run_service_check,
 )
 from fedcourtsai.registry import load_mcp_servers
+from fedcourtsai.schemas import Disposition
 
 REMOTE_URL = "s3://test-bucket/store"
 
@@ -202,9 +204,154 @@ def test_service_check_passes_against_a_live_sidecar(corpus_db: Path) -> None:
     assert [s.name for s in report.steps] == [
         f"service query (court {COURT}, limit 5)",
         "service open-events",
+        "service full-query hydration",
     ]
+    # The fixture corpus carries an opinion-bearing granted row, so the probe
+    # verifies its body outright.
+    assert "every body hydrated" in report.steps[2].detail
     # Local backend behind the service: no transfer counters, matching the CLI.
     assert all(s.gets is None for s in report.steps)
+
+
+def test_service_hydration_probe_notes_an_unenriched_corpus(tmp_path: Path) -> None:
+    """A corpus with granted rows but no opinion bodies yet must not fail the
+    probe — before the first enrichment run there is nothing to certify — but
+    the pass has to say so, loudly, rather than read as coverage."""
+    db = corpus.corpus_db_path(tmp_path / "bare")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/601",
+                    court="scotus",
+                    docket_number="14-1234",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2015, 3, 2),
+                )
+            ],
+        )
+    with _service(db) as url:
+        report = run_service_check(service_url=url, court="scotus", docket=601)
+    probe = report.steps[2]
+    assert probe.ok
+    assert "UNVERIFIED" in probe.detail
+
+
+def _opinion_case(case_id: str, granted_on: date, opinion: str | None) -> corpus.CorpusRow:
+    """A decided granted SCOTUS row, optionally carrying its opinion body."""
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number="14-1234",
+        disposition=Disposition.granted,
+        date_cert_granted=granted_on,
+        has_opinion=True,
+        opinion_text=opinion,
+    )
+
+
+def test_service_hydration_probe_verifies_opinion_bodies(corpus_db: Path) -> None:
+    """The probe finds the survey's first opinion-bearing granted row and
+    asserts the rank-anchored full re-ask returns that very row with a
+    non-empty body."""
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _opinion_case("scotus/501", date(2015, 3, 2), "Held: reversed."),
+                _opinion_case("scotus/502", date(2015, 10, 5), "Held: affirmed."),
+            ],
+        )
+    with _service(corpus_db) as url:
+        report = run_service_check(service_url=url, court="scotus", docket=501)
+    probe = report.steps[2]
+    assert probe.name == "service full-query hydration"
+    assert probe.ok
+    assert "every body hydrated" in probe.detail
+
+
+def test_service_hydration_probe_fails_on_a_bodiless_opinion_row(corpus_db: Path) -> None:
+    """The regression signature of a dead content store: a row whose retained
+    `has_opinion` bit claims a body that hydrates to nothing. The probe must
+    fail rather than let bodiless rows flow to every cell as valid output."""
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _opinion_case("scotus/503", date(2015, 3, 2), "Held: reversed."),
+                _opinion_case("scotus/504", date(2015, 10, 5), None),
+            ],
+        )
+    with _service(corpus_db) as url:
+        report = run_service_check(service_url=url, court="scotus", docket=503)
+    probe = report.steps[2]
+    assert not probe.ok and not report.ok
+    assert "scotus/504" in probe.detail and "hydrated no body" in probe.detail
+
+
+def test_service_hydration_probe_reaches_past_newer_bodiless_grants(corpus_db: Path) -> None:
+    """The sampling trap the probe must not fall into: recency ranking puts
+    the newest grants — whose opinions do not exist yet — ahead of every
+    enriched row, so a fixed-size hydration window would sample exactly the
+    rows with nothing to hydrate and report the miss as health. The probe
+    re-asks the survey's own query cut past the first bearing row's rank, so
+    a bodiless bearing row ranked below a stack of newer clean grants still
+    fails the step."""
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Three newer grants, merits pending: no opinion yet, honestly.
+                corpus.CorpusRow(
+                    case_id=f"scotus/{910000510 + i}",
+                    court="scotus",
+                    docket_number=f"24-90{i}",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2026, 1, 10 + i),
+                )
+                for i in range(3)
+            ]
+            + [
+                # The regression signature, ranked below all of them.
+                _opinion_case("scotus/910000509", date(2015, 3, 2), None),
+            ],
+        )
+    with _service(corpus_db) as url:
+        report = run_service_check(service_url=url, court="scotus", docket=910000509)
+    probe = report.steps[2]
+    assert not probe.ok
+    assert "scotus/910000509" in probe.detail and "hydrated no body" in probe.detail
+
+
+def test_service_hydration_probe_discriminates_a_live_from_a_dead_store(
+    corpus_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The production seam end to end: under the corpus split the blob column
+    is NULL and `prior_payload` hydrates through the content-store read
+    source, which swallows its own failures into None. The same index rows
+    must pass the probe over a store that holds the body and fail it over an
+    emptied store — the discriminating pair a NULL-column simulation alone
+    cannot give."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_rows(
+            conn, [_opinion_case("scotus/910000520", date(2015, 3, 2), "Held: reversed.")]
+        )
+    with _service(corpus_db) as url:
+        live = run_service_check(service_url=url, court="scotus", docket=910000520)
+    assert live.steps[2].ok
+    assert "every body hydrated" in live.steps[2].detail
+
+    # Wipe the store behind the same retained `has_opinion` bit: the read
+    # source now swallows its miss into None, and the probe must see it.
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    with _service(corpus_db) as url:
+        dead = run_service_check(service_url=url, court="scotus", docket=910000520)
+    probe = dead.steps[2]
+    assert not probe.ok
+    assert "scotus/910000520" in probe.detail and "hydrated no body" in probe.detail
 
 
 def test_service_check_fails_on_an_unknown_case(corpus_db: Path) -> None:
