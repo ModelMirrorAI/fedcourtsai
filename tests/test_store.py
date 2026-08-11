@@ -699,6 +699,51 @@ def test_forecastable_events_refuses_the_response_moments_of_a_non_substantive_a
     }
 
 
+def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path) -> None:
+    """Denominator invariant: each ``forecastable=True`` moment in the register
+    has an admission path through ``forecastable_events``.
+
+    The per-arm tests above prove each admission on its own; nothing couples
+    the *register* to them, so a new declared moment — or a kind/stage edit to
+    an existing one — can arrive with no arm reaching it, and the fan-out
+    simply never mints its cells while `predict-matrix` reports an empty
+    matrix as in-scope work correctly done. Three corpus shapes, one per
+    stage, must jointly admit every declared forecastable event; extending the
+    register obliges extending a shape until this passes again.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 81)
+    _granted_case(db, 82, disposition=Disposition.granted)
+    interim_case = "scotus/9525000081"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_briefed_event("scotus/82")])
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=interim_case,
+                    court="scotus",
+                    docket_number="25A81",
+                    application_kind="substantive",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn, [_application_event(interim_case), *_response_events(interim_case)]
+        )
+
+    admitted = (
+        set(forecastable_events(db, "scotus", 81))
+        | set(forecastable_events(db, "scotus", 82))
+        | set(forecastable_events(db, "scotus", 9525000081))
+    )
+    declared = {spec.event_id for spec in moments.DECLARED_MOMENTS if spec.forecastable}
+    assert declared, "the register declares no forecastable moment — the invariant is vacuous"
+    assert declared <= admitted, (
+        f"declared forecastable moment(s) no fixture shape admits: {sorted(declared - admitted)}"
+    )
+
+
 def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim_fan_out(
     tmp_path: Path,
 ) -> None:
