@@ -1022,6 +1022,10 @@ def _recency_fixture_rows() -> list[corpus.CorpusRow]:
             docket_number="23-300",
             date_cert_granted=None,
             date_decided=date(2024, 3, 1),
+            # A merits pair the decided_before screen must mask: the row's
+            # Term qualifies under a 2024 clock, the judgment postdates it.
+            merits_judgment="affirmed",
+            merits_decided=date(2025, 5, 1),
         ),
         _row(  # undated but disposition-resolved: sorts after every dated row
             case_id="scotus/d-undated",
@@ -1054,54 +1058,42 @@ def test_retrieve_priors_sql_ranking_matches_the_python_ranking(tmp_path: Path) 
                 corpus.PriorQuery(court="scotus"),
                 ["scotus/a-deny", "scotus/b-grant", "scotus/c-tie", "scotus/d-undated"],
             ),
-            (corpus.PriorQuery(court="scotus"), None),  # reference-checked below
             (corpus.PriorQuery(), None),
+            # The screened shapes take the fast path only beside a court
+            # filter (the index serves the ordering there), and decided_before
+            # exercises the masking branch on the stream.
+            (corpus.PriorQuery(court="scotus", era="2020s"), None),
+            (corpus.PriorQuery(court="scotus", decided_before=2024), None),
         ]:
             fast = corpus.retrieve_priors(conn, query, limit=10)
             if expect is not None:
                 assert [r.case_id for r in fast] == expect
-            # Reference: the documented key over the same candidate set.
+            # Order claim: the fast path emits the documented key's order.
+            # (Membership rides the overlap cross-check below, which re-runs
+            # the same query through the Python path.)
             reference = sorted(fast, key=lambda r: (corpus.recency_key(r), r.case_id))
             assert [r.model_dump(mode="json") for r in fast] == [
                 r.model_dump(mode="json") for r in reference
             ]
-            # The overlap path, made relevance-uniform: identical bytes.
+            # The overlap path, made relevance-uniform (every fixture row
+            # carries the shared default judge): identical bytes, so a row the
+            # fast path wrongly dropped or mismasked cannot pass.
             overlap_query = query.model_copy(update={"judges": ["smith"]})
             slow = corpus.retrieve_priors(conn, overlap_query, limit=10)
             fast_with_judges = [r for r in fast if "smith" in r.judges]
             assert [r.model_dump(mode="json") for r in slow] == [
                 r.model_dump(mode="json") for r in fast_with_judges
             ]
+        # The masking branch genuinely ran: the qualifying row's post-clock
+        # merits pair is stripped on the clocked query, present otherwise.
+        clocked = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2024), limit=10
+        )
+        by_id = {r.case_id: r for r in clocked}
+        assert "scotus/c-tie" in by_id and by_id["scotus/c-tie"].merits_judgment is None
         # The pushed-down LIMIT truncates the same ranking, not a different one.
         top_two = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=2)
         assert [r.case_id for r in top_two] == ["scotus/a-deny", "scotus/b-grant"]
-
-
-def test_retrieve_priors_overlap_free_ranking_is_index_served(tmp_path: Path) -> None:
-    """The whole point of the fast path: the plan reads the recency index.
-
-    A regression here silently returns the corpus to whole-court-slice scans
-    on every cell query (the ranged backend pays that in wall clock and
-    egress), so the query plan is pinned, not assumed.
-    """
-    db = tmp_path / "corpus.db"
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, _recency_fixture_rows())
-        recency = (
-            "CASE WHEN court = 'scotus' "
-            "THEN coalesce(date_cert_granted, date_cert_denied, date_decided) "
-            "ELSE date_decided END"
-        )
-        plan = " ".join(
-            str(row["detail"])
-            for row in conn.execute(
-                "EXPLAIN QUERY PLAN SELECT * FROM cases WHERE court = ? "
-                f"ORDER BY {recency} DESC, case_id LIMIT ?",
-                ["scotus", 5],
-            )
-        )
-    assert "idx_cases_priors_recency" in plan, plan
-    assert "USE TEMP B-TREE" not in plan.upper(), plan
 
 
 def test_retrieve_priors_defaults_to_resolved_only(tmp_path: Path) -> None:

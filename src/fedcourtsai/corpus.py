@@ -668,7 +668,9 @@ CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
 -- retrieve_priors pushes its exact-match filters into SQL; court / topic /
 -- disposition are index-served so a ranged remote read narrows before it
 -- scans. (The resolved-only OR-predicate itself is not index-served; real
--- queries carry a court filter, which narrows first.)
+-- queries carry a court filter, which narrows first. The recency index that
+-- serves the overlap-free ranking is created post-migration — see
+-- `_migrate_cases` — because its expression references migrated columns.)
 CREATE INDEX IF NOT EXISTS idx_cases_topic ON cases(topic);
 
 -- Predictable event definitions: raw facts, one or more per case.
@@ -2293,10 +2295,29 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
     The salience selection pass's sole writer of the latch. Monotonicity lives here
     — the SQL only assigns 1 — so a case selected once stays selected and its
     committed prediction is never stranded, and re-running the pass converges.
+    The one sanctioned clear is :func:`unlatch_salience_selected` — a
+    maintainer-run migration, never any pass on a schedule.
     """
     with conn:
         conn.executemany(
             "UPDATE cases SET salience_selected = 1 WHERE case_id = ?",
+            [(case_id,) for case_id in case_ids],
+        )
+
+
+def unlatch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -> None:
+    """Clear ``salience_selected`` on each case — the latch's one sanctioned exception.
+
+    The live pass's latch is one-way by design; this writer exists solely for
+    the deliberate, maintainer-run reconcile
+    (:func:`fedcourtsai.pipeline.salience.unlatch_overselected`) that shrinks
+    the standing overhang a capacity resize leaves behind. Nothing on a
+    schedule calls it, and a committed prediction on an unlatched case stays
+    committed — the case merely stops earning future cells.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET salience_selected = 0 WHERE case_id = ?",
             [(case_id,) for case_id in case_ids],
         )
 
@@ -2576,11 +2597,23 @@ def retrieve_priors(
 
     want_judges = set(query.judges)
     want_citations = set(query.citations)
-    if not want_judges and not want_citations:
+    # The fast path needs its ORDER BY to be cheap: either the LIMIT is
+    # pushable (no derived screen, so SQLite top-Ns without a full sort) or a
+    # court equality lets the recency index serve the ordering outright. A
+    # screened, court-less query has neither — an unbounded sort that spills
+    # to a temp file the ranged backend's VFS refuses to open — so that shape
+    # keeps the Python ranking, which scans exactly as it always did.
+    sortable = (query.era is None and query.decided_before is None) or query.court is not None
+    if not want_judges and not want_citations and sortable:
         return _retrieve_priors_ranked(conn, query, where, params, limit)
 
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
-    for record in conn.execute(f"SELECT * FROM cases{where}", params):
+    # Pin the court-narrowed scan to the plain court index: the recency index
+    # also carries the court equality and the planner tie-breaks toward it,
+    # which turns this path's table walk from rowid order (sequential pages)
+    # into recency order (scattered pages) — same rows, far more ranged reads.
+    source = "cases INDEXED BY idx_cases_court" if query.court is not None else "cases"
+    for record in conn.execute(f"SELECT * FROM {source}{where}", params):
         row = _from_record(record)
         # Era and year are derived (Term year or filing/decision dates), not
         # stored columns, so they filter here rather than in SQL.
