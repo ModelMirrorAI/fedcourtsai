@@ -7,7 +7,8 @@ The invariants worth pinning here: the cert set is exactly the three declared
 claims in a stable order, resolution reads only committed artifacts and masks
 what the record does not disclose, baselines never see the case's own Term, and
 an old prediction without the claims/context blocks yields no block rather than
-a crash.
+a crash — and the validate-time report (`claim_block_problems`) moves with the
+scorer's refusals in both directions.
 """
 
 from __future__ import annotations
@@ -354,11 +355,15 @@ def test_claim_block_problems_names_exactly_what_the_scorer_voids() -> None:
         )
         == []
     )
-    # Coherent blocks report nothing — including one with an undeclared extra,
-    # which the scorer ignores rather than voids.
-    assert claim_block_problems(_prediction(claims=_claims(), context=_context())) == []
+    # Coherent blocks report nothing AND score — including one with an
+    # undeclared extra, which the scorer ignores rather than voids.
+    coherent = _prediction(claims=_claims(), context=_context())
+    assert claim_block_problems(coherent) == []
+    assert score_claims(coherent, _outcome(), pack, lookback_terms=0) is not None
     extra = ClaimProbability(claim_id="own-invention", probability=0.9)
-    assert claim_block_problems(_prediction(claims=[*_claims(), extra], context=_context())) == []
+    extra_block = _prediction(claims=[*_claims(), extra], context=_context())
+    assert claim_block_problems(extra_block) == []
+    assert score_claims(extra_block, _outcome(), pack, lookback_terms=0) is not None
 
 
 def test_undeclared_stated_claims_are_ignored() -> None:

@@ -20,7 +20,8 @@ Two layers of checks:
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
   event that exist in the corpus (no orphan judgments); every evaluation
   targets a predictor that actually produced a prediction for that event; every
-  prose document a ``prediction.json`` names resolves to a file beside it; and
+  prose document a ``prediction.json`` names resolves to a file beside it; every
+  committed claims block is one the claim scorer will not silently void; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
   its ``judgment`` — the stage-aware half of the merits prediction contract.
 
@@ -711,7 +712,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     The subset of layer-C checks that need only the git ledger under ``data/``:
     every judgment references an event defined in git, every evaluation targets
     a prediction that exists, every prose document a prediction names is there,
-    and every merits-stage event's scored prediction carries its judgment.
+    every committed claims block is one the claim scorer will not void, and
+    every merits-stage event's scored prediction carries its judgment.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """

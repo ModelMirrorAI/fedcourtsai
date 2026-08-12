@@ -35,6 +35,7 @@ the rule wired here. Its own (wired but inert, alpha) seam is
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Mapping
 from typing import Protocol
 
@@ -355,11 +356,15 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
     a declared claim left unstated, a headline diverging from the
     prediction's own ``probability`` — so ``validate`` can surface a block
     that will never score while the cell can still be fixed, instead of the
-    claim board simply lacking it later. A missing ``context`` also voids at
-    scoring but is deliberately *not* reported here: the context is a
-    harness stamp, and its absence is a tolerated provisioning gap (see
-    ``_read_cell_context``), not a malformed artifact. A test pins this
-    list to the scorer's actual refusals.
+    claim board simply lacking it later. Two absences are deliberately *not*
+    reported: a missing ``context`` (a harness stamp whose absence is a
+    tolerated provisioning gap — see ``_read_cell_context``), and a missing
+    claims block altogether — an omitted block is a legitimate state today
+    (every committed cell predates the field), though once cells run under a
+    claims-asking process it becomes the likelier agent failure, and flagging
+    it would key on the process-version partition rather than this shape
+    check. A test pins the enumerated shapes to the scorer's refusals; a new
+    void condition in :func:`score_claims` needs a matching arm here.
     """
     declared = declared_claim_set(prediction.event_id)
     if declared is None or prediction.claims is None:
@@ -368,7 +373,11 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
     set_version, claim_ids = declared
     stated = _stated_probabilities(prediction.claims)
     if stated is None:
-        problems.append("a claim id is stated twice — two numbers for one belief")
+        counts = Counter(claim.claim_id for claim in prediction.claims)
+        duplicated = sorted(claim_id for claim_id, n in counts.items() if n > 1)
+        problems.append(
+            f"claim id(s) stated twice — two numbers for one belief: {', '.join(duplicated)}"
+        )
         return problems
     problems.extend(
         f"declared claim {claim_id!r} ({set_version}) is not stated"
