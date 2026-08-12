@@ -403,6 +403,17 @@ class SalienceConfig(BaseModel):
     per_conference_capacity: int = Field(default=12, ge=0)
     long_conference_capacity: int = Field(default=24, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
+    # The sal-v2 arrival cohort's random-slice rate: the fraction of eligible
+    # arrivals the deterministic draw (`salience.arrival_draw`) selects at
+    # docketing. The slice is load-bearing — its unbiased predicted population
+    # is what makes forward skill numbers transfer to live prospective use —
+    # and it is sized against that purpose, not against class measurement
+    # (class rates are census quantities at the full population's n). At the
+    # shipped 0.05 over ~1,500 paid arrivals/Term: ~75 cases (~$975 at the
+    # $13/case planning rate), the reviewed sizing. Effectively frozen once
+    # the cohort begins (a mid-Term change makes the realized population a
+    # union across rates); 0 disables the slice (sal-v1 behavior).
+    arrival_sample_rate: float = Field(default=0.05, ge=0.0, le=1.0)
     # Bounds the live cycle's selection sweep (selected petitions with open,
     # never-predicted events — the rescue/catch-up/retry path). Each swept case
     # costs one docket fetch plus document provisioning at the polite ~1 req/s,

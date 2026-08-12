@@ -250,6 +250,20 @@ salience:
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28
+  # The sal-v2 arrival cohort's random-slice rate: the fraction of eligible
+  # arrivals the deterministic draw selects at docketing (pure hash of the
+  # case id under the version key — reproducible, ungameable). Sized to the
+  # slice's real purpose, the unbiased predicted population whose forward
+  # skill transfers to live use: 1-in-20 over ~1,500 paid arrivals/Term is
+  # ~75 cases (~$975 at the $13/case planning rate), publishable as n=75 with its
+  # ±5.9pp interval (Wilson 95% at the pooled 6.67% arrival grant rate).
+  # Class rates are census quantities at the population's own n and never
+  # size this knob. Inert until the sal-v2 scorer activates — and effectively
+  # frozen once the cohort begins: the draw recomputes at read time against a
+  # one-way latch, so a mid-Term rate change makes the realized population a
+  # union across rates, not a rate-r sample; changing it is a new arrival
+  # population, declared as such.
+  arrival_sample_rate: 0.05
   # Per-cycle cap on the live channel's selection sweep — the path that queues
   # selected petitions the distribution trigger alone would miss (same-cycle
   # first selections, the catch-up backlog, daily retries of runs that
