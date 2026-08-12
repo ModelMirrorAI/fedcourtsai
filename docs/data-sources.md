@@ -99,9 +99,10 @@ The automated consumer stays within CourtListener's published API limits by desi
   corpus, and nothing here is a step toward reading them out of the API
   instead.
 
-The pilot holds a paid Free Law Project **membership tier**; if the project
-ever needs more throughput, a higher tier (or the replication agreement) is
-the path rather than a code change to the governor.
+The pilot holds a paid Free Law Project **membership tier** — the top
+published tier, so more throughput now means the replication agreement (or
+shifting work to the budget-free supremecourt.gov channels), never a code
+change to the governor.
 
 **One account, one credential.** The project holds a single CourtListener
 account and a single API credential, surfaced under one name everywhere it is
@@ -110,9 +111,9 @@ the membership tier and cannot be widened by how the pipeline is arranged:
 splitting work across additional accounts, or issuing a second credential to
 raise effective throughput, is **not an available option** — it would violate
 the terms the access rests on, and it is the kind of workaround a
-throughput problem invites. The honest paths are the ones named above: a higher
-tier, the replication agreement, or shifting work to the budget-free
-supremecourt.gov channels.
+throughput problem invites. The honest paths are the ones named above: the
+replication agreement, or shifting work to the budget-free supremecourt.gov
+channels.
 
 ## PII stance
 

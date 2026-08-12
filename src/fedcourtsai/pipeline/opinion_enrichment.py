@@ -388,8 +388,9 @@ def enrich_opinions(
     continues; :class:`RateBudgetExceeded` stops it outright, since every later
     case would hit the same wall. ``max_cases`` is the walk's only other bound,
     and it is a hard one — the rotation's wall-clock deadline and transient
-    breaker have no counterpart here because a 25-case cap bounds the damage a
-    degraded upstream can do without them.
+    breaker have no counterpart here because the 50-case default cap bounds
+    the damage a degraded upstream can do without them (150 requests, half
+    the held tier's hourly ceiling, even if every one stalls to a retry).
 
     Dry-run by default: ``apply`` gates only the writes, so the request spend
     and the coverage report are identical either way — the dry run is what the

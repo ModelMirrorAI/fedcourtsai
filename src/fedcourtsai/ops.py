@@ -66,8 +66,8 @@ _GATE_WORKFLOWS = frozenset({"promote"})
 _ACTIONS_USD_PER_MINUTE = 0.0
 # Infra not metered per run: CourtListener Tier 4 (~$100) + S3 (~$15), USD/month.
 # The pilot pays Tier 4 annually ($1,000/yr ~= $83/mo); the monthly list price
-# is used here as deliberate round-up headroom, so the dashboard reads mildly
-# high rather than low.
+# is used here as deliberate round-up headroom (~$17/mo, ~$204/yr — about 4% of
+# the annual non-inference floor), so the dashboard reads high rather than low.
 # The S3 line is dominated by internet egress, not storage — GitHub runners are
 # Azure-hosted, so the scan-shaped writers' recurring full index pulls (~250-300
 # GB/mo at today's ~1 GB blob) carry it just past the free tier. It scales with
