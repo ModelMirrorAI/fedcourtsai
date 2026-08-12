@@ -8,7 +8,9 @@ from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
+from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
@@ -20,10 +22,12 @@ from fedcourtsai.pipeline.ingest import (
     to_corpus_row,
 )
 from fedcourtsai.pipeline.live import (
+    LiveDiscovery,
     discover_live,
     ingest_live_payload,
     live_poll_all,
 )
+from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.schemas import CellFailure, Disposition, Outcome
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.supremecourt import (
@@ -112,12 +116,6 @@ def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
     """The wiring, not the helper: `live-poll`'s probe default must come from
     the Clerk's July roll. A helper-level test cannot catch the CLI quietly
     deriving its default from an October-rolling function again."""
-    from typer.testing import CliRunner
-
-    from fedcourtsai import cli as cli_module
-    from fedcourtsai.pipeline.live import LiveDiscovery
-    from fedcourtsai.pipeline.pull import PullQueues
-
     captured: dict[str, int] = {}
 
     def _fake_poll(*args: Any, term: int, **kwargs: Any) -> tuple[PullQueues, LiveDiscovery]:
