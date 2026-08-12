@@ -1404,8 +1404,8 @@ def leaderboard(
     unchanged ledger and pack reproduce the file byte for byte.
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
-    blessed frozen process. During the shakedown (no digest blessed yet) that is
-    legitimately empty. ``--all-versions`` pools every process version.
+    blessed frozen process. Until a stamped cell postdates the freeze instant
+    that is legitimately empty. ``--all-versions`` pools every process version.
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"

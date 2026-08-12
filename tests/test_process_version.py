@@ -20,7 +20,7 @@ import pytest
 
 from fedcourtsai import process_version
 from fedcourtsai.process_version import _config_canonical
-from fedcourtsai.registry import load_predictors
+from fedcourtsai.registry import enabled_evaluators, enabled_predictors, load_predictors
 from fedcourtsai.schemas import ProcessVersion
 from tests.conftest import bless_process
 
@@ -193,6 +193,32 @@ def test_no_committed_cell_predates_the_freeze_it_claims() -> None:
         assert process_version.at_or_after_freeze(stamped_at), (
             f"{path}: blessed digest, pre-freeze stamp — list it in the freeze "
             "record as pre-registration-excluded or the claim does not hold"
+        )
+
+
+def test_every_enabled_actor_runs_a_blessed_process() -> None:
+    """The de-blessing tripwire: the live tree still computes blessed digests.
+
+    The digest folds in the prompt bytes, the resolved model, and the pinned
+    MCP surface, so an edit to any of them silently drops every cell the
+    fleet produces out of the frozen headline — fail-safe in direction, but
+    indistinguishable from "no cells yet" on every scored surface. A digest
+    move must arrive as a deliberate freeze-record update (a re-bless or a
+    label bump beside it), never ride an unrelated edit; this pins that
+    coupling. Skipped while nothing is blessed — arms at the freeze commit.
+    """
+    if not process_version.FROZEN_PROCESS_DIGESTS:
+        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    actors = [("predictor", p) for p in enabled_predictors(CONFIG / "predictors.yaml")] + [
+        ("evaluator", e) for e in enabled_evaluators(CONFIG / "evaluators.yaml")
+    ]
+    assert actors, "an empty enabled fleet cannot be what the freeze blessed"
+    for role, entry in actors:
+        digest = process_version.digest_for_actor(REPO, CONFIG, role, entry.id)
+        assert digest in process_version.FROZEN_PROCESS_DIGESTS, (
+            f"{role} {entry.id}: the tree computes {digest}, which is not blessed — "
+            "the process moved after the freeze; re-bless it deliberately or bump "
+            "the label, in the same commit as the change that moved it"
         )
 
 
