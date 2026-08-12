@@ -117,11 +117,14 @@ _MAX_SAMPLE = 20
 _LONG_CONFERENCE_MONTH = 9
 
 
-#: The sal-v2 arrival draw's key: the version label, so the assignment is
-#: fixed by registration — re-running the draw under the same label over the
-#: same case ids reproduces the same slice, for the replay and for any
-#: skeptic, and no selection rule can steer it (the hash input is the public
-#: case id and a public constant).
+#: The sal-v2 arrival draw's key — deliberately a string literal, never
+#: `SALIENCE_VERSION`: the assignment is fixed by registration, so the
+#: pointer flips and the draw does not, and a later version that wants an
+#: arrival slice registers its own key (a new pre-registered population,
+#: never a silent re-draw of this one). Re-running the draw under this key
+#: over the same case ids reproduces the same slice, for the replay and for
+#: any skeptic, and no selection rule can steer it (the hash input is the
+#: public case id and this public constant).
 _ARRIVAL_DRAW_KEY = "sal-v2"
 
 
@@ -129,11 +132,15 @@ def arrival_draw(case_id: str, rate: float) -> bool:
     """Whether ``case_id`` falls in the deterministic arrival random slice.
 
     A keyed hash draw (the :mod:`fedcourtsai.blinding` shuffle-key shape):
-    ``sha256(key \x00 case_id)`` read as a fraction of the hash space,
-    selected iff below ``rate``. Pure and replayable — no stored column, no
-    clock, no RNG state — so the slice is reproducible from the corpus and
-    the committed constant alone, which is what lets its unbiasedness claim
-    be audited rather than trusted. ``rate`` 0 selects nothing; 1 everything.
+    ``sha256(key NUL case_id)`` — the NUL byte the separator — with the
+    digest's first 8 bytes read big-endian as a fraction of the hash space,
+    selected iff below ``rate``. ``case_id`` is the canonical
+    :func:`fedcourtsai.ids.case_id` form; any other spelling of the same case
+    draws a different, silently valid answer. Pure and replayable — no stored
+    column, no clock, no RNG state — so the slice is reproducible from the
+    corpus and the committed constant alone, which is what lets its
+    unbiasedness claim be audited rather than trusted; a golden-vector test
+    pins the exact mapping. ``rate`` 0 selects nothing; 1 everything.
     """
     if rate <= 0.0:
         return False

@@ -926,14 +926,19 @@ def test_arrival_draw_is_deterministic_and_rate_honest() -> None:
     answer under the committed key, the endpoints are exact, and the realized
     fraction over a large id population sits at the rate — an auditable
     property, not a trusted one."""
-    assert arrival_draw("scotus/26000001", 0.05) == arrival_draw("scotus/26000001", 0.05)
+    # Golden vectors pin the exact mapping — key, separator, truncation, and
+    # endianness together: any change to the wire format re-draws the whole
+    # pre-registered slice and must fail here first.
+    assert not arrival_draw("scotus/26000001", 0.05)  # digest head 1265526251733217086
+    assert arrival_draw("scotus/26000058", 0.05)  # digest head 69070351232753145
     assert not arrival_draw("scotus/26000001", 0.0)
     assert arrival_draw("scotus/26000001", 1.0)
     ids = [f"scotus/26{n:06d}" for n in range(20_000)]
     realized = sum(arrival_draw(cid, 0.05) for cid in ids) / len(ids)
     assert abs(realized - 0.05) < 0.005, realized
-    # Rate monotonicity: a case in the slice at a lower rate stays in it at a
-    # higher one — a rate change never swaps membership, only widens it.
+    # Rate monotonicity: structural for this implementation (fixed hash,
+    # monotone threshold) — pinned as the guard against a future bucketing
+    # rewrite (e.g. digest % 100), where nesting genuinely can fail.
     lower = {cid for cid in ids[:2000] if arrival_draw(cid, 0.02)}
     higher = {cid for cid in ids[:2000] if arrival_draw(cid, 0.10)}
     assert lower <= higher

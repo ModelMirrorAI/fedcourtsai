@@ -128,7 +128,11 @@ is **two cohorts, never pooled**:
 
 - **The arrival cohort** — selected at docketing on arrival-time features
   (originating court, party/counsel structure) **plus a random-sample
-  component**. The random slice is load-bearing, not a fallback: with no
+  component** (mechanism shipped: a keyed-hash draw over the case id under a
+  registration-fixed key — `salience.arrival_draw` — at
+  `salience.arrival_sample_rate: 0.05`, inert until the scorer registers,
+  and effectively frozen once the cohort begins). The random slice is
+  load-bearing, not a fallback: with no
   strong arrival-time signal it is the only route to an unbiased selected
   population, it makes the cohort's baseline exactly the unconditional grant
   rate, and no selection rule can game it. This is the only cohort whose
