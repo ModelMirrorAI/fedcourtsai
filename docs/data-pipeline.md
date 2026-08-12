@@ -444,10 +444,11 @@ together: ≈1,250 all-time and ≈120–130 a Term — at three REST requests a
 (docket, cluster, opinion), dropping to two on the rare row whose newest
 snapshot is REST-shaped rather than the live channel's. That is ≈3,750 requests
 to converge the standing backlog and ≈400 a Term to hold it, against the held
-Tier-2 ceiling of 600/day of which the four daily pull windows commit ≈360
+Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
 (30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
 and [budget.md](budget.md)). `--max-cases`
-(default 25) bounds one run's spend ahead of the client's own governor, so the
+(default 50, ≈half the 300/hr ceiling at three requests a case) bounds one
+run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and
 because the governor is per-process, not shared across runs, the pass is run
 outside a pull window rather than beside one. Convergence is not monotone: a

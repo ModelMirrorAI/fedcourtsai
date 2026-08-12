@@ -412,13 +412,16 @@ Pull spends the rate-limited REST budget; the free default (5/min · 50/hr ·
 | Tier 3 | $50/mo ($500/yr) | 20 / 250 / 1,000 | ≈330 |
 | Tier 4 | $100/mo ($1,000/yr) | 25 / 300 / 1,400 | ≈460 |
 
-The pilot holds **Tier 2 ($250/yr)**, comfortably covering the four daily pull
-windows (≈120 targeted refreshes/day) under the SCOTUS gate; Tier 3 ($50/mo)
-becomes the floor only once the gate widens toward keeping all fourteen courts
-current at the live frontier. The membership raises the ceiling — the client still
-throttles to whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to.
+The pilot holds **Tier 4 ($1,000/yr)**: the four daily pull windows (≈120
+targeted refreshes/day, ≈360 requests) fit inside a quarter of the 1,400/day
+ceiling, leaving ≈1,000 requests/day of standing headroom for opinion
+enrichment and one-off backfills — the constraint that bound at Tier 2, where
+the windows committed ≈360 of 600. The membership raises the ceiling — the
+client still throttles to whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` /
+`_RPD` are set to, so the tier change is live only once those variables match
+the held tier.
 
-> **Line item: $250–1,200/yr** (pilot Tier 2 annual; Tier 3–4 as scope widens).
+> **Line item: $1,000/yr** (Tier 4 annual).
 
 ### 3. GitHub Actions & Codespaces
 

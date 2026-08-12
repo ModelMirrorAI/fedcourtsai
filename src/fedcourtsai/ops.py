@@ -64,15 +64,15 @@ _GATE_WORKFLOWS = frozenset({"promote"})
 # signal. Set a real rate here if the repo ever goes private or moves to
 # larger runners.
 _ACTIONS_USD_PER_MINUTE = 0.0
-# Infra not metered per run: CourtListener Tier 2 (~$25) + S3 (~$15), USD/month.
-# The pilot pays Tier 2 annually ($250/yr ~= $21/mo); the monthly list price is
-# used here as deliberate round-up headroom, so the dashboard reads mildly high
-# rather than low.
+# Infra not metered per run: CourtListener Tier 4 (~$100) + S3 (~$15), USD/month.
+# The pilot pays Tier 4 annually ($1,000/yr ~= $83/mo); the monthly list price
+# is used here as deliberate round-up headroom, so the dashboard reads mildly
+# high rather than low.
 # The S3 line is dominated by internet egress, not storage — GitHub runners are
 # Azure-hosted, so the scan-shaped writers' recurring full index pulls (~250-300
 # GB/mo at today's ~1 GB blob) carry it just past the free tier. It scales with
 # the blob, so revisit this alongside `docs/budget.md` when the index grows.
-_FIXED_MONTHLY_USD = 40.0
+_FIXED_MONTHLY_USD = 115.0
 _DAYS_PER_MONTH = 30.0
 
 
