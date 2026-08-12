@@ -78,9 +78,9 @@ on:
         options: [pull, live, enrich-opinions]
         default: pull
       max_cases:
-        description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each; ~50 exhausts the hourly tier ceiling)"
+        description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each; ~100 exhausts the hourly tier ceiling)"
         type: string
-        default: "25"
+        default: "50"
   issues:
     types: [labeled]
 
@@ -247,14 +247,14 @@ jobs:
           # (config.py courtlistener_rpm/rph/rpd). The repo/environment variables
           # are the knob — set them to the active Free Law Project tier to retune
           # without a code change. The `|| '...'` fallbacks default to the pilot's
-          # held tier (Tier 2 = 15/150/600), so an unset variable lands on the
+          # held tier (Tier 4 = 25/300/1400), so an unset variable lands on the
           # correct ceiling rather than silently throttling to the free tier (an
           # unset Actions variable renders as an empty string, which would also
           # fail int parsing — the fallback avoids that crash). Drop these to the
           # free-tier 5/50/125 if the membership ever lapses.
-          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
-          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
-          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
         run: |
           uv run fedcourts pull-all \
             --out predict-queue.json \
@@ -777,9 +777,9 @@ jobs:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           # Same tier knobs and fallbacks as the pull job's refresh step (see
           # the note there for why the fallbacks are the held tier).
-          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
-          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
-          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
           MAX_CASES: ${{ inputs.max_cases }}
         run: |
           set -euo pipefail
