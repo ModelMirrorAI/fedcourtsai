@@ -841,19 +841,20 @@ labels, which is where the disagreement lives — and the reference rater was
 itself an agent session, so agreement with a labeler of the same model family
 partly measures shared convention rather than correctness. Three rules travel
 with the figure. **Always with its `n`, and always beside the floor** a constant
-labeler would score on the same entries — the largest reference class's share,
-about 21% on the v0 set: the rate alone is unreadable, and only the distance
+labeler would score on the same entries — the largest reference class's share:
+about 23% over the full 353-entry set, ~26% on the supplement's own mix. The
+rate alone is unreadable, and only the distance
 above the floor is anything a labeler did. **Per-label rates only at or above
-the support floor** — nine of the sixteen labels have fewer than 10 reference
+the support floor** — five of the sixteen labels have fewer than 10 reference
 examples, and under the floor a label is published as a raw count, not a rate.
 **Nothing transfers to a topic cut yet**: the founding reference block
 contains every QP-bearing grant and 40 of 855 denials, so its rate certifies
-the grant stream only. The **stratified supplement** (164 texts — 140 of 855
-QP-bearing denials, 44 of 87 GVR, 20 of 83 dismissed) is the block a
-denial-heavy cut's quality is conditioned on, and it exists but is not yet
-measured — no labeler has been scored against it — so the denial/IFP stream
-that dominates any reweighted cut stays unmeasured until the first labeler
-run is scored (`docs/qp-topic.md`). The deterministic shadow rules'
+the grant stream only. The **stratified supplement** (164 texts — adding 100
+of the remaining 815 QP-bearing denials, which brings the set to 140 of 855,
+plus 44 of 87 GVR and 20 of 83 dismissed) is the block a denial-heavy cut's
+quality is conditioned on, and it exists but is not yet measured — no labeler
+has been scored against it — so the denial/IFP stream that dominates any
+reweighted cut stays unmeasured until the first labeler run is scored. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
 reference set. No topic label enters a claim score, a leaderboard rank, or any

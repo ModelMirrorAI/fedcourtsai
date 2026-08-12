@@ -31,7 +31,7 @@ from collections import deque
 from collections.abc import Callable
 from typing import Final
 
-# CourtListener's published per-token limits (issue #1).
+# CourtListener's published free-default per-token limits.
 DEFAULT_PER_MINUTE: Final = 5
 DEFAULT_PER_HOUR: Final = 50
 DEFAULT_PER_DAY: Final = 125

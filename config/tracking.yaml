@@ -13,7 +13,7 @@
 # below bound how much work each run and each day does within that envelope.
 pull:
   # Max dockets refreshed per run (~3 requests each). On Tier 4 (25/300/1400)
-  # with four daily windows this gives ~120 refreshes/day: 30x3=90 requests/run
+  # with four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run
   # sits well under the 300/hr ceiling, and 4 runs (~360) commit about a
   # quarter of the 1,400/day ceiling — the rest is deliberate headroom for
   # opinion enrichment and one-off backfills, which share the account budget.
