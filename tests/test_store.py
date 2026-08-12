@@ -7,15 +7,16 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline import moments as moments_module
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
     Disposition,
     EventKind,
-    Moment,
     FlagCategory,
     Judgment,
+    Moment,
     Outcome,
     Stage,
     UsageRole,
@@ -982,8 +983,6 @@ def test_a_switched_off_declared_moment_stays_out_whatever_its_kind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The register's forecastable switch binds petition-kind moments too."""
-    from fedcourtsai.pipeline import moments as moments_module
-
     db = corpus.corpus_db_path(tmp_path)
     case_id = "scotus/92"
     with corpus.connect(db) as conn:
@@ -1004,8 +1003,6 @@ def test_a_switched_off_declared_moment_stays_out_whatever_its_kind(
                 )
             ],
         )
-    import dataclasses
-
     switched = tuple(
         dataclasses.replace(s, forecastable=False)
         if s.event_id == "evt-petition-arrival-disposition"

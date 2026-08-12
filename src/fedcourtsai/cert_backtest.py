@@ -71,10 +71,10 @@ from .schemas import (
     CertBacktestSegment,
     Disposition,
     EventKind,
-    Stage,
     PredictableEvent,
     Prediction,
     PredictorConfig,
+    Stage,
     StatPack,
     UsageRole,
 )
