@@ -24,6 +24,7 @@ from fedcourtsai.pipeline.salience import (
     salience_bands,
     salience_score,
     scorer,
+    unlatch_overselected,
 )
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
@@ -575,6 +576,59 @@ def _application(  # a keyword-only test fixture builder, one arg per row featur
             "date_decided": date(2026, 1, 20) if disposition else None,
         }
     )
+
+
+def test_unlatch_overselected_clears_the_resize_overhang(tmp_path: Path) -> None:
+    """The one-time reconcile for a capacity resize: the from-scratch pick
+    survives, the pre-resize overflow clears, carve-outs stay above N, a dry
+    run writes nothing, and a second apply clears nothing (idempotent)."""
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "abcde"]
+    rows.append(_petition("scotus/cvsg", distribution_count=1, cvsg=True))
+    db = _seed(tmp_path, rows)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(
+            conn, SalienceConfig(per_conference_capacity=3, floor=0.28), apply=True
+        )
+    assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/c", "scotus/cvsg"}
+    resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
+    with corpus.connect(db) as conn:
+        dry = unlatch_overselected(conn, resized, apply=False)
+    assert dry.applied is False and dry.unlatched == 2 and dry.retained == 2
+    assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/c", "scotus/cvsg"}
+    with corpus.connect(db) as conn:
+        applied = unlatch_overselected(conn, resized, apply=True)
+    assert applied.applied is True and applied.unlatched == 2
+    assert sorted(applied.sample_unlatched) == ["scotus/b", "scotus/c"]
+    assert _selected_ids(db) == {"scotus/a", "scotus/cvsg"}
+    with corpus.connect(db) as conn:
+        again = unlatch_overselected(conn, resized, apply=True)
+    assert again.unlatched == 0 and again.retained == 2
+
+
+def test_unlatch_overselected_spares_decided_rows_and_applications(tmp_path: Path) -> None:
+    """The reconcile's blast radius is pending cohort petitions only: a decided
+    petition keeps its latch as the historical record of selection, and a
+    latched pending application (the interim reserve's occupancy) is its own
+    sticky contract."""
+    rows = [
+        _petition("scotus/pending", distribution_count=1, selected=True),
+        _petition(
+            "scotus/decided",
+            distribution_count=1,
+            selected=True,
+            date_cert_denied=date(2026, 2, 1),
+        ),
+        _application("scotus/9525000001", "25A1", selected=True),
+    ]
+    db = _seed(tmp_path, rows)
+    with corpus.connect(db) as conn:
+        result = unlatch_overselected(
+            conn, SalienceConfig(per_conference_capacity=1, floor=0.28), apply=True
+        )
+    # The lone pending petition survives at N=1; the decided row and the
+    # application were never candidates, so nothing clears.
+    assert result.unlatched == 0 and result.latched_pending == 1
+    assert _selected_ids(db) == {"scotus/pending", "scotus/decided", "scotus/9525000001"}
 
 
 def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path: Path) -> None:
