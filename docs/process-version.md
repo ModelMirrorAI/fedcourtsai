@@ -32,7 +32,14 @@ surface is a process input as much as the model is. The harness stamps each
   and folding it in would break the frozen set every time predict/evaluate resume
   at a newer HEAD. The digest captures what *defines* the process; the sha records
   which commit *ran* it.
-- **`stamped_at`** — when the harness stamped the cell (UTC), also provenance only.
+- **`stamped_at`** — when the harness stamped the cell (UTC, timezone-aware).
+  Provenance, and — with the digest — the frozen/alpha partition's time key:
+  the digest says *which* process ran, the stamp says whether it ran at or
+  after the freeze instant. The runner clock is the witness that a run
+  postdated the commitment — acceptable because the agent cannot write this
+  field, and bounded independently by the workflow run's own timestamps and
+  the data commit's date on `main`. A naive value has no defined order
+  against the instant and reads as pre-freeze.
 
 The digest excludes documentation that does not change behaviour — the actor's
 `description` and the MCP manifest `description` are comments, not process inputs,
@@ -109,13 +116,21 @@ the digests whose cells count toward the headline. Everything keys off it:
   `process_version`. It is never frozen (an absent stamp cannot be in the set),
   so the whole shakedown ledger drops out of the headline for free — no backfill,
   no deletion.
-- **Not-yet-frozen** — a stamped cell whose digest has not been blessed. The
-  freeze is a **future** event; until it happens, `FROZEN_PROCESS_DIGESTS` is
+- **Not-yet-frozen** — a stamped cell whose digest has not been blessed, or —
+  once the freeze exists — a stamped cell whose stamp *precedes* the freeze
+  instant, whatever its digest. The freeze is a **future** event; until it
+  happens, `FROZEN_PROCESS_DIGESTS` is
   empty and *no* digest is frozen. During this window the frozen headline is
   legitimately **empty** — "no frozen-process evaluations yet" — which the
   leaderboard, the ops dashboard, and the weekly digest all say in as many words,
   rather than showing a bare `0` that reads as a regression.
-- **Frozen** — a stamped cell whose digest is in the blessed set.
+- **Frozen** — a stamped cell whose digest is in the blessed set **and** whose
+  stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
+  commit that fills the set. The digest is a pure content hash — it says
+  *which* process ran, never *when* — so without the instant, a shakedown run
+  of the very bytes later blessed would read as frozen retroactively.
+  Pre-registration means the commitment preceded the run; the time cutoff is
+  what says so.
 
 ## What defaults to frozen, and what stays version-blind
 
@@ -123,8 +138,11 @@ The frozen filter lives at the one shared producer both surfaces read
 (`store.iter_stratified_evaluations`, `frozen_only=True` by default), so the
 leaderboard headline and the ops dashboard's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled
-shakedown view. The filter partitions on the **prediction's** stamp: the
-competitor being ranked is the predictor.
+shakedown view. The filter partitions on the **prediction's** stamp — the
+competitor being ranked is the predictor — and additionally requires the
+evaluation's own harness stamp to be at or after the freeze instant (its
+digest is recorded but not enforced), so a shakedown grading cannot ride a
+frozen re-run of its event into the headline.
 
 Two things stay all-versions on purpose, because they are diagnostics, not the
 headline:
@@ -143,22 +161,51 @@ the tournament predictors), so it carries no process version.
 
 ## Freezing: the cutover procedure
 
-The freeze centers on a deliberate, reviewable **one-line commit**, made when
-the process is settled and the first frozen predictions are about to land;
-recording and tagging that commit complete the procedure:
+The freeze centers on a deliberate, reviewable **two-constant commit**, made
+when the process is settled and the first frozen predictions are about to
+land; recording and tagging that commit complete the procedure:
 
+0. Confirm no stamped cell already carries a digest you are about to bless:
+   `git fetch origin main && git grep -l '"process_version": {' origin/main --
+   data/cases | wc -l` must be 0 — the object form, because a rewritten cell
+   can carry a `"process_version": null` key without a stamp, and `main`,
+   because data commits land there directly and never ride `staging`. Any
+   cell it finds must be listed in the freeze record as
+   pre-registration-excluded. The `FROZEN_SINCE` cutoff excludes such cells
+   mechanically either way; this step keeps the freeze record honest about
+   their existence — and it must be **re-run at promotion time**, since cells
+   land continuously and the authoring-time check can go stale.
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.
 2. Paste the digest(s) to bless into `FROZEN_PROCESS_DIGESTS` in
-   `src/fedcourtsai/process_version.py`.
+   `src/fedcourtsai/process_version.py`, and set `FROZEN_SINCE` beside it —
+   a test pins that the two move together. The instant must be **at or after
+   the moment the commitment becomes immutable on `main`** (the promotion
+   merge that will carry this commit) and before the first run you intend to
+   count; between that merge and the instant nothing runs, so choosing it
+   generously late errs conservative, while an instant before the merge would
+   bless runs made while the constant was still editable. The promotion date
+   is a forecast at this step — guess late.
 3. Commit. Because the digest excludes `pipeline_sha`, the blessed set survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
-4. Record that commit as the cutover in [milestones.md](milestones.md), and —
-   once the promotion carrying it lands on `main` — tag it `prereg/<label>`
+4. Once the promotion carrying the commit lands on `main`, **verify the
+   instant before minting anything immutable**: the literal in the file must
+   be at or after the promotion merge's date
+   (`git log -1 --format=%cI <promotion merge>`). If the guess came in early,
+   bump the constant in a follow-up promotion **before** tagging — the
+   `prereg/` namespace blocks update and deletion, so a tag minted over a bad
+   instant burns the label. Only then record the commit as the cutover in
+   [milestones.md](milestones.md) and tag it `prereg/<label>`
    (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
    *Tags* section of [pipeline.md](pipeline.md) describes, protected against
-   update and deletion so the freeze point stays findable and immovable.
+   update and deletion so the freeze point stays findable and immovable. The
+   after-the-fact auditor's check is the same comparison, against the
+   promotion that carried the freeze commit to `main`:
+   `git log -1 --format=%cI promotion/<YYYY-MM-DD>` — the literal in the file
+   must be at or after that date. (`prereg/<label>`'s own tagger date is not
+   the witness: the tag is minted after this check, so it may legitimately
+   fall on either side of a correctly chosen instant.)
 
 From that commit forward, the first long-conference prediction lands under the
 stamped, frozen process and the headline fills in. When the process later changes

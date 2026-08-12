@@ -71,11 +71,11 @@ source.
 | `attorneys`           | json array      | attorney names of record                      |
 | `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only |
 | `topic`               | text            | nature of suit / subject-matter topic         |
-| `citations`           | json array      |                                              |
+| `citations`           | json array      | reporter cites (`602 U.S. 137`), from the docket's opinion cluster |
 | `citation_count`      | integer         | times the decision has been cited            |
 | `precedential_status` | text            | Published / Unpublished / Errata             |
 | `opinion_text`        | text            | opinion body — NULL under the split mode (the content store holds it; `has_opinion` retains the presence signal) |
-| `summary`             | text            | short form for retrieval                     |
+| `summary`             | text            | short form for retrieval; the normalizer never folds an opinion body into it (that has its own column), though a stored row whose source served the body here keeps it until a re-serve |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
 | `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
 | `predict_excluded`    | integer (0/1)   | out-of-scope latch, owned by the scope reconcile |
@@ -119,11 +119,15 @@ filled by whichever channel carries them; a bulk-shaped source supplies them
 through the shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`. One
 carve-out at the storage seam: the bulk export's docket↔opinion-cluster join is
 misjoined on the circuit slices, so `to_corpus_row` withholds the
-cluster-derived fields (`summary`, `precedential_status`, `judges`, `panel`,
-`citations`, `citation_count`)
+cluster-derived fields (`summary`, `opinion_text`, `precedential_status`,
+`judges`, `panel`, `citations`, `citation_count`)
 from a bulk circuit row — a replica-shaped source with a sound join must
 revisit that predicate, which keys on the channel (`source == bulk`), not on
-any particular export. The
+any particular export. `opinion_text` is in that set for a second reason as
+well: the only other channel that fills it is the SCOTUS-scoped opinion
+enrichment (`fedcourts enrich-opinions`), so keeping the bulk join out of the
+column is what makes a populated body on a non-SCOTUS row impossible rather
+than merely unlikely. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
 `seniority` is. A historical row serialized before the column existed also stays
 empty until a re-walk re-serves it — the same legacy-row shape as

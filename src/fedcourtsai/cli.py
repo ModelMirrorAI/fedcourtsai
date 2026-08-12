@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import sys
 import tempfile
 import time
@@ -19,6 +20,7 @@ from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
+from urllib.parse import quote
 
 import typer
 from pydantic import BaseModel, ValidationError
@@ -126,7 +128,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe, moments
+from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.cascade import CascadeError, run_cascade
@@ -135,6 +137,8 @@ from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
+from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
+from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
     entry_descriptions,
     interim_disposal_signal,
@@ -167,7 +171,6 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
-    GroupBy,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -176,6 +179,7 @@ from .schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    QpTopicReference,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -443,17 +447,24 @@ def scrub_bulk_cluster_fields_cmd(
     """Scrub the bulk export's misjoined cluster fields from the stored slice.
 
     The ingest projection withholds the cluster-derived fields (`summary`,
-    `precedential_status`, `judges`, `panel`, `citations`, `citation_count`)
+    `opinion_text`, `precedential_status`, `judges`, `panel`, `citations`,
+    `citation_count`)
     from a bulk-sourced non-SCOTUS row — the bulk docket-to-cluster join is
     misjoined on the circuit slices — but that rule reaches a stored row only
     on a re-serve, and nothing re-serves the historical bulk slice. This
     converges it: one UPDATE over every non-SCOTUS row a bulk-only field
-    marks. The mark is provable, not inferred: the REST client reads docket
-    records only, so a populated `summary`, `precedential_status`,
-    `citations`, or `citation_count` can only be the bulk join's, whatever
+    marks. The mark is provable, not inferred, and the proof is scope: cluster
+    data reaches the corpus through the bulk join and the SCOTUS-only opinion
+    enrichment (`enrich-opinions`) and nothing else, so a populated `summary`,
+    `precedential_status`, `citations`, or `citation_count` on a **non-SCOTUS**
+    row can only be the bulk join's, whatever
     the row's pull history — while `judges`/`panel`, which discovery and
     pull re-derive from the docket record itself, clear only on marked rows
-    and survive everywhere else. Idempotent. `--apply` refuses above
+    and survive everywhere else. `opinion_text` is withheld at ingest but left
+    out of the sweep: every write to it flows through `upsert_rows`, whose
+    re-mirror is what `casestore.read_opinion_text` rests its freshness
+    invariant on, and this sweep is a direct UPDATE. Idempotent. `--apply`
+    refuses above
     `--max-scrub`, whose default sits just over the measured bulk slice: a
     count past it means the predicate widened (a lost filter reaching rows
     the carve-out never covered), not that the slice grew. Run where the
@@ -636,6 +647,90 @@ def backfill_merits_judgments_cmd(
             "re-derive (never cleared automatically — triage them)"
         )
     typer.echo(f"  judgments: {distribution}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("enrich-opinions")
+def enrich_opinions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the enriched rows; omit for a dry-run report."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
+    ] = DEFAULT_MAX_OPINION_CASES,
+) -> None:
+    """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
+
+    Over the cert-granted slice — SCOTUS rows carrying `date_cert_granted` and
+    not yet an opinion — resolve the docket's published opinion cluster (from a
+    stored REST-shaped snapshot's `clusters` links where it has one, else a
+    docket fetch), take the cluster's reporter `citations` and
+    `citation_count`, and take the cluster's first sub-opinion's `plain_text`
+    as the body. Each case is written through the corpus's own upsert as it
+    converges (casestore mirror included), so `has_opinion` derives and `query
+    --full` can hydrate the body.
+
+    Because `has_opinion` latches, a wrong body is permanent — so the pass
+    refuses rather than guesses: a docket linking several clusters is skipped,
+    a fetched cluster must name the docket it was reached from, and an opinion
+    whose upstream `type` marks it a separate writing (a concurrence, a
+    dissent) never becomes the body. Each refusal is counted and the citations
+    still land — a coverage gap, never fatal, as are a docket linking no
+    cluster and a per-case REST or parse failure.
+
+    Three REST requests a case (two where a REST-shaped snapshot already links
+    the cluster), so `--max-cases` bounds the run's spend on top of the
+    client's rate governor; the walk stops cleanly when the API budget is
+    exhausted, reporting the cases it never reached. Run it outside a pull
+    window: the governor is per-process, so two runs would each stay under the
+    ceiling while the account did not.
+
+    Idempotent: an enriched row no longer matches, while one that found no
+    cluster is retried, so a grant picks up its opinion the run after
+    publication. A grant that never publishes one (a GVR, a DIG) never
+    converges, so raise `--max-cases` past that residue when converging the
+    backlog. Dry-run by default (the
+    requests are spent either way — the dry run is how the spend is
+    inspected); run where the corpus is pulled, `corpus-push` after an
+    `--apply`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the opinion enrichment.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn, _client() as client:
+        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    verb = "enriched" if apply else "would enrich"
+    typer.echo(
+        f"enrich-opinions ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} granted case(s) without an opinion — walked "
+        f"{result.considered}, {verb} {result.enriched}, "
+        f"{result.no_cluster} with no linked cluster, {result.no_body} with no body; "
+        f"{result.requests} REST request(s)"
+    )
+    if result.ambiguous_cluster or result.foreign_cluster:
+        typer.echo(
+            f"  refused: {result.ambiguous_cluster} docket(s) linking several clusters, "
+            f"{result.foreign_cluster} cluster(s) naming another docket"
+        )
+    if result.live_only:
+        typer.echo(
+            f"  {result.live_only} granted row(s) carry a live-channel docket id, which "
+            "addresses nothing upstream — not walked"
+        )
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
+    for entry in result.failed:
+        typer.echo(f"  failed {entry['case_id']}: {entry['reason']}")
     typer.echo(result.model_dump_json())
 
 
@@ -988,6 +1083,175 @@ def scope_manifest_cmd(
         f"scope-manifest: {manifest.cases} public case(s), {manifest.eligible} eligible, "
         f"{manifest.excluded} excluded -> {destination}"
     )
+
+
+def _work_tree_root() -> Path | None:
+    """The git work tree the process is running in, or ``None`` outside one.
+
+    Walks up for the ``.git`` entry — a directory in a normal clone, a file in a
+    linked worktree — so a caller cannot land a never-commit working file in the
+    checkout by aiming outside ``data/``.
+    """
+    here = Path.cwd().resolve()
+    for candidate in (here, *here.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+@app.command("qp-corpus")
+def qp_corpus(
+    out: Annotated[Path, typer.Option(help="JSON output path for the extracted texts.")],
+    corpus_db: Annotated[
+        Path | None,
+        typer.Option("--corpus", help="Corpus database (default: <corpus_root>/corpus.db)."),
+    ] = None,
+) -> None:
+    """Extract the stored ``questions-presented`` texts a topic labeler reads.
+
+    Writes a JSON list of ``{case_id, docket_number, text}`` in ``case_id``
+    order — the whole input a ``qp-topic-v0`` labeler is entitled to, since the
+    vocabulary is text-only (``docs/qp-topic.md``): no docket context, no case
+    name, no outcome, so a label can never encode a decision the text predates.
+    Opens the corpus strictly read-only and never migrates it, so it is safe to
+    run against a pulled blob. A row whose case carries no docket number, or
+    whose stored text is empty, is skipped and counted rather than guessed at —
+    the docket number is half the key the reference join is checked on, and an
+    empty extraction is nothing to label. The extract is a working file for one
+    labeler run, **never a committed artifact**: it enumerates the ingested
+    corpus and republishes stored petition text, neither of which any committed
+    surface does, so writing it anywhere inside the work tree is refused
+    outright rather than left to reviewer attention — an untracked file in the
+    checkout is one ``git add -A`` from being committed.
+    """
+    settings = get_settings()
+    destination = out.resolve()
+    for boundary in (_work_tree_root(), settings.data_root.resolve()):
+        if boundary is not None and (destination == boundary or boundary in destination.parents):
+            typer.echo(
+                f"qp-corpus: refusing to write the extract inside the checkout ({boundary}); "
+                "it republishes stored petition text and enumerates the ingested corpus",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.is_file():
+        typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
+        raise typer.Exit(code=1)
+    rows: list[dict[str, str]] = []
+    skipped = 0
+    conn = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro&immutable=1", uri=True)
+    try:
+        cursor = conn.execute(
+            "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
+            "LEFT JOIN cases AS c ON c.case_id = d.case_id "
+            "WHERE d.kind = 'questions-presented'"
+        )
+        for case_id, docket_number, text in cursor:
+            if not (docket_number or "").strip() or not (text or "").strip():
+                skipped += 1
+                continue
+            rows.append({"case_id": case_id, "docket_number": docket_number, "text": text})
+    except sqlite3.OperationalError as exc:
+        typer.echo(f"qp-corpus: cannot read stored documents from {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    finally:
+        conn.close()
+    if not rows:
+        # An empty extract is a mis-wired run, never a labeling task: the blob
+        # carries no document text (a payload-free index, or a split-mode blob
+        # whose texts live in the content store), so exiting 0 here would hand a
+        # labeler an empty file and call it done.
+        typer.echo(
+            f"qp-corpus: no question-presented text in {db_path} "
+            f"({skipped} row(s) skipped) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    rows.sort(key=lambda row: row["case_id"])
+    write_raw_json(out, rows)
+    if skipped:
+        typer.echo(
+            f"qp-corpus: skipped {skipped} row(s) with no docket number or no text", err=True
+        )
+    typer.echo(f"qp-corpus: {len(rows)} question(s) presented -> {out}")
+
+
+@app.command("qp-topics")
+def qp_topics_cmd(
+    labels: Annotated[
+        Path,
+        typer.Option(exists=True, help="Labeler's JSONL: one object per labeled text."),
+    ],
+    texts: Annotated[
+        Path,
+        typer.Option(exists=True, help="The `qp-corpus` extract, for the shadow pass."),
+    ],
+    labeler: Annotated[
+        str, typer.Option(help="Who assigned the labels — engine and model, free-form.")
+    ],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
+    ] = None,
+) -> None:
+    """Measure a topic labeler against the reference set and write its labels artifact.
+
+    Reads the labeler's JSONL intermediate, validates every label against the
+    ``qp-topic-v0`` vocabulary, joins it to the hand reference set on ``case_id``
+    **and** ``docket_number`` — a pair that half-matches is a mis-join and stops
+    the run rather than measuring one case's label against another's text — and
+    records the resulting agreement, the triangle confusion matrix, and the
+    shadow rules' disagreement rate. What comes out is agreement with a single
+    v0 reference rater, not accuracy (``docs/qp-topic.md``).
+
+    Below the publication gate the artifact is **not written**: the measured rate
+    is printed and the command exits non-zero. The gate takes two conditions —
+    the agreement rate, and how much of the reference set the run actually
+    covered, since a high rate over a handful of self-chosen entries measures
+    nothing. There is no override flag for either, because the gate is the only
+    thing standing between a drifted labeler and a published topic distribution.
+    """
+    settings = get_settings()
+    reference_path = qp_topics.reference_path(settings.data_root)
+    if not reference_path.is_file():
+        typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        artifact = qp_topics.build_labels(
+            entries=qp_topics.read_label_lines(labels),
+            texts=qp_topics.read_texts(texts),
+            reference=read_model(reference_path, QpTopicReference),
+            labeler=labeler,
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-topics: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"qp-topics: {artifact.cases} labeled case(s) by {artifact.labeler}")
+    typer.echo(qp_topics.render_agreement(artifact.agreement))
+    typer.echo(
+        f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "
+        f"{artifact.shadow.fired} rule firing(s) over {artifact.shadow.texts} text(s) — "
+        "the rules are unmeasured off the reference set, so only the movement between "
+        "runs of one labeler reads"
+    )
+    if not artifact.agreement.gate_passed:
+        agreement = artifact.agreement
+        rate = agreement.overall_rate
+        measured = "nothing measured" if rate is None else f"{rate:.1%}"
+        reference_cases = agreement.overall_n + agreement.uncovered
+        covered = agreement.overall_n / reference_cases if reference_cases else 0.0
+        typer.echo(
+            f"qp-topics: refusing to write — agreement {measured} of n={agreement.overall_n} "
+            f"against the {qp_topics.AGREEMENT_GATE:.0%} publication gate, over "
+            f"{covered:.1%} of the reference set against a {qp_topics.COVERAGE_FLOOR:.0%} "
+            "coverage floor",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
 
 
 @app.command("corpus-status")
@@ -1639,6 +1903,16 @@ def docket(
         Path | None,
         typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
     ] = None,
+    qp_topics_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--qp-topics",
+            exists=True,
+            help="QP-topic labels artifact backing the topic cut "
+            "(default: <data_root>/qp-topics/qp-topics.json, silently absent until a "
+            "labeler run lands; naming one that does not exist is an error).",
+        ),
+    ] = None,
 ) -> None:
     """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
 
@@ -1650,13 +1924,25 @@ def docket(
     interest in the models. Every cert cut is denial-reweighted, so its rates
     estimate the population rather than the walked sample, and each states its
     own denominator. Deterministic and
-    offline: a pure function of the corpus, so reruns reproduce both files byte
-    for byte. Writes the empty zero-count pack when the corpus is absent (run
-    after a corpus pull).
+    offline: a pure function of the corpus and, where one is on disk, the
+    ``qp-topic-v0`` labels artifact — so reruns over unchanged inputs reproduce
+    both files byte for byte. Writes the empty zero-count pack when the corpus is
+    absent (run after a corpus pull).
+
+    The question-presented topic cut renders only from a gate-passing
+    ``qp-topic-v0`` labels artifact, always beside its labeler and measured
+    agreement and always carrying the coverage caveat of ``docs/qp-topic.md``;
+    with none there, the document names the missing distribution among its gaps
+    instead. The **default** path is allowed to be absent — that is the standing
+    state until a labeler run lands — while a path named on the command line is
+    checked, so a typo cannot quietly publish the pack without its cut.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    pack = analytics.build_docket_pack(corpus_db_path=db_path)
+    labels = (
+        qp_topics_path if qp_topics_path is not None else qp_topics.labels_path(settings.data_root)
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels)
     json_dest = out if out is not None else settings.metrics_root / "docket.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
     write_json(json_dest, pack)
@@ -1840,11 +2126,26 @@ def stamp_cell(
         raise typer.Exit(code=2)
 
     digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+    if stamped_at:
+        # The stamp is the frozen/alpha partition's time key; a naive value
+        # has no defined order against the freeze instant and reads as
+        # pre-freeze, so refuse to write one rather than stamp a cell out of
+        # the headline by formatting accident.
+        try:
+            stamp_moment = datetime.fromisoformat(stamped_at)
+        except ValueError:
+            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
+            raise typer.Exit(code=2) from None
+        if stamp_moment.tzinfo is None:
+            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
+            raise typer.Exit(code=2)
+    else:
+        stamp_moment = datetime.now(UTC)
     stamp = ProcessVersion(
         label=process_version.CURRENT_PROCESS_LABEL,
         digest=digest,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
-        stamped_at=datetime.fromisoformat(stamped_at) if stamped_at else datetime.now(UTC),
+        stamped_at=stamp_moment,
     )
 
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
@@ -2013,11 +2314,12 @@ def process_digest_cmd(
     """Print an actor's process digest — the value a maintainer blesses to freeze.
 
     The freeze procedure: run ``fedcourts process-digest --all``, paste the
-    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py`` in
-    a one-line freeze commit, and record that commit as the cutover in the docs.
-    Because the digest excludes the pipeline commit, the blessed set survives
-    unrelated pipeline changes — predict/evaluate can resume at a newer HEAD and
-    still match.
+    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py``
+    **and set ``FROZEN_SINCE`` beside it** (the two move together — a test
+    pins it) in one small freeze commit, and record that commit as the cutover
+    in the docs. Because the digest excludes the pipeline commit, the blessed
+    set survives unrelated pipeline changes — predict/evaluate can resume at a
+    newer HEAD and still match.
     """
     settings = get_settings()
     if all_actors:
@@ -3229,11 +3531,13 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     group_by: Annotated[
         str,
         typer.Option(
-            # Rendered from the enum, not restated: a hand-kept list drifts
-            # silently every time a dimension lands, and `--help` is what a cell
-            # agent reads to discover the cuts it can ask for.
+            # Rendered from the accepted set, not restated: a hand-kept list
+            # drifts silently every time a dimension lands, and `--help` is what a
+            # cell agent reads to discover the cuts it can ask for. Dimensions
+            # keyed off an artifact rather than a corpus row are section-only and
+            # excluded, so nothing is offered that this command cannot compute.
             help="Break base-rates down by a dimension: "
-            + ", ".join(g.value for g in GroupBy)
+            + ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
             + ". Omit for the overall base rate only."
         ),
     ] = "",
@@ -3265,12 +3569,11 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         choices = ", ".join(d.value for d in Disposition)
         typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
         raise typer.Exit(code=2) from exc
-    try:
-        dimension = GroupBy(group_by) if group_by else None
-    except ValueError as exc:
-        choices = ", ".join(g.value for g in GroupBy)
+    dimension = next((g for g in analytics.STATS_DIMENSIONS if g.value == group_by), None)
+    if group_by and dimension is None:
+        choices = ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
         typer.echo(f"Unknown --group-by '{group_by}'; choose one of: {choices}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=2)
     try:
         parsed_from = date.fromisoformat(date_from) if date_from else None
         parsed_to = date.fromisoformat(date_to) if date_to else None
@@ -3733,9 +4036,11 @@ def corpus_integration_check(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "service":
-        # The sidecar counterpart of the fixed set: two reads through the same
-        # client a cell's `service` backend forwards with (the service exposes
-        # query and open-events; snapshot provisioning is not a cell surface).
+        # The sidecar counterpart of the fixed set: three reads through the
+        # same client a cell's `service` backend forwards with (the service
+        # exposes query and open-events; snapshot provisioning is not a cell
+        # surface), the third the full-query probe that fails when an
+        # opinion-bearing row hydrates no body.
         report = integration_check.run_service_check(
             service_url=_service_url_or_exit(),
             court=court,

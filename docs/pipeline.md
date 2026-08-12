@@ -6,13 +6,13 @@ stage.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
-| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
+| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
-| _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
+| _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -79,8 +79,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
-  direct commit to `main`, never auto-merged. This is the workflow's only
-  write-capable job (it alone mints the dev App token). The branch is fixed
+  direct commit to `main`, never auto-merged. It mints the dev App token to do
+  so; `qp-topic-label` below is the only other job here that does. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
@@ -89,6 +89,29 @@ each as its own least-privilege job holding only the credentials its mode needs:
   engine / actor. It reads `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
+- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over every
+  questions-presented text the pulled corpus carries and lands the measured
+  per-case labels file
+  (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
+  branch `qp-topics/refresh`, force-pushed, never auto-merged. It is the only
+  mode that runs an agent, and therefore the only one **split across two jobs**,
+  because `corpus-readonly` exports the assumed role's credentials job-wide:
+  `qp-topic-extract` holds the read-only S3 role and writes the extract
+  (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
+  inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
+  no role at all, downloads that artifact, and runs the labeler with no cloud
+  credential in its environment and no MCP config (the vocabulary is text-only,
+  so the extract is the agent's entire evidentiary input). It applies the same
+  structural prohibition the cell workflows do — `data/qp-topics/` is moved out
+  of the tree for the duration of the agent step, since reading the reference
+  set would not improve the labels, only destroy the measurement — and restores
+  it from the commit afterwards, then asserts the tree is otherwise untouched
+  (the gate constants live in the checkout too). After the agent, the
+  tested `fedcourts qp-topics` measures the labels against the hand reference
+  set and enforces the agreement/coverage gate — below it, nothing is written,
+  the measured block still reaches the step summary, and the job fails. The
+  `label_model` dispatch input picks the labeler's model. See
+  [qp-topic.md](qp-topic.md).
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
@@ -110,8 +133,9 @@ accepts (those runs are the promotion gate's freshness evidence; see
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every scenario but collect, with
-engine-smoke once per engine, so three cells' token spend) out of one run.
+fans the gate's whole required suite (every scenario — collect rides the run
+as its own environment-free job — with engine-smoke once per engine, so three
+cells' token spend) out of one run.
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
@@ -120,8 +144,16 @@ per-Term base rates and the cert back-test set. It is a corpus writer split out
 of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
-CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
-the live job owns SCOTUS freshness for free). run-seed also runs seven
+CourtListener enrichment from the rate-limited **REST API** (the live job owns
+SCOTUS freshness for free). One other consumer shares that REST budget:
+**run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
+the `max_cases` input) walks granted SCOTUS rows to their published opinion
+cluster and lands the reporter citations and opinion body
+(`fedcourts enrich-opinions`; scope and arithmetic in
+[data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
+never scheduled, and dispatched into a dead zone between pull windows so it
+neither queues on the corpus-write lock nor stacks API spend onto a pull
+window's. run-seed also runs seven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -151,8 +183,9 @@ window, each bounded by a per-run blast-radius cap; and, last, the
 converges the stored circuit slice onto the ingest projection's carve-out —
 the bulk export's misjoined cluster fields are withheld from a re-served
 bulk row, and the scrub drops them from the rows nothing re-serves, keyed
-on the fields the REST channel cannot supply and bounded by its own
-blast-radius cap. The dedupe runs first so the
+on the fields no channel could have written to a non-SCOTUS row (the only
+other writer, the opinion enrichment, is SCOTUS-scoped) and bounded by its
+own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
@@ -262,7 +295,9 @@ pattern rather than rediscovering it:
 
 - **Concurrency is evaluated before the job `if`.** An `issues: labeled` event
   fans out to *every* workflow that listens for it, and the job-level label filter
-  runs only after the concurrency group is assigned. A corpus writer job (pull, live, historical)
+  runs only after the concurrency group is assigned. A label-reachable corpus
+  writer job (pull, live, historical — the dispatch-only enrich job never sees
+  a label)
   must therefore join the shared `corpus-write` group **only** when its own label
   matched — otherwise an unrelated label cancels a real writer. See the
   `concurrency:` expression in `run-pull.yml`. To dispatch one of
@@ -337,7 +372,8 @@ The mechanics:
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
   only on a PR to `main` whose head is not `staging` or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh, cert-backtest, and salience-replay PRs); on those
+  metrics-refresh, cert-backtest, and salience-replay PRs, and the qp-topic
+  labeling run's `qp-topics/refresh` PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).
@@ -434,8 +470,8 @@ Annotated tags on `main` record the project's public reference points, in
 three namespaces:
 
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
-  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS`
-  (docs/process-version.md carries the freeze procedure).
+  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
+  `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
 - **`results/<term>-<milestone>`** — the commit carrying a published metrics

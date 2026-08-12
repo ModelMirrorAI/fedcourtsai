@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "QpTopicReferenceEntry": {
+      "additionalProperties": false,
+      "description": "One hand-labeled question-presented text: a case and its primary topic.\n\nThe label is the single mandatory *primary* under the ``qp-topic-v0``\ncontract, assigned from the stored ``questions-presented`` text alone \u2014 no\ndocket context \u2014 so any text-only labeler can be scored against it on\nidentical input.",
+      "properties": {
+        "case_id": {
+          "description": "Canonical ``<court>/<docket>`` id \u2014 joins the corpus row and ``data/cases``",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "docket_number": {
+          "description": "The Court's own docket number (e.g. ``25-52``) \u2014 the human-readable key the labels were recorded against, kept so the set is reviewable in a diff",
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "label": {
+          "description": "The primary ``qp-topic-v0`` label; secondaries are not part of the reference set",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "docket_number",
+        "label"
+      ],
+      "title": "QpTopicReferenceEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/qp-topics/qp-topic-reference.json`` \u2014 the hand-labeled topic reference set.\n\nThe measurement baseline for any ``qp-topic-v0`` labeler: cases whose stored\n``questions-presented`` texts were read and labeled by hand against the\nvocabulary in ``docs/qp-topic.md``. A labeler's agreement with this set is\nmeasured and recorded before anything it produces is published. The set is\nappend-only in spirit \u2014 relabeling an entry is a judgment change that\nbelongs in its own reviewed diff, not a side effect of another change \u2014 and\neach ``docket_number`` appears at most once, so the two keys stay a\nverifiable pair. Its selection frame is outcome-conditioned and disclosed\nin ``docs/qp-topic.md``: membership encodes cert outcomes, which is why the\ncell prompts forbid predict/evaluate cells from reading anything under\n``data/qp-topics/``. Nothing frozen depends on it.",
+  "properties": {
+    "cases": {
+      "default": 0,
+      "description": "Number of hand-labeled cases (== len(entries))",
+      "minimum": 0,
+      "title": "Cases",
+      "type": "integer"
+    },
+    "entries": {
+      "description": "One entry per hand-labeled case, in case_id order",
+      "items": {
+        "$ref": "#/$defs/QpTopicReferenceEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "vocabulary": {
+      "const": "qp-topic-v0",
+      "default": "qp-topic-v0",
+      "description": "The label vocabulary every entry draws from",
+      "title": "Vocabulary",
+      "type": "string"
+    }
+  },
+  "title": "QpTopicReference",
+  "type": "object"
+}

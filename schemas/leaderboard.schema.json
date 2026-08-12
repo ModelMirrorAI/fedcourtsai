@@ -139,7 +139,7 @@
     },
     "LeaderboardStage": {
       "additionalProperties": false,
-      "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage, and only the cert segment\nreports a skill score today \u2014 the interim stage has no published base rate,\nand the merits stage has a registered one whose skill number is suppressed\nwhile the pool's GVR guard is unbuilt (docs/decision-model.md). So each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
+      "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage \u2014 the cert segment's is its\nsalience band's grant rate, the merits stage's the guarded disturbed rate\npooled strictly prior (docs/decision-model.md), and the interim stage has\nno published base rate, so its skill stays null. Each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
       "properties": {
         "entries": {
           "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
@@ -320,7 +320,7 @@
             }
           ],
           "default": null,
-          "description": "Brier skill vs the stage's own segment base rate over the cells that report one (higher is better; ~0 = no better than that baseline, negative = worse). Despite the name it is the **population** skill \u2014 `1 - sum(cell Brier) / sum(cell baseline Brier)` \u2014 not a mean of per-cell ratios, which under cert's class imbalance would be dominated by low-baseline denial cells and would pay a predictor to under-forecast the rare event. Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate. On the cert board the baseline is the salience segment's grant rate; a merits cell reports no skill score at all while the merits pool's GVR guard is unbuilt (docs/decision-model.md), so a merits stage block's mean is null",
+          "description": "Brier skill vs the stage's own segment base rate over the cells that report one (higher is better; ~0 = no better than that baseline, negative = worse). Despite the name it is the **population** skill \u2014 `1 - sum(cell Brier) / sum(cell baseline Brier)` \u2014 not a mean of per-cell ratios, which under cert's class imbalance would be dominated by low-baseline denial cells and would pay a predictor to under-forecast the rare event. Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate. On the cert board the baseline is the salience segment's grant rate; a merits cell's is the statpack merits section's guarded disturbed rate pooled strictly prior (docs/decision-model.md), null below its stated minimum sample",
           "title": "Population Brier Skill Score"
         },
         "population_realized_term_skill_score": {
@@ -408,7 +408,7 @@
     },
     "process_scope": {
       "default": "frozen",
-      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
+      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process at or after the freeze instant, graded at or after it too) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
       "enum": [
         "frozen",
         "all"

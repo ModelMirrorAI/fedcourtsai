@@ -16,16 +16,28 @@ name: run-analytics
 #                      report (`fedcourts tool-usage`) — which configured MCP
 #                      tools cells actually call. Reads `data/` only, so unlike
 #                      its siblings it needs no corpus and no credential at all.
+#   - qp-topic-label:  run the `qp-topic-v0` topic labeler over every
+#                      questions-presented text the pulled corpus carries
+#                      (`docs/qp-topic.md`) and land the
+#                      measured per-case labels file as a **reviewed** PR — never
+#                      auto-merged. The only mode that runs an agent, so it is
+#                      split into two jobs: `qp-topic-extract` holds the S3 role
+#                      and produces the extract, `qp-topic-label` runs the agent
+#                      with no cloud credential in the job env at all.
 #
-# The analysis modes are strictly read-only: they write neither the corpus, `data/`,
-# the corpus remote, nor git, open no PR, and file no issue — every result goes to the Actions
-# step summary and the run log.
+# The read-only analysis modes (corpus-stats, tool-usage) write neither the corpus,
+# `data/`, the corpus remote, nor git, open no PR, and file no issue — every result
+# goes to the Actions step summary and the run log. The two artifact modes write
+# only under their own paths — metrics-refresh under `metrics/` + `data/scope/`,
+# qp-topic-label under `data/qp-topics/` — and land the change as a reviewed PR to
+# `main`.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats holds only the read-only S3 role, metrics-refresh alone
-# mints the dev App token (contents + PR write) to open its review PR, and
-# tool-usage binds no environment and assumes no role — there is nothing for it
-# to reach.
+# corpus-stats and qp-topic-extract hold only the read-only S3 role; metrics-refresh
+# holds that role *and* mints the dev App token (contents + PR write) for its review
+# PR; qp-topic-label mints the same token but assumes no role at all, because it is
+# the one job here that runs an agent; and tool-usage binds no environment and
+# assumes no role — there is nothing for it to reach.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -42,8 +54,22 @@ on:
           - corpus-stats
           - metrics-refresh
           - tool-usage
+          - qp-topic-label
         default: corpus-stats
-      # corpus-stats inputs (ignored by metrics-refresh and tool-usage). All are optional; an
+      label_model:
+        description: "qp-topic-label: the model the Claude Code labeler runs (ignored by the other modes)."
+        # A choice, not a free string: the value is spliced into the agent's own
+        # `claude_args` block, where a newline would append flags the mode's
+        # contract withholds (an `--mcp-config` line would hand a text-only
+        # labeler a retrieval surface). It is also recorded as the labels
+        # artifact's provenance, so a closed set keeps that field well-formed.
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-6
+          - claude-fable-5
+        default: claude-haiku-4-5-20251001
+      # corpus-stats inputs (ignored by every other mode). All are optional; an
       # empty value means "no filter" / "no grouping".
       court:
         description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts."
@@ -70,8 +96,11 @@ on:
 permissions: {}
 
 # Concurrency is per-job (not workflow-level): the analysis mode cancels a
-# superseded run of themselves, while a metrics refresh must never be cancelled
-# mid-PR by an unrelated analysis dispatch.
+# superseded run of themselves, while a metrics refresh or a labeling run must
+# never be cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch.
+# The labeling mode's two jobs take separate groups: they are already sequenced
+# by `needs`, and a shared group would let a second dispatch's extract slip
+# between the first dispatch's extract and its labeler.
 
 jobs:
   corpus-stats:
@@ -174,9 +203,9 @@ jobs:
 
       # The refresh PR is opened with the dev App token. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required `gate`
-      # check, and it is never auto-merged — review is mandatory. This is the only
-      # job in this workflow that holds a write-capable token; the analysis modes
-      # above stay strictly read-only.
+      # check, and it is never auto-merged — review is mandatory. The read-only
+      # analysis modes above hold no write token at all; the only other job that
+      # does is qp-topic-label, for the same reason and on the same terms.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -276,5 +305,331 @@ jobs:
           else
             url=$(gh pr create --base main --head "$branch" \
               --title "$(jq -r '.pr.title' <<<"$plan")" --body-file pr-body.md)
+            echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  qp-topic-extract:
+    # First half of the labeling mode, and the only half that holds a cloud
+    # credential. `corpus-readonly` exports the assumed role's credentials
+    # job-wide, and the second job runs an agent — so the extract is split into
+    # its own job rather than sharing an environment with the labeler. What
+    # crosses the boundary is one artifact: the texts, and nothing else.
+    if: ${{ inputs.mode == 'qp-topic-label' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: prod
+    concurrency:
+      group: run-analytics-qp-topic-extract
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The extract reads the stored document text, so the corpus must be on
+      # disk. No contents:write, no App token: this job cannot touch git.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+
+      - name: Extract the stored questions-presented texts
+        run: |
+          set -euo pipefail
+          # Under $RUNNER_TEMP, never the work tree: the extract republishes
+          # stored petition text and enumerates the ingested corpus, so
+          # `qp-corpus` refuses an --out anywhere inside the checkout (one
+          # `git add -A` from being committed).
+          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json"
+
+      - name: Upload the extract
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: qp-texts
+          path: ${{ runner.temp }}/qp-texts.json
+          if-no-files-found: error
+          # One day, deliberately: the extract republishes stored petition text
+          # and enumerates the ingested corpus — the two things no committed
+          # surface does — so it exists to hand one file to the next job and
+          # must not outlive the run pipeline as a downloadable artifact.
+          # Retention bounds the window, not the audience: this repository is
+          # public, so a run artifact is downloadable by any logged-in user for
+          # as long as it exists (the same residual SECURITY.md records for the
+          # cell artifacts). That is why the window is the shortest GitHub
+          # offers, and why the disclosure is argued out loud in
+          # docs/qp-topic.md rather than treated as an implementation detail.
+          retention-days: 1
+
+  qp-topic-label:
+    # Second half: the agent labels every text from the extract alone, then the
+    # deterministic `qp-topics` command measures it against the hand reference
+    # set and writes the artifact. No `id-token: write` and no `corpus-readonly`
+    # here — that is the point of the split, and the assertion step below is its
+    # tripwire.
+    needs: qp-topic-extract
+    if: ${{ inputs.mode == 'qp-topic-label' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: prod
+    concurrency:
+      group: run-analytics-qp-topic-label
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      # The actor string recorded on the labels artifact, and the model the
+      # agent step runs. Both come from the one dispatch input so the recorded
+      # labeler can never drift from what actually ran. Passed through the
+      # environment rather than interpolated into a shell line, as with the
+      # corpus-stats filters above.
+      LABELER: claude-code/${{ inputs.label_model }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Download the extract
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: qp-texts
+          # Under $RUNNER_TEMP for the same reason the extract job wrote it
+          # there: petition text never lands inside the checkout.
+          path: ${{ runner.temp }}
+
+      # The regression tripwire for the split above: the agent step must inherit
+      # no cloud credential from the job env. This job assumes no role at all, so
+      # this proves the labeling half stays that way even if a future edit adds a
+      # corpus step to it. Named for what it checks: the agent's env necessarily
+      # carries the engine's own API key, and this asserts nothing about that.
+      - name: Assert no cloud credential in the agent env
+        run: |
+          set -euo pipefail
+          # Any AWS_* variable except the region names is treated as
+          # credential-conferring (static keys, session tokens, and the
+          # role-ARN/web-identity pair alike). The OIDC pair is checked too:
+          # granting this job `id-token: write` would let the agent mint its own
+          # web identity and assume the role with no AWS_* variable in sight.
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the agent env"
+            exit 1
+          fi
+          echo "no cloud credential in the agent env"
+
+      # The same structural prohibition the cell workflows apply, adapted to the
+      # one agent that legitimately needs the directory back: `data/qp-topics/`
+      # holds the hand reference set this run is measured against, and reading
+      # it while labeling does not improve the labels — it destroys the
+      # measurement, because agreement with a file you copied from is agreement
+      # with nothing. A cell can simply delete it; this job has to restore it
+      # for the measure step, so move it aside instead. Restoring under `git
+      # checkout` (not a copy back) means the pristine-tree assertion below is
+      # checking bytes from the commit, not bytes the agent could have written.
+      - name: Move the reference set out of the labeler's tree
+        run: |
+          set -euo pipefail
+          mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"
+
+      - name: Label the questions presented with Claude Code
+        # Bound the agent below the job timeout so a runaway run trips this
+        # *step* instead of the job-level timeout, which would cancel the runner
+        # and leave nothing to report.
+        timeout-minutes: 40
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
+        env:
+          QP_TEXTS: ${{ runner.temp }}/qp-texts.json
+          LABELS_OUT: ${{ runner.temp }}/qp-labels.jsonl
+        with:
+          # Auth is the Anthropic API key (pay-per-token), as for every automated
+          # cell: see docs/budget.md.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # No `github_token`: the labeler comments on nothing and opens nothing
+          # — carrying the labels off the runner belongs to the steps below. No
+          # `--mcp-config` either: `qp-topic-v0` is a text-only vocabulary, so
+          # the extract is the agent's entire evidentiary input and every
+          # retrieval surface is off limits by contract.
+          #
+          # Prompt caching is automatic; the API key's default 5-minute cache TTL
+          # would expire mid-run over ~1,200 texts, so pin the 1-hour TTL.
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1"
+              }
+            }
+          # The kickoff prompt carries the variable contract inline: some engines
+          # sanitize the shell environment in CI, so the prompt text — not the
+          # env above — is the contract's delivery channel.
+          prompt: |
+            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            questions-presented text in the extract:
+
+            QP_TEXTS=${{ runner.temp }}/qp-texts.json
+            LABELS_OUT=${{ runner.temp }}/qp-labels.jsonl
+            LABELER=claude-code/${{ inputs.label_model }}
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$QP_TEXTS` expands empty in your shell, use the literals above.
+            Write only $LABELS_OUT. Do not commit, push, or open a PR — the
+            workflow handles git. You run headless with no interactive input; if
+            you are blocked, say so plainly in your final message and stop — do
+            not wait for a reply.
+          claude_args: |
+            --model ${{ inputs.label_model }}
+            --max-turns 120
+            --permission-mode bypassPermissions
+
+      # The labeler's only declared output is $LABELS_OUT, under $RUNNER_TEMP, so
+      # a modified work tree is a contract violation. The reference set is out of
+      # reach above; the gate itself is not, because `setup-python-env` installs
+      # the project editable and `uv run fedcourts qp-topics` therefore executes
+      # `fedcourtsai.pipeline.qp_topics` from this checkout — a one-line edit to
+      # AGREEMENT_GATE would pass the measure step and then be erased by the PR
+      # step's branch cut, leaving a reviewer a clean diff over a rigged number.
+      - name: Restore the reference set and assert the tree is pristine
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/qp-topics-oracle"
+          # From the commit, not from the copy: whatever the agent did to the
+          # tree, the file the gate measures against is the reviewed one.
+          git checkout -- data/qp-topics
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "::error::the labeler modified tracked files; refusing to measure"
+            git status --porcelain
+            exit 1
+          fi
+          echo "work tree pristine"
+
+      - name: Measure the run and write the labels artifact
+        run: |
+          set -euo pipefail
+          # The tested command owns the whole publication decision: it validates
+          # every label against the vocabulary, joins on both keys, measures
+          # agreement against the hand reference set, and REFUSES to write below
+          # the agreement/coverage gate (exit non-zero, no artifact, no override
+          # flag). Capture rather than fail fast, because a refusal is a result
+          # to report: the measured block reaches the step summary either way.
+          status=0
+          uv run fedcourts qp-topics \
+            --labels "$RUNNER_TEMP/qp-labels.jsonl" \
+            --texts "$RUNNER_TEMP/qp-texts.json" \
+            --labeler "$LABELER" > "$RUNNER_TEMP/measured.txt" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/measured.txt"
+          # On the failure path the command quotes up to 160 characters of the
+          # offending labels line into its error, and those bytes are the
+          # agent's. Strip backticks (octal 140) so a crafted label cannot close
+          # the fence below and inject markdown into a public step summary or,
+          # later, into the PR body rendered from the same file.
+          tr -d '\140' < "$RUNNER_TEMP/measured.txt" > "$RUNNER_TEMP/measured-safe.txt"
+          {
+            echo "### qp-topic-v0 labeling run"
+            echo
+            echo "Agreement with a single v0 reference rater, not accuracy; the"
+            echo "reference frame is grant-enriched, so it certifies the grant"
+            echo "stream only (see docs/qp-topic.md)."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/measured-safe.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::qp-topics published nothing; the measured block above is the result"
+            exit "$status"
+          fi
+          uv run fedcourts validate data
+
+      # Minted only after the agent has finished and the gate has passed, as
+      # run-backtest does: a write-capable installation token has no business
+      # existing while an agent runs unattended on the same runner, and a token
+      # minted at the top of a 50-minute job spends most of its 1-hour life
+      # waiting for a step that may never run. The dev App is not a
+      # branch-protection bypass actor, so the PR still faces the required
+      # `gate` check and is never auto-merged.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Mirrors the metrics-refresh PR step: a fixed, force-pushed branch so an
+      # unmerged labeling PR updates in place rather than stacking, opened
+      # against `main` and never auto-merged.
+      - name: Open or update the review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: qp-topics/refresh
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # Carry the artifact out of the work tree before switching branches:
+          # the branch is cut from a freshly fetched origin/main, not from this
+          # job's checkout, so the push pack is this one data file and nothing
+          # the deterministic writers landed (or this dispatch's ref carried)
+          # while the agent ran. -f discards the local tree, which is safe
+          # because everything this step needs is already under $RUNNER_TEMP.
+          cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-topics.json"
+          git fetch --no-tags -q origin main
+          git checkout -q -f -B "$BRANCH" origin/main
+          mkdir -p data/qp-topics
+          cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json
+          git add data/qp-topics/qp-topics.json
+          if git diff --cached --quiet; then
+            echo "Labels identical to main; nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cases=$(jq -r '.cases' data/qp-topics/qp-topics.json)
+          title="data(qp-topics): ${cases} qp-topic-v0 label(s) by ${LABELER}"
+          # The body carries only CLI-rendered numbers and vocabulary labels —
+          # no agent prose and no petition text — and so does the committed
+          # artifact: `QpTopicLabelEntry` is a strict pydantic model whose every
+          # field is a copied key, a vocabulary enum, or a bool, joined to the
+          # extract on both keys, so no agent-authored string can reach either.
+          # That mechanism, not reviewer attention, is why this step runs no
+          # secret scan where `collect-run` does.
+          {
+            printf '%s\n\n' "One \`qp-topic-v0\` labeling run: primary labels for ${cases} stored questions-presented text(s), assigned by \`${LABELER}\` from the text alone and measured against the hand reference set by \`fedcourts qp-topics\`."
+            printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
+            printf '%s\n' '```'
+            cat "$RUNNER_TEMP/measured-safe.txt"
+            printf '%s\n' '```'
+            printf '\n%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          } > pr-body.md
+          git commit -q -m "$title"
+          # Push with the app (write) token; blank any ambient extraheader so it
+          # authenticates. Force: the fixed branch supersedes any unmerged run.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          existing=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file pr-body.md
+            echo "Updated review PR #${existing} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --base main --head "$BRANCH" \
+              --title "$title" --body-file pr-body.md)
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi

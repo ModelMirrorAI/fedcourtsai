@@ -23,6 +23,23 @@ inputs:
     description: >-
       The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL).
     required: true
+  casestore-url:
+    description: >-
+      The per-case content store URL (pass vars.CASESTORE_URL). Under the
+      corpus-split mode the sidecar hydrates `full` query bodies from the
+      store server-side — the sidecar is the credentialed process, so
+      omitting this under the split silently returns bodiless rows to every
+      cell. Explicit inputs, not job-env inheritance, so every call site
+      shows the sidecar's read configuration.
+    required: false
+    default: ""
+  corpus-split:
+    description: >-
+      The corpus-split go-live switch (pass
+      `vars.FEDCOURTS_CORPUS_SPLIT || '0'`). Off, the sidecar serves every
+      payload from the blob and casestore-url is inert.
+    required: false
+    default: "0"
 
 outputs:
   aws-access-key-id:
@@ -72,6 +89,8 @@ runs:
         AWS_SESSION_TOKEN: ${{ steps.creds.outputs.aws-session-token }}
         AWS_REGION: ${{ inputs.aws-region }}
         CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
+        FEDCOURTS_CASESTORE_URL: ${{ inputs.casestore-url }}
+        FEDCOURTS_CORPUS_SPLIT: ${{ inputs.corpus-split }}
       run: |
         set -euo pipefail
         # The background sidecar inherits the credentials from THIS step's

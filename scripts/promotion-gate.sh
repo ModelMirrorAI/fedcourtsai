@@ -24,7 +24,7 @@
 #       Every required integration scenario must have a green run at exactly
 #       <sha> — the gate tests what is being promoted, not what staging used
 #       to be. A single green `scenario=all` run (the whole suite as one
-#       matrix run) satisfies every scenario at once; otherwise each is
+#       run) satisfies every scenario at once; otherwise each is
 #       matched per-run. Matching is on the integration-test workflow's
 #       `run-name`; the format here and there are coupled, and a
 #       workflow-shape test pins both ends (tests/test_workflow_promote.py).
@@ -58,7 +58,7 @@ REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwn
 # freshness failure, and with the `all` scenario's matrix in
 # integration-test.yml — a `scenario=all` dispatch must fan out exactly this
 # set (a workflow-shape test pins both couplings).
-REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
+REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
 
 fail=0
 
@@ -106,10 +106,13 @@ freshness() {
   # workflow run, so one green `all` title at the sha satisfies every
   # required scenario at once. The equivalence holds link by link: this exact
   # title shape is produced only by an `all` dispatch (a per-scenario run
-  # always carries `<scenario> / <engine>`); an `all` run's matrix covers the
-  # whole required set with fail-fast off, so the run concludes success only
-  # when every leg succeeded; and `@ staging` names the environment every leg
-  # bound, which only the staging branch may deploy to. Matched whole-line
+  # always carries `<scenario> / <engine>`); an `all` run covers the whole
+  # required set — the matrix legs with fail-fast off plus the collect job,
+  # separate jobs in the same run — so the run concludes success only when
+  # every job succeeded; and `@ staging` names the environment every matrix
+  # leg bound, which only the staging branch may deploy to (the collect job
+  # binds none by design — its evidence rests on the head_branch pin above,
+  # which every title here already passed). Matched whole-line
   # (-Fx): the title is one fully-fixed string. Only titles selected as
   # success above are searched, so a match is a green run, never a red one.
   # Skipped entirely under a PROMOTION_SCENARIOS override: the `all` matrix
@@ -129,8 +132,11 @@ freshness() {
     # the end-anchored suffix pins the staging deployment environment — which
     # is restricted to the staging branch, so only runs that ran from staging
     # satisfy the gate, independent of the prod environment's main-only
-    # deployment policy. The second grep runs without -q so the first never
-    # dies on a closed pipe.
+    # deployment policy. (The environment-free collect scenario's title
+    # carries `@ staging` from the branch resolution without binding it; its
+    # staging provenance is the head_branch pin above, which every title
+    # here already passed.) The second grep runs without -q so the first
+    # never dies on a closed pipe.
     if [ -n "$engine" ]; then
       prefix="^integration-test: ${scenario} / ${engine} @"
     else

@@ -1,6 +1,7 @@
 """Pydantic models defining the on-disk data contract for the pipeline.
 
-Every artifact written under ``data/cases/`` validates against one of these
+Every artifact committed under ``data/`` — the per-case tree, the scope
+manifest, the qp-topic reference set — validates against one of these
 models. They are the single source of truth for the data shape and are also
 exported to JSON Schema (see ``fedcourts export-schemas``) so that coding
 agents and Codex ``--output-schema`` can target them directly.
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -292,6 +293,12 @@ class GroupBy(StrEnum):
     ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
     (high / elevated / baseline) over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
+    ``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's
+    questions-presented text (``docs/qp-topic.md``) — distinct from ``topic``,
+    which is the corpus's upstream nature-of-suit column and empty on SCOTUS
+    rows. It is read from a labeler's artifact rather than off a corpus row, so
+    a section supplies its own key function for it and ``stats`` does not offer
+    it as a cut.
     """
 
     court = "court"
@@ -305,6 +312,7 @@ class GroupBy(StrEnum):
     cvsg = "cvsg"
     fee_class = "fee_class"
     salience_band = "salience_band"
+    qp_topic = "qp_topic"
 
 
 class UsageRole(StrEnum):
@@ -509,7 +517,14 @@ class ProcessVersion(_Strict):
         description="Git commit of the pipeline checkout that stamped this cell; "
         "provenance only, NOT part of `digest`.",
     )
-    stamped_at: datetime = Field(description="When the harness stamped the cell (UTC)")
+    stamped_at: datetime = Field(
+        description="When the harness stamped the cell (UTC, timezone-aware). "
+        "Provenance, and — with the digest — the frozen/alpha partition key: "
+        "the digest says which process ran, this stamp says whether it ran at "
+        "or after the pre-registration instant. The runner clock is the "
+        "witness, bounded independently by the workflow run's own timestamps "
+        "and the data commit's date; a naive value reads as pre-freeze."
+    )
 
 
 class PredictionContext(_Strict):
@@ -1574,9 +1589,9 @@ class LeaderboardStratum(_Strict):
         "dominated by low-baseline denial cells and would pay a predictor to "
         "under-forecast the rare event. Distinct from raw Brier: it credits beating the biased "
         "predicted-segment base rate, not the whole-docket rate. On the cert board "
-        "the baseline is the salience segment's grant rate; a merits cell reports "
-        "no skill score at all while the merits pool's GVR guard is unbuilt "
-        "(docs/decision-model.md), so a merits stage block's mean is null",
+        "the baseline is the salience segment's grant rate; a merits cell's is the "
+        "statpack merits section's guarded disturbed rate pooled strictly "
+        "prior (docs/decision-model.md), null below its stated minimum sample",
     )
     skill_scored: int = Field(
         default=0,
@@ -1769,10 +1784,10 @@ class LeaderboardStage(_Strict):
     vocabulary) and a moment is the point in the case's life the forecast was
     taken from, so the pair — not the stage alone — identifies a population.
     Skill figures are only meaningful within one: `granted`
-    answers a different question at each stage, and only the cert segment
-    reports a skill score today — the interim stage has no published base rate,
-    and the merits stage has a registered one whose skill number is suppressed
-    while the pool's GVR guard is unbuilt (docs/decision-model.md). So each
+    answers a different question at each stage — the cert segment's is its
+    salience band's grant rate, the merits stage's the guarded disturbed rate
+    pooled strictly prior (docs/decision-model.md), and the interim stage has
+    no published base rate, so its skill stays null. Each
     stage carries its own counts and entries,
     listed by ``predictor_id`` (never ranked), and nothing here blends into the
     cert board or another stage.
@@ -1818,7 +1833,8 @@ class Leaderboard(_Strict):
         default="frozen",
         description="Which process versions this board covers: `frozen` (the "
         "default headline — only cells whose predictor ran the blessed frozen "
-        "process) or `all` (every version, including the shakedown). A `frozen` "
+        "process at or after the freeze instant, graded at or after it too) "
+        "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
     )
@@ -3068,6 +3084,306 @@ class ScopeManifest(_Strict):
     )
 
 
+QpTopicLabel = Literal[
+    "administrative-law-and-benefit-programs",
+    "business-and-financial-regulation",
+    "civil-procedure",
+    "constitutional-rights",
+    "criminal-law",
+    "election-law",
+    "employment-and-antidiscrimination",
+    "environment-energy-and-property",
+    "firearms",
+    "first-amendment",
+    "habeas-and-postconviction",
+    "immigration",
+    "intellectual-property",
+    "sovereignty-and-foreign-relations",
+    "tax",
+    "unclassifiable",
+]
+"""A ``qp-topic-v0`` subject-matter label for a question presented.
+
+The vocabulary is declared and bounded in ``docs/qp-topic.md`` — fifteen
+subjects plus ``unclassifiable``, which is reserved for texts with no subject
+or no cognizable question present, never for texts that are merely hard to
+place.
+"""
+
+QP_TOPIC_LABELS: Final[tuple[QpTopicLabel, ...]] = get_args(QpTopicLabel)
+
+
+class QpTopicReferenceEntry(_Strict):
+    """One hand-labeled question-presented text: a case and its primary topic.
+
+    The label is the single mandatory *primary* under the ``qp-topic-v0``
+    contract, assigned from the stored ``questions-presented`` text alone — no
+    docket context — so any text-only labeler can be scored against it on
+    identical input.
+    """
+
+    case_id: str = Field(
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and ``data/cases``"
+    )
+    docket_number: str = Field(
+        description="The Court's own docket number (e.g. ``25-52``) — the "
+        "human-readable key the labels were recorded against, kept so the set "
+        "is reviewable in a diff"
+    )
+    label: QpTopicLabel = Field(
+        description="The primary ``qp-topic-v0`` label; secondaries are not part "
+        "of the reference set"
+    )
+
+
+class QpTopicReference(_Strict):
+    """``data/qp-topics/qp-topic-reference.json`` — the hand-labeled topic reference set.
+
+    The measurement baseline for any ``qp-topic-v0`` labeler: cases whose stored
+    ``questions-presented`` texts were read and labeled by hand against the
+    vocabulary in ``docs/qp-topic.md``. A labeler's agreement with this set is
+    measured and recorded before anything it produces is published. The set is
+    append-only in spirit — relabeling an entry is a judgment change that
+    belongs in its own reviewed diff, not a side effect of another change — and
+    each ``docket_number`` appears at most once, so the two keys stay a
+    verifiable pair. Its selection frame is outcome-conditioned and disclosed
+    in ``docs/qp-topic.md``: membership encodes cert outcomes, which is why the
+    cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v0"] = Field(
+        default="qp-topic-v0",
+        description="The label vocabulary every entry draws from",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Number of hand-labeled cases (== len(entries))"
+    )
+    entries: list[QpTopicReferenceEntry] = Field(
+        default_factory=list,
+        description="One entry per hand-labeled case, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicReference:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
+class QpTopicLabelEntry(_Strict):
+    """One labeled question-presented text: a case, its primary topic, and its optional facets.
+
+    ``secondary`` and ``vehicle`` are recorded but **unpublishable in v0**: the
+    reference set carries primaries only, so neither facet has a measured
+    agreement, and ``docs/qp-topic.md`` holds both out of every published cut
+    until a reference block exercises them. They are written here so the
+    judgment survives the run that made it, not so a cut can count them.
+    """
+
+    case_id: str = Field(
+        min_length=1,
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and ``data/cases``",
+    )
+    docket_number: str = Field(
+        min_length=1,
+        description="The Court's own docket number (e.g. ``25-52``) — the second half of the "
+        "key pair the extract and reference joins are checked against",
+    )
+    label: QpTopicLabel = Field(
+        description="The primary ``qp-topic-v0`` label: mandatory, single, and the only "
+        "field any published count sums over"
+    )
+    secondary: QpTopicLabel | None = Field(
+        default=None,
+        description="An advisory second subject for a smuggled question — never counted, "
+        "and unpublishable in v0",
+    )
+    vehicle: bool = Field(
+        default=False,
+        description="The petition asks for a GVR in light of a named decision; the label is "
+        "the underlying subject. Recorded, unpublishable in v0",
+    )
+
+
+class QpTopicLabelAgreement(_Strict):
+    """One label's agreement between a labeler and the v0 reference rater.
+
+    Counted over the reference entries carrying this label, so ``n`` is the
+    *reference* support, not the labeler's. ``rate`` is withheld below the
+    per-label support floor: under it the count is reported and the ratio is
+    not, because a single entry moves it by tens of points.
+    """
+
+    label: QpTopicLabel = Field(description="The reference label this row counts")
+    agree: int = Field(ge=0, description="Compared entries where the labeler assigned this label")
+    n: int = Field(ge=0, description="Compared reference entries carrying this label")
+    rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="agree / n — agreement with the v0 reference rater, not accuracy. Null "
+        "below the support floor, where the label is unmeasured in v0",
+    )
+
+
+class QpTopicTriangleRow(_Strict):
+    """One row of the ``constitutional-rights`` / ``criminal-law`` / ``civil-procedure`` matrix.
+
+    The row is a reference label; ``counts`` are the labeler's assignments over
+    the same three labels in that fixed order, so ``counts[i]`` of the row for
+    label *i* is the diagonal. A labeler label from outside the triangle lands
+    in ``other``, which keeps every row summing to ``n`` without widening the
+    matrix past the three labels whose boundaries are the error sink.
+    """
+
+    reference: QpTopicLabel = Field(description="The reference label this row counts")
+    counts: list[int] = Field(
+        min_length=3,
+        max_length=3,
+        description="Labeler assignments in the fixed order constitutional-rights, "
+        "criminal-law, civil-procedure",
+    )
+    other: int = Field(
+        ge=0, description="Compared entries the labeler placed outside the three triangle labels"
+    )
+    n: int = Field(ge=0, description="Compared reference entries carrying this row's label")
+
+
+class QpTopicAgreement(_Strict):
+    """A labeler's measured agreement with the ``qp-topic-v0`` reference raters.
+
+    Every quantity here is **agreement with the reference raters**, never
+    accuracy: reference error and labeler error cannot be separated, least of
+    all on the boundary labels, and a labeler of the reference raters' own
+    model family partly measures shared convention. The reference set's
+    two-block, outcome-stratified frame is disclosed in ``docs/qp-topic.md``;
+    the pooled rate here spans both streams, and the per-stream split is
+    derived at measurement review by joining the reference to the corpus's
+    dispositions — deliberately not carried in the committed artifacts. Only
+    reference entries the labeler actually covered are compared; the rest are
+    counted in ``uncovered``.
+    """
+
+    overall_agree: int = Field(ge=0, description="Compared entries where the two labels match")
+    overall_n: int = Field(ge=0, description="Reference entries the labeler covered and compared")
+    overall_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="overall_agree / overall_n — agreement with the v0 reference rater, not "
+        "accuracy. Null when nothing was compared",
+    )
+    uncovered: int = Field(
+        ge=0, description="Reference entries the labeler produced no label for, so unmeasured"
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler would score on the same compared entries — the "
+        "largest reference class's share. An agreement rate is unreadable without it; the "
+        "distance from it is the only part that is skill",
+    )
+    per_label: list[QpTopicLabelAgreement] = Field(
+        default_factory=list,
+        description="Per-reference-label agreement, floor-gated, in the vocabulary's own "
+        "alphabetical order",
+    )
+    triangle: list[QpTopicTriangleRow] = Field(
+        default_factory=list,
+        description="The 3x3 confusion matrix on the constitutional-rights / criminal-law / "
+        "civil-procedure triangle, one row per reference label",
+    )
+    gate_passed: bool = Field(
+        description="Overall agreement reached the publication gate **and** the run covered "
+        "enough of the reference set to have measured the stream; failing either, a "
+        "labeler publishes nothing"
+    )
+
+
+class QpTopicShadow(_Strict):
+    """The deterministic shadow rules' standing disagreement with the agent labeler.
+
+    The rules publish nothing and pre-empt nothing: they are a regression
+    trip-wire, so a drifting labeler shows up as a moving disagreement rate
+    before it shows up in a published cut. **Only the movement is readable, not
+    the level**: the rules' precision was measured on the reference set and is
+    unmeasured on the labeled stream, which is denial-heavy where the reference
+    set is grant-enriched — so a disagreement here is as likely a rule being
+    wrong as a labeler being wrong. Compare a run only against another run of the
+    same labeler over the same extract.
+
+    ``texts`` is the denominator that makes ``fired`` readable: without it a run
+    whose extract covered nothing reports the same clean zeros as a run no rule
+    happened to fire on.
+    """
+
+    texts: int = Field(
+        ge=0, description="Labeled cases the extract supplied a text for — the rules' denominator"
+    )
+    fired: int = Field(ge=0, description="Of those, texts exactly one shadow rule fired on")
+    disagreements: int = Field(
+        ge=0, description="Of those, texts where the agent label differs from the rule's label"
+    )
+
+
+class QpTopicLabels(_Strict):
+    """``data/qp-topics/qp-topics.json`` — one labeler run's ``qp-topic-v0`` labels.
+
+    The primary label for every question-presented text the labeler read,
+    assigned from that text alone, carrying its own measurement: agreement with
+    the hand reference set, the triangle confusion matrix, and the shadow rules'
+    disagreement rate. The artifact is written only when the agreement gate
+    passes, so a labels file on disk is one whose measurement is on the record
+    beside it. Labels here are a corpus description, not a prediction claim, and
+    nothing frozen reads them. Every published cut drawn from this file carries
+    the coverage caveat in ``docs/qp-topic.md``, and neither ``secondary`` nor
+    ``vehicle`` may appear in one while the reference set leaves them unmeasured.
+
+    ``gate_passed`` is necessary and **not sufficient** for publication: the
+    reference set's frame certifies the grant stream only, and ``docs/qp-topic.md``
+    bars every cut until a denial- and GVR-stratified supplement block exists and
+    is measured. A cut-builder that reads no further than this file will publish
+    too early.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v0"] = Field(
+        default="qp-topic-v0",
+        description="The label vocabulary every entry draws from",
+    )
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the labels — a free-form actor string (engine and model), "
+        "so a measured agreement is attributable to what produced it",
+    )
+    cases: int = Field(default=0, ge=0, description="Number of labeled cases (== len(entries))")
+    agreement: QpTopicAgreement = Field(
+        description="This run's measured agreement with the v0 reference rater"
+    )
+    shadow: QpTopicShadow = Field(
+        description="The deterministic shadow rules' firing and disagreement counts"
+    )
+    entries: list[QpTopicLabelEntry] = Field(
+        default_factory=list,
+        description="One entry per labeled case, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicLabels:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -3164,6 +3480,13 @@ class StatPackSection(_Strict):
         "otherwise",
     )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
+    scope_note: str | None = Field(
+        default=None,
+        description="Scope the boolean flags above cannot express, appended verbatim to "
+        "the rendered scope line and carried here so a share quoted out of the JSON keeps "
+        "it. Where a population caveat is mandatory for a cut — the `qp-topic-v0` coverage "
+        "caveat, say — this is where it travels; None where the flags say everything",
+    )
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
 
@@ -3616,8 +3939,25 @@ class _StatPackMeritsCounts(_Strict):
         ge=0,
         description="SCOTUS cases in this slice whose grant opens a merits "
         "proceeding (a plain or partial grant with `date_cert_granted` set; a "
-        "GVR or summary reversal decides in the cert order and is excluded) — "
-        "the cohort the merits backfill walks, parsed or not",
+        "GVR or summary reversal decides in the cert order and is excluded, "
+        "as is — label-independently — any row whose parsed judgment carries "
+        "its grant's own date, whatever its label says: see "
+        "cert_order_excluded). A parsed judgment with no date stays here as "
+        "a visible coverage gap, outside the parsed slice, since the gap "
+        "test cannot run on it. Parsed or not",
+    )
+    cert_order_excluded: int | None = Field(
+        default=None,
+        ge=0,
+        description="Rows the label-independent pool guard removed from this "
+        "slice: a parsed judgment dated on or before its own grant rode the "
+        "cert order (docs/decision-model.md), so the row is outside granted, "
+        "parsed, and the rate alike. Zero is only meaningful beside a "
+        "healthy parse: a guard that stops firing and a guard with nothing "
+        "to fire on render the same zero, which is why the count is "
+        "published rather than implied. Null records a build the guard "
+        "never ran on at all — a pack parsed from before the guard existed "
+        "must not read as a measurement that it removed nothing.",
     )
     parsed: int = Field(
         default=0,
@@ -3702,9 +4042,11 @@ class StatPackMerits(_StatPackMeritsCounts):
     (``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the
     ``terms`` array is a scoring input as well as a description. The population
     is the grants that open a merits proceeding — the same rule that mints the
-    event a merits forecast is made on — so a GVR, whose vacatur rides in the
-    cert order itself, never contributes a near-certain disturbance to a rate
-    that scores forecasts about argued cases.
+    event a merits forecast is made on — minus, label-independently, any row
+    whose parsed judgment carries its grant's own date or no date at all
+    (``docs/decision-model.md``'s pool guard), so a GVR, whose vacatur rides
+    in the cert order itself, never contributes a near-certain disturbance to
+    a rate that scores forecasts about argued cases, whatever its label says.
     """
 
     terms: list[StatPackMeritsTerm] = Field(
@@ -3894,6 +4236,81 @@ class DocketPackTerm(_Strict):
     )
 
 
+class DocketPackQpTopics(_Strict):
+    """The question-presented topic distribution, inseparable from who labeled it.
+
+    A topic share is only readable beside the labeler that produced it and that
+    labeler's measured agreement with the ``qp-topic-v0`` reference rater, so the
+    two travel in one object rather than as a section a quotation can lift alone.
+    ``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,
+    reference error and labeler error cannot be separated, and the reference
+    frame is grant-enriched, so the figure certifies the grant stream only
+    (``docs/qp-topic.md``).
+
+    Three fields exist because the headline rate alone is unreadable. ``floor``
+    is what a constant labeler scores on the same entries — the distance from it
+    is the only part that is skill. ``uncovered`` is the reference entries the
+    labeler never labeled, so ``n`` is not mistaken for the whole reference set.
+    ``unmeasured_labels`` names the buckets whose per-label agreement is
+    unmeasured in v0 (under the reference support floor), so a row quoted from
+    the table is not read as certified by the headline figure.
+
+    ``section`` counts **primary labels only** — secondary labels and the vehicle
+    flag are unmeasured in v0 and appear in no published cut — over the labeled
+    cases alone, and its ``scope_note`` carries the coverage caveat every
+    published share must render beside it.
+    """
+
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the labels — the free-form actor string from the labels "
+        "artifact, so a quoted share names what produced it",
+    )
+    agree: int = Field(
+        ge=0,
+        description="Reference entries where the labeler matched the v0 reference rater — "
+        "agreement, not accuracy",
+    )
+    n: int = Field(
+        ge=0,
+        description="Reference entries the labeler covered and was compared on — the "
+        "denominator of `agree`, which is agreement, not accuracy",
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries. An "
+        "agreement rate is unreadable without it: on a sixteen-label vocabulary most of "
+        "the rate is the floor, and only the distance from it is skill",
+    )
+    uncovered: int = Field(
+        default=0,
+        ge=0,
+        description="Reference entries the labeler produced no label for, so `n` is not "
+        "read as the whole reference set",
+    )
+    labeled_cases: int = Field(
+        default=0, ge=0, description="Cases the labels artifact carries a primary label for"
+    )
+    matched_cases: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, the ones that joined a row in this section's population — the "
+        "cut's raw row count. Far below `labeled_cases` means the labels were produced "
+        "against a different corpus vintage, which reads as thin coverage unless both are here",
+    )
+    unmeasured_labels: list[QpTopicLabel] = Field(
+        default_factory=list,
+        description="Buckets whose per-label agreement is unmeasured in v0 — fewer reference "
+        "examples than the support floor, where one entry moves the ratio by tens of points. "
+        "The headline agreement certifies none of these rows",
+    )
+    section: StatPackSection = Field(
+        description="The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+    )
+
+
 class DocketPack(_Strict):
     """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
 
@@ -3941,6 +4358,12 @@ class DocketPack(_Strict):
         default_factory=list,
         description="Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), "
         "most recent Term first",
+    )
+    qp_topics: DocketPackQpTopics | None = Field(
+        default=None,
+        description="The question-presented topic distribution with its labeler provenance, "
+        "present only once a labels artifact exists; None while none has been produced, in "
+        "which case the rendered document names it among the gaps instead",
     )
 
 
@@ -4638,6 +5061,8 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
+    "qp-topic-reference.json": QpTopicReference,
+    "qp-topics.json": QpTopicLabels,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -4668,4 +5093,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "cell_failure": CellFailure,
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
+    "qp_topic_reference": QpTopicReference,
+    "qp_topics": QpTopicLabels,
 }

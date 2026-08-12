@@ -87,6 +87,104 @@
       "title": "DispositionShare",
       "type": "object"
     },
+    "DocketPackQpTopics": {
+      "additionalProperties": false,
+      "description": "The question-presented topic distribution, inseparable from who labeled it.\n\nA topic share is only readable beside the labeler that produced it and that\nlabeler's measured agreement with the ``qp-topic-v0`` reference rater, so the\ntwo travel in one object rather than as a section a quotation can lift alone.\n``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,\nreference error and labeler error cannot be separated, and the reference\nframe is grant-enriched, so the figure certifies the grant stream only\n(``docs/qp-topic.md``).\n\nThree fields exist because the headline rate alone is unreadable. ``floor``\nis what a constant labeler scores on the same entries \u2014 the distance from it\nis the only part that is skill. ``uncovered`` is the reference entries the\nlabeler never labeled, so ``n`` is not mistaken for the whole reference set.\n``unmeasured_labels`` names the buckets whose per-label agreement is\nunmeasured in v0 (under the reference support floor), so a row quoted from\nthe table is not read as certified by the headline figure.\n\n``section`` counts **primary labels only** \u2014 secondary labels and the vehicle\nflag are unmeasured in v0 and appear in no published cut \u2014 over the labeled\ncases alone, and its ``scope_note`` carries the coverage caveat every\npublished share must render beside it.",
+      "properties": {
+        "agree": {
+          "description": "Reference entries where the labeler matched the v0 reference rater \u2014 agreement, not accuracy",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler scores on the same compared entries. An agreement rate is unreadable without it: on a sixteen-label vocabulary most of the rate is the floor, and only the distance from it is skill",
+          "title": "Floor"
+        },
+        "labeled_cases": {
+          "default": 0,
+          "description": "Cases the labels artifact carries a primary label for",
+          "minimum": 0,
+          "title": "Labeled Cases",
+          "type": "integer"
+        },
+        "labeler": {
+          "description": "Who assigned the labels \u2014 the free-form actor string from the labels artifact, so a quoted share names what produced it",
+          "minLength": 1,
+          "title": "Labeler",
+          "type": "string"
+        },
+        "matched_cases": {
+          "default": 0,
+          "description": "Of those, the ones that joined a row in this section's population \u2014 the cut's raw row count. Far below `labeled_cases` means the labels were produced against a different corpus vintage, which reads as thin coverage unless both are here",
+          "minimum": 0,
+          "title": "Matched Cases",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Reference entries the labeler covered and was compared on \u2014 the denominator of `agree`, which is agreement, not accuracy",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "section": {
+          "$ref": "#/$defs/StatPackSection",
+          "description": "The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+        },
+        "uncovered": {
+          "default": 0,
+          "description": "Reference entries the labeler produced no label for, so `n` is not read as the whole reference set",
+          "minimum": 0,
+          "title": "Uncovered",
+          "type": "integer"
+        },
+        "unmeasured_labels": {
+          "description": "Buckets whose per-label agreement is unmeasured in v0 \u2014 fewer reference examples than the support floor, where one entry moves the ratio by tens of points. The headline agreement certifies none of these rows",
+          "items": {
+            "enum": [
+              "administrative-law-and-benefit-programs",
+              "business-and-financial-regulation",
+              "civil-procedure",
+              "constitutional-rights",
+              "criminal-law",
+              "election-law",
+              "employment-and-antidiscrimination",
+              "environment-energy-and-property",
+              "firearms",
+              "first-amendment",
+              "habeas-and-postconviction",
+              "immigration",
+              "intellectual-property",
+              "sovereignty-and-foreign-relations",
+              "tax",
+              "unclassifiable"
+            ],
+            "type": "string"
+          },
+          "title": "Unmeasured Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "labeler",
+        "agree",
+        "n",
+        "section"
+      ],
+      "title": "DocketPackQpTopics",
+      "type": "object"
+    },
     "DocketPackTerm": {
       "additionalProperties": false,
       "description": "One October Term's census in the court-facing docket pack.\n\nThe whole-docket view of a Term: how many petitions were docketed, how many\nof them this project has ingested, and how the ingested ones came out. It\npools the paid and IFP streams that :class:`StatPackTerm` keeps apart, and\ncarries no salience segmentation \u2014 which petitions a model was pointed at is\na fact about the project, not about the Court.",
@@ -211,7 +309,7 @@
       "type": "object"
     },
     "GroupBy": {
-      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. The three\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band\n(high / elevated / baseline) over the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.",
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. The three\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band\n(high / elevated / baseline) over the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.\n``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's\nquestions-presented text (``docs/qp-topic.md``) \u2014 distinct from ``topic``,\nwhich is the corpus's upstream nature-of-suit column and empty on SCOTUS\nrows. It is read from a labeler's artifact rather than off a corpus row, so\na section supplies its own key function for it and ``stats`` does not offer\nit as a cut.",
       "enum": [
         "court",
         "topic",
@@ -223,7 +321,8 @@
         "relist_bucket",
         "cvsg",
         "fee_class",
-        "salience_band"
+        "salience_band",
+        "qp_topic"
       ],
       "title": "GroupBy",
       "type": "string"
@@ -304,6 +403,19 @@
           "title": "Live Slice",
           "type": "boolean"
         },
+        "scope_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scope the boolean flags above cannot express, appended verbatim to the rendered scope line and carried here so a share quoted out of the JSON keeps it. Where a population caveat is mandatory for a cut \u2014 the `qp-topic-v0` coverage caveat, say \u2014 this is where it travels; None where the flags say everything",
+          "title": "Scope Note"
+        },
         "title": {
           "description": "Human title of the breakdown, e.g. 'Cases by court'",
           "title": "Title",
@@ -358,6 +470,18 @@
       "minimum": 0,
       "title": "Open",
       "type": "integer"
+    },
+    "qp_topics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPackQpTopics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The question-presented topic distribution with its labeler provenance, present only once a labels artifact exists; None while none has been produced, in which case the rendered document names it among the gaps instead"
     },
     "resolved": {
       "default": 0,

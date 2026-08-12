@@ -1,7 +1,37 @@
 # Metrics
 
 Pipeline metrics: small, deterministic, git-tracked roll-ups whose reviewed
-diffs track predictor and corpus quality over time. The offline gate
+diffs track predictor and corpus quality over time.
+
+**Process scope: frozen vs alpha.** Every claimable figure here about
+*predictor performance* is scoped to the **frozen** process partition
+([docs/process-version.md](../docs/process-version.md)): a cell counts toward
+a frozen-scope performance artifact only if its **prediction's**
+`process_version` stamp carries a digest in `FROZEN_PROCESS_DIGESTS` with a
+stamp at or after the `FROZEN_SINCE` freeze instant — the partition keys on
+the prediction because the predictor is the competitor being ranked; the
+evaluator's own digest is recorded and never enforced — *and* the
+evaluation's own harness stamp is at or after that instant (the stamp, never
+the agent-written `created_at`: the boundary rests only on clocks the agent
+cannot write), both constants set in the
+pre-registration commit the `prereg/<label>` tag marks. Everything else in
+`data/` is the **alpha/shakedown ledger** — cells written before the stamp
+existed (they carry no `process_version` at all; the absent stamp is the
+marker) or run or graded before the freeze instant. Alpha cells stay
+committed with their timestamps, but they are **excluded from every
+frozen-scope performance artifact and from any claimed performance result** —
+they exercised the pipeline while the process was still moving, and nothing
+about them was pre-registered. `leaderboard.json` and `claim-scores.json`
+publish which scope they were built under as `process_scope` (`"frozen"` or
+`"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
+diagnostic view, never a results surface. The prediction census and the
+leakage digest deliberately stay version-blind (they are plumbing
+diagnostics, and shakedown contamination is exactly what the leakage digest
+exists to surface), and the corpus-descriptive artifacts here — the statpack,
+the docket pack, the salience replay — carry no process version at all: they
+are facts about the corpus, scoped by their own salience version and vintage.
+
+The offline gate
 (`fedcourts corpus-status`) checks that the five gate-tracked artifacts —
 `leaderboard.json`, `claim-scores.json`, `backtest.json`, `statpack.json`,
 `statpack.md` — exist
@@ -155,9 +185,9 @@ stays outside the gate:
 
   Scope rules travel with the figure. It is **cert stage only** — no other
   stage has a salience band, so none has a band rate to realize, and every
-  non-cert `stages` block reports it null with a zero count (this is not the
-  merits GVR-guard suppression described below; merits would have nothing to
-  realize even once that guard lands). It is **version-pinned** exactly like
+  non-cert `stages` block reports it null with a zero count (a scope fact,
+  not a merits skill rule: merits has no band, so it has nothing to
+  realize). It is **version-pinned** exactly like
   the prior-Term pool: a band name means something only under the salience
   version that assigned it, so a Term carrying another version contributes
   nothing rather than a blend. It rests on a **stated minimum** —
@@ -473,28 +503,42 @@ registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is claimable **only against that declared
 baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
 the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind. What keeps a merits cell out of that mean is a `validate` check
-(`merits_evaluations_score_no_skill`), not the averaging — see the next
-paragraph — and only
+stage-blind — and only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
 no skill score, and no substitute rate. Three things travel with any merits
 figure. The baseline's population is the section's population is the scored
-population: the grants that open a merits proceeding, with the two procedural
-exits counted as undisturbed (a DIG and an equally divided affirmance leave
+population — up to predict scope: the section admits every grant that opens
+a merits proceeding while the forecast side further excludes IFP,
+consolidated-out-of-scope, and date-inconsistent rows, a small residue now
+that the guard removes the (mostly IFP) stale-labeled vacaturs. The two
+procedural
+exits count as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and
-with GVRs and summary reversals absent because they are cert-stage
-dispositions that mint no merits cell. That exclusion is only as good as the
-row's disposition label, and two classes escape it: the `gvr` label is a
-forward convention, so a Term resolved before it existed carries its GVRs as
-plain `granted`, and no resolver produces `summary-reversal` at all — both
-parse as near-certain vacaturs, so the rate over any Term with unlabelled GVRs
-is an **upper bound**, and no merits skill number may be published against a
-pool drawing on such a Term — which, until the label-independent guard
-`docs/decision-model.md` names is built, is honoured by omitting
-`brier_skill_score` on every merits cell, in the evaluate prompt and in the
-`validate` gate behind it. And the window is the same ten-Term
+GVRs and summary reversals are absent because they are cert-stage
+dispositions that mint no merits cell. That exclusion does not rest on the
+row's disposition label alone: the `gvr` label is a forward convention, a
+row's label can lag its own cert order (measured, the stale labels sit on
+recent IFP GVRs), and no
+resolver produces `summary-reversal` at all — both classes parse as
+near-certain
+vacaturs — so the section also applies the label-independent guard
+`docs/decision-model.md` registers
+(`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
+on or before its own grant rode the cert order and is excluded from the
+cohort entirely, whatever its label says, with the removed rows published as
+the section's `cert_order_excluded`. When that count is a number, the pooled
+**rate** is clean of every cert-order vacatur whose judgment parsed with a
+date; when it is `null`, the pack predates the guard, and the section's
+figures carry whatever contamination the guard would have removed — quote
+nothing from a null-guard merits section. Three residues
+survive, and they travel with any quoted figure: a summary reversal issued in
+a later order than its grant is caught by neither guard; an *unparsed*
+cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
+figure can still carry it even though the rate cannot; and a parsed judgment
+with no date stays in `granted` the same way, since the gap test cannot run
+on it. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -506,15 +550,13 @@ skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
 publishes.
 
-No merits **skill** number is published, and two separate things hold it back.
-The prohibition above is the binding one: until the label-independent guard
-lands, `brier_skill_score` is omitted on every merits cell by rule, so the
-merits stage block's skill figure is null and its `skill_scored` zero for the
-same reason the interim block's are. And the pack gates the baseline itself —
-the merits section publishes only once a corpus row carries a parsed judgment,
-and the pooled prior-Term sample must clear the minimum, below which the
-declared claim goes unscored too, so nothing realizes the registered baseline
-at all. What a merits cell does record is `segment_base_rate`, read from the
+A merits **skill** number exists only where the pack can support it: the
+merits section publishes only once a corpus row carries a parsed judgment
+(the guarded cohort above), and the pooled prior-Term sample must clear the
+stated minimum — below it there is no baseline, the declared claim goes
+unscored, and the merits stage block's skill figure is null with
+`skill_scored` zero, exactly as the interim block's are. A merits cell
+records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
 
@@ -702,10 +744,11 @@ the rendered table) and
   disposition rides in the cert order itself, are absent: their vacaturs are
   cert-stage facts, already counted in the cert sections, and would otherwise
   count as disturbed judgments in cases no one forecast at the merits stage.
-  The exclusion reads the row's cert disposition label, so it is exact only
-  where that label is (the `gvr`/`summary-reversal` caveat above the stage
-  blocks applies here too: over a Term whose GVRs are unlabelled the rate is an
-  upper bound).
+  The exclusion reads the row's cert disposition label and, where the label
+  cannot be trusted, the grant→judgment gap: a parsed judgment dated on or
+  before its own grant — or carrying no date the gap could be tested on —
+  is excluded label-independently, so every parsed judgment in the cohort
+  provably postdates its grant.
   **What may be
   claimed from it:** the counts are *descriptive* facts about the parsed
   cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of
@@ -757,9 +800,18 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. The document names the statistics it
-  cannot yet compute (what the petitions are about, which needs a claim taxonomy
-  that does not exist; summary reversals, which have a disposition label
+  *not yet parsed*, not *did not happen*. What the petitions are about — the
+  `qp-topic-v0` claim taxonomy of `docs/qp-topic.md` — renders as its own cut of
+  primary labels the next time `fedcourts docket` runs over a gate-passing labels
+  artifact, always beside the labeler that produced it, that labeler's agreement
+  with the reference rater against the rate a constant labeler scores (agreement,
+  **not** accuracy), the labels that vocabulary cannot yet measure, and the inline
+  scope string it requires — which says in the same breath that no reweighting
+  recovers the docket, so that cut's `est. n=` is the one denominator here that
+  rescales a QP-bearing stream rather than estimating a docket population. No
+  labeler has run, so the document names the missing distribution among its gaps
+  instead. The document names the other statistics it
+  cannot yet compute the same way (summary reversals, which have a disposition label
   but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
@@ -779,6 +831,30 @@ data, e.g. a Supreme Court Database import), amicus-brief counts per petition
 (need docket-entry parsing beyond the proceedings), oral-argument statistics
 (need transcript data), and a merits circuit scorecard (affirm/reverse by
 court below — needs judgment-entry parsing on decided merits cases).
+
+**What may be claimed from an agreement rate.** A `qp-topic-v0` labeling run
+(`data/qp-topics/qp-topics.json`, `docs/qp-topic.md`) produces one instrument
+this document does not otherwise carry, and it is not a skill number: it is
+**agreement with a single agent reference rater, never accuracy**. Reference
+error and labeler error cannot be separated — least of all on the boundary
+labels, which is where the disagreement lives — and the reference rater was
+itself an agent session, so agreement with a labeler of the same model family
+partly measures shared convention rather than correctness. Three rules travel
+with the figure. **Always with its `n`, and always beside the floor** a constant
+labeler would score on the same entries — the largest reference class's share,
+about 21% on the v0 set: the rate alone is unreadable, and only the distance
+above the floor is anything a labeler did. **Per-label rates only at or above
+the support floor** — nine of the sixteen labels have fewer than 10 reference
+examples, and under the floor a label is published as a raw count, not a rate.
+**Nothing transfers to a topic cut yet**: the reference frame contains every
+QP-bearing grant and 40 of 855 denials, so the rate certifies the grant stream
+only, and the denial/IFP stream that dominates any reweighted cut is unmeasured
+until the stratified supplement block exists. The deterministic shadow rules'
+disagreement count is a regression trip-wire on one labeler's movement between
+runs, not a second measurement — its *level* is uninterpretable off the
+reference set. No topic label enters a claim score, a leaderboard rank, or any
+denominator here; a labeling run describes the corpus and commits a predictor to
+nothing.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,

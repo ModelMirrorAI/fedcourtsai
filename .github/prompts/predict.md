@@ -156,7 +156,12 @@ cases-citing-authority search) and lives on SCOTUS rows, `--topic` is an
 exact nature-of-suit string on circuit rows only — both are sparse, and an
 empty result through them prints a `note:` line naming the coverage gap
 rather than meaning "no such precedent". Don't burn turns retrying sparse
-filters. For aggregate
+filters. Add `--full` to hydrate a returned prior's opinion body where the
+corpus holds one (`has_opinion` on the row says so) — it costs real extra
+egress per opinion-bearing row, and the `ranged corpus reads` line does not
+count a body served from the content store, so on a `--full` query treat that
+line as a floor on egress, not the total. Ask for `--full` only on the
+handful of priors you actually intend to read, not on a broad sweep. For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
 Its cert statistics are computed over the live/historical slice with
@@ -309,10 +314,10 @@ of the requested relief**:
   the application will be **referred** to the full Court, and roughly **when**
   and how it will be disposed of. Merits-shaped content stays conditional,
   exactly as on the cert path.
-- **No `claims` block.** The harness declares no claim set for a motion-kind
-  event (`fedcourtsai.pipeline.claims` — a motion declares none), so write no
-  `claims` field at all, per the declared-set rule under `prediction.json`
-  below.
+- **No `claims` block.** The harness declares no claim set for any interim
+  moment, whatever the event's kind (`fedcourtsai.pipeline.moments` — every
+  interim moment declares no set), so write no `claims` field at all, per the
+  declared-set rule under `prediction.json` below.
 
 ### Stage: merits (the Court's judgment after argument)
 
@@ -396,7 +401,9 @@ was worth.
   stage, not a defect in your cell — no flag is owed for it.
 - **The statpack's merits section is the anchor, on its stated terms.** Where
   the committed `metrics/statpack.md` carries a **"The merits docket (granted
-  cases)"** section, its per-Term **disturbed rate** is what a merits forecast
+  cases)"** section that publishes an `excluded` count (a section without one
+  is unquotable — the missing-or-unquotable bullet below governs), its
+  per-Term **disturbed rate** is what a merits forecast
   anchors on: pool `disturbed` over `parsed` across the ten grant Terms before
   your case's (`grant_term - 10 <= T < grant_term`, strictly before). Two
   qualifications on that arithmetic before the substantive ones. Count the ten
@@ -422,18 +429,17 @@ was worth.
     figure you cite.
   - **The population is the grants that open a merits proceeding** — the same
     rule that minted your event — so a GVR or summary reversal, which decides
-    in the cert order itself, is excluded. That exclusion is only as good as
-    the row's disposition label, and the `gvr` label is a **forward
-    convention**: a Term resolved into the corpus before the label existed
-    carries its GVRs as plain `granted`, and their near-certain vacaturs then
-    sit inside the disturbed rate. Over such a Term the published rate is an
-    **upper bound**, not the rate argued cases face. Read a pooled rate that
-    looks high against that possibility before reading it as the Court's
-    behaviour, and say in `reasoning.md` which reading you took. It is also
-    why no merits **skill** number is published at all today: the evaluator
-    omits `brier_skill_score` on every merits cell until a guard that does not
-    depend on that label lands, so the pooled rate is an anchor for your
-    reasoning and never a bar you are scored over.
+    in the cert order itself, is excluded, and the exclusion does not rest on
+    the disposition label alone: the `gvr` label is a forward convention, so
+    the section also excludes, label-independently, any row whose parsed
+    judgment carries its own grant's date or no date the gap could be tested
+    on (a disposition riding in the cert order carries the grant's own date —
+    `docs/decision-model.md`). Where the section publishes an `excluded`
+    count, every parsed judgment in the pool provably postdates its grant and
+    the pooled rate is the rate argued cases face — the baseline your cell's
+    `brier_skill_score` **is scored against**, so treat it as the bar, not
+    merely an anchor. A section with no `excluded` count was built before the
+    guard existed, and the missing-or-unquotable bullet below governs.
   - **A DIG and an equally divided affirmance count as undisturbed** and stay
     in the denominator, so the rate answers exactly the binary you are
     forecasting.
@@ -442,12 +448,15 @@ was worth.
     here too: anchor only on Term rows strictly preceding your clock, and never
     on the section's pack-level rate, which pools every Term including your
     own and later ones.
-  - **The pack may carry no merits section at all.** It publishes only once a
-    corpus row holds a parsed merits judgment, and it is omitted rather than
-    emitted empty while none does. Finding nothing is the ordinary case today,
-    not a broken cell: say so in `reasoning.md`, anchor on the record and on
-    what you know about the Court's disposition of argued cases, and do not
-    dress a remembered figure up as a committed base rate.
+  - **The merits section may be missing or unquotable.** It publishes only
+    once a corpus row holds a parsed merits judgment, and it is omitted rather
+    than emitted empty while none does; and a section that publishes **no
+    `excluded` count** (no such column, or a dash where the count belongs) was
+    built before the pool guard existed, so its rate carries whatever
+    contamination the guard would have removed and `metrics/README.md` rules
+    it unquotable. In either case say so in `reasoning.md`, anchor on the
+    record and on what you know about the Court's disposition of argued cases,
+    and do not dress a remembered figure up as a committed base rate.
 - **`predicted_reasoning.md` for a merits cell.** Doctrinal reasoning earns its
   place here in a way it does not at cert: there *will* be an opinion, the
   ground the Court decides on is a real forecast, and "if granted, the likely
@@ -518,7 +527,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     parties — never post-hoc press coverage). Optionally add a one-line
     `big_case_rationale`. It is judged later by an independent evaluator's
     agreement with its own read, never against a ground truth.
-  - `claims` — the **harness-declared claim set** for this event's kind, one
+  - `claims` — the **harness-declared claim set** for this event, one
     `{claim_id, probability}` entry per declared claim. The harness declares
     the set (`fedcourtsai.pipeline.claims`); you state a probability for every
     declared claim — no additions, no declining. The **merits** event declares
@@ -548,10 +557,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     the forward hazard from your state is not a row you can look up; the
     guidance under the forecast document below says what the shape does tell
     you. Where your event declares no set, write no `claims` field at all: an
-    interim application cell writes none (*Stage: interim* above). The
-    declaration is keyed on the event, not on a rule of thumb about its kind —
-    the merits event is order-kind and declares a set, while every other order
-    event and every motion declares none.
+    interim cell writes none (*Stage: interim* above). The declaration is
+    keyed on the event's declared moment, never on a rule of thumb about its
+    kind — both cert moments (the petition and the CVSG order) declare
+    `cert-v1`, both merits moments (the judgment order and the
+    respondent-brief re-predict) declare `merits-v1`, and no interim moment
+    declares a set.
   - `reasoning_doc` — `reasoning.md` (the default).
   - `predicted_reasoning_doc` — `predicted_reasoning.md`. Always write the
     document and name it. The field is nullable only so records written before it
@@ -681,6 +692,11 @@ willing to be scored on, not a hedge.
   already decided (a mis-provisioned cell — see the forward-mode caveat under
   *Retrieval* above); use `other` when you simply carry the outcome from training
   on a well-known case.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing a
+  prediction may use, and a read of that path in your logged tool calls is graded
+  as retrieved outcome material by the evaluation. If you have already read it,
+  say so in `flags.json` (`category` `other`) and disregard what you saw.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or

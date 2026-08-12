@@ -269,7 +269,7 @@
           "title": "Pipeline Sha"
         },
         "stamped_at": {
-          "description": "When the harness stamped the cell (UTC)",
+          "description": "When the harness stamped the cell (UTC, timezone-aware). Provenance, and \u2014 with the digest \u2014 the frozen/alpha partition key: the digest says which process ran, this stamp says whether it ran at or after the pre-registration instant. The runner clock is the witness, bounded independently by the workflow run's own timestamps and the data commit's date; a naive value reads as pre-freeze.",
           "format": "date-time",
           "title": "Stamped At",
           "type": "string"

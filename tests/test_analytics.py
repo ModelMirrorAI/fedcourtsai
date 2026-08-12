@@ -265,16 +265,17 @@ def test_cli_bad_group_by_errors(fixture_corpus: FixtureCorpus) -> None:
     result = runner.invoke(app, ["stats", "--group-by", "nope"])
     assert result.exit_code == 2
     assert "Unknown --group-by" in result.stderr
-    # The refusal is half of discoverability: it must name the real set.
-    for dimension in GroupBy:
+    # The refusal is half of discoverability: it must name the real set — the
+    # dimensions keyed off a corpus row, which is what this command can compute.
+    for dimension in analytics.STATS_DIMENSIONS:
         assert dimension.value in result.stderr
 
 
 def test_stats_group_by_help_lists_every_dimension() -> None:
     """`--help` is how a cell agent discovers the cuts it can ask for, so a
-    dimension the enum accepts but the help omits is invisible in practice.
+    dimension the command accepts but the help omits is invisible in practice.
 
-    Asserted against the joined enum rather than value-by-value: five of the
+    Asserted against the joined accepted set rather than value-by-value: five of the
     dimensions (`court`, `topic`, `judge`, `era`, `disposition`) also name
     *other* options on the page, so a per-value search would pass even if
     `--group-by` listed none of them.
@@ -288,7 +289,7 @@ def test_stats_group_by_help_lists_every_dimension() -> None:
     assert result.exit_code == 0
     plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
     rendered = " ".join(plain.replace("│", " ").split())
-    assert ", ".join(g.value for g in GroupBy) in rendered
+    assert ", ".join(g.value for g in analytics.STATS_DIMENSIONS) in rendered
 
 
 def test_the_dispatch_input_advertises_every_dimension() -> None:
@@ -297,20 +298,33 @@ def test_the_dispatch_input_advertises_every_dimension() -> None:
     so it is pinned here instead, where the CLI help is pinned."""
     described = (Path(".github") / "workflows" / "run-analytics.yml").read_text()
     line = next(li for li in described.splitlines() if "corpus-stats: break base-rates" in li)
-    missing = [g.value for g in GroupBy if g.value not in line]
+    missing = [g.value for g in analytics.STATS_DIMENSIONS if g.value not in line]
     assert not missing, f"the group_by dispatch input omits: {missing}"
 
 
-@pytest.mark.parametrize("dimension", list(GroupBy))
+@pytest.mark.parametrize("dimension", list(analytics.STATS_DIMENSIONS))
 def test_every_advertised_dimension_actually_groups(
     dimension: GroupBy, fixture_corpus: FixtureCorpus
 ) -> None:
-    """Advertised implies works. The help now renders from the enum, so a new
-    member advertises itself the moment it is added; without this, a member with
-    no key function in `_KEY_FNS` would reach an agent as an offered dimension
-    and fail at runtime."""
+    """Advertised implies works, over the whole accepted set rather than a listed
+    subset. `STATS_DIMENSIONS` derives from `_KEY_FNS`, so a member with no key
+    function cannot reach an agent as an offered dimension; what this still pins is
+    that every offered dimension groups a real corpus without erroring — a key
+    function that is registered but broken, or that a filter interaction breaks."""
     result = runner.invoke(app, ["stats", "--group-by", dimension.value])
     assert result.exit_code == 0, result.output
+
+
+def test_stats_offers_only_the_dimensions_it_can_compute(fixture_corpus: FixtureCorpus) -> None:
+    # `qp_topic` keys off a labels artifact, not a corpus row, so `stats` cannot
+    # serve it and must not advertise it — offering a `--group-by` the aggregation
+    # would `KeyError` on is the failure this pins. It lives beside the other
+    # `STATS_DIMENSIONS` tests, where someone adding a dimension will look.
+    assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
+    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
+    result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
+    assert result.exit_code == 2
+    assert "Unknown --group-by 'qp_topic'" in result.stderr
 
 
 def test_cli_bad_disposition_errors(fixture_corpus: FixtureCorpus) -> None:

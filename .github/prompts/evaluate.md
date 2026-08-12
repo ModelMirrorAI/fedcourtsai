@@ -30,10 +30,10 @@ Two rules follow, and they are not optional:
 - **Do not attempt to identify a candidate.** Do not search for the masked text,
   reason about which engine writes which way, or ask any tool who wrote what.
 - **A guess is not evidence.** The masking removes the *name*, not every trace:
-  three candidates over three engines is a small guessing space, and the tool
-  vocabulary in a candidate's transcript is characteristic of the engine that
-  produced it (the transcript is staged unchanged because the leakage grading
-  reads it). So you may well form a suspicion. It carries no weight: it must not
+  three candidates over three engines is a small guessing space, prose style is
+  not masked, and the staged transcript's call-class profile (its tool names
+  are respelled as neutral classes, but their shape survives) still narrows
+  it. So you may well form a suspicion. It carries no weight: it must not
   enter `reasoning_quality`, `big_case`, the leakage grading, or `evaluation.md`,
   and you must not act on it by going to check.
 
@@ -224,8 +224,8 @@ fails the cell.
     stage's standing rule, not a per-cell anomaly a maintainer needs surfaced —
     unlike the salience-version mismatch above. Say in `evaluation.md` that the
     cell is interim and the skill fields are omitted by rule. `claim_scores`
-    stays absent as always: a motion-kind event declares no claim set, so the
-    harness stamps nothing.
+    stays absent as always: no interim moment declares a claim set, whatever
+    the event's kind, so the harness stamps nothing.
   - **Merits-stage cells** (the event's stage is `merits` — the judgment the
     Court entered after argument). `correct` is the judgment match and
     `judgment_correct` records it in its own field, both as defined above.
@@ -237,25 +237,23 @@ fails the cell.
     merits outcome writer records **no** votes today, so a null there is the
     record's silence, never the predictor's failure, and must not be scored as
     a zero. Then:
-    - **`brier_skill_score` is omitted on every merits cell.** Not a judgment
-      call and not conditional on the pack: the merits pool's exclusion of
-      GVRs and summary reversals reads the row's cert disposition label, the
-      `gvr` label is a forward convention, and a grant Term resolved into the
-      corpus before it existed carries its GVRs as plain `granted` — so their
-      near-certain vacaturs sit inside that Term's disturbed rate and the
-      pooled rate is an **upper bound** rather than the rate argued cases face.
-      `docs/decision-model.md` pre-registers that no merits skill number may be
-      published against such a pool and that the fan-out owes a
-      label-independent guard first; that guard is not built, so the number is
-      suppressed outright rather than published behind a heuristic that cannot
-      tell a partly-labelled Term from a clean one. Leave the field null and
-      say in `evaluation.md` that it is omitted by rule. No flag: this is the
-      stage's standing rule, not a per-cell anomaly. `validate` enforces it, so
-      a merits cell that writes one fails the gate rather than reaching the
-      leaderboard.
-    - **`segment_base_rate` is still recorded, and it is the merits baseline,
+    - **`brier_skill_score` is computed against the merits baseline** — the
+      same formula as a cert cell's, over the `segment_base_rate` the next
+      bullet has you pool, and null whenever that rate is omitted. Where the
+      merits section publishes an `excluded` count, the pool you are pooling
+      from is already guarded: the section excludes any row whose parsed
+      judgment carries its own grant's date, or no date the gap could be
+      tested on (a disposition riding in the cert order — the
+      label-independent twin of the GVR exclusion, `docs/decision-model.md`),
+      so the pooled rate is the rate argued cases face, not an upper bound
+      inflated by pre-convention cert-order vacaturs. You apply no such
+      row-level check yourself — the guard lives where the pool is built, and
+      your job is the pooling arithmetic below — but you do check that the
+      count is published at all: a section without one is unquotable, per the
+      omit rule below.
+    - **`segment_base_rate` is recorded, and it is the merits baseline,
       not the cert band.** The pool the cell faced is a fact about the run
-      worth committing even while no skill number is scored against it. Read
+      and the baseline the skill number above is scored against. Read
       the committed `metrics/statpack.md`'s **"The merits docket (granted
       cases)"** section and pool its `disturbed` over its `parsed` across grant
       Terms **strictly before** this case's — the October Term certiorari was
@@ -263,7 +261,9 @@ fails the cell.
       date) and never from the docket number, since a petition docketed into
       the incoming Term and granted before it opens carries a docket Term one
       later and would pull its own cohort into its own baseline. The window is
-      the ten Terms before it (`grant_term - 10 <= T < grant_term`), and here
+      the configured lookback (`salience.base_rate_lookback_terms` in
+      `config/tracking.yaml` — ten as shipped, so
+      `grant_term - 10 <= T < grant_term`), and here
       you must count Terms rather than take what you are shown: unlike the cert
       Term tables, the merits table renders **every** Term the pack holds, so
       the rendered window is not the window. State the window with the figure,
@@ -273,13 +273,15 @@ fails the cell.
       slice skewed toward the quicker dispositions.
     - **Omit it where the pack cannot support it, and say so plainly.** Omit
       `segment_base_rate` where the pack carries no merits section (it is
-      omitted entirely until a corpus row holds a parsed judgment — today that
-      is the ordinary case, not a broken cell), where no strictly-prior grant
-      Term carries a parsed judgment, or where the pooled `parsed` sample is
-      **below 30**. That minimum is pre-registered and its consequence is blunt
+      omitted entirely until a corpus row holds a parsed judgment), where the
+      section publishes no `excluded` count (no such column, or a dash where
+      the count belongs — a pre-guard pack, whose rate `metrics/README.md`
+      rules unquotable), where no strictly-prior grant Term carries a parsed
+      judgment, or where the pooled `parsed` sample is **below 30**. That
+      minimum is pre-registered and its consequence is blunt
       on purpose: below it there is no baseline and no substitute rate — not
       the pack-level disturbed rate, not a single Term's, not a remembered
-      figure. Record which of the three applied in `evaluation.md`.
+      figure. Record which of the four applied in `evaluation.md`.
     - **Leave `base_rate_basis` null.** Its two values both name salience-band
       populations, and the merits pool is neither: it is a Term-pooled
       disturbed rate over the grants that open a merits proceeding, carrying no
@@ -297,9 +299,12 @@ fails the cell.
       prediction's headline probability — and the harness computes the block
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. Note for reading
-      the two together: the harness applies no GVR check of its own, so the
-      claim's baseline carries the same upper-bound caveat the suppressed skill
-      score does — which is a property of the pool, not of the predictor.
+      the two together: the claim's baseline pools the same statpack counts
+      your `segment_base_rate` does, but the harness block does not itself
+      refuse a pre-guard section — so where the omit rule above nulls your
+      rate over a section with no `excluded` count, your omission is
+      deliberately the stricter of the two. Record the divergence in
+      `evaluation.md` rather than reconciling it.
 
     Say in `evaluation.md` that the cell is merits, which baseline you took or
     why none was available, and what the vote block could and could not be
@@ -359,8 +364,11 @@ candidate:
 
 1. Read its `record/blinded/<alias>/retrieval_log.json` — the
    tool-call transcript the harness captured from the engine's own log (never
-   the agent's word), staged with its `actor_id` masked to the alias and its
-   `engine` nulled: tool names, query slices, and `retrieved_doc_date` where
+   the agent's word), staged with its `actor_id` masked to the alias, its
+   `engine` nulled, and each call's tool respelled as an engine-neutral class
+   (`shell`, `file-read`, `web-search`, `mcp:<server>:<method>`, …; an
+   unrecognised tool reads as `other` — a collapsed name, not a suspicious
+   call): call classes, query slices, and `retrieved_doc_date` where
    a document date was legible. Two kinds of `[redacted:…]` marker appear and
    neither is evidence of leakage on its own — `[redacted:identity]` is the
    blinding removing a name, and any other marker is the harness removing a
@@ -401,7 +409,9 @@ candidate:
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
-   or opinion, or the candidate's own disclosure in its prose or `retrieval.md`
+   or opinion, a `file-read` or `file-search` call whose query names
+   `data/qp-topics/` (membership there encodes cert outcomes; the prompts forbid
+   the read), or the candidate's own disclosure in its prose or `retrieval.md`
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted
@@ -428,7 +438,12 @@ local corpus service, which holds the ranged remote connection (the blob is not
 on your cell's disk, and your shell holds no cloud credentials); each `query`
 reports its transfer as a `ranged corpus reads: …` line on stderr — a warm
 service cache can honestly report `0 GET(s)`, so record the line either way
-(`open-events` prints none); the committed
+(`open-events` prints none); `query --full` hydrates a returned prior's
+opinion body where the corpus holds one (`has_opinion` on the row; extra
+egress per opinion-bearing row, so use it narrowly — e.g. to check a cited
+authority's actual holding — and note the `ranged corpus reads` line does not
+count a body served from the content store, so on a `--full` query treat it
+as a floor on egress, not the total); the committed
 `metrics/statpack.md` carries the base-rates (its cert statistics are
 live/historical-slice, denial-reweighted estimates — each section's scope line
 says so). When you grade a replay cell's base-rate use, the per-Term table is
@@ -469,6 +484,11 @@ advisory and never graded.
   paths (the `flags.json` / `tooling.json` above live there too). Never edit
   predictions, outcomes, snapshots, the blinded staging area, or another
   evaluator's output.
+- **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
+  artifacts whose case membership encodes cert outcomes; they carry nothing an
+  evaluation may use, and a read of that path in your logged tool calls is itself
+  a leakage event. If you have already read it, say so in `flags.json`
+  (`category` `other`) and disregard what you saw.
 - **Keep the blind.** Read candidates only from `record/blinded/<alias>/`, key
   every output on the alias, and do not try to work out who a candidate is by any
   route. The routes are named so there is no ambiguity about what is off limits:

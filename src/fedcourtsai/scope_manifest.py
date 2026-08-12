@@ -13,8 +13,10 @@ The one load-bearing invariant: the manifest is enumerated from the committed
 corpus scan (``iter_rows`` / ``iter_tracked_cases``). The corpus is consulted
 only by exact ``case_id`` lookup for cases already on that public list. So the
 manifest cannot enumerate the broader ingested corpus — the compilation-extent
-boundary the project holds deliberately. Adding a corpus-driven enumeration here
-would breach that boundary; do not.
+boundary the project holds deliberately (two committed artifacts carry a
+stated exception, both argued in ``docs/qp-topic.md``; this module is not one
+of them).
+Adding a corpus-driven enumeration here would breach that boundary; do not.
 """
 
 from __future__ import annotations

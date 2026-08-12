@@ -2,7 +2,7 @@
 # Push the local HEAD to the default branch, rebasing onto any advance and
 # retrying a *transient* remote failure with exponential backoff.
 #
-# The deterministic writers (pull / live / historical) commit the corpus pointer
+# The deterministic writers (pull / live / historical / enrich) commit the corpus pointer
 # and any newly-detected outcomes straight to the default branch. A push can fail
 # for two very different reasons, and the earlier inline loops conflated them —
 # every failure was logged as "default branch advanced," which misdirected triage

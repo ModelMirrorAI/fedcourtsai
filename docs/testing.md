@@ -61,17 +61,25 @@ That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
 dispatch, read-only role — the collect scenario none at all — strictly
 side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
-promotion gate's whole required suite as one matrix run (every scenario but
-collect, with engine-smoke once per engine, so three cells' token spend).
+promotion gate's whole required suite as one run (every scenario, with
+engine-smoke once per engine, so three cells' token spend; collect rides the
+run as its own environment-free job beside the matrix).
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
 exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
-same corpus sidecar composite the cell workflows use and probes it through the
-exact CLI surface a cell retrieves with. `stub-cascade` runs one offline stub
-`local-cascade` cell over the ranged backend, covering provisioning end to
-end. `mcp-sidecar` launches the same CourtListener MCP sidecar composite the
+same corpus sidecar composite the cell workflows use — with the same
+corpus-split inputs, so under the split the sidecar hydrates from the content
+store exactly as the fleet's does — and probes it through the exact CLI
+surface a cell retrieves with. `stub-cascade` first runs the production
+`provision-snapshot --mode forward --refuse-terminal` command against the
+known case in an isolated data root, failing the leg on a refusal (the same
+command is `continue-on-error` in run-predict, so this is where a guard
+drifting to always-refuse surfaces; the dispatched case must be genuinely
+undisposed), then runs one offline stub `local-cascade` cell over the ranged
+backend, covering provisioning end to end. `mcp-sidecar` launches the same
+CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
 the tested `fedcourts mcp-integration-check` client against it (initialize +
 tools/list, failing unless the handshake completes and tools are advertised).
@@ -205,7 +213,14 @@ run in CI and catch most mistakes without execution:
 [`lint-actions.yml`](../.github/workflows/lint-actions.yml) runs **actionlint**
 (workflow syntax, `${{ }}` expressions, `needs`/matrix references, embedded shell)
 and **zizmor** (the security invariants in [SECURITY.md](../SECURITY.md) — pinned
-actions, least-privilege permissions). For a heavier local check of the
+actions, least-privilege permissions). Beside them, a family of pytest
+workflow-shape tests pins the YAML *contracts* the linters cannot see — the
+bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
+(`test_workflow_promote`), the collect scenario's partition
+(`test_workflow_collect`), and the cell invariants
+(`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
+env pair, the forward leakage guard) — so deleting a load-bearing line fails a
+named test instead of passing every linter. For a heavier local check of the
 deterministic jobs (the `plan` job, matrix generation, the auth gate),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for
 orchestration, though its OIDC and secret handling mean it does not cover the agent

@@ -41,8 +41,8 @@ auto-merge-gated pull requests.
 | `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex (replay) |
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
-`run-analytics` (corpus analysis and metrics refresh), both schedule/dispatch
-only. The cascade runs pull/live → corpus → `run:predict` (fired on a
+`run-analytics` (corpus analysis, metrics refresh, and the qp-topic labeler),
+both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on a
 conference distribution or a changed open case) → `run:evaluate` (fired when an
 outcome lands on a predicted event); full label/workflow mechanics and the
 cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
@@ -51,8 +51,9 @@ cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
 
 **Determinism where it matters**: ingestion, event definition, and quantitative
 scoring are code — reproducible and reviewable; only genuinely judgment-heavy
-work (predicting, qualitative evaluation) goes to agents. **The registry is the
-source of truth for "which agents exist"**: adding a competitor is a one-line
+work (predicting, qualitative evaluation, subject-matter labeling) goes to
+agents. **The registry is the source of truth for "which agents exist"**:
+adding a competitor is a one-line
 config change (`config/predictors.yaml`), and long term an automated-research
 harness (in the spirit of Anthropic's
 [automated alignment researchers](https://www.anthropic.com/research/automated-alignment-researchers))
@@ -116,6 +117,15 @@ their git timestamps the proof:
 The grant/deny forecast itself is scored for **skill over its salience segment's
 base rate** — the predicted slice's own historical grant rate, not the low
 whole-docket rate — so simply restating the base rate earns no credit.
+
+The *process* pre-registers the same way: its prompt and agent-config digests
+freeze in a tagged commit, and every counted cell must carry a stamp matching
+them from after that instant
+([`docs/process-version.md`](docs/process-version.md)). Predictions in the
+repository from before the freeze are the **alpha/shakedown ledger** — no
+process stamp at all, or a stamp predating the freeze instant — excluded from
+every frozen-scope performance figure, with nothing about them claimed
+([`metrics/README.md`](metrics/README.md)).
 
 ### A petition's lifecycle
 
@@ -210,7 +220,14 @@ worth reading in a diff, so they live in git, validating against the pydantic
 models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
 Alongside the per-case tree, two repo-level roll-ups are regenerated
 deterministically and committed for review: `metrics/` and `data/scope/scope.json`
-(the published prediction-scope decision for the already-public case set). Full
+(the published prediction-scope decision for the already-public case set) —
+plus the `data/qp-topics/` artifacts, which are not roll-ups at all
+(`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
+reference set, authored as a judgment and changed only in its own reviewed diff;
+and — once a labeling run has produced one — `qp-topics.json`, that run's
+machine-produced per-case labels, written by the agent-backed `qp-topic-label`
+run mode and landed the same way, as a reviewed PR to `main` that is never
+auto-merged. Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop
@@ -259,6 +276,7 @@ docs/               design & operations references (see Documentation below)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
 - [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
+- [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, the hand-labeled reference set, and the labeling run)
 - [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)

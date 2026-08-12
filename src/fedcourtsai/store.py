@@ -17,7 +17,7 @@ from . import corpus, ids
 from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
 from .pipeline import moments
 from .pipeline.moments import first_moment
-from .process_version import is_frozen
+from .process_version import graded_post_freeze, is_frozen
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -263,7 +263,15 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     could drift: a docket re-resolved to ``gvr`` after its merits event was
     minted leaves the cert order carrying the disposition, so its judgment is a
     cert-stage fact the merits baseline excludes, and a cell forecasting it
-    would be scored against a rate its own case is not in.
+    would be scored against a rate its own case is not in. (The baseline side
+    applies one further predicate this side cannot: its pool guard excludes
+    parsed judgments dated on their own grant — unreachable here, since a
+    forecastable merits event requires ``merits_judgment`` unlatched, so the
+    gap does not exist yet at admission time. The seam that survives: a
+    stale-labeled cert-order vacatur whose event mints and is forecast before
+    the poll latches its judgment would score a near-certain disturbance
+    against a pool its own class was removed from — bounded by the latch
+    window, and named in ``metrics/README.md`` rather than hidden here.)
 
     The scope rules narrow the forecast population *inside* the baseline's
     rather than matching it exactly, and the gap is not small: predict scope
@@ -433,10 +441,18 @@ def iter_stratified_evaluations(
     produced by a **frozen** process (:func:`process_version.is_frozen`), so every
     surface built on this stream — the leaderboard and the ops dashboard both — is
     the frozen headline by construction and the two cannot disagree. It filters on
-    the *prediction's* stamp, not the evaluation's: the competitor being ranked is
-    the predictor. An unstamped shakedown prediction is never frozen, so the
-    shakedown ledger drops out for free. ``frozen_only=False`` is the all-versions
-    view, which reproduces every scored cell regardless of process.
+    the *prediction's* stamp, not the evaluation's digest: the competitor being
+    ranked is the predictor. The evaluation's own **harness stamp**
+    must additionally be at or after the freeze instant
+    (:func:`process_version.graded_post_freeze` — its digest is recorded but
+    not enforced): an evaluation names its
+    predictor but not the prediction run it graded, so the join above is to
+    the latest prediction, and without the time gate a shakedown evaluation
+    would ride into the frozen headline the moment the same predictor re-ran
+    its event under the frozen process. An unstamped shakedown prediction is
+    never frozen, so the shakedown ledger drops out for free.
+    ``frozen_only=False`` is the all-versions view, which reproduces every
+    scored cell regardless of process.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -451,7 +467,9 @@ def iter_stratified_evaluations(
         )
         predictions = [read_model(p, Prediction) for p in prediction_files]
         latest = max(predictions, key=lambda p: p.created_at)
-        if frozen_only and not is_frozen(latest.process_version):
+        if frozen_only and not (
+            is_frozen(latest.process_version) and graded_post_freeze(evaluation.process_version)
+        ):
             continue
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome routes to the procedural stratum regardless

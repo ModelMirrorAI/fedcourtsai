@@ -54,9 +54,10 @@ on:
       scenario:
         description: >-
           Which integration scenario to run. `all` fans the promotion gate's
-          whole required suite out of one dispatch — every scenario except
-          collect, with engine-smoke once per engine — and therefore SPENDS
-          MODEL TOKENS: three engine-smoke cells' worth, one per engine.
+          whole required suite out of one dispatch — the matrix legs plus the
+          environment-free collect job, with engine-smoke once per engine —
+          and therefore SPENDS MODEL TOKENS: three engine-smoke cells' worth,
+          one per engine.
         type: choice
         default: ranged-reads
         options:
@@ -72,8 +73,12 @@ on:
       # cascade reads — a snapshot in the per-case content store, which under
       # the live corpus split only cases the post-cutover channels mutate
       # (SCOTUS dockets) have. Pre-cutover index-only rows (circuit courts)
-      # can serve the query/open-events reads but never a snapshot. Swap the
-      # defaults if this case ever resolves out of shape.
+      # can serve the query/open-events reads but never a snapshot. The
+      # stub-cascade provisioning-guard step adds one more precondition: the
+      # case (or the `event` the dispatch narrows to) must be genuinely
+      # undisposed, since the guard rightly refuses a snapshot that already
+      # shows the outcome. Swap the defaults if this case ever resolves out
+      # of shape.
       court:
         description: Court id of a known case with an open event and a snapshot.
         type: string
@@ -142,7 +147,8 @@ concurrency:
 
 jobs:
   # Expands the dispatch into the {scenario, engine} legs the job below fans
-  # out over: `all` becomes the promotion gate's whole required suite, any
+  # out over: `all` becomes the required suite's matrix legs (collect rides
+  # the run as its own job, not a leg), any
   # other scenario one leg carrying the inputs unchanged — so a
   # single-scenario dispatch runs exactly the steps, env, and environment
   # binding it always has.
@@ -165,10 +171,12 @@ jobs:
           if [ "$SCENARIO" = all ]; then
             # The promotion gate's required suite — keep in lockstep with
             # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a
-            # workflow-shape test pins the two ends). collect stays out: it
-            # is not part of the gate and runs on its own job below. The
-            # engine field is meaningful only for engine-smoke; the other
-            # legs carry the engine input's default as a benign constant.
+            # workflow-shape test pins the two ends). collect is required
+            # evidence too, but it needs no environment or engine, so it
+            # stays out of this matrix and joins an `all` run through its
+            # own job below. The engine field is meaningful only for
+            # engine-smoke; the other legs carry the engine input's default
+            # as a benign constant.
             matrix='[
               {"scenario": "ranged-reads", "engine": "claude-code"},
               {"scenario": "corpus-service", "engine": "claude-code"},
@@ -210,10 +218,29 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the corpus reads
+    # Corpus-split read side, job-wide: under FEDCOURTS_CORPUS_SPLIT=1 (the
+    # clean-slate cutover switch; unset variable -> '0' -> off) snapshot
+    # payloads and opinion bodies are served from the per-case content store,
+    # which needs its URL. Job-level so every client-side read — the ranged
+    # read set, the stub cascade, the provisioning guard, the engine-smoke
+    # cascade — resolves the same mode; the sidecar process gets the same
+    # pair explicitly, as corpus-sidecar composite inputs, exactly as the
+    # cell workflows pass it. Inert while the flag is off.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
+      # every workflow that starts an agent deletes it first; the engine-smoke
+      # scenario runs real cells and is the freshness evidence for cell
+      # behaviour, so it must reproduce the cell environment it certifies.
+      # Elsewhere in the matrix the step is a harmless no-op.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
 
       - uses: ./.github/actions/setup-python-env
 
@@ -251,12 +278,6 @@ jobs:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-          # The set's provision-snapshot read: under the corpus split the
-          # ranged index carries no snapshot payloads — they are served from
-          # the per-case content store, which needs its URL. Inert while the
-          # flag is off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -279,10 +300,20 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          # Corpus-split read side for the sidecar process itself: under the
+          # split, `full` query bodies hydrate from the per-case content
+          # store server-side, and the sidecar is the credentialed process —
+          # without these the sidecar silently serves bodiless rows while
+          # every other read stays green. Inert while the flag is off.
+          casestore-url: ${{ vars.CASESTORE_URL }}
+          corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
 
       # The same tested command as the ranged read set, on the service
-      # backend: two reads through the exact client a cell's `service` backend
-      # forwards with, failing on an empty result or a blown budget.
+      # backend: three reads through the exact client a cell's `service`
+      # backend forwards with, failing on an empty result, a blown budget, or
+      # — the full-query hydration probe — an opinion-bearing row whose body
+      # hydrates empty (the content-store path degrades to None rather than
+      # raising, so only asking for a body can prove one arrives).
       - name: Run the service read set against the sidecar
         if: ${{ matrix.scenario == 'corpus-service' }}
         env:
@@ -297,6 +328,32 @@ jobs:
 
       # --- stub-cascade: provision -> predict -> validate, token-free --------
 
+      # The production provisioning command, exercised end to end before the
+      # cascade: run-predict's own step passes the same
+      # `--mode forward --refuse-terminal` but is continue-on-error there (a
+      # refusal must not burn the whole fan-out), so the guard drifting to
+      # always-refuse — or the flag silently dropping out — fails nothing at
+      # runtime, while local-cascade provisions in-process and never runs this
+      # CLI at all. Here the command must *succeed and write the record* for
+      # the known case: while that case is undisposed (part of the input
+      # contract on `court`/`docket` above), a refusal is by construction a
+      # guard regression. An isolated data root keeps its writes out of the
+      # cascade's tree.
+      - name: Provision the forward record through the production guard
+        if: ${{ matrix.scenario == 'stub-cascade' }}
+        env:
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          EVENT: ${{ inputs.event }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+          FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/provision-guard/data
+        run: |
+          set -euo pipefail
+          uv run fedcourts provision-snapshot --court "$COURT" --docket "$DOCKET" \
+            --mode forward --refuse-terminal ${EVENT:+--event "$EVENT"}
+          test -s "$FEDCOURTS_DATA_ROOT/cases/$COURT/$DOCKET/record/context.json"
+
       # One offline stub cascade cell with every corpus read on the ranged
       # backend. Deterministic and token-free; the cell writes derived
       # artifacts only into the runner's throwaway checkout — this job holds
@@ -309,12 +366,6 @@ jobs:
           EVENT: ${{ inputs.event }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
-          # Corpus-split read side, mirroring the cell workflows' provisioning
-          # steps: under FEDCOURTS_CORPUS_SPLIT=1 the ranged index carries no
-          # snapshot payloads — they are served from the per-case content
-          # store, which needs its URL. Inert while the flag is off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           {
@@ -437,12 +488,10 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: service
-          # Corpus-split read side for the cascade's own provisioning reads
-          # (see the stub-cascade step); the agent inherits these two
-          # non-secret pointers harmlessly — its own reads go via the sidecar,
-          # and the content store is unreachable without the scrubbed creds.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus-split pair rides the job env for the cascade's own
+          # provisioning reads; the agent inherits those two non-secret
+          # pointers harmlessly — its reads go via the sidecar, and the
+          # content store is unreachable without the scrubbed creds.
           ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
@@ -549,7 +598,13 @@ jobs:
   # real token in the job is the ambient read-only one the composite's
   # downloader uses to list and fetch this run's own artifacts.
   collect-scenario:
-    if: ${{ inputs.scenario == 'collect' }}
+    # Fires on its own dispatch and inside an `all` run: the collect composite
+    # is the single writer for every predict/evaluate run's output, so the
+    # promotion freshness suite must include it — and because this job is a
+    # separate job in the same run, an `all` title is whole-suite evidence
+    # only if this job succeeded too (a run concludes success only when every
+    # job did).
+    if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -652,6 +707,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the ready codex cell
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -660,6 +720,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the salvage gemini cell
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -668,6 +733,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       - name: Upload the cell whose download will be forced to fail
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -676,6 +746,11 @@ jobs:
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
           if-no-files-found: error
           retention-days: 1
+          # `gh run rerun --failed` is the advertised recovery for a red
+          # `all` run and artifacts persist across attempts; without
+          # overwrite the rerun 409s at this upload before reaching the
+          # assertions. Scaffolding, not the contract under test.
+          overwrite: true
 
       # Every write surface the composite touches, stubbed or diverted before
       # it runs. The gh shim passes `api` and `run` through to the real gh

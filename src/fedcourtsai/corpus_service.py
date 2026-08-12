@@ -48,6 +48,7 @@ import contextlib
 import json
 import logging
 import sqlite3
+import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -67,7 +68,16 @@ SCHEMA_VERSION = "1.0"
 # ephemeral one for tests and ad-hoc local use.
 DEFAULT_PORT = 8377
 
-_CLIENT_TIMEOUT_SECONDS = 30.0
+# Sized to the reads the sidecar legitimately serves, not to a health check:
+# a priors query's candidate-set scan over the ranged backend costs tens of
+# seconds (~30s / ~560 GETs / ~146 MB for `court=scotus, limit=5` at the
+# scale this was sized at — an anchor, not a spec; the cost grows with the
+# corpus), and a client that hangs up at exactly that scale
+# reports a healthy-but-slow sidecar as "unreachable" — the failure is then
+# indistinguishable from a dead process. The integration check's wall-clock
+# budget and the per-read seconds it publishes are the pathology detectors;
+# this timeout only has to separate "still reading the corpus" from "gone".
+_CLIENT_TIMEOUT_SECONDS = 180.0
 
 # Real requests are a few hundred bytes; anything bigger is a bug or abuse.
 _MAX_REQUEST_BYTES = 1_048_576
@@ -296,7 +306,16 @@ class _Handler(BaseHTTPRequestHandler):
     def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
         path = str(self.path).split("?", 1)[0]
         route = next((known for known in _ROUTES if known == path), "[unrecognized path]")
-        logger.info("%s - %s -> %s", self.address_string(), route, code)
+        # Elapsed seconds are server-derived (a monotonic delta this handler
+        # measured itself), so the no-client-bytes policy above holds — and a
+        # read that legitimately takes tens of seconds leaves a latency record
+        # on the one surface a cell's own evidence line does not cover.
+        started = getattr(self, "_request_started", None)
+        if started is not None:
+            elapsed = time.monotonic() - started
+            logger.info("%s - %s -> %s (%.1fs)", self.address_string(), route, code, elapsed)
+        else:
+            logger.info("%s - %s -> %s", self.address_string(), route, code)
 
     def log_message(self, format: str, *args: object) -> None:
         del args  # can carry client bytes (request lines, malformed headers)
@@ -333,6 +352,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send_json(404, json.dumps({"error": "unknown path"}))
 
     def do_POST(self) -> None:
+        self._request_started = time.monotonic()
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -416,6 +436,15 @@ def _post(base_url: str, path: str, request: BaseModel) -> httpx.Response:
             headers={"Content-Type": "application/json"},
             timeout=_CLIENT_TIMEOUT_SECONDS,
         )
+    except httpx.TimeoutException as exc:
+        # Distinct from "unreachable": the sidecar answered its health check,
+        # so a timeout here is a slow read, not a dead process — the exact
+        # misdiagnosis a candidate-set scan outgrowing the budget produces.
+        raise CorpusServiceError(
+            f"corpus service at {base_url} timed out after "
+            f"{_CLIENT_TIMEOUT_SECONDS:.0f}s — a slow corpus read, not a dead "
+            f"sidecar: {exc!r}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise CorpusServiceError(
             f"corpus service at {base_url} is unreachable — is the sidecar "

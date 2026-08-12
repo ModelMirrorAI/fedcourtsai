@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ from fedcourtsai.pipeline.judgment import (
     PER_CURIAM,
     backfill_merits_judgments,
     judgment_disturbed,
+    judgment_rode_the_grant_order,
     last_judgment_entry,
     match_judgment,
     opinion_author,
@@ -316,3 +317,13 @@ def test_cli_fails_loud_without_a_corpus(tmp_path: Path) -> None:
         env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "absent")},
     )
     assert result.exit_code == 1
+
+
+def test_judgment_rode_the_grant_order_is_the_gap_guard() -> None:
+    """Same-day (and data-noise earlier) judgments rode the cert order; a
+    judgment even one day later is the merits court's own — an expedited
+    argued case lands days after its grant, never on it."""
+    granted = date(2020, 1, 13)
+    assert judgment_rode_the_grant_order(granted, granted)
+    assert judgment_rode_the_grant_order(granted - timedelta(days=3), granted)
+    assert not judgment_rode_the_grant_order(granted + timedelta(days=1), granted)

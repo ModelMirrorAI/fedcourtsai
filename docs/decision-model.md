@@ -217,10 +217,11 @@ withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **no
 clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
 it would have to be weighted for the corpus's legacy denial-subsampled rows, writings
-respecting denial are censored in an open Term, and `has_opinion` is 0 on every
-corpus row today — so a naive implementation would resolve "did not write" for
-all nine on every case and manufacture a base rate of zero out of an empty
-ingestion channel. Two more bite specifically because the claim is per-Justice:
+respecting denial are censored in an open Term, and no corpus row carries an
+opinion body yet (the channel that fills them, `fedcourts enrich-opinions`,
+exists but has not been run) — so a naive implementation would resolve "did not
+write" for all nine on every case and manufacture a base rate of zero out of an
+unpopulated column. Two more bite specifically because the claim is per-Justice:
 nine claims per event are not nine independent bets — writing is strongly
 correlated across Justices within a case, so summing them weights the writing
 dimension nine to one against the disposition and reports an event count nine
@@ -372,35 +373,54 @@ re-deriving the baseline at that conditioning before any skill number is
 published against it.
 
 **Where that exclusion is only as good as the label, and what is owed.** The
-predicate reads the row's cert `disposition`, and two classes escape it. The
-`gvr` label is a **forward convention** (the `Disposition` docstring): a Term
-resolved into the corpus before the label existed carries its GVRs as plain
-`granted`, so those rows pass `opens_merits_proceeding`, their cert-order
-"Judgment VACATED and case REMANDED" parses as `vacated`, and they enter the
-pooled rate at near-certain disturbance. `summary-reversal` is worse: no
-resolver produces it at all, so that class is excluded in name only. Both
-inflate the pooled rate over any grant Term whose GVRs are unlabelled, and
+predicate reads the row's cert `disposition`, and the label cannot carry the
+exclusion alone. The
+`gvr` label is a **forward convention** (the `Disposition` docstring), and a
+row's label can lag its own cert order — measured on the walked corpus, the
+stale labels sit on *recent* IFP GVRs, not only on Terms resolved before the
+convention existed — so such rows pass `opens_merits_proceeding`, their
+cert-order
+"Judgment VACATED and case REMANDED" parses as `vacated`, and they would enter
+the pooled rate at near-certain disturbance. `summary-reversal` has no
+resolver at all, so that class is excluded in name only. Both would
+inflate the pooled rate, and
 differential parseability aggravates it — a cert-order vacatur parses the day
 it is granted, an argued judgment six to eighteen months later, so the
-*parsed* slice is enriched in the escapees beyond their population share. So:
-the section's rate over such a Term is an **upper bound**, and no merits skill
-number may be published against a pool drawing on Terms whose GVRs are
-unlabelled. The **label-independent guard is owed**, and the deterministic one
-available is the grant→judgment gap, since a disposition riding in the cert
-order carries the grant's own date. Until it lands the prohibition is honoured
-the only way that does not depend on the label: `brier_skill_score` is omitted
-on **every** merits cell, so no merits skill number exists to be published. The
-evaluate prompt states the rule and `validate`'s
-`merits_evaluations_score_no_skill` check enforces it against the committed
-ledger, so the prohibition holds whatever an evaluator writes. Detecting the contaminated Terms per cell was considered and
+*parsed* slice is enriched in the escapees beyond their population share.
+The standing constraint, restated: **no merits skill number may be published
+against an unguarded pool** — one whose escapees are not removed. The
+**label-independent guard** that discharges it is the deterministic one this
+constraint always admitted — the grant→judgment gap, since a disposition
+riding in the cert order carries the grant's own date, while the nearest
+genuine judgment observed sits a full month after its grant — and it is
+applied where the pool is built
+(`pipeline.judgment.judgment_rode_the_grant_order`, at the statpack merits
+accumulator's admission): a row whose parsed judgment is dated on or before
+its own grant is excluded from the cohort entirely, exactly as a labeled GVR
+is, and counted in the section's published `cert_order_excluded` — a guard
+that stops firing and a guard with nothing to fire on must not render the
+same artifact. A pack parsed from a build the guard never ran on publishes
+`null` there, never a zero, for the same reason. A parsed judgment carrying
+**no** date cannot be gap-tested:
+its membership is unknown, so it stays in `granted` as a visible coverage
+gap while its judgment stays out of the parsed slice and the rate. The
+invariant the pool publishes under is therefore exact: **every judgment in
+the parsed slice provably postdates its grant**, and `brier_skill_score` is
+computed on merits cells against that guarded pool — the prohibition is
+discharged by the guard, not waived. What the guard does not reach, stated
+rather than implied: a summary reversal issued in a *later* order than the
+grant, and an unparsed cert-order vacatur sitting in `granted` as coverage —
+both residues of the parse, visible in the coverage columns, neither able to
+touch the rate. Detecting the contaminated Terms per cell was considered and
 rejected — the escapees show up as a partly-labelled Term rather than an empty
 one, and the cert Term table an evaluator can read is keyed on the
 docket-number Term, so the test would pass exactly the Terms the pack's own
-caveat names. A heuristic that cannot separate a partly-labelled Term from a
-clean one is not an enforcement of this constraint. `segment_base_rate` is
-still recorded on a merits cell, because the pool the cell faced is a fact
-about the run; the harness's `judgment-disturbed` claim baseline reads the same
-pool and applies no guard either, so its scores carry this caveat too.
+caveat names; the guard therefore lives at the pool, where one predicate
+cleans every consumer at once (the merits base rate and the harness's
+`judgment-disturbed` claim baseline pool the same per-Term counts). `segment_base_rate` is
+recorded on a merits cell as the baseline its skill is scored against; the
+harness's `judgment-disturbed` claim baseline reads the same guarded pool, so
+both carry the guard by construction.
 
 **Two guards on the pool, both stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —
