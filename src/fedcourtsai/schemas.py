@@ -4423,6 +4423,44 @@ class SalienceSelectionResult(_Strict):
     sample_selected: list[str] = Field(default_factory=list)
 
 
+class CaptionCensusClass(_Strict):
+    """One petitioner class's cell in the caption census: n, grants, rate."""
+
+    petitioner_class: str = Field(description="federal, state, or private")
+    n: int = Field(ge=0, description="Resolved paid modern-cert petitions in the class")
+    grant_family: int = Field(ge=0, description="Grant-family outcomes among them")
+    rate: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="grant_family / n, or null on an empty cell — never a fabricated 0",
+    )
+
+
+class CaptionCensusTerm(_Strict):
+    """One October Term's caption-class census cells."""
+
+    term: int = Field(description="The October Term year")
+    classes: list[CaptionCensusClass] = Field(default_factory=list)
+
+
+class CaptionCensus(_Strict):
+    """``caption-census`` result: the artifact a caption carve-in freezes from.
+
+    A deterministic, read-only census of the salience gate's scored segment
+    (live-slice, paid, modern-cert, resolved) cut by the committed petitioner
+    class rule — per Term and pooled, every cell with its ``n``. Selection
+    constants derived from the caption may be frozen only from a statistically
+    reviewed run of this artifact under the ``rule_version`` it names
+    (``docs/salience.md``); the class is otherwise a reporting dimension.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule_version: str = Field(default="", description="The committed rule, e.g. caption-v1")
+    terms: list[CaptionCensusTerm] = Field(default_factory=list)
+    pooled: list[CaptionCensusClass] = Field(default_factory=list)
+
+
 class SalienceUnlatchResult(_Strict):
     """``unlatch-overselected`` result: the one-time latch reconcile's ledger.
 

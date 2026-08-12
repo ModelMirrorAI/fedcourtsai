@@ -94,6 +94,10 @@ class CorpusRow(BaseModel):
     docket_id: int
     docket_number: str = ""
     case_name: str = ""
+    # Upstream's structured petitioner caption (supremecourt.gov
+    # `PetitionerTitle`), kept apart from the joined `case_name` so party-class
+    # readers key on the party, not the join's rendering. None off-source.
+    petitioner_title: str | None = None
     date_filed: date | None = None
     date_decided: date | None = None
     date_cert_granted: date | None = Field(
@@ -469,6 +473,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         docket_id=docket_id,
         docket_number=_clean(record.get("docket_number")) or "",
         case_name=_clean(record.get("case_name") or record.get("case_name_full")) or "",
+        petitioner_title=_clean(record.get("petitioner_title")),
         date_filed=_date(record.get("date_filed")),
         date_decided=_date(record.get("date_terminated") or record.get("date_decided")),
         date_cert_granted=date_cert_granted,
@@ -838,6 +843,7 @@ def map_live_docket(
         "court_id": "scotus",
         "docket_number": _clean(payload.get("CaseNumber")) or "",
         "case_name": case_name,
+        "petitioner_title": petitioner or None,
         "date_filed": _clean(payload.get("DocketedDate")),
         "date_cert_granted": cert_granted.isoformat() if cert_granted else None,
         "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
@@ -1008,6 +1014,7 @@ def to_corpus_row(
         court=row.court,
         docket_number=row.docket_number,
         case_name=row.case_name,
+        petitioner_title=row.petitioner_title,
         date_filed=row.date_filed,
         date_decided=row.date_decided,
         date_cert_granted=row.date_cert_granted,

@@ -131,6 +131,7 @@ from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
+from .pipeline.caption import caption_census
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
@@ -543,6 +544,37 @@ def reconcile_salience_selection_cmd(
         f"across {result.conferences} conference(s)"
     )
     typer.echo(result.model_dump_json())
+
+
+@app.command("caption-census")
+def caption_census_cmd() -> None:
+    """The petitioner-class census: per-Term grant-family rates by caption class.
+
+    A deterministic, read-only cut of the salience gate's scored segment
+    (live-slice, paid, modern-cert, resolved) under the committed caption rule
+    (`pipeline.caption`, `caption-v1`) — the artifact any caption-keyed
+    selection constant must be frozen from, after a statistical review of the
+    run (`docs/salience.md`). Prints a `CaptionCensus`. Fails loud if the
+    corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the caption census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = caption_census(conn)
+    for cell in census.pooled:
+        rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
+        typer.echo(
+            f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
+            err=True,
+        )
+    typer.echo(census.model_dump_json())
 
 
 @app.command("unlatch-overselected")

@@ -222,6 +222,15 @@ class CorpusRow(BaseModel):
         "fields on both ingestion paths. The retrieval-judgment signal: a `query` "
         "prior without a caption cannot be assessed for comparability.",
     )
+    petitioner_title: str | None = Field(
+        default=None,
+        description="The petitioner's caption as upstream structures it "
+        "(supremecourt.gov `PetitionerTitle`, role suffix stripped) — kept as its "
+        "own column so a party-class reading keys on who the party is, never on "
+        "how a joined `case_name` string happened to be rendered. `None` on rows "
+        "ingested before the column existed or from sources without the field; "
+        "readers fall back to the caption's pre-` v. ` half.",
+    )
     date_filed: date | None = None
     date_decided: date | None = None
     date_cert_granted: date | None = Field(
@@ -598,6 +607,7 @@ CREATE TABLE IF NOT EXISTS cases (
     court               TEXT NOT NULL,
     docket_number       TEXT NOT NULL DEFAULT '',
     case_name           TEXT NOT NULL DEFAULT '',
+    petitioner_title    TEXT,
     date_filed          TEXT,
     date_decided        TEXT,
     disposition         TEXT,
@@ -764,6 +774,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "court": "TEXT NOT NULL",
     "docket_number": "TEXT NOT NULL DEFAULT ''",
     "case_name": "TEXT NOT NULL DEFAULT ''",
+    "petitioner_title": "TEXT",
     "date_filed": "TEXT",
     "date_decided": "TEXT",
     "disposition": "TEXT",
@@ -1039,6 +1050,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "court": row.court,
         "docket_number": row.docket_number,
         "case_name": row.case_name,
+        "petitioner_title": row.petitioner_title,
         "date_filed": row.date_filed.isoformat() if row.date_filed else None,
         "date_decided": row.date_decided.isoformat() if row.date_decided else None,
         "disposition": row.disposition,
@@ -1154,6 +1166,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         court=record["court"],
         docket_number=record["docket_number"],
         case_name=record["case_name"],
+        petitioner_title=_optional_str(record, "petitioner_title"),
         date_filed=date.fromisoformat(record["date_filed"]) if record["date_filed"] else None,
         date_decided=(
             date.fromisoformat(record["date_decided"]) if record["date_decided"] else None
@@ -2226,7 +2239,7 @@ def count(conn: ReadConnection) -> int:
 
 
 def iter_rows(
-    conn: sqlite3.Connection,
+    conn: ReadConnection,
     *,
     court: str | None = None,
     disposition: Disposition | None = None,
