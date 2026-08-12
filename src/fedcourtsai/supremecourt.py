@@ -147,7 +147,10 @@ def current_docket_term(today: date) -> int:
     three months ahead of OT26's October start, while 25-numbered filings end
     in late June), so the filing prefix rolls in July. Probing discovery by an
     October roll would leave the entire summer intake — the long-conference
-    cohort — invisible until the Term opened.
+    cohort — invisible until the Term opened. The other date→Term pivot in the
+    tree, ``pipeline.judgment.grant_term_year``, rolls in **October** on
+    purpose: it names the October Term a grant belongs to, a different concept
+    — do not unify them.
     """
     year = today.year if today.month >= 7 else today.year - 1
     return year % 100

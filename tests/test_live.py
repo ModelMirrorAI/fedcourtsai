@@ -106,6 +106,49 @@ def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
     assert parse_scotus_docket_number(None) is None
 
 
+def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The wiring, not the helper: `live-poll`'s probe default must come from
+    the Clerk's July roll. A helper-level test cannot catch the CLI quietly
+    deriving its default from an October-rolling function again."""
+    from typer.testing import CliRunner
+
+    from fedcourtsai import cli as cli_module
+    from fedcourtsai.pipeline.live import LiveDiscovery
+    from fedcourtsai.pipeline.pull import PullQueues
+
+    captured: dict[str, int] = {}
+
+    def _fake_poll(*args: Any, term: int, **kwargs: Any) -> tuple[PullQueues, LiveDiscovery]:
+        captured["term"] = term
+        return PullQueues(), LiveDiscovery()
+
+    class _AugustToday(date):
+        # Post-July numbering roll, pre-October Term opening — the window the
+        # October-roll default probed the outgoing Term in.
+        @classmethod
+        def today(cls) -> _AugustToday:
+            return cls(2026, 8, 12)
+
+    monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "date", _AugustToday)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    result = CliRunner().invoke(
+        cli_module.app,
+        [
+            "live-poll",
+            *("--out", str(tmp_path / "p.json")),
+            *("--evaluate-out", str(tmp_path / "e.json")),
+            *("--unrecorded-out", str(tmp_path / "u.json")),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["term"] == 26
+
+
 def test_current_docket_term_rolls_in_july() -> None:
     # The Clerk's numbering roll, not the Term's October opening: 25-numbered
     # filings end in late June and 26-1 was docketed July 1, 2026. An October

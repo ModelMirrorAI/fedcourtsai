@@ -5,7 +5,7 @@ supremecourt.gov docket JSON (:class:`fedcourtsai.supremecourt.SupremeCourtClien
 instead of the CourtListener REST API — minutes-to-hours fresh, budget-free.
 Deterministic, no agent. Each cycle:
 
-- **Discovery** probes the current Term's next unseen docket serials per
+- **Discovery** probes the current docket Term's next unseen serials per
   numbering stream (paid petitions from 1, IFP from 5001) until the frontier —
   consecutive misses — and onboards each served petition, persisting a per-Term
   cursor (:func:`fedcourtsai.corpus.get_live_cursor`) so the next cycle resumes

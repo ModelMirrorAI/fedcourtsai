@@ -119,7 +119,11 @@ historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
   # reachability probe's full-JSON floor (docs/live-sources.md). A Term the
   # forward poller also covers (OT2025+, including the incoming Term's
-  # summer-docketed intake) is walkable alongside it: the walker ingests
+  # summer-docketed intake) is walkable alongside it — with one property to
+  # know: the walker's cursor passes a pending serial once and never re-reads
+  # it, so for such a Term the walker ingests next to nothing and the live
+  # channel is the sole outcome path until a re-walk after the Term closes.
+  # The walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its
   # re-poll queues the evaluate handoff the walker never files); the two

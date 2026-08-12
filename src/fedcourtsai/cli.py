@@ -4517,8 +4517,9 @@ def live_poll(
     term: Annotated[
         int | None,
         typer.Option(
-            help="Two-digit October Term to probe for new filings (default: the "
-            "current Term, derived from today's date)."
+            help="Two-digit docket Term to probe for new filings (default: the "
+            "Term the Clerk is numbering today — it rolls in July, ahead of "
+            "the October Term; see current_docket_term)."
         ),
     ] = None,
     limit: Annotated[
