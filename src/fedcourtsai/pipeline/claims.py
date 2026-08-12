@@ -35,6 +35,7 @@ the rule wired here. Its own (wired but inert, alpha) seam is
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Mapping
 from typing import Protocol
 
@@ -343,6 +344,54 @@ def claim_baseline(
     return _BASELINES[claim_id](
         context, statpack, lookback_terms=lookback_terms, grant_term=grant_term
     )
+
+
+def claim_block_problems(prediction: Prediction) -> list[str]:
+    """Why this prediction's claims block would void at scoring, in words.
+
+    Empty when there is nothing to say: no claims block, or an event with no
+    declared set — absence is a legitimate state, not a defect. With a block
+    present against a declared set, the *agent-authored* incoherences
+    :func:`score_claims` silently voids on are named — a duplicated claim id,
+    a declared claim left unstated, a headline diverging from the
+    prediction's own ``probability`` — so ``validate`` can surface a block
+    that will never score while the cell can still be fixed, instead of the
+    claim board simply lacking it later. Two absences are deliberately *not*
+    reported: a missing ``context`` (a harness stamp whose absence is a
+    tolerated provisioning gap — see ``_read_cell_context``), and a missing
+    claims block altogether — an omitted block is a legitimate state today
+    (every committed cell predates the field), though once cells run under a
+    claims-asking process it becomes the likelier agent failure, and flagging
+    it would key on the process-version partition rather than this shape
+    check. A test pins the enumerated shapes to the scorer's refusals; a new
+    void condition in :func:`score_claims` needs a matching arm here.
+    """
+    declared = declared_claim_set(prediction.event_id)
+    if declared is None or prediction.claims is None:
+        return []
+    problems: list[str] = []
+    set_version, claim_ids = declared
+    stated = _stated_probabilities(prediction.claims)
+    if stated is None:
+        counts = Counter(claim.claim_id for claim in prediction.claims)
+        duplicated = sorted(claim_id for claim_id, n in counts.items() if n > 1)
+        problems.append(
+            f"claim id(s) stated twice — two numbers for one belief: {', '.join(duplicated)}"
+        )
+        return problems
+    problems.extend(
+        f"declared claim {claim_id!r} ({set_version}) is not stated"
+        for claim_id in claim_ids
+        if claim_id not in stated
+    )
+    problems.extend(
+        f"headline claim {headline!r} states {stated[headline]!r} but the "
+        f"prediction's probability is {prediction.probability!r} — one belief, "
+        "two committed numbers"
+        for headline in _HEADLINE_CLAIMS
+        if headline in stated and stated[headline] != prediction.probability
+    )
+    return problems
 
 
 def score_claims(

@@ -264,8 +264,9 @@ def validate(
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
     git tree (with its declared ids matching the path) while every evaluation
-    targets a real prediction and every prose document a prediction names sits
-    beside it. The corpus-dependent referential checks need the
+    targets a real prediction, every prose document a prediction names sits
+    beside it, and every committed claims block is one the claim scorer will
+    not silently void. The corpus-dependent referential checks need the
     remote, so they run scheduled via ``validate-corpus`` rather than here.
     """
     result = validate_ledger(path)
