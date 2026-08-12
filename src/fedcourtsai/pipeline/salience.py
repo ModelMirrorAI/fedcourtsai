@@ -53,6 +53,7 @@ re-band a prediction already written.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -114,6 +115,32 @@ _MAX_SAMPLE = 20
 # September conference, so keying the larger cap on the month cleanly identifies
 # the long conference without a separate calendar. Used only to pick the capacity.
 _LONG_CONFERENCE_MONTH = 9
+
+
+#: The sal-v2 arrival draw's key: the version label, so the assignment is
+#: fixed by registration — re-running the draw under the same label over the
+#: same case ids reproduces the same slice, for the replay and for any
+#: skeptic, and no selection rule can steer it (the hash input is the public
+#: case id and a public constant).
+_ARRIVAL_DRAW_KEY = "sal-v2"
+
+
+def arrival_draw(case_id: str, rate: float) -> bool:
+    """Whether ``case_id`` falls in the deterministic arrival random slice.
+
+    A keyed hash draw (the :mod:`fedcourtsai.blinding` shuffle-key shape):
+    ``sha256(key \x00 case_id)`` read as a fraction of the hash space,
+    selected iff below ``rate``. Pure and replayable — no stored column, no
+    clock, no RNG state — so the slice is reproducible from the corpus and
+    the committed constant alone, which is what lets its unbiasedness claim
+    be audited rather than trusted. ``rate`` 0 selects nothing; 1 everything.
+    """
+    if rate <= 0.0:
+        return False
+    if rate >= 1.0:
+        return True
+    digest = hashlib.sha256(f"{_ARRIVAL_DRAW_KEY}\x00{case_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") < rate * 2**64
 
 
 def _relist_signal(row: corpus.CorpusRow) -> float:

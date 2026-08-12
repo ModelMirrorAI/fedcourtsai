@@ -16,6 +16,7 @@ from fedcourtsai.pipeline.salience import (
     SCORERS,
     SalienceScorer,
     _selection_plan,
+    arrival_draw,
     carve_out,
     plan_cohorts,
     reconcile_salience_selection,
@@ -918,3 +919,21 @@ def test_a_scorers_band_function_only_ever_returns_a_declared_band(
                     f"{version} banded a row {banding.band(row)!r}, "
                     f"which is not among {banding.bands}"
                 )
+
+
+def test_arrival_draw_is_deterministic_and_rate_honest() -> None:
+    """The random slice's whole contract: the same id always draws the same
+    answer under the committed key, the endpoints are exact, and the realized
+    fraction over a large id population sits at the rate — an auditable
+    property, not a trusted one."""
+    assert arrival_draw("scotus/26000001", 0.05) == arrival_draw("scotus/26000001", 0.05)
+    assert not arrival_draw("scotus/26000001", 0.0)
+    assert arrival_draw("scotus/26000001", 1.0)
+    ids = [f"scotus/26{n:06d}" for n in range(20_000)]
+    realized = sum(arrival_draw(cid, 0.05) for cid in ids) / len(ids)
+    assert abs(realized - 0.05) < 0.005, realized
+    # Rate monotonicity: a case in the slice at a lower rate stays in it at a
+    # higher one — a rate change never swaps membership, only widens it.
+    lower = {cid for cid in ids[:2000] if arrival_draw(cid, 0.02)}
+    higher = {cid for cid in ids[:2000] if arrival_draw(cid, 0.10)}
+    assert lower <= higher
