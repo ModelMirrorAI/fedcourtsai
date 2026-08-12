@@ -4426,7 +4426,9 @@ class SalienceSelectionResult(_Strict):
 class CaptionCensusClass(_Strict):
     """One petitioner class's cell in the caption census: n, grants, rate."""
 
-    petitioner_class: str = Field(description="federal, state, or private")
+    petitioner_class: Literal["federal", "state", "private"] = Field(
+        description="The committed caption rule's class"
+    )
     n: int = Field(ge=0, description="Resolved paid modern-cert petitions in the class")
     grant_family: int = Field(ge=0, description="Grant-family outcomes among them")
     rate: float | None = Field(
@@ -4456,7 +4458,7 @@ class CaptionCensus(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    rule_version: str = Field(default="", description="The committed rule, e.g. caption-v1")
+    rule_version: str = Field(description="The committed rule, e.g. caption-v1")
     terms: list[CaptionCensusTerm] = Field(default_factory=list)
     pooled: list[CaptionCensusClass] = Field(default_factory=list)
 

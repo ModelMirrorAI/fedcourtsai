@@ -1247,6 +1247,7 @@ def _update_clause(column: str) -> str:
         "distributed_for_conference",
         "cvsg_date",
         "originating_court_name",
+        "petitioner_title",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's

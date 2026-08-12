@@ -139,6 +139,23 @@ is **two cohorts, never pooled**:
   against its own risk-set baselines and never against — or blended with —
   the arrival cohort's.
 
+**The caption class (`caption-v1`) is the arrival feature's committed form.**
+The petitioner's caption is the one party signal fixed at filing, and
+`pipeline.caption` holds the committed rule: federal / state / private, read
+from the structured `petitioner_title` column (else the caption's pre-` v. `
+half), with the fixtures as the specification. Its census
+(`fedcourts caption-census`) is the artifact any caption-keyed **selection**
+constant must be frozen from — and only from a statistically reviewed run of
+it under the rule version it names; until such a review the class is a
+**reporting dimension** (a band, a statpack segment), never a weight. The
+reviewed verdict on the founding measurement: the federal/government-petitioner
+class is carve-in grade (it replicates across every measured Term and
+discriminates inside the incumbent's blind band); the state class is band-only
+(per-Term unstable, and its below-cap slice underperforms the arrival
+population); and the gate replay cannot validate any caption feature, because
+the replay's reconstruction carries the terminal caption — a declared gap,
+never papered over with a replay number.
+
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay
 under `sal-v1` forever, which the scorer registry below is what enforces. Its
