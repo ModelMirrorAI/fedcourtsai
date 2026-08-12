@@ -69,7 +69,14 @@ it passes through, and how the freeze is performed all belong to
 [process-version.md](process-version.md#freezing-the-cutover-procedure);
 **record the resulting commit here when it happens.**
 
-- Freeze commit: _not yet frozen — the shakedown is ongoing._
+- Freeze commit: `84b421168` (tagged **`prereg/proc-v1`**) — blesses the six
+  proc-v1 baseline digests and sets the freeze instant `2026-08-15T00:00:00Z`.
+  Carried to `main` by the promotion tagged `promotion/2026-08-12-2`
+  (merged `2026-08-12T14:20:51Z`, before the instant — the auditor's check in
+  [process-version.md](process-version.md#freezing-the-cutover-procedure)).
+  Zero stamped cells existed at the freeze, so nothing is listed as
+  pre-registration-excluded; everything earlier is the unstamped
+  alpha/shakedown ledger.
 
 ## The near-term target: the OT2026 long-conference cert release
 
