@@ -600,6 +600,30 @@ def test_evaluate_matrix_drops_out_of_scope_case(tmp_path: Path) -> None:
     assert "24001" in result.stderr
 
 
+def test_evaluate_matrix_grades_a_salience_unselected_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # 24002 is scored and NOT selected — the shape `unlatch-overselected`
+    # creates for cases carrying committed predictions. Selection decides which
+    # cases earn NEW cells, never whether an existing prediction is scored, so
+    # the evaluate matrix must keep it: a cleared-then-resolved petition's
+    # pre-registered forward prediction grades like any other.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    # 3 evaluators x 2 cases: the unselected case's cells all mint.
+    assert len(_cells(result.stdout)) == 6
+    assert "not selected this salience round" not in result.stderr
+
+
 def test_matrix_without_body_or_flags_errors() -> None:
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"])
     assert result.exit_code == 2

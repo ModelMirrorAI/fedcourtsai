@@ -598,7 +598,7 @@ def test_unlatch_overselected_clears_the_resize_overhang(tmp_path: Path) -> None
     with corpus.connect(db) as conn:
         applied = unlatch_overselected(conn, resized, apply=True)
     assert applied.applied is True and applied.unlatched == 2
-    assert sorted(applied.sample_unlatched) == ["scotus/b", "scotus/c"]
+    assert applied.unlatched_case_ids == ["scotus/b", "scotus/c"]
     assert _selected_ids(db) == {"scotus/a", "scotus/cvsg"}
     with corpus.connect(db) as conn:
         again = unlatch_overselected(conn, resized, apply=True)
@@ -629,6 +629,64 @@ def test_unlatch_overselected_spares_decided_rows_and_applications(tmp_path: Pat
     # application were never candidates, so nothing clears.
     assert result.unlatched == 0 and result.latched_pending == 1
     assert _selected_ids(db) == {"scotus/pending", "scotus/decided", "scotus/9525000001"}
+
+
+def test_unlatch_overselected_counts_what_it_spares(tmp_path: Path) -> None:
+    """The ledger reconciles against the corpus: a latched pending petition
+    outside every cohort — never distributed, or Tier-0 excluded (IFP) — is
+    spared AND counted, so "cleared X of Y" reads against a stated remainder."""
+    rows = [
+        _petition("scotus/incohort", distribution_count=1, selected=True),
+        _petition("scotus/undistributed", distribution_count=1, selected=True, conference=None),
+        _petition("scotus/ifp", distribution_count=1, selected=True, docket="25-5044"),
+    ]
+    db = _seed(tmp_path, rows)
+    with corpus.connect(db) as conn:
+        result = unlatch_overselected(
+            conn, SalienceConfig(per_conference_capacity=1, floor=0.28), apply=True
+        )
+    assert result.latched_pending == 1  # only the cohort member was examined
+    assert result.spared_undistributed == 1
+    assert result.spared_out_of_scope == 1
+    assert _selected_ids(db) == {"scotus/incohort", "scotus/undistributed", "scotus/ifp"}
+
+
+def test_unlatch_retains_what_a_filled_reserve_would_displace(tmp_path: Path) -> None:
+    """The reserve=0 safety claim: the reconcile ranks with no reserve, so a
+    latched petition a filled interim reserve would displace from the live
+    pass's fill is retained — permissive in exactly the destructive direction."""
+    rows = [_petition(f"scotus/{c}", distribution_count=1) for c in "ab"]
+    rows.append(_application("scotus/9525000001", "25A1"))
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    # The live pass funds the application + 1 cert fill; latch 'b' by hand to
+    # simulate a pre-resize latch the reserve would now displace.
+    with corpus.connect(db) as conn:
+        corpus.latch_salience_selected(conn, ["scotus/b"])
+        result = unlatch_overselected(conn, config, apply=True)
+    assert result.unlatched == 0 and result.retained == 2  # 'a' and 'b' both kept
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/a", "scotus/b"}
+
+
+def test_unlatch_then_live_pass_is_stable(tmp_path: Path) -> None:
+    """No oscillation: after an applied reconcile, the live selection pass under
+    the same config re-latches nothing — the cleared rows re-enter as
+    candidates and lose to the same retained set."""
+    db = _seed(tmp_path, [_petition(f"scotus/{c}", distribution_count=1) for c in "abcd"])
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(
+            conn, SalienceConfig(per_conference_capacity=3, floor=0.28), apply=True
+        )
+    resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
+    with corpus.connect(db) as conn:
+        unlatch_overselected(conn, resized, apply=True)
+    assert _selected_ids(db) == {"scotus/a"}
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, resized, apply=True)
+    assert result.newly_selected == 0
+    assert _selected_ids(db) == {"scotus/a"}
 
 
 def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path: Path) -> None:

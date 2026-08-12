@@ -562,9 +562,14 @@ def unlatch_overselected_cmd(
     never widened) and clears the latch on pending petitions the recomputation
     would not pick — decided rows, interim applications, and never-distributed
     petitions are untouched, and a committed prediction on a cleared case stays
-    committed. Deliberate maintainer surface, never scheduled: dry-run by
-    default, run where the corpus is pulled, `corpus-push` after an `--apply`.
-    Prints a `SalienceUnlatchResult`. Fails loud if the corpus is absent.
+    committed — and still graded: the evaluate matrix never applies the
+    salience skip. Deliberate maintainer surface, never scheduled: run
+    `dedupe-live-rows --apply` first (a merge takes the latch stickily from
+    either twin), dry-run by default, run where the corpus is pulled,
+    `corpus-push` after an `--apply`. Prints a `SalienceUnlatchResult` — keep
+    it: the full cleared-id ledger in it, beside the pre-apply pointer echoed
+    below, is the record of the pre-resize sticky set the write erases. Fails
+    loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -576,6 +581,9 @@ def unlatch_overselected_cmd(
         )
         raise typer.Exit(code=1)
     config = load_salience_config(settings.config_root)
+    ref = db_path.parent / (db_path.name + ".ref")
+    if ref.is_file():
+        typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
     with corpus.connect(db_path) as conn:
         result = unlatch_overselected(conn, config, apply=apply)
     verb = "cleared" if apply else "would clear"
@@ -4850,8 +4858,19 @@ def _scope_filtered(
     scope: PredictScope,
     corpus_root: Path,
     corpus_backend: corpus.CorpusBackend,
+    *,
+    for_grading: bool = False,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
+
+    ``for_grading`` is the evaluate matrix's reading: the salience-deferred
+    skip does not apply, because selection decides which cases *earn new
+    cells*, never whether a committed prediction is scored — a prediction on
+    a case whose latch was since cleared (``unlatch-overselected``) must
+    still be graded when its event resolves, exactly the stranding
+    ``pipeline.pull.evaluate_backlog`` refuses to cause. The hard exclusions
+    (court, ``predict_excluded``, the shared reason rules) still apply on
+    both readings.
 
     A manually-filed predict/evaluate issue cannot bypass the gate the pull
     queueing applies: the scope predicate is the corpus row's immutable
@@ -4908,8 +4927,10 @@ def _scope_filtered(
                 )
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
                 typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
-            elif corpus.is_salience_deferred(row) and not corpus.has_open_merits_event(
-                conn, row.case_id
+            elif (
+                not for_grading
+                and corpus.is_salience_deferred(row)
+                and not corpus.has_open_merits_event(conn, row.case_id)
             ):
                 # The merits bypass: a below-cap petition still earns no cert
                 # cell, but once the Court grants it the funding question is a
@@ -5155,6 +5176,7 @@ def evaluate_matrix_cmd(
             scope,
             settings.corpus_root,
             settings.corpus_backend,
+            for_grading=True,
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
