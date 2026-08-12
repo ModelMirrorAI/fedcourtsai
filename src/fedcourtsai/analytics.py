@@ -413,6 +413,15 @@ def compute_report(conn: sqlite3.Connection, query: AnalyticsQuery) -> Analytics
     breakdown. Buckets sort by case count descending, then key, so the output is
     deterministic under ties.
     """
+    if query.group_by is not None and GroupBy(query.group_by) not in STATS_DIMENSIONS:
+        # The CLI offers only servable cuts, but this contract belongs to the
+        # aggregation itself: a section dimension's keys come from an artifact,
+        # not a corpus row, so grouping by one here has no key function.
+        choices = ", ".join(g.value for g in STATS_DIMENSIONS)
+        raise ValueError(
+            f"cannot group by {GroupBy(query.group_by).value!r}: its keys come from "
+            f"an artifact, not a corpus row; choose one of: {choices}"
+        )
     disposition = Disposition(query.disposition) if query.disposition else None
     matched = [
         row
