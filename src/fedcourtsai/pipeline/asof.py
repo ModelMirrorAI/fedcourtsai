@@ -68,14 +68,13 @@ def project_row(
       filing, never changed), caption and structured petitioner title, filing
       date, originating-court linkage, and the sampling ``sample_weight`` (a
       property of how the corpus was built, not of the docket's progress).
-      The caption invariance is measured, not assumed, at the *class* grain:
-      across 12,851 event-vintage/current pairs the caption string was
-      rewritten for ~97% of rows while the derived petitioner class survived
-      in 99.98% (zero flips among grant-family rows) — the residual
-      concentrates in officer-title renderings, which is why the structured
-      ``petitioner_title`` exists and why arrival-vs-terminal caption drift
-      (unmeasurable until dated arrival snapshots resolve) stays a declared
-      gap for any caption-keyed scorer rather than a replay-validated claim.
+      The caption invariance is measured, not assumed, at the *class* grain
+      (the two measurements and their vintages: ``pipeline.caption``'s module
+      docstring) — the residual concentrates in officer-title renderings,
+      which is why the structured ``petitioner_title`` exists and why
+      arrival-vs-terminal caption drift (unmeasurable until dated arrival
+      snapshots resolve) stays a declared gap for any caption-keyed scorer
+      rather than a replay-validated claim.
     - **Docket-acquired signals are re-derived from the payload** via the same
       parsers the cell-context builder uses (``distribution_count``,
       ``cvsg_date``), so they reflect the moment the payload represents rather

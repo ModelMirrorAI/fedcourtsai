@@ -424,11 +424,9 @@ def test_the_arrival_moment_mints_on_selection_while_the_petition_is_open() -> N
     open — the same open-first-moment guard as the CVSG mint.
     """
     filed = date(2026, 7, 15)
-    row = CorpusRow(
+    row = corpus.CorpusRow(
         case_id="scotus/26000042",
         court="scotus",
-        docket_id=26000042,
-        source="live",
         docket_number="26-42",
         date_filed=filed,
     )

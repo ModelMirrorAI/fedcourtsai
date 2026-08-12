@@ -52,13 +52,13 @@ case-equivalent.
 |---|---|---:|---|
 | cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay: rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
-| cert | arrival | 75 (+~33–64 pending) | the sal-v2 arrival cohort, **beside** `N`: the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`), plus the federal-petitioner carve-in once a committed-rule `caption-census` run is reviewed to freeze its constant (`docs/salience.md` — the class itself is already reviewed carve-in grade; the outstanding review is of the census run the constant freezes from); inert until the sal-v2 scorer activates |
+| cert | arrival | 95 | the sal-v2 arrival cohort, **beside** `N`: 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~20 from the federal-petitioner carve-in, whose census run passed statistical verification (8/8 complete Terms at 8.1–16.4× lift; per-Term 11–40, so a heavy government-litigation Term runs high; ~14/Term incremental over what CVSG/floor already carve — `docs/salience.md`); inert until the sal-v2 scorer activates |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
 | interim | response requested | 8 | 12.3% of the 67 selected arrivals |
 | interim | response filed | 21 | 30.6% of the 67 |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
-| | **total** | **813–840 (+~33–64 pending)** | **≈$10.6–10.9K/Term** at the $13 planning rate once sal-v2 activates (≈$11.0–11.8K with the carve-in); ≈$9.6–9.9K while the arrival cohort is inert |
+| | **total** | **833–860** | **≈$10.8–11.2K/Term** at the $13 planning rate once sal-v2 activates (slice + carve-in); ≈$9.6–9.9K while the arrival cohort is inert |
 
 The later moments differ sharply in how much runway they leave, which is the
 figure to read before trusting any of their skill numbers: a merits brief

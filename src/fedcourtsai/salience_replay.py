@@ -185,7 +185,16 @@ def _replay_cell(
     skipped = projection.skipped
 
     synthesized = [as_of.row for _, as_of in projected]
-    scores, to_select, _, conferences = plan_cohorts(synthesized, config, version=version)
+    scores, to_select, _, conferences = plan_cohorts(
+        synthesized,
+        config,
+        version=version,
+        # An arrival cohort exists only at the arrival policy: a row still
+        # undistributed at a later cutoff is a reconstruction artifact (often
+        # a blind projection), and drawing it would pool the arrival slice
+        # into an escalation cell's precision.
+        select_arrivals=policy is asof.CutoffPolicy.arrival,
+    )
     selected = set(to_select)  # no projected row is pre-latched, so this is the whole pick
     carved = {
         row.case_id

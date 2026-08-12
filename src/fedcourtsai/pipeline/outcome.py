@@ -1089,7 +1089,9 @@ def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEv
     )
 
 
-def arrival_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+def arrival_event_for(
+    row: corpus.CorpusRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
     """The cert stage's arrival forecast moment, or ``None``.
 
     The sal-v2 arrival cohort's event: unlike every other cert trigger this is

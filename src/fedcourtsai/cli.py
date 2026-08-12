@@ -566,8 +566,17 @@ def caption_census_cmd() -> None:
             err=True,
         )
         raise typer.Exit(code=1)
+    # The provenance the freeze record needs: under `local` the hash of the
+    # file the census actually ran over (which can drift from the committed
+    # pointer); under `ranged` the immutable blob IS the pointer's object, so
+    # the pointer's own parsed digest names it exactly.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    else:
+        pointer = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        census = caption_census(conn)
+        census = caption_census(conn, corpus_sha256=corpus_sha)
     for cell in census.pooled:
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(

@@ -71,7 +71,13 @@ def _env(
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
         corpus.upsert_rows(
             conn,
-            [corpus.CorpusRow(case_id=cid, court=cid.split("/")[0]) for cid in cases],
+            [
+                # Distributed: the baseline's own moment precondition — an
+                # undistributed SCOTUS petition forecasts at the arrival
+                # moment, not the distribution moment these tests exercise.
+                corpus.CorpusRow(case_id=cid, court=cid.split("/")[0], distribution_count=1)
+                for cid in cases
+            ],
         )
     # The evaluate gate reads the ledger: seed one committed prediction per
     # case's event so evaluate-matrix keeps them.

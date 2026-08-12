@@ -345,7 +345,7 @@ def test_arrival_replay_is_degenerate_zero_selected_all_baseline(tmp_path: Path)
     """Issue-motivating fact, quantified: at arrival nothing separates petitions."""
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.arrival], config=_CONFIG)
-    (cell,) = report.cells
+    cell = next(c for c in report.cells if c.salience_version == SALIENCE_VERSION)
     assert (cell.term, cell.policy) == (2023, "arrival")
     assert cell.eligible == 5 and cell.skipped_no_snapshot == 1
     assert cell.cohorts == 0 and cell.selected == 0
@@ -359,7 +359,7 @@ def test_arrival_replay_is_degenerate_zero_selected_all_baseline(tmp_path: Path)
 def test_distribution_1_replay_cohorts_on_the_first_conference(tmp_path: Path) -> None:
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.distribution_1], config=_CONFIG)
-    (cell,) = report.cells
+    cell = next(c for c in report.cells if c.salience_version == SALIENCE_VERSION)
     # scotus/1..3 all sit at their FIRST distribution (one conference, Feb 16),
     # every one relist-0/baseline; scotus/4 never distributed -> blind.
     assert cell.cohorts == 1
@@ -405,7 +405,7 @@ def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Pa
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
     assert report.salience_version == SALIENCE_VERSION
-    (cell,) = report.cells
+    cell = next(c for c in report.cells if c.salience_version == SALIENCE_VERSION)
     # scotus/1 shows 2 relists at its last pre-grant distribution -> high band,
     # above the floor -> carve-out. scotus/2 and scotus/3 tie at baseline in the
     # Feb 16 cohort; capacity 1 takes scotus/2 by case_id -> rank fill.
@@ -453,7 +453,7 @@ def test_an_untrusted_cutoff_degrades_to_blind(tmp_path: Path) -> None:
         corpus.upsert_rows(conn, [row])
         corpus.upsert_snapshot(conn, row.case_id, date(2024, 7, 1), payload)
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
-    (cell,) = report.cells
+    cell = next(c for c in report.cells if c.salience_version == SALIENCE_VERSION)
     assert cell.provenance == {"blind-untrusted-cutoff": 1}
     assert cell.bands == {"unobservable": 1}  # no trajectory shown, never banded
     assert cell.selected == 0
@@ -464,7 +464,7 @@ def test_an_empty_term_still_yields_its_cells(tmp_path: Path) -> None:
     report = replay_gate(
         db, terms=[2019], policies=[CutoffPolicy.arrival, CutoffPolicy.resolution], config=_CONFIG
     )
-    assert report.cells_evaluated == 2
+    assert report.cells_evaluated == 4  # 2 (term, policy) cells x 2 registered versions
     assert all(cell.eligible == 0 and cell.selected == 0 for cell in report.cells)
 
 
@@ -513,9 +513,9 @@ def test_cli_writes_a_valid_report(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     report = read_model(out, SalienceReplay)  # validates against the schema model
     assert report.terms == [2023]
     assert report.policies == ["arrival", "distribution-1", "resolution"]
-    assert report.cells_evaluated == 3
+    assert report.cells_evaluated == 6  # 3 policies x 2 registered versions
     assert report.salience_version == SALIENCE_VERSION
-    assert "salience-replay: 3 cell(s)" in result.output
+    assert "salience-replay: 6 cell(s)" in result.output
 
 
 def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:
@@ -563,19 +563,22 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v2"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 2
-    active, toy = report.cells
-    assert (active.salience_version, toy.salience_version) == (SALIENCE_VERSION, "sal-toy")
+    assert report.cells_evaluated == 3  # one (term, policy) cell x 3 registered versions
+    by_version = {cell.salience_version: cell for cell in report.cells}
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v2"}
+    active, toy, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v2"))
 
     # The projection is shared, so every projection-derived figure matches.
-    assert active.eligible == toy.eligible
-    assert active.skipped_no_snapshot == toy.skipped_no_snapshot
-    assert active.provenance == toy.provenance
+    for other in (toy, v2):
+        assert active.eligible == other.eligible
+        assert active.skipped_no_snapshot == other.skipped_no_snapshot
+        assert active.provenance == other.provenance
 
     # The banding is not: each cell reports its own scorer's vocabulary, and
-    # neither one's band names appear under the other.
+    # no version's band names appear under another's.
     assert set(active.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
-    assert sum(active.bands.values()) == sum(toy.bands.values())
+    assert set(v2.bands) <= {"federal", "high", "state", "elevated", "baseline", "unobservable"}
+    assert sum(active.bands.values()) == sum(toy.bands.values()) == sum(v2.bands.values())
