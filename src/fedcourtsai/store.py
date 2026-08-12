@@ -338,7 +338,7 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
         if corpus.is_scotus_application_form(row.docket_number):
             return False
         if (
-            event.event_id.startswith("evt-petition-")
+            event.kind == EventKind.petition
             and row.distributed_for_conference is None
             and not row.distribution_count
         ):

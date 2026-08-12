@@ -220,8 +220,11 @@ def _sal_v1_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
 # verdict; docs/salience.md). What sal-v2 adds:
 #
 # - a `federal` band above `high` and a `state` band between `high` and
-#   `elevated`, by measured grant rate (census caption-v1: federal ~0.70,
-#   state ~0.23 against high's 0.28-0.44 span and elevated's 0.078). The
+#   `elevated`, ordered by measured grant rate (census caption-v1: federal
+#   ~0.70; the state CLASS marginal ~0.23 against high's 0.28-0.44 span and
+#   elevated's 0.078 — the band's own realized rate sits below the marginal,
+#   since its strongest members band `high`; the statpack measures each band
+#   empirically either way). The
 #   band is the strongest of the caption-class band and the relist/CVSG
 #   tier, so it stays monotone over a petition's life: the class is fixed at
 #   filing and the trajectory tier only rises.
@@ -419,6 +422,7 @@ def plan_cohorts(
     config: SalienceConfig,
     *,
     version: SalienceScorer | None = None,
+    select_arrivals: bool | None = None,
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -451,6 +455,16 @@ def plan_cohorts(
     reserve lowers nothing.
     """
     active = version if version is not None else scorer()
+    # `select_arrivals` narrows (never widens) the version's own arrival
+    # semantics: the gate replay passes False at every non-arrival policy,
+    # because "still undistributed at a later cutoff" is a property of the
+    # reconstruction, not a live arrival — pooling those picks into an
+    # escalation cell is the cohort blend the design forbids.
+    arrivals_on = (
+        active.selects_arrivals
+        if select_arrivals is None
+        else (select_arrivals and active.selects_arrivals)
+    )
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
     applications: list[corpus.CorpusRow] = []
@@ -478,7 +492,7 @@ def plan_cohorts(
         if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
         elif (
-            active.selects_arrivals
+            arrivals_on
             and row.distributed_for_conference is None
             and not row.distribution_count
             and corpus.resolution_date(row) is None
@@ -552,31 +566,56 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     the cycle's newly-latched picks (the selection sweep queues them via the
     ``predict_queued_at`` debounce — a never-queued case passes it).
 
-    An arrival-selected pick (an active scorer with ``selects_arrivals``)
-    also mints its **arrival event** here, in the same pass that latches it:
-    the sweep queues a latched case's open events, and an undistributed
-    petition's only mintable cert cell is the arrival moment's — the baseline
-    waits for its own distribution moment (``store``'s admission), so without
-    the mint the pick would sit latched with nothing to forecast.
+    Under a scorer with ``selects_arrivals`` the pass also mints the
+    **arrival event** for every latched, pending, undistributed cert row
+    that lacks one — driven off *state*, not off this pass's latch delta, so
+    it is idempotent, a crash between the latch write and the mint heals on
+    the next pass, and the manual ``reconcile-salience-selection`` command
+    mints correctly too. The mint matters because the sweep queues a latched
+    case's open events and an undistributed petition's only mintable cert
+    cell is the arrival moment's — the baseline waits for its own
+    distribution moment (``store``'s admission), so an unminted pick would
+    sit latched with nothing to forecast.
     """
     scores, to_select, _, _ = _selection_plan(conn, config)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
-    if scorer().selects_arrivals and to_select:
-        from . import outcome  # noqa: PLC0415 - salience<-analytics<-... keeps this deferred
-
-        events: list[corpus.CorpusEvent] = []
-        for case_id in to_select:
-            row = corpus.get_row(conn, case_id)
-            if row is None or row.distributed_for_conference is not None:
-                continue
-            open_ids = [e.event_id for e in corpus.events_for_case(conn, case_id) if not e.resolved]
-            minted = outcome.arrival_event_for(row, open_ids)
-            if minted is not None:
-                events.append(minted)
-        if events:
-            corpus.upsert_events(conn, events)
+    _mint_owed_arrival_events(conn)
     return to_select
+
+
+def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
+    """Mint the arrival event for every selected arrival still lacking one.
+
+    State-driven and idempotent: scans the latched, pending, undistributed
+    SCOTUS cert rows and mints where the event is absent — the recovery path
+    for a pass interrupted between its latch write and its mint, and the
+    reason the manual reconcile needs no minting logic of its own. A no-op
+    under a scorer without arrival semantics.
+    """
+    if not scorer().selects_arrivals:
+        return
+    from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
+
+    events: list[corpus.CorpusEvent] = []
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if (
+            not row.salience_selected
+            or row.distributed_for_conference is not None
+            or row.distribution_count
+            or corpus.resolution_date(row) is not None
+            or corpus.is_scotus_application_form(row.docket_number)
+        ):
+            continue
+        case_events = corpus.events_for_case(conn, row.case_id)
+        if any(e.event_id == "evt-petition-arrival-disposition" for e in case_events):
+            continue
+        open_ids = [e.event_id for e in case_events if not e.resolved]
+        minted = outcome.arrival_event_for(row, open_ids)
+        if minted is not None:
+            events.append(minted)
+    if events:
+        corpus.upsert_events(conn, events)
 
 
 def reconcile_salience_selection(
@@ -593,6 +632,7 @@ def reconcile_salience_selection(
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
+        _mint_owed_arrival_events(conn)
     return SalienceSelectionResult(
         applied=apply,
         version=SALIENCE_VERSION,
@@ -654,7 +694,10 @@ def unlatch_overselected(
     reconciles against the corpus: decided rows (their latch is the
     historical record of having been selected), interim applications (the
     reserve's occupancy is its own sticky contract), never-distributed
-    petitions (no cohort to recompute against), and Tier-0-excluded rows —
+    petitions — under sal-v2 these are the arrival cohort, a frozen
+    pre-registered draw that is never re-cut, so its picks are spared by
+    policy; under sal-v1 there is simply no cohort to recompute — and
+    Tier-0-excluded rows —
     those keep a stale latch that is inert under ``predict_excluded`` and the
     shared exclusion reasoning, deliberately not cleared here. A committed
     prediction on a cleared case stays committed **and stays graded**: the

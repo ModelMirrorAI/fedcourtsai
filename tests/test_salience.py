@@ -132,9 +132,11 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
     boundaries are separate constants in separate files; what must hold is
     that every band is carved entirely or not at all (a mixed band would give
     the statpack a base rate conditioned on a population its own carve status
-    splits) and the fully-carved bands sit at the *top* of the strength order.
-    For sal-v1 this reduces to the original identity — carved iff strongest
-    band; for sal-v2 the carved prefix is (federal, high). The enumeration
+    splits) and the fully-carved bands must be the *exact expected prefix*
+    per version — sal-v1's is (high,), the original carved-iff-strongest
+    identity; sal-v2's is (federal, high). Pinning the expected prefix keeps
+    the check as strong as the original: a refit that silently carved an
+    extra tier fails here. The enumeration
     drives the scorer over every relist state x circuit x CVSG x petitioner
     class, so it spans the achievable lattice of every registered version's
     features; the private constant is imported only to enumerate circuits.
@@ -164,9 +166,10 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
     for band, outcomes in carved_by_band.items():
         assert len(outcomes) <= 1, f"{version}: band {band!r} mixes carved and uncarved members"
     fully_carved = tuple(b for b in banding.bands if carved_by_band[b] == {True})
-    assert fully_carved == banding.bands[: len(fully_carved)], (
-        f"{version}: carved bands {fully_carved} are not a prefix of {banding.bands}"
+    expected = {"sal-v1": ("high",), "sal-v2": ("federal", "high")}.get(
+        version, banding.bands[: len(fully_carved)] if fully_carved else None
     )
+    assert fully_carved == expected, f"{version}: carved bands {fully_carved}, expected {expected}"
     assert fully_carved, f"{version}: no band is carved — the always-include rule reaches nothing"
 
 
@@ -958,7 +961,7 @@ def test_arrival_draw_is_deterministic_and_rate_honest() -> None:
     assert lower <= higher
 
 
-def test_sal_v2_selects_the_arrival_cohort_by_predicate(tmp_path: Path) -> None:
+def test_sal_v2_selects_the_arrival_cohort_by_predicate() -> None:
     """The arrival cohort under sal-v2: an undistributed pending petition is
     selected by the deterministic draw or the federal carve-in — no rank, no
     capacity — while sal-v1 (docket-acquired features only) selects none of

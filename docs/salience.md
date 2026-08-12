@@ -150,15 +150,18 @@ from the structured `petitioner_title` column (else the caption's pre-` v. `
 half), with the fixtures as the specification. Its census
 (`fedcourts caption-census`) is the artifact any caption-keyed **selection**
 constant must be frozen from — and only from a statistically reviewed run of
-it under the rule version it names; until such a review the class is a
-**reporting dimension** (a band, a statpack segment), never a weight. The
-reviewed verdict on the founding measurement: the federal/government-petitioner
-class is carve-in grade (it replicates across every measured Term and
-discriminates inside the incumbent's blind band); the state class is band-only
-(per-Term unstable, and its below-cap slice underperforms the arrival
-population); and the gate replay cannot validate any caption feature, because
-the replay's reconstruction carries the terminal caption — a declared gap,
-never papered over with a replay number.
+it under the rule version it names. That review of record has run for
+`caption-v1`: the **federal carve-in predicate** (`classify_petitioner ==
+"federal"` — the predicate, deliberately not the concept "government
+petitioner", whose known recall gap is a `caption-v2` question) is frozen
+into `sal-v2` on a verified census replicating in all eight complete Terms
+(OT2017–OT2024, lift 8.1–16.4×, intervals fully separated; OT2025 is
+right-censored and counted as supportive, never held-out). The **state**
+class stays a reporting dimension only — per-Term unstable, its below-cap
+slice underperforming the arrival population — and the gate replay still
+cannot validate any caption feature, because the replay's reconstruction
+carries the terminal caption: a declared gap, never papered over with a
+replay number.
 
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay

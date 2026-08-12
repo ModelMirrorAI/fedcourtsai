@@ -70,6 +70,7 @@ STATE = [
 PRIVATE = [
     "New York State Rifle & Pistol Association, Inc.",
     "United States ex rel. Polansky",  # qui tam: the relator petitions
+    "United States, et al., ex rel. Smith",  # qui tam behind an et-al. — still the relator
     "U.S. Bank National Association",
     "United States Soccer Federation, Inc.",
     "United States Telecom Association",
@@ -191,7 +192,9 @@ def test_caption_census_counts_the_scored_segment(tmp_path: Path) -> None:
     assert (cells["private"].n, cells["private"].grant_family) == (1, 0)
     assert cells["state"].n == 0 and cells["state"].rate is None
     # Term 2024 carries an unresolved frame row, so it is right-censored:
-    # reported per Term, never pooled.
+    # reported per Term — with the caveat travelling in the row — never pooled.
+    assert census.terms[0].censored is True
+    assert census.terms[0].unresolved == 1
     assert all(c.n == 0 for c in census.pooled)
 
 
