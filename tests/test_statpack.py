@@ -1476,16 +1476,19 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 # --- the alt_segments block: every registered version's bands, per Term ---------
 
 
-def test_a_term_carries_no_alt_segments_key_while_one_version_is_registered(
+def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for non-active versions, so with one version it is absent —
-    not present-and-empty. An empty list would add a key to every Term of every
-    pack to say nothing, and would move the committed artifact."""
+    """The block exists for non-active registered versions — today, sal-v2
+    beside the active sal-v1 — and never repeats the active one. (While only
+    one version existed the key was absent entirely; registering sal-v2 is
+    what makes the committed pack gain the block at its next refresh.)"""
     pack = _pack(fixture_corpus)
-    assert all(t.alt_segments == [] for t in pack.terms)
+    for term in pack.terms:
+        versions = {alt.salience_version for alt in term.alt_segments}
+        assert versions == {"sal-v2"}, versions
     payload = pack.model_dump(mode="json")
-    assert all("alt_segments" not in term for term in payload["terms"])
+    assert all("alt_segments" in term for term in payload["terms"])
 
 
 def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
@@ -1498,14 +1501,21 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
     for term in pack.terms:
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
-        (alt,) = term.alt_segments
-        assert alt.salience_version == "sal-toy"
-        # The toy's own vocabulary, not the active scorer's — a band name means
-        # something only under the function that assigned it.
-        assert [s.band for s in alt.segments] == ["hot", "cold"]
+        alts = {alt.salience_version: alt for alt in term.alt_segments}
+        assert set(alts) == {"sal-toy", "sal-v2"}
+        # Each version's own vocabulary, not the active scorer's — a band name
+        # means something only under the function that assigned it.
+        assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
+        assert [s.band for s in alts["sal-v2"].segments] == [
+            "federal",
+            "high",
+            "state",
+            "elevated",
+            "baseline",
+        ]
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 1 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 2 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(
@@ -1516,9 +1526,13 @@ def test_both_versions_count_the_same_rows_into_their_own_bands(
     whether it is in the scored segment at all."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
-        (alt,) = term.alt_segments
-        assert sum(s.ingested for s in term.segments) == sum(s.ingested for s in alt.segments)
-        assert sum(s.resolved for s in term.segments) == sum(s.resolved for s in alt.segments)
+        for alt in term.alt_segments:
+            assert sum(s.ingested for s in term.segments) == sum(
+                s.ingested for s in alt.segments
+            ), alt.salience_version
+            assert sum(s.resolved for s in term.segments) == sum(
+                s.resolved for s in alt.segments
+            ), alt.salience_version
 
 
 def test_merits_population_excludes_judgments_that_rode_the_grant_order(tmp_path: Path) -> None:

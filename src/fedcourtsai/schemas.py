@@ -4445,6 +4445,13 @@ class CaptionCensusTerm(_Strict):
 
     term: int = Field(description="The October Term year")
     classes: list[CaptionCensusClass] = Field(default_factory=list)
+    censored: bool = Field(
+        default=False,
+        description="True when the Term's frame carries unresolved rows — "
+        "right-censored, reported per Term but never pooled; the caveat "
+        "travels in the row, not a section away",
+    )
+    unresolved: int = Field(default=0, ge=0, description="Unresolved frame rows censoring the Term")
 
 
 class CaptionCensus(_Strict):
@@ -4460,6 +4467,12 @@ class CaptionCensus(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     rule_version: str = Field(description="The committed rule, e.g. caption-v1")
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the census ran over — the "
+        "artifact is re-derivable only against this exact corpus state, so a "
+        "freeze record must carry it",
+    )
     terms: list[CaptionCensusTerm] = Field(default_factory=list)
     pooled: list[CaptionCensusClass] = Field(default_factory=list)
 

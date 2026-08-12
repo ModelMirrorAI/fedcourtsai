@@ -6,10 +6,16 @@ contaminated with amici, so the petitioner's *caption* — preferably the
 structured ``petitioner_title`` column, else the joined ``case_name``'s
 pre-`` v. `` half — is the only honest arrival-time reading of who is asking.
 The class is deliberately coarse (three values) because coarseness is what
-survives caption re-rendering: measured over 12,851 event-vintage/current
-pairs under this committed rule, ~97% of caption *strings* changed while the
-derived class flipped once (0.008%), with zero flips among grant-family rows
-— role-suffix stripping below is what makes the rule vintage-independent.
+survives caption re-rendering, measured two ways: over 12,851
+event-vintage/current pairs at the pre-re-render corpus vintage (the event
+titles have since been re-rendered to current, so that cut no longer
+reproduces), ~97% of caption strings changed while this rule's class flipped
+once, zero among grant-family rows; and reproducibly today, across the 815
+frame rows carrying a dated snapshot, the snapshot caption differs from the
+current one in 98.8% of rows while the class agrees in 815/815 — a
+cross-channel rendering invariance, not temporal drift, which stays a
+declared gap. Role-suffix stripping below is what makes the rule
+vintage-independent.
 
 The rule's ordering is load-bearing and pinned by fixtures: **state markers
 are tested before federal markers**, because SCOTUS captioning style renders a
@@ -176,7 +182,9 @@ _SUBNATIONAL_OFFICER_RE: Final = re.compile(
 _FEDERAL_SOVEREIGN_RE: Final = re.compile(
     r"^(?:United States(?:\s+of\s+America)?|U\.?S\.?A?\.?)\s*(?:$|[,;])", re.IGNORECASE
 )
-_QUI_TAM_RE: Final = re.compile(r"^United States,?\s+ex\.?\s*rel", re.IGNORECASE)
+_QUI_TAM_RE: Final = re.compile(
+    r"^United States,?(?:\s+et\s+al\.?,?)?\s+ex\.?\s*rel", re.IGNORECASE
+)
 _FEDERAL_MARKER_RE: Final = re.compile(
     r"\bSolicitor General\b"
     r"|\bFederal\s+(?:Bureau|Communications|Election|Energy|Trade|Reserve|Deposit|Housing|Maritime|Mine|Labor)\b"
@@ -288,7 +296,7 @@ def _scored_segment(row: corpus.CorpusRow) -> bool:
     return parsed is not None and parsed[1] < IFP_SERIAL_BASE
 
 
-def caption_census(conn: corpus.ReadConnection) -> CaptionCensus:
+def caption_census(conn: corpus.ReadConnection, *, corpus_sha256: str = "") -> CaptionCensus:
     """The per-Term, per-class grant-family census the carve-in freezes from.
 
     The population frame is the statpack's predictor-facing cut — live-slice,
@@ -310,7 +318,7 @@ def caption_census(conn: corpus.ReadConnection) -> CaptionCensus:
     counts: dict[int, dict[str, list[int]]] = defaultdict(
         lambda: {c: [0, 0] for c in PETITIONER_CLASSES}
     )
-    censored: set[int] = set()
+    unresolved: dict[int, int] = defaultdict(int)
     for row in corpus.iter_rows(conn, court="scotus"):
         if not corpus.is_live_slice(row) or not _scored_segment(row):
             continue
@@ -318,7 +326,7 @@ def caption_census(conn: corpus.ReadConnection) -> CaptionCensus:
         if term is None:
             continue
         if row.disposition is None:
-            censored.add(term)
+            unresolved[term] += 1
             continue
         if (row.sample_weight or 1) != 1:
             raise ValueError(
@@ -344,13 +352,21 @@ def caption_census(conn: corpus.ReadConnection) -> CaptionCensus:
     pooled: dict[str, list[int]] = {c: [0, 0] for c in PETITIONER_CLASSES}
     terms: list[CaptionCensusTerm] = []
     for term in sorted(counts):
-        if term not in censored:
+        if not unresolved[term]:
             for name in PETITIONER_CLASSES:
                 pooled[name][0] += counts[term][name][0]
                 pooled[name][1] += counts[term][name][1]
-        terms.append(CaptionCensusTerm(term=term, classes=_classes(counts[term])))
+        terms.append(
+            CaptionCensusTerm(
+                term=term,
+                classes=_classes(counts[term]),
+                censored=bool(unresolved[term]),
+                unresolved=unresolved[term],
+            )
+        )
     return CaptionCensus(
         rule_version=CAPTION_RULE_VERSION,
+        corpus_sha256=corpus_sha256,
         terms=terms,
         pooled=_classes(pooled),
     )

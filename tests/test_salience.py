@@ -9,6 +9,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
+from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
     _CIRCUIT_GRANT_RATE,
@@ -16,6 +17,7 @@ from fedcourtsai.pipeline.salience import (
     SCORERS,
     SalienceScorer,
     _selection_plan,
+    apply_salience_selection,
     arrival_draw,
     carve_out,
     plan_cohorts,
@@ -27,6 +29,7 @@ from fedcourtsai.pipeline.salience import (
     scorer,
     unlatch_overselected,
 )
+from fedcourtsai.schemas import EventKind, Stage
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
@@ -43,11 +46,13 @@ def _petition(  # noqa: PLR0913 - a keyword-only test fixture builder, one arg p
     selected: bool = False,
     court: str = "scotus",
     date_cert_denied: date | None = None,
+    petitioner_title: str | None = None,
 ) -> corpus.CorpusRow:
     return corpus.CorpusRow.model_validate(
         {
             "case_id": case_id,
             "court": court,
+            "petitioner_title": petitioner_title,
             "docket_number": docket,
             "date_filed": date(2025, 10, 1),
             "distribution_count": distribution_count,
@@ -121,39 +126,48 @@ def test_circuit_nudge_never_carries_a_petition_across_a_band_boundary() -> None
 
 @pytest.mark.parametrize("version", registered_versions())
 def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
-    """The always-include floor (config) and the strongest band's cutpoint (code)
-    are separate constants in separate files, and nothing but this test holds them
-    aligned: a refit that put an achievable non-carved score inside
-    [cutpoint, floor) would open a silent gap between "strongest band" and
-    "carved in". The enumeration drives the scorer over constructed
-    rows — every relist state crossed with every circuit (known, unknown,
-    unlinked), with and without CVSG — so it spans the achievable score
-    lattice even if the scorer later gains a term; the private constant is
-    imported only to enumerate the circuit keys.
+    """The carved set must be a clean prefix of the band order, no band mixed.
+
+    The always-include rule (config floor + code predicates) and the band
+    boundaries are separate constants in separate files; what must hold is
+    that every band is carved entirely or not at all (a mixed band would give
+    the statpack a base rate conditioned on a population its own carve status
+    splits) and the fully-carved bands sit at the *top* of the strength order.
+    For sal-v1 this reduces to the original identity — carved iff strongest
+    band; for sal-v2 the carved prefix is (federal, high). The enumeration
+    drives the scorer over every relist state x circuit x CVSG x petitioner
+    class, so it spans the achievable lattice of every registered version's
+    features; the private constant is imported only to enumerate circuits.
 
     Parameterized over every registered version, so registering a second scorer
     cannot skip the check that the first one is held to."""
     banding = scorer(version)
-    strongest = banding.bands[0]
     floor = load_salience_config(Path("config")).floor
     circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
+    titles = ("United States", "State of Texas", "John Doe", None)
+    carved_by_band: dict[str, set[bool]] = {band: set() for band in banding.bands}
     for distribution_count in (1, 2, 3, None):
         for circuit in circuits:
             for cvsg in (False, True):
-                row = _petition(
-                    "scotus/lattice",
-                    distribution_count=distribution_count,
-                    cvsg=cvsg,
-                    circuit=circuit,
-                )
-                score = banding.score(row)
-                in_strongest = banding.band(row) == strongest
-                carved = banding.carve_out(row, score, floor)
-                assert in_strongest == carved, (
-                    f"{version} gap at distribution_count={distribution_count} "
-                    f"circuit={circuit} cvsg={cvsg}: score={score:.4f}, "
-                    f"{strongest}={in_strongest}, carved={carved}"
-                )
+                for title in titles:
+                    row = _petition(
+                        "scotus/lattice",
+                        distribution_count=distribution_count,
+                        cvsg=cvsg,
+                        circuit=circuit,
+                        petitioner_title=title,
+                    )
+                    score = banding.score(row)
+                    band = banding.band(row)
+                    carved = banding.carve_out(row, score, floor)
+                    carved_by_band[band].add(carved)
+    for band, outcomes in carved_by_band.items():
+        assert len(outcomes) <= 1, f"{version}: band {band!r} mixes carved and uncarved members"
+    fully_carved = tuple(b for b in banding.bands if carved_by_band[b] == {True})
+    assert fully_carved == banding.bands[: len(fully_carved)], (
+        f"{version}: carved bands {fully_carved} are not a prefix of {banding.bands}"
+    )
+    assert fully_carved, f"{version}: no band is carved — the always-include rule reaches nothing"
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -871,7 +885,7 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
 def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy")  # active first
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v2")  # active first
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
@@ -942,3 +956,71 @@ def test_arrival_draw_is_deterministic_and_rate_honest() -> None:
     lower = {cid for cid in ids[:2000] if arrival_draw(cid, 0.02)}
     higher = {cid for cid in ids[:2000] if arrival_draw(cid, 0.10)}
     assert lower <= higher
+
+
+def test_sal_v2_selects_the_arrival_cohort_by_predicate(tmp_path: Path) -> None:
+    """The arrival cohort under sal-v2: an undistributed pending petition is
+    selected by the deterministic draw or the federal carve-in — no rank, no
+    capacity — while sal-v1 (docket-acquired features only) selects none of
+    them, and a distributed petition never enters the arrival pass."""
+    config = SalienceConfig(per_conference_capacity=2, floor=0.28, arrival_sample_rate=0.05)
+    rows = [
+        # In the 1-in-20 slice at 0.05 (golden vector from the draw tests).
+        _petition("scotus/26000058", distribution_count=None, conference=None, docket="26-58"),
+        # Out of the slice, private petitioner: not selected.
+        _petition("scotus/26000001", distribution_count=None, conference=None, docket="26-1"),
+        # Out of the slice, federal petitioner: the carve-in takes it.
+        _petition(
+            "scotus/26000002",
+            distribution_count=None,
+            conference=None,
+            docket="26-2",
+            petitioner_title="United States",
+        ),
+        # Distributed: the escalation cohort's business, never the arrival pass.
+        _petition("scotus/26000003", distribution_count=1, docket="26-3"),
+    ]
+    _, v2_select, _, _ = plan_cohorts(rows, config, version=SCORERS["sal-v2"])
+    assert "scotus/26000058" in v2_select  # the draw
+    assert "scotus/26000002" in v2_select  # the federal carve-in
+    assert "scotus/26000001" not in v2_select
+    _, v1_select, _, _ = plan_cohorts(rows, config, version=SCORERS["sal-v1"])
+    assert not {"scotus/26000058", "scotus/26000001", "scotus/26000002"} & set(v1_select)
+
+
+def test_an_arrival_pick_mints_its_event_in_the_same_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Latch and event arrive together: an arrival-selected undistributed
+    petition leaves the pass with evt-petition-arrival-disposition open beside
+    its baseline, so the sweep has the right — and only the right — cell to
+    queue (the baseline waits for its own distribution moment)."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = _petition(
+        "scotus/26000002",
+        distribution_count=None,
+        conference=None,
+        docket="26-2",
+        petitioner_title="United States",
+    ).model_copy(update={"date_filed": date(2026, 7, 20)})
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=row.case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                )
+            ],
+        )
+        selected = apply_salience_selection(
+            conn, SalienceConfig(per_conference_capacity=2, floor=0.28)
+        )
+        assert row.case_id in selected
+        events = {e.event_id for e in corpus.events_for_case(conn, row.case_id)}
+    assert "evt-petition-arrival-disposition" in events

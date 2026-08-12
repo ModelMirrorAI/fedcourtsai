@@ -7,6 +7,7 @@ committed under ``data/`` matches the schema contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -566,8 +567,21 @@ def caption_census_cmd() -> None:
             err=True,
         )
         raise typer.Exit(code=1)
+    # The provenance the freeze record needs: under `local` the hash of the
+    # file the census actually ran over (which can drift from the committed
+    # pointer); under `ranged` the immutable blob IS the pointer's object, so
+    # the pointer sha names it exactly.
+    if settings.corpus_backend == "local" and db_path.exists():
+        digest = hashlib.sha256()
+        with db_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(chunk)
+        corpus_sha = digest.hexdigest()
+    else:
+        ref = db_path.parent / (db_path.name + ".ref")
+        corpus_sha = ref.read_text().split()[0] if ref.is_file() else ""
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        census = caption_census(conn)
+        census = caption_census(conn, corpus_sha256=corpus_sha)
     for cell in census.pooled:
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(

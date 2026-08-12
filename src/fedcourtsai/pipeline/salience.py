@@ -64,6 +64,7 @@ from types import MappingProxyType
 from .. import corpus
 from ..config import SalienceConfig
 from ..schemas import SalienceSelectionResult, SalienceUnlatchResult
+from . import caption
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -212,6 +213,48 @@ def _sal_v1_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
     return row.cvsg_date is not None or score >= floor
 
 
+# sal-v2: the arrival-aware version. The RANKING is sal-v1's exactly — the
+# caption enters as a band dimension and an always-include predicate, never a
+# score weight, because the class's discrimination replicates while its
+# magnitude is a census figure that re-measures every Term (the reviewed
+# verdict; docs/salience.md). What sal-v2 adds:
+#
+# - a `federal` band above `high` and a `state` band between `high` and
+#   `elevated`, by measured grant rate (census caption-v1: federal ~0.70,
+#   state ~0.23 against high's 0.28-0.44 span and elevated's 0.078). The
+#   band is the strongest of the caption-class band and the relist/CVSG
+#   tier, so it stays monotone over a petition's life: the class is fixed at
+#   filing and the trajectory tier only rises.
+# - the federal arrival carve-in beside sal-v1's CVSG/floor rule: a
+#   government petitioner is always in, at any score — the one arrival-time
+#   signal whose discrimination replicated in all eight complete measured
+#   Terms (OT2017-OT2024, lift 8.1x-16.4x; OT2025 is right-censored and
+#   counted as supportive, never as held-out). The frozen thing is the
+#   PREDICATE (classify_petitioner == "federal" under caption-v1), not the
+#   concept "government petitioner" — the rule's known ~10% recall gap is a
+#   caption-v2 question with its own census.
+# - the arrival random slice (`arrival_draw`), applied at the selection
+#   seam rather than here: the draw is selection policy over undistributed
+#   arrivals, not a property of a row's strength.
+_SAL_V2_BAND_ORDER: tuple[str, ...] = ("federal", "high", "state", "elevated", "baseline")
+
+
+def _sal_v2_band(row: corpus.CorpusRow) -> str:
+    """The strongest of the caption-class band and the sal-v1 trajectory tier."""
+    trajectory = _sal_v1_band(row)
+    cls = caption.petitioner_class(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v2_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in."""
+    return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class(row) == "federal"
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -234,6 +277,12 @@ class SalienceScorer:
     band: Callable[[corpus.CorpusRow], str]
     bands: tuple[str, ...]
     carve_out: Callable[[corpus.CorpusRow, float, float], bool]
+    # Whether this version selects an ARRIVAL cohort: undistributed pending
+    # petitions picked at docketing by the deterministic draw
+    # (`arrival_draw` at `config.arrival_sample_rate`) or the version's own
+    # carve-out predicate. False for sal-v1 — its features are
+    # docket-acquired, so it has nothing to say at arrival.
+    selects_arrivals: bool = False
 
 
 _SAL_V1 = SalienceScorer(
@@ -244,10 +293,21 @@ _SAL_V1 = SalienceScorer(
     carve_out=_sal_v1_carve_out,
 )
 
+_SAL_V2 = SalienceScorer(
+    version="sal-v2",
+    score=_sal_v1_score,  # the ranking IS sal-v1's; the caption never weights it
+    band=_sal_v2_band,
+    bands=_SAL_V2_BAND_ORDER,
+    carve_out=_sal_v2_carve_out,
+    selects_arrivals=True,
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
-SCORERS: Mapping[str, SalienceScorer] = MappingProxyType({_SAL_V1.version: _SAL_V1})
+SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
+    {_SAL_V1.version: _SAL_V1, _SAL_V2.version: _SAL_V2}
+)
 
 
 def scorer(version: str | None = None) -> SalienceScorer:
@@ -394,6 +454,7 @@ def plan_cohorts(
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
     applications: list[corpus.CorpusRow] = []
+    arrivals: list[str] = []
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
@@ -416,6 +477,24 @@ def plan_cohorts(
         # band), but leave it out of cohort selection entirely.
         if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
+        elif (
+            active.selects_arrivals
+            and row.distributed_for_conference is None
+            and not row.distribution_count
+            and corpus.resolution_date(row) is None
+            and row.disposition is None
+            and not row.salience_selected
+            and (
+                arrival_draw(row.case_id, config.arrival_sample_rate)
+                or active.carve_out(row, scores[row.case_id], config.floor)
+            )
+        ):
+            # The arrival cohort: predicate-selected at docketing — the
+            # deterministic slice or the version's always-include rule — with
+            # no rank and no capacity, because the whole design is that no
+            # ranking exists yet worth the name (docs/salience.md). The
+            # freshness condition mirrors the arrival event's own mint guard.
+            arrivals.append(row.case_id)
 
     # The interim reserve: still-pending occupants hold their slots (sticky
     # latch), new picks fill the remainder in ladder order.
@@ -427,7 +506,7 @@ def plan_cohorts(
     reserve_picks = [row.case_id for row in contenders[:open_slots]]
     reserve_in_use = len(occupants) + len(reserve_picks)
 
-    to_select: list[str] = list(reserve_picks)
+    to_select: list[str] = [*reserve_picks, *arrivals]
     current_conference = max(cohorts) if cohorts else None
     for conference, cohort_rows in cohorts.items():
         selected = _select_cohort(
@@ -472,10 +551,31 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     always carries the latch state downstream readers see. The returned ids are
     the cycle's newly-latched picks (the selection sweep queues them via the
     ``predict_queued_at`` debounce — a never-queued case passes it).
+
+    An arrival-selected pick (an active scorer with ``selects_arrivals``)
+    also mints its **arrival event** here, in the same pass that latches it:
+    the sweep queues a latched case's open events, and an undistributed
+    petition's only mintable cert cell is the arrival moment's — the baseline
+    waits for its own distribution moment (``store``'s admission), so without
+    the mint the pick would sit latched with nothing to forecast.
     """
     scores, to_select, _, _ = _selection_plan(conn, config)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
+    if scorer().selects_arrivals and to_select:
+        from . import outcome  # noqa: PLC0415 - salience<-analytics<-... keeps this deferred
+
+        events: list[corpus.CorpusEvent] = []
+        for case_id in to_select:
+            row = corpus.get_row(conn, case_id)
+            if row is None or row.distributed_for_conference is not None:
+                continue
+            open_ids = [e.event_id for e in corpus.events_for_case(conn, case_id) if not e.resolved]
+            minted = outcome.arrival_event_for(row, open_ids)
+            if minted is not None:
+                events.append(minted)
+        if events:
+            corpus.upsert_events(conn, events)
     return to_select
 
 

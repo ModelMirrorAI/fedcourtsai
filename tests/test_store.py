@@ -177,7 +177,17 @@ def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> N
     forecast cell — its ground truth still flows through `open_events`."""
     db = corpus.corpus_db_path(tmp_path)
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/9", court="scotus")])
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    # Distributed: the baseline's own moment precondition.
+                    distribution_count=1,
+                )
+            ],
+        )
         corpus.upsert_events(
             conn,
             [
@@ -223,6 +233,10 @@ def _cvsg_case(
                     docket_number=docket_number,
                     disposition=disposition,
                     cvsg_date=date(2025, 3, 3),
+                    # Distributed: the baseline's distribution moment has
+                    # occurred, so its cell may mint (the arrival moment owns
+                    # the pre-distribution forecast).
+                    distribution_count=1,
                 )
             ],
         )
@@ -1012,3 +1026,35 @@ def test_a_switched_off_declared_moment_stays_out_whatever_its_kind(
     monkeypatch.setattr(moments_module, "DECLARED_MOMENTS", switched)
     monkeypatch.setattr(moments_module, "_BY_EVENT_ID", {s.event_id: s for s in switched})
     assert "evt-petition-arrival-disposition" not in forecastable_events(db, "scotus", 92)
+
+
+def test_the_baseline_waits_for_its_own_moment_on_a_cert_docket(tmp_path: Path) -> None:
+    """The distribution-moment cell cannot mint before a distribution exists:
+    an undistributed pending petition forecasts at the arrival moment or not
+    at all, so an arrival-selected case can never sweep premature baseline
+    cells whose snapshots carry no conference."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/93", court="scotus", docket_number="26-93")],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/93",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    assert forecastable_events(db, "scotus", 93) == []
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET distributed_for_conference = '2026-09-28' WHERE case_id = ?",
+            ("scotus/93",),
+        )
+        conn.commit()
+    assert forecastable_events(db, "scotus", 93) == ["evt-petition-disposition"]

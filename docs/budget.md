@@ -58,7 +58,7 @@ case-equivalent.
 | interim | response filed | 21 | 30.6% of the 67 |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
-| | **total** | **813–840 (+~33–64 pending)** | **≈$10.6–10.9K/Term** at the $13 planning rate once sal-v2 activates (≈$11.0–11.8K with the carve-in); ≈$9.6–9.9K while the arrival cohort is inert |
+| | **total** | **833–860** | **≈$10.8–11.2K/Term** at the $13 planning rate once sal-v2 activates (slice + carve-in); ≈$9.6–9.9K while the arrival cohort is inert |
 
 The later moments differ sharply in how much runway they leave, which is the
 figure to read before trusting any of their skill numbers: a merits brief
