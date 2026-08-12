@@ -821,6 +821,24 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
     for column in _COLUMNS:
         if column not in existing:
             conn.execute(f"ALTER TABLE cases ADD COLUMN {column} {_CASES_COLUMN_DDL[column]}")
+    # The priors ranking, index-served for the overlap-free query (the common
+    # cell shape): court equality, then the derived resolution date
+    # newest-first (`resolution_date` in SQL — the petition-stage cert date on
+    # SCOTUS rows, the docket decision date elsewhere; DESC puts NULLs last,
+    # exactly the Python key's undated-rows-after-dated), then case_id as the
+    # tie-break. Serving ORDER BY from this index is what turns the
+    # whole-court-slice scan into a handful of pages on the ranged backend; a
+    # test pins the query plan. Created here rather than in the base schema
+    # script because it references migrated columns, which a legacy table
+    # gains only in the loop above.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cases_priors_recency ON cases("
+        "court, "
+        "(CASE WHEN court = 'scotus' "
+        "THEN coalesce(date_cert_granted, date_cert_denied, date_decided) "
+        "ELSE date_decided END) DESC, "
+        "case_id)"
+    )
 
 
 def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
@@ -2474,6 +2492,49 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
+def _retrieve_priors_ranked(
+    conn: ReadConnection,
+    query: PriorQuery,
+    where: str,
+    params: list[object],
+    limit: int,
+) -> list[CorpusRow]:
+    """The overlap-free priors fast path: the ranking served by SQL.
+
+    The common cell shape: no overlap filter means relevance is uniformly zero
+    and the ranking is pure recency-then-case_id — an ordering SQL serves off
+    ``idx_cases_priors_recency`` (ISO date text compares chronologically; DESC
+    puts the undated rows last, matching ``recency_key``'s dated-first key).
+    Streaming the ranked cursor and stopping at ``limit`` reads a handful of
+    index pages instead of the whole court slice; the era / decided_before
+    filters are derived in Python, so they screen the stream rather than the
+    SQL, and the LIMIT is pushed down only when no such screen runs.
+    """
+    recency = (
+        "CASE WHEN court = 'scotus' "
+        "THEN coalesce(date_cert_granted, date_cert_denied, date_decided) "
+        "ELSE date_decided END"
+    )
+    sql = f"SELECT * FROM cases{where} ORDER BY {recency} DESC, case_id"
+    if query.era is None and query.decided_before is None:
+        sql += " LIMIT ?"
+        params = [*params, limit]
+    ranked: list[CorpusRow] = []
+    for record in conn.execute(sql, params):
+        row = _from_record(record)
+        if query.era is not None and case_era(row) != query.era:
+            continue
+        if query.decided_before is not None:
+            year = case_year(row)
+            if year is None or year >= query.decided_before:
+                continue
+            row = _mask_post_clock_merits(row, query.decided_before)
+        ranked.append(row)
+        if len(ranked) >= limit:
+            break
+    return ranked
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -2487,7 +2548,10 @@ def retrieve_priors(
     set is scanned; the overlap filters (``judges`` / ``citations``, stored as
     JSON arrays) are applied in Python, where each match also contributes to the
     relevance score. Ranking is relevance descending, then most-recent decision,
-    then ``case_id`` so the result is deterministic.
+    then ``case_id`` so the result is deterministic. With no overlap filter the
+    relevance term is uniformly zero and the whole ranking is served by SQL off
+    the recency index — the same ordering, a fraction of the pages — with a
+    test pinning the two paths byte-identical.
     """
     if limit <= 0:
         return []
@@ -2512,6 +2576,9 @@ def retrieve_priors(
 
     want_judges = set(query.judges)
     want_citations = set(query.citations)
+    if not want_judges and not want_citations:
+        return _retrieve_priors_ranked(conn, query, where, params, limit)
+
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
     for record in conn.execute(f"SELECT * FROM cases{where}", params):
         row = _from_record(record)

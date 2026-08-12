@@ -179,7 +179,9 @@ def test_retrieve_priors_filters_are_index_served(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _populated(db)
     queries = {
-        "idx_cases_court": corpus.PriorQuery(court="ca9"),
+        # A court query is served by the recency index, which carries the
+        # court equality AND the ranking — one index, filter and order both.
+        "idx_cases_priors_recency": corpus.PriorQuery(court="ca9"),
         "idx_cases_topic": corpus.PriorQuery(topic="civil rights", resolved_only=False),
         "idx_cases_disposition": corpus.PriorQuery(disposition=Disposition.granted),
     }

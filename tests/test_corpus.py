@@ -991,6 +991,119 @@ def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> Non
     assert fetched.last_pulled == date(2026, 6, 1)  # but the stamp is preserved
 
 
+def _recency_fixture_rows() -> list[corpus.CorpusRow]:
+    """Rows exercising every branch of the recency ordering.
+
+    SCOTUS rows keyed on the cert date over the merits termination, a
+    denied-date fallback, a decided-only fallback, an exact date tie broken by
+    case_id, an undated row (sorts last), and a non-SCOTUS court keyed on
+    date_decided.
+    """
+    return [
+        _row(  # cert granted 2024 — the cert date must outrank the 2026 termination
+            case_id="scotus/b-grant",
+            court="scotus",
+            docket_number="23-100",
+            date_cert_granted=date(2024, 3, 1),
+            date_decided=date(2026, 1, 2),
+        ),
+        _row(  # denied 2025 — newest resolution, ranks first
+            case_id="scotus/a-deny",
+            court="scotus",
+            docket_number="24-200",
+            date_cert_granted=None,
+            date_cert_denied=date(2025, 6, 1),
+            date_decided=None,
+            disposition=Disposition.denied,
+        ),
+        _row(  # decided-only fallback, ties scotus/b-grant on the date -> case_id order
+            case_id="scotus/c-tie",
+            court="scotus",
+            docket_number="23-300",
+            date_cert_granted=None,
+            date_decided=date(2024, 3, 1),
+        ),
+        _row(  # undated but disposition-resolved: sorts after every dated row
+            case_id="scotus/d-undated",
+            court="scotus",
+            docket_number="23-400",
+            date_cert_granted=None,
+            date_decided=None,
+            date_filed=None,
+            disposition=Disposition.denied,
+        ),
+        _row(case_id="ca9/x", date_decided=date(2025, 12, 31)),
+    ]
+
+
+def test_retrieve_priors_sql_ranking_matches_the_python_ranking(tmp_path: Path) -> None:
+    """The overlap-free fast path is byte-identical to the Python ranking.
+
+    The retrieval surface is measured, so the SQL ordering must reproduce the
+    Python key exactly — cert-date precedence, the decided fallback, undated
+    rows last, case_id tie-breaks — pinned two ways: against a reference sort
+    on `recency_key`, and against the overlap path itself (a judges filter
+    every row satisfies keeps relevance uniform, so the two paths must agree
+    on bytes).
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, _recency_fixture_rows())
+        for query, expect in [
+            (
+                corpus.PriorQuery(court="scotus"),
+                ["scotus/a-deny", "scotus/b-grant", "scotus/c-tie", "scotus/d-undated"],
+            ),
+            (corpus.PriorQuery(court="scotus"), None),  # reference-checked below
+            (corpus.PriorQuery(), None),
+        ]:
+            fast = corpus.retrieve_priors(conn, query, limit=10)
+            if expect is not None:
+                assert [r.case_id for r in fast] == expect
+            # Reference: the documented key over the same candidate set.
+            reference = sorted(fast, key=lambda r: (corpus.recency_key(r), r.case_id))
+            assert [r.model_dump(mode="json") for r in fast] == [
+                r.model_dump(mode="json") for r in reference
+            ]
+            # The overlap path, made relevance-uniform: identical bytes.
+            overlap_query = query.model_copy(update={"judges": ["smith"]})
+            slow = corpus.retrieve_priors(conn, overlap_query, limit=10)
+            fast_with_judges = [r for r in fast if "smith" in r.judges]
+            assert [r.model_dump(mode="json") for r in slow] == [
+                r.model_dump(mode="json") for r in fast_with_judges
+            ]
+        # The pushed-down LIMIT truncates the same ranking, not a different one.
+        top_two = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=2)
+        assert [r.case_id for r in top_two] == ["scotus/a-deny", "scotus/b-grant"]
+
+
+def test_retrieve_priors_overlap_free_ranking_is_index_served(tmp_path: Path) -> None:
+    """The whole point of the fast path: the plan reads the recency index.
+
+    A regression here silently returns the corpus to whole-court-slice scans
+    on every cell query (the ranged backend pays that in wall clock and
+    egress), so the query plan is pinned, not assumed.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, _recency_fixture_rows())
+        recency = (
+            "CASE WHEN court = 'scotus' "
+            "THEN coalesce(date_cert_granted, date_cert_denied, date_decided) "
+            "ELSE date_decided END"
+        )
+        plan = " ".join(
+            str(row["detail"])
+            for row in conn.execute(
+                "EXPLAIN QUERY PLAN SELECT * FROM cases WHERE court = ? "
+                f"ORDER BY {recency} DESC, case_id LIMIT ?",
+                ["scotus", 5],
+            )
+        )
+    assert "idx_cases_priors_recency" in plan, plan
+    assert "USE TEMP B-TREE" not in plan.upper(), plan
+
+
 def test_retrieve_priors_defaults_to_resolved_only(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     rows = [
