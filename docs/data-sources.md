@@ -90,7 +90,7 @@ The automated consumer stays within CourtListener's published API limits by desi
   the **cert-granted SCOTUS slice** — ≈1,250 dockets all-time, ≈120–130 a Term
   ongoing — which puts the standing backlog at ≈3,750 requests and the ongoing
   cost at ≈400 a Term, inside the allowance the four pull windows leave (they
-  commit ≈360 of the 600/day); its own `--max-cases` bounds any single run. The
+  commit ≈360 of the 1,400/day); its own `--max-cases` bounds any single run. The
   governor is per-process rather than shared, so the pass is run outside a pull
   window: two processes throttling independently would each stay under the
   ceiling while the account did not. Opinion coverage

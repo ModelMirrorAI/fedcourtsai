@@ -83,9 +83,10 @@ from ..courtlistener import CourtListenerClient, RateBudgetExceeded
 from ..supremecourt import is_live_docket_id
 
 # A modest default: the pass is a standing maintenance step, not a bulk load,
-# and a small cap keeps one run's spend legible beside the pull windows that
-# share the same daily budget.
-DEFAULT_MAX_CASES: Final = 25
+# and the cap keeps one run's spend legible beside the pull windows that share
+# the same daily budget — about half the held tier's hourly ceiling at three
+# requests a case (see docs/budget.md for the tier).
+DEFAULT_MAX_CASES: Final = 50
 
 # Upstream ids are integers; a link whose id segment is anything else is not a
 # link this client can follow. Deliberately not `str.isdigit`, which accepts

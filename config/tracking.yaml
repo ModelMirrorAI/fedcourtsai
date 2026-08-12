@@ -12,9 +12,11 @@
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
 # below bound how much work each run and each day does within that envelope.
 pull:
-  # Max dockets refreshed per run (~3 requests each). On Tier 2 (15/150/600) with
-  # four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run stays
-  # under the 150/hr ceiling, and 4 runs stay under the 600/day ceiling.
+  # Max dockets refreshed per run (~3 requests each). On Tier 4 (25/300/1400)
+  # with four daily windows this gives ~120 refreshes/day: 30x3=90 requests/run
+  # sits well under the 300/hr ceiling, and 4 runs (~360) commit about a
+  # quarter of the 1,400/day ceiling — the rest is deliberate headroom for
+  # opinion enrichment and one-off backfills, which share the account budget.
   max_cases_per_run: 30
   # Refresh order: stalest first, so a large active set rotates within budget.
   rotation: oldest_last_pulled_first
