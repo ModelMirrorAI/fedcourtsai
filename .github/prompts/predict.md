@@ -221,7 +221,7 @@ band), the three-claim `claims` block, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
-**Two cert cells, two moments.** `event.yaml`'s `moment` says which you are:
+**Three cert cells, three moments.** `event.yaml`'s `moment` says which you are:
 
 - `moment: distribution` — event `evt-petition-disposition`, opened when the
   petition was filed and forecast once it is first distributed for conference.
@@ -231,13 +231,25 @@ cert-stage cell.
   signal that a petition is worth a closer look, and the base rate conditional
   on one is far above the docket's: read the statpack's CVSG cut, not the
   overall rate.
+- `moment: arrival` — event `evt-petition-arrival-disposition`, opened the day
+  the petition was docketed and forecast **before any distribution exists**.
+  Your record carries no conference, no relist count, and no CVSG — that
+  absence is the moment's definition, not a data gap, so never wait for or
+  infer docket signals. The cell exists because its case was selected at
+  docketing (a deterministic random slice, or a federal petitioner — the one
+  arrival-time class whose grant rate is measured far above the docket's:
+  read the statpack's `federal` band segment where present). Anchor on the
+  arrival population's own base rate, not the distributed population's.
 
-Scored separately, never pooled — the CVSG cell answers the same question from a
-strictly better evidence base. Forecast from what this moment's record shows
-rather than revising an earlier call. Note that on a CVSG cell the
-`cvsg-increment` claim is vacuous by construction (the CVSG is already on the
-docket at prediction time), so the harness masks it; the disposition and
-relist-increment claims are unaffected.
+Scored separately, never pooled — the CVSG cell answers the same question from
+a strictly better evidence base, and the arrival cell from a strictly earlier
+one. Forecast from what this moment's record shows rather than revising an
+earlier call, and never treat another moment's evidence as owed to you. Claim
+masking per moment: on a CVSG cell the `cvsg-increment` claim is vacuous by
+construction (the CVSG is already on the docket), so the harness masks it; on
+an arrival cell the `relist-increment` prediction-time count is the record's
+zero-distribution state — state your claims from that state, and the harness
+resolves them against what later accrues.
 
 ### Stage: interim (a stay or injunction application)
 
@@ -559,8 +571,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     you. Where your event declares no set, write no `claims` field at all: an
     interim cell writes none (*Stage: interim* above). The declaration is
     keyed on the event's declared moment, never on a rule of thumb about its
-    kind — both cert moments (the petition and the CVSG order) declare
-    `cert-v1`, both merits moments (the judgment order and the
+    kind — every cert moment (the petition, the CVSG order, and the arrival
+    event) declares `cert-v1`, both merits moments (the judgment order and the
     respondent-brief re-predict) declare `merits-v1`, and no interim moment
     declares a set.
   - `reasoning_doc` — `reasoning.md` (the default).

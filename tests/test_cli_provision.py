@@ -451,7 +451,7 @@ def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
     assert context["distribution_count"] == 2
     assert context["cvsg_date"] == "2025-03-03"
     assert context["band"] == "high"
-    assert context["salience_version"] == "sal-v1"
+    assert context["salience_version"] == "sal-v2"
     assert context["term"] == 2024  # docket 24-12
 
 

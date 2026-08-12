@@ -106,39 +106,38 @@ Deferred, each with a stated reason:
 
 - **Below-decision division** (a dissent or en-banc split in the court below) is a
   strong salience signal but is **not recoverable** from the corpus today — no
-  column, and not cheaply derivable from stored text. A `sal-v2` feature once the
-  below-court signal is extracted.
+  column, and not cheaply derivable from stored text. A later-version feature
+  once the below-court signal is extracted.
 - **Amicus-brief count** is arguably the strongest pre-decision salience proxy, but
   its presence in the supremecourt.gov docket JSON is **unverified** and no
-  extractor counts it. A `sal-v2` enrichment if a data-availability check confirms
-  it; `sal-v1` is designed to stand without it.
+  extractor counts it. A later-version enrichment if a data-availability check
+  confirms it; neither shipped scorer depends on it.
 - **Cheap-model QP enrichment** — an optional model pass over the questions
   presented to sharpen the deterministic score — is **default off** for the first
   release, so `sal-v1` is fully deterministic and free.
 
-### The `sal-v2` intent (pre-registered)
+### `sal-v2`, the active scorer: two cohorts, never pooled
 
 `sal-v1`'s features are docket-acquired — relists and CVSG accumulate over a
 petition's life — so at arrival every observable petition scores `baseline` and the gate
 is structurally inert at the one moment a truly prospective selection would
 have to act: no cohort forms, no band stratifies, recall over realized grants
-is zero by construction (the gate replay measures exactly this). The rework is
-pre-registered here so the shape is fixed before the evidence exists, and it
-is **two cohorts, never pooled**:
+is zero by construction (the gate replay measures exactly this). `sal-v2`
+closes that gap with **two cohorts, never pooled**:
 
-- **The arrival cohort** — selected at docketing on arrival-time features
-  (originating court, party/counsel structure) **plus a random-sample
-  component** (mechanism shipped: a keyed-hash draw over the case id under a
+- **The arrival cohort** — selected at docketing, by two rules and nothing
+  else: a **random slice** (a keyed-hash draw over the case id under a
   registration-fixed key — `salience.arrival_draw` — at
-  `salience.arrival_sample_rate: 0.05`, inert until the scorer registers,
-  and effectively frozen once the cohort begins). The random slice is
+  `salience.arrival_sample_rate: 0.05`, effectively frozen once the cohort
+  runs) plus the **federal-petitioner carve-in** below. The random slice is
   load-bearing, not a fallback: with no
   strong arrival-time signal it is the only route to an unbiased selected
   population, it makes the cohort's baseline exactly the unconditional grant
   rate, and no selection rule can game it. This is the only cohort whose
   skill numbers transfer to live prospective use.
 - **The escalation cohort** — re-selected as relist / CVSG / response signals
-  accumulate: `sal-v1`'s current behaviour, which remains the right way to
+  accumulate: `sal-v1`'s scoring, carried into `sal-v2` unchanged, which
+  remains the right way to
   spend tournament budget on cases that have become interesting. It reports
   against its own risk-set baselines and never against — or blended with —
   the arrival cohort's.
@@ -165,22 +164,22 @@ replay number.
 
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay
-under `sal-v1` forever, which the scorer registry below is what enforces. Its
-evidence base does not exist yet: arrival-time
-signals live in small subgroups, which the legacy denial subsampling cannot
-measure, so fitting waits for the denial-complete historical re-walk, and any
-candidate is judged by replaying the gate against the same corpus state as a
-fresh `sal-v1` run — the bar is the arrival population's own weighted grant
-rate at comparable recall, recomputed post-re-walk rather than quoted. And the
+under `sal-v1` forever, which the scorer registry below is what enforces, and
+`sal-v2` keeps `sal-v1`'s score function byte-for-byte: what it adds is the
+caption dimension (two bands, one carve-in predicate) and the arrival draw,
+never a refit of the escalation ranking. Any *fitted* arrival-time scoring
+remains a later version's question — arrival-time signals live in small
+subgroups, and the candidate's bar is the arrival population's own weighted
+grant rate at comparable recall, measured against the denial-complete corpus,
+not quoted from the census. And the
 carve-out/band alignment is pinned by test: the always-include floor and the
-strongest band's cutpoint are separate constants in separate files, and the
-identity between "carved in" and "strongest band" is checked exhaustively over
-`sal-v1`'s achievable score lattice, so a refit of it cannot open a silent gap
-between them. The check runs for every registered version, but the lattice it
-enumerates is `sal-v1`'s feature space — relist count, CVSG, originating
-circuit — so a version keying on anything else is checked only at those
-features' defaults. Registering `sal-v2` means extending the enumeration to
-span its own features; until then its coverage is partial and said so here.
+carved bands' cutpoints are separate constants in separate files, and the
+identity between "carved in" and "the expected strongest-band prefix" —
+`(high,)` for `sal-v1`, `(federal, high)` for `sal-v2` — is checked
+exhaustively over the achievable score lattice (relist count x CVSG x
+originating circuit x petitioner class), so a refit cannot open a silent gap
+between carve and band, and a version keying on a feature outside that
+enumeration must extend it or say here that its coverage is partial.
 
 ### The scorer registry
 
@@ -406,8 +405,9 @@ budget's "more funding = more cases" equation and the milestones' funding milest
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release fits the
-~$16K envelope: ≈$10K inference at the measured ~$11/fully-tournamented-case rate,
-~$9.6–9.9K funded at the $13 planning rate — **12 per regular conference and 24
+~$16.5K envelope: ≈$11K inference at the $13 planning rate with the sal-v2
+arrival cohort included (~$9.6–9.9K for the escalation program alone) — **12
+per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
 capacity (`metrics/salience-replay.json`, sal-v1, OT2022–24) measures that they

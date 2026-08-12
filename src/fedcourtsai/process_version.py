@@ -38,7 +38,7 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v1"
+CURRENT_PROCESS_LABEL = "proc-v2"
 
 # The blessed process digests — the frozen-headline set: the six proc-v1
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
@@ -52,10 +52,11 @@ CURRENT_PROCESS_LABEL = "proc-v1"
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
     {
         # predictors: claude-baseline, codex-baseline, gemini-baseline
-        "sha256:d06ba40213613a613bc0ab2dfc8561b4aed6ba7f19d19a14a13714cb9f96c214",
-        "sha256:0eaa4c367e9d0017ea1d0cb94529a4f0cfc175332aae0b389eab81a91d8ab682",
-        "sha256:4297c6ac4b4f7020fc883295ff193d7f27e8005430487ee60fa37131ee7a804c",
-        # evaluators: claude-judge, codex-judge, gemini-judge
+        "sha256:5e919b6e531002543ddd1542b2708a09ef872d2c852433746c634300af6e6828",
+        "sha256:8fc3ed2e1a4d6490818f78503218dc7442c401362d1bbe9c368e97871b622983",
+        "sha256:a100070295eeb579549a123edde8dd06954800707b89e40cfc624383b4413c1d",
+        # evaluators: claude-judge, codex-judge, gemini-judge (unchanged from
+        # proc-v1: the arrival moment lives in the predict prompt alone)
         "sha256:ed3ea431b2196b820ab1225bb8a1a635ef780834661a116cdb5f0cc8e4343c70",
         "sha256:d6d74f16e2865d825667d64fee1d8756fdb1fc9d8d352cd750ea15df1fd3fd7a",
         "sha256:e8cfccce34e8429957299dc7505daa061a0dd49884079a0186a278fcf554577c",
@@ -73,7 +74,7 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
 # `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
 # first run intended to count — see the cutover procedure in
 # `docs/process-version.md`.
-FROZEN_SINCE: datetime | None = datetime(2026, 8, 15, 0, 0, 0, tzinfo=UTC)
+FROZEN_SINCE: datetime | None = datetime(2026, 8, 16, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that

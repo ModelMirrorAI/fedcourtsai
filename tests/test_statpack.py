@@ -37,7 +37,7 @@ from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
-_BANDS = ("high", "elevated", "baseline")
+_BANDS = ("federal", "high", "state", "elevated", "baseline")
 
 
 def _pack(fc: FixtureCorpus) -> StatPack:
@@ -383,7 +383,7 @@ def test_per_term_segments_carry_the_salience_band_base_rate(
     # Every Term emits all three bands in the fixed strongest-first order, tagged
     # with the frozen scorer version — a stable JSON shape even for empty bands.
     resolved_term = _term(pack, 2022)
-    assert resolved_term.salience_version == "sal-v1"
+    assert resolved_term.salience_version == "sal-v2"
     assert [s.band for s in resolved_term.segments] == list(_BANDS)
     by_band = {s.band: s for s in resolved_term.segments}
     # scotus/304 is one relist -> elevated; its sampled denial weights the rate 5x.
@@ -671,14 +671,14 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     # The pack-wide band section (blended) and the leakage-safe per-Term table.
     assert "## Cert petitions by salience band" in md
-    assert "### Segment base rate by salience band (sal-v1)" in md
-    assert "| Term | high | elevated | baseline |" in md
+    assert "### Segment base rate by salience band (sal-v2)" in md
+    assert "| Term | federal | high | state | elevated | baseline |" in md
     # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
     # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
     # nothing reached it. `baseline` carries ONLY a bracket: no row ended there,
     # but this petition passed through it, so it is in that band's risk set. That
     # asymmetry is the whole point of publishing both.
-    assert "| 2022 | — | 0.0% (n=5) [reached 0.0%, n=5] | [reached 0.0%, n=5] |" in md
+    assert "| 2022 | — | — | — | 0.0% (n=5) [reached 0.0%, n=5] | [reached 0.0%, n=5] |" in md
     # The band table states its own rendered window. The predict/evaluate prompts
     # tell agents that this caption is how they detect truncation, so the count has
     # to sit on THIS table — the parent Term table's caption is a different section.
@@ -827,7 +827,11 @@ def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
     construction, not of the current data, so a refresh cannot falsify them.
     """
     pack = StatPack.model_validate_json(Path("metrics/statpack.json").read_text())
-    bands = list(_BANDS)
+    # The committed pack's own vocabulary, not `_BANDS`: the artifact is
+    # re-rendered on the refresh after an active-version flip, so between the
+    # flip and the refresh the two legitimately disagree. The invariants are
+    # structural, so they hold under whichever scorer rendered the file.
+    bands = [s.band for s in pack.terms[0].segments]
     saw_populated_top = False
     for term in pack.terms:
         by_band = {s.band: s for s in term.segments}
@@ -1479,14 +1483,14 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for non-active registered versions — today, sal-v2
-    beside the active sal-v1 — and never repeats the active one. (While only
-    one version existed the key was absent entirely; registering sal-v2 is
-    what makes the committed pack gain the block at its next refresh.)"""
+    """The block exists for non-active registered versions — today, sal-v1
+    beside the active sal-v2 — and never repeats the active one. (While only
+    one version existed the key was absent entirely; a second registered
+    version is what makes the committed pack gain the block at a refresh.)"""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v2"}, versions
+        assert versions == {"sal-v1"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -1502,17 +1506,11 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v2"}
+        assert set(alts) == {"sal-toy", "sal-v1"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
-        assert [s.band for s in alts["sal-v2"].segments] == [
-            "federal",
-            "high",
-            "state",
-            "elevated",
-            "baseline",
-        ]
+        assert [s.band for s in alts["sal-v1"].segments] == ["high", "elevated", "baseline"]
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
     assert all(len(term["alt_segments"]) == 2 for term in payload["terms"])

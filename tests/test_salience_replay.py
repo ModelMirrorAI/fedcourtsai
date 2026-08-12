@@ -563,11 +563,11 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v2"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
     assert report.cells_evaluated == 3  # one (term, policy) cell x 3 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v2"}
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1"}
     active, toy, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v2"))
 
     # The projection is shared, so every projection-derived figure matches.

@@ -218,7 +218,7 @@ def test_every_registered_scorer_reports_its_own_version() -> None:
 
 
 def test_salience_bands_are_ordered_strongest_first() -> None:
-    assert salience_bands() == ("high", "elevated", "baseline")
+    assert salience_bands() == ("federal", "high", "state", "elevated", "baseline")
 
 
 # --- the selection pass --------------------------------------------------------
@@ -888,11 +888,11 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
 def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v2")  # active first
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1")  # active first
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
-    assert salience_bands() == ("high", "elevated", "baseline")
+    assert salience_bands() == ("federal", "high", "state", "elevated", "baseline")
 
 
 def test_each_version_selects_under_its_own_scorer(two_versions: SalienceScorer) -> None:
