@@ -261,6 +261,18 @@ selection is additive-only and scores are versioned, the selected set at any tim
 is reconstructable from committed columns — the pre-registration replay is a pure
 read, not a re-derivation that could drift.
 
+The additive latch has one structural consequence a **capacity resize** exposes:
+petitions latched under a larger cap stay latched under a smaller one — a
+standing overhang the live pass can never shrink, spending cells the resized
+envelope never budgeted. The sanctioned answer is `fedcourts
+unlatch-overselected`, a deliberate, maintainer-run, dry-run-default reconcile
+(never scheduled): it recomputes each **pending** cohort's selection from
+scratch under the current config and clears the latch on pending petitions that
+recomputation would not pick, touching neither decided rows (their latch is the
+historical record of selection), interim applications, nor any committed
+prediction. It is the latch's one `1 → 0` writer, and running it is a recorded
+operational decision, not part of the pass.
+
 **Enforcement wiring** is small but real (it is not free):
 
 - `predict-matrix`'s scope filter carries one skip branch — a hard-in-scope SCOTUS

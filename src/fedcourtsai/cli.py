@@ -147,7 +147,12 @@ from .pipeline.outcome import (
 )
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection, registered_versions
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    reconcile_salience_selection,
+    registered_versions,
+    unlatch_overselected,
+)
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -536,6 +541,48 @@ def reconcile_salience_selection_cmd(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
+    )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("unlatch-overselected")
+def unlatch_overselected_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Clear the over-selection latches; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Clear `salience_selected` where a from-scratch selection would not pick.
+
+    The one-time reconcile for the overhang a capacity resize leaves behind: the
+    sticky latch is additive, so petitions latched under the old caps stay
+    latched and keep earning cells the shipped envelope never budgeted. This
+    recomputes each pending conference cohort's selection from scratch under the
+    current config (same scorer, same carve-outs, reserve=0 so the clear is
+    never widened) and clears the latch on pending petitions the recomputation
+    would not pick — decided rows, interim applications, and never-distributed
+    petitions are untouched, and a committed prediction on a cleared case stays
+    committed. Deliberate maintainer surface, never scheduled: dry-run by
+    default, run where the corpus is pulled, `corpus-push` after an `--apply`.
+    Prints a `SalienceUnlatchResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the latch reconcile.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    config = load_salience_config(settings.config_root)
+    with corpus.connect(db_path) as conn:
+        result = unlatch_overselected(conn, config, apply=apply)
+    verb = "cleared" if apply else "would clear"
+    typer.echo(
+        f"unlatch-overselected ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {result.unlatched} of {result.latched_pending} latched pending petition(s) "
+        f"across {result.pending_cohorts} cohort(s); {result.retained} retained"
     )
     typer.echo(result.model_dump_json())
 

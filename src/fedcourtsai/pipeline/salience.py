@@ -60,7 +60,7 @@ from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
-from ..schemas import SalienceSelectionResult
+from ..schemas import SalienceSelectionResult, SalienceUnlatchResult
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -465,4 +465,71 @@ def reconcile_salience_selection(
         conferences=conferences,
         newly_selected=len(to_select),
         sample_selected=sorted(to_select)[:_MAX_SAMPLE],
+    )
+
+
+def unlatch_overselected(
+    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
+) -> SalienceUnlatchResult:
+    """Clear the latch where a from-scratch selection would not pick — one-time.
+
+    The sticky latch is additive by design, so a capacity resize leaves every
+    petition latched under the old caps latched — a standing overhang the live
+    pass can never shrink, spending cells the shipped envelope never budgeted.
+    This deliberate, maintainer-run migration recomputes each **pending**
+    conference cohort's selection from scratch — same scorer, same carve-outs,
+    ``reserve=0`` (the permissive reading: the interim reserve can only shrink
+    a cut, so ignoring it never widens the clear) — and clears the latch on
+    pending petitions the recomputation would not pick.
+
+    Deliberately untouched: decided rows (their latch is the historical record
+    of having been selected), interim applications (the reserve's occupancy is
+    its own sticky contract), never-distributed petitions (no cohort to
+    recompute against), and everything Tier-0-excluded (the prune path owns
+    those). A committed prediction on a cleared case stays committed — the
+    case merely stops earning future cells. Idempotent: a reconciled corpus
+    clears nothing. Dry-run by default; ``apply`` writes.
+    """
+    active = scorer()
+    scores: dict[str, float] = {}
+    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if corpus.out_of_scope_reason_full(conn, row) is not None:
+            continue
+        scores[row.case_id] = active.score(row)
+        if corpus.is_scotus_application_form(row.docket_number):
+            continue
+        if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
+            cohorts[row.distributed_for_conference].append(row)
+
+    latched_pending = 0
+    retained = 0
+    unlatch: list[str] = []
+    for conference, cohort_rows in cohorts.items():
+        keep = _select_cohort(
+            cohort_rows,
+            scores,
+            _capacity(conference, config),
+            config.floor,
+            reserve=0,
+            version=active,
+        )
+        for row in cohort_rows:
+            if not row.salience_selected:
+                continue
+            latched_pending += 1
+            if row.case_id in keep:
+                retained += 1
+            else:
+                unlatch.append(row.case_id)
+    if apply and unlatch:
+        corpus.unlatch_salience_selected(conn, unlatch)
+    return SalienceUnlatchResult(
+        applied=apply,
+        version=SALIENCE_VERSION,
+        pending_cohorts=len(cohorts),
+        latched_pending=latched_pending,
+        retained=retained,
+        unlatched=len(unlatch),
+        sample_unlatched=sorted(unlatch)[:_MAX_SAMPLE],
     )

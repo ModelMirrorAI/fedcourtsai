@@ -4423,6 +4423,39 @@ class SalienceSelectionResult(_Strict):
     sample_selected: list[str] = Field(default_factory=list)
 
 
+class SalienceUnlatchResult(_Strict):
+    """``unlatch-overselected`` result: the one-time latch reconcile's ledger.
+
+    The sticky latch is additive, so a capacity resize leaves every case
+    latched under the old caps latched — a standing overhang the live pass can
+    never shrink. This deliberate migration recomputes each pending conference
+    cohort's selection from scratch under the shipped config and clears the
+    latch on pending petitions that recomputation would not pick. ``applied``
+    is False on a dry run.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    version: str = Field(
+        default="", description="The salience-function version recomputed under, e.g. sal-v1"
+    )
+    pending_cohorts: int = Field(
+        default=0, ge=0, description="Pending conference cohorts recomputed"
+    )
+    latched_pending: int = Field(
+        default=0, ge=0, description="Latched pending cohort petitions examined"
+    )
+    retained: int = Field(
+        default=0,
+        ge=0,
+        description="Latched petitions the from-scratch selection keeps (top-N or carve-out)",
+    )
+    unlatched: int = Field(
+        default=0, ge=0, description="Latched petitions cleared (would not be selected today)"
+    )
+    sample_unlatched: list[str] = Field(default_factory=list)
+
+
 class SalienceReplayCell(_Strict):
     """One (Term, cutoff policy, salience version) cell of the salience-gate replay.
 
