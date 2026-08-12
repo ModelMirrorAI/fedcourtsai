@@ -4453,7 +4453,23 @@ class SalienceUnlatchResult(_Strict):
     unlatched: int = Field(
         default=0, ge=0, description="Latched petitions cleared (would not be selected today)"
     )
-    sample_unlatched: list[str] = Field(default_factory=list)
+    spared_out_of_scope: int = Field(
+        default=0,
+        ge=0,
+        description="Latched pending petitions left alone because Tier-0 excludes them "
+        "(inert under predict_excluded, deliberately not cleared here)",
+    )
+    spared_undistributed: int = Field(
+        default=0,
+        ge=0,
+        description="Latched pending petitions left alone because they were never "
+        "distributed — no cohort exists to recompute them against",
+    )
+    unlatched_case_ids: list[str] = Field(
+        default_factory=list,
+        description="Every cleared case id, untruncated — the 1->0 write erases the "
+        "corpus's own record of the pre-resize sticky set, so this ledger is it",
+    )
 
 
 class SalienceReplayCell(_Strict):

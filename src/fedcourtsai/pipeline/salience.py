@@ -15,7 +15,9 @@ Two invariants make the pass safe to re-run over a live conference:
   (:func:`fedcourtsai.corpus.latch_salience_selected` only ever sets it), so a
   petition selected early keeps its committed forward prediction even if fresher
   petitions later out-rank it. The pass never de-selects; the realized selected
-  count may drift above ``N``.
+  count may drift above ``N``. The one sanctioned clear lives in this module
+  too — :func:`unlatch_overselected`, a maintainer-run migration for the
+  overhang a capacity resize leaves, never part of the pass.
 - **Per-conference cohorts.** The cap is applied within each
   ``distributed_for_conference`` cohort, so "why this case and not that one"
   replays against one conference's candidate pool at a fixed score version. A
@@ -468,6 +470,38 @@ def reconcile_salience_selection(
     )
 
 
+def _unlatch_scan(
+    conn: sqlite3.Connection, active: SalienceScorer
+) -> tuple[dict[str, float], dict[date, list[corpus.CorpusRow]], int, int]:
+    """The reconcile's eligibility scan, mirroring ``_selection_plan``'s.
+
+    Returns ``(scores, pending cohorts, spared_out_of_scope,
+    spared_undistributed)`` — the spared counts tally latched pending rows the
+    sweep deliberately leaves outside every cohort, so the result's ledger
+    reconciles against the corpus's own latched-row count.
+    """
+    scores: dict[str, float] = {}
+    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    spared_out_of_scope = 0
+    spared_undistributed = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        pending = corpus.resolution_date(row) is None
+        if corpus.out_of_scope_reason_full(conn, row) is not None:
+            if row.salience_selected and pending:
+                spared_out_of_scope += 1
+            continue
+        scores[row.case_id] = active.score(row)
+        if corpus.is_scotus_application_form(row.docket_number):
+            continue
+        if row.distributed_for_conference is None:
+            if row.salience_selected and pending:
+                spared_undistributed += 1
+            continue
+        if pending:
+            cohorts[row.distributed_for_conference].append(row)
+    return scores, cohorts, spared_out_of_scope, spared_undistributed
+
+
 def unlatch_overselected(
     conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
 ) -> SalienceUnlatchResult:
@@ -482,26 +516,28 @@ def unlatch_overselected(
     a cut, so ignoring it never widens the clear) — and clears the latch on
     pending petitions the recomputation would not pick.
 
-    Deliberately untouched: decided rows (their latch is the historical record
-    of having been selected), interim applications (the reserve's occupancy is
-    its own sticky contract), never-distributed petitions (no cohort to
-    recompute against), and everything Tier-0-excluded (the prune path owns
-    those). A committed prediction on a cleared case stays committed — the
-    case merely stops earning future cells. Idempotent: a reconciled corpus
-    clears nothing. Dry-run by default; ``apply`` writes.
+    Deliberately untouched, each counted in the result so the ledger
+    reconciles against the corpus: decided rows (their latch is the
+    historical record of having been selected), interim applications (the
+    reserve's occupancy is its own sticky contract), never-distributed
+    petitions (no cohort to recompute against), and Tier-0-excluded rows —
+    those keep a stale latch that is inert under ``predict_excluded`` and the
+    shared exclusion reasoning, deliberately not cleared here. A committed
+    prediction on a cleared case stays committed **and stays graded**: the
+    evaluate matrix reads the scope filter without the salience skip, so
+    clearing a latch never strands a prediction from scoring. Two residuals
+    the recomputation accepts by construction: ``reserve=0`` means the
+    current cohort retains up to ``interim_reserve_slots`` petitions the live
+    pass's own rank fill would not fund, and a stale cohort's from-scratch
+    pick ranks its *stragglers* (resolved members are gone), so "retained" is
+    top-N of what remains, not what the gate would pick from the original
+    pool. Run ``dedupe-live-rows --apply`` first: a merge takes the latch
+    stickily from either twin, so an unmerged bulk twin could re-latch a
+    cleared case. Idempotent: a reconciled corpus clears nothing. Dry-run by
+    default; ``apply`` writes.
     """
     active = scorer()
-    scores: dict[str, float] = {}
-    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if corpus.out_of_scope_reason_full(conn, row) is not None:
-            continue
-        scores[row.case_id] = active.score(row)
-        if corpus.is_scotus_application_form(row.docket_number):
-            continue
-        if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
-            cohorts[row.distributed_for_conference].append(row)
-
+    scores, cohorts, spared_out_of_scope, spared_undistributed = _unlatch_scan(conn, active)
     latched_pending = 0
     retained = 0
     unlatch: list[str] = []
@@ -531,5 +567,7 @@ def unlatch_overselected(
         latched_pending=latched_pending,
         retained=retained,
         unlatched=len(unlatch),
-        sample_unlatched=sorted(unlatch)[:_MAX_SAMPLE],
+        spared_out_of_scope=spared_out_of_scope,
+        spared_undistributed=spared_undistributed,
+        unlatched_case_ids=sorted(unlatch),
     )

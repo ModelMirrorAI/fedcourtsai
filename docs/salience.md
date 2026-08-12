@@ -249,17 +249,20 @@ structurally analogous to the scope reconcile — carries the decision:
    otherwise: carve-outs and sticky latches may push the realized count above
    `N`. This is the simplest policy and never destructive.
 5. **Latch `salience_selected = 1`** for the union. The latch is **one-way
-   (`0 → 1`, never `1 → 0`)**: once selected, a case stays selected for its
-   lifetime. The score recomputes every pass on fresh features, and ranking uses
-   the fresh scores to *fill remaining capacity* — but selection never de-commits.
+   (`0 → 1`, never `1 → 0`) for every pass**: once selected, a case stays
+   selected for its lifetime unless the maintainer runs the one sanctioned
+   reconcile below. The score recomputes every pass on fresh features, and
+   ranking uses the fresh scores to *fill remaining capacity* — but the pass
+   itself never de-commits.
 
 This resolves the temporal dynamics of a live conference cleanly: a case selected
 early and later out-ranked **stays selected** (its committed prediction is safe,
 cleanup never touches it, no thrash); a high-salience petition appearing mid-cycle
 is picked up on the next pass if capacity or a carve-out admits it. Because
-selection is additive-only and scores are versioned, the selected set at any time
-is reconstructable from committed columns — the pre-registration replay is a pure
-read, not a re-derivation that could drift.
+the passes are additive-only and scores are versioned, the selected set at any
+time is reconstructable from committed columns *and the record of any
+maintainer reconcile below* — the pre-registration replay is unaffected either
+way, since it deliberately re-derives selection rather than reading the latch.
 
 The additive latch has one structural consequence a **capacity resize** exposes:
 petitions latched under a larger cap stay latched under a smaller one — a
@@ -270,14 +273,24 @@ unlatch-overselected`, a deliberate, maintainer-run, dry-run-default reconcile
 scratch under the current config and clears the latch on pending petitions that
 recomputation would not pick, touching neither decided rows (their latch is the
 historical record of selection), interim applications, nor any committed
-prediction. It is the latch's one `1 → 0` writer, and running it is a recorded
-operational decision, not part of the pass.
+prediction — which also stays **graded**: the evaluate matrix reads the scope
+filter without the salience skip, so a cleared case's prediction still scores
+when its event resolves. It is the latch's one `1 → 0` writer, its result
+carries the full cleared-id ledger (the write erases the corpus's own record
+of the pre-resize sticky set, so the run output is that record — note the
+pre-apply `corpus.db.ref` beside it), and running it is a recorded operational
+decision, not part of the pass: run `dedupe-live-rows --apply` first (a merge
+takes the latch stickily from either twin), and disclose the cleared set in
+any write-up whose cohort it reshapes.
 
 **Enforcement wiring** is small but real (it is not free):
 
 - `predict-matrix`'s scope filter carries one skip branch — a hard-in-scope SCOTUS
   docket with `salience_selected == 0` is dropped from the tournament matrix with a
   distinct "not selected this salience round" note (read-time, non-destructive).
+  The **evaluate** matrix reads the same filter *without* that branch: selection
+  decides which cases earn new cells, never whether a committed prediction is
+  scored, so a cleared or below-cap case's prediction still grades on resolution.
 - The pull queue declines to enqueue unselected cases.
 - **Cleanup stays keyed to hard-scope only.** It never consults `salience_selected`;
   a below-cap-but-hard-in-scope case keeps its committed predictions and simply
