@@ -120,7 +120,8 @@ class AnalyticsQuery(BaseModel):
     ``date_from`` / ``date_to`` bound ``date_filed`` inclusively. Unlike ``query`` the
     default keeps **open** cases, because their count is part of the base-rate picture
     (they are still excluded from each disposition's denominator); flip ``resolved_only``
-    to drop them. ``group_by`` chooses the breakdown dimension, or ``None`` for the
+    to drop them. ``group_by`` chooses the breakdown dimension — any dimension keyed
+    off a corpus row; an artifact-keyed dimension is refused — or ``None`` for the
     overall base rate only.
     """
 
@@ -405,6 +406,26 @@ def _timing_from_pairs(day_pairs: list[tuple[int, int]]) -> TimingStats:
     )
 
 
+def _require_servable_dimension(query: AnalyticsQuery) -> None:
+    """Refuse a ``group_by`` the aggregation cannot serve, by name.
+
+    The CLI offers only servable cuts, but this contract belongs to the
+    aggregation itself: a section dimension's keys come from an artifact, not a
+    corpus row, so grouping by one has no key function. Checked before the
+    absent-corpus grace too — that grace covers a missing corpus, never a
+    caller-supplied bad dimension.
+    """
+    if query.group_by is None:
+        return
+    dimension = GroupBy(query.group_by)
+    if dimension not in STATS_DIMENSIONS:
+        choices = ", ".join(g.value for g in STATS_DIMENSIONS)
+        raise ValueError(
+            f"cannot group by {dimension.value!r}: its keys come from "
+            f"an artifact, not a corpus row; choose one of: {choices}"
+        )
+
+
 def compute_report(conn: sqlite3.Connection, query: AnalyticsQuery) -> AnalyticsReport:
     """Aggregate the corpus rows matching ``query`` into an :class:`AnalyticsReport`.
 
@@ -413,6 +434,7 @@ def compute_report(conn: sqlite3.Connection, query: AnalyticsQuery) -> Analytics
     breakdown. Buckets sort by case count descending, then key, so the output is
     deterministic under ties.
     """
+    _require_servable_dimension(query)
     disposition = Disposition(query.disposition) if query.disposition else None
     matched = [
         row
@@ -442,7 +464,10 @@ def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsRe
 
     Graceful before a corpus pull (mirrors :func:`fedcourtsai.validate.run_scope_audit`):
     a missing corpus yields ``skipped=True`` with an empty total rather than an error.
+    A bad dimension is refused *before* that grace — the same query must not raise
+    post-pull and pass silently pre-pull.
     """
+    _require_servable_dimension(query)
     if not corpus_db_path.exists():
         return AnalyticsReport(skipped=True, group_by=query.group_by)
     with corpus.connect(corpus_db_path) as conn:
