@@ -41,7 +41,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
-| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and the agent step is passed no `github_token` input, leaving it only the job's own `contents: read` ambient token |
+| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at

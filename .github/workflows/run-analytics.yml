@@ -455,17 +455,16 @@ jobs:
           # Auth is the Anthropic API key (pay-per-token), as for every automated
           # cell: see docs/budget.md.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # The action refuses to start without a GitHub token (its fallback is
-          # an OIDC exchange, needing `id-token: write` — which this job
-          # deliberately lacks). Hand it the job's own token instead: the
-          # permissions block above caps it at `contents: read`, so the labeler
-          # still comments on nothing and opens nothing — carrying the labels
-          # off the runner belongs to the steps below. No `--mcp-config`
-          # either: `qp-topic-v0` is a text-only vocabulary, so the extract is
-          # the agent's entire evidentiary input and every retrieval surface is
-          # off limits by contract.
+          # The action refuses to start without a GitHub token, and both
+          # alternatives are worse: its no-input fallback is an OIDC exchange
+          # that mints an App installation token defaulting to
+          # contents/issues/pull-requests *write*, and granting the
+          # `id-token: write` that exchange needs would fail the no-OIDC guard
+          # step above. So hand it the job's own token: the permissions block
+          # above caps it at `contents: read`, and the labeler still comments
+          # on nothing and opens nothing — carrying the labels off the runner
+          # belongs to the steps below.
           github_token: ${{ github.token }}
-          #
           # Prompt caching is automatic; the API key's default 5-minute cache TTL
           # would expire mid-run over ~1,200 texts, so pin the 1-hour TTL.
           settings: |
@@ -492,6 +491,9 @@ jobs:
             workflow handles git. You run headless with no interactive input; if
             you are blocked, say so plainly in your final message and stop — do
             not wait for a reply.
+          # No `--mcp-config`: `qp-topic-v0` is a text-only vocabulary, so the
+          # extract is the agent's entire evidentiary input and every retrieval
+          # surface is off limits by contract.
           claude_args: |
             --model ${{ inputs.label_model }}
             --max-turns 120
