@@ -52,7 +52,7 @@ case-equivalent.
 |---|---|---:|---|
 | cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay: rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
-| cert | arrival | 75 (+~33–64 pending) | the sal-v2 arrival cohort, **beside** `N`: the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`), plus the federal-petitioner carve-in once its census passes statistical review (`docs/salience.md`); inert until the sal-v2 scorer activates |
+| cert | arrival | 75 (+~33–64 pending) | the sal-v2 arrival cohort, **beside** `N`: the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`), plus the federal-petitioner carve-in once a committed-rule `caption-census` run is reviewed to freeze its constant (`docs/salience.md` — the class itself is already reviewed carve-in grade; the outstanding review is of the census run the constant freezes from); inert until the sal-v2 scorer activates |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
 | interim | response requested | 8 | 12.3% of the 67 selected arrivals |
 | interim | response filed | 21 | 30.6% of the 67 |
@@ -98,7 +98,8 @@ and funding ~$21K/Term, a ranking rather than a spend control. The shipped
 across OT2022–24: rank fill 380–386 at first distribution and 398–413
 cumulative through resolution, plus floor/CVSG carve-outs of 97–115 riding
 *above* `N` uncapped — landing the whole program at ≈$9.6–9.9K at the planning
-rate. (The replay runs with no reserve occupancy; the interim reserve's slots
+rate (≈$10.6–10.9K once the sal-v2 arrival cohort activates — the moments
+table below). (The replay runs with no reserve occupancy; the interim reserve's slots
 in use would lower the rank fill, below.) The measured coverage trade: the
 selection carries **0.76–0.81** of the Term's replay-reconstructable
 grant-family outcomes (grant denominators 90/108/91 for OT2022/23/24, GVRs and
@@ -478,7 +479,7 @@ plus a fixed ~220 events from the other two":
 
 | Scenario | ≈ Annual | Inference (= total − ≈$5.5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$16K | ≈$10K | ≈738–765 forecast events across all three stages — a **whole OT2026 Term**, not a slice of one: 515–542 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
+| Bootstrapping | ≈$16K | ≈$10K | ≈738–765 forecast events across all three stages while the sal-v2 arrival cohort is inert (813–840 activated) — a **whole OT2026 Term**, not a slice of one: 515–542 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
 | Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |

@@ -446,6 +446,13 @@ def test_the_arrival_moment_mints_on_selection_while_the_petition_is_open() -> N
     assert arrival_event_for(row, []) is None
     # No docketing date: the moment's information set is undefined.
     assert arrival_event_for(row.model_copy(update={"date_filed": None}), [baseline]) is None
+    # A distribution on the docket: the docketing-time information set is
+    # gone, and the arrival label would be false — minted never, however
+    # forever-true the selection predicate is.
+    distributed = row.model_copy(update={"distributed_for_conference": date(2026, 9, 28)})
+    assert arrival_event_for(distributed, [baseline]) is None
+    scanned = row.model_copy(update={"distribution_count": 1})
+    assert arrival_event_for(scanned, [baseline]) is None
     # An application docket carries no cert arrival.
     application = row.model_copy(update={"docket_number": "26A42"})
     assert arrival_event_for(application, [baseline]) is None

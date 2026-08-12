@@ -45,7 +45,7 @@ from .backtest import (
 )
 from .config import SalienceConfig
 from .paths import CasePaths
-from .pipeline import cell_context, cert_signals
+from .pipeline import cell_context, cert_signals, moments
 from .pipeline.asof import replay_cutoff
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.evaluate import brier_skill, segment_base_rate
@@ -71,6 +71,7 @@ from .schemas import (
     CertBacktestSegment,
     Disposition,
     EventKind,
+    Stage,
     PredictableEvent,
     Prediction,
     PredictorConfig,
@@ -522,7 +523,16 @@ def replay_predictors(
                 if cutoff is not None
                 else None
             )
-        petitions = [ev for ev in events if ev.kind == EventKind.petition]
+        # The stage's registered baseline, never kind-then-position: the cert
+        # arrival moment is petition-kind too and its id sorts before the
+        # baseline's, so positional selection would replay every arrival-cohort
+        # case against the wrong event.
+        baseline_id = moments.moments_for(Stage.cert)[0].event_id
+        petitions = [ev for ev in events if ev.event_id == baseline_id] or [
+            ev
+            for ev in events
+            if ev.kind == EventKind.petition and moments.spec_for(ev.event_id) is None
+        ]
         if found is None or not petitions:
             raise ValueError(
                 f"{item.features.case_id}: no snapshot or petition event to replay against"

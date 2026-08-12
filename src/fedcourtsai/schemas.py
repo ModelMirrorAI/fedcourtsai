@@ -259,7 +259,8 @@ class Moment(StrEnum):
     distribution = "distribution"
     #: cert — the Court calls for the Solicitor General's views.
     cvsg = "cvsg"
-    #: interim — the application arrives on the docket.
+    #: interim — the application arrives on the docket; cert — the petition
+    #: is docketed (the sal-v2 arrival cohort's moment).
     arrival = "arrival"
     #: interim — the Court (or a Circuit Justice) asks for a response.
     response_requested = "response-requested"

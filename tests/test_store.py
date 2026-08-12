@@ -13,6 +13,7 @@ from fedcourtsai.schemas import (
     AgentToolingFeedback,
     Disposition,
     EventKind,
+    Moment,
     FlagCategory,
     Judgment,
     Outcome,
@@ -931,3 +932,86 @@ def test_ledger_cell_counts_walks_the_funnel(tmp_path: Path) -> None:
 
 def test_ledger_cell_counts_empty_ledger_is_zero(tmp_path: Path) -> None:
     assert ledger_cell_counts(tmp_path / "data") == (0, 0, 0)
+
+
+def test_the_arrival_moment_obeys_the_register_not_the_baseline_arm(tmp_path: Path) -> None:
+    """A declared later moment sharing the baseline's kind defers to its
+    stage arm: a decided-but-unrecorded row refuses it, and flipping the
+    spec's forecastable switch actually switches it off — neither held while
+    the petition-kind baseline arm admitted it registry-blind."""
+    db = corpus.corpus_db_path(tmp_path)
+    case_id = "scotus/91"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="26-91",
+                    disposition=Disposition.denied,  # decided, outcome unrecorded
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    moment=Moment.arrival,
+                ),
+            ],
+        )
+    # Decided row: the stage arm refuses the arrival moment (the baseline's
+    # own admission is that arm's separate, documented tolerance).
+    assert "evt-petition-arrival-disposition" not in forecastable_events(db, "scotus", 91)
+
+
+def test_a_switched_off_declared_moment_stays_out_whatever_its_kind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The register's forecastable switch binds petition-kind moments too."""
+    from fedcourtsai.pipeline import moments as moments_module
+
+    db = corpus.corpus_db_path(tmp_path)
+    case_id = "scotus/92"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id=case_id, court="scotus", docket_number="26-92")],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    moment=Moment.arrival,
+                )
+            ],
+        )
+    import dataclasses
+
+    switched = tuple(
+        dataclasses.replace(s, forecastable=False)
+        if s.event_id == "evt-petition-arrival-disposition"
+        else s
+        for s in moments_module.DECLARED_MOMENTS
+    )
+    monkeypatch.setattr(moments_module, "DECLARED_MOMENTS", switched)
+    monkeypatch.setattr(moments_module, "_BY_EVENT_ID", {s.event_id: s for s in switched})
+    assert "evt-petition-arrival-disposition" not in forecastable_events(db, "scotus", 92)

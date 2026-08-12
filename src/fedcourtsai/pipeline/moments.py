@@ -44,7 +44,7 @@ CLAIM_SET_MERITS_V1 = "merits-v1"
 class MomentSpec:
     """One declared forecast moment: its event, its stage, and what it declares.
 
-    ``ordinal`` orders the moments *within* a stage — 0 is the first, the one
+    ``ordinal`` orders the *registry* within a stage — 0 is the first, the one
     the ranked board reports and the one a null ``moment`` reads as. It is a
     sort key inside this table, never an identity: a moment is named because a
     reader has to know which information set produced a number, and ``merits/2``
@@ -224,7 +224,14 @@ def first_moment(stage: Stage) -> Moment | None:
 
 
 def moments_for(stage: Stage) -> tuple[MomentSpec, ...]:
-    """``stage``'s declared moments, earliest first."""
+    """``stage``'s declared moments in registry order (ordinal ascending).
+
+    Registry order, not chronology: the first position is the stage's
+    baseline — the spec the open-first-moment guards and the resolution fan
+    key on — and a later registration may be chronologically earlier (the
+    cert arrival moment precedes every distribution while carrying the last
+    ordinal). A caller wanting time order reads each spec's description.
+    """
     return tuple(
         sorted((spec for spec in DECLARED_MOMENTS if spec.stage == stage), key=lambda s: s.ordinal)
     )
