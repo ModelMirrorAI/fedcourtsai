@@ -100,6 +100,26 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         claim_set_version=CLAIM_SET_CERT_V1,
     ),
     MomentSpec(
+        # Chronologically the EARLIEST cert moment (docketing precedes every
+        # distribution), carried at a later ordinal deliberately: ordinal
+        # orders the registry, and the stage's first-position spec is the
+        # petition baseline the open-first-moment guard and the resolution
+        # sweep key on — renumbering it would move both. The sal-v2 arrival
+        # cohort's moment: minted at selection (the deterministic draw or the
+        # arrival carve-in), forecast from the docketing-time information set.
+        event_id=ids.event_id(EventKind.petition.value, "arrival-disposition"),
+        kind=EventKind.petition,
+        stage=Stage.cert,
+        moment=Moment.arrival,
+        ordinal=2,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast at docketing — before any "
+            "distribution or docket-acquired signal exists."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V1,
+    ),
+    MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
         kind=EventKind.motion,
         stage=Stage.interim,

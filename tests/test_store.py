@@ -716,6 +716,21 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
     _granted_case(db, 82, disposition=Disposition.granted)
     interim_case = "scotus/9525000081"
     with corpus.connect(db) as conn:
+        # The sal-v2 arrival moment, minted beside case 81's baseline: the
+        # generic cert arm admits any declared cert moment of a pending
+        # petition, which is exactly what this invariant obliges a shape for.
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="scotus/81",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                )
+            ],
+        )
         corpus.upsert_events(conn, [_briefed_event("scotus/82")])
         corpus.upsert_rows(
             conn,
