@@ -13,18 +13,18 @@ inputs, so a silent prompt or config change is automatically a distinct version;
 ``label`` is human-readable sugar. ``pipeline_sha`` is provenance only and is
 deliberately excluded from the digest — see :class:`fedcourtsai.schemas.ProcessVersion`.
 
-The freeze is a **future, explicit** event. :data:`FROZEN_PROCESS_DIGESTS` is
-empty and :data:`FROZEN_SINCE` unset until one "freeze commit" fills both —
-the digest(s) a maintainer reads off ``fedcourts process-digest --all``, and
-the instant runs must postdate to count. Until then the frozen headline is
-legitimately empty — there is no frozen-process data yet.
+The freeze is a deliberate, explicit event: one "freeze commit" fills
+:data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together — the
+digest(s) a maintainer reads off ``fedcourts process-digest --all``, and the
+instant a run's harness stamp must be at or after to count. The cutover
+procedure and its verification live in ``docs/process-version.md``.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .pricing import DEFAULT_MODELS
@@ -40,12 +40,27 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v1"
 
-# The blessed process digests — the frozen-headline set. EMPTY during the
-# shakedown: the freeze is a future small commit that pastes the digest(s)
-# from `fedcourts process-digest --all` in here and sets FROZEN_SINCE below.
-# Keyed on the digest, never the label, so a process that drifted under an
-# unchanged label is not silently blessed.
-FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset()
+# The blessed process digests — the frozen-headline set: the six proc-v1
+# baselines (claude/codex/gemini, predictor and evaluator each), read off
+# `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
+# which a test pins. Keyed on the digest, never the label, so a process that
+# drifted under an unchanged label is not silently blessed. The predictor
+# digests are the enforced membership filter (`is_frozen`); the evaluator
+# entries are the freeze *record* of the blessed grading process — an
+# evaluation's digest is recorded but only its timing is enforced, via
+# `graded_post_freeze`.
+FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
+    {
+        # predictors: claude-baseline, codex-baseline, gemini-baseline
+        "sha256:d06ba40213613a613bc0ab2dfc8561b4aed6ba7f19d19a14a13714cb9f96c214",
+        "sha256:0eaa4c367e9d0017ea1d0cb94529a4f0cfc175332aae0b389eab81a91d8ab682",
+        "sha256:4297c6ac4b4f7020fc883295ff193d7f27e8005430487ee60fa37131ee7a804c",
+        # evaluators: claude-judge, codex-judge, gemini-judge
+        "sha256:ed3ea431b2196b820ab1225bb8a1a635ef780834661a116cdb5f0cc8e4343c70",
+        "sha256:d6d74f16e2865d825667d64fee1d8756fdb1fc9d8d352cd750ea15df1fd3fd7a",
+        "sha256:e8cfccce34e8429957299dc7505daa061a0dd49884079a0186a278fcf554577c",
+    }
+)
 
 # The freeze instant, set in the same commit that fills the set above (a test
 # pins the coupling). The digest is a pure content hash, so a cell stamped
@@ -53,8 +68,12 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset()
 # read as frozen retroactively — pre-registration means the commitment
 # preceded the run, and only a time cutoff can say so. Compared against the
 # stamp's `stamped_at`, which the harness writes; anything at or after the
-# instant is in.
-FROZEN_SINCE: datetime | None = None
+# instant is in. The literal must be at or after the date of the promotion
+# merge that carried this commit to `main` (verified against
+# `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
+# first run intended to count — see the cutover procedure in
+# `docs/process-version.md`.
+FROZEN_SINCE: datetime | None = datetime(2026, 8, 15, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
