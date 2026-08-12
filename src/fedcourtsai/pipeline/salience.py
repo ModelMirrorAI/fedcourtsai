@@ -470,6 +470,38 @@ def reconcile_salience_selection(
     )
 
 
+def _unlatch_scan(
+    conn: sqlite3.Connection, active: SalienceScorer
+) -> tuple[dict[str, float], dict[date, list[corpus.CorpusRow]], int, int]:
+    """The reconcile's eligibility scan, mirroring ``_selection_plan``'s.
+
+    Returns ``(scores, pending cohorts, spared_out_of_scope,
+    spared_undistributed)`` — the spared counts tally latched pending rows the
+    sweep deliberately leaves outside every cohort, so the result's ledger
+    reconciles against the corpus's own latched-row count.
+    """
+    scores: dict[str, float] = {}
+    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    spared_out_of_scope = 0
+    spared_undistributed = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        pending = corpus.resolution_date(row) is None
+        if corpus.out_of_scope_reason_full(conn, row) is not None:
+            if row.salience_selected and pending:
+                spared_out_of_scope += 1
+            continue
+        scores[row.case_id] = active.score(row)
+        if corpus.is_scotus_application_form(row.docket_number):
+            continue
+        if row.distributed_for_conference is None:
+            if row.salience_selected and pending:
+                spared_undistributed += 1
+            continue
+        if pending:
+            cohorts[row.distributed_for_conference].append(row)
+    return scores, cohorts, spared_out_of_scope, spared_undistributed
+
+
 def unlatch_overselected(
     conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
 ) -> SalienceUnlatchResult:
@@ -505,26 +537,7 @@ def unlatch_overselected(
     default; ``apply`` writes.
     """
     active = scorer()
-    scores: dict[str, float] = {}
-    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
-    spared_out_of_scope = 0
-    spared_undistributed = 0
-    for row in corpus.iter_rows(conn, court="scotus"):
-        pending = corpus.resolution_date(row) is None
-        if corpus.out_of_scope_reason_full(conn, row) is not None:
-            if row.salience_selected and pending:
-                spared_out_of_scope += 1
-            continue
-        scores[row.case_id] = active.score(row)
-        if corpus.is_scotus_application_form(row.docket_number):
-            continue
-        if row.distributed_for_conference is None:
-            if row.salience_selected and pending:
-                spared_undistributed += 1
-            continue
-        if pending:
-            cohorts[row.distributed_for_conference].append(row)
-
+    scores, cohorts, spared_out_of_scope, spared_undistributed = _unlatch_scan(conn, active)
     latched_pending = 0
     retained = 0
     unlatch: list[str] = []
