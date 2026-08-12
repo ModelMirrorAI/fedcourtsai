@@ -201,7 +201,7 @@ from .store import (
     open_events,
     resolved_events,
 )
-from .supremecourt import SupremeCourtClient, current_october_term
+from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -4562,7 +4562,7 @@ def live_poll(
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
     today = date.today()
-    probe_term = term if term is not None else current_october_term(today)
+    probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
         queues, discovery = live_poll_all(

@@ -251,7 +251,7 @@ class HistoricalConfig(BaseModel):
 
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
     # reachability probe's full-JSON floor (docs/live-sources.md).
-    terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
+    terms: list[int] = Field(default=[26, 25, 24, 23, 22, 21, 20, 19, 18, 17])
     # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)

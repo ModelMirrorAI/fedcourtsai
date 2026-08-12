@@ -456,7 +456,7 @@ def test_load_historical_config_reads_section_and_defaults(tmp_path: Path) -> No
     (tmp_path / "tracking.yaml").write_text("historical:\n  max_probes_per_run: 5\n")
     cfg = load_historical_config(tmp_path)
     assert cfg.max_probes_per_run == 5
-    assert cfg.terms == [25, 24, 23, 22, 21, 20, 19, 18, 17]  # default holds
+    assert cfg.terms == [26, 25, 24, 23, 22, 21, 20, 19, 18, 17]  # default holds
 
     defaults = load_historical_config(tmp_path / "absent")
     assert defaults.max_probes_per_run == 600
@@ -470,7 +470,10 @@ def test_historical_config_rejects_terms_below_the_probe_floor() -> None:
 
 def test_repo_tracking_yaml_carries_historical_section() -> None:
     cfg = load_historical_config(Path("config"))
-    assert cfg.terms[0] == 25 and cfg.terms[-1] == 17
+    # Newest first: the incoming Term joins the walk the July its docket
+    # numbering starts (the Clerk's roll — see `current_docket_term`), so the
+    # head of the shipped list tracks the *docket* Term, not the sitting one.
+    assert cfg.terms[0] == 26 and cfg.terms[-1] == 17
     assert cfg.document_floor_term == 21
 
 
