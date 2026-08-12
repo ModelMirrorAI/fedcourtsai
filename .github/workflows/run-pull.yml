@@ -256,11 +256,15 @@ jobs:
           FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
           FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
         run: |
+          # No `--limit`: the per-run cap is `pull.max_cases_per_run` in
+          # config/tracking.yaml, the single place the window is sized. A limit
+          # here can only *lower* that cap, so a hard-coded value would
+          # silently become the binding ceiling the moment the config cap is
+          # raised past it.
           uv run fedcourts pull-all \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
-            --unrecorded-out unrecorded-queue.json \
-            --limit 50
+            --unrecorded-out unrecorded-queue.json
 
       - name: Push the corpus blob to the remote
         env:
