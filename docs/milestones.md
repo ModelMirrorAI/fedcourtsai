@@ -52,7 +52,7 @@ The machinery for the first release is running:
   `run:predict` → `run:evaluate`, producing valid ledger artifacts, with
   per-run cost measured from the engines' own logs (`usage.json`, the spend
   roll-up on the ops dashboard) and data validation surfacing as data-health.
-- **Predictors are vetted by cert back-test**: the maintainer-triggered
+- **Predictor vetting is the cert back-test**: the maintainer-triggered
   `run-backtest` workflow replays predictors over decided petitions (outcomes
   hidden) — iteration signal for prompts, retrieval, and calibration, never
   claimable performance.

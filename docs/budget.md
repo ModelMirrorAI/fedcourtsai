@@ -26,16 +26,13 @@ authenticates to Claude via the Anthropic **API key**.
 
 ## What there is to predict: measured volumes
 
-Per October Term. **Read these from the corpus, not from the committed
-statpack.** The cert and merits lines are the OT2017–2024 **paid** census, where
-every row carries `sample_weight` 1: the paid stream is walked denial-complete,
-so these are counts rather than reweighted estimates. The committed
-`metrics/statpack.json` still shows that stream reweighted and `complete: false`
-for OT2017–2023, because the pack predates the walk that completed it — it
-catches up at the next metrics refresh, and until then it is the stale surface,
-not this one. The IFP stream genuinely is still sampled, which is why the
-IFP-inclusive figure below is an estimate and these are not. The interim line is
-**one** application Term, OT2025, still open — a Term-to-date count.
+Per October Term. The cert and merits lines are the OT2017–2024 **paid**
+census, where every row carries `sample_weight` 1: the paid stream is walked
+denial-complete, so these are counts rather than reweighted estimates, and the
+committed `metrics/statpack.json` records the same stream `complete: true`.
+The IFP stream genuinely is still sampled, which is why the IFP-inclusive
+figure below is an estimate and these are not. The interim line is **one**
+application Term, OT2025, still open — a Term-to-date count.
 
 | Bucket | Per Term | What it is |
 |---|---:|---|

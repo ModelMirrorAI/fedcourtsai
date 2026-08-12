@@ -57,8 +57,9 @@ Three access facts shape the client:
   the Term's October opening misses the entire summer intake
   (`current_docket_term` carries the roll).
 - Be a polite client: throttle to ~1 request/second, back off on errors, and
-  poll on a cadence matched to the docket's rhythm (hourly for the conference
-  watchlist, daily for frontier probing) rather than hammering.
+  poll on a cadence matched to the docket's rhythm (the shipped cadence is
+  four live windows a day, covering the conference watchlist and frontier
+  probing together) rather than hammering.
 
 These facts — and the channel's Term reach — are empirically verified by the
 reachability probe (`fedcourts probe-live-terms`), which holds three standing
