@@ -8,7 +8,9 @@ from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
+from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
@@ -20,15 +22,17 @@ from fedcourtsai.pipeline.ingest import (
     to_corpus_row,
 )
 from fedcourtsai.pipeline.live import (
+    LiveDiscovery,
     discover_live,
     ingest_live_payload,
     live_poll_all,
 )
+from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.schemas import CellFailure, Disposition, Outcome
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.supremecourt import (
     SupremeCourtClient,
-    current_october_term,
+    current_docket_term,
     is_live_docket_id,
     live_docket_id,
     parse_scotus_docket_number,
@@ -106,9 +110,52 @@ def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
     assert parse_scotus_docket_number(None) is None
 
 
-def test_current_october_term_rolls_in_october() -> None:
-    assert current_october_term(date(2026, 7, 10)) == 25
-    assert current_october_term(date(2026, 10, 6)) == 26
+def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The wiring, not the helper: `live-poll`'s probe default must come from
+    the Clerk's July roll. A helper-level test cannot catch the CLI quietly
+    deriving its default from an October-rolling function again."""
+    captured: dict[str, int] = {}
+
+    def _fake_poll(*args: Any, term: int, **kwargs: Any) -> tuple[PullQueues, LiveDiscovery]:
+        captured["term"] = term
+        return PullQueues(), LiveDiscovery()
+
+    class _AugustToday(date):
+        # Post-July numbering roll, pre-October Term opening — the window the
+        # October-roll default probed the outgoing Term in.
+        @classmethod
+        def today(cls) -> _AugustToday:
+            return cls(2026, 8, 12)
+
+    monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "date", _AugustToday)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    result = CliRunner().invoke(
+        cli_module.app,
+        [
+            "live-poll",
+            *("--out", str(tmp_path / "p.json")),
+            *("--evaluate-out", str(tmp_path / "e.json")),
+            *("--unrecorded-out", str(tmp_path / "u.json")),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["term"] == 26
+
+
+def test_current_docket_term_rolls_in_july() -> None:
+    # The Clerk's numbering roll, not the Term's October opening: 25-numbered
+    # filings end in late June and 26-1 was docketed July 1, 2026. An October
+    # roll here is the bug that hid every summer-docketed petition — the
+    # long-conference intake — from discovery.
+    assert current_docket_term(date(2026, 6, 30)) == 25
+    assert current_docket_term(date(2026, 7, 1)) == 26
+    assert current_docket_term(date(2026, 10, 6)) == 26
+    assert current_docket_term(date(2027, 1, 15)) == 26
 
 
 # --- the polite client -----------------------------------------------------------

@@ -51,6 +51,11 @@ Three access facts shape the client:
   sequential probing**: docket numbers are per-Term sequential (paid petitions
   from `25-1`, IFP from `25-5001`), so a poller probes the next unseen numbers
   and a 404/empty record marks the current frontier.
+- **A Term's numbering starts the July before the Term opens**, across all
+  three streams: `26-1`, `26-5001`, and `26A1` were all docketed 2026-07-01,
+  while `25-1432` (2026-06-30) closes the OT25 paid stream. A prober keyed to
+  the Term's October opening misses the entire summer intake
+  (`current_docket_term` carries the roll).
 - Be a polite client: throttle to ~1 request/second, back off on errors, and
   poll on a cadence matched to the docket's rhythm (hourly for the conference
   watchlist, daily for frontier probing) rather than hammering.

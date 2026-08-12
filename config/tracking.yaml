@@ -117,8 +117,13 @@ live:
 # documented and reproducible.
 historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
-  # reachability probe's full-JSON floor (docs/live-sources.md). OT2025
-  # is walkable alongside the forward poller (`live:`): the walker ingests
+  # reachability probe's full-JSON floor (docs/live-sources.md). A Term the
+  # forward poller also covers (OT2025+, including the incoming Term's
+  # summer-docketed intake) is walkable alongside it — with one property to
+  # know: the walker's cursor passes a pending serial once and never re-reads
+  # it, so for such a Term the walker ingests next to nothing and the live
+  # channel is the sole outcome path until a re-walk after the Term closes.
+  # The walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its
   # re-poll queues the evaluate handoff the walker never files); the two
@@ -127,7 +132,7 @@ historical:
   # poller also onboarded (OT2025+) carries the poller's pending-petition
   # coverage on top of the walker's decided-only set, so per-Term composition
   # is not uniform there.
-  terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
+  terms: [26, 25, 24, 23, 22, 21, 20, 19, 18, 17]
   # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
   # document fetches ride on top). Trades crash-loss / corpus-push frequency,

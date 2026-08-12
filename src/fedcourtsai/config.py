@@ -250,8 +250,10 @@ class HistoricalConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
-    # reachability probe's full-JSON floor (docs/live-sources.md).
-    terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
+    # reachability probe's full-JSON floor (docs/live-sources.md). The head
+    # tracks the *docket* Term, which rolls the July before the Term opens
+    # (see `supremecourt.current_docket_term`).
+    terms: list[int] = Field(default=[26, 25, 24, 23, 22, 21, 20, 19, 18, 17])
     # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)
