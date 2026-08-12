@@ -25,6 +25,7 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_SET_CERT_V1,
     CLAIM_SET_MERITS_V1,
     claim_baseline,
+    claim_block_problems,
     declared_claim_set,
     resolve_claim,
     score_claims,
@@ -320,6 +321,44 @@ def test_the_mandatory_set_scores_all_or_nothing() -> None:
     assert score_claims(partial, _outcome(), pack, lookback_terms=0) is None
     duplicated = _prediction(claims=[*_claims(), _claims()[0]], context=_context())
     assert score_claims(duplicated, _outcome(), pack, lookback_terms=0) is None
+
+
+def test_claim_block_problems_names_exactly_what_the_scorer_voids() -> None:
+    """The validate-time report and the scorer's silent refusals move together:
+    every malformed shape `score_claims` voids on yields a named problem, and
+    the shapes it accepts (or legitimately skips) yield none — so `validate`
+    can never pass a block the board will silently drop, nor flag one it
+    would score."""
+    pack = _statpack(_term(2024, rate=0.06))
+    voids = {
+        "divergent headline": _prediction(
+            claims=_claims(disposition=0.3), context=_context(), probability=0.2
+        ),
+        "partial set": _prediction(claims=_claims()[:2], context=_context()),
+        "duplicated id": _prediction(claims=[*_claims(), _claims()[0]], context=_context()),
+    }
+    for label, prediction in voids.items():
+        assert score_claims(prediction, _outcome(), pack, lookback_terms=0) is None, label
+        assert claim_block_problems(prediction), label
+    # A missing context also voids at scoring, but it is a tolerated
+    # provisioning gap (a harness stamp, not the agent's block), so the
+    # report deliberately stays silent on it.
+    unprovisioned = _prediction(claims=_claims(), context=None)
+    assert score_claims(unprovisioned, _outcome(), pack, lookback_terms=0) is None
+    assert claim_block_problems(unprovisioned) == []
+    # Absence is legitimate, not a defect: no block, or no declared set.
+    assert claim_block_problems(_prediction(claims=None, context=None)) == []
+    assert (
+        claim_block_problems(
+            _prediction(claims=_claims(), context=_context(), event_id="evt-motion-stay")
+        )
+        == []
+    )
+    # Coherent blocks report nothing — including one with an undeclared extra,
+    # which the scorer ignores rather than voids.
+    assert claim_block_problems(_prediction(claims=_claims(), context=_context())) == []
+    extra = ClaimProbability(claim_id="own-invention", probability=0.9)
+    assert claim_block_problems(_prediction(claims=[*_claims(), extra], context=_context())) == []
 
 
 def test_undeclared_stated_claims_are_ignored() -> None:

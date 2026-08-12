@@ -46,6 +46,7 @@ import yaml
 from pydantic import ValidationError
 
 from . import corpus
+from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     FILENAME_MODELS,
@@ -89,6 +90,7 @@ CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
+CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
 
 
@@ -571,6 +573,36 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     return _check(CHECK_PREDICTION_DOCS, problems, checked=checked)
 
 
+def check_prediction_claims(data_root: Path) -> CorpusCheck:
+    """A committed claims block must be one the claim scorer will not void.
+
+    Schema conformance cannot see the void conditions — a duplicated claim id,
+    a declared claim left unstated, a headline claim diverging from the
+    prediction's own ``probability`` — and the scorer's refusal is
+    deliberately silent at read time (``None``, never a crash), so an
+    incoherent block would commit green and the claim board would simply lack
+    the cell weeks later. Surfaced here instead, while the cell can still be
+    fixed. Absence stays legitimate: a prediction without a block, or on an
+    event with no declared set, is skipped, not flagged.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/predictions/*/*/prediction.json"):
+        # Parsed through the model; a file that does not parse is
+        # `validate_ledger`'s concern (schema law), not double-reported here.
+        try:
+            prediction = Prediction.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if prediction.claims is None:
+            continue
+        checked += 1
+        problems.extend(
+            f"prediction {path}: {reason}" for reason in claim_block_problems(prediction)
+        )
+    return _check(CHECK_PREDICTION_CLAIMS, problems, checked=checked)
+
+
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
     """A merits-stage event's latest prediction per predictor must carry a judgment.
 
@@ -687,6 +719,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_ledger_events_in_git(data_root),
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
+        check_prediction_claims(data_root),
         check_merits_predictions(data_root),
     ]
 
@@ -714,6 +747,7 @@ def _run_checks(
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
         check_prediction_docs(data_root),
+        check_prediction_claims(data_root),
         check_merits_predictions(data_root),
     ]
     return CorpusValidation(

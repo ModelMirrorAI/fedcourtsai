@@ -345,6 +345,46 @@ def claim_baseline(
     )
 
 
+def claim_block_problems(prediction: Prediction) -> list[str]:
+    """Why this prediction's claims block would void at scoring, in words.
+
+    Empty when there is nothing to say: no claims block, or an event with no
+    declared set — absence is a legitimate state, not a defect. With a block
+    present against a declared set, the *agent-authored* incoherences
+    :func:`score_claims` silently voids on are named — a duplicated claim id,
+    a declared claim left unstated, a headline diverging from the
+    prediction's own ``probability`` — so ``validate`` can surface a block
+    that will never score while the cell can still be fixed, instead of the
+    claim board simply lacking it later. A missing ``context`` also voids at
+    scoring but is deliberately *not* reported here: the context is a
+    harness stamp, and its absence is a tolerated provisioning gap (see
+    ``_read_cell_context``), not a malformed artifact. A test pins this
+    list to the scorer's actual refusals.
+    """
+    declared = declared_claim_set(prediction.event_id)
+    if declared is None or prediction.claims is None:
+        return []
+    problems: list[str] = []
+    set_version, claim_ids = declared
+    stated = _stated_probabilities(prediction.claims)
+    if stated is None:
+        problems.append("a claim id is stated twice — two numbers for one belief")
+        return problems
+    problems.extend(
+        f"declared claim {claim_id!r} ({set_version}) is not stated"
+        for claim_id in claim_ids
+        if claim_id not in stated
+    )
+    problems.extend(
+        f"headline claim {headline!r} states {stated[headline]!r} but the "
+        f"prediction's probability is {prediction.probability!r} — one belief, "
+        "two committed numbers"
+        for headline in _HEADLINE_CLAIMS
+        if headline in stated and stated[headline] != prediction.probability
+    )
+    return problems
+
+
 def score_claims(
     prediction: Prediction,
     outcome: Outcome,
