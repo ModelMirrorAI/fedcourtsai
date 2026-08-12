@@ -312,8 +312,18 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
     the ones carrying no stage at all. That makes forecastability correct on its
     own terms rather than conditional on a data migration having run — the
     migration changes which event is forecast, never whether a mislabeled one is.
+
+    A **declared later moment sharing the baseline's kind** (the cert arrival
+    event is petition-kind — the petition is the filing that opens it) must
+    not ride this arm: admission here would bypass the register, making the
+    ``forecastable`` switch-off inert and skipping the stage arm's decided-row
+    refusal. So a declared non-first moment defers entirely to its stage's own
+    arm, whatever its kind.
     """
     if event.kind not in _FORECASTABLE_KINDS:
+        return False
+    spec = moments.spec_for(event.event_id)
+    if spec is not None and spec.ordinal != 0:
         return False
     return not (
         row is not None

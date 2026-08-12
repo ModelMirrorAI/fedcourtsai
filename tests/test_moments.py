@@ -14,6 +14,7 @@ from fedcourtsai.pipeline.claims import declared_claim_set
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
 from fedcourtsai.pipeline.outcome import (
     MERITS_EVENT_ID,
+    arrival_event_for,
     briefed_merits_event_for,
     cvsg_event_for,
     interim_response_events_for,
@@ -280,15 +281,16 @@ def test_the_cvsg_moment_mints_only_while_the_petition_is_open() -> None:
     assert cvsg_event_for(circuit, [baseline]) is None
 
 
-def test_both_cert_moments_declare_the_same_claim_set() -> None:
-    """The claims do not change because the forecast was taken later.
+def test_every_cert_moment_declares_the_same_claim_set() -> None:
+    """The claims do not change because the forecast was taken earlier or later.
 
     Only the information set moves, and that lives on the aggregation key. A
     per-moment set version would fragment every claim aggregate for nothing.
     """
-    first, second = (s.event_id for s in moments.moments_for(Stage.cert))
-    assert declared_claim_set(first) == declared_claim_set(second)
-    assert declared_claim_set(first) is not None
+    sets = [declared_claim_set(s.event_id) for s in moments.moments_for(Stage.cert)]
+    assert len(sets) >= 3  # baseline, CVSG, arrival
+    assert all(cs == sets[0] for cs in sets)
+    assert sets[0] is not None
 
 
 def test_the_interim_response_moments_are_distinct_events() -> None:
@@ -411,3 +413,49 @@ def test_the_bypass_does_not_reopen_the_cert_gate(tmp_path: Path) -> None:
         )
         stored = corpus.get_row(conn, row.case_id)
     assert stored is not None and stored.salience_selected is False
+
+
+def test_the_arrival_moment_mints_on_selection_while_the_petition_is_open() -> None:
+    """The caller owns the selection predicate; the helper owns the guards.
+
+    The sal-v2 arrival event is minted by selection, not by a docket signal,
+    so the mint helper enforces only what makes the event coherent: a SCOTUS
+    cert-form docket with a docketing date, and the petition baseline still
+    open — the same open-first-moment guard as the CVSG mint.
+    """
+    filed = date(2026, 7, 15)
+    row = CorpusRow(
+        case_id="scotus/26000042",
+        court="scotus",
+        docket_id=26000042,
+        source="live",
+        docket_number="26-42",
+        date_filed=filed,
+    )
+    baseline = moments.moments_for(Stage.cert)[0].event_id
+    minted = arrival_event_for(row, [baseline])
+    assert minted is not None
+    assert (minted.event_id, minted.stage, minted.moment) == (
+        "evt-petition-arrival-disposition",
+        Stage.cert,
+        Moment.arrival,
+    )
+    assert minted.opened_at == filed  # the docketing-time information set
+    assert minted.decision_target == "disposition"  # the same question as moment one
+    # The petition already resolved: nothing left to forecast.
+    assert arrival_event_for(row, []) is None
+    # No docketing date: the moment's information set is undefined.
+    assert arrival_event_for(row.model_copy(update={"date_filed": None}), [baseline]) is None
+    # A distribution on the docket: the docketing-time information set is
+    # gone, and the arrival label would be false — minted never, however
+    # forever-true the selection predicate is.
+    distributed = row.model_copy(update={"distributed_for_conference": date(2026, 9, 28)})
+    assert arrival_event_for(distributed, [baseline]) is None
+    scanned = row.model_copy(update={"distribution_count": 1})
+    assert arrival_event_for(scanned, [baseline]) is None
+    # An application docket carries no cert arrival.
+    application = row.model_copy(update={"docket_number": "26A42"})
+    assert arrival_event_for(application, [baseline]) is None
+    # A circuit docket carries no cert stage at all.
+    circuit = row.model_copy(update={"court": "ca9", "case_id": "ca9/42"})
+    assert arrival_event_for(circuit, [baseline]) is None
