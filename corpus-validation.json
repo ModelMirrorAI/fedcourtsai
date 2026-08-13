@@ -105,6 +105,14 @@
       "checked": 0,
       "detail": "",
       "failures": 0,
+      "name": "prediction_claims_scoreable",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
       "name": "merits_predictions_carry_judgment",
       "passed": true,
       "problems": []
