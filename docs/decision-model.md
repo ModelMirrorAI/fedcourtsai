@@ -420,7 +420,11 @@ cleans every consumer at once (the merits base rate and the harness's
 `judgment-disturbed` claim baseline pool the same per-Term counts). `segment_base_rate` is
 recorded on a merits cell as the baseline its skill is scored against; the
 harness's `judgment-disturbed` claim baseline reads the same guarded pool, so
-both carry the guard by construction.
+both carry the guard by construction — and because they are one quantity
+computed twice, the leaderboard cross-checks the evaluator's recorded rate
+against the harness's and drops a merits cell whose two disagree
+(`metrics/README.md`, the merits skill column), rather than ranking it on a
+rate only the evaluator pooled.
 
 **Three guards on the pool, all stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —

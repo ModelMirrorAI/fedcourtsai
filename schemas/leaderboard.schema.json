@@ -379,7 +379,7 @@
         },
         "skill_scored": {
           "default": 0,
-          "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count",
+          "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count. A cell is also excluded where its recorded skill does not reproduce from its own inputs, or where a merits cell's recorded rate contradicts the harness's own pooled merits baseline",
           "minimum": 0,
           "title": "Skill Scored",
           "type": "integer"
