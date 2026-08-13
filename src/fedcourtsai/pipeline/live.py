@@ -9,7 +9,9 @@ Deterministic, no agent. Each cycle:
   numbering stream (paid petitions from 1, IFP from 5001) until the frontier —
   consecutive misses — and onboards each served petition, persisting a per-Term
   cursor (:func:`fedcourtsai.corpus.get_live_cursor`) so the next cycle resumes
-  where this one stopped.
+  where this one stopped. For a bounded window after the July numbering roll it
+  also probes the *outgoing* Term (``LiveConfig.outgoing_term_grace_days``), so a
+  late filing onto the old prefix is caught before it is lost.
 - **Refresh** re-polls the live modern-cert watchlist
   (:func:`fedcourtsai.corpus.live_rotation` — recent Terms first, then stalest;
   pending petitions plus the granted dockets whose merits proceeding is still
@@ -63,10 +65,12 @@ from ..store import forecastable_events
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     SupremeCourtClient,
+    current_docket_term,
     live_application_id,
     live_docket_id,
     parse_scotus_application_number,
     parse_scotus_docket_number,
+    term_roll_date,
 )
 from .documents import fetch_case_documents
 from .events import extract_events
@@ -246,6 +250,18 @@ def provision_documents(
         return 0
     with corpus.connect(corpus_db_path) as conn:
         return corpus.upsert_documents(conn, documents)
+
+
+def _within_term_roll_grace(today: date, grace_days: int) -> bool:
+    """Whether ``today`` sits inside the outgoing-Term grace window after a roll.
+
+    The window opens at the July docket-number roll (:func:`term_roll_date`) and
+    runs through ``grace_days`` *inclusive* — the roll day itself is day 0 — so
+    the outgoing Term is probed alongside the current one only while a late tail
+    filing onto it is still plausible. ``term_roll_date`` returns a July 1 at or
+    before ``today``, so the lower bound never trips; it is stated for the reader.
+    """
+    return 0 <= (today - term_roll_date(today)).days <= grace_days
 
 
 def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
@@ -896,6 +912,12 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     """One live cycle: discovery, the pending refresh, the application rotation,
     then the salience pass.
 
+    Discovery runs the current filing Term and — for
+    ``config.outgoing_term_grace_days`` after the July numbering roll — the
+    outgoing Term too, from its own cursor, so its late tail is onboarded rather
+    than lost; the grace probe shares the cycle's new-case budget behind the
+    primary one and routes its onboards through the identical queue logic.
+
     ``config`` (the ``live:`` section of ``tracking.yaml``) carries the cycle's
     caps and politeness knobs. Discovery runs first so a petition docketed since
     the last cycle is onboarded this same cycle; a case discovery just ingested
@@ -945,6 +967,45 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         deadline=deadline,
         time_fn=time_fn,
     )
+    # The outgoing-Term grace probe. Discovery probes exactly one Term, but the
+    # Clerk's docket numbering rolls in July (``supremecourt.current_docket_term``)
+    # three months before the Term opens, so at the roll the previous Term's
+    # streams stop advancing while late filings may still land on them. The
+    # historical walker does not recover them: it advances its cursor over every
+    # served serial whether or not the record is decided, so a serial it passes
+    # while still pending is never re-read — the tail is lost, not merely
+    # delayed. For a bounded window after the roll, probe `term - 1` too,
+    # from its own cursor, so a late tail filing is caught at the source and its
+    # frontier re-stamped. The window (not a per-stream frontier test) is the
+    # retirement: a drained stream would be skipped by the frontier test, which
+    # is exactly the post-roll tail this probe exists to catch, so the probe
+    # must run past a stale frontier while the window is open. Shares the
+    # cycle's new-case budget behind the primary probe. Keyed on `term` being
+    # the true current filing Term, so a manual `--term` override addresses one
+    # Term only and never drags an unrelated `term - 1` probe with it.
+    remaining = config.max_new_cases_per_run - len(discovery.onboarded)
+    if (
+        config.outgoing_term_grace_days > 0
+        and term == current_docket_term(today)
+        and _within_term_roll_grace(today, config.outgoing_term_grace_days)
+        and remaining > 0
+        and (deadline is None or time_fn() < deadline)
+    ):
+        grace = discover_live(
+            client,
+            corpus_db_path,
+            data_root,
+            term - 1,
+            max_new=remaining,
+            frontier_misses=config.frontier_misses,
+            document_text_cap=config.document_text_cap,
+            gated=gated,
+            today=today,
+            deadline=deadline,
+            time_fn=time_fn,
+        )
+        discovery.onboarded.extend(grace.onboarded)
+        discovery.failed.extend(grace.failed)
     queues = PullQueues()
     for onboarded in discovery.onboarded:
         # A brand-new row has no prior membership, so "distributed at all" is

@@ -217,6 +217,16 @@ class LiveConfig(BaseModel):
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
     document_text_cap: int = Field(default=150_000, ge=1_000)
+    # Days after the July docket-number roll during which discovery also probes
+    # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
+    # filings take the incoming Term's prefix, so the primary probe leaves the
+    # outgoing Term's tail — a late filing onto it — which the historical walker
+    # does not recover (it advances its cursor over the serial while still
+    # pending). The window catches that tail at the source; 0 disables the grace
+    # probe. A conservative default — a couple of months comfortably covers the
+    # observed late-filing tail; the `le` cap keeps it a *window*, since a value
+    # past ~182 would make dual-Term probing year-round.
+    outgoing_term_grace_days: int = Field(default=60, ge=0, le=182)
 
 
 def load_live_config(config_root: Path) -> LiveConfig:

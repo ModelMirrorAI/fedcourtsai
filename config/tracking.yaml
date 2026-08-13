@@ -94,6 +94,10 @@ live:
   throttle_seconds: 1.0
   # Consecutive 404s that mark a numbering stream's current frontier.
   frontier_misses: 2
+  # Days after the July docket-number roll to also probe the outgoing Term, so
+  # a late filing onto the old prefix is caught before the historical walker
+  # reaches it (docs/live-sources.md). 0 disables the grace probe.
+  outgoing_term_grace_days: 60
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages. Documents (petition, questions presented, BIO) are fetched on the
   # same distribution transition that queues predict; the cap bounds corpus
