@@ -99,7 +99,15 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against.
+  against. A **merits** cell carries a second, stronger check: its
+  `segment_base_rate` is the evaluator's hand-pooled read of the statpack
+  merits section, but the harness independently pools the identical quantity
+  for the `judgment-disturbed` claim, so a merits cell whose hand-arithmetic
+  contradicts the harness block is dropped too — the merits skill column never
+  rests on a baseline the harness actively contradicts. Where the harness
+  recorded no such baseline (no block, an unscored claim, or a refusal it made
+  and the evaluator did not) there is nothing to check against and the
+  internal-coherence check stands alone.
 
   **The board also names the gate.** `salience_versions` lists the distinct
   salience versions the ranked cells' baselines were read under. The gate is
@@ -500,10 +508,14 @@ the **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
 (`pipeline.evaluate.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
-disturbed)²` and its skill is claimable **only against that declared
-baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
-the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind — and only
+disturbed)²` and its skill is scored **only against that declared
+baseline** — and this the leaderboard now enforces where it can: a merits
+cell's evaluator-recorded `segment_base_rate` is cross-checked against the
+harness's own pooled merits baseline (the `judgment-disturbed` claim's), and a
+cell whose hand-arithmetic contradicts it is dropped from `skill_scored` rather
+than ranked on a rate only the evaluator computed (where the harness recorded
+no such baseline the cross-check is a no-op and the internal-coherence check
+stands alone). Skill is scored only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,

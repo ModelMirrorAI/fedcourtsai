@@ -1600,7 +1600,10 @@ class LeaderboardStratum(_Strict):
         description="Evaluations contributing to population_brier_skill_score — the cells "
         "carrying a non-null skill score. The figure's true denominator, which "
         "can be far below `evaluations` (a cell scores skill only where a segment "
-        "base rate exists), so the figure must be read beside this count",
+        "base rate exists), so the figure must be read beside this count. A cell "
+        "is also excluded where its recorded skill does not reproduce from its "
+        "own inputs, or where a merits cell's recorded rate contradicts the "
+        "harness's own pooled merits baseline",
     )
     population_realized_term_skill_score: float | None = Field(
         default=None,
