@@ -288,7 +288,9 @@ claim about an opinion a denial will never produce.
 
 Written on every live cell. `predicted_reasoning_doc` is nullable only so
 records written before the field existed still validate — not so a cell can
-skip the document.
+skip the document, and `validate` enforces exactly that split: a
+process-stamped cell provably post-dates the field, so a null pointer on one
+fails validation, while unstamped shakedown records stay valid.
 
 ## `reasoning.md`
 
