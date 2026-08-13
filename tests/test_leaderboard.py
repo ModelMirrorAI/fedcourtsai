@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
@@ -1061,6 +1062,27 @@ def test_the_default_frozen_board_is_empty_during_shakedown(tmp_path: Path) -> N
     board = build_leaderboard(iter_stratified_evaluations(data_root))
     assert board.predictors_ranked == 0
     assert board.process_scope == "frozen"
+
+
+def test_the_board_records_the_freeze_constants(tmp_path: Path) -> None:
+    """What `frozen` meant is answerable from the artifact alone.
+
+    The record mirrors the tree's constants exactly — including on an `all`
+    board, where it states the partition's definition, not that it applied.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    for scope in ("frozen", "all"):
+        board = build_leaderboard(
+            iter_stratified_evaluations(data_root, frozen_only=scope == "frozen"),
+            process_scope=scope,
+        )
+        assert board.frozen_process is not None
+        assert set(board.frozen_process.digests) == process_version.FROZEN_PROCESS_DIGESTS
+        # Deterministically sorted — not merely coincident with frozenset order,
+        # which is hash-seed dependent — so the byte-identity round-trip holds.
+        assert board.frozen_process.digests == sorted(board.frozen_process.digests)
+        assert board.frozen_process.since == process_version.FROZEN_SINCE
 
 
 def test_big_case_agreement_defaults_to_frozen(

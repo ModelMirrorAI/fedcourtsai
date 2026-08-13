@@ -34,7 +34,7 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
-from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
+from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, ProcessVersion
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
@@ -221,3 +221,16 @@ def is_frozen(process_version: ProcessVersion | None) -> bool:
     if process_version is None or process_version.digest not in FROZEN_PROCESS_DIGESTS:
         return False
     return at_or_after_freeze(process_version.stamped_at)
+
+
+def frozen_process_record() -> FrozenProcessRecord:
+    """The freeze constants as the board-embeddable provenance block.
+
+    The boards publish ``process_scope`` but the partition's *definition* lives
+    in this module's two constants, so a built artifact records them via this
+    record (:class:`fedcourtsai.schemas.FrozenProcessRecord`) — what "frozen"
+    meant at build time, answerable from the artifact alone. Deterministic:
+    the constants change only with a freeze commit, so the same tree always
+    yields the same record.
+    """
+    return FrozenProcessRecord(digests=sorted(FROZEN_PROCESS_DIGESTS), since=FROZEN_SINCE)

@@ -50,7 +50,7 @@ from typing import Literal
 
 from .pipeline.evaluate import realized_band_rate
 from .pipeline.moments import first_moment
-from .process_version import graded_post_freeze, is_frozen
+from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     BigCaseLeaderboard,
@@ -757,6 +757,9 @@ def build_leaderboard(
 
     return Leaderboard(
         process_scope=process_scope,
+        # Recorded on every build, `all` scope included: it states what the
+        # freeze constants were, not that the partition was applied.
+        frozen_process=frozen_process_record(),
         # The gate versions the ranked cells' baselines were read under. Taken
         # from the harness-stamped `base_rate_salience_version` rather than
         # re-derived, so the board reports the version each cell was actually
