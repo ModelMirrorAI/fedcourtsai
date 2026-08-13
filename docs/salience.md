@@ -346,7 +346,10 @@ the writer lane, the `--apply` runs there rather than from a checkout: dispatch
 sweep and the scope reconcile ahead of the clear in the same run — so the
 "dedupe first" prerequisite is satisfied by ordering, and the clear is gated on
 that sweep succeeding — then commits the pointer to `main` like every other
-corpus write. Dry-run it first from a read-only checkout
+corpus write. Prefer a dispatch when the walk is already at its frontier, so
+the walk loop exits early and leaves the sweep budget to the clear (the clear
+plus the ~1GB push runs several minutes, and the dispatch shares the job's
+wall-clock cap with the walk). Dry-run it first from a read-only checkout
 (`fedcourts unlatch-overselected`, the default) to see the count and the
 cleared-id set before the dispatch.
 

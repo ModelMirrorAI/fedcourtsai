@@ -379,10 +379,14 @@ jobs:
         # than merely ordered.
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.unlatch_overselected && steps.dedupe-live-rows.outcome == 'success' }}
         continue-on-error: true
-        # A small cap: the pass is local queries plus one blob push, and a
-        # cap hit is a cancellation `continue-on-error` cannot absorb, so it
-        # must not be the step that eats a dispatch run's budget.
-        timeout-minutes: 5
+        # Comfortably above the ~8 min the sibling scope reconcile takes on the
+        # same recompute-plus-~1GB-push, so the write completes and commits its
+        # pointer rather than being cancelled mid-flight (below that cost a cap
+        # leaves nothing applied). Still bounded, so the step's worst case stays
+        # under the job's own 55-min cap: a job-cap cancellation is one
+        # `continue-on-error` cannot absorb, and would escalate an otherwise
+        # healthy walk.
+        timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
