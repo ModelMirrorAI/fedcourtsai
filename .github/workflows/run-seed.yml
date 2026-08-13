@@ -379,12 +379,14 @@ jobs:
         # than merely ordered.
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.unlatch_overselected && steps.dedupe-live-rows.outcome == 'success' }}
         continue-on-error: true
-        # Uncapped, like its corpus-write peers `dedupe-live-rows` and the scope
-        # reconcile above: the recompute plus the ~1GB blob push dominates, and
-        # the scope reconcile shows that is ~8 min — a step cap below it cancels
-        # the write mid-flight, before the pointer commit, leaving nothing
-        # applied (a 5-min cap did exactly that). The job's own 55-min cap bounds
-        # the run; this step must be allowed to finish or not run at all.
+        # Comfortably above the ~8 min the sibling scope reconcile takes on the
+        # same recompute-plus-~1GB-push, so the write completes and commits its
+        # pointer rather than being cancelled mid-flight (below that cost a cap
+        # leaves nothing applied). Still bounded, so the step's worst case stays
+        # under the job's own 55-min cap: a job-cap cancellation is one
+        # `continue-on-error` cannot absorb, and would escalate an otherwise
+        # healthy walk.
+        timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
