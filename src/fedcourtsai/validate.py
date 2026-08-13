@@ -540,6 +540,15 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     A pointer must also be a plain filename in the prediction's own directory: a
     document named through a separator or ``..`` would reach outside the cell's lane,
     so it is flagged rather than followed.
+
+    For a **process-stamped** cell, a null ``predicted_reasoning_doc`` is itself a
+    problem: the prompt contract requires the forecast document at every stage, and
+    the field is nullable only so records written before it existed still validate.
+    The stamp is the key because no stamped record predates the field: the whole
+    committed ledger is unstamped (the alpha marker), no predict run has committed
+    since stamping was wired, and every run after it also carries the field — so a
+    stamped cell missing the document is a broken cell, never a legacy shape.
+    Unstamped (alpha/shakedown) records stay valid.
     """
     problems: list[str] = []
     checked = 0
@@ -552,6 +561,13 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
             prediction = Prediction.model_validate(json.loads(path.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
+        if prediction.process_version is not None and prediction.predicted_reasoning_doc is None:
+            problems.append(
+                f"prediction {path}: predicted_reasoning_doc is null on a "
+                "process-stamped cell; no stamped record predates the field, so "
+                "the prompt contract's required forecast document is missing "
+                "rather than merely pre-dating it"
+            )
         for field_name, doc in (
             ("reasoning_doc", prediction.reasoning_doc),
             ("predicted_reasoning_doc", prediction.predicted_reasoning_doc),

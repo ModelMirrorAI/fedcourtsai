@@ -786,6 +786,42 @@ def test_prediction_without_a_forecast_document_passes(tmp_path: Path) -> None:
     assert check.checked == 1  # the rationale pointer only
 
 
+def test_stamped_prediction_without_a_forecast_document_fails(tmp_path: Path) -> None:
+    """The write requirement is mechanical for post-stamp records.
+
+    `predicted_reasoning_doc` is nullable only so records written before the
+    field existed still validate. A process-stamped cell provably post-dates
+    it — its prompt required the forecast document — so a null pointer there is
+    a broken cell, not a legacy shape. The unstamped sibling stays valid
+    (`test_prediction_without_a_forecast_document_passes`).
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=False)
+    path = (
+        CasePaths(data_root, "ca9", 1)
+        .event("evt-motion-stay")
+        .prediction("p1", "2026-01-01T00-00-00Z")
+    )
+    data = json.loads(path.read_text())
+    data["process_version"] = {
+        "label": "proc-v2",
+        "digest": "sha256:stamped",
+        "stamped_at": "2026-08-20T00:00:00Z",
+    }
+    path.write_text(json.dumps(data))
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("process-stamped" in p for p in check.problems)
+
+    # The same stamp with the document written and named is a healthy cell.
+    stamped_ok = json.loads(path.read_text())
+    stamped_ok["predicted_reasoning_doc"] = "predicted_reasoning.md"
+    path.write_text(json.dumps(stamped_ok))
+    (path.parent / "predicted_reasoning.md").write_text("what the court will do\n")
+    assert _docs_check(data_root).passed
+
+
 def test_prediction_document_pointing_outside_its_directory_fails(tmp_path: Path) -> None:
     # A pointer is a filename beside the prediction, never a path: following one out
     # of the cell's own directory would read another agent's output.
