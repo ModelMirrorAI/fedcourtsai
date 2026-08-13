@@ -556,8 +556,10 @@ publishes.
 
 A merits **skill** number exists only where the pack can support it: the
 merits section publishes only once a corpus row carries a parsed judgment
-(the guarded cohort above), and the pooled prior-Term sample must clear the
-stated minimum — below it there is no baseline, the declared claim goes
+(the guarded cohort above), the pooled prior-Term sample must clear the
+stated minimum, and every Term inside the pooled window must carry a
+non-null guard count (the null-provenance refusal under `statpack.json`
+above) — behind any of these there is no baseline, the declared claim goes
 unscored, and the merits stage block's skill figure is null with
 `skill_scored` zero, exactly as the interim block's are. A merits cell
 records `segment_base_rate` read from the

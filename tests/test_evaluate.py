@@ -754,8 +754,8 @@ def test_merits_base_rate_refuses_a_null_guard_pool() -> None:
     # case's own (or later) Term is skipped by the leakage guard, and a Term
     # behind the lookback window is skipped by the band.
     future_null = _merits_pack(
-        _merits_term(2023, disturbed=28, parsed=40),
         StatPackMeritsTerm(term=2024, disturbed=40, parsed=40),
+        _merits_term(2023, disturbed=28, parsed=40),
     )
     assert merits_base_rate(2024, future_null) == pytest.approx(0.70)
     behind_window = _merits_pack(
