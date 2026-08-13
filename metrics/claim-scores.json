@@ -3,7 +3,17 @@
   "entries": [],
   "evaluations_total": 0,
   "forward_agreement": null,
-  "frozen_process": null,
+  "frozen_process": {
+    "digests": [
+      "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
+      "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
+      "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
+      "sha256:86e7df61bc9224e44f54d9fbb840979fae575d2e6832dac198a0bc15841c6a33",
+      "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
+      "sha256:e8a0fed172adc447698a622bd69b318d4c0189be622f8d0d3085042f12760be7"
+    ],
+    "since": "2026-08-16T00:00:00Z"
+  },
   "procedural_agreement": null,
   "process_scope": "frozen",
   "retrospective_agreement": null,

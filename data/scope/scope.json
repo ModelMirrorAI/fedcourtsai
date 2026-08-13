@@ -126877,7 +126877,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.013000000000000001,
+      "salience_score": 0.083,
       "salience_selected": true,
       "salience_version": "sal-v1",
       "sample_weight": 1
@@ -126997,7 +126997,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.0325,
+      "salience_score": 0.10250000000000001,
       "salience_selected": true,
       "salience_version": "sal-v1",
       "sample_weight": 1
