@@ -667,8 +667,13 @@ def test_prior_term_and_realized_term_skill_can_disagree_in_sign() -> None:
 
 
 def _merits_term(year: int, *, disturbed: int, parsed: int) -> StatPackMeritsTerm:
-    """One grant-Term row of the merits section — the counters the baseline pools."""
-    return StatPackMeritsTerm(term=year, disturbed=disturbed, parsed=parsed)
+    """One grant-Term row of the merits section — the counters the baseline pools.
+
+    Built as a guard-run row (`cert_order_excluded=0`): a null there marks a
+    build the cert-order pool guard never ran on, which the baseline refuses —
+    the null-guard test constructs its row explicitly.
+    """
+    return StatPackMeritsTerm(term=year, disturbed=disturbed, parsed=parsed, cert_order_excluded=0)
 
 
 def _merits_pack(*terms: StatPackMeritsTerm) -> StatPack:
@@ -729,6 +734,32 @@ def test_merits_base_rate_refuses_a_sample_below_the_stated_floor() -> None:
     assert merits_base_rate(2024, just_under) is None
     at_floor = _merits_pack(_merits_term(2023, disturbed=21, parsed=MERITS_BASE_RATE_MIN_PARSED))
     assert merits_base_rate(2024, at_floor) == pytest.approx(0.70)
+
+
+def test_merits_base_rate_refuses_a_null_guard_pool() -> None:
+    """A pooled Term whose `cert_order_excluded` is null yields no baseline.
+
+    Null marks a build the cert-order pool guard never ran on, so that Term's
+    parsed counts may include the cert-order class the rate must exclude —
+    `metrics/README.md` rules such a section unquotable, and this makes the
+    rule structural rather than conventional.
+    """
+    null_guard = StatPackMeritsTerm(term=2022, disturbed=32, parsed=40)
+    contaminated = _merits_pack(_merits_term(2023, disturbed=24, parsed=40), null_guard)
+    assert merits_base_rate(2024, contaminated) is None
+    # A null-guard row outside the pooled window never poisons the pool: the
+    # case's own (or later) Term is skipped by the leakage guard, and a Term
+    # behind the lookback window is skipped by the band.
+    future_null = _merits_pack(
+        _merits_term(2023, disturbed=28, parsed=40),
+        StatPackMeritsTerm(term=2024, disturbed=40, parsed=40),
+    )
+    assert merits_base_rate(2024, future_null) == pytest.approx(0.70)
+    behind_window = _merits_pack(
+        _merits_term(2023, disturbed=28, parsed=40),
+        StatPackMeritsTerm(term=2020, disturbed=40, parsed=40),
+    )
+    assert merits_base_rate(2024, behind_window, lookback_terms=2) == pytest.approx(0.70)
 
 
 def test_merits_base_rate_pools_aggregates_not_term_means() -> None:
