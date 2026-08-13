@@ -365,6 +365,21 @@ class _Walk:
         return opinion_body(self.client.get_opinion(sub_opinions[0]))
 
 
+def _stop_reason(exc: Exception) -> str | None:
+    """Why an exception ends the whole walk, or ``None`` for a one-case failure.
+
+    Two faults are the batch's, not a case's: the client's own request budget
+    (:class:`RateBudgetExceeded`) and a 429 its retry cycle could not clear —
+    the shared daily quota spent. Every later case would hit the same wall, so
+    both stop the walk; anything else costs its case and nothing more.
+    """
+    if isinstance(exc, RateBudgetExceeded):
+        return f"API budget exhausted ({exc})"
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+        return f"CourtListener throttling persisted ({exc})"
+    return None
+
+
 def enrich_opinions(
     conn: sqlite3.Connection,
     client: CourtListenerClient,
@@ -386,7 +401,11 @@ def enrich_opinions(
     a report, not an error, and because ``has_opinion`` latches so a guess is
     permanent. A per-case REST or parse failure is recorded and the walk
     continues; :class:`RateBudgetExceeded` stops it outright, since every later
-    case would hit the same wall. ``max_cases`` is the walk's only other bound,
+    case would hit the same wall — and a **429 that survived the client's own
+    retries** stops it the same way, because persistent throttling means the
+    shared daily quota is spent, so the unfinished remainder defers for a
+    re-run in a genuine dead zone instead of burning the batch into the wall.
+    ``max_cases`` is the walk's only other bound,
     and it is a hard one — the rotation's wall-clock deadline and transient
     breaker have no counterpart here because the 50-case default cap bounds
     the damage a degraded upstream can do without them (150 requests, half
@@ -448,11 +467,15 @@ def enrich_opinions(
             result.enriched += 1
             if apply:
                 corpus.upsert_rows(conn, [enriched])
-        except RateBudgetExceeded as exc:
-            result.stopped = f"API budget exhausted ({exc})"
-            result.deferred = [pending.case_id for pending, _ in admitted[index:]]
-            break
-        except (httpx.HTTPError, ValueError) as exc:
+        except (RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
+            reason = _stop_reason(exc)
+            if reason is not None:
+                # A batch-level wall: the walk stops and the remainder — the
+                # case that hit it included — defers rather than fails.
+                # Nothing latches, so the deferral costs only time.
+                result.stopped = reason
+                result.deferred = [pending.case_id for pending, _ in admitted[index:]]
+                break
             # ValueError covers what an untrusted response body can raise on the
             # way in — a 200 that is not JSON, most of all. Both are one case's
             # problem, so both cost that case and nothing else.
