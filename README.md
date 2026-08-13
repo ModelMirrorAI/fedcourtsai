@@ -42,8 +42,9 @@ auto-merge-gated pull requests.
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
 `run-analytics` (corpus analysis, metrics refresh, and the qp-topic labeler),
-both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on a
-conference distribution or a changed open case) → `run:evaluate` (fired when an
+both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on an
+arrival-cohort pick, a conference distribution, or a changed open case) →
+`run:evaluate` (fired when an
 outcome lands on a predicted event); full label/workflow mechanics and the
 cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
 
@@ -78,8 +79,10 @@ and retrieval — just not predicted.
 ### What triggers a prediction
 
 A prediction fires when a **new predictable event** appears, or an open one
-**materially changes** — a petition distributed for an upcoming conference, a
-relist, a fresh development on a pending case. A case is predicted once and
+**materially changes** — a petition newly docketed into the arrival cohort, a
+petition distributed for an upcoming conference, a relist, a call for the
+Solicitor General's views, a fresh development on a pending case. A case is
+predicted once and
 re-forecast only when its facts change, not on a fixed clock. For cert this means
 the forecast is committed **before** the conference and scored against the order
 list days later — a genuine ex-ante prediction, its git timestamp proving it
@@ -89,21 +92,48 @@ preceded the outcome, never hindsight.
 
 The Court decides thousands of cert petitions a term, almost all denied, so
 predicting every one equally would spend the tournament budget on the
-denominator. Instead the scope is **salience-ordered** (design:
+denominator. Instead the scope is **salience-ordered** — an eligibility filter,
+then three parallel selection arms (design:
 [`docs/salience.md`](docs/salience.md)):
 
 1. **Eligibility** — keep the discretionary-cert petitions the model is built to
    forecast (see *What's out of scope* below).
-2. **Salience ranking** — a cheap, deterministic score ranks the eligible
-   petitions by how much each is worth forecasting, from features already in the
-   corpus (relist history, a call for the Solicitor General's views, the
-   originating circuit). The score and the selection are latched in the corpus
-   **before** the conference sits; they reach git through `data/scope/scope.json`
-   when the manifest is regenerated, and a published ranked board is planned.
-3. **Capacity `N`** — the three-engine tournament runs on the top-ranked slice up
-   to a fundable capacity `N`, plus a few always-include carve-outs. `N` is the
-   funding dial: raising it deepens the slice without reshuffling the ranking
-   ([`docs/budget.md`](docs/budget.md)).
+2. **The escalation cohort** — a cheap, deterministic score ranks the eligible
+   petitions by how much each is worth forecasting, from features a docket
+   acquires as it moves (relist history, a call for the Solicitor General's
+   views) plus a bounded nudge for the originating circuit. The three-engine
+   tournament runs on the top-ranked slice up to a fundable capacity `N`, plus
+   the always-include carve-outs: a CVSG, a score at or above the floor, or a
+   **federal petitioner** (the same predicate as the arrival carve-in below —
+   it reaches conference cohorts too). `N` is the funding
+   dial: raising it deepens the slice without reshuffling the ranking
+   ([`docs/budget.md`](docs/budget.md)). The score and the selection are
+   latched in the corpus **before** the conference sits; they reach git through
+   `data/scope/scope.json` when the manifest is regenerated, and a published
+   ranked board is planned.
+3. **The arrival cohort** — no trajectory feature has moved yet on the day a
+   petition is docketed, so ranking cannot separate arrivals; a second cohort
+   is instead selected **at arrival** by predicate: a frozen deterministic
+   random slice of new filings (its draw key and cohort start are themselves
+   pre-registered, filling forward from the OT2026 docket-year roll), plus
+   every petition the federal government files (the `caption-v1` **federal
+   petitioner** class). No rank, no capacity — a predicate, not a competition.
+   The cohort's results report apart from the escalation cohort's (two moments
+   are two populations), and its own two rules report apart from each other:
+   their grant rates differ by an order of magnitude, so the mechanically
+   pooled arrival block is never claimable without the per-rule cut
+   ([`metrics/README.md`](metrics/README.md)).
+4. **The interim reserve** — a substantive stay or injunction application never
+   enters either cert cohort (an application is never distributed for
+   conference). Instead a bounded reserve of slots inside `N` holds pending
+   applications, picked in escalation-ladder order: a requested response first
+   (the Court's affirmative act of attention), then amicus count. Who the
+   applicant is plays no part — party categorization is neither a pick
+   criterion nor, for applications, a band.
+
+Selection **latches**: the selection pass never de-selects, so a case that
+gets in — by rank, carve-out, arrival pick, or reserve slot — stays in, and
+the forward record is never rewritten by a later capacity call.
 
 Two scores are **pre-registered** this way — committed before the term plays out,
 their git timestamps the proof:
@@ -115,8 +145,11 @@ their git timestamps the proof:
   evaluator.
 
 The grant/deny forecast itself is scored for **skill over its salience segment's
-base rate** — the predicted slice's own historical grant rate, not the low
-whole-docket rate — so simply restating the base rate earns no credit.
+base rate** — for an escalation-cohort cell, the predicted slice's own
+historical grant rate rather than the low whole-docket rate; for the arrival
+cohort's random slice, exactly the unconditional arrival grant rate, by design,
+so no selection rule can game it. Either way, simply restating the base rate
+earns no credit.
 
 The *process* pre-registers the same way: its prompt and agent-config digests
 freeze in a tagged commit, and every counted cell must carry a stamp matching
@@ -133,22 +166,43 @@ every frozen-scope performance figure, with nothing about them claimed
 flowchart TD
   A[Petition docketed] --> B{Eligible?<br/>discretionary cert,<br/>not pro se / IFP}
   B -- no --> X[Out of scope<br/>ingested for retrieval only]
-  B -- yes --> C[Salience score<br/>cheap deterministic ranking]
-  C --> D{Selected?<br/>top-ranked up to capacity N<br/>+ always-include carve-outs}
-  D -- no --> Y[Below the capacity line<br/>scored + ranked, not predicted]
-  D -- yes --> E[Distributed for conference]
-  E -->|distribution / relist| F[Predict — 3-engine tournament<br/>grant/deny + pre-registered big-case score]
+  B -- yes --> C{Arrival pick?<br/>deterministic random slice,<br/>or federal petitioner}
+  C -- yes --> P[Predict at docketing<br/>3-engine tournament]
+  P --> E
+  C -- no --> D[Escalation features accrue<br/>relists, CVSG; circuit nudge]
+  D --> S{Selected?<br/>top-ranked up to capacity N, or carve-out:<br/>CVSG / floor / federal petitioner}
+  S -- no --> Y[Below the capacity line<br/>scored + banded, not predicted]
+  S -- yes --> E[Distributed for conference]
+  E -->|distribution / relist / CVSG| F[Predict — 3-engine tournament<br/>grant/deny + pre-registered big-case score]
   F -->|facts change| F
   E --> G[Conference]
   G --> H[Order list: grant / deny]
   H --> I[Evaluate — skill vs the segment base rate<br/>+ independent big-case read]
-  H -->|if granted| J[Merits events on the docket<br/>argument, decision, per-justice votes]
+  H -->|if granted| J[Merits forecasts on the docket<br/>at grant + when fully briefed,<br/>resolved by the decision]
 ```
 
 The two off-ramps differ: a case that fails eligibility (**X**) is never
 predicted, while a case that is eligible but falls below the capacity line
-(**Y**) is still scored and ranked, and any prediction it already earned is
-**kept** — so the forward record is never rewritten by a later capacity call.
+(**Y**) is still scored and banded, and any prediction it already earned is
+**kept**. An arrival pick (**C**) is predicted at docketing and stays
+selected, so it also receives every later forecast — the distribution moment,
+relist re-forecasts, a CVSG — exactly as an escalation pick does; the cohorts
+differ in how a
+case gets in, never in what it gets once in. A CVSG works both levers at once:
+it carves an unselected petition into scope *and* mints a fresh forecast on an
+already-selected one.
+
+A **substantive application** (stay or injunction) runs a parallel, simpler
+lifecycle under the interim stage: docketed → holds or waits for one of the
+bounded reserve slots (ladder order above; a slot frees only when an occupant
+resolves) → predicted on its interim baseline, re-forecast when the Court
+requests a response and when that response arrives → resolved through the
+interim disposition vocabulary and evaluated. Interim outcomes publish
+descriptively; interim skill becomes claimable only when the statpack's
+interim segment base rate publishes under its pre-registered rule
+([`docs/salience.md`](docs/salience.md)). A **granted** cert petition needs no
+selection at all for its merits events — the grant itself is the Court's
+selection, so the merits stage bypasses the salience gate entirely.
 
 ### What's out of scope
 
