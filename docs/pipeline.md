@@ -189,7 +189,14 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. The full design — sources, budget boundary, the
+any other corpus write. One further writer step is **not** among the seven and
+never runs on a schedule: `unlatch-overselected`, gated behind the
+`unlatch_overselected` dispatch input, clears the pre-resize `salience_selected`
+overhang a capacity change leaves behind (`docs/salience.md`). It runs after the
+scope reconcile on an explicit dispatch only — the latch's one `1 → 0` writer, a
+deliberate one-time act rather than a converging sweep, and gated further on the
+dedupe succeeding so an unmerged twin cannot re-latch a cleared case. The full
+design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
 

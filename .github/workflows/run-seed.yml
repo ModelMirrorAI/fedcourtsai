@@ -307,6 +307,7 @@ jobs:
       # persists nothing — so riding every gated window is safe. Same
       # one-window/day gate and NON-BLOCKING contract as the reconcile below.
       - name: Dedupe live-minted duplicate rows
+        id: dedupe-live-rows
         if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
         continue-on-error: true
         env:
@@ -371,8 +372,17 @@ jobs:
       # `SalienceUnlatchResult` (the cleared-id ledger + the pre-apply pointer)
       # lands in the step log as the record of the pre-resize sticky set.
       - name: Clear the pre-resize salience overhang (unlatch-overselected)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.unlatch_overselected }}
+        # Dispatch-only and gated on the dedupe sweep succeeding: a merge takes
+        # the latch stickily from either twin, so an unmerged bulk twin left by
+        # a failed dedupe could re-latch a case this clear just erased —
+        # `docs/salience.md`'s "run dedupe first" prerequisite, enforced rather
+        # than merely ordered.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.unlatch_overselected && steps.dedupe-live-rows.outcome == 'success' }}
         continue-on-error: true
+        # A small cap: the pass is local queries plus one blob push, and a
+        # cap hit is a cancellation `continue-on-error` cannot absorb, so it
+        # must not be the step that eats a dispatch run's budget.
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
@@ -383,7 +393,11 @@ jobs:
             echo "no corpus pointer yet; skipping unlatch-overselected"; exit 0
           fi
           gh auth setup-git # persist-credentials is false on checkout
-          uv run fedcourts unlatch-overselected --apply
+          # The write erases the corpus's own record of the pre-resize sticky
+          # set, so the result IS the record: mirror it (stdout + the pre-apply
+          # pointer echoed on stderr) into the run summary, which outlives the
+          # step log's retention.
+          uv run fedcourts unlatch-overselected --apply 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref
