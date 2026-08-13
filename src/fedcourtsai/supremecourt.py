@@ -139,10 +139,34 @@ def scotus_docket_slug(
     return f"{term:02d}{separator}{serial}"
 
 
-def current_october_term(today: date) -> int:
-    """The two-digit October Term ``today`` falls in (new Term opens in October)."""
-    year = today.year if today.month >= 10 else today.year - 1
+def current_docket_term(today: date) -> int:
+    """The two-digit Term prefix the Clerk assigns new filings ``today``.
+
+    Not the October Term ``today`` falls in: the Clerk starts a Term's docket
+    numbering the **July** before it opens (26-1 was docketed July 1, 2026,
+    three months ahead of OT26's October start, while 25-numbered filings end
+    in late June), so the filing prefix rolls in July. Probing discovery by an
+    October roll would leave the entire summer intake — the long-conference
+    cohort — invisible until the Term opened. The other date→Term pivot in the
+    tree, ``pipeline.judgment.grant_term_year``, rolls in **October** on
+    purpose: it names the October Term a grant belongs to, a different concept
+    — do not unify them.
+    """
+    year = today.year if today.month >= 7 else today.year - 1
     return year % 100
+
+
+def term_roll_date(today: date) -> date:
+    """The July 1 on which the filing-Term prefix ``today`` uses last rolled.
+
+    The docket-number roll is July 1 (see :func:`current_docket_term`), so this
+    is that boundary for the Term in force ``today``: July 1 of the same year in
+    the second half, of the prior year in the first half. ``(today - this).days``
+    is how far past the roll ``today`` sits — the axis the outgoing-Term grace
+    window is measured on.
+    """
+    year = today.year if today.month >= 7 else today.year - 1
+    return date(year, 7, 1)
 
 
 class SupremeCourtClient:

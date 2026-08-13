@@ -318,13 +318,27 @@ def test_every_advertised_dimension_actually_groups(
 def test_stats_offers_only_the_dimensions_it_can_compute(fixture_corpus: FixtureCorpus) -> None:
     # `qp_topic` keys off a labels artifact, not a corpus row, so `stats` cannot
     # serve it and must not advertise it — offering a `--group-by` the aggregation
-    # would `KeyError` on is the failure this pins. It lives beside the other
+    # cannot serve is the failure this pins. It lives beside the other
     # `STATS_DIMENSIONS` tests, where someone adding a dimension will look.
     assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
     assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
     result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
     assert result.exit_code == 2
     assert "Unknown --group-by 'qp_topic'" in result.stderr
+
+
+def test_the_aggregation_refuses_a_section_dimension_itself(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The CLI screens its own input, but the contract belongs to the aggregation:
+    a programmatic caller grouping by an artifact-keyed dimension gets a named
+    refusal that lists the servable cuts, not a `KeyError` out of the
+    key-function table."""
+    with pytest.raises(ValueError, match="artifact, not a corpus row"):
+        analytics.run_analytics(
+            corpus_db_path=fixture_corpus.db_path,
+            query=AnalyticsQuery(group_by=GroupBy.qp_topic),
+        )
 
 
 def test_cli_bad_disposition_errors(fixture_corpus: FixtureCorpus) -> None:

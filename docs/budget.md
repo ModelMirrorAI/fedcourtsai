@@ -10,7 +10,7 @@ the **on-demand API**. For how the phases work, see
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums to
-a near-constant **≈$5K/yr floor**. Agentic model usage for prediction and
+a near-constant **≈$5.5K/yr floor**. Agentic model usage for prediction and
 evaluation is one to two orders of magnitude larger and scales linearly with how
 many events, by how many predictors, scored by how many evaluators. So the budget
 is that fixed floor plus one dominant line, and that line has a single dial — the
@@ -26,16 +26,15 @@ authenticates to Claude via the Anthropic **API key**.
 
 ## What there is to predict: measured volumes
 
-Per October Term. **Read these from the corpus, not from the committed
-statpack.** The cert and merits lines are the OT2017–2024 **paid** census, where
-every row carries `sample_weight` 1: the paid stream is walked denial-complete,
-so these are counts rather than reweighted estimates. The committed
-`metrics/statpack.json` still shows that stream reweighted and `complete: false`
-for OT2017–2023, because the pack predates the walk that completed it — it
-catches up at the next metrics refresh, and until then it is the stale surface,
-not this one. The IFP stream genuinely is still sampled, which is why the
-IFP-inclusive figure below is an estimate and these are not. The interim line is
-**one** application Term, OT2025, still open — a Term-to-date count.
+Per October Term. The cert and merits lines are the OT2017–2024 **paid**
+census, where every row carries `sample_weight` 1: the paid stream is walked
+denial-complete, so these are counts rather than reweighted estimates, and the
+committed `metrics/statpack.json` carries those Terms unweighted
+(`weighted_resolved == resolved` on every paid row — the property that says
+"census", where the walk-frontier `complete` flag only says the serials were
+covered). The IFP stream genuinely is still sampled, which is why the
+IFP-inclusive figure below is an estimate and these are not. The interim line is **one**
+application Term, OT2025, still open — a Term-to-date count.
 
 | Bucket | Per Term | What it is |
 |---|---:|---|
@@ -51,14 +50,15 @@ case-equivalent.
 
 | Stage | Moment | Events / Term | Coverage of the stage |
 |---|---|---:|---|
-| cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay: rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
+| cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay **under sal-v1** — a lower bound for the active sal-v2 gate, whose federal carve-in also reaches conference cohorts (≤ ~14/Term more; unmeasured until a sal-v2 replay refresh): rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
+| cert | arrival | 95 | the sal-v2 arrival cohort, **beside** `N`, filling forward from the registration-fixed cohort start (the OT2026 docket-year roll — the standing pending backlog never enters): 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~20 from the federal-petitioner carve-in, whose census run passed statistical verification (8/8 complete Terms at 8.1–16.4× lift; per-Term 11–40, so a heavy government-litigation Term runs high; ~14/Term incremental over what CVSG/floor already carve — `docs/salience.md`) |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
 | interim | response requested | 8 | 12.3% of the 67 selected arrivals |
 | interim | response filed | 21 | 30.6% of the 67 |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
-| | **total** | **738–765** | **≈$9.6–9.9K/Term** at the $13 planning rate |
+| | **total** | **833–860** | **≈$10.8–11.2K/Term** at the $13 planning rate, arrival slice + carve-in included (≈$11.4K at the bound if the federal carve-in's conference-cohort reach adds its full ~14) |
 
 The later moments differ sharply in how much runway they leave, which is the
 figure to read before trusting any of their skill numbers: a merits brief
@@ -97,8 +97,9 @@ and funding ~$21K/Term, a ranking rather than a spend control. The shipped
 `12` (long conference `24`) measures at **495–522 selected petitions a Term**
 across OT2022–24: rank fill 380–386 at first distribution and 398–413
 cumulative through resolution, plus floor/CVSG carve-outs of 97–115 riding
-*above* `N` uncapped — landing the whole program at ≈$9.6–9.9K at the planning
-rate. (The replay runs with no reserve occupancy; the interim reserve's slots
+*above* `N` uncapped — landing the escalation program at ≈$9.6–9.9K at the planning
+rate (≈$10.8–11.2K with the sal-v2 arrival cohort — the moments
+table below). (The replay runs with no reserve occupancy; the interim reserve's slots
 in use would lower the rank fill, below.) The measured coverage trade: the
 selection carries **0.76–0.81** of the Term's replay-reconstructable
 grant-family outcomes (grant denominators 90/108/91 for OT2022/23/24, GVRs and
@@ -330,10 +331,10 @@ trailing-window ceiling on **measured** cost, read from the committed `usage.jso
 ledger by both plan seams before either mints a matrix. Reaching it **defers**:
 the predict queue and the evaluate backlog are untouched and re-derive next cycle.
 
-The shipped value is **$2,500 over a 30-day trailing window** — ~2.3× the
-Term's average month (≈$1.1K: the measured 738–765 events/Term at the $13
+The shipped value is **$2,500 over a 30-day trailing window** — ~2.1× the
+Term's average month (≈$1.2K: the 833–860 events/Term at the $13
 planning rate, spread over the ~9 months the Term spans; on a 12-month spread
-the multiple is 3.0×, so the claim is conservative). What it protects against
+the multiple is 2.8×, so the claim is conservative). What it protects against
 is a **burst, not a rate**. The steady state cannot reach it: even a
 regression to a non-binding cap burns $1.8–2.3K per 30 days (the prior
 150/200 replay selected 1,228–1,349/Term ≈ $16–17.5K, and the 150-cap
@@ -395,7 +396,7 @@ measured); the floor/CVSG carve-outs ride above the caps and add on the order
 of $200–250/month at the planning rate in relist-heavy months. The caps make
 the capped component insensitive to the one cohort whose realized size is not
 yet observed — the long conference's summer backlog — though the carve-out
-channel carries no such bound; both together sit comfortably inside the ≈$10K
+channel carries no such bound; both together sit comfortably inside the ≈$11K
 bootstrapping inference envelope.
 
 ### 2. CourtListener API (membership for pull throughput)
@@ -412,13 +413,17 @@ Pull spends the rate-limited REST budget; the free default (5/min · 50/hr ·
 | Tier 3 | $50/mo ($500/yr) | 20 / 250 / 1,000 | ≈330 |
 | Tier 4 | $100/mo ($1,000/yr) | 25 / 300 / 1,400 | ≈460 |
 
-The pilot holds **Tier 2 ($250/yr)**, comfortably covering the four daily pull
-windows (≈120 targeted refreshes/day) under the SCOTUS gate; Tier 3 ($50/mo)
-becomes the floor only once the gate widens toward keeping all fourteen courts
-current at the live frontier. The membership raises the ceiling — the client still
-throttles to whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to.
+The pilot holds **Tier 4 ($1,000/yr)**: the four daily pull windows (≈120
+targeted refreshes/day, ≈360 requests) commit about a quarter of the
+1,400/day ceiling, leaving ≈1,000 requests/day of standing headroom for
+opinion enrichment and one-off backfills — at Tier 2 the same windows would
+commit ≈360 of 600, making enrichment and backfills compete with the
+rotation. The membership raises the ceiling — the
+client still throttles to whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` /
+`_RPD` are set to, so the tier change is live only once those variables match
+the held tier.
 
-> **Line item: $250–1,200/yr** (pilot Tier 2 annual; Tier 3–4 as scope widens).
+> **Line item: $1,000/yr** (Tier 4 annual).
 
 ### 3. GitHub Actions & Codespaces
 
@@ -462,9 +467,9 @@ predictor count.
 
 ## Summary: scaling `N` with funding
 
-The non-inference lines — misc floor ($350/mo), CourtListener ($250–1,200/yr), S3
+The non-inference lines — misc floor ($350/mo), CourtListener ($1,000/yr), S3
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
-Actions ($0) — sum to a near-constant **≈$5K/yr floor**. Everything
+Actions ($0) — sum to a near-constant **≈$5.5K/yr floor**. Everything
 above it is inference `= events × per-case`, and `N` is the dial that moves the
 cert stage — much the largest of the three. The other stages scale on the
 Court's own volume rather than on funding: every granted petition is forecast at
@@ -472,12 +477,12 @@ the merits stage whatever `N` is, and the interim stream is bounded by
 `interim_reserve_slots`. So a scenario is read as "how much of the *cert* docket,
 plus a fixed ~220 events from the other two":
 
-| Scenario | ≈ Annual | Inference (= total − ≈$5K floor) | Reach |
+| Scenario | ≈ Annual | Inference (= total − ≈$5.5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$15K | ≈$10K | ≈738–765 forecast events across all three stages — a **whole OT2026 Term**, not a slice of one: 515–542 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
+| Bootstrapping | ≈$16.5K | ≈$11K | ≈833–860 forecast events across all three stages, sal-v2 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 610–637 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~95-case arrival cohort), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
 | Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
-| **Floor (all scenarios)** | **≈$5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
+| **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
 
 The ladder is shorter than it looks: the corrected cell count puts **full cert
 coverage inside the initial-funding step**, not beyond it. That makes the case for

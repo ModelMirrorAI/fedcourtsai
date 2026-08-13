@@ -51,9 +51,25 @@ Three access facts shape the client:
   sequential probing**: docket numbers are per-Term sequential (paid petitions
   from `25-1`, IFP from `25-5001`), so a poller probes the next unseen numbers
   and a 404/empty record marks the current frontier.
+- **A Term's numbering starts the July before the Term opens**, across all
+  three streams: `26-1`, `26-5001`, and `26A1` were all docketed 2026-07-01,
+  while `25-1432` (2026-06-30) closes the OT25 paid stream. A prober keyed to
+  the Term's October opening misses the entire summer intake
+  (`current_docket_term` carries the roll). The roll has a second edge: once
+  the primary probe follows the incoming Term's numbers, the *outgoing* Term's
+  streams stop advancing, so a late filing onto the old prefix goes unseen — and
+  the historical walker does not recover it, since that walker advances its
+  cursor over every served serial whether decided or not, so a serial it passes
+  while still pending is never re-read: the tail is lost, not merely delayed.
+  For `outgoing_term_grace_days`
+  after the July roll (`live:` in `tracking.yaml`), discovery also probes
+  `term - 1` from its own cursor — past a stale frontier — so that tail is
+  caught at the source; the window, not the frontier stamp, retires the extra
+  probe, because a drained stream is exactly the one a late tail lands on.
 - Be a polite client: throttle to ~1 request/second, back off on errors, and
-  poll on a cadence matched to the docket's rhythm (hourly for the conference
-  watchlist, daily for frontier probing) rather than hammering.
+  poll on a cadence matched to the docket's rhythm (the shipped cadence is
+  four live windows a day, covering the conference watchlist and frontier
+  probing together) rather than hammering.
 
 These facts — and the channel's Term reach — are empirically verified by the
 reachability probe (`fedcourts probe-live-terms`), which holds three standing

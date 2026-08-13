@@ -62,6 +62,7 @@ source.
 | `court`               | text            | CourtListener court id                        |
 | `docket_number`       | text            |                                              |
 | `case_name`           | text            | case caption, e.g. `Doe v. Roe` (both ingestion paths) |
+| `petitioner_title`    | text            | the petitioner's structured caption (supremecourt.gov `PetitionerTitle`, role suffix stripped; live channel only, fill-in latched) — the arrival-time party-class reading (`pipeline.caption`) |
 | `date_filed`          | date            |                                              |
 | `date_decided`        | date            |                                              |
 | `disposition`         | text            | realized outcome label; null while unresolved |

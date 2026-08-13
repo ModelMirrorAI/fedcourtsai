@@ -312,14 +312,38 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
     the ones carrying no stage at all. That makes forecastability correct on its
     own terms rather than conditional on a data migration having run — the
     migration changes which event is forecast, never whether a mislabeled one is.
+
+    A **declared later moment sharing the baseline's kind** (the cert arrival
+    event is petition-kind — the petition is the filing that opens it) must
+    not ride this arm: admission here would bypass the register, making the
+    ``forecastable`` switch-off inert and skipping the stage arm's decided-row
+    refusal. So a declared non-first moment defers entirely to its stage's own
+    arm, whatever its kind.
+
+    And the baseline carries its own information-set precondition on a SCOTUS
+    cert docket: the moment is the **first distribution**, so a petition the
+    Court has not yet distributed has no distribution-moment cell to mint —
+    its docketing-time forecast is the arrival moment's, on the arrival
+    event. Without this an arrival-selected petition would sweep premature
+    baseline cells whose snapshots carry no conference at all, filed under a
+    moment that has not happened. Non-SCOTUS dockets have no distribution
+    concept and admit as before.
     """
     if event.kind not in _FORECASTABLE_KINDS:
         return False
-    return not (
-        row is not None
-        and row.court == "scotus"
-        and corpus.is_scotus_application_form(row.docket_number)
-    )
+    spec = moments.spec_for(event.event_id)
+    if spec is not None and spec.ordinal != 0:
+        return False
+    if row is not None and row.court == "scotus":
+        if corpus.is_scotus_application_form(row.docket_number):
+            return False
+        if (
+            event.kind == EventKind.petition
+            and row.distributed_for_conference is None
+            and not row.distribution_count
+        ):
+            return False
+    return True
 
 
 def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:

@@ -1089,6 +1089,50 @@ def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEv
     )
 
 
+def arrival_event_for(
+    row: corpus.CorpusRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
+    """The cert stage's arrival forecast moment, or ``None``.
+
+    The sal-v2 arrival cohort's event: unlike every other cert trigger this is
+    minted by **selection** (the deterministic arrival draw or the arrival
+    carve-in), not by a docket signal, so the caller owns the selection
+    predicate and this helper owns the guards — a SCOTUS cert-form docket,
+    the petition baseline still open (the same open-first-moment guard as the
+    CVSG mint: an arrival event on a decided petition would be permanently
+    unresolvable), a docketing date to open the event at, and **arrival
+    freshness**: no distribution on the docket yet. The selection predicate
+    (the deterministic draw) is forever-true of a case id, so without the
+    freshness guard an activation-day pass would mint arrival-labelled
+    events across the whole pending backlog — cells whose snapshots carry
+    relists, filed under the one moment whose value rests on being a
+    docketing-time draw.
+    """
+    if row.court != "scotus" or corpus.is_scotus_application_form(row.docket_number):
+        return None
+    if row.date_filed is None:
+        return None
+    if row.distributed_for_conference is not None or row.distribution_count:
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids:
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.arrival)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.date_filed,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def briefed_merits_event_for(
     row: MeritsMintRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:

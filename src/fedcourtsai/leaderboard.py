@@ -48,9 +48,10 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
+from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
 from .pipeline.evaluate import realized_band_rate
 from .pipeline.moments import first_moment
-from .process_version import graded_post_freeze, is_frozen
+from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     BigCaseLeaderboard,
@@ -471,9 +472,11 @@ def skill_components(
     **The prior-Term column** takes the baseline the evaluator recorded
     (``segment_base_rate``) over the population it already had: cells whose
     ``brier_skill_score`` is non-null, which the schema ties to a recorded rate
-    and Brier. Only where its aggregation happens changes — plus the coherence
-    check :func:`_prior_baseline` adds, which drops a cell whose recorded skill
-    and recorded inputs disagree rather than publishing either.
+    and Brier. Only where its aggregation happens changes — plus the two drops
+    :func:`_prior_baseline` adds: a cell whose recorded skill and recorded
+    inputs disagree, and a merits cell whose recorded rate contradicts the
+    harness's own pooled merits baseline. Both are omissions from
+    ``skill_scored``, never a substituted value.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.evaluate.realized_band_rate`, leave-one-out)
@@ -562,6 +565,40 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #: score far further than this.
 _SKILL_COHERENCE_TOLERANCE = 1e-2
 
+#: How far the evaluator's recorded merits ``segment_base_rate`` may sit from the
+#: harness's own pooled merits baseline before :func:`_prior_baseline` drops the
+#: cell. Tighter than the coherence tolerance above because both sides pool the
+#: *same* integer counts, so they agree to the record's 3-decimal precision — a
+#: gap this small is a rounding artifact, a larger one a genuinely different
+#: pool (a wrong lookback window, say). It cannot, at any tolerance the 3-decimal
+#: record supports, catch a one-Term axis shift, whose effect on a pooled rate is
+#: ~5e-4; that error class is the durable fix's to remove (harness-stamp the
+#: rate), not this sampling check's to detect.
+_MERITS_BASELINE_TOLERANCE = 1e-3
+
+
+def _harness_merits_baseline(evaluation: Evaluation) -> float | None:
+    """The harness's own merits baseline for this cell, off its claim block.
+
+    A merits cell's ``segment_base_rate`` is the **evaluator's** hand-pooled
+    read of the statpack merits section, while the harness independently pools
+    the identical quantity for the ``judgment-disturbed`` claim
+    (:func:`fedcourtsai.pipeline.evaluate.merits_base_rate`, the public seam the
+    claim baseline uses) and
+    records it on the ``claim_scores`` block. A ``judgment-disturbed`` row is
+    itself the merits marker — the claim set keys on the minted merits event —
+    so this doubles as "is this a merits cell to cross-check". ``None`` when the
+    block or the row is absent, or the row carries no baseline — nothing to
+    check against.
+    """
+    block = evaluation.claim_scores
+    if block is None:
+        return None
+    for row in block.claims:
+        if row.claim_id == CLAIM_JUDGMENT_DISTURBED:
+            return row.baseline
+    return None
+
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
     """The prior-Term baseline Brier this cell aggregates on, or ``None``.
@@ -578,10 +615,29 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     recorded base rate and Brier is omitted — visibly, in ``skill_scored`` —
     rather than published on a baseline it was never graded against. Harness
     output always agrees; a stale or hand-written record need not.
+
+    A **merits** cell carries a second, stronger check, keyed on the presence of
+    a harness ``judgment-disturbed`` baseline (the merits marker — a null stage
+    on a merits event would slip a stage test, but the claim row cannot). Its
+    ``segment_base_rate`` is the evaluator's hand-pooled read of the statpack
+    merits section, and nothing in the record ties it to the truth — but the
+    harness pools the identical quantity for that claim. The two must agree
+    within :data:`_MERITS_BASELINE_TOLERANCE`; a cell whose hand-arithmetic
+    contradicts the harness is dropped rather than ranked on a baseline the
+    harness never sanctioned. This catches a wrong pool (a different lookback),
+    not a one-Term axis shift, which is below the check's resolution — see the
+    tolerance. Where the harness recorded no baseline (no block, an unscored
+    claim, or a refusal it made and the evaluator did not) there is nothing to
+    check against and the cell rests on the internal-coherence check alone.
     """
-    if evaluation.brier_skill_score is None or evaluation.brier_score is None:
+    recorded_rate = evaluation.segment_base_rate
+    if (
+        recorded_rate is None
+        or evaluation.brier_skill_score is None
+        or evaluation.brier_score is None
+    ):
         return None
-    baseline = _baseline_brier(evaluation.segment_base_rate, actual_granted)
+    baseline = _baseline_brier(recorded_rate, actual_granted)
     if baseline is None:
         return None
     implied = 1.0 - evaluation.brier_score / baseline
@@ -590,6 +646,14 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
         evaluation.brier_skill_score,
         rel_tol=_SKILL_COHERENCE_TOLERANCE,
         abs_tol=_SKILL_COHERENCE_TOLERANCE,
+    ):
+        return None
+    harness = _harness_merits_baseline(evaluation)
+    if harness is not None and not math.isclose(
+        harness,
+        recorded_rate,
+        rel_tol=_MERITS_BASELINE_TOLERANCE,
+        abs_tol=_MERITS_BASELINE_TOLERANCE,
     ):
         return None
     return baseline
@@ -757,6 +821,9 @@ def build_leaderboard(
 
     return Leaderboard(
         process_scope=process_scope,
+        # Recorded on every build, `all` scope included: it states what the
+        # freeze constants were, not that the partition was applied.
+        frozen_process=frozen_process_record(),
         # The gate versions the ranked cells' baselines were read under. Taken
         # from the harness-stamped `base_rate_salience_version` rather than
         # re-derived, so the board reports the version each cell was actually

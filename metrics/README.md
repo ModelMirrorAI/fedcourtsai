@@ -99,9 +99,26 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against.
+  against. A **merits** cell carries a second, stronger check: its
+  `segment_base_rate` is the evaluator's hand-pooled read of the statpack
+  merits section, but the harness independently pools the identical quantity
+  for the `judgment-disturbed` claim, so a merits cell whose hand-arithmetic
+  contradicts the harness block is dropped too — the merits skill column never
+  rests on a baseline the harness actively contradicts. Where the harness
+  recorded no such baseline (no block, an unscored claim, or a refusal it made
+  and the evaluator did not) there is nothing to check against and the
+  internal-coherence check stands alone.
 
-  **The board also names the gate.** `salience_versions` lists the distinct
+  **The board also names its partitions.** `frozen_process` records the freeze
+  constants in force at build time — the blessed digest set and the freeze
+  instant — so *what was blessed* is readable from the artifact rather than by
+  resolving the build's commit back to `fedcourtsai.process_version`. The
+  digest list pools predictors and evaluators; only the predictor subset is the
+  enforced membership filter, which the flat list does not distinguish. It
+  appears on every build, an `"all"`-scope
+  one included, as the partition's definition rather than a claim it was
+  applied (`claim-scores.json` carries the identical block; null on a
+  board built before the record existed). And `salience_versions` lists the distinct
   salience versions the ranked cells' baselines were read under. The gate is
   not part of any actor's process, so a change to it moves **no process
   digest** and the frozen/shakedown partition cannot see it — but it decides
@@ -500,10 +517,14 @@ the **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
 (`pipeline.evaluate.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
-disturbed)²` and its skill is claimable **only against that declared
-baseline** — a claimability rule, not an enforced one: `brier_skill_score` is
-the evaluator's field and the leaderboard averages whatever it holds,
-stage-blind — and only
+disturbed)²` and its skill is scored **only against that declared
+baseline** — and this the leaderboard now enforces where it can: a merits
+cell's evaluator-recorded `segment_base_rate` is cross-checked against the
+harness's own pooled merits baseline (the `judgment-disturbed` claim's), and a
+cell whose hand-arithmetic contradicts it is dropped from `skill_scored` rather
+than ranked on a rate only the evaluator computed (where the harness recorded
+no such baseline the cross-check is a no-op and the internal-coherence check
+stands alone). Skill is scored only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
@@ -532,7 +553,11 @@ the section's `cert_order_excluded`. When that count is a number, the pooled
 **rate** is clean of every cert-order vacatur whose judgment parsed with a
 date; when it is `null`, the pack predates the guard, and the section's
 figures carry whatever contamination the guard would have removed — quote
-nothing from a null-guard merits section. Three residues
+nothing from a null-guard merits section. The merits baseline enforces this
+structurally at the granularity that matters: `merits_base_rate` returns no
+baseline when any Term **inside its pooled window** carries a null
+count (a null on a Term the leakage rule or the lookback window already
+excludes contributes nothing and so cannot contaminate the rate). Three residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
@@ -552,8 +577,10 @@ publishes.
 
 A merits **skill** number exists only where the pack can support it: the
 merits section publishes only once a corpus row carries a parsed judgment
-(the guarded cohort above), and the pooled prior-Term sample must clear the
-stated minimum — below it there is no baseline, the declared claim goes
+(the guarded cohort above), the pooled prior-Term sample must clear the
+stated minimum, and every Term inside the pooled window must carry a
+non-null guard count (the null-provenance refusal under `statpack.json`
+above) — behind any of these there is no baseline, the declared claim goes
 unscored, and the merits stage block's skill figure is null with
 `skill_scored` zero, exactly as the interim block's are. A merits cell
 records `segment_base_rate` read from the
@@ -614,9 +641,13 @@ the rendered table) and
   **What may be claimed.** The numbers describe the *gate* — how the
   deterministic selection rule would have behaved at a reconstructed moment —
   and its structural facts: at arrival every *observable* projection reads
-  relist-0/baseline with no conference cohort, so nothing is selected and
-  precision is undefined (the gate cannot distinguish petitions before the
-  docket moves).
+  relist-0 with no conference cohort, so the rank-and-cap selects nothing and
+  escalation precision is undefined (the trajectory features cannot
+  distinguish petitions before the docket moves). Under a scorer that selects
+  arrivals (sal-v2), the `arrival` policy's cells report the draw slice and
+  the carve-in picks instead — a separate cohort, never pooled into the
+  escalation ones, and still no validation of any caption feature (the
+  reconstruction carries the terminal caption; a declared gap).
 
   **Comparing two salience versions.** Cells sharing a (Term, policy) are paired
   on one identical projection, so any difference between them is the scoring
@@ -667,8 +698,8 @@ the rendered table) and
   counted `sample_weight` times so denials the earlier sampled walk kept at a
   higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, by CVSG status, and by **salience band** (the frozen
-  `sal-v1` grant-likelihood tier over the paid scored segment), plus a
+  by relist count, by CVSG status, and by **salience band** (the active
+  scorer's frozen grant-likelihood tier over the paid scored segment), plus a
   by-originating-court reader table that names state courts. A coverage block
   states the pack's own denominators, and the per-Term array carries each
   October Term's cursor-derived filings census by fee class (paid/IFP),
@@ -678,7 +709,12 @@ the rendered table) and
   set). A prediction carrying a frozen prediction-time band is scored against the
   second, since that is the population it was in when it ran; one without a frozen
   band falls back to the first, which matches the terminal band it has to be
-  grouped by. Pooled strictly-prior-Term, as the recorded skill score is, both
+  grouped by. Under a scorer whose order interleaves a fixed-at-filing class
+  among the trajectory tiers (sal-v2's `federal`/`state`), a weaker band's risk
+  set also contains the stronger classes' petitions — populations a private
+  petitioner was never in — so the "population it was in" reading is
+  approximate there (measured at roughly +1 point on `elevated`), a property of
+  the vocabulary to hold in view rather than a defect in the pairing. Pooled strictly-prior-Term, as the recorded skill score is, both
   are leakage-safe; the board's realized-Term column reads the risk-set one off
   the case's **own** Term instead, which is deliberately not leakage-safe and is
   fenced accordingly where it is described (see the leaderboard bullet above). A skill score is
@@ -721,6 +757,19 @@ the rendered table) and
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
   rule (anchor strictly before your clock).
+
+  **The arrival cohort's claim rule** (sal-v2's `cert@arrival` cells). The
+  cohort is two selection rules with grant rates an order of magnitude apart —
+  the unbiased random slice and the federal-petitioner carve-in — and the
+  leaderboard's per-moment block pools them mechanically, so that block's
+  pooled accuracy and mean Brier are **not claimable** without the per-rule
+  cut; per-band skill stays honest (the band separates the two populations,
+  `federal` vs the slice's mix). Only the random slice's skill transfers to
+  live prospective use: it alone is selection-bias-free, and its baseline is
+  exactly the unconditional paid-arrival grant rate. And no arrival cell
+  minted before the first sal-v2-rendered statpack carries any baseline at
+  all (the version-pinned pool's designed `None`) — its skill column is
+  empty, not zero, and supports no claim.
 
   The second stage section is the **merits section** (`merits`), present only
   once a corpus row carries a parsed `merits_judgment` (the
@@ -841,15 +890,20 @@ labels, which is where the disagreement lives — and the reference rater was
 itself an agent session, so agreement with a labeler of the same model family
 partly measures shared convention rather than correctness. Three rules travel
 with the figure. **Always with its `n`, and always beside the floor** a constant
-labeler would score on the same entries — the largest reference class's share,
-about 21% on the v0 set: the rate alone is unreadable, and only the distance
+labeler would score on the same entries — the largest reference class's share:
+about 23% over the full 353-entry set, ~26% on the supplement's own mix. The
+rate alone is unreadable, and only the distance
 above the floor is anything a labeler did. **Per-label rates only at or above
-the support floor** — nine of the sixteen labels have fewer than 10 reference
+the support floor** — five of the sixteen labels have fewer than 10 reference
 examples, and under the floor a label is published as a raw count, not a rate.
-**Nothing transfers to a topic cut yet**: the reference frame contains every
-QP-bearing grant and 40 of 855 denials, so the rate certifies the grant stream
-only, and the denial/IFP stream that dominates any reweighted cut is unmeasured
-until the stratified supplement block exists. The deterministic shadow rules'
+**Nothing transfers to a topic cut yet**: the founding reference block
+contains every QP-bearing grant and 40 of 855 denials, so its rate certifies
+the grant stream only. The **stratified supplement** (164 texts — adding 100
+of the remaining 815 QP-bearing denials, which brings the set to 140 of 855,
+plus 44 of 87 GVR and 20 of 83 dismissed) is the block a denial-heavy cut's
+quality is conditioned on, and it exists but is not yet measured — no labeler
+has been scored against it — so the denial/IFP stream that dominates any
+reweighted cut stays unmeasured until the first labeler run is scored. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
 reference set. No topic label enters a claim score, a leaderboard rank, or any

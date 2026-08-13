@@ -1603,3 +1603,33 @@ def test_one_undeclared_event_takes_the_whole_stage_to_triage(
     assert not resolution.outcomes
     assert {r.event_id for r in resolution.unrecorded} == set(mixed)
     assert all("evt-petition-spurious" in r.reason for r in resolution.unrecorded)
+
+
+def test_the_arrival_moment_resolves_with_the_petition() -> None:
+    """The sal-v2 arrival event rides the generic one-disposition fan.
+
+    No monkeypatching: the arrival moment is a real register entry, so a
+    petition open at its baseline, its CVSG order, and its arrival event
+    resolves all three from the one cert disposition — each with identical
+    recorded facts, each scoreable against its own information set.
+    """
+    row = from_api_docket(DECIDED_DOCKET)
+    open_ids = [
+        "evt-petition-disposition",
+        "evt-order-cvsg-disposition",
+        "evt-petition-arrival-disposition",
+    ]
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        open_ids,
+        stages=dict.fromkeys(open_ids, Stage.cert),
+    )
+    assert not resolution.unrecorded
+    assert set(resolution.outcomes) == set(open_ids)
+    facts = {
+        (o.actual_disposition, o.resolved_at, o.actual_granted)
+        for o in resolution.outcomes.values()
+    }
+    assert len(facts) == 1

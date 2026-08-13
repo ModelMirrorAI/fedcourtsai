@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
@@ -28,6 +29,8 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     BigCaseAssessment,
     BigCaseLeaderboard,
+    ClaimScore,
+    ClaimScoreBlock,
     Disposition,
     Engine,
     Evaluation,
@@ -743,6 +746,140 @@ def test_a_cell_whose_recorded_skill_contradicts_its_inputs_is_omitted(tmp_path:
     assert scored == {"evt-rounded": pytest.approx(0.36)}
 
 
+def _disturbed_block(baseline: float | None) -> ClaimScoreBlock:
+    """A merits-v1 claim block carrying the harness's own judgment-disturbed baseline."""
+    return ClaimScoreBlock(
+        declared_set_version="merits-v1",
+        claims=[ClaimScore(claim_id="judgment-disturbed", probability=0.7, baseline=baseline)],
+    )
+
+
+def test_a_merits_cell_is_dropped_when_its_baseline_disagrees_with_the_harness(
+    tmp_path: Path,
+) -> None:
+    """A merits cell's hand-pooled `segment_base_rate` is cross-checked, not trusted.
+
+    The evaluator pools the merits baseline by hand while the harness pools the
+    identical quantity for the `judgment-disturbed` claim. A cell whose
+    `segment_base_rate` matches the harness block is kept; one that diverges is
+    dropped — visibly, in `skill_scored` — rather than ranked on a baseline the
+    harness never sanctioned. Both cells reproduce their own recorded skill, so
+    only the cross-check separates them.
+    """
+    # Outcome granted -> baseline Brier (0.4 - 1)**2 = 0.36, implied skill
+    # 1 - 0.25/0.36 = 0.3056; both cells record a self-consistent skill.
+    agrees = _evaluation(
+        "alpha",
+        event_id="evt-agree",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        claim_scores=_disturbed_block(0.4),
+    )
+    diverges = _evaluation(
+        "alpha",
+        event_id="evt-diverge",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        # A wrong-pool-magnitude divergence (~0.02, a lookback-window mistake),
+        # not a several-fold one, so the fixture bites at the merits tolerance
+        # rather than passing under a loose one.
+        claim_scores=_disturbed_block(0.42),
+    )
+    _write_cell(tmp_path, agrees, stage=Stage.merits)
+    _write_cell(tmp_path, diverges, stage=Stage.merits)
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    scored = {
+        key[1]: cell.prior_term_baseline
+        for key, cell in skill_components(cells, tmp_path, None).items()
+        if cell.prior_term_baseline is not None
+    }
+    assert scored == {"evt-agree": pytest.approx(0.36)}
+
+
+def test_a_cert_cell_is_never_cross_checked_against_its_claim_baseline(tmp_path: Path) -> None:
+    """The merits cross-check is merits-only, keyed on the judgment-disturbed row.
+
+    A cert cell's `disposition` claim baseline is a genuinely different pool
+    from its `segment_base_rate` (risk-set band rate vs the terminal-basis rate
+    the prompt sanctions), so cross-checking it would false-drop legitimately
+    graded cells. A cert cell whose claim block carries no judgment-disturbed
+    row is never cross-checked — it survives on internal coherence alone.
+    """
+    cert = _evaluation(
+        "alpha",
+        event_id="evt-cert",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        # A cert-v1 block whose disposition baseline diverges widely from the
+        # cell's segment_base_rate — which must not drop a cert cell.
+        claim_scores=ClaimScoreBlock(
+            declared_set_version="cert-v1",
+            claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
+        ),
+    )
+    _write_cell(tmp_path, cert, stage=Stage.cert)
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    scored = {
+        key[1]
+        for key, cell in skill_components(cells, tmp_path, None).items()
+        if cell.prior_term_baseline is not None
+    }
+    assert scored == {"evt-cert"}
+
+
+def test_a_merits_cell_without_a_harness_block_rests_on_internal_coherence(
+    tmp_path: Path,
+) -> None:
+    """No harness baseline to check against -> the cross-check is a no-op, not a drop.
+
+    A merits cell whose claim block is absent (or whose judgment-disturbed row
+    carries no baseline) keeps the same treatment a cert cell gets: the
+    internal-coherence check alone. The cross-check only ever removes cells the
+    harness actively contradicts.
+    """
+    no_block = _evaluation(
+        "alpha",
+        event_id="evt-no-block",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+    )
+    null_baseline = _evaluation(
+        "alpha",
+        event_id="evt-null-baseline",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        claim_scores=_disturbed_block(None),
+    )
+    # A block present but carrying no judgment-disturbed row (the lookup's
+    # trailing None path) — also nothing to check against.
+    other_claim = _evaluation(
+        "alpha",
+        event_id="evt-other-claim",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        claim_scores=ClaimScoreBlock(
+            declared_set_version="cert-v1",
+            claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
+        ),
+    )
+    _write_cell(tmp_path, no_block, stage=Stage.merits)
+    _write_cell(tmp_path, null_baseline, stage=Stage.merits)
+    _write_cell(tmp_path, other_claim, stage=Stage.merits)
+    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
+    scored = {
+        key[1]
+        for key, cell in skill_components(cells, tmp_path, None).items()
+        if cell.prior_term_baseline is not None
+    }
+    assert scored == {"evt-no-block", "evt-null-baseline", "evt-other-claim"}
+
+
 def test_skill_components_omits_a_band_under_the_minimum(tmp_path: Path) -> None:
     # The floor is on the leave-one-out denominator: 30 resolved leaves 29 and
     # publishes nothing, 31 leaves the stated minimum and publishes.
@@ -1061,6 +1198,27 @@ def test_the_default_frozen_board_is_empty_during_shakedown(tmp_path: Path) -> N
     board = build_leaderboard(iter_stratified_evaluations(data_root))
     assert board.predictors_ranked == 0
     assert board.process_scope == "frozen"
+
+
+def test_the_board_records_the_freeze_constants(tmp_path: Path) -> None:
+    """What `frozen` meant is answerable from the artifact alone.
+
+    The record mirrors the tree's constants exactly — including on an `all`
+    board, where it states the partition's definition, not that it applied.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    for scope in ("frozen", "all"):
+        board = build_leaderboard(
+            iter_stratified_evaluations(data_root, frozen_only=scope == "frozen"),
+            process_scope=scope,
+        )
+        assert board.frozen_process is not None
+        assert set(board.frozen_process.digests) == process_version.FROZEN_PROCESS_DIGESTS
+        # Deterministically sorted — not merely coincident with frozenset order,
+        # which is hash-seed dependent — so the byte-identity round-trip holds.
+        assert board.frozen_process.digests == sorted(board.frozen_process.digests)
+        assert board.frozen_process.since == process_version.FROZEN_SINCE
 
 
 def test_big_case_agreement_defaults_to_frozen(

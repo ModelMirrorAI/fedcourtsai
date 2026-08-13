@@ -217,6 +217,16 @@ class LiveConfig(BaseModel):
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
     document_text_cap: int = Field(default=150_000, ge=1_000)
+    # Days after the July docket-number roll during which discovery also probes
+    # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
+    # filings take the incoming Term's prefix, so the primary probe leaves the
+    # outgoing Term's tail — a late filing onto it — which the historical walker
+    # does not recover (it advances its cursor over the serial while still
+    # pending). The window catches that tail at the source; 0 disables the grace
+    # probe. A conservative default — a couple of months comfortably covers the
+    # observed late-filing tail; the `le` cap keeps it a *window*, since a value
+    # past ~182 would make dual-Term probing year-round.
+    outgoing_term_grace_days: int = Field(default=60, ge=0, le=182)
 
 
 def load_live_config(config_root: Path) -> LiveConfig:
@@ -250,8 +260,10 @@ class HistoricalConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
-    # reachability probe's full-JSON floor (docs/live-sources.md).
-    terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
+    # reachability probe's full-JSON floor (docs/live-sources.md). The head
+    # tracks the *docket* Term, which rolls the July before the Term opens
+    # (see `supremecourt.current_docket_term`).
+    terms: list[int] = Field(default=[26, 25, 24, 23, 22, 21, 20, 19, 18, 17])
     # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)
@@ -401,6 +413,17 @@ class SalienceConfig(BaseModel):
     per_conference_capacity: int = Field(default=12, ge=0)
     long_conference_capacity: int = Field(default=24, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
+    # The sal-v2 arrival cohort's random-slice rate: the fraction of eligible
+    # arrivals the deterministic draw (`salience.arrival_draw`) selects at
+    # docketing. The slice is load-bearing — its unbiased predicted population
+    # is what makes forward skill numbers transfer to live prospective use —
+    # and it is sized against that purpose, not against class measurement
+    # (class rates are census quantities at the full population's n). At the
+    # shipped 0.05 over ~1,500 paid arrivals/Term: ~75 cases (~$975 at the
+    # $13/case planning rate), the reviewed sizing. Effectively frozen once
+    # the cohort begins (a mid-Term change makes the realized population a
+    # union across rates); 0 disables the slice (sal-v1 behavior).
+    arrival_sample_rate: float = Field(default=0.05, ge=0.0, le=1.0)
     # Bounds the live cycle's selection sweep (selected petitions with open,
     # never-predicted events — the rescue/catch-up/retry path). Each swept case
     # costs one docket fetch plus document provisioning at the polite ~1 req/s,

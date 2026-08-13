@@ -12,9 +12,11 @@
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
 # below bound how much work each run and each day does within that envelope.
 pull:
-  # Max dockets refreshed per run (~3 requests each). On Tier 2 (15/150/600) with
-  # four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run stays
-  # under the 150/hr ceiling, and 4 runs stay under the 600/day ceiling.
+  # Max dockets refreshed per run (~3 requests each). On Tier 4 (25/300/1400)
+  # with four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run
+  # sits well under the 300/hr ceiling, and 4 runs (~360) commit about a
+  # quarter of the 1,400/day ceiling — the rest is deliberate headroom for
+  # opinion enrichment and one-off backfills, which share the account budget.
   max_cases_per_run: 30
   # Refresh order: stalest first, so a large active set rotates within budget.
   rotation: oldest_last_pulled_first
@@ -92,6 +94,10 @@ live:
   throttle_seconds: 1.0
   # Consecutive 404s that mark a numbering stream's current frontier.
   frontier_misses: 2
+  # Days after the July docket-number roll to also probe the outgoing Term, so
+  # a late filing onto the old prefix is caught before the historical walker
+  # reaches it (docs/live-sources.md). 0 disables the grace probe.
+  outgoing_term_grace_days: 60
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages. Documents (petition, questions presented, BIO) are fetched on the
   # same distribution transition that queues predict; the cap bounds corpus
@@ -117,8 +123,13 @@ live:
 # documented and reproducible.
 historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
-  # reachability probe's full-JSON floor (docs/live-sources.md). OT2025
-  # is walkable alongside the forward poller (`live:`): the walker ingests
+  # reachability probe's full-JSON floor (docs/live-sources.md). A Term the
+  # forward poller also covers (OT2025+, including the incoming Term's
+  # summer-docketed intake) is walkable alongside it — with one property to
+  # know: the walker's cursor passes a pending serial once and never re-reads
+  # it, so for such a Term the walker ingests next to nothing and the live
+  # channel is the sole outcome path until a re-walk after the Term closes.
+  # The walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its
   # re-poll queues the evaluate handoff the walker never files); the two
@@ -127,7 +138,7 @@ historical:
   # poller also onboarded (OT2025+) carries the poller's pending-petition
   # coverage on top of the walker's decided-only set, so per-Term composition
   # is not uniform there.
-  terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
+  terms: [26, 25, 24, 23, 22, 21, 20, 19, 18, 17]
   # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
   # document fetches ride on top). Trades crash-loss / corpus-push frequency,
@@ -223,10 +234,11 @@ salience:
   # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
-  # control, funding ~$21K/Term against a ~$10K inference envelope. At 12 the
+  # control, funding ~$21K/Term against a ~$11K inference envelope. At 12 the
   # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
   # fill 398-413 plus uncapped carve-outs 97-115), which with the other
-  # stages' moments lands the whole program at ~$9.6-9.9K (docs/budget.md).
+  # stages' moments lands the escalation program at ~$9.6-9.9K — ~$10.8-11.2K
+  # with the arrival cohort beside it (docs/budget.md).
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.81 of the Term's replay-reconstructable
@@ -243,6 +255,20 @@ salience:
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28
+  # The sal-v2 arrival cohort's random-slice rate: the fraction of eligible
+  # arrivals the deterministic draw selects at docketing (pure hash of the
+  # case id under the version key — reproducible, ungameable). Sized to the
+  # slice's real purpose, the unbiased predicted population whose forward
+  # skill transfers to live use: 1-in-20 over ~1,500 paid arrivals/Term is
+  # ~75 cases (~$975 at the $13/case planning rate), publishable as n=75 with its
+  # ±5.9pp interval (Wilson 95% at the pooled 6.67% arrival grant rate).
+  # Class rates are census quantities at the population's own n and never
+  # size this knob. Effectively
+  # frozen once the cohort runs: the draw recomputes at read time against a
+  # one-way latch, so a mid-Term rate change makes the realized population a
+  # union across rates, not a rate-r sample; changing it is a new arrival
+  # population, declared as such.
+  arrival_sample_rate: 0.05
   # Per-cycle cap on the live channel's selection sweep — the path that queues
   # selected petitions the distribution trigger alone would miss (same-cycle
   # first selections, the catch-up backlog, daily retries of runs that

@@ -15,6 +15,7 @@ from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     CellFailure,
+    ClaimProbability,
     CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
@@ -28,6 +29,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     Stage,
     UsageRole,
     VoteValue,
@@ -41,12 +43,14 @@ from fedcourtsai.validate import (
     CHECK_LEDGER_REFERENCES,
     CHECK_MERITS_PREDICTIONS,
     CHECK_NO_DUPLICATES,
+    CHECK_PREDICTION_CLAIMS,
     CHECK_PREDICTION_DOCS,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
     CHECK_SNAPSHOT_NOT_FUTURE,
     check_ledger_events_in_git,
     check_no_duplicates,
+    check_prediction_claims,
     run_corpus_validation,
     run_ledger_referential_checks,
     run_scope_audit,
@@ -651,6 +655,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_LEDGER_EVENTS_IN_GIT,
         CHECK_EVALUATION_TARGETS,
         CHECK_PREDICTION_DOCS,
+        CHECK_PREDICTION_CLAIMS,
         CHECK_MERITS_PREDICTIONS,
     }
     assert all(c.passed for c in checks)
@@ -663,6 +668,56 @@ def _docs_check(data_root: Path) -> CorpusCheck:
     return next(
         c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_PREDICTION_DOCS
     )
+
+
+def test_a_claims_block_the_scorer_would_void_fails_validation(tmp_path: Path) -> None:
+    """Schema-valid but silently unscoreable is exactly what this check exists for:
+    a divergent headline claim voids the block at scoring with no trace, so the
+    claim board would simply lack the cell. Surfaced at validation instead,
+    while the cell can still be fixed; a coherent block and a block-less
+    prediction both pass."""
+    data_root = tmp_path / "data"
+    event = "evt-petition-writ-of-certiorari"
+    ep = CasePaths(data_root, "scotus", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+
+    def _cell(disposition: float) -> Prediction:
+        return Prediction(
+            case_id="scotus/1",
+            event_id=event,
+            predictor_id="p1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 1),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=True,
+                distribution_count=1,
+                band="baseline",
+                salience_version="sal-v1",
+                term=2025,
+            ),
+            claims=[
+                ClaimProbability(claim_id="disposition", probability=disposition),
+                ClaimProbability(claim_id="relist-increment", probability=0.5),
+                ClaimProbability(claim_id="cvsg-increment", probability=0.1),
+            ],
+        )
+
+    write_json(ep.prediction("p1", run), _cell(disposition=0.3))
+    check = check_prediction_claims(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("two committed numbers" in p for p in check.problems)
+
+    write_json(ep.prediction("p1", run), _cell(disposition=0.2))
+    check = check_prediction_claims(data_root)
+    assert check.passed and check.checked == 1
 
 
 def test_prediction_naming_a_document_it_never_wrote_fails(tmp_path: Path) -> None:
@@ -729,6 +784,42 @@ def test_prediction_without_a_forecast_document_passes(tmp_path: Path) -> None:
     check = _docs_check(data_root)
     assert check.passed
     assert check.checked == 1  # the rationale pointer only
+
+
+def test_stamped_prediction_without_a_forecast_document_fails(tmp_path: Path) -> None:
+    """The write requirement is mechanical for post-stamp records.
+
+    `predicted_reasoning_doc` is nullable only so records written before the
+    field existed still validate. A process-stamped cell provably post-dates
+    it — its prompt required the forecast document — so a null pointer there is
+    a broken cell, not a legacy shape. The unstamped sibling stays valid
+    (`test_prediction_without_a_forecast_document_passes`).
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=False)
+    path = (
+        CasePaths(data_root, "ca9", 1)
+        .event("evt-motion-stay")
+        .prediction("p1", "2026-01-01T00-00-00Z")
+    )
+    data = json.loads(path.read_text())
+    data["process_version"] = {
+        "label": "proc-v2",
+        "digest": "sha256:stamped",
+        "stamped_at": "2026-08-20T00:00:00Z",
+    }
+    path.write_text(json.dumps(data))
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("process-stamped" in p for p in check.problems)
+
+    # The same stamp with the document written and named is a healthy cell.
+    stamped_ok = json.loads(path.read_text())
+    stamped_ok["predicted_reasoning_doc"] = "predicted_reasoning.md"
+    path.write_text(json.dumps(stamped_ok))
+    (path.parent / "predicted_reasoning.md").write_text("what the court will do\n")
+    assert _docs_check(data_root).passed
 
 
 def test_prediction_document_pointing_outside_its_directory_fails(tmp_path: Path) -> None:

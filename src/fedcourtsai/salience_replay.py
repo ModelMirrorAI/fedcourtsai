@@ -20,10 +20,14 @@ between two cells attributable to the scoring function alone.
 
 Two structural facts the numbers document:
 
-- **At arrival the gate is degenerate.** Every signal ``sal-v1`` turns on is
-  docket-acquired (relists, CVSG), so a petition projected to its arrival sits
-  in the baseline band with no conference cohort — nothing is selected, and
-  precision is undefined rather than zero.
+- **At arrival the escalation gate is degenerate.** Every trajectory signal is
+  docket-acquired (relists, CVSG), so a petition projected to its arrival forms
+  no conference cohort and the rank-and-cap selects nothing — which is why the
+  ``arrival`` policy alone passes ``select_arrivals`` and lets a scorer that
+  declares ``selects_arrivals`` pick its draw slice and carve-ins there. The
+  arrival cells report that cohort and never pool into the escalation ones;
+  under a scorer without arrival selection, nothing is selected and precision
+  is undefined rather than zero.
 - **The population frame for a full predict/evaluate backtest.** A later run
   that replays predictors over a past Term inherits this module's population,
   cutoffs, and provenance accounting, so its band mix is stated rather than
@@ -185,7 +189,16 @@ def _replay_cell(
     skipped = projection.skipped
 
     synthesized = [as_of.row for _, as_of in projected]
-    scores, to_select, _, conferences = plan_cohorts(synthesized, config, version=version)
+    scores, to_select, _, conferences = plan_cohorts(
+        synthesized,
+        config,
+        version=version,
+        # An arrival cohort exists only at the arrival policy: a row still
+        # undistributed at a later cutoff is a reconstruction artifact (often
+        # a blind projection), and drawing it would pool the arrival slice
+        # into an escalation cell's precision.
+        select_arrivals=policy is asof.CutoffPolicy.arrival,
+    )
     selected = set(to_select)  # no projected row is pre-latched, so this is the whole pick
     carved = {
         row.case_id

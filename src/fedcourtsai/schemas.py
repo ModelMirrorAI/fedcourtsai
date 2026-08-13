@@ -259,7 +259,8 @@ class Moment(StrEnum):
     distribution = "distribution"
     #: cert — the Court calls for the Solicitor General's views.
     cvsg = "cvsg"
-    #: interim — the application arrives on the docket.
+    #: interim — the application arrives on the docket; cert — the petition
+    #: is docketed (the sal-v2 arrival cohort's moment).
     arrival = "arrival"
     #: interim — the Court (or a Circuit Justice) asks for a response.
     response_requested = "response-requested"
@@ -290,8 +291,8 @@ class GroupBy(StrEnum):
     Solicitor General, and ``fee_class`` by the docket serial's numbering
     stream (paid / IFP); rows the live channel never parsed share one
     ``(unknown)`` bucket on the first two, so parse coverage stays visible.
-    ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
-    (high / elevated / baseline) over the paid modern-cert petitions — the
+    ``salience_band`` groups by the active scorer's frozen grant-likelihood band
+    over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
     ``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's
     questions-presented text (``docs/qp-topic.md``) — distinct from ``topic``,
@@ -603,7 +604,7 @@ class PredictionContext(_Strict):
     )
     band: str | None = Field(
         default=None,
-        description="The sal-v1 salience band as at prediction, derived from the "
+        description="The active scorer's salience band as at prediction, derived from the "
         "signals above. None when they were unobservable, which is the honest "
         "answer for a cell whose snapshot carried no proceedings — the evaluator "
         "then falls back to the terminal band rather than guessing",
@@ -1208,7 +1209,7 @@ class Evaluation(_Strict):
         ge=0.0,
         le=1.0,
         description="The leakage-safe segment base rate for this case, on the stage's "
-        "own axis. On a cert cell that is its sal-v1 band's grant rate pooled over "
+        "own axis. On a cert cell that is its salience band's grant rate pooled over "
         "statpack Terms strictly before the case's Term, and which band — therefore "
         "which of the two published rates — is recorded in base_rate_basis below. On "
         "a merits cell it is instead the statpack merits section's disturbed rate "
@@ -1599,7 +1600,10 @@ class LeaderboardStratum(_Strict):
         description="Evaluations contributing to population_brier_skill_score — the cells "
         "carrying a non-null skill score. The figure's true denominator, which "
         "can be far below `evaluations` (a cell scores skill only where a segment "
-        "base rate exists), so the figure must be read beside this count",
+        "base rate exists), so the figure must be read beside this count. A cell "
+        "is also excluded where its recorded skill does not reproduce from its "
+        "own inputs, or where a merits cell's recorded rate contradicts the "
+        "harness's own pooled merits baseline",
     )
     population_realized_term_skill_score: float | None = Field(
         default=None,
@@ -1810,6 +1814,34 @@ class LeaderboardStage(_Strict):
     )
 
 
+class FrozenProcessRecord(_Strict):
+    """The freeze constants in force when a board was built.
+
+    ``process_scope: "frozen"`` names a partition whose membership lives in
+    code (:mod:`fedcourtsai.process_version`), so without this block a reader
+    would have to resolve the build's commit back to the source to see *which*
+    digests were blessed and from which instant. Recording them on the board
+    itself, the way ``salience_versions`` names the gate, states what was
+    blessed at build time — on every build, an ``all``-scope one included, as
+    the partition's definition and never a claim it was applied. It records the
+    *blessed* set, not the *filter*: only the predictor subset is the enforced
+    membership test (``process_version.is_frozen``), while the evaluator
+    digests are record-only (timing alone enforced), and this flat list does
+    not distinguish the two — that mapping lives in ``process_version``.
+    """
+
+    digests: list[str] = Field(
+        description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
+        "predictors and evaluators together, exactly as the freeze commit "
+        "blessed them. Not a filter: the enforced membership test is the "
+        "predictor subset alone, which this pooled list does not distinguish "
+        "(see `process_version`)"
+    )
+    since: datetime | None = Field(
+        description="The freeze instant (`FROZEN_SINCE`); null while no freeze is in force"
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -1837,6 +1869,13 @@ class Leaderboard(_Strict):
         "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        default=None,
+        description="The freeze constants in force at build time — recorded on "
+        "every build, an `all`-scope one included, as the partition's "
+        "definition and never a claim it was applied; null on a board built "
+        "before the record existed, or one constructed without it",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -2130,6 +2169,13 @@ class ClaimScoreBoard(_Strict):
         "process versions within a scope: a scope holding more than one "
         "claims-carrying process version must not be read as one population "
         "(docs/outcome-decomposition.md)",
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        default=None,
+        description="The freeze constants in force at build time, exactly as "
+        "the leaderboard records them — the partition's definition, never a "
+        "claim it was applied; null on a surface built before the record "
+        "existed, or one constructed without it",
     )
     evaluations_total: int = Field(
         ge=0,
@@ -2628,14 +2674,14 @@ class CertBacktestSegment(_Strict):
     Reconciles the offline cert back-test with the live prediction process: the
     forward tournament now scores skill against the **segment base rate** (the
     predicted slice's own grant rate, not the whole-docket rate), so the back-test
-    reports the same, per ``sal-v1`` band, over the paid scored segment (IFP
+    reports the same, per salience band, over the paid scored segment (IFP
     petitions are outside it). ``segment_base_rate`` is the mean of the items'
     leakage-safe per-Term band rates (each computed over Terms strictly before its
     own), and ``mean_brier_skill`` the mean skill against them — null when no item
     in the band had a prior-Term base rate.
     """
 
-    band: str = Field(description="The frozen sal-v1 band: high / elevated / baseline")
+    band: str = Field(description="The frozen band, in the assigning version's own vocabulary")
     events_scored: int = Field(ge=0, description="Paid-segment petitions in this band")
     accuracy: float = Field(
         ge=0.0, le=1.0, description="Disposition accuracy over the band's petitions"
@@ -3582,7 +3628,7 @@ class StatPackTermSegment(_Strict):
     the predicted population is a biased subsample (relist-2 petitions grant ~39%,
     relist-0 ~0.8%), so the whole-docket cert rate is the wrong yardstick both as
     the predict agent's prior and as the evaluator's naive baseline. Keying on the
-    frozen ``sal-v1`` band gives each predicted case a base rate conditioned on its
+    frozen salience band gives each predicted case a base rate conditioned on its
     own grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`
     it inherits that surface's **per-Term self-selection contract** — a time-masked
     replay cell reads only Terms strictly before its clock, so the rate never leaks
@@ -3608,7 +3654,8 @@ class StatPackTermSegment(_Strict):
     """
 
     band: str = Field(
-        description="The frozen sal-v1 grant-likelihood band: high / elevated / baseline"
+        description="The frozen grant-likelihood band, in the vocabulary of "
+        "the salience version stamped beside it"
     )
     ingested: int = Field(default=0, ge=0, description="Live-slice paid-cert rows in this band")
     resolved: int = Field(
@@ -3957,7 +4004,8 @@ class _StatPackMeritsCounts(_Strict):
         "to fire on render the same zero, which is why the count is "
         "published rather than implied. Null records a build the guard "
         "never ran on at all — a pack parsed from before the guard existed "
-        "must not read as a measurement that it removed nothing.",
+        "must not read as a measurement that it removed nothing, and the "
+        "merits baseline refuses to pool from a Term carrying it.",
     )
     parsed: int = Field(
         default=0,
@@ -4423,6 +4471,108 @@ class SalienceSelectionResult(_Strict):
     sample_selected: list[str] = Field(default_factory=list)
 
 
+class CaptionCensusClass(_Strict):
+    """One petitioner class's cell in the caption census: n, grants, rate."""
+
+    petitioner_class: Literal["federal", "state", "private"] = Field(
+        description="The committed caption rule's class"
+    )
+    n: int = Field(ge=0, description="Resolved paid modern-cert petitions in the class")
+    grant_family: int = Field(ge=0, description="Grant-family outcomes among them")
+    rate: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="grant_family / n, or null on an empty cell — never a fabricated 0",
+    )
+
+
+class CaptionCensusTerm(_Strict):
+    """One October Term's caption-class census cells."""
+
+    term: int = Field(description="The October Term year")
+    classes: list[CaptionCensusClass] = Field(default_factory=list)
+    censored: bool = Field(
+        default=False,
+        description="True when the Term's frame carries unresolved rows — "
+        "right-censored, reported per Term but never pooled; the caveat "
+        "travels in the row, not a section away",
+    )
+    unresolved: int = Field(default=0, ge=0, description="Unresolved frame rows censoring the Term")
+
+
+class CaptionCensus(_Strict):
+    """``caption-census`` result: the artifact a caption carve-in freezes from.
+
+    A deterministic, read-only census of the salience gate's scored segment
+    (live-slice, paid, modern-cert, resolved) cut by the committed petitioner
+    class rule — per Term and pooled, every cell with its ``n``. Selection
+    constants derived from the caption may be frozen only from a statistically
+    reviewed run of this artifact under the ``rule_version`` it names
+    (``docs/salience.md``); the class is otherwise a reporting dimension.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule_version: str = Field(description="The committed rule, e.g. caption-v1")
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the census ran over — the "
+        "artifact is re-derivable only against this exact corpus state, so a "
+        "freeze record must carry it",
+    )
+    terms: list[CaptionCensusTerm] = Field(default_factory=list)
+    pooled: list[CaptionCensusClass] = Field(default_factory=list)
+
+
+class SalienceUnlatchResult(_Strict):
+    """``unlatch-overselected`` result: the one-time latch reconcile's ledger.
+
+    The sticky latch is additive, so a capacity resize leaves every case
+    latched under the old caps latched — a standing overhang the live pass can
+    never shrink. This deliberate migration recomputes each pending conference
+    cohort's selection from scratch under the shipped config and clears the
+    latch on pending petitions that recomputation would not pick. ``applied``
+    is False on a dry run.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    version: str = Field(
+        default="", description="The salience-function version recomputed under, e.g. sal-v1"
+    )
+    pending_cohorts: int = Field(
+        default=0, ge=0, description="Pending conference cohorts recomputed"
+    )
+    latched_pending: int = Field(
+        default=0, ge=0, description="Latched pending cohort petitions examined"
+    )
+    retained: int = Field(
+        default=0,
+        ge=0,
+        description="Latched petitions the from-scratch selection keeps (top-N or carve-out)",
+    )
+    unlatched: int = Field(
+        default=0, ge=0, description="Latched petitions cleared (would not be selected today)"
+    )
+    spared_out_of_scope: int = Field(
+        default=0,
+        ge=0,
+        description="Latched pending petitions left alone because Tier-0 excludes them "
+        "(inert under predict_excluded, deliberately not cleared here)",
+    )
+    spared_undistributed: int = Field(
+        default=0,
+        ge=0,
+        description="Latched pending petitions left alone because they were never "
+        "distributed — no cohort exists to recompute them against",
+    )
+    unlatched_case_ids: list[str] = Field(
+        default_factory=list,
+        description="Every cleared case id, untruncated — the 1->0 write erases the "
+        "corpus's own record of the pre-resize sticky set, so this ledger is it",
+    )
+
+
 class SalienceReplayCell(_Strict):
     """One (Term, cutoff policy, salience version) cell of the salience-gate replay.
 
@@ -4499,7 +4649,7 @@ class SalienceReplayCell(_Strict):
     )
     bands: dict[str, int] = Field(
         default_factory=dict,
-        description="Petitions per as-of sal-v1 band (high / elevated / baseline), "
+        description="Petitions per as-of band in the cell's own scorer vocabulary, "
         "plus 'unobservable' for a projection whose payload disclosed no "
         "proceedings — unknown posture, never banded, never selected",
     )

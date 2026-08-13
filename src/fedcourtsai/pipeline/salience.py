@@ -15,12 +15,18 @@ Two invariants make the pass safe to re-run over a live conference:
   (:func:`fedcourtsai.corpus.latch_salience_selected` only ever sets it), so a
   petition selected early keeps its committed forward prediction even if fresher
   petitions later out-rank it. The pass never de-selects; the realized selected
-  count may drift above ``N``.
+  count may drift above ``N``. The one sanctioned clear lives in this module
+  too — :func:`unlatch_overselected`, a maintainer-run migration for the
+  overhang a capacity resize leaves, never part of the pass.
 - **Per-conference cohorts.** The cap is applied within each
   ``distributed_for_conference`` cohort, so "why this case and not that one"
   replays against one conference's candidate pool at a fixed score version. A
   petition not yet distributed for conference is scored but not selected — it is
-  not up for prediction yet. A petition already **decided**
+  not up for prediction yet — unless the active scorer selects arrivals
+  (``selects_arrivals``), in which case a second, cohort-less pass latches the
+  arrival picks (the keyed random draw plus the carve-in predicate) and mints
+  each pick's arrival event, with no rank and no capacity: the arrival cohort
+  rides beside ``N``, never inside it. A petition already **decided**
   (:func:`fedcourtsai.corpus.resolution_date` is not ``None``) is scored (the
   board's historical rows still want a band) but never enters a cohort, so a
   historical conference's decided docket cannot be newly latched — it has no
@@ -51,6 +57,7 @@ re-band a prediction already written.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -60,13 +67,14 @@ from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
-from ..schemas import SalienceSelectionResult
+from ..schemas import SalienceSelectionResult, SalienceUnlatchResult
+from . import caption
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v1"
+SALIENCE_VERSION = "sal-v2"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
@@ -75,7 +83,8 @@ SALIENCE_VERSION = "sal-v1"
 # grant rates — relist bucket and CVSG — and the originating circuit rides only as
 # a small nudge (a circuit's marginal already reflects its relist mix, so treating
 # it as a co-equal signal would double-count and inflate every petition from a
-# high-grant circuit). The joint/compounding cut is deferred to sal-v2. Frozen for
+# high-grant circuit). The joint/compounding cut is deferred to a later
+# version (sal-v2 reuses this score unchanged). Frozen for
 # sal-v1: a refit is a new version.
 _RELIST_GRANT_RATE: dict[int, float] = {0: 0.008, 1: 0.078}
 _RELIST_HIGH_RATE = 0.394  # 2+ relists (the relist-3+ empirical dip is small-sample noise)
@@ -112,6 +121,50 @@ _MAX_SAMPLE = 20
 # September conference, so keying the larger cap on the month cleanly identifies
 # the long conference without a separate calendar. Used only to pick the capacity.
 _LONG_CONFERENCE_MONTH = 9
+
+
+#: The sal-v2 arrival draw's key — deliberately a string literal, never
+#: `SALIENCE_VERSION`: the assignment is fixed by registration, so the
+#: pointer flips and the draw does not, and a later version that wants an
+#: arrival slice registers its own key (a new pre-registered population,
+#: never a silent re-draw of this one). Re-running the draw under this key
+#: over the same case ids reproduces the same slice, for the replay and for
+#: any skeptic, and no selection rule can steer it (the hash input is the
+#: public case id and this public constant).
+_ARRIVAL_DRAW_KEY = "sal-v2"
+
+#: When the sal-v2 arrival cohort begins: the OT2026 docket-year roll. A case
+#: filed before this instant is not at its arrival moment — it is the standing
+#: pre-registration-era backlog, which includes years of never-resolved
+#: data-gap rows whose `distribution_count` was simply never parsed (a dry run
+#: over the 2026-08 corpus finds ~560 such rows the draw would otherwise
+#: latch, against the cohort's budgeted ~95/Term). Registration-fixed like
+#: the draw key: moving it changes the arrival population, so a change is a
+#: new pre-registered population, never a quiet widening. Backlog cases still
+#: earn escalation selection as their trajectory signals accrue.
+ARRIVAL_COHORT_SINCE = date(2026, 7, 1)
+
+
+def arrival_draw(case_id: str, rate: float) -> bool:
+    """Whether ``case_id`` falls in the deterministic arrival random slice.
+
+    A keyed hash draw (the :mod:`fedcourtsai.blinding` shuffle-key shape):
+    ``sha256(key NUL case_id)`` — the NUL byte the separator — with the
+    digest's first 8 bytes read big-endian as a fraction of the hash space,
+    selected iff below ``rate``. ``case_id`` is the canonical
+    :func:`fedcourtsai.ids.case_id` form; any other spelling of the same case
+    draws a different, silently valid answer. Pure and replayable — no stored
+    column, no clock, no RNG state — so the slice is reproducible from the
+    corpus and the committed constant alone, which is what lets its
+    unbiasedness claim be audited rather than trusted; a golden-vector test
+    pins the exact mapping. ``rate`` 0 selects nothing; 1 everything.
+    """
+    if rate <= 0.0:
+        return False
+    if rate >= 1.0:
+        return True
+    digest = hashlib.sha256(f"{_ARRIVAL_DRAW_KEY}\x00{case_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") < rate * 2**64
 
 
 def _relist_signal(row: corpus.CorpusRow) -> float:
@@ -176,6 +229,51 @@ def _sal_v1_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
     return row.cvsg_date is not None or score >= floor
 
 
+# sal-v2: the arrival-aware version. The RANKING is sal-v1's exactly — the
+# caption enters as a band dimension and an always-include predicate, never a
+# score weight, because the class's discrimination replicates while its
+# magnitude is a census figure that re-measures every Term (the reviewed
+# verdict; docs/salience.md). What sal-v2 adds:
+#
+# - a `federal` band above `high` and a `state` band between `high` and
+#   `elevated`, ordered by measured grant rate (census caption-v1: federal
+#   ~0.70; the state CLASS marginal ~0.23 against high's 0.28-0.44 span and
+#   elevated's 0.078 — the band's own realized rate sits below the marginal,
+#   since its strongest members band `high`; the statpack measures each band
+#   empirically either way). The
+#   band is the strongest of the caption-class band and the relist/CVSG
+#   tier, so it stays monotone over a petition's life: the class is fixed at
+#   filing and the trajectory tier only rises.
+# - the federal arrival carve-in beside sal-v1's CVSG/floor rule: a
+#   government petitioner is always in, at any score — the one arrival-time
+#   signal whose discrimination replicated in all eight complete measured
+#   Terms (OT2017-OT2024, lift 8.1x-16.4x; OT2025 is right-censored and
+#   counted as supportive, never as held-out). The frozen thing is the
+#   PREDICATE (classify_petitioner == "federal" under caption-v1), not the
+#   concept "government petitioner" — the rule's known ~10% recall gap is a
+#   caption-v2 question with its own census.
+# - the arrival random slice (`arrival_draw`), applied at the selection
+#   seam rather than here: the draw is selection policy over undistributed
+#   arrivals, not a property of a row's strength.
+_SAL_V2_BAND_ORDER: tuple[str, ...] = ("federal", "high", "state", "elevated", "baseline")
+
+
+def _sal_v2_band(row: corpus.CorpusRow) -> str:
+    """The strongest of the caption-class band and the sal-v1 trajectory tier."""
+    trajectory = _sal_v1_band(row)
+    cls = caption.petitioner_class(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v2_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in."""
+    return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class(row) == "federal"
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -198,6 +296,12 @@ class SalienceScorer:
     band: Callable[[corpus.CorpusRow], str]
     bands: tuple[str, ...]
     carve_out: Callable[[corpus.CorpusRow, float, float], bool]
+    # Whether this version selects an ARRIVAL cohort: undistributed pending
+    # petitions picked at docketing by the deterministic draw
+    # (`arrival_draw` at `config.arrival_sample_rate`) or the version's own
+    # carve-out predicate. False for sal-v1 — its features are
+    # docket-acquired, so it has nothing to say at arrival.
+    selects_arrivals: bool = False
 
 
 _SAL_V1 = SalienceScorer(
@@ -208,10 +312,21 @@ _SAL_V1 = SalienceScorer(
     carve_out=_sal_v1_carve_out,
 )
 
+_SAL_V2 = SalienceScorer(
+    version="sal-v2",
+    score=_sal_v1_score,  # the ranking IS sal-v1's; the caption never weights it
+    band=_sal_v2_band,
+    bands=_SAL_V2_BAND_ORDER,
+    carve_out=_sal_v2_carve_out,
+    selects_arrivals=True,
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
-SCORERS: Mapping[str, SalienceScorer] = MappingProxyType({_SAL_V1.version: _SAL_V1})
+SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
+    {_SAL_V1.version: _SAL_V1, _SAL_V2.version: _SAL_V2}
+)
 
 
 def scorer(version: str | None = None) -> SalienceScorer:
@@ -323,6 +438,7 @@ def plan_cohorts(
     config: SalienceConfig,
     *,
     version: SalienceScorer | None = None,
+    select_arrivals: bool | None = None,
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -355,9 +471,20 @@ def plan_cohorts(
     reserve lowers nothing.
     """
     active = version if version is not None else scorer()
+    # `select_arrivals` narrows (never widens) the version's own arrival
+    # semantics: the gate replay passes False at every non-arrival policy,
+    # because "still undistributed at a later cutoff" is a property of the
+    # reconstruction, not a live arrival — pooling those picks into an
+    # escalation cell is the cohort blend the design forbids.
+    arrivals_on = (
+        active.selects_arrivals
+        if select_arrivals is None
+        else (select_arrivals and active.selects_arrivals)
+    )
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
     applications: list[corpus.CorpusRow] = []
+    arrivals: list[str] = []
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
@@ -380,6 +507,28 @@ def plan_cohorts(
         # band), but leave it out of cohort selection entirely.
         if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
+        elif (
+            arrivals_on
+            and row.distributed_for_conference is None
+            and not row.distribution_count
+            and corpus.resolution_date(row) is None
+            and row.disposition is None
+            and not row.salience_selected
+            and row.date_filed is not None
+            and row.date_filed >= ARRIVAL_COHORT_SINCE
+            and (
+                arrival_draw(row.case_id, config.arrival_sample_rate)
+                or active.carve_out(row, scores[row.case_id], config.floor)
+            )
+        ):
+            # The arrival cohort: predicate-selected at docketing — the
+            # deterministic slice or the version's always-include rule — with
+            # no rank and no capacity, because the whole design is that no
+            # ranking exists yet worth the name (docs/salience.md). The
+            # freshness condition mirrors the arrival event's own mint guard,
+            # and the cohort-start bound keeps the standing backlog out (a
+            # dateless row is likewise out: no filing date, no arrival moment).
+            arrivals.append(row.case_id)
 
     # The interim reserve: still-pending occupants hold their slots (sticky
     # latch), new picks fill the remainder in ladder order.
@@ -391,7 +540,7 @@ def plan_cohorts(
     reserve_picks = [row.case_id for row in contenders[:open_slots]]
     reserve_in_use = len(occupants) + len(reserve_picks)
 
-    to_select: list[str] = list(reserve_picks)
+    to_select: list[str] = [*reserve_picks, *arrivals]
     current_conference = max(cohorts) if cohorts else None
     for conference, cohort_rows in cohorts.items():
         selected = _select_cohort(
@@ -436,11 +585,62 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     always carries the latch state downstream readers see. The returned ids are
     the cycle's newly-latched picks (the selection sweep queues them via the
     ``predict_queued_at`` debounce — a never-queued case passes it).
+
+    Under a scorer with ``selects_arrivals`` the pass also mints the
+    **arrival event** for every latched, pending, undistributed cert row
+    that lacks one — driven off *state*, not off this pass's latch delta, so
+    it is idempotent, a crash between the latch write and the mint heals on
+    the next pass, and the manual ``reconcile-salience-selection`` command
+    mints correctly too. The mint matters because the sweep queues a latched
+    case's open events and an undistributed petition's only mintable cert
+    cell is the arrival moment's — the baseline waits for its own
+    distribution moment (``store``'s admission), so an unminted pick would
+    sit latched with nothing to forecast.
     """
     scores, to_select, _, _ = _selection_plan(conn, config)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
+    _mint_owed_arrival_events(conn)
     return to_select
+
+
+def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
+    """Mint the arrival event for every selected arrival still lacking one.
+
+    State-driven and idempotent: scans the latched, pending, undistributed
+    SCOTUS cert rows and mints where the event is absent — the recovery path
+    for a pass interrupted between its latch write and its mint, and the
+    reason the manual reconcile needs no minting logic of its own. A no-op
+    under a scorer without arrival semantics.
+    """
+    if not scorer().selects_arrivals:
+        return
+    from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
+
+    events: list[corpus.CorpusEvent] = []
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if (
+            not row.salience_selected
+            or row.distributed_for_conference is not None
+            or row.distribution_count
+            or corpus.resolution_date(row) is not None
+            or corpus.is_scotus_application_form(row.docket_number)
+            # The cohort-start bound, restated here so a row latched some other
+            # way (a pre-boundary carve-out, an older latch vintage) can never
+            # back into an arrival event it was never selected for.
+            or row.date_filed is None
+            or row.date_filed < ARRIVAL_COHORT_SINCE
+        ):
+            continue
+        case_events = corpus.events_for_case(conn, row.case_id)
+        if any(e.event_id == "evt-petition-arrival-disposition" for e in case_events):
+            continue
+        open_ids = [e.event_id for e in case_events if not e.resolved]
+        minted = outcome.arrival_event_for(row, open_ids)
+        if minted is not None:
+            events.append(minted)
+    if events:
+        corpus.upsert_events(conn, events)
 
 
 def reconcile_salience_selection(
@@ -457,6 +657,7 @@ def reconcile_salience_selection(
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
+        _mint_owed_arrival_events(conn)
     return SalienceSelectionResult(
         applied=apply,
         version=SALIENCE_VERSION,
@@ -465,4 +666,110 @@ def reconcile_salience_selection(
         conferences=conferences,
         newly_selected=len(to_select),
         sample_selected=sorted(to_select)[:_MAX_SAMPLE],
+    )
+
+
+def _unlatch_scan(
+    conn: sqlite3.Connection, active: SalienceScorer
+) -> tuple[dict[str, float], dict[date, list[corpus.CorpusRow]], int, int]:
+    """The reconcile's eligibility scan, mirroring ``_selection_plan``'s.
+
+    Returns ``(scores, pending cohorts, spared_out_of_scope,
+    spared_undistributed)`` — the spared counts tally latched pending rows the
+    sweep deliberately leaves outside every cohort, so the result's ledger
+    reconciles against the corpus's own latched-row count.
+    """
+    scores: dict[str, float] = {}
+    cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
+    spared_out_of_scope = 0
+    spared_undistributed = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        pending = corpus.resolution_date(row) is None
+        if corpus.out_of_scope_reason_full(conn, row) is not None:
+            if row.salience_selected and pending:
+                spared_out_of_scope += 1
+            continue
+        scores[row.case_id] = active.score(row)
+        if corpus.is_scotus_application_form(row.docket_number):
+            continue
+        if row.distributed_for_conference is None:
+            if row.salience_selected and pending:
+                spared_undistributed += 1
+            continue
+        if pending:
+            cohorts[row.distributed_for_conference].append(row)
+    return scores, cohorts, spared_out_of_scope, spared_undistributed
+
+
+def unlatch_overselected(
+    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
+) -> SalienceUnlatchResult:
+    """Clear the latch where a from-scratch selection would not pick — one-time.
+
+    The sticky latch is additive by design, so a capacity resize leaves every
+    petition latched under the old caps latched — a standing overhang the live
+    pass can never shrink, spending cells the shipped envelope never budgeted.
+    This deliberate, maintainer-run migration recomputes each **pending**
+    conference cohort's selection from scratch — same scorer, same carve-outs,
+    ``reserve=0`` (the permissive reading: the interim reserve can only shrink
+    a cut, so ignoring it never widens the clear) — and clears the latch on
+    pending petitions the recomputation would not pick.
+
+    Deliberately untouched, each counted in the result so the ledger
+    reconciles against the corpus: decided rows (their latch is the
+    historical record of having been selected), interim applications (the
+    reserve's occupancy is its own sticky contract), never-distributed
+    petitions — under sal-v2 these are the arrival cohort, a frozen
+    pre-registered draw that is never re-cut, so its picks are spared by
+    policy; under sal-v1 there is simply no cohort to recompute — and
+    Tier-0-excluded rows —
+    those keep a stale latch that is inert under ``predict_excluded`` and the
+    shared exclusion reasoning, deliberately not cleared here. A committed
+    prediction on a cleared case stays committed **and stays graded**: the
+    evaluate matrix reads the scope filter without the salience skip, so
+    clearing a latch never strands a prediction from scoring. Two residuals
+    the recomputation accepts by construction: ``reserve=0`` means the
+    current cohort retains up to ``interim_reserve_slots`` petitions the live
+    pass's own rank fill would not fund, and a stale cohort's from-scratch
+    pick ranks its *stragglers* (resolved members are gone), so "retained" is
+    top-N of what remains, not what the gate would pick from the original
+    pool. Run ``dedupe-live-rows --apply`` first: a merge takes the latch
+    stickily from either twin, so an unmerged bulk twin could re-latch a
+    cleared case. Idempotent: a reconciled corpus clears nothing. Dry-run by
+    default; ``apply`` writes.
+    """
+    active = scorer()
+    scores, cohorts, spared_out_of_scope, spared_undistributed = _unlatch_scan(conn, active)
+    latched_pending = 0
+    retained = 0
+    unlatch: list[str] = []
+    for conference, cohort_rows in cohorts.items():
+        keep = _select_cohort(
+            cohort_rows,
+            scores,
+            _capacity(conference, config),
+            config.floor,
+            reserve=0,
+            version=active,
+        )
+        for row in cohort_rows:
+            if not row.salience_selected:
+                continue
+            latched_pending += 1
+            if row.case_id in keep:
+                retained += 1
+            else:
+                unlatch.append(row.case_id)
+    if apply and unlatch:
+        corpus.unlatch_salience_selected(conn, unlatch)
+    return SalienceUnlatchResult(
+        applied=apply,
+        version=SALIENCE_VERSION,
+        pending_cohorts=len(cohorts),
+        latched_pending=latched_pending,
+        retained=retained,
+        unlatched=len(unlatch),
+        spared_out_of_scope=spared_out_of_scope,
+        spared_undistributed=spared_undistributed,
+        unlatched_case_ids=sorted(unlatch),
     )

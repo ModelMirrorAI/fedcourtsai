@@ -7,7 +7,8 @@ The invariants worth pinning here: the cert set is exactly the three declared
 claims in a stable order, resolution reads only committed artifacts and masks
 what the record does not disclose, baselines never see the case's own Term, and
 an old prediction without the claims/context blocks yields no block rather than
-a crash.
+a crash — and the validate-time report (`claim_block_problems`) moves with the
+scorer's refusals in both directions.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_SET_CERT_V1,
     CLAIM_SET_MERITS_V1,
     claim_baseline,
+    claim_block_problems,
     declared_claim_set,
     resolve_claim,
     score_claims,
@@ -322,6 +324,48 @@ def test_the_mandatory_set_scores_all_or_nothing() -> None:
     assert score_claims(duplicated, _outcome(), pack, lookback_terms=0) is None
 
 
+def test_claim_block_problems_names_exactly_what_the_scorer_voids() -> None:
+    """The validate-time report and the scorer's silent refusals move together:
+    every malformed shape `score_claims` voids on yields a named problem, and
+    the shapes it accepts (or legitimately skips) yield none — so `validate`
+    can never pass a block the board will silently drop, nor flag one it
+    would score."""
+    pack = _statpack(_term(2024, rate=0.06))
+    voids = {
+        "divergent headline": _prediction(
+            claims=_claims(disposition=0.3), context=_context(), probability=0.2
+        ),
+        "partial set": _prediction(claims=_claims()[:2], context=_context()),
+        "duplicated id": _prediction(claims=[*_claims(), _claims()[0]], context=_context()),
+    }
+    for label, prediction in voids.items():
+        assert score_claims(prediction, _outcome(), pack, lookback_terms=0) is None, label
+        assert claim_block_problems(prediction), label
+    # A missing context also voids at scoring, but it is a tolerated
+    # provisioning gap (a harness stamp, not the agent's block), so the
+    # report deliberately stays silent on it.
+    unprovisioned = _prediction(claims=_claims(), context=None)
+    assert score_claims(unprovisioned, _outcome(), pack, lookback_terms=0) is None
+    assert claim_block_problems(unprovisioned) == []
+    # Absence is legitimate, not a defect: no block, or no declared set.
+    assert claim_block_problems(_prediction(claims=None, context=None)) == []
+    assert (
+        claim_block_problems(
+            _prediction(claims=_claims(), context=_context(), event_id="evt-motion-stay")
+        )
+        == []
+    )
+    # Coherent blocks report nothing AND score — including one with an
+    # undeclared extra, which the scorer ignores rather than voids.
+    coherent = _prediction(claims=_claims(), context=_context())
+    assert claim_block_problems(coherent) == []
+    assert score_claims(coherent, _outcome(), pack, lookback_terms=0) is not None
+    extra = ClaimProbability(claim_id="own-invention", probability=0.9)
+    extra_block = _prediction(claims=[*_claims(), extra], context=_context())
+    assert claim_block_problems(extra_block) == []
+    assert score_claims(extra_block, _outcome(), pack, lookback_terms=0) is not None
+
+
 def test_undeclared_stated_claims_are_ignored() -> None:
     # The declaration, not the census, fixes what is scored: an extra claim id
     # neither blocks the set nor earns a row.
@@ -390,7 +434,7 @@ _MERITS_EVENT = "evt-order-judgment"
 def _merits_pack(*, rate_terms: dict[int, tuple[int, int]]) -> StatPack:
     """A pack whose merits section carries ``term -> (disturbed, parsed)``."""
     terms = [
-        StatPackMeritsTerm(term=year, disturbed=d, parsed=p)
+        StatPackMeritsTerm(term=year, disturbed=d, parsed=p, cert_order_excluded=0)
         for year, (d, p) in sorted(rate_terms.items(), reverse=True)
     ]
     return StatPack(

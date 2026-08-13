@@ -61,13 +61,27 @@ def build(
     # proceedings, so reading just the first leaves every live cell without a Term
     # and silently disables the whole frozen path.
     docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
+    # The caption in both payload shapes: the live JSON's structured
+    # `PetitionerTitle` (preferred, exactly as ingest prefers the structured
+    # column) and the REST record's joined `case_name`. It must come from the
+    # payload, not the corpus row, because the band below turns on the caption
+    # class under sal-v2 — a `federal` band frozen from a caption the cell
+    # cannot read would break this module's reproducibility rule. Caption is
+    # time-invariant identity (`asof.project_row`), so a dated or truncated
+    # payload's caption is as leakage-safe as its docket number.
+    petitioner_title = str(payload.get("PetitionerTitle") or "").strip() or None
+    case_name = str(payload.get("case_name") or "").strip()
     # The shared as-of projection derives the signals and their observability;
     # the base row carries only the identity a payload discloses (a forward
     # cell's snapshot need not disclose its originating court, and the nudge is
     # bounded below every band cutpoint anyway, so a band never turns on it).
     projected = project_row(
         corpus.CorpusRow(
-            case_id=case_id, court=case_id.split("/", 1)[0], docket_number=docket_number
+            case_id=case_id,
+            court=case_id.split("/", 1)[0],
+            docket_number=docket_number,
+            case_name=case_name,
+            petitioner_title=petitioner_title,
         ),
         payload,
         cutoff=cutoff if cutoff is not None else snapshot_date,
@@ -77,13 +91,16 @@ def build(
     count = projected.row.distribution_count
     cvsg = projected.row.cvsg_date
     # An application docket takes no salience band, by rule rather than by
-    # parse accident: sal-v1's features (distribution count, CVSG) are cert
-    # observations that do not exist on the interim docket, so a band derived
-    # from their absence would assert `baseline` — and hand the evaluator a
-    # cert-population base rate — for a cell that resolves on the interim
-    # standard. With no band frozen, the base-rate guards downstream refuse by
-    # design (the interim segment rate publishes on its own pre-registered
-    # terms; see docs/salience.md).
+    # parse accident: the trajectory features (distribution count, CVSG) are
+    # cert observations that do not exist on the interim docket, so a band
+    # derived from their absence would assert `baseline` — and hand the
+    # evaluator a cert-population base rate — for a cell that resolves on the
+    # interim standard. The caption class *does* exist on an application, but
+    # every band's base rate is a cert-petition population, so banding on
+    # caption alone would mislabel the population just the same. With no band
+    # frozen, the base-rate guards downstream refuse by design (the interim
+    # segment rate publishes on its own pre-registered terms; see
+    # docs/salience.md).
     application = corpus.is_scotus_application_form(docket_number)
     band = salience_band(projected.row) if observable and not application else None
     return PredictionContext(

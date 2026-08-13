@@ -3,6 +3,7 @@
   "evaluations_total": 0,
   "evaluator_agreement": {},
   "forward_evaluations": 0,
+  "frozen_process": null,
   "predictors_ranked": 0,
   "procedural_evaluations": 0,
   "process_scope": "frozen",

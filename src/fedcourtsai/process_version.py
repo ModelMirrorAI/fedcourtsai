@@ -4,7 +4,7 @@ A prediction/evaluation is stamped with the *process* that produced it — the
 prompt template, the resolved registry config for the actor, and the harness
 commit — so headline metrics can reflect only the frozen, blessed process and
 exclude the July/August shakedown runs without deleting them. Same doctrine as
-``sal-v1`` (:data:`fedcourtsai.pipeline.salience.SALIENCE_VERSION`): a process
+the salience version (:data:`fedcourtsai.pipeline.salience.SALIENCE_VERSION`): a process
 change is a *new* version, never an in-place edit, so any past ranking always
 replays against the process that produced it.
 
@@ -34,16 +34,17 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
-from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
+from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, ProcessVersion
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v1"
+CURRENT_PROCESS_LABEL = "proc-v2"
 
-# The blessed process digests — the frozen-headline set: the six proc-v1
+# The blessed process digests — the frozen-headline set: the six proc-v2
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. Keyed on the digest, never the label, so a process that
+# which a test pins. proc-v2 supersedes proc-v1 with zero cells ever stamped
+# under it. Keyed on the digest, never the label, so a process that
 # drifted under an unchanged label is not silently blessed. The predictor
 # digests are the enforced membership filter (`is_frozen`); the evaluator
 # entries are the freeze *record* of the blessed grading process — an
@@ -52,13 +53,13 @@ CURRENT_PROCESS_LABEL = "proc-v1"
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
     {
         # predictors: claude-baseline, codex-baseline, gemini-baseline
-        "sha256:d06ba40213613a613bc0ab2dfc8561b4aed6ba7f19d19a14a13714cb9f96c214",
-        "sha256:0eaa4c367e9d0017ea1d0cb94529a4f0cfc175332aae0b389eab81a91d8ab682",
-        "sha256:4297c6ac4b4f7020fc883295ff193d7f27e8005430487ee60fa37131ee7a804c",
+        "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
+        "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
+        "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
         # evaluators: claude-judge, codex-judge, gemini-judge
-        "sha256:ed3ea431b2196b820ab1225bb8a1a635ef780834661a116cdb5f0cc8e4343c70",
-        "sha256:d6d74f16e2865d825667d64fee1d8756fdb1fc9d8d352cd750ea15df1fd3fd7a",
-        "sha256:e8cfccce34e8429957299dc7505daa061a0dd49884079a0186a278fcf554577c",
+        "sha256:e8a0fed172adc447698a622bd69b318d4c0189be622f8d0d3085042f12760be7",
+        "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
+        "sha256:86e7df61bc9224e44f54d9fbb840979fae575d2e6832dac198a0bc15841c6a33",
     }
 )
 
@@ -73,7 +74,7 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
 # `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
 # first run intended to count — see the cutover procedure in
 # `docs/process-version.md`.
-FROZEN_SINCE: datetime | None = datetime(2026, 8, 15, 0, 0, 0, tzinfo=UTC)
+FROZEN_SINCE: datetime | None = datetime(2026, 8, 16, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
@@ -220,3 +221,16 @@ def is_frozen(process_version: ProcessVersion | None) -> bool:
     if process_version is None or process_version.digest not in FROZEN_PROCESS_DIGESTS:
         return False
     return at_or_after_freeze(process_version.stamped_at)
+
+
+def frozen_process_record() -> FrozenProcessRecord:
+    """The freeze constants as the board-embeddable provenance block.
+
+    The boards publish ``process_scope`` but the partition's *definition* lives
+    in this module's two constants, so a built artifact records them via this
+    record (:class:`fedcourtsai.schemas.FrozenProcessRecord`) — what "frozen"
+    meant at build time, answerable from the artifact alone. Deterministic:
+    the constants change only with a freeze commit, so the same tree always
+    yields the same record.
+    """
+    return FrozenProcessRecord(digests=sorted(FROZEN_PROCESS_DIGESTS), since=FROZEN_SINCE)

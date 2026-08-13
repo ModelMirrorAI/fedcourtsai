@@ -60,6 +60,39 @@
       "title": "EvaluatorAgreement",
       "type": "object"
     },
+    "FrozenProcessRecord": {
+      "additionalProperties": false,
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
+      "properties": {
+        "digests": {
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership test is the predictor subset alone, which this pooled list does not distinguish (see `process_version`)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Digests",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The freeze instant (`FROZEN_SINCE`); null while no freeze is in force",
+          "title": "Since"
+        }
+      },
+      "required": [
+        "digests",
+        "since"
+      ],
+      "title": "FrozenProcessRecord",
+      "type": "object"
+    },
     "LeaderboardEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings, aggregated per stratum.\n\nForward and retrospective are the pre-registration (timing) strata; the\nprocedural block segments mootness-basis cells out of both.",
@@ -346,7 +379,7 @@
         },
         "skill_scored": {
           "default": 0,
-          "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count",
+          "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count. A cell is also excluded where its recorded skill does not reproduce from its own inputs, or where a merits cell's recorded rate contradicts the harness's own pooled merits baseline",
           "minimum": 0,
           "title": "Skill Scored",
           "type": "integer"
@@ -392,6 +425,18 @@
       "minimum": 0,
       "title": "Forward Evaluations",
       "type": "integer"
+    },
+    "frozen_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FrozenProcessRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The freeze constants in force at build time \u2014 recorded on every build, an `all`-scope one included, as the partition's definition and never a claim it was applied; null on a board built before the record existed, or one constructed without it"
     },
     "predictors_ranked": {
       "description": "Number of predictors on the cert board (a procedural-only predictor still appears, sorted after every ranked one)",

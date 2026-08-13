@@ -179,14 +179,28 @@ def test_retrieve_priors_filters_are_index_served(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _populated(db)
     queries = {
-        "idx_cases_court": corpus.PriorQuery(court="ca9"),
+        # A court query is served by the recency index, which carries the
+        # court equality AND the ranking — one index, filter and order both.
+        # The screened variant keeps the same plan: the index serves the
+        # ordering so the stream never needs a sorter — load-bearing on the
+        # ranged backend, whose VFS refuses a spilled temp B-tree outright.
+        "idx_cases_priors_recency": corpus.PriorQuery(court="ca9"),
         "idx_cases_topic": corpus.PriorQuery(topic="civil rights", resolved_only=False),
         "idx_cases_disposition": corpus.PriorQuery(disposition=Disposition.granted),
+        # The overlap path is pinned to the plain court index: the recency
+        # index would return the same rows while walking the table in
+        # recency order — scattered pages instead of sequential ones.
+        "idx_cases_court": corpus.PriorQuery(court="ca9", judges=["smith"]),
     }
+    screened = corpus.PriorQuery(court="ca9", era="2020s")
     with corpus.connect(db) as conn:
         for index_name, query in queries.items():
             plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, query))
             _assert_index_served(plans, expect=index_name)
+        plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, screened))
+        _assert_index_served(plans, expect="idx_cases_priors_recency")
+        for stmt, detail in plans:
+            assert "TEMP B-TREE" not in detail.upper(), f"sorter spill: {stmt} => {detail}"
 
 
 def test_events_for_case_is_index_served(tmp_path: Path) -> None:

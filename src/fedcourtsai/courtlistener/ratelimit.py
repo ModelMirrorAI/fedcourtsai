@@ -1,10 +1,15 @@
 """Client-side rate limiting for the CourtListener REST API.
 
-CourtListener enforces per-token request budgets (see issue #1):
+CourtListener enforces per-token request budgets. The free default:
 
     5 requests / minute
     50 requests / hour
     125 requests / day
+
+A paid Free Law Project membership raises them; the held tier's ceilings
+arrive through settings (``FEDCOURTS_COURTLISTENER_RPM`` / ``_RPH`` /
+``_RPD`` — see ``docs/budget.md``), and the constants below stay the free
+default so an unconfigured run can never overdraw any account.
 
 The deterministic ``pull`` scripts can blow through these while
 paging docket entries, so :class:`RateLimiter` throttles every request *before*
@@ -26,7 +31,7 @@ from collections import deque
 from collections.abc import Callable
 from typing import Final
 
-# CourtListener's published per-token limits (issue #1).
+# CourtListener's published free-default per-token limits.
 DEFAULT_PER_MINUTE: Final = 5
 DEFAULT_PER_HOUR: Final = 50
 DEFAULT_PER_DAY: Final = 125

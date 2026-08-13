@@ -131,6 +131,7 @@ from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
+from .pipeline.caption import caption_census
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
@@ -147,7 +148,12 @@ from .pipeline.outcome import (
 )
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
-from .pipeline.salience import SALIENCE_VERSION, reconcile_salience_selection, registered_versions
+from .pipeline.salience import (
+    SALIENCE_VERSION,
+    reconcile_salience_selection,
+    registered_versions,
+    unlatch_overselected,
+)
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -201,7 +207,7 @@ from .store import (
     open_events,
     resolved_events,
 )
-from .supremecourt import SupremeCourtClient, current_october_term
+from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -264,8 +270,9 @@ def validate(
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
     git tree (with its declared ids matching the path) while every evaluation
-    targets a real prediction and every prose document a prediction names sits
-    beside it. The corpus-dependent referential checks need the
+    targets a real prediction, every prose document a prediction names sits
+    beside it, and every committed claims block is one the claim scorer will
+    not silently void. The corpus-dependent referential checks need the
     remote, so they run scheduled via ``validate-corpus`` rather than here.
     """
     result = validate_ledger(path)
@@ -539,6 +546,96 @@ def reconcile_salience_selection_cmd(
     typer.echo(result.model_dump_json())
 
 
+@app.command("caption-census")
+def caption_census_cmd() -> None:
+    """The petitioner-class census: per-Term grant-family rates by caption class.
+
+    A deterministic, read-only cut of the salience gate's scored segment
+    (live-slice, paid, modern-cert, resolved) under the committed caption rule
+    (`pipeline.caption`, `caption-v1`) — the artifact any caption-keyed
+    selection constant must be frozen from, after a statistical review of the
+    run (`docs/salience.md`). Prints a `CaptionCensus`. Fails loud if the
+    corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the caption census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The provenance the freeze record needs: under `local` the hash of the
+    # file the census actually ran over (which can drift from the committed
+    # pointer); under `ranged` the immutable blob IS the pointer's object, so
+    # the pointer's own parsed digest names it exactly.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    else:
+        pointer = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = caption_census(conn, corpus_sha256=corpus_sha)
+    for cell in census.pooled:
+        rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
+        typer.echo(
+            f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
+            err=True,
+        )
+    typer.echo(census.model_dump_json())
+
+
+@app.command("unlatch-overselected")
+def unlatch_overselected_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Clear the over-selection latches; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Clear `salience_selected` where a from-scratch selection would not pick.
+
+    The one-time reconcile for the overhang a capacity resize leaves behind: the
+    sticky latch is additive, so petitions latched under the old caps stay
+    latched and keep earning cells the shipped envelope never budgeted. This
+    recomputes each pending conference cohort's selection from scratch under the
+    current config (same scorer, same carve-outs, reserve=0 so the clear is
+    never widened) and clears the latch on pending petitions the recomputation
+    would not pick — decided rows, interim applications, and never-distributed
+    petitions are untouched, and a committed prediction on a cleared case stays
+    committed — and still graded: the evaluate matrix never applies the
+    salience skip. Deliberate maintainer surface, never scheduled: run
+    `dedupe-live-rows --apply` first (a merge takes the latch stickily from
+    either twin), dry-run by default, run where the corpus is pulled,
+    `corpus-push` after an `--apply`. Prints a `SalienceUnlatchResult` — keep
+    it: the full cleared-id ledger in it, beside the pre-apply pointer echoed
+    below, is the record of the pre-resize sticky set the write erases. Fails
+    loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the latch reconcile.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    config = load_salience_config(settings.config_root)
+    ref = db_path.parent / (db_path.name + ".ref")
+    if ref.is_file():
+        typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with corpus.connect(db_path) as conn:
+        result = unlatch_overselected(conn, config, apply=apply)
+    verb = "cleared" if apply else "would clear"
+    typer.echo(
+        f"unlatch-overselected ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {result.unlatched} of {result.latched_pending} latched pending petition(s) "
+        f"across {result.pending_cohorts} cohort(s); {result.retained} retained"
+    )
+    typer.echo(result.model_dump_json())
+
+
 @app.command("dedupe-live-rows")
 def dedupe_live_rows_cmd(
     apply: Annotated[
@@ -678,12 +775,14 @@ def enrich_opinions_cmd(
     whose upstream `type` marks it a separate writing (a concurrence, a
     dissent) never becomes the body. Each refusal is counted and the citations
     still land — a coverage gap, never fatal, as are a docket linking no
-    cluster and a per-case REST or parse failure.
+    cluster and a per-case non-429 REST or parse failure.
 
     Three REST requests a case (two where a REST-shaped snapshot already links
     the cluster), so `--max-cases` bounds the run's spend on top of the
     client's rate governor; the walk stops cleanly when the API budget is
-    exhausted, reporting the cases it never reached. Run it outside a pull
+    exhausted — or when a 429 survives the client's retries, a quota wall
+    either way — deferring the unfinished cases for a re-run in a genuine
+    dead zone. Run it outside a pull
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 
@@ -4517,8 +4616,9 @@ def live_poll(
     term: Annotated[
         int | None,
         typer.Option(
-            help="Two-digit October Term to probe for new filings (default: the "
-            "current Term, derived from today's date)."
+            help="Two-digit docket Term to probe for new filings (default: the "
+            "Term the Clerk is numbering today — it rolls in July, ahead of "
+            "the October Term; see current_docket_term)."
         ),
     ] = None,
     limit: Annotated[
@@ -4545,7 +4645,9 @@ def live_poll(
     section of ``config/tracking.yaml`` bound wall clock and politeness.
     Discovery probes the Term's numbering frontier across the paid, IFP, and
     application streams from the persisted per-(Term, stream) cursors and
-    onboards each served petition or application; the refresh re-polls the pending
+    onboards each served petition or application — and, for a window after the
+    July numbering roll, the outgoing Term too, so its late tail is caught; the
+    refresh re-polls the pending
     modern-cert watchlist (recent Terms first), then the application rotation
     re-polls unresolved interim applications under its own cap — queueing
     predict for a changed, still-unresolved substantive application in scope
@@ -4562,7 +4664,7 @@ def live_poll(
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
     today = date.today()
-    probe_term = term if term is not None else current_october_term(today)
+    probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
         queues, discovery = live_poll_all(
@@ -4801,8 +4903,19 @@ def _scope_filtered(
     scope: PredictScope,
     corpus_root: Path,
     corpus_backend: corpus.CorpusBackend,
+    *,
+    for_grading: bool = False,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
+
+    ``for_grading`` is the evaluate matrix's reading: the salience-deferred
+    skip does not apply, because selection decides which cases *earn new
+    cells*, never whether a committed prediction is scored — a prediction on
+    a case whose latch was since cleared (``unlatch-overselected``) must
+    still be graded when its event resolves, exactly the stranding
+    ``pipeline.pull.evaluate_backlog`` refuses to cause. The hard exclusions
+    (court, ``predict_excluded``, the shared reason rules) still apply on
+    both readings.
 
     A manually-filed predict/evaluate issue cannot bypass the gate the pull
     queueing applies: the scope predicate is the corpus row's immutable
@@ -4859,8 +4972,10 @@ def _scope_filtered(
                 )
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
                 typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
-            elif corpus.is_salience_deferred(row) and not corpus.has_open_merits_event(
-                conn, row.case_id
+            elif (
+                not for_grading
+                and corpus.is_salience_deferred(row)
+                and not corpus.has_open_merits_event(conn, row.case_id)
             ):
                 # The merits bypass: a below-cap petition still earns no cert
                 # cell, but once the Court grants it the funding question is a
@@ -5106,6 +5221,7 @@ def evaluate_matrix_cmd(
             scope,
             settings.corpus_root,
             settings.corpus_backend,
+            for_grading=True,
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend

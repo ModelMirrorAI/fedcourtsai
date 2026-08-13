@@ -8,7 +8,9 @@ from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
+from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
@@ -20,18 +22,22 @@ from fedcourtsai.pipeline.ingest import (
     to_corpus_row,
 )
 from fedcourtsai.pipeline.live import (
+    LiveDiscovery,
+    _within_term_roll_grace,
     discover_live,
     ingest_live_payload,
     live_poll_all,
 )
+from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.schemas import CellFailure, Disposition, Outcome
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.supremecourt import (
     SupremeCourtClient,
-    current_october_term,
+    current_docket_term,
     is_live_docket_id,
     live_docket_id,
     parse_scotus_docket_number,
+    term_roll_date,
 )
 from tests.conftest import seed_prediction
 from tests.test_documents import _pdf
@@ -106,9 +112,61 @@ def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
     assert parse_scotus_docket_number(None) is None
 
 
-def test_current_october_term_rolls_in_october() -> None:
-    assert current_october_term(date(2026, 7, 10)) == 25
-    assert current_october_term(date(2026, 10, 6)) == 26
+def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The wiring, not the helper: `live-poll`'s probe default must come from
+    the Clerk's July roll. A helper-level test cannot catch the CLI quietly
+    deriving its default from an October-rolling function again."""
+    captured: dict[str, int] = {}
+
+    def _fake_poll(*args: Any, term: int, **kwargs: Any) -> tuple[PullQueues, LiveDiscovery]:
+        captured["term"] = term
+        return PullQueues(), LiveDiscovery()
+
+    class _AugustToday(date):
+        # Post-July numbering roll, pre-October Term opening — the window the
+        # October-roll default probed the outgoing Term in.
+        @classmethod
+        def today(cls) -> _AugustToday:
+            return cls(2026, 8, 12)
+
+    monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "date", _AugustToday)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    result = CliRunner().invoke(
+        cli_module.app,
+        [
+            "live-poll",
+            *("--out", str(tmp_path / "p.json")),
+            *("--evaluate-out", str(tmp_path / "e.json")),
+            *("--unrecorded-out", str(tmp_path / "u.json")),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["term"] == 26
+
+
+def test_current_docket_term_rolls_in_july() -> None:
+    # The Clerk's numbering roll, not the Term's October opening: 25-numbered
+    # filings end in late June and 26-1 was docketed July 1, 2026. An October
+    # roll here is the bug that hid every summer-docketed petition — the
+    # long-conference intake — from discovery.
+    assert current_docket_term(date(2026, 6, 30)) == 25
+    assert current_docket_term(date(2026, 7, 1)) == 26
+    assert current_docket_term(date(2026, 10, 6)) == 26
+    assert current_docket_term(date(2027, 1, 15)) == 26
+
+
+def test_term_roll_date_is_the_july_boundary_in_force() -> None:
+    # July 1 of the same year in the second half, of the prior year in the first
+    # half — the axis the outgoing-Term grace window is measured against.
+    assert term_roll_date(date(2026, 7, 1)) == date(2026, 7, 1)
+    assert term_roll_date(date(2026, 9, 20)) == date(2026, 7, 1)
+    assert term_roll_date(date(2026, 6, 30)) == date(2025, 7, 1)
+    assert term_roll_date(date(2027, 1, 15)) == date(2026, 7, 1)
 
 
 # --- the polite client -----------------------------------------------------------
@@ -1313,6 +1371,7 @@ def test_load_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
     assert defaults.max_new_cases_per_run == 25
     assert defaults.max_applications_per_run == 10
     assert defaults.frontier_misses == 2
+    assert defaults.outgoing_term_grace_days == 60
 
 
 def test_repo_tracking_yaml_carries_live_section() -> None:
@@ -1324,6 +1383,7 @@ def test_repo_tracking_yaml_carries_live_section() -> None:
     assert cfg.max_new_cases_per_run == 100
     assert cfg.max_applications_per_run == 10
     assert cfg.term_floor_year == 2017
+    assert cfg.outgoing_term_grace_days == 60
 
 
 def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
@@ -1450,6 +1510,130 @@ def test_walker_weight_never_regresses_a_poller_row(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         stored = corpus.get_row(conn, "scotus/9025000100")
     assert stored is not None and stored.sample_weight == 1
+
+
+def test_live_poll_all_grace_probes_the_outgoing_term_after_the_roll(tmp_path: Path) -> None:
+    """Just after the July roll the outgoing Term's tail is still caught.
+
+    The primary probe is on the current filing Term; the grace probe also walks
+    the outgoing Term from its cursor — even past a stale frontier — so a late
+    filing onto it is onboarded the same cycle instead of waiting for the
+    historical walker.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        # OT25's paid stream reached its frontier at 1450 before the roll; 1451
+        # has since landed on the outgoing Term.
+        corpus.set_live_cursor(conn, 25, "paid", 1450)
+        corpus.set_live_frontier(conn, 25, "paid", 1450)
+    # The tail is a distributed petition, so it exercises the shared queue logic:
+    # a grace onboard that is already distributed queues predict, exactly as a
+    # primary one does.
+    tail = _payload(
+        "25-1451",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            {"Date": "Jul 07 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+        ],
+    )
+    served = {"26-1": _payload("26-1"), "25-1451": tail}
+    config = LiveConfig().model_copy(update={"max_new_cases_per_run": 10, "max_cases_per_run": 10})
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client,
+            db,
+            tmp_path / "data",
+            term=26,  # the July-rolled current filing Term
+            config=config,
+            today=date(2026, 7, 2),  # inside the grace window
+        )
+    # Both the new Term's first filing and the outgoing Term's tail are in.
+    assert set(discovery.case_ids) == {"scotus/9026000001", "scotus/9025001451"}
+    # The distributed grace onboard routed to predict through the same logic.
+    assert 9_025_001_451 in {q["docket"] for q in queues.predict}
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 1451  # tail caught, cursor advanced
+        # Walked past its stale frontier to the misses, re-stamping at the tail.
+        assert corpus.get_live_frontier(conn, 25, "paid") == 1451
+
+
+def test_live_poll_all_retires_the_grace_probe_after_the_window(tmp_path: Path) -> None:
+    """Outside the grace window the outgoing Term is not probed at all.
+
+    The window (not a per-stream frontier test) is the retirement: well past the
+    roll, a late outgoing-Term filing is left to the historical walker, and the
+    cycle spends nothing on `term - 1`.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 25, "paid", 1450)
+    served = {"26-1": _payload("26-1"), "25-1451": _payload("25-1451")}
+    config = LiveConfig().model_copy(update={"max_new_cases_per_run": 10, "max_cases_per_run": 10})
+    with _frontier_client(served) as client:
+        _queues, discovery = live_poll_all(
+            client,
+            db,
+            tmp_path / "data",
+            term=26,
+            config=config,
+            today=date(2026, 11, 1),  # ~4 months past the roll, outside the window
+        )
+    # Only the current Term's filing; the outgoing Term is untouched.
+    assert discovery.case_ids == ["scotus/9026000001"]
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 1450
+
+
+def test_live_poll_all_grace_probe_is_disabled_by_a_zero_window(tmp_path: Path) -> None:
+    """`outgoing_term_grace_days = 0` turns the probe off even inside July."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 25, "paid", 1450)
+    served = {"26-1": _payload("26-1"), "25-1451": _payload("25-1451")}
+    config = LiveConfig().model_copy(
+        update={"max_new_cases_per_run": 10, "max_cases_per_run": 10, "outgoing_term_grace_days": 0}
+    )
+    with _frontier_client(served) as client:
+        _queues, discovery = live_poll_all(
+            client, db, tmp_path / "data", term=26, config=config, today=date(2026, 7, 2)
+        )
+    assert discovery.case_ids == ["scotus/9026000001"]
+
+
+def test_live_poll_all_grace_probe_ignores_a_manual_term_override(tmp_path: Path) -> None:
+    """A manual `--term` addresses one Term only — no unrelated `term - 1` probe.
+
+    In July the current filing Term is 26; a recovery run pinned to `--term 25`
+    must not drag an OT24 grace probe (and stamp an OT24 frontier a census
+    reader would read as complete).
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 24, "paid", 900)
+    served = {"25-1": _payload("25-1"), "24-901": _payload("24-901")}
+    config = LiveConfig().model_copy(update={"max_new_cases_per_run": 10, "max_cases_per_run": 10})
+    with _frontier_client(served) as client:
+        _queues, discovery = live_poll_all(
+            client,
+            db,
+            tmp_path / "data",
+            term=25,  # overridden, not the current filing Term (26 in July 2026)
+            config=config,
+            today=date(2026, 7, 2),
+        )
+    # Only OT25's own probe ran; OT24 was never touched.
+    assert discovery.case_ids == ["scotus/9025000001"]
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 24, "paid") == 900
+
+
+def test_within_term_roll_grace_boundaries() -> None:
+    # Day 0 (the roll) and the last day of a 60-day window are inside; the day
+    # after is outside; a January date (~184 days past the prior roll) is out.
+    assert _within_term_roll_grace(date(2026, 7, 1), 60) is True
+    assert _within_term_roll_grace(date(2026, 8, 30), 60) is True  # day 60
+    assert _within_term_roll_grace(date(2026, 8, 31), 60) is False  # day 61
+    assert _within_term_roll_grace(date(2027, 1, 15), 60) is False
 
 
 def test_discover_live_stamps_the_frontier_on_a_miss_exit(tmp_path: Path) -> None:

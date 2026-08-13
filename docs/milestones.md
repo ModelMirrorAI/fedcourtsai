@@ -52,7 +52,7 @@ The machinery for the first release is running:
   `run:predict` → `run:evaluate`, producing valid ledger artifacts, with
   per-run cost measured from the engines' own logs (`usage.json`, the spend
   roll-up on the ops dashboard) and data validation surfacing as data-health.
-- **Predictors are vetted by cert back-test**: the maintainer-triggered
+- **Predictor vetting is the cert back-test**: the maintainer-triggered
   `run-backtest` workflow replays predictors over decided petitions (outcomes
   hidden) — iteration signal for prompts, retrieval, and calibration, never
   claimable performance.
@@ -67,9 +67,39 @@ The freeze is the cutover that separates the shakedown from the frozen forward
 record — the milestone this file marks. What a process version is, which states
 it passes through, and how the freeze is performed all belong to
 [process-version.md](process-version.md#freezing-the-cutover-procedure);
-**record the resulting commit here when it happens.**
+each freeze commit is recorded here.
 
-- Freeze commit: _not yet frozen — the shakedown is ongoing._
+- Freeze commit: `84b421168` (tagged **`prereg/proc-v1`**) — blesses the six
+  proc-v1 digests (three predictors, three evaluators) and sets the freeze
+  instant `2026-08-15T00:00:00Z`. Carried to `main` by the promotion tagged
+  `promotion/2026-08-12-2` (merged `2026-08-12T14:20:51Z`, before the
+  instant — the auditor's check of the cutover procedure above). Zero stamped
+  cells existed when the freeze landed on `main`, so nothing is listed as
+  pre-registration-excluded; everything earlier is the unstamped
+  alpha/shakedown ledger. **Superseded by proc-v2 below with zero cells ever
+  stamped under it** (step 0's grep on both branches: 0), so its headline is
+  legitimately empty forever; the tag stays as the record that the label was
+  registered, then superseded before any cell ran.
+- Freeze commit: the sal-v2 activation commit as amended before the tag by
+  the merits-baseline accuracy fix, which is where the blessed set now lives
+  (tagged **`prereg/proc-v2`** at
+  its carrying promotion, which also records the hash here) — re-blesses the
+  three predictor digests the predict prompt's third cert moment (the arrival
+  cell) moved, and sets the freeze instant `2026-08-16T00:00:00Z`. The
+  activation commit flips
+  the active salience scorer to `sal-v2`; its caption-census freeze record
+  (caption-v1, pooled federal 0.708 vs private 0.054 over OT2017–24, 8/8
+  complete Terms) is quoted in the activation PR with the corpus sha it ran
+  over. The scored window opens at the first post-promotion metrics refresh,
+  not at the flip — a sal-v2 cell minted before the refreshed statpack has no
+  published baseline (`docs/salience.md`). The evaluator digests carried by
+  the freeze are proc-v1's grading process plus one pre-tag accuracy fix in
+  the evaluate prompt's merits note (the harness merits baseline's third pool
+  guard — the null-provenance refusal in `merits_base_rate` — a
+  scoring-baseline change with no boundary of its own; the prompt edit
+  beside it gives it one, the discipline `docs/process-version.md`
+  prescribes); zero cells were ever stamped
+  under any interim digest set.
 
 ## The near-term target: the OT2026 long-conference cert release
 

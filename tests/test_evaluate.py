@@ -63,7 +63,7 @@ def _term(
     year: int,
     band_rates: dict[str, tuple[float, int]],
     *,
-    version: str = "sal-v1",
+    version: str = "sal-v2",
     alt: dict[str, dict[str, tuple[float, int]]] | None = None,
 ) -> StatPackTerm:
     """A Term whose bands carry ``(rate, weighted_resolved)``.
@@ -277,7 +277,7 @@ def test_the_baseline_matches_the_band_it_is_grouped_by() -> None:
     term = StatPackTerm(
         term=2024,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v1",
+        salience_version="sal-v2",
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -301,7 +301,7 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
         StatPackTerm(
             term=year,
             base_rates=BaseRateBucket(),
-            salience_version="sal-v1",
+            salience_version="sal-v2",
             segments=[
                 StatPackTermSegment(
                     band="baseline",
@@ -332,7 +332,7 @@ def _context(
     # The harness stamps `salience_version` whenever it derives a band
     # (cell_context.build), so the fixture mirrors that pairing by default.
     if salience_version is _DERIVE_FROM_BAND:
-        salience_version = "sal-v1" if band else None
+        salience_version = "sal-v2" if band else None
     assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
@@ -349,7 +349,7 @@ def _split_term(year: int, *, terminal: float, risk_set: float) -> StatPackTerm:
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v1",
+        salience_version="sal-v2",
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -403,19 +403,19 @@ def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
 
 
 def test_pooling_is_version_pinned_to_the_bands_scorer() -> None:
-    """A sal-v2 `high` and a sal-v1 `high` are different populations sharing a
-    label. A sal-v1 band must pool only the sal-v1 Terms — never a blend no
+    """A sal-v1 `high` and a sal-v2 `high` are different populations sharing a
+    label. A sal-v2 band must pool only the sal-v2 Terms — never a blend no
     version ever defined."""
     pack = _statpack(
         _term(2023, {"high": (0.30, 100)}),
-        _term(2022, {"high": (0.60, 100)}, version="sal-v2"),
+        _term(2022, {"high": (0.60, 100)}, version="sal-v1"),
     )
-    # Row-derived band: the live scorer is sal-v1, so only the sal-v1 Term pools.
+    # Row-derived band: the live scorer is sal-v2, so only the sal-v2 Term pools.
     assert segment_base_rate(_row("24-100"), pack) == pytest.approx(0.30)
     # Frozen band: pinned to the version the cell actually froze.
     assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)
-    v2 = _context("high", term=2024, salience_version="sal-v2")
-    assert prediction_base_rate(v2, pack) == pytest.approx(0.60)
+    v1 = _context("high", term=2024, salience_version="sal-v1")
+    assert prediction_base_rate(v1, pack) == pytest.approx(0.60)
 
 
 def test_a_non_active_version_pools_from_its_alt_segments_block() -> None:
@@ -667,8 +667,13 @@ def test_prior_term_and_realized_term_skill_can_disagree_in_sign() -> None:
 
 
 def _merits_term(year: int, *, disturbed: int, parsed: int) -> StatPackMeritsTerm:
-    """One grant-Term row of the merits section — the counters the baseline pools."""
-    return StatPackMeritsTerm(term=year, disturbed=disturbed, parsed=parsed)
+    """One grant-Term row of the merits section — the counters the baseline pools.
+
+    Built as a guard-run row (`cert_order_excluded=0`): a null there marks a
+    build the cert-order pool guard never ran on, which the baseline refuses —
+    the null-guard test constructs its row explicitly.
+    """
+    return StatPackMeritsTerm(term=year, disturbed=disturbed, parsed=parsed, cert_order_excluded=0)
 
 
 def _merits_pack(*terms: StatPackMeritsTerm) -> StatPack:
@@ -729,6 +734,46 @@ def test_merits_base_rate_refuses_a_sample_below_the_stated_floor() -> None:
     assert merits_base_rate(2024, just_under) is None
     at_floor = _merits_pack(_merits_term(2023, disturbed=21, parsed=MERITS_BASE_RATE_MIN_PARSED))
     assert merits_base_rate(2024, at_floor) == pytest.approx(0.70)
+
+
+def test_merits_base_rate_refuses_a_null_guard_pool() -> None:
+    """A pooled Term whose `cert_order_excluded` is null yields no baseline.
+
+    Null marks a build the cert-order pool guard never ran on, so that Term's
+    parsed counts may include the cert-order class the rate must exclude —
+    `metrics/README.md` rules such a section unquotable, and this makes the
+    rule structural rather than conventional.
+    """
+    # Distinguishable numbers on purpose: pooling the null Term would yield
+    # 0.75 and silently dropping it 0.60, so a wrong-branch edit is legible
+    # from the failure, not only from the missing None.
+    null_guard = StatPackMeritsTerm(term=2022, disturbed=36, parsed=40)
+    contaminated = _merits_pack(_merits_term(2023, disturbed=24, parsed=40), null_guard)
+    assert merits_base_rate(2024, contaminated) is None
+    # A null-guard row outside the pooled window never poisons the pool: the
+    # case's own (or later) Term is skipped by the leakage guard, and a Term
+    # behind the lookback window is skipped by the band.
+    future_null = _merits_pack(
+        StatPackMeritsTerm(term=2024, disturbed=40, parsed=40),
+        _merits_term(2023, disturbed=28, parsed=40),
+    )
+    assert merits_base_rate(2024, future_null) == pytest.approx(0.70)
+    behind_window = _merits_pack(
+        _merits_term(2023, disturbed=28, parsed=40),
+        StatPackMeritsTerm(term=2020, disturbed=40, parsed=40),
+    )
+    assert merits_base_rate(2024, behind_window, lookback_terms=2) == pytest.approx(0.70)
+    # Deliberate scoping, pinned: the pack-level roll-up is never consulted —
+    # the pool reads Terms, so refusal is a property of the counts the number
+    # rests on. (The builder fills both levels together; a divergence between
+    # them is a hand-edited pack, which section-level refusal would not defend
+    # against either.) `_merits_pack` leaves the pack-level count at its null
+    # default, so every healthy pool above already exercises this; this states
+    # it as a choice rather than leaving it as drift.
+    pack_level_null = _merits_pack(_merits_term(2023, disturbed=28, parsed=40))
+    assert pack_level_null.merits is not None
+    assert pack_level_null.merits.cert_order_excluded is None
+    assert merits_base_rate(2024, pack_level_null) == pytest.approx(0.70)
 
 
 def test_merits_base_rate_pools_aggregates_not_term_means() -> None:

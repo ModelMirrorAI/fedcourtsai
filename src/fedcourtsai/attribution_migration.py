@@ -75,6 +75,7 @@ from pathlib import Path
 
 from . import corpus
 from .paths import CasePaths, EventPaths
+from .pipeline import moments
 from .pipeline.outcome import CASE_BASELINE_ID_PREFIXES
 from .schemas import Outcome, PredictableEvent, Stage
 from .serialize import read_model, write_yaml
@@ -123,7 +124,19 @@ class _Recorded:
 
     @property
     def is_baseline(self) -> bool:
-        return self.event.event_id.startswith(CASE_BASELINE_ID_PREFIXES)
+        """Baseline-prefixed AND not a declared later moment.
+
+        A declared moment sharing the baseline's prefix (the cert arrival
+        event) resolves with an outcome identical to the baseline's by
+        design — one disposition fans across the stage — so treating it as a
+        second baseline would report every resolved arrival-cohort case as a
+        permanent baseline-pair triage. Stage routing disambiguates declared
+        moments; this triage exists for the *undeclared* twin.
+        """
+        if not self.event.event_id.startswith(CASE_BASELINE_ID_PREFIXES):
+            return False
+        spec = moments.spec_for(self.event.event_id)
+        return spec is None or spec.ordinal == 0
 
     @property
     def fingerprint(self) -> tuple[str, str, int]:
