@@ -2,19 +2,19 @@
   "corpus_rows": 2151698,
   "coverage": {
     "census_filings": 44740,
-    "live_slice_resolved": 20959,
-    "live_slice_rows": 21555
+    "live_slice_resolved": 21040,
+    "live_slice_rows": 21636
   },
-  "dated_resolved": 20982,
+  "dated_resolved": 21063,
   "interim": {
-    "applications": 27215,
-    "extension": 1181,
-    "referred_to_court": 82,
-    "response_requested": 45,
-    "substantive": 206,
-    "substantive_grant_rate": 0.14146341463414633,
-    "substantive_granted": 29,
-    "substantive_resolved": 205,
+    "applications": 27208,
+    "extension": 1242,
+    "referred_to_court": 87,
+    "response_requested": 48,
+    "substantive": 217,
+    "substantive_grant_rate": 0.1388888888888889,
+    "substantive_granted": 30,
+    "substantive_resolved": 216,
     "terms": [
       {
         "applications": 1365,
@@ -31,18 +31,18 @@
         "with_amicus": 24
       },
       {
-        "applications": 1286,
-        "extension": 53,
-        "referred_to_court": 22,
-        "response_requested": 18,
-        "substantive": 27,
-        "substantive_grant_rate": 0.48148148148148145,
-        "substantive_granted": 13,
-        "substantive_resolved": 27,
+        "applications": 1279,
+        "extension": 114,
+        "referred_to_court": 27,
+        "response_requested": 21,
+        "substantive": 38,
+        "substantive_grant_rate": 0.3684210526315789,
+        "substantive_granted": 14,
+        "substantive_resolved": 38,
         "term": 2024,
-        "unknown": 8,
-        "unparsed": 1198,
-        "with_amicus": 19
+        "unknown": 10,
+        "unparsed": 1117,
+        "with_amicus": 22
       },
       {
         "applications": 1177,
@@ -367,197 +367,197 @@
         "with_amicus": 0
       }
     ],
-    "unknown": 66,
-    "unparsed": 25762,
-    "with_amicus": 43
+    "unknown": 68,
+    "unparsed": 25681,
+    "with_amicus": 46
   },
-  "machine_readable_resolved": 27921,
+  "machine_readable_resolved": 28002,
   "merits": {
     "affirmed": 147,
     "affirmed_in_part": 10,
-    "cert_order_excluded": null,
+    "cert_order_excluded": 67,
     "dig": 12,
-    "disturbed": 443,
-    "disturbed_rate": 0.731023102310231,
+    "disturbed": 376,
+    "disturbed_rate": 0.6975881261595547,
     "equally_divided": 4,
-    "granted": 674,
-    "parsed": 606,
-    "reversed": 261,
+    "granted": 607,
+    "parsed": 539,
+    "reversed": 245,
     "terms": [
       {
         "affirmed": 7,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 10,
         "dig": 0,
-        "disturbed": 27,
-        "disturbed_rate": 0.7941176470588235,
+        "disturbed": 17,
+        "disturbed_rate": 0.7083333333333334,
         "equally_divided": 0,
-        "granted": 60,
-        "parsed": 34,
-        "reversed": 19,
+        "granted": 50,
+        "parsed": 24,
+        "reversed": 11,
         "term": 2025,
-        "vacated": 8
+        "vacated": 6
       },
       {
         "affirmed": 19,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 34,
         "dig": 2,
-        "disturbed": 84,
-        "disturbed_rate": 0.7850467289719626,
+        "disturbed": 50,
+        "disturbed_rate": 0.684931506849315,
         "equally_divided": 2,
-        "granted": 109,
-        "parsed": 107,
-        "reversed": 39,
+        "granted": 75,
+        "parsed": 73,
+        "reversed": 38,
         "term": 2024,
-        "vacated": 45
+        "vacated": 12
       },
       {
         "affirmed": 17,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 13,
         "dig": 4,
-        "disturbed": 47,
-        "disturbed_rate": 0.6911764705882353,
+        "disturbed": 34,
+        "disturbed_rate": 0.6181818181818182,
         "equally_divided": 0,
-        "granted": 69,
-        "parsed": 68,
+        "granted": 56,
+        "parsed": 55,
         "reversed": 21,
         "term": 2023,
-        "vacated": 26
+        "vacated": 13
       },
       {
         "affirmed": 22,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 1,
         "dig": 1,
-        "disturbed": 50,
-        "disturbed_rate": 0.684931506849315,
+        "disturbed": 49,
+        "disturbed_rate": 0.6805555555555556,
         "equally_divided": 0,
-        "granted": 75,
-        "parsed": 73,
-        "reversed": 23,
+        "granted": 74,
+        "parsed": 72,
+        "reversed": 22,
         "term": 2022,
         "vacated": 27
       },
       {
         "affirmed": 15,
         "affirmed_in_part": 5,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 1,
         "dig": 3,
-        "disturbed": 47,
-        "disturbed_rate": 0.7121212121212122,
+        "disturbed": 46,
+        "disturbed_rate": 0.7076923076923077,
         "equally_divided": 1,
-        "granted": 69,
-        "parsed": 66,
-        "reversed": 33,
+        "granted": 68,
+        "parsed": 65,
+        "reversed": 32,
         "term": 2021,
         "vacated": 9
       },
       {
         "affirmed": 12,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 2,
         "dig": 0,
-        "disturbed": 59,
-        "disturbed_rate": 0.8309859154929577,
+        "disturbed": 57,
+        "disturbed_rate": 0.8260869565217391,
         "equally_divided": 0,
-        "granted": 87,
-        "parsed": 71,
-        "reversed": 44,
+        "granted": 85,
+        "parsed": 69,
+        "reversed": 42,
         "term": 2020,
         "vacated": 15
       },
       {
         "affirmed": 11,
         "affirmed_in_part": 2,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 2,
         "dig": 1,
-        "disturbed": 44,
-        "disturbed_rate": 0.7857142857142857,
+        "disturbed": 42,
+        "disturbed_rate": 0.7777777777777778,
         "equally_divided": 0,
-        "granted": 63,
-        "parsed": 56,
+        "granted": 61,
+        "parsed": 54,
         "reversed": 31,
         "term": 2019,
-        "vacated": 11
+        "vacated": 9
       },
       {
         "affirmed": 24,
         "affirmed_in_part": 3,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 1,
         "dig": 1,
-        "disturbed": 51,
-        "disturbed_rate": 0.6710526315789473,
+        "disturbed": 50,
+        "disturbed_rate": 0.6666666666666666,
         "equally_divided": 0,
-        "granted": 81,
-        "parsed": 76,
+        "granted": 80,
+        "parsed": 75,
         "reversed": 29,
         "term": 2018,
-        "vacated": 19
+        "vacated": 18
       },
       {
         "affirmed": 20,
         "affirmed_in_part": 0,
-        "cert_order_excluded": null,
+        "cert_order_excluded": 3,
         "dig": 0,
-        "disturbed": 34,
-        "disturbed_rate": 0.6181818181818182,
+        "disturbed": 31,
+        "disturbed_rate": 0.5961538461538461,
         "equally_divided": 1,
-        "granted": 61,
-        "parsed": 55,
-        "reversed": 22,
+        "granted": 58,
+        "parsed": 52,
+        "reversed": 19,
         "term": 2017,
         "vacated": 12
       }
     ],
-    "vacated": 172
+    "vacated": 121
   },
-  "open": 2099772,
+  "open": 2099691,
   "overall": {
     "cases": 2151698,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.46229249316334786
+        "share": 0.4615724806276078
       },
       {
-        "count": 17997,
+        "count": 18011,
         "disposition": "denied",
-        "share": 0.34658937719061744
+        "share": 0.346318764781664
       },
       {
         "count": 7155,
         "disposition": "dismissed",
-        "share": 0.1377922428070716
+        "share": 0.13757763378006807
       },
       {
-        "count": 2183,
+        "count": 2249,
         "disposition": "granted",
-        "share": 0.042040596233100955
+        "share": 0.043244178668256195
       },
       {
         "count": 576,
         "disposition": "gvr",
-        "share": 0.011092708854908909
+        "share": 0.01107543215336397
       },
       {
-        "count": 7,
+        "count": 8,
         "disposition": "withdrawn",
-        "share": 0.00013480722566729578
+        "share": 0.0001538254465744996
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 5.77745252859839e-05
+        "share": 5.768454246543734e-05
       }
     ],
     "key": "",
-    "open": 2099772,
-    "resolved": 51926
+    "open": 2099691,
+    "resolved": 52007
   },
-  "resolved": 51926,
+  "resolved": 52007,
   "schema_version": "1.0",
   "sections": [
     {
@@ -566,39 +566,39 @@
           "cases": 589619,
           "dispositions": [
             {
-              "count": 17570,
+              "count": 17584,
               "disposition": "denied",
-              "share": 0.8266290284638909
+              "share": 0.8241469816272966
             },
             {
-              "count": 1939,
+              "count": 2005,
               "disposition": "granted",
-              "share": 0.09122559397788756
+              "share": 0.09397262842144732
             },
             {
               "count": 934,
               "disposition": "dismissed",
-              "share": 0.043942601740766876
+              "share": 0.04377577802774653
             },
             {
               "count": 576,
               "disposition": "gvr",
-              "share": 0.02709950599858857
+              "share": 0.02699662542182227
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.010915078804987061
+              "share": 0.010873640794900637
             },
             {
-              "count": 4,
+              "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00018819101387908727
+              "share": 0.00023434570678665167
             }
           ],
           "key": "scotus",
-          "open": 568364,
-          "resolved": 21255
+          "open": 568283,
+          "resolved": 21336
         },
         {
           "cases": 247637,
@@ -971,7 +971,7 @@
     {
       "buckets": [
         {
-          "cases": 126784,
+          "cases": 126779,
           "dispositions": [
             {
               "count": 204,
@@ -995,7 +995,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126517,
+          "open": 126512,
           "resolved": 267
         },
         {
@@ -1084,37 +1084,37 @@
           "resolved": 3
         },
         {
-          "cases": 32936,
+          "cases": 32941,
           "dispositions": [
             {
-              "count": 11855,
+              "count": 11869,
               "disposition": "denied",
-              "share": 0.8207560232622543
+              "share": 0.8171428571428572
             },
             {
-              "count": 1710,
+              "count": 1776,
               "disposition": "granted",
-              "share": 0.11838825810024924
+              "share": 0.12227194492254734
             },
             {
               "count": 549,
               "disposition": "dismissed",
-              "share": 0.03800886181113265
+              "share": 0.03779690189328744
             },
             {
               "count": 326,
               "disposition": "gvr",
-              "share": 0.022569925228468568
+              "share": 0.022444061962134252
             },
             {
-              "count": 4,
+              "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00027693159789531985
+              "share": 0.00034423407917383823
             }
           ],
           "key": "2020s",
-          "open": 18492,
-          "resolved": 14444
+          "open": 18416,
+          "resolved": 14525
         },
         {
           "cases": 107,
@@ -8247,9 +8247,9 @@
     }
   ],
   "timing": {
-    "cases": 2533,
-    "mean_days": 56.8,
-    "median_days": 7.0,
-    "p90_days": 127.0
+    "cases": 2609,
+    "mean_days": 55.3,
+    "median_days": 6.0,
+    "p90_days": 124.0
   }
 }
