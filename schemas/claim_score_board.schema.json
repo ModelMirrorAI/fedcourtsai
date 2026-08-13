@@ -264,6 +264,39 @@
       ],
       "title": "ClaimScoreStratum",
       "type": "object"
+    },
+    "FrozenProcessRecord": {
+      "additionalProperties": false,
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so the artifact alone could not\nsay *which* digests and which instant \"frozen\" meant \u2014 a reader had to\nresolve the build's commit back to the source. This block records them on\nthe board itself, the way ``salience_versions`` names the gate. It states\nwhat the constants *were* at build time on every build, including an\n``all``-scope one \u2014 provenance of the partition's definition, never a\nclaim the partition was applied.",
+      "properties": {
+        "digests": {
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them",
+          "items": {
+            "type": "string"
+          },
+          "title": "Digests",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The freeze instant (`FROZEN_SINCE`); null while no freeze is in force",
+          "title": "Since"
+        }
+      },
+      "required": [
+        "digests",
+        "since"
+      ],
+      "title": "FrozenProcessRecord",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -300,6 +333,18 @@
       ],
       "default": null,
       "description": "The judge validation over the forward stratum \u2014 the only stratum whose mechanical totals are forecasts; null when the stratum has no cells in scope"
+    },
+    "frozen_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FrozenProcessRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The freeze constants in force at build time, exactly as the leaderboard records them; null only on a surface built before the record existed"
     },
     "procedural_agreement": {
       "anyOf": [

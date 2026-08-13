@@ -1811,6 +1811,29 @@ class LeaderboardStage(_Strict):
     )
 
 
+class FrozenProcessRecord(_Strict):
+    """The freeze constants in force when a board was built.
+
+    ``process_scope: "frozen"`` names a partition whose membership lives in
+    code (:mod:`fedcourtsai.process_version`), so the artifact alone could not
+    say *which* digests and which instant "frozen" meant — a reader had to
+    resolve the build's commit back to the source. This block records them on
+    the board itself, the way ``salience_versions`` names the gate. It states
+    what the constants *were* at build time on every build, including an
+    ``all``-scope one — provenance of the partition's definition, never a
+    claim the partition was applied.
+    """
+
+    digests: list[str] = Field(
+        description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
+        "predictors and evaluators together, exactly as the freeze commit "
+        "blessed them"
+    )
+    since: datetime | None = Field(
+        description="The freeze instant (`FROZEN_SINCE`); null while no freeze is in force"
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -1838,6 +1861,12 @@ class Leaderboard(_Strict):
         "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        default=None,
+        description="The freeze constants in force at build time, so what "
+        "`frozen` meant is answerable from the artifact alone; null only on a "
+        "board built before the record existed",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -2131,6 +2160,12 @@ class ClaimScoreBoard(_Strict):
         "process versions within a scope: a scope holding more than one "
         "claims-carrying process version must not be read as one population "
         "(docs/outcome-decomposition.md)",
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        default=None,
+        description="The freeze constants in force at build time, exactly as "
+        "the leaderboard records them; null only on a surface built before "
+        "the record existed",
     )
     evaluations_total: int = Field(
         ge=0,

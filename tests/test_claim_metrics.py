@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import process_version
 from fedcourtsai.claim_metrics import (
     AGREEMENT_MIN_PAIRS,
     agreement_summary,
@@ -122,6 +123,11 @@ def test_empty_stream_is_the_fully_suppressed_board() -> None:
     assert board.evaluations_total == 0
     assert board.cells_with_claims == 0
     assert board.entries == []
+    # Even the empty board records what the freeze constants were, exactly as
+    # the leaderboard does, so `frozen` is answerable from the artifact alone.
+    assert board.frozen_process is not None
+    assert board.frozen_process.digests == sorted(process_version.FROZEN_PROCESS_DIGESTS)
+    assert board.frozen_process.since == process_version.FROZEN_SINCE
     # A stratum with no cells at all carries no agreement record, not a zero.
     assert board.forward_agreement is None
     assert board.retrospective_agreement is None

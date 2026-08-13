@@ -47,6 +47,7 @@ from typing import Literal
 
 from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, kendall_tau_b
 from .pipeline.moments import first_moment
+from .process_version import frozen_process_record
 from .schemas import (
     ClaimJudgeAgreement,
     ClaimMeanScore,
@@ -243,6 +244,9 @@ def build_claim_scores(
             entries.append(entry)
     return ClaimScoreBoard(
         process_scope=process_scope,
+        # Recorded on every build, `all` scope included: it states what the
+        # freeze constants were, not that the partition was applied.
+        frozen_process=frozen_process_record(),
         evaluations_total=total,
         cells_with_claims=with_claims,
         forward_agreement=_agreement(by_stratum[FORWARD]),
