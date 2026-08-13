@@ -103,11 +103,13 @@ stays outside the gate:
 
   **The board also names its partitions.** `frozen_process` records the freeze
   constants in force at build time — the blessed digest set and the freeze
-  instant — so what `frozen` meant is answerable from the artifact alone
-  rather than by resolving the build's commit back to
-  `fedcourtsai.process_version`; it appears on every build, an `"all"`-scope
+  instant — so *what was blessed* is readable from the artifact rather than by
+  resolving the build's commit back to `fedcourtsai.process_version`. The
+  digest list pools predictors and evaluators; only the predictor subset is the
+  enforced membership filter, which the flat list does not distinguish. It
+  appears on every build, an `"all"`-scope
   one included, as the partition's definition rather than a claim it was
-  applied (`claim-scores.json` carries the identical block; null only on a
+  applied (`claim-scores.json` carries the identical block; null on a
   board built before the record existed). And `salience_versions` lists the distinct
   salience versions the ranked cells' baselines were read under. The gate is
   not part of any actor's process, so a change to it moves **no process

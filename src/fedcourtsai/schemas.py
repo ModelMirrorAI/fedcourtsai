@@ -1815,19 +1815,24 @@ class FrozenProcessRecord(_Strict):
     """The freeze constants in force when a board was built.
 
     ``process_scope: "frozen"`` names a partition whose membership lives in
-    code (:mod:`fedcourtsai.process_version`), so the artifact alone could not
-    say *which* digests and which instant "frozen" meant — a reader had to
-    resolve the build's commit back to the source. This block records them on
-    the board itself, the way ``salience_versions`` names the gate. It states
-    what the constants *were* at build time on every build, including an
-    ``all``-scope one — provenance of the partition's definition, never a
-    claim the partition was applied.
+    code (:mod:`fedcourtsai.process_version`), so without this block a reader
+    would have to resolve the build's commit back to the source to see *which*
+    digests were blessed and from which instant. Recording them on the board
+    itself, the way ``salience_versions`` names the gate, states what was
+    blessed at build time — on every build, an ``all``-scope one included, as
+    the partition's definition and never a claim it was applied. It records the
+    *blessed* set, not the *filter*: only the predictor subset is the enforced
+    membership test (``process_version.is_frozen``), while the evaluator
+    digests are record-only (timing alone enforced), and this flat list does
+    not distinguish the two — that mapping lives in ``process_version``.
     """
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
         "predictors and evaluators together, exactly as the freeze commit "
-        "blessed them"
+        "blessed them. Not a filter: the enforced membership test is the "
+        "predictor subset alone, which this pooled list does not distinguish "
+        "(see `process_version`)"
     )
     since: datetime | None = Field(
         description="The freeze instant (`FROZEN_SINCE`); null while no freeze is in force"
@@ -1864,9 +1869,10 @@ class Leaderboard(_Strict):
     )
     frozen_process: FrozenProcessRecord | None = Field(
         default=None,
-        description="The freeze constants in force at build time, so what "
-        "`frozen` meant is answerable from the artifact alone; null only on a "
-        "board built before the record existed",
+        description="The freeze constants in force at build time — recorded on "
+        "every build, an `all`-scope one included, as the partition's "
+        "definition and never a claim it was applied; null on a board built "
+        "before the record existed, or one constructed without it",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -2164,8 +2170,9 @@ class ClaimScoreBoard(_Strict):
     frozen_process: FrozenProcessRecord | None = Field(
         default=None,
         description="The freeze constants in force at build time, exactly as "
-        "the leaderboard records them; null only on a surface built before "
-        "the record existed",
+        "the leaderboard records them — the partition's definition, never a "
+        "claim it was applied; null on a surface built before the record "
+        "existed, or one constructed without it",
     )
     evaluations_total: int = Field(
         ge=0,

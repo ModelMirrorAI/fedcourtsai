@@ -62,10 +62,10 @@
     },
     "FrozenProcessRecord": {
       "additionalProperties": false,
-      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so the artifact alone could not\nsay *which* digests and which instant \"frozen\" meant \u2014 a reader had to\nresolve the build's commit back to the source. This block records them on\nthe board itself, the way ``salience_versions`` names the gate. It states\nwhat the constants *were* at build time on every build, including an\n``all``-scope one \u2014 provenance of the partition's definition, never a\nclaim the partition was applied.",
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
       "properties": {
         "digests": {
-          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them",
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership test is the predictor subset alone, which this pooled list does not distinguish (see `process_version`)",
           "items": {
             "type": "string"
           },
@@ -436,7 +436,7 @@
         }
       ],
       "default": null,
-      "description": "The freeze constants in force at build time, so what `frozen` meant is answerable from the artifact alone; null only on a board built before the record existed"
+      "description": "The freeze constants in force at build time \u2014 recorded on every build, an `all`-scope one included, as the partition's definition and never a claim it was applied; null on a board built before the record existed, or one constructed without it"
     },
     "predictors_ranked": {
       "description": "Number of predictors on the cert board (a procedural-only predictor still appears, sorted after every ranked one)",
