@@ -340,7 +340,13 @@ of the pre-resize sticky set, so the run output is that record — note the
 pre-apply `corpus.db.ref` beside it), and running it is a recorded operational
 decision, not part of the pass: run `dedupe-live-rows --apply` first (a merge
 takes the latch stickily from either twin), and disclose the cleared set in
-any write-up whose cohort it reshapes.
+any write-up whose cohort it reshapes. Because the corpus is written only by
+the writer lane, the `--apply` runs there rather than from a checkout: dispatch
+**`run-seed` with `unlatch_overselected`** set, which runs the clear after the
+scope reconcile on the current corpus and commits the pointer to `main` like
+every other corpus write. Dry-run it first from a read-only checkout
+(`fedcourts unlatch-overselected`, the default) to see the count and the
+cleared-id set before the dispatch.
 
 **Enforcement wiring** is small but real (it is not free):
 

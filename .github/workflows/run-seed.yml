@@ -52,6 +52,20 @@ on:
           - historical-paid
           - historical-ifp
           - both
+      unlatch_overselected:
+        description: >-
+          One-time: clear the pre-resize `salience_selected` overhang. The
+          sticky latch is additive, so petitions latched under old capacity
+          caps keep earning cells the shipped envelope never budgeted; this
+          recomputes each pending cohort under the current config and clears
+          the latch on pending petitions a from-scratch selection would not
+          pick (dry-run it locally first — `fedcourts unlatch-overselected`).
+          Only fires on an explicit dispatch with this set; never on the
+          schedule. A committed prediction on a cleared case stays committed
+          and graded.
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -346,6 +360,40 @@ jobs:
           git commit -m "seed: latch out-of-scope cases"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "scope-latch pointer"
+
+      # The one-time pre-resize overhang clear (`unlatch-overselected`). Unlike
+      # the scope reconcile above it is NOT a standing daily pass: it fires only
+      # on an explicit dispatch that sets `unlatch_overselected`, never on the
+      # schedule, because clearing the sticky latch is a deliberate maintainer
+      # act after a capacity resize, not a recurring convergence. It runs here,
+      # after the scope reconcile, so it recomputes selection over the
+      # now-current, in-scope corpus. NON-BLOCKING like its sibling. The printed
+      # `SalienceUnlatchResult` (the cleared-id ledger + the pre-apply pointer)
+      # lands in the step log as the record of the pre-resize sticky set.
+      - name: Clear the pre-resize salience overhang (unlatch-overselected)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.unlatch_overselected }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to reconcile.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping unlatch-overselected"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts unlatch-overselected --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "No overhang to clear; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: clear pre-resize salience overhang"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "unlatch-overselected pointer"
 
       # An application docket's baseline event is a stay or injunction, not a
       # cert petition; discovery mints it as motion/interim, and this converges
