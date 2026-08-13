@@ -156,6 +156,19 @@ def current_docket_term(today: date) -> int:
     return year % 100
 
 
+def term_roll_date(today: date) -> date:
+    """The July 1 on which the filing-Term prefix ``today`` uses last rolled.
+
+    The docket-number roll is July 1 (see :func:`current_docket_term`), so this
+    is that boundary for the Term in force ``today``: July 1 of the same year in
+    the second half, of the prior year in the first half. ``(today - this).days``
+    is how far past the roll ``today`` sits — the axis the outgoing-Term grace
+    window is measured on.
+    """
+    year = today.year if today.month >= 7 else today.year - 1
+    return date(year, 7, 1)
+
+
 class SupremeCourtClient:
     """Polite fetcher for the per-docket JSON. Read-only; no token, no governor.
 

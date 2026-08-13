@@ -4645,7 +4645,9 @@ def live_poll(
     section of ``config/tracking.yaml`` bound wall clock and politeness.
     Discovery probes the Term's numbering frontier across the paid, IFP, and
     application streams from the persisted per-(Term, stream) cursors and
-    onboards each served petition or application; the refresh re-polls the pending
+    onboards each served petition or application — and, for a window after the
+    July numbering roll, the outgoing Term too, so its late tail is caught; the
+    refresh re-polls the pending
     modern-cert watchlist (recent Terms first), then the application rotation
     re-polls unresolved interim applications under its own cap — queueing
     predict for a changed, still-unresolved substantive application in scope

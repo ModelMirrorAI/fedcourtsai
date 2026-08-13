@@ -55,7 +55,17 @@ Three access facts shape the client:
   three streams: `26-1`, `26-5001`, and `26A1` were all docketed 2026-07-01,
   while `25-1432` (2026-06-30) closes the OT25 paid stream. A prober keyed to
   the Term's October opening misses the entire summer intake
-  (`current_docket_term` carries the roll).
+  (`current_docket_term` carries the roll). The roll has a second edge: once
+  the primary probe follows the incoming Term's numbers, the *outgoing* Term's
+  streams stop advancing, so a late filing onto the old prefix goes unseen — and
+  the historical walker does not recover it, since that walker advances its
+  cursor over every served serial whether decided or not, so a serial it passes
+  while still pending is never re-read: the tail is lost, not merely delayed.
+  For `outgoing_term_grace_days`
+  after the July roll (`live:` in `tracking.yaml`), discovery also probes
+  `term - 1` from its own cursor — past a stale frontier — so that tail is
+  caught at the source; the window, not the frontier stamp, retires the extra
+  probe, because a drained stream is exactly the one a late tail lands on.
 - Be a polite client: throttle to ~1 request/second, back off on errors, and
   poll on a cadence matched to the docket's rhythm (the shipped cadence is
   four live windows a day, covering the conference watchlist and frontier
