@@ -544,9 +544,11 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     For a **process-stamped** cell, a null ``predicted_reasoning_doc`` is itself a
     problem: the prompt contract requires the forecast document at every stage, and
     the field is nullable only so records written before it existed still validate.
-    The harness stamp is what proves a record post-dates the field — a stamped cell
-    ran under a prompt that requires the write, so its absence is a broken cell,
-    not a legacy shape. Unstamped (alpha/shakedown) records stay valid.
+    The stamp is the key because no stamped record predates the field: the whole
+    committed ledger is unstamped (the alpha marker), no predict run has committed
+    since stamping was wired, and every run after it also carries the field — so a
+    stamped cell missing the document is a broken cell, never a legacy shape.
+    Unstamped (alpha/shakedown) records stay valid.
     """
     problems: list[str] = []
     checked = 0
@@ -560,12 +562,11 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
         except (OSError, ValueError, ValidationError):
             continue
         if prediction.process_version is not None and prediction.predicted_reasoning_doc is None:
-            checked += 1
             problems.append(
                 f"prediction {path}: predicted_reasoning_doc is null on a "
-                "process-stamped cell; the stamp proves the record post-dates the "
-                "field, so the prompt contract's required forecast document is "
-                "missing rather than merely pre-dating it"
+                "process-stamped cell; no stamped record predates the field, so "
+                "the prompt contract's required forecast document is missing "
+                "rather than merely pre-dating it"
             )
         for field_name, doc in (
             ("reasoning_doc", prediction.reasoning_doc),
