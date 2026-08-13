@@ -50,6 +50,18 @@ def is_transient(exc: BaseException) -> bool:
     return isinstance(exc, httpx.RequestError)
 
 
+def is_throttled(exc: BaseException) -> bool:
+    """Whether a failed request is upstream throttling (HTTP 429) specifically.
+
+    The narrow slice of :func:`is_transient` a caller reads as "the shared
+    quota wall, not this request's fault": a 429 that survives the client's
+    own retry cycle tells a batch consumer to stop rather than press every
+    remaining item into the same wall. Kept here beside ``is_transient`` so
+    the status-code taxonomy lives in one place.
+    """
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
+
+
 # The failure-queue error-class taxonomy — deliberately the *same* transient /
 # permanent split as `is_transient`, not a parallel one, so a retry (part of the
 # client) and the durable failure queue agree on what "worth retrying" means.

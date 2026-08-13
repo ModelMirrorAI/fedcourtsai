@@ -775,12 +775,14 @@ def enrich_opinions_cmd(
     whose upstream `type` marks it a separate writing (a concurrence, a
     dissent) never becomes the body. Each refusal is counted and the citations
     still land — a coverage gap, never fatal, as are a docket linking no
-    cluster and a per-case REST or parse failure.
+    cluster and a per-case non-429 REST or parse failure.
 
     Three REST requests a case (two where a REST-shaped snapshot already links
     the cluster), so `--max-cases` bounds the run's spend on top of the
     client's rate governor; the walk stops cleanly when the API budget is
-    exhausted, reporting the cases it never reached. Run it outside a pull
+    exhausted — or when a 429 survives the client's retries, a quota wall
+    either way — deferring the unfinished cases for a re-run in a genuine
+    dead zone. Run it outside a pull
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 

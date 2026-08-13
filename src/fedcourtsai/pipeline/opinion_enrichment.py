@@ -18,8 +18,9 @@ so its newest snapshot is normally a supremecourt.gov payload, which carries no
 GVRs together) and ≈120 to 130 a Term, so converging the standing backlog costs
 ≈3,750 requests and holding it ≈400 a Term — days of the allowance the pull
 windows leave, not a budget event. ``max_cases`` bounds any one run on top of
-the client's own governor, and a :class:`RateBudgetExceeded` stops the walk
-cleanly with the cases it never reached reported. Corpus-wide opinion coverage
+the client's own governor, and either wall — the client's request budget
+(:class:`RateBudgetExceeded`) or a 429 its retries could not clear — stops the
+walk cleanly with the unfinished cases reported as deferred. Corpus-wide opinion coverage
 is a different problem with a different answer: the replication channel
 (``docs/data-sources.md``), not more REST.
 
@@ -79,7 +80,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
-from ..courtlistener import CourtListenerClient, RateBudgetExceeded
+from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_throttled
 from ..supremecourt import is_live_docket_id
 
 # A modest default: the pass is a standing maintenance step, not a bulk load,
@@ -148,7 +149,9 @@ class OpinionEnrichmentResult(BaseModel):
         default=None, description="Why the walk ended early, or None when it ran the cap out"
     )
     deferred: list[str] = Field(
-        default_factory=list, description="Admitted case ids the walk never reached"
+        default_factory=list,
+        description="Admitted case ids the walk did not complete — left for the "
+        "next run, which re-derives the same predicate",
     )
 
 
@@ -370,12 +373,14 @@ def _stop_reason(exc: Exception) -> str | None:
 
     Two faults are the batch's, not a case's: the client's own request budget
     (:class:`RateBudgetExceeded`) and a 429 its retry cycle could not clear —
-    the shared daily quota spent. Every later case would hit the same wall, so
-    both stop the walk; anything else costs its case and nothing more.
+    a quota wall, whichever window imposed it. Every later case would hit the
+    same wall, so both stop the walk; anything else costs its case and nothing
+    more. (A persistent 5xx is deliberately not a wall here: ``max_cases``
+    bounds what a degraded upstream can burn, per the module docstring.)
     """
     if isinstance(exc, RateBudgetExceeded):
         return f"API budget exhausted ({exc})"
-    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+    if is_throttled(exc):
         return f"CourtListener throttling persisted ({exc})"
     return None
 
@@ -402,10 +407,10 @@ def enrich_opinions(
     permanent. A per-case REST or parse failure is recorded and the walk
     continues; :class:`RateBudgetExceeded` stops it outright, since every later
     case would hit the same wall — and a **429 that survived the client's own
-    retries** stops it the same way, because persistent throttling means the
-    shared daily quota is spent, so the unfinished remainder defers for a
-    re-run in a genuine dead zone instead of burning the batch into the wall.
-    ``max_cases`` is the walk's only other bound,
+    retries** stops it the same way, because a throttle the retry cycle could
+    not clear is a quota wall (whichever window it is), so the unfinished
+    remainder defers for a re-run in a genuine dead zone instead of burning
+    the batch into the wall. ``max_cases`` is the walk's only other bound,
     and it is a hard one — the rotation's wall-clock deadline and transient
     breaker have no counterpart here because the 50-case default cap bounds
     the damage a degraded upstream can do without them (150 requests, half
@@ -476,9 +481,10 @@ def enrich_opinions(
                 result.stopped = reason
                 result.deferred = [pending.case_id for pending, _ in admitted[index:]]
                 break
-            # ValueError covers what an untrusted response body can raise on the
-            # way in — a 200 that is not JSON, most of all. Both are one case's
-            # problem, so both cost that case and nothing else.
+            # A non-batch fault: a non-429 REST failure, or the ValueError an
+            # untrusted response body can raise on the way in (a 200 that is
+            # not JSON, most of all). Either is one case's problem, so it
+            # costs that case and nothing else.
             result.failed.append({"case_id": row.case_id, "reason": f"{type(exc).__name__}: {exc}"})
             continue
     result.requests = walk.requests
