@@ -434,7 +434,7 @@ _MERITS_EVENT = "evt-order-judgment"
 def _merits_pack(*, rate_terms: dict[int, tuple[int, int]]) -> StatPack:
     """A pack whose merits section carries ``term -> (disturbed, parsed)``."""
     terms = [
-        StatPackMeritsTerm(term=year, disturbed=d, parsed=p)
+        StatPackMeritsTerm(term=year, disturbed=d, parsed=p, cert_order_excluded=0)
         for year, (d, p) in sorted(rate_terms.items(), reverse=True)
     ]
     return StatPack(

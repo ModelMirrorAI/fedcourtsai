@@ -532,7 +532,11 @@ the section's `cert_order_excluded`. When that count is a number, the pooled
 **rate** is clean of every cert-order vacatur whose judgment parsed with a
 date; when it is `null`, the pack predates the guard, and the section's
 figures carry whatever contamination the guard would have removed — quote
-nothing from a null-guard merits section. Three residues
+nothing from a null-guard merits section. The merits baseline enforces this
+structurally at the granularity that matters: `merits_base_rate` returns no
+baseline when any Term **inside its pooled window** carries a null
+count (a null on a Term the leakage rule or the lookback window already
+excludes contributes nothing and so cannot contaminate the rate). Three residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
@@ -552,8 +556,10 @@ publishes.
 
 A merits **skill** number exists only where the pack can support it: the
 merits section publishes only once a corpus row carries a parsed judgment
-(the guarded cohort above), and the pooled prior-Term sample must clear the
-stated minimum — below it there is no baseline, the declared claim goes
+(the guarded cohort above), the pooled prior-Term sample must clear the
+stated minimum, and every Term inside the pooled window must carry a
+non-null guard count (the null-provenance refusal under `statpack.json`
+above) — behind any of these there is no baseline, the declared claim goes
 unscored, and the merits stage block's skill figure is null with
 `skill_scored` zero, exactly as the interim block's are. A merits cell
 records `segment_base_rate` read from the

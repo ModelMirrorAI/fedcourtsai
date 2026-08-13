@@ -450,8 +450,8 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
                 disturbed=51,
                 terms=[
                     # OT2023 is all-disturbed, so pooling it is unmissable.
-                    StatPackMeritsTerm(term=2023, parsed=30, disturbed=30),
-                    StatPackMeritsTerm(term=2022, parsed=30, disturbed=21),
+                    StatPackMeritsTerm(term=2023, parsed=30, disturbed=30, cert_order_excluded=0),
+                    StatPackMeritsTerm(term=2022, parsed=30, disturbed=21, cert_order_excluded=0),
                 ],
             ),
         ),

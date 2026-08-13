@@ -617,7 +617,9 @@ version-free — read at the **grant** Term (`grant_term_year` over the merits
 event's `opened_at`), never the frozen context's docket-number Term, which
 runs a Term later for a summer-docketed pre-October grant and would admit the
 case's own cohort; so the claim scores only
-once prior grant Terms carry parsed judgments. A DIG and an equally divided
+once prior grant Terms carry parsed judgments, clear the pooled minimum,
+and carry the pool guard's count on every Term inside the window
+(`docs/decision-model.md`'s three guards). A DIG and an equally divided
 affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
 same way; `docs/decision-model.md` is the registered design.
 

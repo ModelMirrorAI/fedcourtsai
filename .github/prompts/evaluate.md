@@ -300,11 +300,15 @@ fails the cell.
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. Note for reading
       the two together: the claim's baseline pools the same statpack counts
-      your `segment_base_rate` does, but the harness block does not itself
-      refuse a pre-guard section — so where the omit rule above nulls your
-      rate over a section with no `excluded` count, your omission is
-      deliberately the stricter of the two. Record the divergence in
-      `evaluation.md` rather than reconciling it.
+      your `segment_base_rate` does, and the harness block refuses a pool
+      whenever a Term inside its pooled window carries a null `excluded`
+      count. On any pack the pipeline builds the two rules answer alike —
+      the guard count fills per build, every level together, so a section
+      and its Terms are null (or not) as one — and your section-level omit
+      rule is the broader one by construction. A pack where the two diverge
+      was not built by the pipeline: treat an observed divergence as a fact
+      about the pack, note it in `flags.json` and `evaluation.md`, and do
+      not reconcile the numbers.
 
     Say in `evaluation.md` that the cell is merits, which baseline you took or
     why none was available, and what the vote block could and could not be

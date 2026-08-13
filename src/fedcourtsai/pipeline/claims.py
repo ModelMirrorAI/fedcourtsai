@@ -290,8 +290,10 @@ def _baseline_judgment_disturbed(
     where the docket Term runs one later and would admit the case's own cohort
     into its own baseline, and keying on the grant Term is also what keeps two
     cases granted in the same Term scored against the same pool. ``None`` —
-    claim unscored — where the caller supplied no grant Term, or the prior
-    Terms' pooled sample does not clear the baseline's minimum.
+    claim unscored — where the caller supplied no grant Term, where the prior
+    Terms' pooled sample does not clear the baseline's minimum, or where a
+    Term inside the pooled window carries a null ``cert_order_excluded``
+    (the baseline's provenance refusal).
     """
     if grant_term is None:
         return None

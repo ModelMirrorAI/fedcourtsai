@@ -3959,7 +3959,8 @@ class _StatPackMeritsCounts(_Strict):
         "to fire on render the same zero, which is why the count is "
         "published rather than implied. Null records a build the guard "
         "never ran on at all — a pack parsed from before the guard existed "
-        "must not read as a measurement that it removed nothing.",
+        "must not read as a measurement that it removed nothing, and the "
+        "merits baseline refuses to pool from a Term carrying it.",
     )
     parsed: int = Field(
         default=0,
