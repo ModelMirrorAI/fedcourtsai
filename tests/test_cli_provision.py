@@ -455,6 +455,28 @@ def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
     assert context["term"] == 2024  # docket 24-12
 
 
+def test_the_cell_context_reads_the_caption_band_from_the_payload(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """A federal-petitioner arrival cell must freeze `federal`, and the caption
+    has to come from the payload the cell reads — a band frozen from a corpus
+    column the snapshot never disclosed would break the reproducibility rule
+    the module states (an auditor re-parses the provisioned snapshot and
+    recovers the same band)."""
+    payload: dict[str, Any] = {
+        "CaseNumber": "24-12 ",
+        "PetitionerTitle": "United States",
+        "ProceedingsandOrder": [
+            {"Date": "Jan 5 2025", "Text": "Petition for a writ of certiorari filed."},
+        ],
+    }
+    context = _provision(fixture_corpus, payload, date(2026, 7, 14))
+    assert context["signals_observable"] is True
+    assert context["distribution_count"] == 0  # arrival posture: nothing distributed
+    assert context["band"] == "federal"
+    assert context["salience_version"] == "sal-v2"
+
+
 def test_a_repeated_conference_does_not_inflate_the_frozen_count(
     fixture_corpus: FixtureCorpus,
 ) -> None:

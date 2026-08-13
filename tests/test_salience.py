@@ -967,11 +967,16 @@ def test_sal_v2_selects_the_arrival_cohort_by_predicate() -> None:
     capacity — while sal-v1 (docket-acquired features only) selects none of
     them, and a distributed petition never enters the arrival pass."""
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, arrival_sample_rate=0.05)
+    filed = {"date_filed": date(2026, 7, 20)}  # past the cohort-start bound
     rows = [
         # In the 1-in-20 slice at 0.05 (golden vector from the draw tests).
-        _petition("scotus/26000058", distribution_count=None, conference=None, docket="26-58"),
+        _petition(
+            "scotus/26000058", distribution_count=None, conference=None, docket="26-58"
+        ).model_copy(update=filed),
         # Out of the slice, private petitioner: not selected.
-        _petition("scotus/26000001", distribution_count=None, conference=None, docket="26-1"),
+        _petition(
+            "scotus/26000001", distribution_count=None, conference=None, docket="26-1"
+        ).model_copy(update=filed),
         # Out of the slice, federal petitioner: the carve-in takes it.
         _petition(
             "scotus/26000002",
@@ -979,14 +984,34 @@ def test_sal_v2_selects_the_arrival_cohort_by_predicate() -> None:
             conference=None,
             docket="26-2",
             petitioner_title="United States",
-        ),
+        ).model_copy(update=filed),
         # Distributed: the escalation cohort's business, never the arrival pass.
         _petition("scotus/26000003", distribution_count=1, docket="26-3"),
+        # Filed before the cohort-start bound: the standing backlog, out even
+        # though federal — the backlog earns escalation selection, never an
+        # arrival cell (the fixture default date_filed is pre-boundary).
+        _petition(
+            "scotus/26000004",
+            distribution_count=None,
+            conference=None,
+            docket="25-4",
+            petitioner_title="United States",
+        ),
+        # No filing date at all: no arrival moment to select at.
+        _petition(
+            "scotus/26000005",
+            distribution_count=None,
+            conference=None,
+            docket="26-5",
+            petitioner_title="United States",
+        ).model_copy(update={"date_filed": None}),
     ]
     _, v2_select, _, _ = plan_cohorts(rows, config, version=SCORERS["sal-v2"])
     assert "scotus/26000058" in v2_select  # the draw
     assert "scotus/26000002" in v2_select  # the federal carve-in
     assert "scotus/26000001" not in v2_select
+    assert "scotus/26000004" not in v2_select  # pre-boundary backlog
+    assert "scotus/26000005" not in v2_select  # dateless
     _, v1_select, _, _ = plan_cohorts(rows, config, version=SCORERS["sal-v1"])
     assert not {"scotus/26000058", "scotus/26000001", "scotus/26000002"} & set(v1_select)
 

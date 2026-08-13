@@ -108,7 +108,7 @@
             }
           ],
           "default": null,
-          "description": "The sal-v1 salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
+          "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
           "title": "Band"
         },
         "cutoff": {

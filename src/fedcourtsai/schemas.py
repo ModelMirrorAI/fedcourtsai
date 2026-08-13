@@ -291,8 +291,8 @@ class GroupBy(StrEnum):
     Solicitor General, and ``fee_class`` by the docket serial's numbering
     stream (paid / IFP); rows the live channel never parsed share one
     ``(unknown)`` bucket on the first two, so parse coverage stays visible.
-    ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
-    (high / elevated / baseline) over the paid modern-cert petitions — the
+    ``salience_band`` groups by the active scorer's frozen grant-likelihood band
+    over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
     ``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's
     questions-presented text (``docs/qp-topic.md``) — distinct from ``topic``,
@@ -604,7 +604,7 @@ class PredictionContext(_Strict):
     )
     band: str | None = Field(
         default=None,
-        description="The sal-v1 salience band as at prediction, derived from the "
+        description="The active scorer's salience band as at prediction, derived from the "
         "signals above. None when they were unobservable, which is the honest "
         "answer for a cell whose snapshot carried no proceedings — the evaluator "
         "then falls back to the terminal band rather than guessing",
@@ -1209,7 +1209,7 @@ class Evaluation(_Strict):
         ge=0.0,
         le=1.0,
         description="The leakage-safe segment base rate for this case, on the stage's "
-        "own axis. On a cert cell that is its sal-v1 band's grant rate pooled over "
+        "own axis. On a cert cell that is its salience band's grant rate pooled over "
         "statpack Terms strictly before the case's Term, and which band — therefore "
         "which of the two published rates — is recorded in base_rate_basis below. On "
         "a merits cell it is instead the statpack merits section's disturbed rate "
@@ -2629,14 +2629,14 @@ class CertBacktestSegment(_Strict):
     Reconciles the offline cert back-test with the live prediction process: the
     forward tournament now scores skill against the **segment base rate** (the
     predicted slice's own grant rate, not the whole-docket rate), so the back-test
-    reports the same, per ``sal-v1`` band, over the paid scored segment (IFP
+    reports the same, per salience band, over the paid scored segment (IFP
     petitions are outside it). ``segment_base_rate`` is the mean of the items'
     leakage-safe per-Term band rates (each computed over Terms strictly before its
     own), and ``mean_brier_skill`` the mean skill against them — null when no item
     in the band had a prior-Term base rate.
     """
 
-    band: str = Field(description="The frozen sal-v1 band: high / elevated / baseline")
+    band: str = Field(description="The frozen band, in the assigning version's own vocabulary")
     events_scored: int = Field(ge=0, description="Paid-segment petitions in this band")
     accuracy: float = Field(
         ge=0.0, le=1.0, description="Disposition accuracy over the band's petitions"
@@ -3583,7 +3583,7 @@ class StatPackTermSegment(_Strict):
     the predicted population is a biased subsample (relist-2 petitions grant ~39%,
     relist-0 ~0.8%), so the whole-docket cert rate is the wrong yardstick both as
     the predict agent's prior and as the evaluator's naive baseline. Keying on the
-    frozen ``sal-v1`` band gives each predicted case a base rate conditioned on its
+    frozen salience band gives each predicted case a base rate conditioned on its
     own grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`
     it inherits that surface's **per-Term self-selection contract** — a time-masked
     replay cell reads only Terms strictly before its clock, so the rate never leaks
@@ -3609,7 +3609,8 @@ class StatPackTermSegment(_Strict):
     """
 
     band: str = Field(
-        description="The frozen sal-v1 grant-likelihood band: high / elevated / baseline"
+        description="The frozen grant-likelihood band, in the vocabulary of "
+        "the salience version stamped beside it"
     )
     ingested: int = Field(default=0, ge=0, description="Live-slice paid-cert rows in this band")
     resolved: int = Field(
@@ -4602,7 +4603,7 @@ class SalienceReplayCell(_Strict):
     )
     bands: dict[str, int] = Field(
         default_factory=dict,
-        description="Petitions per as-of sal-v1 band (high / elevated / baseline), "
+        description="Petitions per as-of band in the cell's own scorer vocabulary, "
         "plus 'unobservable' for a projection whose payload disclosed no "
         "proceedings — unknown posture, never banded, never selected",
     )

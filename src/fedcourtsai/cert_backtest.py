@@ -689,7 +689,7 @@ def build_segment_context(
     *,
     lookback_terms: int | None = None,
 ) -> dict[str, _ItemSegment]:
-    """Map each **paid scored-segment** petition to its sal-v1 band + base rate.
+    """Map each **paid scored-segment** petition to its active-scorer band + base rate.
 
     The band comes from :func:`salience_band` and the base rate from
     :func:`segment_base_rate` (leakage-safe: pooled over statpack Terms strictly

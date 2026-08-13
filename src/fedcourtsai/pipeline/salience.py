@@ -22,7 +22,11 @@ Two invariants make the pass safe to re-run over a live conference:
   ``distributed_for_conference`` cohort, so "why this case and not that one"
   replays against one conference's candidate pool at a fixed score version. A
   petition not yet distributed for conference is scored but not selected — it is
-  not up for prediction yet. A petition already **decided**
+  not up for prediction yet — unless the active scorer selects arrivals
+  (``selects_arrivals``), in which case a second, cohort-less pass latches the
+  arrival picks (the keyed random draw plus the carve-in predicate) and mints
+  each pick's arrival event, with no rank and no capacity: the arrival cohort
+  rides beside ``N``, never inside it. A petition already **decided**
   (:func:`fedcourtsai.corpus.resolution_date` is not ``None``) is scored (the
   board's historical rows still want a band) but never enters a cohort, so a
   historical conference's decided docket cannot be newly latched — it has no
@@ -79,7 +83,8 @@ SALIENCE_VERSION = "sal-v2"
 # grant rates — relist bucket and CVSG — and the originating circuit rides only as
 # a small nudge (a circuit's marginal already reflects its relist mix, so treating
 # it as a co-equal signal would double-count and inflate every petition from a
-# high-grant circuit). The joint/compounding cut is deferred to sal-v2. Frozen for
+# high-grant circuit). The joint/compounding cut is deferred to a later
+# version (sal-v2 reuses this score unchanged). Frozen for
 # sal-v1: a refit is a new version.
 _RELIST_GRANT_RATE: dict[int, float] = {0: 0.008, 1: 0.078}
 _RELIST_HIGH_RATE = 0.394  # 2+ relists (the relist-3+ empirical dip is small-sample noise)
@@ -127,6 +132,17 @@ _LONG_CONFERENCE_MONTH = 9
 #: any skeptic, and no selection rule can steer it (the hash input is the
 #: public case id and this public constant).
 _ARRIVAL_DRAW_KEY = "sal-v2"
+
+#: When the sal-v2 arrival cohort begins: the OT2026 docket-year roll. A case
+#: filed before this instant is not at its arrival moment — it is the standing
+#: pre-registration-era backlog, which includes years of never-resolved
+#: data-gap rows whose `distribution_count` was simply never parsed (a dry run
+#: over the 2026-08 corpus finds ~560 such rows the draw would otherwise
+#: latch, against the cohort's budgeted ~95/Term). Registration-fixed like
+#: the draw key: moving it changes the arrival population, so a change is a
+#: new pre-registered population, never a quiet widening. Backlog cases still
+#: earn escalation selection as their trajectory signals accrue.
+ARRIVAL_COHORT_SINCE = date(2026, 7, 1)
 
 
 def arrival_draw(case_id: str, rate: float) -> bool:
@@ -498,6 +514,8 @@ def plan_cohorts(
             and corpus.resolution_date(row) is None
             and row.disposition is None
             and not row.salience_selected
+            and row.date_filed is not None
+            and row.date_filed >= ARRIVAL_COHORT_SINCE
             and (
                 arrival_draw(row.case_id, config.arrival_sample_rate)
                 or active.carve_out(row, scores[row.case_id], config.floor)
@@ -507,7 +525,9 @@ def plan_cohorts(
             # deterministic slice or the version's always-include rule — with
             # no rank and no capacity, because the whole design is that no
             # ranking exists yet worth the name (docs/salience.md). The
-            # freshness condition mirrors the arrival event's own mint guard.
+            # freshness condition mirrors the arrival event's own mint guard,
+            # and the cohort-start bound keeps the standing backlog out (a
+            # dateless row is likewise out: no filing date, no arrival moment).
             arrivals.append(row.case_id)
 
     # The interim reserve: still-pending occupants hold their slots (sticky
@@ -605,6 +625,11 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
             or row.distribution_count
             or corpus.resolution_date(row) is not None
             or corpus.is_scotus_application_form(row.docket_number)
+            # The cohort-start bound, restated here so a row latched some other
+            # way (a pre-boundary carve-out, an older latch vintage) can never
+            # back into an arrival event it was never selected for.
+            or row.date_filed is None
+            or row.date_filed < ARRIVAL_COHORT_SINCE
         ):
             continue
         case_events = corpus.events_for_case(conn, row.case_id)

@@ -148,7 +148,7 @@ absent optional field as null.
     "distribution_count": 1,
     "cvsg_date": null,
     "band": "baseline",
-    "salience_version": "sal-v1",
+    "salience_version": "sal-v2",
     "term": 2025
   },
   "process_version": {
@@ -494,7 +494,7 @@ as on the predictions above:
   },
   "segment_base_rate": 0.067,
   "base_rate_basis": "risk_set",
-  "base_rate_salience_version": "sal-v1",
+  "base_rate_salience_version": "sal-v2",
   "brier_skill_score": 0.443,
   "claim_scores": {
     "declared_set_version": "cert-v1",

@@ -23,7 +23,7 @@ from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.evaluate import merits_base_rate
-from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SalienceScorer
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
@@ -832,6 +832,12 @@ def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
     # flip and the refresh the two legitimately disagree. The invariants are
     # structural, so they hold under whichever scorer rendered the file.
     bands = [s.band for s in pack.terms[0].segments]
+    # ... but only a vocabulary some registered scorer actually declares — a
+    # garbled artifact must not get to define its own bands and pass — and the
+    # rendering version must itself be registered, so a stale artifact is at
+    # worst a *retired* scorer's view, never an unknown one.
+    assert pack.terms[0].salience_version in SCORERS
+    assert tuple(bands) in {entry.bands for entry in SCORERS.values()}
     saw_populated_top = False
     for term in pack.terms:
         by_band = {s.band: s for s in term.segments}

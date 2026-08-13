@@ -230,10 +230,11 @@ salience:
   # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
-  # control, funding ~$21K/Term against a ~$10K inference envelope. At 12 the
+  # control, funding ~$21K/Term against a ~$11K inference envelope. At 12 the
   # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
   # fill 398-413 plus uncapped carve-outs 97-115), which with the other
-  # stages' moments lands the whole program at ~$9.6-9.9K (docs/budget.md).
+  # stages' moments lands the escalation program at ~$9.6-9.9K — ~$10.8-11.2K
+  # with the arrival cohort beside it (docs/budget.md).
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.81 of the Term's replay-reconstructable
@@ -258,8 +259,8 @@ salience:
   # ~75 cases (~$975 at the $13/case planning rate), publishable as n=75 with its
   # ±5.9pp interval (Wilson 95% at the pooled 6.67% arrival grant rate).
   # Class rates are census quantities at the population's own n and never
-  # size this knob. Inert until the sal-v2 scorer activates — and effectively
-  # frozen once the cohort begins: the draw recomputes at read time against a
+  # size this knob. Effectively
+  # frozen once the cohort runs: the draw recomputes at read time against a
   # one-way latch, so a mid-Term rate change makes the realized population a
   # union across rates, not a rate-r sample; changing it is a new arrival
   # population, declared as such.

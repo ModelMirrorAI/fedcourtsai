@@ -568,17 +568,17 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     assert report.cells_evaluated == 3  # one (term, policy) cell x 3 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
     assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1"}
-    active, toy, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v2"))
+    active, toy, v1 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1"))
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v2):
+    for other in (toy, v1):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
 
     # The banding is not: each cell reports its own scorer's vocabulary, and
     # no version's band names appear under another's.
-    assert set(active.bands) <= {"high", "elevated", "baseline", "unobservable"}
+    assert set(active.bands) <= {"federal", "high", "state", "elevated", "baseline", "unobservable"}
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
-    assert set(v2.bands) <= {"federal", "high", "state", "elevated", "baseline", "unobservable"}
-    assert sum(active.bands.values()) == sum(toy.bands.values()) == sum(v2.bands.values())
+    assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
+    assert sum(active.bands.values()) == sum(toy.bands.values()) == sum(v1.bands.values())

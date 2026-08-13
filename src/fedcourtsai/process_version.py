@@ -4,7 +4,7 @@ A prediction/evaluation is stamped with the *process* that produced it — the
 prompt template, the resolved registry config for the actor, and the harness
 commit — so headline metrics can reflect only the frozen, blessed process and
 exclude the July/August shakedown runs without deleting them. Same doctrine as
-``sal-v1`` (:data:`fedcourtsai.pipeline.salience.SALIENCE_VERSION`): a process
+the salience version (:data:`fedcourtsai.pipeline.salience.SALIENCE_VERSION`): a process
 change is a *new* version, never an in-place edit, so any past ranking always
 replays against the process that produced it.
 
@@ -40,8 +40,10 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v2"
 
-# The blessed process digests — the frozen-headline set: the six proc-v1
-# baselines (claude/codex/gemini, predictor and evaluator each), read off
+# The blessed process digests — the frozen-headline set: the six proc-v2
+# baselines (claude/codex/gemini, predictor and evaluator each; the evaluator
+# three are unchanged from proc-v1, which this set supersedes with zero cells
+# ever stamped under it), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
 # which a test pins. Keyed on the digest, never the label, so a process that
 # drifted under an unchanged label is not silently blessed. The predictor
@@ -52,9 +54,9 @@ CURRENT_PROCESS_LABEL = "proc-v2"
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
     {
         # predictors: claude-baseline, codex-baseline, gemini-baseline
-        "sha256:5e919b6e531002543ddd1542b2708a09ef872d2c852433746c634300af6e6828",
-        "sha256:8fc3ed2e1a4d6490818f78503218dc7442c401362d1bbe9c368e97871b622983",
-        "sha256:a100070295eeb579549a123edde8dd06954800707b89e40cfc624383b4413c1d",
+        "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
+        "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
+        "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
         # evaluators: claude-judge, codex-judge, gemini-judge (unchanged from
         # proc-v1: the arrival moment lives in the predict prompt alone)
         "sha256:ed3ea431b2196b820ab1225bb8a1a635ef780834661a116cdb5f0cc8e4343c70",

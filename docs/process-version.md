@@ -230,9 +230,22 @@ land; recording and tagging that commit complete the procedure:
 
 From that commit forward, the first long-conference prediction lands under the
 stamped, frozen process and the headline fills in. When the process later changes
-materially, bump `CURRENT_PROCESS_LABEL` to `proc-v2`; the old `proc-v1` cells
+materially, bump `CURRENT_PROCESS_LABEL` to the next label; the old label's cells
 keep their stamp and remain replayable against the process that produced them,
 never overwritten.
+
+**Re-freezing before the prior instant has any cells** is a supersession, not
+an extension: the new two-constant commit *replaces* the retired label's
+digests in `FROZEN_PROCESS_DIGESTS` (the set holds one blessed process per
+actor, and `is_frozen` is a membership filter, so keeping the old predictor
+digests would bless two processes at once). The procedure above runs in full
+for the new label — including step 0's grep, which is what proves the
+supersession de-blesses nothing — and the freeze record in
+[milestones.md](milestones.md) must state the count of cells ever stamped
+under the superseded label (zero, or listed). The superseded `prereg/` tag
+stays: the namespace blocks deletion, and the tag remains the honest record
+that the label was registered and then superseded before any cell ran under
+it. Its headline is legitimately empty forever.
 
 ## A note on local runs
 

@@ -614,9 +614,13 @@ the rendered table) and
   **What may be claimed.** The numbers describe the *gate* — how the
   deterministic selection rule would have behaved at a reconstructed moment —
   and its structural facts: at arrival every *observable* projection reads
-  relist-0/baseline with no conference cohort, so nothing is selected and
-  precision is undefined (the gate cannot distinguish petitions before the
-  docket moves).
+  relist-0 with no conference cohort, so the rank-and-cap selects nothing and
+  escalation precision is undefined (the trajectory features cannot
+  distinguish petitions before the docket moves). Under a scorer that selects
+  arrivals (sal-v2), the `arrival` policy's cells report the draw slice and
+  the carve-in picks instead — a separate cohort, never pooled into the
+  escalation ones, and still no validation of any caption feature (the
+  reconstruction carries the terminal caption; a declared gap).
 
   **Comparing two salience versions.** Cells sharing a (Term, policy) are paired
   on one identical projection, so any difference between them is the scoring
@@ -667,8 +671,8 @@ the rendered table) and
   counted `sample_weight` times so denials the earlier sampled walk kept at a
   higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, by CVSG status, and by **salience band** (the frozen
-  `sal-v1` grant-likelihood tier over the paid scored segment), plus a
+  by relist count, by CVSG status, and by **salience band** (the active
+  scorer's frozen grant-likelihood tier over the paid scored segment), plus a
   by-originating-court reader table that names state courts. A coverage block
   states the pack's own denominators, and the per-Term array carries each
   October Term's cursor-derived filings census by fee class (paid/IFP),
@@ -678,7 +682,12 @@ the rendered table) and
   set). A prediction carrying a frozen prediction-time band is scored against the
   second, since that is the population it was in when it ran; one without a frozen
   band falls back to the first, which matches the terminal band it has to be
-  grouped by. Pooled strictly-prior-Term, as the recorded skill score is, both
+  grouped by. Under a scorer whose order interleaves a fixed-at-filing class
+  among the trajectory tiers (sal-v2's `federal`/`state`), a weaker band's risk
+  set also contains the stronger classes' petitions — populations a private
+  petitioner was never in — so the "population it was in" reading is
+  approximate there (measured at roughly +1 point on `elevated`), a property of
+  the vocabulary to hold in view rather than a defect in the pairing. Pooled strictly-prior-Term, as the recorded skill score is, both
   are leakage-safe; the board's realized-Term column reads the risk-set one off
   the case's **own** Term instead, which is deliberately not leakage-safe and is
   fenced accordingly where it is described (see the leaderboard bullet above). A skill score is
@@ -721,6 +730,19 @@ the rendered table) and
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
   rule (anchor strictly before your clock).
+
+  **The arrival cohort's claim rule** (sal-v2's `cert@arrival` cells). The
+  cohort is two selection rules with grant rates an order of magnitude apart —
+  the unbiased random slice and the federal-petitioner carve-in — and the
+  leaderboard's per-moment block pools them mechanically, so that block's
+  pooled accuracy and mean Brier are **not claimable** without the per-rule
+  cut; per-band skill stays honest (the band separates the two populations,
+  `federal` vs the slice's mix). Only the random slice's skill transfers to
+  live prospective use: it alone is selection-bias-free, and its baseline is
+  exactly the unconditional paid-arrival grant rate. And no arrival cell
+  minted before the first sal-v2-rendered statpack carries any baseline at
+  all (the version-pinned pool's designed `None`) — its skill column is
+  empty, not zero, and supports no claim.
 
   The second stage section is the **merits section** (`merits`), present only
   once a corpus row carries a parsed `merits_judgment` (the
