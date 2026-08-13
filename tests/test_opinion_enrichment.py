@@ -527,6 +527,44 @@ class _BudgetLimiter(RateLimiter):
         super().acquire()
 
 
+def test_persistent_throttling_stops_the_walk_and_defers_the_rest(tmp_path: Path) -> None:
+    """A 429 the client's retries could not clear ends the pass, deferring, not failing.
+
+    A throttle the retry cycle cannot clear is a quota wall (whichever window
+    imposed it), so pressing on would burn every remaining case's retry cycle
+    into the same wall. The case that hit it defers with the rest — nothing
+    about it failed, and nothing latches — while what landed before is kept.
+    """
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    throttled_attempts = 0
+
+    def throttled(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/dockets/102/"):
+            nonlocal throttled_attempts
+            throttled_attempts += 1
+            return httpx.Response(429, json={"detail": "Request was throttled."})
+        return upstream(request)
+
+    with corpus.connect(db) as conn, _client(httpx.MockTransport(throttled)) as client:
+        result = enrich_opinions(conn, client, apply=True)
+
+    assert result.stopped is not None and "throttling" in result.stopped
+    # The stop is post-retry, not first-sight: the client spent its full retry
+    # cycle against the wall before the walk gave up.
+    assert throttled_attempts == 4
+    assert result.deferred == ["scotus/102"]
+    assert result.failed == []
+    assert result.enriched == 1
+    # The doomed docket fetch is still counted: spend inspection includes it.
+    assert result.requests == 3
+    with corpus.connect(db) as conn:
+        landed = corpus.get_row(conn, "scotus/101")
+        deferred = corpus.get_row(conn, "scotus/102")
+    assert landed is not None and landed.opinion_text == _BODY
+    assert deferred is not None and deferred.has_opinion is False
+
+
 def test_budget_exhaustion_stops_the_walk_and_keeps_what_landed(tmp_path: Path) -> None:
     db = _seeded(tmp_path)
     upstream = _upstream()
