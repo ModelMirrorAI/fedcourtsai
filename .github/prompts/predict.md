@@ -68,8 +68,9 @@ the workflow places them for your run:
    and say so rather than inferring from a blank file. Their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
-   **conditioning state** the harness froze for you: `band` (your sal-v1
-   grant-likelihood tier as at *now*, not as the petition may end up),
+   **conditioning state** the harness froze for you: `band` (your
+   grant-likelihood tier under the salience version named beside it in
+   `salience_version`, as at *now*, not as the petition may end up),
    `distribution_count`, `cvsg_date`, and `term`. Use `band` rather than working
    it out yourself — it is what the evaluator scores your skill against, and it
    is recorded on your prediction. `signals_observable: false` means the snapshot
@@ -77,8 +78,8 @@ the workflow places them for your run:
    cell's context may carry neither key; on a **cert-stage** cell where `band` is
    null or absent, anchor on the **weakest** band's bracketed `reached` rate,
    which is the whole scored segment's rate and assumes nothing about a
-   trajectory you cannot see. This fallback is cert-stage only — sal-v1 is a
-   cert construct, so neither an **interim** nor a **merits** cell reaches for
+   trajectory you cannot see. This fallback is cert-stage only — the salience
+   band is a cert construct, so neither an **interim** nor a **merits** cell reaches for
    it whether or not a band happens to be frozen. A merits cell's context
    routinely *does* carry one, because its docket is a cert docket whose
    petition was banded before it was granted: that band scores the petition's
@@ -196,7 +197,13 @@ this case's own — the rate among petitions that had *reached* your band, which
 your situation, rather than the leading figure, which is the rate among those
 that *ended* there and assumes this petition never relists again —
 the base rate for the slice the salience gate actually predicts on, and the exact
-yardstick the evaluator scores your skill against. Pool every Term row that table
+yardstick the evaluator scores your skill against. The table's heading names the
+**salience version** its bands were computed under; where that does not match
+your context's `salience_version`, or your band does not appear among the
+table's columns, the table is no anchor for your band — a band name only means
+something under the version that assigned it — so anchor on the scored
+segment's overall rate instead (the weakest band's bracketed `reached` figure)
+and note the mismatch in `flags.json`. Pool every Term row that table
 shows that precedes yours: its caption states how many of the pack's Terms are
 rendered, and where that is fewer than the pack holds, the shown window *is* your
 window. For a selected cert petition prefer it to the low whole-docket rate. For
@@ -221,7 +228,7 @@ band), the three-claim `claims` block, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
-**Two cert cells, two moments.** `event.yaml`'s `moment` says which you are:
+**Three cert cells, three moments.** `event.yaml`'s `moment` says which you are:
 
 - `moment: distribution` — event `evt-petition-disposition`, opened when the
   petition was filed and forecast once it is first distributed for conference.
@@ -231,13 +238,33 @@ cert-stage cell.
   signal that a petition is worth a closer look, and the base rate conditional
   on one is far above the docket's: read the statpack's CVSG cut, not the
   overall rate.
+- `moment: arrival` — event `evt-petition-arrival-disposition`, opened the day
+  the petition was docketed and forecast **before any distribution exists**.
+  Your record carries no conference, no relist count, and no CVSG — that
+  absence is the moment's definition, not a data gap, so never wait for or
+  infer docket signals. The cell exists because its case was selected at
+  docketing (a deterministic random slice, or a federal petitioner — the one
+  arrival-time class whose grant rate is measured far above the docket's:
+  read the statpack's `federal` band segment where present; where the table
+  carries no such column, the pack publishes no anchor for the class — say so
+  in `reasoning.md` rather than inventing one). Anchor on the
+  arrival population's own base rate, not the distributed population's — and
+  the published figure that *is* that rate is the **weakest** band's bracketed
+  `reached` rate (the whole paid segment, unconditional on trajectory), never
+  the relist-count cut's relist-0 figure, which is the rate among petitions
+  that *ended* undistributed and understates an arrival's future severalfold.
 
-Scored separately, never pooled — the CVSG cell answers the same question from a
-strictly better evidence base. Forecast from what this moment's record shows
-rather than revising an earlier call. Note that on a CVSG cell the
-`cvsg-increment` claim is vacuous by construction (the CVSG is already on the
-docket at prediction time), so the harness masks it; the disposition and
-relist-increment claims are unaffected.
+Scored separately, never pooled — the CVSG cell answers the same question from
+a strictly better evidence base, and the arrival cell from a strictly earlier
+one. Forecast from what this moment's record shows rather than revising an
+earlier call, and never treat another moment's evidence as owed to you. Claim
+masking per moment: on a CVSG cell the `cvsg-increment` claim is vacuous by
+construction (the CVSG is already on the docket), so the harness masks it; on
+an arrival cell the `relist-increment` prediction-time count is the record's
+zero-distribution state (where the snapshot discloses proceedings at all — a
+context with `signals_observable: false` masks the increment claims exactly as
+on any other cell) — state your claims from that state, and the harness
+resolves them against what later accrues.
 
 ### Stage: interim (a stay or injunction application)
 
@@ -275,7 +302,7 @@ of the requested relief**:
   application is not distributed for conference, and a CVSG is a cert-stage
   act. Key on your **frozen conditioning, not on the docket's shape**: where
   `record/context.json` carries `band: null` — the normal interim case, since
-  sal-v1's features are cert observations — do not derive a band or anchor on
+  the banded features are cert observations — do not derive a band or anchor on
   the cert band table, and the weakest-band fallback under input 6 does not
   apply. If an interim cell's context *does* carry a band, the event was
   pinned to a cert docket rather than an application: that band describes the
@@ -395,8 +422,8 @@ was worth.
   relist count is not evidence about a judgment. Your `record/context.json`
   will usually carry a **non-null `band`**, because this docket *is* a cert
   docket and its petition was banded before the grant. Do not anchor on it and
-  do not read the cert band table: sal-v1 scores grant likelihood, which is no
-  longer an open question, and the band's base rates are grant rates over a
+  do not read the cert band table: the salience band scores grant likelihood,
+  which is no longer an open question, and the band's base rates are grant rates over a
   petition population your case has already left. This is a rule about the
   stage, not a defect in your cell — no flag is owed for it.
 - **The statpack's merits section is the anchor, on its stated terms.** Where
@@ -559,8 +586,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     you. Where your event declares no set, write no `claims` field at all: an
     interim cell writes none (*Stage: interim* above). The declaration is
     keyed on the event's declared moment, never on a rule of thumb about its
-    kind — both cert moments (the petition and the CVSG order) declare
-    `cert-v1`, both merits moments (the judgment order and the
+    kind — every cert moment (the petition, the CVSG order, and the arrival
+    event) declares `cert-v1`, both merits moments (the judgment order and the
     respondent-brief re-predict) declare `merits-v1`, and no interim moment
     declares a set.
   - `reasoning_doc` — `reasoning.md` (the default).

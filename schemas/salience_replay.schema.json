@@ -8,7 +8,7 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "description": "Petitions per as-of sal-v1 band (high / elevated / baseline), plus 'unobservable' for a projection whose payload disclosed no proceedings \u2014 unknown posture, never banded, never selected",
+          "description": "Petitions per as-of band in the cell's own scorer vocabulary, plus 'unobservable' for a projection whose payload disclosed no proceedings \u2014 unknown posture, never banded, never selected",
           "title": "Bands",
           "type": "object"
         },

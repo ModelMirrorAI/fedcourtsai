@@ -245,7 +245,7 @@ def _is_scored_segment_row(row: CorpusRow) -> bool:
 
 
 def _salience_band_key(row: CorpusRow) -> str:
-    """The row's frozen ``sal-v1`` salience band (the pack-wide segment section key)."""
+    """The row's band under the active scorer (the pack-wide segment section key)."""
     return salience_band(row)
 
 
@@ -547,7 +547,7 @@ _CERT_BY_CVSG = _SectionSpec(
     "Cert petitions by CVSG status", "scotus", True, True, True, GroupBy.cvsg
 )
 # The segment base rate the salience program turns on: the paid scored segment
-# split by sal-v1 band. Pack-wide (blended across Terms) for the human board;
+# split by the active salience band. Pack-wide (blended across Terms) for the human board;
 # the leakage-safe per-Term counterpart is `StatPackTerm.segments`.
 # The same two cuts over the **paid scored segment** — the population the salience
 # gate actually predicts on. The pooled versions above include IFP petitions,

@@ -72,9 +72,10 @@ Selection is a funnel, cheap filters first:
   selected cases. This is where the big-case score is produced and where the
   segment base rate (below) becomes the agent's prior and the evaluator's baseline.
 
-## The salience score (`sal-v1`)
+## The salience score
 
-A **frozen, versioned** function — `salience.version`, first release `sal-v1` — a
+A **frozen, versioned** function — `SALIENCE_VERSION` names the active one in
+code (`pipeline.salience`), first release `sal-v1` — a
 weighted combination of Tier-1 features. It is reproducible from committed corpus
 inputs; a scoring-function change is a **new version**, never an in-place edit, so
 a skeptic can replay any past ranking against the version that produced it.
@@ -106,39 +107,52 @@ Deferred, each with a stated reason:
 
 - **Below-decision division** (a dissent or en-banc split in the court below) is a
   strong salience signal but is **not recoverable** from the corpus today — no
-  column, and not cheaply derivable from stored text. A `sal-v2` feature once the
-  below-court signal is extracted.
+  column, and not cheaply derivable from stored text. A later-version feature
+  once the below-court signal is extracted.
 - **Amicus-brief count** is arguably the strongest pre-decision salience proxy, but
   its presence in the supremecourt.gov docket JSON is **unverified** and no
-  extractor counts it. A `sal-v2` enrichment if a data-availability check confirms
-  it; `sal-v1` is designed to stand without it.
+  extractor counts it. A later-version enrichment if a data-availability check
+  confirms it; neither shipped scorer depends on it.
 - **Cheap-model QP enrichment** — an optional model pass over the questions
   presented to sharpen the deterministic score — is **default off** for the first
   release, so `sal-v1` is fully deterministic and free.
 
-### The `sal-v2` intent (pre-registered)
+### `sal-v2`, the active scorer: two cohorts, never pooled
 
 `sal-v1`'s features are docket-acquired — relists and CVSG accumulate over a
 petition's life — so at arrival every observable petition scores `baseline` and the gate
 is structurally inert at the one moment a truly prospective selection would
 have to act: no cohort forms, no band stratifies, recall over realized grants
-is zero by construction (the gate replay measures exactly this). The rework is
-pre-registered here so the shape is fixed before the evidence exists, and it
-is **two cohorts, never pooled**:
+is zero by construction (the gate replay measures exactly this). `sal-v2`
+opens that moment — at the draw rate plus one measured class, not full
+coverage — with **two cohorts, never pooled**:
 
-- **The arrival cohort** — selected at docketing on arrival-time features
-  (originating court, party/counsel structure) **plus a random-sample
-  component** (mechanism shipped: a keyed-hash draw over the case id under a
-  registration-fixed key — `salience.arrival_draw` — at
-  `salience.arrival_sample_rate: 0.05`, inert until the scorer registers,
-  and effectively frozen once the cohort begins). The random slice is
-  load-bearing, not a fallback: with no
-  strong arrival-time signal it is the only route to an unbiased selected
-  population, it makes the cohort's baseline exactly the unconditional grant
-  rate, and no selection rule can game it. This is the only cohort whose
-  skill numbers transfer to live prospective use.
+- **The arrival cohort** — selected at docketing by two named rules (the
+  active carve-out predicate also applies there, but no trajectory score can
+  clear the floor at zero distributions, so in effect the two rules are the
+  cohort): a **random slice** (a keyed-hash draw over the case id under a
+  registration-fixed key — the literal inside `pipeline.salience.arrival_draw`,
+  deliberately not `SALIENCE_VERSION` — at
+  `salience.arrival_sample_rate: 0.05`, effectively frozen once the cohort
+  runs) plus the **federal-petitioner carve-in** below. The cohort begins at
+  the registration-fixed `ARRIVAL_COHORT_SINCE` (the OT2026 docket-year roll)
+  and fills forward: a case filed earlier — including the standing
+  never-resolved backlog whose distribution count was simply never parsed —
+  is not at its arrival moment and never enters this cohort, though it still
+  earns escalation selection as signals accrue. Moving that bound changes the
+  arrival population and is a new pre-registered population, never a quiet
+  widening. The two rules select
+  populations with grant rates an order of magnitude apart, so they report
+  separately, always: the **random-slice subcohort's** baseline is exactly the
+  unconditional paid-arrival grant rate, no selection rule can game it, and it
+  alone is the subcohort whose skill numbers transfer to live prospective use;
+  the **carve-in subcohort** is a selected class with its own baseline, and
+  any figure pooling the two (the leaderboard's `cert@arrival` block pools
+  them mechanically) is not claimable without the per-rule cut
+  (`metrics/README.md`).
 - **The escalation cohort** — re-selected as relist / CVSG / response signals
-  accumulate: `sal-v1`'s current behaviour, which remains the right way to
+  accumulate: `sal-v1`'s scoring, carried into `sal-v2` unchanged, which
+  remains the right way to
   spend tournament budget on cases that have become interesting. It reports
   against its own risk-set baselines and never against — or blended with —
   the arrival cohort's.
@@ -157,30 +171,40 @@ petitioner", whose known recall gap is a `caption-v2` question) is frozen
 into `sal-v2` on a verified census replicating in all eight complete Terms
 (OT2017–OT2024, lift 8.1–16.4×, intervals fully separated; OT2025 is
 right-censored and counted as supportive, never held-out). The **state**
-class stays a reporting dimension only — per-Term unstable, its below-cap
-slice underperforming the arrival population — and the gate replay still
+class never enters selection — per-Term unstable, its below-cap
+slice underperforming the arrival population — though it is a *band* under
+`sal-v2` (placed above `elevated` from the class marginal — a registration
+choice pending measurement, since the band's own realized rate, net of its
+strongest members leaving for `high`, is unmeasured until the first sal-v2
+statpack renders). The gate replay still
 cannot validate any caption feature, because the replay's reconstruction
 carries the terminal caption: a declared gap, never papered over with a
 replay number.
 
+Activation sequences deliberately: the promotion carrying the flip, then a
+metrics refresh, then prediction. A `sal-v2` cell minted before the refreshed
+statpack has **no published baseline** — the version-pinned pool's designed
+`None`, never a blend — so its skill column is legitimately empty and supports
+no claim; the refresh, not the flip, is what opens the scored window.
+
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay
-under `sal-v1` forever, which the scorer registry below is what enforces. Its
-evidence base does not exist yet: arrival-time
-signals live in small subgroups, which the legacy denial subsampling cannot
-measure, so fitting waits for the denial-complete historical re-walk, and any
-candidate is judged by replaying the gate against the same corpus state as a
-fresh `sal-v1` run — the bar is the arrival population's own weighted grant
-rate at comparable recall, recomputed post-re-walk rather than quoted. And the
+under `sal-v1` forever, which the scorer registry below is what enforces, and
+`sal-v2` keeps `sal-v1`'s score function byte-for-byte: what it adds is the
+caption dimension (two bands, one carve-in predicate) and the arrival draw,
+never a refit of the escalation ranking. Any *fitted* arrival-time scoring
+remains a later version's question — arrival-time signals live in small
+subgroups, and the candidate's bar is the arrival population's own weighted
+grant rate at comparable recall, measured against the denial-complete corpus,
+not quoted from the census. And the
 carve-out/band alignment is pinned by test: the always-include floor and the
-strongest band's cutpoint are separate constants in separate files, and the
-identity between "carved in" and "strongest band" is checked exhaustively over
-`sal-v1`'s achievable score lattice, so a refit of it cannot open a silent gap
-between them. The check runs for every registered version, but the lattice it
-enumerates is `sal-v1`'s feature space — relist count, CVSG, originating
-circuit — so a version keying on anything else is checked only at those
-features' defaults. Registering `sal-v2` means extending the enumeration to
-span its own features; until then its coverage is partial and said so here.
+carved bands' cutpoints are separate constants in separate files, and the
+identity between "carved in" and "the expected strongest-band prefix" —
+`(high,)` for `sal-v1`, `(federal, high)` for `sal-v2` — is checked
+exhaustively over the achievable score lattice (relist count x CVSG x
+originating circuit x petitioner class), so a refit cannot open a silent gap
+between carve and band, and a version keying on a feature outside that
+enumeration must extend it or say here that its coverage is partial.
 
 ### The scorer registry
 
@@ -230,7 +254,18 @@ could otherwise leak:
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 
-Selection ranks the scored set and caps it to `N`. **The enforcement mechanism is
+Selection ranks the scored set and caps it to `N` — and, where the active
+scorer selects arrivals (`selects_arrivals`, sal-v2), the same write pass runs
+a second, cohort-less arm: every undistributed pending petition the keyed draw
+or the carve-in predicate picks is latched with no rank and no capacity, and
+its owed `evt-petition-arrival-disposition` event is minted in the same pass,
+idempotently (a crash between latch and mint heals on the next pass — the mint
+is state-driven, keyed on the latch, never on the draw recomputed). The
+arrival arm rides beside `N`, never inside it, and the freshness guard on the
+mint (`outcome.arrival_event_for`) refuses a case any distribution has already
+reached — an arrival cell exists only where the forecast genuinely precedes
+the docket's first move. Everything below describes the rank-and-cap arm.
+**The enforcement mechanism is
 the load-bearing decision here, because the obvious one is wrong.**
 
 **Why below-cap is not a scope exclusion.** The shared reason evaluator
@@ -406,8 +441,9 @@ budget's "more funding = more cases" equation and the milestones' funding milest
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release fits the
-~$16K envelope: ≈$10K inference at the measured ~$11/fully-tournamented-case rate,
-~$9.6–9.9K funded at the $13 planning rate — **12 per regular conference and 24
+~$16.5K envelope: ≈$11K inference at the $13 planning rate with the sal-v2
+arrival cohort included (~$9.6–9.9K for the escalation program alone) — **12
+per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
 capacity (`metrics/salience-replay.json`, sal-v1, OT2022–24) measures that they
@@ -531,7 +567,7 @@ has nothing above it, so its two rates coincide exactly.
 
 **The pool is version-pinned, and a lagging statpack yields no baseline rather
 than a blended one.** A band name is meaningful only under the salience version
-that assigned it — a hypothetical `sal-v2 high` and a `sal-v1 high` are
+that assigned it — a `sal-v2 high` and a `sal-v1 high` are
 different populations that happen to share a label. So every band-rate entry
 point pins the version — the two scored baselines
 (`fedcourtsai.pipeline.evaluate.segment_base_rate` and
@@ -562,7 +598,7 @@ high-band samples are small (61–163 weighted-resolved petitions), so a short
 window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
 stable estimate, but assumes the Court's grant behaviour is stationary across the
 whole range, which the spread above suggests it is not. Two second-order effects
-push the same way. The bands are frozen at `sal-v1`, and each per-Term entry
+push the same way. The bands are frozen per version, and each per-Term entry
 carries its own `salience_version` — the field the version pin above reads, so
 cross-version pooling is impossible at any window length and the window carries
 no versioning duty. And the pooling weights are
@@ -623,7 +659,7 @@ are SCOTUS-cert-shaped by construction:
   guard has to be built from something else — a rolling window on the decision
   date is the nearest candidate, and a calendar year is not a natural unit of
   appellate practice the way a Term is for the Court.
-- **The `sal-v1` bands do not generalise at all.** Relist count, CVSG presence
+- **The trajectory bands do not generalise at all.** Relist count, CVSG presence
   and originating circuit have no circuit analogues — there is no relist, no
   CVSG, no court below in the same sense, and no IFP serial convention to read
   the Tier-0 fee-class exclusion from. A circuit band function is a new scorer over
@@ -679,14 +715,17 @@ rather than folding it into an undifferentiated "granted."
   extractor parses). So the near-term fold-in is the **model-produced** call — the
   predictor forecasts `gvr` when it reads the posture that way, and the big-case
   score captures the stakes — with deterministic mootness-proneness deferred to a
-  possible `sal-v2` feature.
+  possible later scorer version.
 
 ## The interim docket (predicted, quota'd; published descriptively, not yet skill-scored)
 
 The cert program above selects petitions. The interim docket — stays,
-injunctions, vacaturs pending certiorari — needs its own, because none of
-`sal-v1`'s features exists there: an application is not distributed for
-conference, and a CVSG is a cert-stage act. Reusing the band would be the
+injunctions, vacaturs pending certiorari — needs its own, because no
+trajectory feature exists there: an application is not distributed for
+conference, and a CVSG is a cert-stage act. (The caption class *does* exist
+on an application, but every band's base rate is a cert-petition population,
+so banding an application on caption alone would be the same mismatch.)
+Reusing the band would be the
 conditioning mismatch this document spends its length warning about.
 
 **Most of the docket is not the thing predicted.** Over the 1,410 parsed
@@ -728,7 +767,7 @@ at prediction, and pool the rate over a risk set.
 (`interim_signals.is_predictable_application`) is ever predicted — the scope
 rules keep extensions and unreadable asks excluded, and the next run of the
 two-directional reconcile releases an application's latch once a poll has
-latched its substantive reading. Selection is a **quota, not a ranking**: `sal-v1`'s
+latched its substantive reading. Selection is a **quota, not a ranking**: the trajectory
 features do not exist here, so each selection pass fills up to
 `salience.interim_reserve_slots` (5) with pending substantive applications in
 **escalation-ladder order** — requested response first, then the amicus

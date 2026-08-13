@@ -50,15 +50,15 @@ case-equivalent.
 
 | Stage | Moment | Events / Term | Coverage of the stage |
 |---|---|---:|---|
-| cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay: rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
+| cert | first distribution | 495–522 | measured at `per_conference_capacity: 12` by the OT2022–24 gate replay **under sal-v1** — a lower bound for the active sal-v2 gate, whose federal carve-in also reaches conference cohorts (≤ ~14/Term more; unmeasured until a sal-v2 replay refresh): rank fill 398–413 (cumulative through resolution; 380–386 at first distribution) plus uncapped carve-outs 97–115 (below) |
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
-| cert | arrival | 95 | the sal-v2 arrival cohort, **beside** `N`: 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~20 from the federal-petitioner carve-in, whose census run passed statistical verification (8/8 complete Terms at 8.1–16.4× lift; per-Term 11–40, so a heavy government-litigation Term runs high; ~14/Term incremental over what CVSG/floor already carve — `docs/salience.md`); inert until the sal-v2 scorer activates |
+| cert | arrival | 95 | the sal-v2 arrival cohort, **beside** `N`, filling forward from the registration-fixed cohort start (the OT2026 docket-year roll — the standing pending backlog never enters): 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~20 from the federal-petitioner carve-in, whose census run passed statistical verification (8/8 complete Terms at 8.1–16.4× lift; per-Term 11–40, so a heavy government-litigation Term runs high; ~14/Term incremental over what CVSG/floor already carve — `docs/salience.md`) |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
 | interim | response requested | 8 | 12.3% of the 67 selected arrivals |
 | interim | response filed | 21 | 30.6% of the 67 |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
-| | **total** | **833–860** | **≈$10.8–11.2K/Term** at the $13 planning rate once sal-v2 activates (slice + carve-in); ≈$9.6–9.9K while the arrival cohort is inert |
+| | **total** | **833–860** | **≈$10.8–11.2K/Term** at the $13 planning rate, arrival slice + carve-in included (≈$11.4K at the bound if the federal carve-in's conference-cohort reach adds its full ~14) |
 
 The later moments differ sharply in how much runway they leave, which is the
 figure to read before trusting any of their skill numbers: a merits brief
@@ -97,8 +97,8 @@ and funding ~$21K/Term, a ranking rather than a spend control. The shipped
 `12` (long conference `24`) measures at **495–522 selected petitions a Term**
 across OT2022–24: rank fill 380–386 at first distribution and 398–413
 cumulative through resolution, plus floor/CVSG carve-outs of 97–115 riding
-*above* `N` uncapped — landing the whole program at ≈$9.6–9.9K at the planning
-rate (≈$10.6–10.9K once the sal-v2 arrival cohort activates — the moments
+*above* `N` uncapped — landing the escalation program at ≈$9.6–9.9K at the planning
+rate (≈$10.8–11.2K with the sal-v2 arrival cohort — the moments
 table below). (The replay runs with no reserve occupancy; the interim reserve's slots
 in use would lower the rank fill, below.) The measured coverage trade: the
 selection carries **0.76–0.81** of the Term's replay-reconstructable
@@ -331,10 +331,10 @@ trailing-window ceiling on **measured** cost, read from the committed `usage.jso
 ledger by both plan seams before either mints a matrix. Reaching it **defers**:
 the predict queue and the evaluate backlog are untouched and re-derive next cycle.
 
-The shipped value is **$2,500 over a 30-day trailing window** — ~2.3× the
-Term's average month (≈$1.1K: the measured 738–765 events/Term at the $13
+The shipped value is **$2,500 over a 30-day trailing window** — ~2.1× the
+Term's average month (≈$1.2K: the 833–860 events/Term at the $13
 planning rate, spread over the ~9 months the Term spans; on a 12-month spread
-the multiple is 3.0×, so the claim is conservative). What it protects against
+the multiple is 2.8×, so the claim is conservative). What it protects against
 is a **burst, not a rate**. The steady state cannot reach it: even a
 regression to a non-binding cap burns $1.8–2.3K per 30 days (the prior
 150/200 replay selected 1,228–1,349/Term ≈ $16–17.5K, and the 150-cap
@@ -396,7 +396,7 @@ measured); the floor/CVSG carve-outs ride above the caps and add on the order
 of $200–250/month at the planning rate in relist-heavy months. The caps make
 the capped component insensitive to the one cohort whose realized size is not
 yet observed — the long conference's summer backlog — though the carve-out
-channel carries no such bound; both together sit comfortably inside the ≈$10K
+channel carries no such bound; both together sit comfortably inside the ≈$11K
 bootstrapping inference envelope.
 
 ### 2. CourtListener API (membership for pull throughput)
@@ -479,7 +479,7 @@ plus a fixed ~220 events from the other two":
 
 | Scenario | ≈ Annual | Inference (= total − ≈$5.5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$16K | ≈$10K | ≈738–765 forecast events across all three stages while the sal-v2 arrival cohort is inert (813–840 activated) — a **whole OT2026 Term**, not a slice of one: 515–542 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
+| Bootstrapping | ≈$16.5K | ≈$11K | ≈833–860 forecast events across all three stages, sal-v2 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 610–637 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~95-case arrival cohort), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
 | Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |

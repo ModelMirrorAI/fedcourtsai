@@ -148,11 +148,11 @@ absent optional field as null.
     "distribution_count": 1,
     "cvsg_date": null,
     "band": "baseline",
-    "salience_version": "sal-v1",
+    "salience_version": "sal-v2",
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v1",
+    "label": "proc-v2",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",
@@ -494,7 +494,7 @@ as on the predictions above:
   },
   "segment_base_rate": 0.067,
   "base_rate_basis": "risk_set",
-  "base_rate_salience_version": "sal-v1",
+  "base_rate_salience_version": "sal-v2",
   "brier_skill_score": 0.443,
   "claim_scores": {
     "declared_set_version": "cert-v1",

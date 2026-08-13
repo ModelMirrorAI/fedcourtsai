@@ -119,7 +119,7 @@ def test_stamp_injects_the_process_version_into_the_agents_prediction(_data_root
     assert result.exit_code == 0, result.output
 
     pv = json.loads(path.read_text())["process_version"]
-    assert pv["label"] == "proc-v1"
+    assert pv["label"] == "proc-v2"
     assert pv["digest"].startswith("sha256:")
     assert pv["pipeline_sha"] == "sha-abc"
 
@@ -165,7 +165,7 @@ def test_stamp_evaluator_covers_every_predictors_evaluation(_data_root: Path) ->
             .event("evt-y")
             .evaluation("claude-judge", predictor, "RID")
         )
-        assert json.loads(path.read_text())["process_version"]["label"] == "proc-v1"
+        assert json.loads(path.read_text())["process_version"]["label"] == "proc-v2"
 
 
 def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
@@ -311,7 +311,7 @@ def test_process_digest_all_lists_every_enabled_actor() -> None:
     lines = [line for line in result.output.splitlines() if line.strip()]
     # Three predictors + three evaluators in the shipped registry.
     assert len(lines) == 6
-    assert all("sha256:" in line and "proc-v1" in line for line in lines)
+    assert all("sha256:" in line and "proc-v2" in line for line in lines)
 
 
 def test_stamp_evaluator_derives_the_base_rate_salience_version(_data_root: Path) -> None:
