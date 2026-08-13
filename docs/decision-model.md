@@ -437,12 +437,13 @@ baseline was *right*, so a published mean would be taken only over the cells it
 got wrong. And the pool refuses **build provenance it cannot vouch for**: a
 Term whose `cert_order_excluded` is null comes from a statpack build the
 cert-order guard above never ran on, so its parsed counts may still carry the
-class the rate must exclude — one such Term among the contributors and the
+class the rate must exclude — one such Term inside the pooled window and the
 whole pool returns no baseline, rather than a narrowed window nobody stated
 or a rate over contaminated counts. (The window knob therefore has a second
 effect beside the level it sets: it decides which Terms' provenance can make
-a merits baseline exist at all.) Behind any of the three there is no
-baseline, the claim goes unscored, and no substitute rate is invented.
+a merits baseline exist at all.) The window alone re-bases rather than
+refuses; behind the floor or the provenance refusal there is no baseline, the
+claim goes unscored, and no substitute rate is invented.
 
 **The Term axis is the grant Term, on both sides.** The statpack merits
 section is keyed on the October Term certiorari was granted in, and so is the

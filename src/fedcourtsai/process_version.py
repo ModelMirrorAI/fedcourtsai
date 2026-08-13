@@ -57,9 +57,9 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
         "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
         "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
         # evaluators: claude-judge, codex-judge, gemini-judge
-        "sha256:297591be0d03b53be21c792f5f0a0f82dc4059f8e8e4162cca7e279d47855e8f",
-        "sha256:02ca278d94e72dc4757c910394df87dae9b30096dfe36a76fa89349dfd288cfb",
-        "sha256:1c07fe95c68db7b9a042a3bb51a4352b30aab0d64a78f67094b1d5463339ae19",
+        "sha256:e8a0fed172adc447698a622bd69b318d4c0189be622f8d0d3085042f12760be7",
+        "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
+        "sha256:86e7df61bc9224e44f54d9fbb840979fae575d2e6832dac198a0bc15841c6a33",
     }
 )
 
