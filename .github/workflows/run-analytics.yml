@@ -520,6 +520,25 @@ jobs:
           fi
           echo "work tree pristine"
 
+      # Fail loud if the labeler produced nothing. `claude-code-action` can exit
+      # `is_error: false` while the agent aborted on an internal error and never
+      # wrote `$LABELS_OUT`, which otherwise surfaces two steps later as the
+      # measure command's cryptic "--labels: path does not exist". Assert the one
+      # declared output exists and is non-empty so a no-output run reads as an
+      # agent failure to re-run rather than a gate refusal to interpret. After
+      # the tree-pristine check, so a run that both tampered and wrote nothing
+      # reports the higher-signal tamper first.
+      - name: Assert the labeler wrote its output
+        env:
+          LABELS_OUT: ${{ runner.temp }}/qp-labels.jsonl
+        run: |
+          set -euo pipefail
+          if [ ! -s "$LABELS_OUT" ]; then
+            echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output; check the labeling step's log for an internal error, then re-run."
+            exit 1
+          fi
+          echo "labeler wrote $(wc -l < "$LABELS_OUT") label line(s)"
+
       - name: Measure the run and write the labels artifact
         run: |
           set -euo pipefail
