@@ -80,10 +80,13 @@ each freeze commit is recorded here.
   stamped under it** (step 0's grep on both branches: 0), so its headline is
   legitimately empty forever; the tag stays as the record that the label was
   registered, then superseded before any cell ran.
-- Freeze commit: the sal-v2 activation commit as amended before the tag by
-  the merits-baseline accuracy fix, which is where the blessed set now lives
-  (tagged **`prereg/proc-v2`** at
-  its carrying promotion, which also records the hash here) — re-blesses the
+- Freeze commit: `04411f166` — the sal-v2 activation commit as amended before
+  the tag by the merits-baseline accuracy fix (#1157), which is where the
+  blessed set lives, tagged **`prereg/proc-v2`**. Carried to `main` by the
+  promotion tagged **`promotion/2026-08-13`** (merge commit `260e8a64a`, merged
+  `2026-08-13T19:10:14Z`, before the freeze instant — the auditor's check of
+  the cutover procedure). Step 0's stamped-cell grep on both branches at the
+  promotion: 0. It re-blesses the
   three predictor digests the predict prompt's third cert moment (the arrival
   cell) moved, and sets the freeze instant `2026-08-16T00:00:00Z`. The
   activation commit flips
