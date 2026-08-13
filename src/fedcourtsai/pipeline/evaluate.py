@@ -422,10 +422,14 @@ def merits_base_rate(
     ``lookback_terms`` bounds the pool as a Term-year band exactly as
     :func:`segment_base_rate` does (``0`` = unbounded). ``None`` when the pack
     carries no merits section, when no prior Term has a parsed judgment, when
-    any pooled Term's ``cert_order_excluded`` is null — a build the pool guard
-    above never ran on, whose parsed slice may still contain the cert-order
-    class the rate must exclude (``metrics/README.md`` rules such a section
-    unquotable; this makes the rule structural) — or
+    any Term that would **contribute** to the pool carries a null
+    ``cert_order_excluded`` — a build
+    :func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order` never
+    ran on, whose parsed counts may still contain the cert-order class the
+    rate must exclude (``metrics/README.md`` rules such a section unquotable;
+    this makes the rule structural for the harness-pooled baseline, while the
+    evaluator-recorded ``segment_base_rate`` stays governed by the prompt's
+    omit rule) — or
     when the pooled sample is below :data:`MERITS_BASE_RATE_MIN_PARSED` — the
     already-contracted no-baseline answer, never an invented or degenerate rate.
     """

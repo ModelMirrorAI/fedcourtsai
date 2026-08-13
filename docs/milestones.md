@@ -83,14 +83,20 @@ each freeze commit is recorded here.
 - Freeze commit: the sal-v2 activation commit (tagged **`prereg/proc-v2`** at
   its carrying promotion, which also records the hash here) — re-blesses the
   three predictor digests the predict prompt's third cert moment (the arrival
-  cell) moved, carries the three proc-v1 evaluator digests forward unchanged,
-  and sets the freeze instant `2026-08-16T00:00:00Z`. The same commit flips
+  cell) moved, and sets the freeze instant `2026-08-16T00:00:00Z`. The same
+  commit flips
   the active salience scorer to `sal-v2`; its caption-census freeze record
   (caption-v1, pooled federal 0.708 vs private 0.054 over OT2017–24, 8/8
   complete Terms) is quoted in the activation PR with the corpus sha it ran
   over. The scored window opens at the first post-promotion metrics refresh,
   not at the flip — a sal-v2 cell minted before the refreshed statpack has no
-  published baseline (`docs/salience.md`).
+  published baseline (`docs/salience.md`). The evaluator digests carried by
+  the freeze are proc-v1's grading process plus one pre-tag accuracy fix in
+  the evaluate prompt's merits note (the harness merits baseline's third pool
+  guard — the null-provenance refusal in `merits_base_rate`, a
+  scoring-baseline change with no data-visible boundary, recorded here per
+  `docs/process-version.md`); zero cells were ever stamped under proc-v1 or
+  under any interim digest set.
 
 ## The near-term target: the OT2026 long-conference cert release
 

@@ -41,11 +41,10 @@ from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 CURRENT_PROCESS_LABEL = "proc-v2"
 
 # The blessed process digests — the frozen-headline set: the six proc-v2
-# baselines (claude/codex/gemini, predictor and evaluator each; the evaluator
-# three are unchanged from proc-v1, which this set supersedes with zero cells
-# ever stamped under it), read off
+# baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. Keyed on the digest, never the label, so a process that
+# which a test pins. proc-v2 supersedes proc-v1 with zero cells ever stamped
+# under it. Keyed on the digest, never the label, so a process that
 # drifted under an unchanged label is not silently blessed. The predictor
 # digests are the enforced membership filter (`is_frozen`); the evaluator
 # entries are the freeze *record* of the blessed grading process — an
@@ -57,11 +56,10 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
         "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
         "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
         "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
-        # evaluators: claude-judge, codex-judge, gemini-judge (unchanged from
-        # proc-v1: the arrival moment lives in the predict prompt alone)
-        "sha256:ed3ea431b2196b820ab1225bb8a1a635ef780834661a116cdb5f0cc8e4343c70",
-        "sha256:d6d74f16e2865d825667d64fee1d8756fdb1fc9d8d352cd750ea15df1fd3fd7a",
-        "sha256:e8cfccce34e8429957299dc7505daa061a0dd49884079a0186a278fcf554577c",
+        # evaluators: claude-judge, codex-judge, gemini-judge
+        "sha256:297591be0d03b53be21c792f5f0a0f82dc4059f8e8e4162cca7e279d47855e8f",
+        "sha256:02ca278d94e72dc4757c910394df87dae9b30096dfe36a76fa89349dfd288cfb",
+        "sha256:1c07fe95c68db7b9a042a3bb51a4352b30aab0d64a78f67094b1d5463339ae19",
     }
 )
 

@@ -382,7 +382,7 @@
             }
           ],
           "default": null,
-          "description": "Rows the label-independent pool guard removed from this slice: a parsed judgment dated on or before its own grant rode the cert order (docs/decision-model.md), so the row is outside granted, parsed, and the rate alike. Zero is only meaningful beside a healthy parse: a guard that stops firing and a guard with nothing to fire on render the same zero, which is why the count is published rather than implied. Null records a build the guard never ran on at all \u2014 a pack parsed from before the guard existed must not read as a measurement that it removed nothing.",
+          "description": "Rows the label-independent pool guard removed from this slice: a parsed judgment dated on or before its own grant rode the cert order (docs/decision-model.md), so the row is outside granted, parsed, and the rate alike. Zero is only meaningful beside a healthy parse: a guard that stops firing and a guard with nothing to fire on render the same zero, which is why the count is published rather than implied. Null records a build the guard never ran on at all \u2014 a pack parsed from before the guard existed must not read as a measurement that it removed nothing, and the merits baseline refuses to pool from a Term carrying it.",
           "title": "Cert Order Excluded"
         },
         "dig": {
@@ -490,7 +490,7 @@
             }
           ],
           "default": null,
-          "description": "Rows the label-independent pool guard removed from this slice: a parsed judgment dated on or before its own grant rode the cert order (docs/decision-model.md), so the row is outside granted, parsed, and the rate alike. Zero is only meaningful beside a healthy parse: a guard that stops firing and a guard with nothing to fire on render the same zero, which is why the count is published rather than implied. Null records a build the guard never ran on at all \u2014 a pack parsed from before the guard existed must not read as a measurement that it removed nothing.",
+          "description": "Rows the label-independent pool guard removed from this slice: a parsed judgment dated on or before its own grant rode the cert order (docs/decision-model.md), so the row is outside granted, parsed, and the rate alike. Zero is only meaningful beside a healthy parse: a guard that stops firing and a guard with nothing to fire on render the same zero, which is why the count is published rather than implied. Null records a build the guard never ran on at all \u2014 a pack parsed from before the guard existed must not read as a measurement that it removed nothing, and the merits baseline refuses to pool from a Term carrying it.",
           "title": "Cert Order Excluded"
         },
         "dig": {

@@ -300,10 +300,12 @@ fails the cell.
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. Note for reading
       the two together: the claim's baseline pools the same statpack counts
-      your `segment_base_rate` does, but the harness block does not itself
-      refuse a pre-guard section — so where the omit rule above nulls your
-      rate over a section with no `excluded` count, your omission is
-      deliberately the stricter of the two. Record the divergence in
+      your `segment_base_rate` does, and the harness block refuses a pool
+      whenever a Term that would contribute to it carries a null `excluded`
+      count. Your omit rule above is section-level and therefore still weakly
+      the stricter of the two — it also omits where the section-level count
+      is missing but no such Term is pooled — so a divergence is a narrow
+      residue, not the general case. Where you observe one, record it in
       `evaluation.md` rather than reconciling it.
 
     Say in `evaluation.md` that the cell is merits, which baseline you took or

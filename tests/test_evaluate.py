@@ -744,7 +744,10 @@ def test_merits_base_rate_refuses_a_null_guard_pool() -> None:
     `metrics/README.md` rules such a section unquotable, and this makes the
     rule structural rather than conventional.
     """
-    null_guard = StatPackMeritsTerm(term=2022, disturbed=32, parsed=40)
+    # Distinguishable numbers on purpose: pooling the null Term would yield
+    # 0.75 and silently dropping it 0.60, so a wrong-branch edit is legible
+    # from the failure, not only from the missing None.
+    null_guard = StatPackMeritsTerm(term=2022, disturbed=36, parsed=40)
     contaminated = _merits_pack(_merits_term(2023, disturbed=24, parsed=40), null_guard)
     assert merits_base_rate(2024, contaminated) is None
     # A null-guard row outside the pooled window never poisons the pool: the
@@ -760,6 +763,17 @@ def test_merits_base_rate_refuses_a_null_guard_pool() -> None:
         StatPackMeritsTerm(term=2020, disturbed=40, parsed=40),
     )
     assert merits_base_rate(2024, behind_window, lookback_terms=2) == pytest.approx(0.70)
+    # Deliberate scoping, pinned: the pack-level roll-up is never consulted —
+    # the pool reads Terms, so refusal is a property of the counts the number
+    # rests on. (The builder fills both levels together; a divergence between
+    # them is a hand-edited pack, which section-level refusal would not defend
+    # against either.) `_merits_pack` leaves the pack-level count at its null
+    # default, so every healthy pool above already exercises this; this states
+    # it as a choice rather than leaving it as drift.
+    pack_level_null = _merits_pack(_merits_term(2023, disturbed=28, parsed=40))
+    assert pack_level_null.merits is not None
+    assert pack_level_null.merits.cert_order_excluded is None
+    assert merits_base_rate(2024, pack_level_null) == pytest.approx(0.70)
 
 
 def test_merits_base_rate_pools_aggregates_not_term_means() -> None:

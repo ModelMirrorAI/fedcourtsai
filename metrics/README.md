@@ -532,7 +532,11 @@ the section's `cert_order_excluded`. When that count is a number, the pooled
 **rate** is clean of every cert-order vacatur whose judgment parsed with a
 date; when it is `null`, the pack predates the guard, and the section's
 figures carry whatever contamination the guard would have removed — quote
-nothing from a null-guard merits section. Three residues
+nothing from a null-guard merits section. The merits baseline enforces this
+structurally at the granularity that matters: `merits_base_rate` returns no
+baseline when any Term that would **contribute to its pool** carries a null
+count (a null on a Term the leakage rule or the lookback window already
+excludes contributes nothing and so cannot contaminate the rate). Three residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage

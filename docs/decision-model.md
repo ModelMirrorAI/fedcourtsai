@@ -422,20 +422,27 @@ recorded on a merits cell as the baseline its skill is scored against; the
 harness's `judgment-disturbed` claim baseline reads the same guarded pool, so
 both carry the guard by construction.
 
-**Two guards on the pool, both stated rather than implicit.** The window is
+**Three guards on the pool, all stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —
 `salience.base_rate_lookback_terms`, ten Terms as shipped — so the pool is
 `grant_term - 10 <= entry < grant_term`, and moving that knob re-bases every
 published skill number, cert and merits alike, at once; any merits figure is
-published with the window stated. And the pool must clear a **stated minimum
+published with the window stated. The pool must clear a **stated minimum
 sample** (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments as shipped)
 before it returns a rate at all. That
 floor is not decoration: the merits section exists from its first parsed
 judgment, so without it a single prior-Term row would hand out a degenerate
 0 or 1 baseline — and `brier_skill` returns `None` exactly where such a
 baseline was *right*, so a published mean would be taken only over the cells it
-got wrong. Below the floor there is no baseline, the claim goes unscored, and
-no substitute rate is invented.
+got wrong. And the pool refuses **build provenance it cannot vouch for**: a
+Term whose `cert_order_excluded` is null comes from a statpack build the
+cert-order guard above never ran on, so its parsed counts may still carry the
+class the rate must exclude — one such Term among the contributors and the
+whole pool returns no baseline, rather than a narrowed window nobody stated
+or a rate over contaminated counts. (The window knob therefore has a second
+effect beside the level it sets: it decides which Terms' provenance can make
+a merits baseline exist at all.) Behind any of the three there is no
+baseline, the claim goes unscored, and no substitute rate is invented.
 
 **The Term axis is the grant Term, on both sides.** The statpack merits
 section is keyed on the October Term certiorari was granted in, and so is the
