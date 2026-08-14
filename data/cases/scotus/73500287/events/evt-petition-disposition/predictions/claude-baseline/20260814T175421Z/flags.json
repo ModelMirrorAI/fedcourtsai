@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Frozen distribution_count=2 counts the May 26 distribution of sealing motion 25M86 (conference 6/11/2026) alongside the petition's own single distribution (June 24, for the 9/28/2026 long conference, not yet held). The petition has never been considered at a conference, so the elevated band partly reflects motion practice rather than petition trajectory; relist-increment resolves from the count as frozen, which both sides of the resolution share, but the band-conditioned baseline may be generous to this docket.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

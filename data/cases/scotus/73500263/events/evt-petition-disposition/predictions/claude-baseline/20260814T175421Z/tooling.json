@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500263",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "courtlistener-mcp read_document",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition and questions-presented text — the QP section and the reasons-for-granting structure carried most of the case-specific signal.",
+    "The statpack's salience-band table with bracketed reached rates and per-Term rows made the anchoring arithmetic mechanical."
+  ],
+  "gaps": [
+    "distribution_count counts every 'DISTRIBUTED for Conference' entry, including distributions of ancillary motions (here the sealed-appendix motion 25M82); a petition-only count would keep the band from inflating on motion traffic.",
+    "CourtListener's stored opinion text for the decision below was a mismatched unrelated document, so publication status could not be verified; a docket-entry-level fetch of the slip opinion would have settled it in one call.",
+    "The corpus citation filter is too sparse to be useful for SCOTUS known-case lookups (161 rows with citation data); the empty result cost a large ranged read."
+  ],
+  "notes": "No blocked steps; retrieval stayed at 3 calls, well under budget."
+}

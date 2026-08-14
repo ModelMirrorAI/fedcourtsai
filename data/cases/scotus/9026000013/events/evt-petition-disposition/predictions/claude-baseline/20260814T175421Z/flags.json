@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000013",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count of 1 reflects the June 10, 2026 distribution of the petitioners' sealing motion (25M91) for the June 25 conference, not a distribution of the cert petition itself — the brief in opposition is not due until August 26, 2026, so the petition has never been considered on the merits of cert. I anchored on the frozen baseline band per the contract and stated relist-increment (0.97) from the frozen count of 1; the increment claim remains well-posed, but readers of the band should know the petition is effectively pre-distribution."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This is a famous, heavily covered case (the 9/11 military-commission plea-agreement mandamus) and I carry background knowledge of it from training, including the D.C. Circuit decision under review — which is also on the provisioned record. The cert disposition does not exist yet (forward mode) and nothing outcome-revealing was retrieved; noting the prior familiarity for transparency."
+    }
+  ]
+}

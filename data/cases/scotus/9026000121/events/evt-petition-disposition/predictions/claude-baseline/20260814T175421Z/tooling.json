@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": [
+    "The statpack's per-Term salience-band table with bracketed reached rates — exactly the anchor the frozen band needs",
+    "Provisioned full petition text and QP extract made document-grounded vehicle assessment possible without any live retrieval"
+  ],
+  "gaps": [
+    "No way to retrieve priors by legal issue or cited authority: the corpus citation filter covers 161 of 590k scotus rows, so a 'how do Caperton-type recusal petitions fare' query is unanswerable from the corpus",
+    "A single Caperton citation query cost 1327 ranged GETs (~348 MB) to return nothing — an upfront coverage check would have saved the egress"
+  ],
+  "notes": "Cell ran cleanly on provisioned inputs plus the statpack; no MCP retrieval was needed for a same-day forward snapshot."
+}

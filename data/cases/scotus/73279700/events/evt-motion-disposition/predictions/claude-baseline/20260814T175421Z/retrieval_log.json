@@ -1,0 +1,200 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "03dab81667c19884",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:00.633Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "480322d3102e0627",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279700 -type f | head -50",
+      "result_digest": "f459b1e5b29e6e91",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:01.807Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cd5a57042ef535e5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279700/events/evt-motion-disposition/event.yaml\"}",
+      "result_digest": "2ba7cd29e3ba88e1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:07.669Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "73c68dc65a2a8e10",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279700/record/context.json\"}",
+      "result_digest": "a0e4bc2e82802347",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:08.226Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "098e1abad852d61f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279700/record/snapshots/2026-08-14.json\"}",
+      "result_digest": "adbc1832fc8262c5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:08.852Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7ae8c5888d6200c9",
+      "query": "grep -n \"interim\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -20",
+      "result_digest": "e1e893e46f1b3429",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:33.196Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "d9298bba0004235a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:33.688Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "94a2d745843e6d8a",
+      "query": "sed -n 193,260p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "d0bc7c2dc043cf9c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:38.566Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "b45287470bc6644c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:22.609Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:36.431Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "dbd581d0b53c5f7d",
+      "query": "{\"court\": \"ca9\", \"docket_number\": \"25-2374\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"dateTerminated\", \"suitNature\", \"court\", \"docket_id\", \"absolute_url\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "0e3c700ca38c1106",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:42.195Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "fba284a0c5b849ad",
+      "query": "\"Allen Watkins\"",
+      "result_digest": "3b6e9591e3665565",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:01.090Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "e1c04d41852f91a0",
+      "query": "{\"case_name\": \"Watkins\", \"court\": [\"ca9\", \"azd\"], \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"dateTerminated\", \"suitNature\", \"court_id\", \"docket_id\"], \"filed_after\": \"2024-01-01\", \"num_results\": 20, \"type\": \"d\"}",
+      "result_digest": "0becbbc30d0e832b",
+      "retrieved_doc_date": "2026-02-10",
+      "timestamp": "2026-08-14T17:58:07.437Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "253f16d5f507351b",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "071255df8acbb842",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:37.019Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c7a1f3beadbe5347",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279700\\\",\\n  \\\"event_id\\\": \\\"evt-motion-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T17:58:37Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279700/record/snapshots/2026-08-14.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"c",
+      "result_digest": "c4e091271fa81375",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:50.838Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cd88abd56c067cdb",
+      "query": "{\"content\": \"# Forecast \\u2014 Watkins v. United States District Court for the District of Arizona, No. 25A622\\n\\n**Disposition: the application will be denied, without an unqualified grant of any relief.**\\n\\nThe resolvable procedural claims for this interim cell:\\n\\n- **No response will be called for.** The docket shows none requested in the\\n  roughly nine months since the application was submitted to Justice Kagan on\\n  November 18, 2025 (docketed November 25). A request for a response is an",
+      "result_digest": "083373b26e506233",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:01.949Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "72855628863e07aa",
+      "query": "{\"content\": \"# Rationale \\u2014 P(unqualified grant) = 0.01\\n\\n**The cell.** Interim stage, `moment: arrival`, forward mode. Application\\n25A622: a stay application by Allen Watkins, self-represented (he is his own\\ncounsel of record; a residential Phoenix address, no prisoner ID), naming the\\nUnited States District Court for the District of Arizona as respondent, with\\nNinth Circuit case 25-2374 below \\u2014 the posture of a stay sought pending review\\nof a mandamus-type proceeding against the ",
+      "result_digest": "9005e05b5280a679",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:28.405Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6f327cd6f5a5ffad",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (event.yaml, record/context.json, the\\n2026-08-14 snapshot) and the committed `metrics/statpack.md`:\\n\\n## CourtListener MCP\\n\\n1. `search(type=d, court=ca9, docket_number=25-2374)` \\u2014 0 results (the Ninth\\n   Circuit case below is not in the RECAP docket index under that number).\\n2. `search(type=r, court=[ca9, azd], q=\\\"Allen Watkins\\\")` \\u2014 0 results.\\n3. `search(type=d, court=[ca9, azd], case_name=Watkins, filed_after=2024-",
+      "result_digest": "4df53f63ed59b518",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:34.904Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6dc153e123c1ec0e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279700\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-motion-disposition\\\",\\n      \\\"message\\\": \\\"Stay application 25A622 was docketed 2025-11-25 and the 2026-08-14 as-stored snapshot still shows only the single arrival entry \\u2014 no response re",
+      "result_digest": "4b0efa7985b89e6e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:42.932Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7a8b9e8d1beb2434",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279700\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md (interim-docket section, as shape only)\\\",\\n    \\\"CourtListener MCP search (3 calls)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack interim section's per-Term substantive grant rates and escalation-signal co",
+      "result_digest": "11d1b49cacc73b74",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:50.453Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c91f11c85ea156bd",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_digest": "eeb6f0442150cb92",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:59:54.312Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73279700",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260814T175421Z",
+  "schema_version": "1.0"
+}

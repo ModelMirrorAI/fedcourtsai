@@ -1,0 +1,12 @@
+case_id: scotus/9026000115
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-24'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc.

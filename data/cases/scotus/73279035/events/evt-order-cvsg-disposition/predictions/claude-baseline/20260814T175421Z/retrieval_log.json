@@ -1,0 +1,312 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "03dab81667c19884",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:00.854Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4193f87df65c0f23",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035 -type f | head -50",
+      "result_digest": "9f112b3108d72eba",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:06.567Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "52ca49e15b711b49",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/events/evt-order-cvsg-disposition/event.yaml\"}",
+      "result_digest": "d282ccef94f9148f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:10.857Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "64cff3db9b001743",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/context.json\"}",
+      "result_digest": "70d95bd1079fff55",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:10.863Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2d119a0c1e4e6c44",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/snapshots/2026-08-14.json\"}",
+      "result_digest": "f1cbfd513adca671",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:18.686Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1733e2b5681e7ccc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/documents.json\"}",
+      "result_digest": "62fb6eed20586d2a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:18.806Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dc0d9c9ef5814274",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/questions-presented.txt\"}",
+      "result_digest": "e4b76a82232ba947",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:27.654Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5b7a9ce79e15668b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/petition.txt\", \"limit\": 200}",
+      "result_digest": "24bef834c9101294",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:31.842Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec5cff191cfef93e",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/brief-in-opposition.txt",
+      "result_digest": "43ad04f4413f6793",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:38.011Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80a15e223803b3dc",
+      "query": "grep -n \"INTRODUCTION\\|STATEMENT\\|REASONS FOR GRANTING\\|CONCLUSION\\|VEHICLE\\|excellent vehicle\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/petition.txt | head -20",
+      "result_digest": "f214bac069329066",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:42.445Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0287f85c0cf3bdce",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/petition.txt\", \"limit\": 135, \"offset\": 413}",
+      "result_digest": "9e02d79d69f2e444",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:46.524Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cbe9c5d8c5a1b0ce",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/petition.txt\", \"limit\": 115, \"offset\": 1525}",
+      "result_digest": "6191250ddedbca07",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:52.804Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bead0196c3dc4967",
+      "query": "grep -n \"INTRODUCTION\\|REASONS FOR DENYING\\|CONCLUSION\\|^I\\.\\|^II\\.\\|^III\\.\\|^ *I\\.\\|^ *II\\.\\|^ *III\\.\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/brief-in-opposition.txt | head -25",
+      "result_digest": "9164ad2626ce0c07",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:56:58.912Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2f181a994bb3139b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/record/documents/brief-in-opposition.txt\", \"limit\": 160, \"offset\": 230}",
+      "result_digest": "71a8de0b6a2f6d01",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:03.994Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e5b575536e0e3146",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "36c6227bf9e3c8f6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:11.735Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5217a46fdef1fb55",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 140, \"offset\": 55}",
+      "result_digest": "6c6aaece421df672",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:57:19.164Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "d9298bba0004235a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:10.648Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "55067f67df462f15",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/events/evt-petition-disposition/predictions/claude-baseline/20260716T073449Z/prediction.json\"}",
+      "result_digest": "8ee33092b5c823e7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:11.185Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c1d85c97ef0bef8e",
+      "query": "uv run fedcourts query --court scotus --text \"ERISA equitable relief surcharge 502(a)(3)\" --limit 8 2>&1 | head -60",
+      "result_digest": "801ae5e7d6d1448d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:31.790Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:32.209Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "b45287470bc6644c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:38.683Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "220b2e8379531a07",
+      "query": "uv run fedcourts query --court scotus --citation \"508 U.S. 248\" --citation \"534 U.S. 204\" --citation \"563 U.S. 421\" --citation \"577 U.S. 136\" --limit 6 2>&1 | tail -12",
+      "result_digest": "538ae00c175d11db",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:50.013Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c0b8f754c7c897a4",
+      "query": "Rose v. PSA Airlines",
+      "result_digest": "1dd1c8d919e173ad",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T17:58:50.906Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "0c348988df291f63",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"court\": \"scotus\", \"docket_number\": \"23-734\", \"fields\": [\"id\", \"case_name\", \"docket_number\", \"date_filed\", \"date_terminated\"]}}",
+      "result_digest": "e3c4e2630f1f6c96",
+      "retrieved_doc_date": "2024-01-08",
+      "timestamp": "2026-08-14T18:00:24.235Z",
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "3c1b84b4e38a03a7",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 60, \"query\": {\"docket\": 72482680, \"fields\": [\"date_filed\", \"description\"], \"order_by\": \"date_filed\"}}",
+      "result_digest": "667362483ed21200",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:00:29.462Z",
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:00:34.707Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "722adac501a3e62b",
+      "query": "Rose v. PSA Airlines 23-734 Supreme Court solicitor general brief cert denied ERISA surcharge",
+      "result_digest": "683141e1ba2821ed",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:00:38.100Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c0d8cfcfd4e59f93",
+      "query": "Aldridge v. Regions Bank Supreme Court 25-590 solicitor general CVSG",
+      "result_digest": "9c0a7fa9e384f4f6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:01:13.810Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "cc89d4e4c6961fc1",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\" && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279035/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260814T175421Z",
+      "result_digest": "91b028bf1bd8678d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:02:11.326Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cda2c9206f51b09b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279035\\\",\\n  \\\"event_id\\\": \\\"evt-order-cvsg-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T18:02:11Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279035/record/snapshots/2026-08-14.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.45,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n ",
+      "result_digest": "7186ee68578eea81",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:02:19.702Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3d59271e53da467e",
+      "query": "{\"content\": \"# Predicted reasoning \\u2014 Aldridge v. Regions Bank (No. 25-590), CVSG-moment cert forecast\\n\\n**State forecast from.** The docket shows **two distributions** (for the\\n1/9/2026 and 4/2/2026 conferences) and a **CVSG issued April 6, 2026**, four\\ndays after the second conference. The respondent initially waived, the Court\\nrequested a response, and the case reached the SG invitation with a full set of\\nfilings: petition, BIO, reply, and one academic amicus (Samuel L. Bray)\\nsuppor",
+      "result_digest": "25aa15c582d7ec08",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:02:43.776Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6d6f297c7f870ea3",
+      "query": "{\"content\": \"# Rationale \\u2014 P(any grant) = 0.45\\n\\n## Anchor\\n\\nThis is a `forward`, cert-stage cell at `moment: cvsg`, with a harness-frozen\\nband of **`high`** under `sal-v2` (Term 2025, `distribution_count: 2`,\\n`cvsg_date: 2026-04-06`). Per the contract I anchored on the **bracketed\\n`reached`** rate for the `high` band in the statpack's \\\"Segment base rate by\\nsalience band (sal-v2)\\\" table, pooled over the Terms strictly before this\\ncase's own (2017\\u20132024, all eight rendered rows ",
+      "result_digest": "215c3a84aab561cc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:03:17.030Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "dae8c89833400e1f",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot 2026-08-14, event.yaml,\\nrecord/context.json, questions-presented.txt, petition.txt,\\nbrief-in-opposition.txt, documents.json) and the committed\\n`metrics/statpack.md`:\\n\\n## Corpus\\n\\n- `uv run fedcourts query --court scotus --citation \\\"508 U.S. 248\\\" --citation\\n  \\\"534 U.S. 204\\\" --citation \\\"563 U.S. 421\\\" --citation \\\"577 U.S. 136\\\" --limit 6`\\n  \\u2014 lookup of the SCOTUS ERISA-remedies line (Mertens, Great-West, Ama",
+      "result_digest": "24849d0b9889c165",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:03:30.530Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9f30f73157c4d8e7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279035\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener-mcp search\\\",\\n    \\\"courtlistener-mcp call_endpoint (dockets, docket-entries)\\\",\\n    \\\"web search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The salience-band re",
+      "result_digest": "5bb13aac5cb18952",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:03:40.237Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2acf92fdcee7b769",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_digest": "207f41846150d986",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:03:44.501Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73279035",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260814T175421Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "The salience-band segment table's bracketed reached rates made the anchor arithmetic mechanical for a band-frozen cell",
+    "Provisioned petition and BIO full text let me weigh the split and vehicle arguments directly instead of inferring from the docket",
+    "The CVSG cut in the statpack gave a corroborating conditional rate"
+  ],
+  "gaps": [
+    "The CVSG cut buckets by terminal status only; a cut conditional on the SG's eventual recommendation (grant vs deny) would sharpen post-CVSG cells far more than any other single addition",
+    "The citation filter on fedcourts query is too sparsely populated on SCOTUS rows to retrieve doctrinal neighbors (161 of 590020 rows in scope carried citation data)",
+    "No statpack signal for time-from-CVSG-to-disposition; timing forecasts rest on general knowledge"
+  ],
+  "notes": "Forward-mode CVSG cell; retrieval kept to two corpus queries, both logged in retrieval.md. The first citation-keyed query triggered a large ranged read (1327 GETs / ~348 MB) for an empty result, which seems like poor cost-per-signal for that filter."
+}

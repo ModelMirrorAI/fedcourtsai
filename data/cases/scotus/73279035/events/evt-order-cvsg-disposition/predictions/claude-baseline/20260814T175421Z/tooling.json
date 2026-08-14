@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint (dockets, docket-entries)",
+    "web search"
+  ],
+  "helpful": [
+    "The salience-band reached-rate table with its per-Term rows made the scored anchor unambiguous for a frozen high-band CVSG cell.",
+    "Provisioned petition/BIO/QP text was the decisive input — the BIO's top-hat vehicle argument is the main downward driver and only its text reveals it.",
+    "Web search cheaply resolved the companion-case signal (Rose v. PSA Airlines denied 2024 without CVSG), which the corpus and RECAP could not."
+  ],
+  "gaps": [
+    "fedcourts query has no text/subject filter for SCOTUS rows, and the citation column is too sparse to retrieve a doctrinal line (the Mertens/Great-West/Amara/Montanile lookup returned zero rows); a QP-text or issue-area filter would have produced real comparables.",
+    "No statpack cut conditions the CVSG grant rate on the SG's eventual recommendation or on time-since-invitation; a CVSG-moment cell's whole uncertainty is the SG brief, and the pack is silent past the invitation itself.",
+    "SCOTUS docket entries for related petitions are absent from RECAP via the MCP endpoints, so companion-docket trajectories require the open web."
+  ],
+  "notes": "The one corpus query cost 1,327 ranged GETs (~348 MB) to return zero rows; a cheaper miss on sparse filters would be kinder to the budget."
+}

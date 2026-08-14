@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (citation lookup)",
+    "metrics/statpack.md (salience-band segment table, relist/CVSG cuts)",
+    "provisioned record/documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The frozen band in record/context.json plus the band table's bracketed reached rates made the arrival anchor a single computation.",
+    "Provisioned petition text was complete through the Reasons section despite the truncation flag, which the appendix-heavy page count explains."
+  ],
+  "gaps": [
+    "No way to look up a companion docket's status (here the President's separate petition from the same judgment) without CourtListener round-trips; a provisioned related-cases note would help on multi-petition litigations.",
+    "The corpus citation column is too sparse to surface priors for even canonical SCOTUS merits precedents; a topical or statute-keyed filter on SCOTUS rows would make `fedcourts query` useful at the cert stage."
+  ],
+  "notes": "documents.json marks the petition truncated (157 pages); the cut fell in the appendices, so the loss was immaterial to this cell."
+}

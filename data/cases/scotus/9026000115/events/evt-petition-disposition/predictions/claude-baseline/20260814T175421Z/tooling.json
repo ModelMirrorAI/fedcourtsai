@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000115",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener MCP search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "statpack salience-band table with bracketed reached rates — gave the exact anchor for a frozen baseline-band cell",
+    "provisioned petition.txt and questions-presented.txt — the whole case-specific adjustment rests on them",
+    "record/context.json frozen band and distribution_count — removed any need to derive conditioning state"
+  ],
+  "gaps": [
+    "no subject-matter/topic filter on SCOTUS corpus rows, so 'similar petitions' (e.g. Title VII religious-accommodation cert petitions and their dispositions) cannot be pulled as a measured prior",
+    "a per-fee-class or petitioner-type cut keyed to counsel profile (solo/small-firm vs experienced SCOTUS bar) would sharpen quality adjustments"
+  ],
+  "notes": "The generic fedcourts query without a topic filter returned mostly capital-case and application rows; for a subject-specific cert prior the committed statpack carried all the usable signal this run."
+}

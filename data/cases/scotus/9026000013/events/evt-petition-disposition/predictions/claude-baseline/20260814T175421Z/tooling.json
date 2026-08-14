@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000013",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, get_endpoint_item)"
+  ],
+  "helpful": [
+    "statpack segment-base-rate-by-band table (the anchor)",
+    "provisioned petition text and questions-presented cut",
+    "docket snapshot's full proceedings list (extension/sealing/amicus trail)"
+  ],
+  "gaps": [
+    "fedcourts query has no keyword/subject filter, so 'similar priors' for a military-commissions mandamus petition are unreachable (citation filter hits the documented coverage gap)",
+    "query --disposition granted surfaces 25Axxxx application-extension rows as 'granted', which drowns cert grants; an application/petition discriminator on the query surface would help",
+    "CourtListener opinion-id -> cluster lookups resolved to an unrelated case (index/ID mismatch), so the panel composition of the decision below was not recoverable via MCP",
+    "SCOTUS dockets are not in CourtListener, so a companion petition's status (bin 'Atash, No. 25-1335) could not be checked"
+  ],
+  "notes": "First corpus query (--citation) transferred ~348 MB over 1327 ranged GETs to return zero rows; an early bail-out when a sparse filter's coverage note fires would save most of that egress."
+}

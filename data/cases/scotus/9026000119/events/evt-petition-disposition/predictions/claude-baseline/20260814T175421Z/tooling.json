@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000119",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "statpack (metrics/statpack.md): salience-band reached rates, relist and CVSG cuts",
+    "CourtListener MCP search (dockets, opinions)",
+    "provisioned documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The frozen band + the segment-base-rate table's bracketed reached figures made the anchor unambiguous",
+    "Provisioned petition text with the lower-court orders attached as appendices meant no fetching was needed for the core record",
+    "CourtListener docket search cheaply tested the petition's 'evades review' premise against the actual D. Guam docket"
+  ],
+  "gaps": [
+    "fedcourts query has no originating-court filter, so 'how do petitions from this court below fare' — a natural prior for a state-court/territorial cert cell — required CourtListener instead of the corpus",
+    "No BIO existed yet (response due 2026-08-26); a cell scheduled after the response date would have seen the waiver-vs-oppose signal, which is informative at this moment"
+  ],
+  "notes": "Distribution-moment cell ran with distribution_count=0 (petition docketed 2026-07-27, not yet conferenced); claims were stated from that zero state, see flags.json."
+}

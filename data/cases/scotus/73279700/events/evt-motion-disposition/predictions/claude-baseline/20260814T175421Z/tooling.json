@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim-docket section, as shape only)",
+    "CourtListener MCP search (3 calls)"
+  ],
+  "helpful": [
+    "statpack interim section's per-Term substantive grant rates and escalation-signal counts",
+    "CourtListener docket search for the applicant's underlying district-court litigation",
+    "context.json's explicit band:null, which settled the no-cert-anchor question immediately"
+  ],
+  "gaps": [
+    "fedcourts query has no ask/party-type/stage filter, so comparable interim-application priors (pro se, respondent-is-a-court) cannot be retrieved from the corpus",
+    "no provisioned filed-document text for the application itself (record/documents/ absent), so the ask's scope had to be inferred from the docket caption",
+    "an as-at-prediction (rather than terminal-latched) escalation-signal cut in the statpack would make the interim section usable as a real anchor"
+  ],
+  "notes": "Interim arrival cell with every escalation rung unclimbed; the statpack section was explicitly treated as descriptive shape and the number was anchored on the record plus the category's near-zero practical grant rate, as the prompt directs when no scored interim base rate exists."
+}

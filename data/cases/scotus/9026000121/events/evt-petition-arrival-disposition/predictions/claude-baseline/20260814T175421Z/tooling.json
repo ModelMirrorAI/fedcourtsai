@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "statpack segment-base-rate-by-salience-band table (sal-v2) — the arrival-moment anchor was directly readable",
+    "provisioned petition.txt and questions-presented.txt — full petition text made the case-specific downward adjustment possible",
+    "frozen context.json band/distribution_count — no need to derive conditioning state"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or issue-topic filter on SCOTUS rows, so topically similar priors (e.g. Caperton-line recusal petitions) cannot be retrieved; --topic is circuit-only and --citation is a known-case lookup",
+    "no provisioned lower-court opinion text; the ACM's unreported opinion was readable only as quoted inside the petition"
+  ],
+  "notes": "Statpack anchoring alone was sufficient for this arrival-moment cell; one corpus query confirmed the retrieval surface's limits rather than informing the number."
+}

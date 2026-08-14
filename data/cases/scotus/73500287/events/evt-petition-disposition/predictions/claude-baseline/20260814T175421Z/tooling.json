@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp get_endpoint_item"
+  ],
+  "helpful": [
+    "The salience-band segment table with bracketed reached rates — it is exactly the anchor a banded forward cell needs, and the per-Term rows made pooling strictly-prior Terms mechanical.",
+    "Provisioned petition and QP text with a documents.json manifest — no fetching needed, and the truncation/empty_text fields answer the questions that would otherwise burn retrieval calls."
+  ],
+  "gaps": [
+    "No base-rate cut conditions on a waived response / call-for-response state; CFR probability is the dominant term in a grant path from a waived-BIO docket and I had to set it by judgment.",
+    "distribution_count counts motion distributions alongside petition distributions (here the sealing motion 25M86 made a never-conferenced petition look twice-distributed); a petition-only distribution count would sharpen both the band and relist-increment resolution.",
+    "CourtListener cluster lookup for the CA5 opinion returned another case's metadata, so panel/dissent-below could not be verified through the sanctioned path."
+  ],
+  "notes": "Forward cell with a same-day snapshot; provisioned inputs were sufficient and retrieval was needed only for verification, most of which the statpack could not and CourtListener did not provide."
+}

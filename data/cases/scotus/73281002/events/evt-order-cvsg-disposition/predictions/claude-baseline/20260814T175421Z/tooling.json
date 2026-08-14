@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "web search",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "The frozen context block (band, distribution_count, cvsg_date) made the anchoring unambiguous — no need to re-derive the band.",
+    "Provisioned full-text petition and BIO were the highest-value inputs; the BIO's vehicle argument (pending state-court case) was the main downward adjustment and only its text disclosed it.",
+    "The statpack's CVSG and salience-band cuts lined up (~36% vs ~40%), which made the anchor robust."
+  ],
+  "gaps": [
+    "A per-band CVSG cross-cut (grant rate among high-band petitions that were CVSG'd) would beat eyeballing two marginal cuts against each other.",
+    "A statpack cut on SG recommendation vs disposition for CVSG'd petitions would replace the largest judgment call in this cell with a measured rate.",
+    "The BIO document concatenates six respondents' filings into one 100-page text; per-filing separation (or at least the lead BIO isolated) would make targeted reading cheaper."
+  ],
+  "notes": "fedcourts query with --disposition granted --era 2020s returned mostly stay-application rows rather than cert petitions; a --stage or docket-kind filter would make precedent retrieval more useful for cert cells."
+}

@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000115",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot and documents"
+  ],
+  "helpful": [
+    "The sal-v2 band table's bracketed reached rates gave a direct, version-matched anchor for an arrival cell",
+    "Provisioned petition.txt including the appendix — the unpublished-per-curiam posture of the decision below was readable without any retrieval"
+  ],
+  "gaps": [
+    "fedcourts query has no subject-matter or free-text filter for SCOTUS rows, so on-point priors (Title VII religious-accommodation petitions) cannot be pulled; --topic is circuit-only",
+    "A --disposition granted query returns granted time-extension applications mixed with cert grants; an application-kind exclusion filter would make the disposition filter usable for cert priors",
+    "No cheap way to check for pending merits cases that could generate a GVR against a given authority (e.g. anything on Groff's undue-hardship standard)"
+  ],
+  "notes": "Statpack plus the provisioned documents carried essentially the whole prediction; retrieval added little for this splitless error-correction petition."
+}

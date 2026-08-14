@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md (band table, relist/CVSG/circuit cuts)",
+    "courtlistener MCP search (docket + opinion)"
+  ],
+  "helpful": [
+    "The sal-v2 segment band table with bracketed reached rates — a directly usable, leakage-safe anchor for the frozen band.",
+    "Provisioned full text of petition, QP, and BIO — the BIO's vehicle arguments drove the largest downward adjustment.",
+    "Frozen context.json (band, distribution_count) removed any need to re-derive signals."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or issue-based relevance for SCOTUS rows (--topic is circuit-only), so finding doctrinally similar priors (e.g. other circuit-split antitrust petitions) is not really possible; the generic ranked query surfaced mostly interim applications.",
+    "A conditional cut for 'response requested after waiver' would be valuable — it is a strong signal the band does not capture, and I had to adjust for it by judgment.",
+    "The petitioners' cert-stage reply (on the docket 2026-08-05) was not among the provisioned documents; a reply fetch would complete the cert-stage paper record."
+  ],
+  "notes": "Forward cell, clean inputs throughout; statpack salience_version matched the frozen band's version so the primary anchor applied without fallback."
+}

@@ -1,0 +1,57 @@
+{
+  "big_case_rationale": "The sitting President's ~$100M personal liability in the E. Jean Carroll defamation litigation, with the United States seeking substitution that would extinguish the judgment; among the most-watched petitions of OT2026 whatever the disposition.",
+  "big_case_score": 0.97,
+  "case_id": "scotus/9026000142",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.72
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "salience_version": "sal-v2",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-14",
+    "snapshot_provenance": "as-stored",
+    "term": 2026
+  },
+  "created_at": "2026-08-14T18:24:33Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9026000142/record/snapshots/2026-08-14.json",
+  "judgment": null,
+  "model": "claude-fable-5",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.72,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
+    "label": "proc-v2",
+    "pipeline_sha": "511c5a5b01aa1405de2a8ca97e1c33c231eef97b",
+    "stamped_at": "2026-08-14T18:26:33.882344Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260814T175421Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

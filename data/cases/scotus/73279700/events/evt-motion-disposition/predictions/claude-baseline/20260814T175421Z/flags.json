@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Stay application 25A622 was docketed 2025-11-25 and the 2026-08-14 as-stored snapshot still shows only the single arrival entry — no response request, referral, amicus, or disposition in ~9 months. Applications of this shape (pro se, respondent is the district court itself) are normally denied within weeks, so the dormancy may indicate a stale source docket or an uncaptured disposition rather than a genuinely pending application. I predicted on the pending posture the record shows and did not seek the application's own disposition."
+    }
+  ]
+}

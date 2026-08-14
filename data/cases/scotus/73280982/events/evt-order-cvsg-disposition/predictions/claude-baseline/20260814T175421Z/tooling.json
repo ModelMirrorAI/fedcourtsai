@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot + petition/BIO document texts"
+  ],
+  "helpful": [
+    "the frozen context block (band, distribution_count, cvsg_date) — made the scored anchor unambiguous for a CVSG-moment cell",
+    "statpack salience-band table's bracketed reached rates and the CVSG cut — together they pin the anchor tightly",
+    "provisioned petition.txt and brief-in-opposition.txt — the whole cert-stage argument, including the BIO's interlocutory-posture vehicle attack, with no network retrieval"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject-matter filter for SCOTUS rows, and the citation column is sparse (a Macquarie lookup by '601 U.S. 257' returned nothing at a cost of ~348 MB of ranged reads) — similar-prior retrieval is effectively unusable for this kind of cell",
+    "a CVSG-timing cut (CVSG-to-SG-brief and CVSG-to-disposition intervals) would sharpen both the relist-increment claim and the disposition timing forecast",
+    "questions-presented.txt extraction still grabs a TOC fragment on this docket (flagged again)"
+  ],
+  "notes": "Forward cell; no MCP or web retrieval — the snapshot already carried the CVSG order and the fully briefed petition, which dominate the forecast."
+}

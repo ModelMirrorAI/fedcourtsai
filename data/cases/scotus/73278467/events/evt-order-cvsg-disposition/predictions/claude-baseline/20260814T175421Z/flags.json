@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Forward-signal disclosure: the forecast leans on the intervening decisions in West Virginia v. B.P.J. and Little v. Hecox (decided 2026-06-30, the same day as this cell's CVSG and before the snapshot), retrieved via CourtListener MCP and web search. They are decisive context — the Court plainly held this petition for them and CVSG'd instead of denying or GVR'ing — not leakage; this petition's own disposition does not yet exist.",
+      "event_id": "evt-order-cvsg-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "`fedcourts query --court scotus --disposition granted --era 2020s` returns mostly 25Annn application dockets whose disposition 'granted' records a time-extension grant, not a cert grant. As priors for a cert cell these rows are misleading; consider excluding application_kind=extension rows from the granted-disposition surface or exposing a filter.",
+      "event_id": "evt-order-cvsg-disposition"
+    }
+  ]
+}

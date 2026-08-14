@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500263",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Frozen distribution_count=2 (band 'elevated') counts the May 19 2026 distribution of ancillary motion 25M82 (leave to file a sealed supplemental appendix) alongside the petition's own single June 17 2026 distribution for the 9/28/2026 long conference. The petition has never been relisted, so the elevated band overstates this cell's conditioning relative to the population behind the band's ~20% reached rate; I anchored on the frozen band as instructed and adjusted down in reasoning.md.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

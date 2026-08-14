@@ -1,0 +1,232 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "03dab81667c19884",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:02.240Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0040a299d4797624",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115 -type f | head -50",
+      "result_digest": "059ff0df6fd7b4a1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:03.024Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "d9298bba0004235a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:09.239Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e9080b3c4bf536a0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "3a02cd309b0290f2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:09.988Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "89aa8e139264a430",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/context.json\"}",
+      "result_digest": "7a847d7a0c9fd099",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:10.670Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "48892ce56fb4e34b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/documents.json\"}",
+      "result_digest": "b9beed229da28a02",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:10.901Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "18d749be1b2232ee",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/snapshots/2026-08-14.json\"}",
+      "result_digest": "285cfd30991bdf77",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:17.454Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2bbb7bc10bb526df",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/questions-presented.txt\"}",
+      "result_digest": "7e51ae3a71dd84fc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:17.992Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "be8faffd1c2bcea0",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/petition.txt; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "c67b0b3faedf0f42",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:30.317Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "d81b2de85d7cea4a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:13:33.803Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3affaa40422a632f",
+      "query": "grep -n -i -E \"conflict|split|circuit(s)? (are|have|is)|disagree|groff|hardison|compelling reason\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/petition.txt | head -40",
+      "result_digest": "f909070a881aa3f5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:09.932Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d29caf03ca78d56d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/petition.txt\", \"limit\": 120}",
+      "result_digest": "a0250f9f988370af",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:10.431Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "b45287470bc6644c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:18.770Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b17cfd31b155250",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 2>&1 | tail -12",
+      "result_digest": "c86c522aba2a8c5c",
+      "retrieved_doc_date": "2026-08-09",
+      "timestamp": "2026-08-14T18:14:24.110Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:37.718Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "a1bd43a7ce978870",
+      "query": "Dodson \"Lutheran Village\"",
+      "result_digest": "b2b2485224fa7cc5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:42.424Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "f39631d765c15eeb",
+      "query": "{\"court\": \"ca4\", \"docket_number\": \"25-1696\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"status\", \"absolute_url\", \"snippet\"], \"num_results\": 5, \"type\": \"o\"}",
+      "result_digest": "951fb89ac525cb45",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:47.673Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "d5d3b0078b6c7fe4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000115/record/documents/petition.txt\", \"limit\": 130, \"offset\": 190}",
+      "result_digest": "50138bed6d780e4e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:15:01.184Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c471fb6e5f99748e",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "30717c25fc833002",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:15:31.940Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "75d84cfee019e391",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000115\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T18:15:32Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000115/record/snapshots/2026-08-14.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\",
+      "result_digest": "1cf8e8a1bc90eb3a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:15:55.523Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cd2f7e391ce47411",
+      "query": "{\"content\": \"# Predicted reasoning \\u2014 Dodson v. The Lutheran Village at Millers Grant, Inc. (No. 26-115)\\n\\nForecast of what the Court will do with this petition.\\n\\n## Disposition and timeline\\n\\nThe Court will **deny certiorari**. The docket shows the petition filed June 26,\\n2026 and docketed July 24, 2026, with the response due August 24, 2026. Expect\\nthe respondent \\u2014 a Maryland nonprofit represented against a solo-practitioner\\npetition \\u2014 to waive its response or file a short",
+      "result_digest": "06dc0f8cfe65c79d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:12.241Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c5c18d623845b237",
+      "query": "{\"content\": \"# Reasoning \\u2014 why P(grant) = 0.01\\n\\n## Anchor\\n\\n`record/context.json` freezes this cell at band **baseline** (sal-v2),\\n`distribution_count` 0, forward mode, Term 2026. Per the prompt contract I\\nanchor on the baseline band's bracketed **`reached`** rate in the statpack's\\n\\\"Segment base rate by salience band (sal-v2)\\\" table, pooled over the rendered\\nTerms strictly before this case's own (OT2017\\u2013OT2025): roughly **862 grants\\nover a 13,163 risk-set denominator, \\u2248 ",
+      "result_digest": "d88950fca1c9fe46",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:39.496Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "84e1955506d762ee",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot, `event.yaml`, `record/context.json`,\\n`record/documents/petition.txt` and `questions-presented.txt`) and the\\ncommitted `metrics/statpack.md`:\\n\\n## Corpus lookups\\n\\n- `uv run fedcourts query --court scotus --era 2020s --limit 8`\\n  - stderr: `ranged corpus reads: 4 GET(s), 1048576 byte(s)`\\n  - Returned recent resolved SCOTUS rows (mostly capital-case denials and\\n    granted extension applications); no close subject-matt",
+      "result_digest": "b044eb20234a2560",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:48.763Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "801c87bcec8e61f9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000115\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"courtlistener MCP search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack salience-band table with bracketed reached rates \\u2014 gave the exact anchor for a frozen baselin",
+      "result_digest": "070dbf73d4312cf1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:55.648Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6ea263ecd8d687b5",
+      "query": "uv run fedcourts validate data 2>&1 | tail -20",
+      "result_digest": "b6093c10ce37d906",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:17:00.330Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000115",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260814T175421Z",
+  "schema_version": "1.0"
+}

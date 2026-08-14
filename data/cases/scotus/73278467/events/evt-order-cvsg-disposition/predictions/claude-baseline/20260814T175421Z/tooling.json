@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP get_endpoint_item",
+    "courtlistener MCP search_document/read_document",
+    "web search"
+  ],
+  "helpful": [
+    "The statpack's CVSG cut and the sal-v2 segment band table lined up cleanly with the frozen context (band, distribution_count, cvsg_date) — the moment-specific anchor was one lookup.",
+    "Provisioned full-text petition/BIO/QP made the vehicle analysis possible without any docket PDF fetching."
+  ],
+  "gaps": [
+    "fedcourts query has no text or issue-based similarity for SCOTUS rows, so finding 'CVSG'd civil-rights petitions with vehicle problems' as priors is not expressible; a --cvsg or --band filter would have been the natural query for this cell.",
+    "--disposition granted matches application dockets whose grant is a time-extension (see flags.json), which pollutes the top-ranked priors.",
+    "CourtListener has no opinion text yet for very recent SCOTUS decisions (B.P.J., decided six weeks before this run), so the holding had to come from secondary web coverage."
+  ],
+  "notes": "CVSG-moment cell: the statpack's CVSG cut (grant family ~35.6%) plus the high band's pooled reached rate (~40%) gave a tight anchor pair; most marginal value came from unrestricted forward retrieval on the companion B.P.J./Hecox decisions."
+}
