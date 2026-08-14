@@ -99,6 +99,16 @@ matrix spend. It is the one scenario whose job binds no deployment
 environment at all — it needs no role variables and no secret — so it is the
 one scenario no deployment-branch policy can ever refuse, and a dispatch from
 any branch runs it to completion.
+`qp-topic` (outside the required suite) drives the shared `qp-topic-measure`
+composite — the post-label half of the paid labeling run: the no-output
+guard, the `fedcourts qp-topics` publication gate, and the
+publish-and-validate path — over canned inputs built from the committed
+reference set: a labeler that wrote nothing and one that drifted below the
+agreement gate must both fail without publishing, and a faithful one must
+publish an artifact covering the whole reference set. Token-free and
+credential-free; the extract and the model call stay uncovered here by
+design (the extract needs QP document rows no fixture corpus writes, and the
+model call is exactly what `run-analytics` pays for).
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -113,7 +123,9 @@ change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
 **engine-smoke around any engine CLI version bump or sandbox/config change**,
 **collect around any change to the `collect-run` composite or the collect
-jobs that call it**, and as a preflight **before a release dry run** and
+jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
+composite, the labeling job, or the `qp_topics` module — and before any paid
+labeling dispatch**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the

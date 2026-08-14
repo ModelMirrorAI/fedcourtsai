@@ -281,3 +281,28 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert upload["with"]["retention-days"] == 1
     assert "!cancelled()" in upload["if"]
     assert "steps.transcript_scan.outcome == 'success'" in upload["if"]
+
+
+def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -> None:
+    """Production and the token-free scenario must invoke the same composite.
+
+    The point of the `qp-topic` integration scenario is that it exercises the
+    exact post-label steps the paid labeling run depends on — the no-output
+    guard, the publication gate, the publish-and-validate path. That only
+    holds while both surfaces call `qp-topic-measure` rather than one of them
+    inlining a copy that can drift.
+    """
+    composite = "./.github/actions/qp-topic-measure"
+
+    label_steps = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
+    production = [s for s in label_steps if s.get("uses") == composite]
+    assert len(production) == 1, "the labeling job must measure through the composite"
+
+    scenario_steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
+    scenario = [s for s in scenario_steps if s.get("uses") == composite]
+    assert len(scenario) == 3, "the scenario drives the composite's three paths"
+    # Two failure paths (no output, gate refusal) must be tolerated so the
+    # scenario can assert they failed; the faithful pass must not be, so a
+    # publish regression fails the leg outright.
+    tolerated = [s for s in scenario if s.get("continue-on-error") is True]
+    assert len(tolerated) == 2
