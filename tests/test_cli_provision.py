@@ -5,6 +5,7 @@ from typing import Any
 
 from typer.testing import CliRunner
 
+import fedcourtsai.cli as cli_module
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
@@ -799,3 +800,35 @@ def test_provision_without_refuse_terminal_still_serves_the_resolved_event(
     )
 
     assert result.exit_code == 0, result.output
+
+
+def test_the_staleness_bound_is_inclusive_at_the_boundary(
+    fixture_corpus: FixtureCorpus, monkeypatch: Any
+) -> None:
+    # scotus/305's latest fixture snapshot is dated 2025-03-03. At exactly the
+    # bound the cell provisions; one day past it refuses — the bound is "older
+    # than", not "at least as old as".
+    class _FrozenToday(date):
+        @classmethod
+        def today(cls) -> "_FrozenToday":
+            return cls(2025, 4, 2)  # 30 days after the snapshot
+
+    monkeypatch.setattr(cli_module, "date", _FrozenToday)
+    base = [
+        "provision-snapshot",
+        "--court",
+        "scotus",
+        "--docket",
+        "305",
+        "--refuse-terminal",
+        "--event",
+        "evt-petition-disposition",
+        "--max-snapshot-age-days",
+    ]
+
+    at_bound = runner.invoke(app, [*base, "30"])
+    assert at_bound.exit_code == 0, at_bound.output
+
+    past_bound = runner.invoke(app, [*base, "29"])
+    assert past_bound.exit_code == 3
+    assert "forward bound" in past_bound.output

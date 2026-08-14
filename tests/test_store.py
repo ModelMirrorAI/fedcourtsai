@@ -1158,3 +1158,40 @@ def test_forward_refusal_reason_keys_a_merits_event_on_the_judgment(tmp_path: Pa
 
 def test_event_recorded_closed_checks_nothing_without_an_event_id(tmp_path: Path) -> None:
     assert event_recorded_closed(tmp_path / "data", "scotus", 26, "", []) is None
+
+
+def test_forward_refusal_reason_is_stricter_than_the_interim_queue_arm(tmp_path: Path) -> None:
+    # The interim queue predicate carries no decided-row arm, so here the gate
+    # is deliberately stricter than queue time: an application row whose
+    # date_decided latched is the record of an outcome, whatever the queue
+    # seam asks, and its still-open motion event earns no forward cell.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    case_id = "scotus/27"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="25A77",
+                    date_decided=date(2026, 7, 1),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-motion-stay",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.motion,
+                    stage=Stage.interim,
+                )
+            ],
+        )
+
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 27, "evt-motion-stay")
+
+    assert reason is not None and "decided" in reason

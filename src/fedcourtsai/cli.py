@@ -14,7 +14,7 @@ import sqlite3
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -197,9 +197,9 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
-    event_recorded_closed,
     forecastable_events,
     forward_refusal_reason,
+    forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
@@ -2459,12 +2459,14 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         bool,
         typer.Option(
             "--mode-from-context",
-            help="When --mode is empty, read the mode from the cell's provisioned "
-            "record/context.json — the harness-written record — instead of a "
-            "caller constant. A missing or unusable context leaves the mode "
-            "unknown, which the cross-evaluator grades as such; that is "
-            "strictly more honest than asserting 'forward' on a cell whose "
-            "provisioning refused.",
+            help="Read the mode from the cell's provisioned record/context.json "
+            "— the record provisioning wrote — overriding --mode when the "
+            "context exists and carries a known mode. --mode (or unknown) is "
+            "the fallback, so an unprovisioned cell keeps the caller's word "
+            "and a context carrying an out-of-vocabulary mode is refused with "
+            "a warning rather than passed to the grader: the file sits in the "
+            "agent's workspace, so its value is trusted only inside the "
+            "declared vocabulary.",
         ),
     ] = False,
     claude_execution_file: Annotated[
@@ -2490,10 +2492,20 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     empty log: "retrieved nothing" is itself evidence.
     """
     settings = get_settings()
-    if mode_from_context and not mode:
+    if mode_from_context:
         context = _read_cell_context(CasePaths(settings.data_root, court, docket))
         if context is not None:
-            mode = context.mode
+            if context.mode in CELL_MODES:
+                mode = context.mode
+            else:
+                # The context file lives in the agent's workspace; an
+                # out-of-vocabulary mode is not a value to hand the grader.
+                typer.echo(
+                    f"::warning::record-retrieval: provisioned context carries an "
+                    f"unknown mode {context.mode!r}; keeping the caller's "
+                    f"({mode or 'unknown'})",
+                    err=True,
+                )
     calls: list[RetrievalCall] = []
     if claude_execution_file is not None:
         calls = retrieval.parse_claude_retrieval(claude_execution_file)
@@ -3844,41 +3856,76 @@ def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> s
     return terminal
 
 
-def _forward_record_refusal(
+def _refuse_forward_if_closed(
     backend: corpus.CorpusBackend,
-    source: provision.CasestoreSource | None,
+    gate_events: Sequence[corpus.CorpusEvent],
+    gate_row: corpus.CorpusRow | None,
     court: str,
     docket: int,
     event: str,
-) -> str | None:
-    """The record gate's verdict for a forward cell, keyed on the read backend.
+    snapshot_date: date,
+    max_snapshot_age_days: int,
+) -> None:
+    """The record and staleness gates of a forward cell; exit 3 on refusal.
 
-    The full check (:func:`fedcourtsai.store.forward_refusal_reason`) needs the
-    corpus row; the casestore source exposes events but no rows, so that
-    backend runs the record-side half (:func:`fedcourtsai.store.event_recorded_closed`)
-    and says out loud which half it could not run.
+    The mechanical half of ``--refuse-terminal`` (the textual scan stays with
+    the caller, which holds the payload): the record gate over the parts
+    provisioning already read on its own connection, the casestore row-half
+    fallback through the ordinary index backend, and the wall-clock staleness
+    bound. Refusals are ``::warning::`` annotations so a fleet of
+    snapshot-less cells is attributable per cause from the Actions UI.
     """
     settings = get_settings()
-    if backend == "casestore" and source is not None:
-        case = ids.case_id(court, docket)
-        reason = event_recorded_closed(
-            settings.data_root, court, docket, event, source.events_for_case(case)
-        )
-        if reason is None:
-            typer.echo(
-                "::warning::forward record gate ran without the forecastable "
-                "re-check: the casestore backend exposes no corpus row",
-                err=True,
-            )
-        return reason
-    return forward_refusal_reason(
-        corpus.corpus_db_path(settings.corpus_root),
-        settings.data_root,
-        court,
-        docket,
-        event,
-        backend=backend,
+    case = ids.case_id(court, docket)
+    reason = forward_refusal_reason_from_parts(
+        settings.data_root, court, docket, event, gate_events, gate_row
     )
+    if reason is None and backend == "casestore":
+        reason = _casestore_row_refusal(
+            corpus.corpus_db_path(settings.corpus_root), court, docket, event
+        )
+    if reason is not None:
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: {reason}",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+    age_days = (date.today() - snapshot_date).days
+    if max_snapshot_age_days and age_days > max_snapshot_age_days:
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: snapshot "
+            f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
+            f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+
+
+def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -> str | None:
+    """The row-level half of the forward record gate, from the casestore path.
+
+    The casestore source exposes events but no corpus rows, so the row half
+    consults the corpus **index** through the ordinary read backend — ranged in
+    the cell workflows, whose provisioning step carries the index credentials
+    beside the casestore URL. Degrades to a spoken warning when no index is
+    reachable: the event-keyed half already ran, and a forward cell must not be
+    lost to an index hiccup the snapshot read did not need.
+    """
+    settings = get_settings()
+    choice = corpus.resolve_backend(None)
+    if choice != "local" or db_path.exists():
+        try:
+            return forward_refusal_reason(
+                db_path, settings.data_root, court, docket, event, backend=choice
+            )
+        except (OSError, corpus_ranged.RangedBackendError):
+            pass
+    typer.echo(
+        "::warning::forward record gate ran without the row-level decided "
+        "check: no corpus index reachable from the casestore path",
+        err=True,
+    )
+    return None
 
 
 @app.command("provision-snapshot")
@@ -3905,12 +3952,12 @@ def provision_snapshot(
             help="Refuse (exit 3, writing nothing) when the record or the "
             "snapshot shows the event is not open: the record already holds "
             "the outcome (committed outcome.json, corpus resolved flag, or "
-            "the event fell out of the forecastable set), the snapshot is "
-            "older than --max-snapshot-age-days, or the snapshot text "
+            "the row's latched outcome for the event's stage), the snapshot "
+            "is older than --max-snapshot-age-days, or the snapshot text "
             "discloses the outcome. A forward *prediction* cell must never "
-            "see a decided docket. Only run-predict passes this: an "
-            "evaluate cell targets exactly decided dockets, so the default "
-            "provisions unconditionally.",
+            "see a decided docket. Only the forward predict path passes "
+            "this: an evaluate cell targets exactly decided dockets, so the "
+            "default provisions unconditionally.",
         ),
     ] = False,
     event: Annotated[
@@ -3932,7 +3979,7 @@ def provision_snapshot(
             "nothing about what happened during the pause — including the "
             "event's own resolution — so a forward cell fed one would claim "
             "to be live while answering a stale question. 0 (the default) "
-            "disables the bound; run-predict arms it.",
+            "disables the bound.",
         ),
     ] = 0,
     corpus_backend: CorpusBackendOption = "",
@@ -3961,15 +4008,25 @@ def provision_snapshot(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
-    source: provision.CasestoreSource | None = None
+    # The gate reads (events, row) ride the same connection as the snapshot
+    # read, so a ranged cell opens one connection and the egress counters
+    # `_echo_read_stats` reports stay the whole story.
+    gate_active = refuse_terminal and mode == "forward"
+    gate_events: list[corpus.CorpusEvent] = []
+    gate_row: corpus.CorpusRow | None = None
     if backend == "casestore":
         source = _casestore_source()
         found = source.latest_snapshot(case)
         documents = source.documents_for_case(case)
+        if gate_active:
+            gate_events = source.events_for_case(case)
     else:
         with corpus.connect_readonly(db_path, backend=backend) as conn:
             found = corpus.latest_snapshot(conn, case)
             documents = corpus.documents_for_case(conn, case)
+            if gate_active:
+                gate_events = corpus.events_for_case(conn, case)
+                gate_row = corpus.get_row(conn, case)
             _echo_read_stats(conn)
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
@@ -3987,34 +4044,33 @@ def provision_snapshot(
     #
     # Three gates, mechanical before textual. The record gate asks whether the
     # outcome *exists* (committed outcome.json, the corpus event's resolved
-    # flag, the queue-time forecastable predicate re-asked at mint time); the
+    # flag, the row's latched outcome for the event's stage); the
     # staleness gate bounds how old a "live" snapshot may be, because a paused
     # pipeline resumes with snapshots that predate everything the world did in
     # the meantime — including the resolution — and such a snapshot passes the
     # textual scan by construction. Only then does the textual scan ask whether
     # the payload itself discloses the outcome. None of this rests on the
-    # agent: a forward cell either survives all three or is never minted.
-    if refuse_terminal and mode == "forward":
-        record_reason = _forward_record_refusal(backend, source, court, docket, event)
-        if record_reason is not None:
-            typer.echo(
-                f"refusing to provision forward cell for {case}: {record_reason}",
-                err=True,
-            )
-            raise typer.Exit(code=3)
-        age_days = (date.today() - snapshot_date).days
-        if max_snapshot_age_days and age_days > max_snapshot_age_days:
-            typer.echo(
-                f"refusing to provision forward cell for {case}: snapshot "
-                f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
-                f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
-                err=True,
-            )
-            raise typer.Exit(code=3)
+    # agent: a refused forward cell never receives a snapshot or a context —
+    # un-minting is the plan seam's job (the matrix openness re-check), and
+    # under the workflow's continue-on-error the refused cell still runs
+    # snapshot-less per the prompt contract. Refusals are ::warning::
+    # annotations so a fleet of snapshot-less cells is attributable per cause
+    # from the Actions UI.
+    if gate_active:
+        _refuse_forward_if_closed(
+            backend,
+            gate_events,
+            gate_row,
+            court,
+            docket,
+            event,
+            snapshot_date,
+            max_snapshot_age_days,
+        )
         terminal = _forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
-                f"refusing to provision forward cell for {case}: {terminal}",
+                f"::warning::refusing to provision forward cell for {case}: {terminal}",
                 err=True,
             )
             raise typer.Exit(code=3)
@@ -4073,7 +4129,8 @@ def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
         # A file that exists but does not parse is worth a line: it is either a
         # replay cell's own `{mode, decided_before}` shape, which carries no
         # conditioning and is correctly rejected, or a provisioning bug.
-        typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
+        # No command prefix: both `stamp-cell` and `record-retrieval` land here.
+        typer.echo(f"{path} carries no usable cell context; leaving it unset.", err=True)
         return None
 
 
@@ -5010,23 +5067,23 @@ def _resolve_cases(
     resolved-events read; evaluate passes ``None``, since its listed events are
     exactly the resolved ones.
     """
-    resolved: list[CaseRequest] = []
+    kept: list[CaseRequest] = []
     for c in cases:
         if not c.events:
-            resolved.append(replace(c, events=tuple(default_events(c.court, c.docket))))
+            kept.append(replace(c, events=tuple(default_events(c.court, c.docket))))
             continue
         if drop_resolved is None:
-            resolved.append(c)
+            kept.append(c)
             continue
         gone = set(drop_resolved(c.court, c.docket)) & set(c.events)
-        for dropped in gone:
+        for dropped in sorted(gone):
             typer.echo(
                 f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — "
                 f"the corpus records it resolved (it closed since the run was queued)",
                 err=True,
             )
-        resolved.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
-    return resolved
+        kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
+    return kept
 
 
 def _scope_filtered(

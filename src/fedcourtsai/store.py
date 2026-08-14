@@ -420,14 +420,13 @@ def event_recorded_closed(
     return None
 
 
-def forward_refusal_reason(
-    corpus_db_path: Path,
+def forward_refusal_reason_from_parts(
     data_root: Path,
     court_id: str,
     docket_id: int,
     event_id: str,
-    *,
-    backend: corpus.CorpusBackend | None = None,
+    events: Sequence[corpus.CorpusEvent],
+    row: corpus.CorpusRow | None,
 ) -> str | None:
     """Why the **record** says no forward cell may be minted for this event.
 
@@ -439,15 +438,46 @@ def forward_refusal_reason(
     the committed ``outcome.json`` and the corpus event's ``resolved`` flag
     (both via :func:`event_recorded_closed`), then the row's own latched
     outcome for the event's stage — the merits judgment for a merits moment,
-    the disposition / resolution date for everything else, mirroring the
-    decided-row refusals the forecastable predicates apply at queue time.
-    Deliberately **not** full :func:`forecastable_event_ids` membership: scope
-    and selection are the plan seams' questions (the predict matrix re-asks
-    them), and the corpus row legitimately lags its own snapshot — a merits
-    cell provisioned on the grant order that opened it must not be refused
-    because the row has not latched the grant yet. This gate asks only the
-    question provisioning owns: does the record already hold this event's
-    outcome?
+    the disposition / resolution date for everything else. For the cert and
+    merits stages that mirrors the decided-row refusals their forecastable
+    predicates apply at queue time; for the interim and case-baseline shapes,
+    whose queue predicates carry no decided-row arm, this gate is deliberately
+    stricter — a latched disposition or resolution date is the record of an
+    outcome whatever the queue seam asks. Deliberately **not** full
+    :func:`forecastable_event_ids` membership: scope and selection are the
+    plan seams' questions (the predict matrix re-asks them), and the corpus
+    row legitimately lags its own snapshot — a merits cell provisioned on the
+    grant order that opened it must not be refused because the row has not
+    latched the grant yet. This gate asks only the question provisioning owns:
+    does the record already hold this event's outcome?
+
+    Pure over its inputs so provisioning can feed it the events and row it
+    already read on its own connection (one connection per cell, and the
+    ranged egress counters stay complete); :func:`forward_refusal_reason` is
+    the connection-opening wrapper for callers that hold none.
+    """
+    closed = event_recorded_closed(data_root, court_id, docket_id, event_id, events)
+    if closed is not None or row is None:
+        return closed
+    spec = moments.spec_for(event_id) if event_id else None
+    if spec is not None and spec.stage is Stage.merits:
+        if row.merits_judgment is not None:
+            return "the corpus already latched the merits judgment"
+    elif row.disposition is not None or corpus.resolution_date(row) is not None:
+        return "the corpus records the case decided"
+    return None
+
+
+def forward_refusal_reason(
+    corpus_db_path: Path,
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    event_id: str,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> str | None:
+    """:func:`forward_refusal_reason_from_parts` over its own corpus read.
 
     Returns ``None`` when the record raises no objection — including when the
     local corpus is absent, where there is no record to consult (the snapshot
@@ -459,17 +489,8 @@ def forward_refusal_reason(
     case_id = ids.case_id(court_id, docket_id)
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         events = corpus.events_for_case(conn, case_id)
-        closed = event_recorded_closed(data_root, court_id, docket_id, event_id, events)
         row = corpus.get_row(conn, case_id)
-    if closed is not None or row is None:
-        return closed
-    spec = moments.spec_for(event_id) if event_id else None
-    if spec is not None and spec.stage is Stage.merits:
-        if row.merits_judgment is not None:
-            return "the corpus already latched the merits judgment"
-    elif row.disposition is not None or corpus.resolution_date(row) is not None:
-        return "the corpus records the case decided"
-    return None
+    return forward_refusal_reason_from_parts(data_root, court_id, docket_id, event_id, events, row)
 
 
 def iter_evaluations(data_root: Path) -> list[Evaluation]:

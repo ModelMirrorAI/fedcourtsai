@@ -900,3 +900,36 @@ def test_predict_matrix_errors_when_the_openness_recheck_empties_the_matrix(
     assert "::error::predict-matrix: the openness re-check dropped every listed event" in (
         result.stderr
     )
+
+
+def test_predict_matrix_scope_all_skips_the_openness_recheck(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Under `all` the scope gate never consults the corpus, and the openness
+    # re-check follows it: a listed event the corpus records resolved still
+    # fans out, because dev/back-test runs may target exactly that shape.
+    env = _env(tmp_path, scope="all", seed_predictions=False)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/24001",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    resolved=True,
+                )
+            ],
+        )
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+    }
+    assert "dropped" not in result.stderr

@@ -464,33 +464,54 @@ a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
 keep that honest; they stop being latent hygiene the moment this pass runs.
 
-`provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
-only) is the forward-cell guard at the provisioning seam, three gates run
-mechanical-first: the **record gate** asks whether the event's outcome already
-*exists* (a committed `outcome.json`, the corpus event's `resolved` flag, or
-the row's latched outcome for the event's stage), the **staleness bound**
-(`--max-snapshot-age-days`) refuses a snapshot old enough to predate a
-pipeline pause — such a snapshot passes every content check by construction,
-because it was taken before anything it should disclose happened — and only
-then does the **textual scan** ask whether the snapshot discloses **its own
-event's** outcome. A forward prediction on a decided event would be a
-mislabeled back-test. The question is keyed on the event (`--event`), because
-one docket carries several events' outcomes at once: a granted cert docket's
-grant order is a disclosed *cert* outcome and is also what opens the merits
-proceeding, so the entry that must refuse a cert cell is the merits cell's own
-record. On the merits event the test is therefore a parsed merits judgment
-(and, record-side, the latched judgment); on every other event it is the
-latest entry reading terminal, any entry carrying a machine-readable
-disposition order, or — on an application docket — a legible interim disposal.
-The predict matrix applies the same openness question one seam earlier
-(`predict-matrix` drops a listed event the corpus records resolved), so a
-stale trigger issue sheds its closed events at plan time instead of minting
-cells this guard then refuses one by one. A refused
+`provision-snapshot --refuse-terminal` (the forward predict path's guard —
+`run-predict` in production, mirrored by the integration harness) refuses a
+forward cell at the provisioning seam through three gates, mechanical-first:
+the **record gate** asks whether the event's outcome already *exists* — a
+committed `outcome.json`, the corpus event's `resolved` flag, or the row's
+latched outcome for the event's stage. Under the casestore backend the
+production fleet provisions from (the corpus-split default), the source
+exposes events but no rows, so the row-level half consults the corpus index
+through the ordinary read backend — the cell workflows' provisioning step
+carries the index credentials beside the casestore URL — and when no index is
+reachable the event-keyed checks still gate the cell while the skipped half
+is a spoken warning. The **staleness
+bound** (`--max-snapshot-age-days`, off at the default of 0 — the caller
+arms it) refuses a snapshot old enough to predate a pipeline pause: such a
+snapshot passes every content check by construction, because it was taken
+before anything it should disclose happened, and its case may be genuinely
+pending — the refusal is about the input being stale, not the case being
+decided. Only then does the **textual scan** ask whether the snapshot
+discloses **its own event's** outcome. A forward prediction on a decided
+event would be a mislabeled back-test. The question is keyed on the event
+(`--event`), because one docket carries several events' outcomes at once: a
+granted cert docket's grant order is a disclosed *cert* outcome and is also
+what opens the merits proceeding, so the entry that must refuse a cert cell
+is the merits cell's own record. On the merits event the test is therefore a
+parsed merits judgment (and, record-side, the latched judgment); on every
+other event it is any entry reading terminal, any entry carrying a
+machine-readable disposition order, or — on an application docket — a legible
+interim disposal. The predict matrix applies the same openness question one
+seam earlier (`predict-matrix` drops a listed event the corpus records
+resolved, wherever the scope gate consults the corpus at all — under
+`predict.scope: all` neither does), so a stale trigger issue sheds its closed
+events at plan time instead of minting cells this guard then refuses one by
+one. A refused
 cell is a legitimate outcome, not an error; the prompt contract tells the agent
 to note the gap in `flags.json` and predict from priors and base rates only,
-without retrieving the case's current docket state (the case already looks
-decided, so its outcome is retrievable — the prompt's predict-as-if-undecided
-rule governs).
+without retrieving the case's current docket state (under the record gate and
+the textual scan the case already looks decided, so its outcome is
+retrievable; under the staleness bound the docket's current state is exactly
+the information the cell's stale input lacks — either way the prompt's
+predict-as-if-undecided rule governs).
+
+One trust boundary to keep in view: `record/context.json` is written by
+provisioning but *lives in the agent's workspace* for the run, so the post-run
+consumers that read it back — `stamp-cell` for the context block,
+`record-retrieval --mode-from-context` for the log's mode — treat its
+harness-written provenance as a statement about the writer, not
+tamper-resistance, and accept its mode only inside the declared vocabulary
+(anything else falls back to the caller's word, with a warning).
 
 One direction under consideration — not a commitment: the cells could
 eventually retrieve case records from CourtListener itself at run time instead

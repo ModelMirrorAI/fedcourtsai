@@ -532,3 +532,50 @@ def test_record_retrieval_records_unknown_mode_when_no_context_was_provisioned(
         .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
     )
     assert json.loads(destination.read_text())["mode"] is None
+
+
+def test_record_retrieval_refuses_an_out_of_vocabulary_context_mode(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The context file sits in the agent's workspace, so its mode is trusted
+    # only inside the declared vocabulary: anything else falls back to the
+    # caller's word instead of reaching the grader.
+    provisioned = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert provisioned.exit_code == 0, provisioned.output
+    context_path = CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context
+    tampered = json.loads(context_path.read_text())
+    tampered["mode"] = "definitely-not-a-mode"
+    context_path.write_text(json.dumps(tampered))
+
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            "--mode",
+            "forward",
+            "--mode-from-context",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "unknown mode" in result.output
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
+    )
+    assert json.loads(destination.read_text())["mode"] == "forward"
