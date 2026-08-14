@@ -608,11 +608,17 @@ jobs:
       # depends on. Placed after the tree-pristine check, so a run that both
       # tampered and wrote nothing reports the higher-signal tamper first.
       - name: Measure the run against the reference set
+        id: measure
         uses: ./.github/actions/qp-topic-measure
         with:
           labels: ${{ runner.temp }}/qp-labels.jsonl
           texts: ${{ runner.temp }}/qp-texts.json
           labeler: ${{ env.LABELER }}
+          transcript-hint: >-
+            The qp-label-transcript run artifact carries the turn-by-turn
+            transcript to diagnose from (absent only when the scan withheld it
+            or the action died before writing it — see the labeling step's
+            log).
 
       # Minted only after the agent has finished and the gate has passed, as
       # run-backtest does: a write-capable installation token has no business
@@ -644,6 +650,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           BRANCH: qp-topics/refresh
+          # The composite's declared output, not a path convention: where the
+          # sanitized measured block lands is the measure step's contract.
+          MEASURED_FILE: ${{ steps.measure.outputs.measured-file }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -676,7 +685,7 @@ jobs:
             printf '%s\n\n' "One \`qp-topic-v0\` labeling run: primary labels for ${cases} stored questions-presented text(s), assigned by \`${LABELER}\` from the text alone and measured against the hand reference set by \`fedcourts qp-topics\`."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
             printf '%s\n' '```'
-            cat "$RUNNER_TEMP/measured-safe.txt"
+            cat "$MEASURED_FILE"
             printf '%s\n' '```'
             printf '\n%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           } > pr-body.md
