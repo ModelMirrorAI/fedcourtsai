@@ -4583,21 +4583,39 @@ def materialize_event(
     if out is None and dest.is_file():
         # Never rewrite the committed record (see the docstring); surface drift
         # instead, so a stale projection is a visible fact rather than a jailed
-        # modification in the next run PR.
+        # modification in the next run PR. Two volumes on purpose: the fields a
+        # consumer keys behavior on get a ::warning:: annotation, while
+        # cosmetic drift — upstream caption re-renderings move `title` on most
+        # of the committed ledger, and a schema bump would move
+        # `schema_version` on all of it — stays a plain log line, or the
+        # annotation channel would drown the one drift that matters. An
+        # unreadable committed file degrades to the loud marker rather than
+        # failing the cell: `validate` owns rejecting a malformed ledger, and
+        # a materialize crash here would spend nothing but lose the cell.
         try:
-            committed = read_model(dest, PredictableEvent)
+            committed_fields = read_model(dest, PredictableEvent).model_dump(mode="json")
+            projected_fields = projected.model_dump(mode="json")
             drifted = sorted(
                 field
-                for field, value in projected.model_dump(mode="json").items()
-                if committed.model_dump(mode="json").get(field) != value
+                for field, value in projected_fields.items()
+                if committed_fields.get(field) != value
             )
         except (OSError, ValueError, yaml.YAMLError):
             drifted = ["<unreadable committed file>"]
-        if drifted:
+        cosmetic = {"title", "description", "schema_version"}
+        loud = [field for field in drifted if field not in cosmetic]
+        quiet = [field for field in drifted if field in cosmetic]
+        if loud:
             typer.echo(
                 f"::warning::{case} event {event}: the corpus projection drifted from "
-                f"the committed event.yaml on {', '.join(drifted)}; leaving the "
+                f"the committed event.yaml on {', '.join(loud)}; leaving the "
                 f"committed file untouched (a backfill is a migration, not a cell step)",
+                err=True,
+            )
+        if quiet:
+            typer.echo(
+                f"{case} event {event}: cosmetic drift on {', '.join(quiet)} "
+                f"(committed file untouched)",
                 err=True,
             )
         typer.echo(f"{case} event {event} already materialized -> {dest}")

@@ -228,14 +228,14 @@ def test_materialize_event_warns_when_the_corpus_row_has_drifted(
         .event_file
     )
     committed = read_model(dest, PredictableEvent)
-    write_yaml(dest, committed.model_copy(update={"title": "An older projection"}))
+    write_yaml(dest, committed.model_copy(update={"stage": None, "moment": None}))
     stale = dest.read_bytes()
 
     second = _materialize("scotus", 305, "evt-petition-disposition")
 
     assert second.exit_code == 0, second.output
-    assert "drifted" in second.output
-    assert "title" in second.output
+    assert "::warning::" in second.output and "drifted" in second.output
+    assert "stage" in second.output
     assert dest.read_bytes() == stale  # warned, never rewritten
 
 
@@ -278,3 +278,49 @@ def test_materialize_event_still_writes_through_an_explicit_out(
 
     assert second.exit_code == 0, second.output
     assert read_model(out, PredictableEvent).event_id == "evt-petition-disposition"
+
+
+def test_materialize_event_degrades_on_an_unreadable_committed_file(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A committed file that will not parse still refuses the rewrite and exits
+    # 0 with the loud marker: validate owns rejecting a malformed ledger, and
+    # a crash here would spend nothing but lose the cell.
+    first = _materialize("scotus", 305, "evt-petition-disposition")
+    assert first.exit_code == 0, first.output
+    dest = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .event_file
+    )
+    dest.write_text("not: [valid: yaml\n")
+    broken = dest.read_bytes()
+
+    second = _materialize("scotus", 305, "evt-petition-disposition")
+
+    assert second.exit_code == 0, second.output
+    assert "<unreadable committed file>" in second.output
+    assert dest.read_bytes() == broken
+
+
+def test_materialize_event_keeps_cosmetic_drift_off_the_annotation_channel(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Upstream caption re-renderings move `title` on most of the ledger; that
+    # drift is a log line, never a ::warning::, or the one drift that matters
+    # would drown.
+    first = _materialize("scotus", 305, "evt-petition-disposition")
+    assert first.exit_code == 0, first.output
+    dest = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .event_file
+    )
+    committed = read_model(dest, PredictableEvent)
+    write_yaml(dest, committed.model_copy(update={"title": "An older caption"}))
+
+    second = _materialize("scotus", 305, "evt-petition-disposition")
+
+    assert second.exit_code == 0, second.output
+    assert "cosmetic drift on title" in second.output
+    assert "::warning::" not in second.output
