@@ -43,8 +43,10 @@ payload, should not reach the staged tree at all, and a withheld run costs a
 whole fan-out's model spend. The two are tuned differently on purpose: a scan
 false positive costs one human look at a withheld run, while a redaction false
 positive silently eats audit content the evaluators' leakage grading reads, so
-redaction leans harder on prefix-anchored shapes and holds its last-resort
-entropy rule to a stricter length floor.
+redaction leans harder on prefix-anchored shapes, holds its last-resort
+entropy rule to a stricter length floor, and where a prefix is short enough to
+turn up inside agent-authored text, confirms it against the same entropy
+discriminator before rewriting.
 """
 
 from __future__ import annotations
@@ -52,7 +54,8 @@ from __future__ import annotations
 import base64
 import math
 import re
-from collections.abc import Iterable, Sequence
+import string
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -263,21 +266,39 @@ def _keyword_assignment_hits(line: str) -> bool:
 REDACTION_MARKER_PREFIX = "[redacted:"
 _REDACTION_MARKER = REDACTION_MARKER_PREFIX + "{rule}]"
 
-# Repeat ceilings on the multi-part patterns. Redaction runs over engine
-# transcript text, which an agent influences and which arrives uncapped, so an
-# unbounded `{n,}` either side of a required literal is a quadratic-backtracking
-# hang, not just a slow match. 4096 is far past any real token segment.
+# Repeat ceiling on every variable run in the patterns below. Redaction reads
+# engine transcript text, which an agent influences and which arrives uncapped:
+# an unbounded `{n,}` either side of a required literal is a
+# quadratic-backtracking hang rather than a slow match. 4096 is far past any
+# real token — a Fernet token carrying a kilobyte of plaintext is under 1500
+# characters.
+#
+# The ceiling bounds *matching* only. It deliberately does not bound what the
+# fernet rule reads to make its decision, because a ceiling that truncated the
+# evidence as well as the match would hide a token straddling it; see the
+# confirmation's own note below.
 _MAX_SEGMENT = 4096
 
-# Shapes redaction removes on sight, over and above the ones the scan reports.
-# Each is prefix-anchored on a token format's own header, so ordinary case
-# prose, citations, and identifiers cannot match.
+# Shapes redaction removes over and above the ones the scan reports. Each is
+# prefix-anchored on a token format's own header, so ordinary case prose,
+# citations, and identifiers cannot match; where a header is short enough to
+# turn up inside long agent-authored runs, an entropy confirmation decides.
 _REDACTION_ONLY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Fernet v1: `gAAAAA` is the base64url rendering of the version byte and
-    # the leading zero bytes of the 64-bit timestamp. Unanchored on the left —
-    # the prefix is distinctive enough that a mid-run occurrence is a token,
-    # not a coincidence.
-    ("fernet-token", re.compile(r"gAAAAA[A-Za-z0-9_-]{20,}={0,2}")),
+    # the leading zero bytes of the 64-bit timestamp. Unanchored on the left,
+    # so a token pasted mid-run is still caught; the three pieces then divide
+    # the work — the prefix fixes where a match starts, the repeat ceiling
+    # bounds how far it runs, and `_fernet_substituter`'s confirmation decides
+    # whether the run carries credential material. The confirmation is what the
+    # other prefixes do not need: six characters of base64url header are short
+    # enough to turn up inside a long agent-authored run in the same alphabet —
+    # an id-dense listing, a slug chain — and there the prefix alone would
+    # convict text that is not a token, costing the leakage grading a payload
+    # it needs whole.
+    (
+        "fernet-token",
+        re.compile(rf"gAAAAA[A-Za-z0-9_-]{{20,{_MAX_SEGMENT}}}={{0,2}}"),
+    ),
     # A JWT's three base64url segments. The signature may be empty (`alg=none`).
     (
         "jwt",
@@ -336,6 +357,33 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
 _OPAQUE_MIN_RUN = 64
 _OPAQUE_CANDIDATE = re.compile(rf"[A-Za-z0-9+/=_\-]{{{_OPAQUE_MIN_RUN},}}")
 
+# The fernet confirmation scores windows, and scores them over the *maximal*
+# alphabet run its match sits in rather than over the match itself. Two
+# separate reasons, and both are needed:
+#
+# Windows, because the alphabet has no separator and the match is greedy, so
+# one span can hold a token beside arbitrary agent-chosen filler; averaged
+# whole, the token vanishes under the bar, and the scan — which scores the same
+# maximal run on the same threshold — would not catch what redaction let
+# through. A window asks the question that survives padding: does *any* part of
+# this look like credential material. 64 sits inside the threshold's calibrated
+# band and below the 100-character floor of a real Fernet token (version byte,
+# timestamp, IV, one cipher block, 32-byte HMAC), so a token always contains a
+# whole window, and the quarter-window stride guarantees one lands well inside
+# it wherever the token sits — at minimum token length a coarser stride can
+# leave a single marginal window carrying the whole decision.
+#
+# The maximal run, because `_MAX_SEGMENT` truncates the match but not the text:
+# a token whose own header falls in the last window-width of a ceiling-bounded
+# match would be consumed with that match and never offered to the rule again,
+# `re.sub` having resumed past its header. Scoring the run the match sits in
+# asks about all the material actually adjacent, so a token straddling the
+# ceiling is seen. The ceiling stays on the pattern, where it does its real job
+# of bounding backtracking.
+_FERNET_WINDOW = 64
+_FERNET_STRIDE = 16
+_FERNET_RUN_CHARS = frozenset(string.ascii_letters + string.digits + "_-")
+
 
 def _redact_assignment(match: re.Match[str]) -> str:
     value = match.group("value")
@@ -344,7 +392,102 @@ def _redact_assignment(match: re.Match[str]) -> str:
     return match.group("prefix") + _REDACTION_MARKER.format(rule="credential")
 
 
+def _carries_credential_material(run: str) -> bool:
+    """Whether ``run``, whole or in any window of it, scores as credential material.
+
+    Windowed as well as whole because the alphabet has no separator: a run can
+    hold a token beside filler on either side of it, and the run's average is a
+    knob the writer of the text controls. A window is not.
+
+    Both scores are taken, not just the windowed one, because they miss in
+    opposite directions. Windows are what survive dilution; the whole run is
+    the steadier reading of a *short* token, where 64 characters is a large
+    enough fraction of the whole that sampling variance starts to matter. Each
+    can only add a redaction, so taking both is the conservative combination —
+    and patterned or readable text clears neither bar.
+    """
+    if _entropy_candidate_hits(run):
+        return True
+    return any(
+        _entropy_candidate_hits(run[start : start + _FERNET_WINDOW])
+        for start in range(0, len(run) - _FERNET_WINDOW + 1, _FERNET_STRIDE)
+    )
+
+
+def _alphabet_run_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    """Widen ``[start, end)`` to the maximal surrounding fernet-alphabet run."""
+    while start > 0 and text[start - 1] in _FERNET_RUN_CHARS:
+        start -= 1
+    while end < len(text) and text[end] in _FERNET_RUN_CHARS:
+        end += 1
+    return start, end
+
+
+def _fernet_substituter() -> Callable[[re.Match[str]], str]:
+    """Build the fernet replacement, memoized across one pass over one text.
+
+    Rewrites a fernet-shaped match only where the alphabet run it sits in
+    carries credential material, judged by the same discriminator as the opaque
+    rule — so a header landing inside patterned or readable base64url text does
+    not cost the leakage grading a whole payload. The confirmation is this
+    rule's alone: every other prefix here is long or distinctive enough to
+    convict by itself, and this one is six characters.
+
+    A confirmed match is replaced entire, filler included; over-redacting text
+    that shares a run with a token is the cheap error. Declining is
+    all-or-nothing: the match comes back exactly as it arrived, so the collect
+    scan reads what it would have read had redaction never run and no finding
+    is silenced. That is the honest claim, and deliberately *not* that the scan
+    backstops this rule — a diluted run is precisely what the scan's own
+    entropy detector also misses, which is why the confirmation is windowed and
+    run-scoped rather than a single average over the match.
+
+    What remains is the entropy discriminator's own reach, shared with the
+    opaque rule and the scan: a credential that looks random in no 64-character
+    window of its run is not recognized here. Containment is the layer that
+    does not care — it catches any credential the pipeline itself holds,
+    whatever its entropy.
+
+    Every match inside a given alphabet run gets the same verdict, so the run's
+    bounds and its score are computed once and reused while the matches keep
+    landing inside them. ``re.sub`` walks left to right over non-overlapping
+    matches, so a single remembered run is enough — which is what keeps a
+    run-scoped confirmation linear in the length of the text rather than
+    quadratic in the number of headers an agent can write into one run.
+    """
+    marker = _REDACTION_MARKER.format(rule="fernet-token")
+    remembered: tuple[int, int] | None = None
+    verdict = False
+
+    def substitute(match: re.Match[str]) -> str:
+        nonlocal remembered, verdict
+        if remembered is None or not remembered[0] <= match.start() < remembered[1]:
+            remembered = _alphabet_run_bounds(match.string, match.start(), match.end())
+            verdict = _carries_credential_material(match.string[remembered[0] : remembered[1]])
+        return marker if verdict else match.group()
+
+    return substitute
+
+
+# Rules whose replacement is built per pass rather than being a literal marker,
+# keyed by rule name so the substitution loop stays one walk over the pattern
+# table. A key that stops matching its rule — a rename above without one here —
+# drops the confirmation back to unconditional redaction, which is the strict
+# behavior: the coupling is loose, but it fails in the safe direction.
+_CONFIRMED_SUBSTITUTIONS: dict[str, Callable[[], Callable[[re.Match[str]], str]]] = {
+    "fernet-token": _fernet_substituter,
+}
+
+
 def _redact_opaque(match: re.Match[str]) -> str:
+    # Scored whole, not windowed as the fernet rule is, so the same dilution
+    # that a windowed confirmation resists will hide a token inside a long
+    # padded run here. The asymmetry is deliberate rather than an oversight:
+    # this rule has no prefix to say a credential is even plausible, so it
+    # judges a run it knows nothing about, and windowing it would convict long
+    # ordinary runs on their most random-looking 64 characters — the false
+    # positive that costs the leakage grading its evidence. The fernet rule can
+    # afford the sharper reading because its header already narrowed the field.
     run = match.group()
     marker = _REDACTION_MARKER.format(rule="opaque")
     if run.count("/") >= _PATHLIKE_SLASHES:
@@ -373,7 +516,11 @@ def redact_credentials(text: str) -> str:
     leaves for the scan to withhold the run over.
     """
     for rule, pattern in _REDACTION_PATTERNS:
-        text = pattern.sub(_REDACTION_MARKER.format(rule=rule), text)
+        build = _CONFIRMED_SUBSTITUTIONS.get(rule)
+        if build is None:
+            text = pattern.sub(_REDACTION_MARKER.format(rule=rule), text)
+        else:
+            text = pattern.sub(build(), text)
     text = _CREDENTIAL_ASSIGNMENT.sub(_redact_assignment, text)
     return _OPAQUE_CANDIDATE.sub(_redact_opaque, text)
 
