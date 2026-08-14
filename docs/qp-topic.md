@@ -350,7 +350,11 @@ Three consequences bind every use of the set:
   kill leaves no file to capture), only after a secret scan over the
   transcript passes (a hit withholds the artifact and says so — the collect
   job's withhold-and-continue posture, minus its trigger-issue report, since a
-  dispatch mode has none), and under the same one-day retention as the
+  dispatch mode has none; the transcript surface runs literal containment of
+  the one reachable credential plus the structured credential shapes, not the
+  generic entropy rule, whose conviction of the transcript's own tool ids
+  would otherwise withhold every real file), and under the same one-day
+  retention as the
   extract, for the
   reasons argued above rather than a second, looser rule for the same
   disclosure class.
