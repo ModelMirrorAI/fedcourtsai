@@ -776,7 +776,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     assert all(c.passed for c in checks)
 
 
-# --- C: a risk-set base-rate basis carries its salience version ---------------
+# --- C: the base-rate basis agrees with the scored prediction's record --------
 
 
 def _write_basis_evaluation(data_root: Path, predictor: str, fields: dict[str, object]) -> Path:
@@ -833,9 +833,9 @@ def test_a_risk_set_basis_without_a_salience_version_fails(tmp_path: Path) -> No
 
 
 def test_a_resolved_or_terminal_or_absent_basis_passes(tmp_path: Path) -> None:
-    """Only the risk-set path can fail: terminal always resolves to the live
-    scorer's version, and a record that took no segment base rate has no basis
-    to carry one."""
+    """A versioned risk-set record, a band-less terminal one, and no basis all
+    pass: the terminal record here has no prediction to contradict it, and a
+    record that took no segment base rate has no basis to carry one."""
     data_root = tmp_path / "data"
     _write_basis_evaluation(
         data_root, "p1", {"base_rate_basis": "risk_set", "base_rate_salience_version": "sal-v2"}
@@ -846,7 +846,114 @@ def test_a_resolved_or_terminal_or_absent_basis_passes(tmp_path: Path) -> None:
     _write_basis_evaluation(data_root, "p3", {})  # no basis recorded at all
     check = _basis_check(data_root)
     assert check.passed
-    assert check.checked == 1  # only the risk-set record is in scope
+    assert check.checked == 2  # the risk-set and terminal records are in scope
+
+
+def _write_cert_terminal_cell(
+    data_root: Path,
+    docket: int,
+    predictor: str,
+    *,
+    band: str | None,
+    salience_version: str | None,
+    stage: Stage | None = Stage.cert,
+) -> Path:
+    """A cert-shaped event whose latest prediction froze the given pairing,
+    beside an evaluation recording the ``terminal`` basis. Returns the
+    evaluation path."""
+    event = "evt-petition-writ-of-certiorari"
+    ep = CasePaths(data_root, "scotus", docket).event(event)
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id=f"scotus/{docket}",
+            kind=EventKind.petition,
+            stage=stage,
+            title="Petition for writ of certiorari",
+        ),
+    )
+    run = "2026-01-01T00-00-00Z"
+    write_json(
+        ep.prediction(predictor, run),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            predictor_id=predictor,
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 1),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=band is not None,
+                distribution_count=1,
+                band=band,
+                salience_version=salience_version,
+                term=2025,
+            ),
+        ),
+    )
+    path = ep.evaluation("e1", predictor, run)
+    write_json(
+        path,
+        Evaluation(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            predictor_id=predictor,
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 2),
+            correct=1,
+            base_rate_basis="terminal",
+            segment_base_rate=0.02,
+        ),
+    )
+    return path
+
+
+def test_a_terminal_basis_against_a_frozen_band_fails(tmp_path: Path) -> None:
+    """`terminal` is the fallback for a prediction that froze no band: recorded
+    against a frozen one, the rate was read over the wrong population whether
+    or not the band's version resolves — and this check is what keeps that
+    record out of a merged ledger, since the stamp's refusal is a run-log
+    error the cell-status flag never reads."""
+    data_root = tmp_path / "data"
+    versioned = _write_cert_terminal_cell(
+        data_root, 1, "p1", band="elevated", salience_version="sal-v2"
+    )
+    versionless = _write_cert_terminal_cell(
+        data_root, 2, "p2", band="elevated", salience_version=None
+    )
+    check = _basis_check(data_root)
+    assert not check.passed
+    assert check.checked == 2
+    assert check.failures == 2
+    for offender in (versioned, versionless):
+        assert any(str(offender) in p for p in check.problems)
+    assert all("'terminal'" in p for p in check.problems)
+
+
+def test_a_terminal_basis_with_no_frozen_band_or_off_the_cert_stage_passes(
+    tmp_path: Path,
+) -> None:
+    """The legitimate fallback and the out-of-scope stage both pass: a scored
+    prediction that froze no band is exactly what `terminal` is for, and the
+    frozen-band pairing is a cert-petition concept, so a band frozen per case
+    must not reach a rule about another stage's cell."""
+    data_root = tmp_path / "data"
+    _write_cert_terminal_cell(data_root, 1, "p1", band=None, salience_version=None)
+    _write_cert_terminal_cell(
+        data_root, 2, "p2", band="elevated", salience_version="sal-v2", stage=None
+    )
+    check = _basis_check(data_root)
+    assert check.passed
+    assert check.checked == 2
 
 
 def test_the_basis_check_tolerates_unreadable_records(tmp_path: Path) -> None:

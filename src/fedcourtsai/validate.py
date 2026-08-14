@@ -71,6 +71,7 @@ from .schemas import (
     LedgerValidation,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
@@ -102,6 +103,9 @@ CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
+# The id is the durable name of the whole basis-pairing rule (both the
+# risk-set and the terminal half), kept stable across reports even though it
+# reads as the risk-set half alone.
 CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
@@ -632,30 +636,51 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
 
 
 def check_base_rate_version(data_root: Path) -> CorpusCheck:
-    """A ``risk_set`` base-rate basis must sit beside a non-null salience version.
+    """A recorded base-rate basis must agree with the scored prediction's record.
 
-    The two fields are one record: ``base_rate_basis`` says which population the
-    segment base rate was read over, and ``base_rate_salience_version`` says
-    under which salience version that population was banded — a skill score is
-    only comparable to another taken under the same pair (``metrics/README.md``).
-    On the ``terminal`` path the version is the live scorer's and always
-    resolves; on the ``risk_set`` path it is the scored prediction's frozen
-    ``context.salience_version``, so a null there means the join found no
-    prediction, no frozen context, or no version in it — the rate was taken off
-    a risk-set table nothing pins down.
+    The basis and its version are one record: ``base_rate_basis`` says which
+    population the segment base rate was read over, and
+    ``base_rate_salience_version`` says under which salience version that
+    population was banded — a skill score is only comparable to another taken
+    under the same pair (``metrics/README.md``). Two shapes contradict that
+    record, and both fail here as they do at the stamp — the stamp is a run-log
+    error, this check is what keeps the cell out of a merged ledger:
 
-    Only that pairing is in scope, so a record that took no segment base rate
-    (both halves null) and one whose ``terminal`` version is not yet stamped
-    still pass: the terminal version always resolves from the live scorer, so a
-    gap there is an unstamped cell rather than an unanswerable one.
+    - a ``risk_set`` basis beside a null version. On the ``risk_set`` path the
+      version is the scored prediction's frozen ``context.salience_version``,
+      so the null means the join found no prediction, no frozen context, or no
+      version in it — the rate was taken off a risk-set table nothing pins
+      down.
+    - a ``terminal`` basis on a **cert** cell while the scored prediction —
+      the predictor's latest for the event, the same join every scoring
+      surface uses — froze a band at all. ``terminal`` is the fallback for a
+      prediction that froze no band, so against a frozen band it prices the
+      cell off the wrong population; where the band's version also resolves
+      the record looks well-formed while doing so. Cert-only because the
+      frozen-band pairing is a cert-petition concept while the frozen context
+      is stamped per case, so on any other stage a case-level band must not
+      reach this rule — the same narrowing the stamp's guard applies.
 
-    The remedy is a corrected evaluation (the terminal basis is the documented
-    fallback where no frozen context exists, and omitting the rate is always
-    open), never rewriting the recorded basis to ``terminal`` after the fact:
-    that would stamp the live scorer's version onto a number read over the
-    risk-set population, making the version half truthful-looking over the wrong
-    population — a worse record than the null, because nothing downstream could
-    tell the two apart.
+    A record that took no segment base rate (both halves null) and a
+    ``terminal`` record whose version is not yet stamped still pass. The
+    terminal-version gap is a weaker guarantee than it looks: a never-stamped
+    ``terminal`` cell was banded under whatever scorer was live when it ran,
+    which need not be today's, so its version is genuinely unknown — only a
+    stamp contemporaneous with the evaluation, which the workflow makes it,
+    records the right one, and a later re-stamp overwrites it with the live
+    version rather than leaving the gap. Tolerated here because the stamp, not
+    the ledger, is where that answer exists. The terminal-basis rule inherits
+    the same caveat from the other side: its join reads the predictor's latest
+    prediction *now*, so a prediction landing after the evaluation would
+    retro-judge a record that was correct when written — accepted because a
+    resolved event takes no further predictions, which is what keeps the join
+    stable once an evaluation exists.
+
+    The remedy is a corrected evaluation whose rate, basis, and version come
+    off one population together (omitting the rate is always open), never a
+    relabel of the recorded basis under the number as written: that would pair
+    one population's version with a rate read over the other's table — a worse
+    record than the null, because nothing downstream could tell the two apart.
     """
     problems: list[str] = []
     checked = 0
@@ -666,15 +691,71 @@ def check_base_rate_version(data_root: Path) -> CorpusCheck:
             continue
         if not isinstance(data, dict):
             continue
-        if data.get("base_rate_basis") != "risk_set":
-            continue
-        checked += 1
-        if data.get("base_rate_salience_version") is None:
-            problems.append(
-                f"evaluation {path}: base_rate_basis 'risk_set' with a null "
-                + "base_rate_salience_version"
-            )
+        basis = data.get("base_rate_basis")
+        if basis == "risk_set":
+            checked += 1
+            if data.get("base_rate_salience_version") is None:
+                problems.append(
+                    f"evaluation {path}: base_rate_basis 'risk_set' with a null "
+                    + "base_rate_salience_version"
+                )
+        elif basis == "terminal":
+            checked += 1
+            # `==`, never `is`: the models carry `use_enum_values`, so the
+            # stage comes back as the enum's value.
+            if _evaluation_event_stage(path) != Stage.cert:
+                continue
+            context = _scored_prediction_context(path, data.get("predictor_id"))
+            if context is not None and context.band is not None:
+                problems.append(
+                    f"evaluation {path}: base_rate_basis 'terminal' while the scored "
+                    + f"prediction froze band {context.band!r} — the fallback taken "
+                    + "where a risk-set pairing was available"
+                )
     return _check(CHECK_BASE_RATE_VERSION, problems, checked=checked)
+
+
+def _evaluation_event_stage(evaluation_path: Path) -> Stage | None:
+    """The declared stage of the event one evaluation file sits under.
+
+    Tolerant like the rest of this check's inputs: ``None`` where the event
+    file is missing or does not parse — that is another check's problem, and a
+    rule keyed on the stage must not fire off a record it cannot read.
+    """
+    event_file = evaluation_path.parents[4] / "event.yaml"
+    try:
+        return PredictableEvent.model_validate(yaml.safe_load(event_file.read_text())).stage
+    except (OSError, ValueError, ValidationError):
+        return None
+
+
+def _scored_prediction_context(
+    evaluation_path: Path, predictor_id: object
+) -> PredictionContext | None:
+    """The frozen context of the scored prediction for one evaluation file.
+
+    The scored prediction is the evaluation's predictor's **latest** for the
+    event by :func:`fedcourtsai.integrity.cell_clock` — the same join every
+    scoring surface uses. ``predictor_id`` is the evaluation record's own
+    field, never the directory name, because the stamp and every scoring
+    surface join on the field and an un-aliasing that moved the directory but
+    not the field (or vice versa) must not make the two enforcers of one rule
+    score different predictions. ``None`` where the field is not a string, no
+    prediction parses, or the latest carries no context; a file that fails to
+    parse is another check's problem, never reported as a join miss here.
+    """
+    if not isinstance(predictor_id, str) or not predictor_id:
+        return None
+    event_dir = evaluation_path.parents[4]
+    predictions = []
+    for path in sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json")):
+        try:
+            predictions.append(Prediction.model_validate_json(path.read_text()))
+        except (OSError, ValidationError):
+            continue
+    if not predictions:
+        return None
+    return max(predictions, key=cell_clock).context
 
 
 def check_prediction_docs(data_root: Path) -> CorpusCheck:

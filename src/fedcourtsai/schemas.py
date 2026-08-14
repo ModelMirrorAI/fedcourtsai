@@ -1443,7 +1443,13 @@ class Evaluation(_Strict):
         "yields no baseline at all. "
         "The two differ several-fold in the weak bands, so a skill score is only "
         "comparable within one basis; absent on evaluations written before the "
-        "distinction existed.",
+        "distinction existed. A cert cell whose scored prediction froze a band "
+        "but no resolvable salience version lands with both this field and "
+        "segment_base_rate null — the enforced state rather than a permitted "
+        "shorthand: `stamp-cell` and `validate` both fail a 'risk_set' basis "
+        "that resolves no version, and both equally fail a 'terminal' basis "
+        "recorded while the scored prediction froze a band at all — the "
+        "fallback taken where a risk-set pairing existed to take.",
     )
     base_rate_salience_version: str | None = Field(
         default=None,

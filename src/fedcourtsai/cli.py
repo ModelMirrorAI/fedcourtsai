@@ -2594,14 +2594,24 @@ def stamp_cell(
     prediction's frozen band, recorded in ``base_rate_basis``, and the
     leaderboard's coherence check is what holds that arithmetic to its record.
 
-    A recorded ``risk_set`` basis whose version does not resolve exits non-zero
-    after every cell is stamped. The null is still written — it is the
-    deterministic record of what resolution produced — but a basis without its
-    version half names a population nothing pins down, and rewriting the basis
-    to ``terminal`` instead would stamp the live scorer's version onto a rate
-    read over the risk-set table. ``validate``'s
-    :func:`fedcourtsai.validate.check_base_rate_version` holds the same rule
-    over the committed ledger.
+    A mispaired basis exits non-zero after every cell is stamped — either
+    half. A recorded ``risk_set`` basis whose version does not resolve: the
+    null is still written — it is the deterministic record of what resolution
+    produced — but a basis without its version half names a population nothing
+    pins down. And a recorded ``terminal`` basis while the scored prediction
+    froze a ``context.band`` at all: ``terminal`` is the fallback for a
+    prediction that froze no band, so against a frozen band it prices the cell
+    off the wrong population — a well-formed record where the band's version
+    also resolves, and a moved band priced at the terminal rate where it does
+    not. The correction either way is a re-derived evaluation whose rate,
+    basis, and version come off one population together — or nulling the rate,
+    the basis, and the skill together and re-stamping, which clears the
+    version half — never a relabel of the basis under the number as written,
+    which would pair one population's version with a rate read over the
+    other's table. ``validate``'s
+    :func:`fedcourtsai.validate.check_base_rate_version` holds both halves
+    over the committed ledger, so a failed cell reaches a maintainer through
+    the run's draft PR rather than a merged one.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -2658,7 +2668,7 @@ def stamp_cell(
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
     stamped = 0
-    basis_records: dict[Path, tuple[str | None, str | None]] = {}
+    basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
     for path in targets:
         if not path.is_file():
             continue
@@ -2674,9 +2684,9 @@ def stamp_cell(
             # rate, and the ratio over them — on the stages that own it: same
             # discipline, derived deterministically from the stage and the
             # committed inputs, overwritten unconditionally so what it says is
-            # the harness's word. The basis pair it returns is what the risk-set
-            # guard below judges — the record as stamped, never as the evaluator
-            # wrote it.
+            # the harness's word. The basis trio it returns is what the
+            # mispairing guard below judges — the record as stamped, never as
+            # the evaluator wrote it.
             skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
@@ -2689,54 +2699,105 @@ def stamp_cell(
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
     typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
-    _fail_on_unversioned_risk_set(basis_records)
+    _fail_on_mispaired_basis(basis_records)
 
 
-def _fail_on_unversioned_risk_set(
-    basis_records: Mapping[Path, tuple[str | None, str | None]],
+def _fail_on_mispaired_basis(
+    basis_records: Mapping[Path, tuple[str | None, str | None, Prediction | None]],
 ) -> None:
-    """Exit non-zero where a stamped ``risk_set`` basis resolved no salience version.
+    """Exit non-zero where a stamped basis contradicts the scored prediction.
 
-    Takes each stamped evaluation's ``(base_rate_basis, base_rate_salience_version)``
-    as written. The null version is written either way — it is the deterministic
-    record of what the resolution produced — and this is what stops the cell
-    passing as a scored one: a risk-set base rate is banded under the scored
-    prediction's frozen ``context.salience_version``, so a basis recorded without
-    one names a population nothing pins down, and the two halves are only
-    comparable together (``metrics/README.md``). One ``::error::`` per offender,
-    so a maintainer reading the run log sees every cell at once.
+    Takes each stamped evaluation's ``(base_rate_basis,
+    base_rate_salience_version, scored prediction)`` as written. Two
+    mispairings, both fatal because a skill score is only comparable within a
+    correctly recorded basis (``metrics/README.md``):
+
+    - ``risk_set`` with no resolvable version — the join found no prediction,
+      no frozen context, or no ``salience_version`` in it. The null version is
+      still written (the deterministic record of what resolution produced);
+      this guard is what stops the cell passing as scored.
+    - ``terminal`` while the scored prediction froze a ``band`` at all —
+      ``terminal`` is the fallback for a prediction that froze no band
+      (``docs/salience.md``), so taking it against a frozen band prices the
+      cell off the wrong population: a well-formed number where the band's
+      version also resolves, a moved band priced at the terminal rate where
+      it does not.
+
+    One ``::error::`` per offender, so a maintainer reading the run log sees
+    every cell at once, and each names the valid corrections for its own
+    shape — never a basis relabel under the number as written, which would
+    stamp a truthful-looking version onto a rate read over the other table.
+
+    The two arms differ off the cert stage: the risk-set arm judges the
+    record's own two halves and fires on any stage that reaches it, while the
+    terminal arm needs the scored prediction, which the caller supplies only
+    on a cert cell — the frozen-band pairing is a cert-petition concept, and
+    the context is stamped per case, so on a stage-less event a case-level
+    band must not reach a rule about cert populations.
     """
-    offenders = [
-        path
-        for path, (basis, version) in sorted(basis_records.items())
-        if basis == "risk_set" and version is None
-    ]
-    if not offenders:
-        return
-    for path in offenders:
-        typer.echo(
-            f"::error::stamp: {path} records base_rate_basis 'risk_set' but no salience "
-            + "version resolves — the join found no prediction for this predictor, no "
-            + "frozen context on its latest one, or no `salience_version` in that "
-            + "context. A risk-set base rate is banded under the scored prediction's "
-            + "frozen `context.salience_version`, so a basis recorded without one names "
-            + "a population nothing pins down. Where the join simply missed, the cell "
-            + "needed the terminal basis; where the scored prediction froze a band with "
-            + "no version beside it, the terminal basis is wrong too and the cell needed "
-            + "no segment base rate at all.",
-            err=True,
-        )
-    raise typer.Exit(code=1)
+    failed = False
+    for path, (basis, stamped_version, scored) in sorted(basis_records.items()):
+        context = scored.context if scored is not None else None
+        if basis == "risk_set" and stamped_version is None:
+            failed = True
+            typer.echo(
+                f"::error::stamp: {path} records base_rate_basis 'risk_set' but no salience "
+                + "version resolves — the join found no prediction for this predictor, no "
+                + "frozen context on its latest one, or no `salience_version` in that "
+                + "context. A risk-set base rate is banded under the scored prediction's "
+                + "frozen `context.salience_version`, so a basis recorded without one names "
+                + "a population nothing pins down. Where the join simply missed, a "
+                + "corrected evaluation may take the terminal basis (the documented "
+                + "fallback); where the scored prediction froze a band with no version "
+                + "beside it, the terminal basis is wrong too — null `segment_base_rate`, "
+                + "`base_rate_basis`, and `brier_skill_score` together and re-stamp, never "
+                + "relabel the basis under the number as written.",
+                err=True,
+            )
+        elif basis == "terminal" and context is not None and context.band is not None:
+            failed = True
+            # Narrowing only: `context` was read off `scored`, so a non-null
+            # context implies the prediction it came from.
+            assert scored is not None
+            if context.salience_version is not None:
+                detail = (
+                    "carries a frozen `context.band` and `context.salience_version` — the "
+                    + "fallback taken where the risk-set pairing was available, a "
+                    + "well-formed rate read against the wrong population. Correct with a "
+                    + "re-derived evaluation whose rate, basis, and version come off the "
+                    + "risk-set population together, or null `segment_base_rate`, "
+                    + "`base_rate_basis`, and `brier_skill_score` together and re-stamp; "
+                    + "never relabel the basis under the number as written, which pairs "
+                    + "one population's version with a rate read over the other's table."
+                )
+            else:
+                detail = (
+                    "froze a `context.band` with no salience version beside it — a frozen "
+                    + "band priced at the terminal rate, where omission is the only "
+                    + "answer: null `segment_base_rate`, `base_rate_basis`, and "
+                    + "`brier_skill_score` together and re-stamp."
+                )
+            typer.echo(
+                f"::error::stamp: {path} records base_rate_basis 'terminal' while the "
+                + f"scored prediction (run {scored.run_id}) "
+                + detail,
+                err=True,
+            )
+    if failed:
+        raise typer.Exit(code=1)
 
 
-def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluation) -> str | None:
+def _base_rate_salience_version_for(
+    evaluation: Evaluation, context: PredictionContext | None
+) -> str | None:
     """Which salience version the evaluation's segment base rate was read under.
 
     Deterministic from the same inputs ``base_rate_basis`` names, so the stamp
     records — never trusts — the evaluator: on the ``risk_set`` path the band
-    was the scored prediction's frozen one, so the version is that
-    prediction's ``context.salience_version`` (the latest prediction, the same
-    join every scoring surface uses); on the ``terminal`` path the band was
+    was the scored prediction's frozen one, so the version is the passed
+    ``context``'s ``salience_version`` — the caller resolves that context via
+    the latest-prediction join every scoring surface uses; on the ``terminal``
+    path the band was
     re-derived from the row under the live scorer, so the version is the live
     ``SALIENCE_VERSION``. ``None`` where the evaluation records no basis (no
     segment base rate was taken), or where the risk-set path's prediction or
@@ -2747,10 +2808,7 @@ def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluat
         return SALIENCE_VERSION
     if evaluation.base_rate_basis != "risk_set":
         return None
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
-    if latest is None or latest.context is None:
-        return None
-    return latest.context.salience_version
+    return context.salience_version if context is not None else None
 
 
 def _claim_scores_for(
@@ -2828,8 +2886,8 @@ _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 def _skill_record_for(
     event_paths: EventPaths, evaluation: Evaluation, settings: Settings
-) -> tuple[dict[str, object], tuple[str | None, str | None]]:
-    """This cell's ``correct`` and skill record as a stamp update, plus its basis pair.
+) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
+    """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
     ``correct`` is stamped on **every** stage, cert included, and is the one
     field here that does not split by stage. The exemption the cert stage holds
@@ -2868,11 +2926,16 @@ def _skill_record_for(
     Both halves of the **basis record** are cleared, because neither pooled rate
     is a salience-band product: there is no band population for a basis to name,
     and a recorded one would otherwise pull a salience version onto a rate no
-    band ever produced — or fail the cell on the risk-set guard, whose remedy
+    band ever produced — or fail the cell on the mispairing guard, whose remedy
     (the terminal basis) means nothing on a stage the harness pools itself.
 
-    The returned ``(basis, version)`` pair is the record **as stamped**, so the
-    guard judges what was written rather than what the evaluator proposed.
+    The returned ``(basis, version, scored prediction)`` trio is the record
+    **as stamped** plus the prediction it scores, so the guard judges what was
+    written rather than what the evaluator proposed — and can judge the
+    terminal half of the mispairing, which is visible only against the frozen
+    context the fallback declined to use. The prediction rides only on a
+    **cert** cell: the frozen-band pairing is a cert-petition concept, so on a
+    stage-less event a case-level frozen band must not reach the guard.
     """
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
@@ -2883,11 +2946,14 @@ def _skill_record_for(
     _warn_on_discarded_number(
         evaluation, "correct", evaluation.correct, correct, warn_on_omission=True
     )
-    if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
-        version = _base_rate_salience_version_for(event_paths, evaluation)
+    stage = _event_stage_and_opened(event_paths)[0]
+    if stage not in _HARNESS_SKILL_STAGES:
+        latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+        context = latest.context if latest is not None else None
+        version = _base_rate_salience_version_for(evaluation, context)
         return (
             {"correct": correct, "base_rate_salience_version": version},
-            (evaluation.base_rate_basis, version),
+            (evaluation.base_rate_basis, version, latest if stage == Stage.cert else None),
         )
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
     brier = _harness_brier_for(event_paths, evaluation, outcome)
@@ -2902,7 +2968,7 @@ def _skill_record_for(
             "base_rate_basis": None,
             "base_rate_salience_version": None,
         },
-        (None, None),
+        (None, None, None),
     )
 
 
