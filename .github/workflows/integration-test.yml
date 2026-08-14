@@ -392,7 +392,12 @@ jobs:
       # with no model spend and no credentials. The extract and the model
       # call stay uncovered here by design: the extract needs QP document
       # rows no fixture corpus writes, and the model call is exactly what
-      # `run-analytics` pays for.
+      # `run-analytics` pays for. The leg rides this matrix job — whose
+      # environment binding and id-token grant it never uses — deliberately:
+      # a second credential-free job header for one non-required scenario is
+      # not worth the surface, and the leg needs no variables, so it runs to
+      # completion from any branch anyway (an unconfigured branch environment
+      # resolves empty).
       - name: Seed canned labeling inputs from the committed reference set
         if: ${{ matrix.scenario == 'qp-topic' }}
         run: |
@@ -433,6 +438,26 @@ jobs:
           labeler: canned/none
           data-root: ${{ runner.temp }}/qp-topic/data
 
+      # Pin the *reason*, not just the failure: the guard fires before the
+      # measure step, so measured.txt not existing yet proves the no-output
+      # assert refused — a plain outcome check would stay green even if the
+      # guard were dropped and the measure command's own "no label lines"
+      # error failed the leg instead.
+      - name: Assert the no-output guard refused before measuring
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        env:
+          EMPTY_OUTCOME: ${{ steps.qp-empty.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$EMPTY_OUTCOME" != "failure" ]; then
+            echo "::error::a labeler that wrote nothing passed the measure"
+            exit 1
+          fi
+          if [ -e "$RUNNER_TEMP/measured.txt" ]; then
+            echo "::error::the no-output guard did not fire; the measure step ran on an empty labels file"
+            exit 1
+          fi
+
       - name: Measure a drifted run (the gate must refuse to publish)
         if: ${{ matrix.scenario == 'qp-topic' }}
         id: qp-drifted
@@ -444,19 +469,20 @@ jobs:
           labeler: canned/drifted
           data-root: ${{ runner.temp }}/qp-topic/data
 
-      - name: Assert both failing runs failed and published nothing
+      - name: Assert the gate refused the drifted run and published nothing
         if: ${{ matrix.scenario == 'qp-topic' }}
         env:
-          EMPTY_OUTCOME: ${{ steps.qp-empty.outcome }}
           DRIFTED_OUTCOME: ${{ steps.qp-drifted.outcome }}
         run: |
           set -euo pipefail
-          if [ "$EMPTY_OUTCOME" != "failure" ]; then
-            echo "::error::a labeler that wrote nothing passed the measure"
-            exit 1
-          fi
           if [ "$DRIFTED_OUTCOME" != "failure" ]; then
             echo "::error::a drifted labeler passed the publication gate"
+            exit 1
+          fi
+          # The refusal, in the gate's own words — a different failure (a
+          # join error, a vocabulary reject) must not satisfy this leg.
+          if ! grep -q "refusing to write" "$RUNNER_TEMP/measured.txt"; then
+            echo "::error::the drifted run failed for some reason other than the publication gate"
             exit 1
           fi
           if [ -e "$RUNNER_TEMP/qp-topic/data/qp-topics/qp-topics.json" ]; then

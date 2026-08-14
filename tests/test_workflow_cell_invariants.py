@@ -298,6 +298,19 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     production = [s for s in label_steps if s.get("uses") == composite]
     assert len(production) == 1, "the labeling job must measure through the composite"
 
+    # The paid job must consume the measured block through the composite's
+    # declared output, never a path convention that a composite-internal
+    # rename would silently break after the model spend.
+    assert production[0].get("id") == "measure"
+    pr_step = next(s for s in label_steps if s.get("name") == "Open or update the review PR")
+    assert pr_step["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
+        "the PR body must read the measured block from the composite's output"
+    )
+    # And no inlined copy of the measure invocation may reappear beside it
+    # (`--labels` marks the command; the job's prose mentions the command name).
+    label_runs = [str(s.get("run") or "") for s in label_steps]
+    assert not any("--labels" in run for run in label_runs)
+
     scenario_steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
     scenario = [s for s in scenario_steps if s.get("uses") == composite]
     assert len(scenario) == 3, "the scenario drives the composite's three paths"
@@ -306,3 +319,5 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     # publish regression fails the leg outright.
     tolerated = [s for s in scenario if s.get("continue-on-error") is True]
     assert len(tolerated) == 2
+    untolerated = [s for s in scenario if s.get("continue-on-error") is not True]
+    assert untolerated[0]["with"]["labeler"] == "canned/reference"

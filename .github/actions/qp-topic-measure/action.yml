@@ -33,6 +33,23 @@ inputs:
       runner-temp root seeded from the committed reference set.
     required: false
     default: data
+  transcript-hint:
+    description: >
+      Appended to the no-output error: where the caller captured a labeler
+      transcript, this names the artifact so the operator lands on the
+      diagnostic record. Empty where no transcript exists (the canned
+      integration-test legs).
+    required: false
+    default: ''
+
+outputs:
+  measured-file:
+    description: >
+      The sanitized measured block (backticks stripped) the measure step
+      rendered into the step summary — the same bytes a caller may embed in a
+      PR body. Declared as an output because the production PR step depends
+      on it; consuming the path any other way is an undeclared contract.
+    value: ${{ steps.measure.outputs.measured-file }}
 
 runs:
   using: composite
@@ -48,15 +65,17 @@ runs:
       env:
         LABELS_OUT: ${{ inputs.labels }}
         LABELER: ${{ inputs.labeler }}
+        TRANSCRIPT_HINT: ${{ inputs.transcript-hint }}
       run: |
         set -euo pipefail
         if [ ! -s "$LABELS_OUT" ]; then
-          echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output; where the run captured a transcript artifact, it carries the turn-by-turn record to diagnose from."
+          echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output.${TRANSCRIPT_HINT:+ $TRANSCRIPT_HINT}"
           exit 1
         fi
         echo "labeler wrote $(wc -l < "$LABELS_OUT") label line(s)"
 
     - name: Measure the run and write the labels artifact
+      id: measure
       shell: bash
       env:
         LABELS_OUT: ${{ inputs.labels }}
@@ -99,6 +118,7 @@ runs:
           cat "$RUNNER_TEMP/measured-safe.txt"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "measured-file=$RUNNER_TEMP/measured-safe.txt" >> "$GITHUB_OUTPUT"
         if [ "$status" -ne 0 ]; then
           echo "::error::qp-topics published nothing; the measured block above is the result"
           exit "$status"
