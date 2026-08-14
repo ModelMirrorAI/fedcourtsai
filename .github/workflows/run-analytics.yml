@@ -452,6 +452,27 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap
 
+      # The action's bundled installer leaves the CLI's platform-native binary
+      # missing (its package fetch neither runs the postinstall nor resolves
+      # the platform optional dependency) — the agent then dies at startup
+      # ("claude native binary not installed") while the action still exits
+      # `is_error: false` with no output. Install the same pinned CLI the
+      # engine cells run green on these runners — npm resolves the native
+      # binary as a platform optional dependency even with scripts disabled —
+      # and hand the action the executable, which skips its own install path
+      # entirely. Keep the version in step with run-backtest.yml and
+      # integration-test.yml. Secret-free step: registry install only.
+      - name: Install the pinned Claude Code CLI for the labeler
+        id: claude-cli
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
+        # disabled, and a secret-free environment are the practical controls for
+        # a single global CLI; a lockfile is not expressible for `npm i -g`.
+        run: |
+          set -euo pipefail
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.207
+          claude --version
+          echo "path=$(command -v claude)" >> "$GITHUB_OUTPUT"
+
       - name: Label the questions presented with Claude Code
         # Bound the agent below the job timeout so a runaway run trips this
         # *step* instead of the job-level timeout, which would cancel the runner
@@ -466,6 +487,10 @@ jobs:
           # Auth is the Anthropic API key (pay-per-token), as for every automated
           # cell: see docs/budget.md.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The pinned, pre-installed CLI (see the install step above) — the
+          # action skips its own installer, whose skipped postinstall left the
+          # native binary missing.
+          path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
           # The action refuses to start without a GitHub token, and both
           # alternatives are worse: its no-input fallback is an OIDC exchange
           # that mints an App installation token defaulting to
@@ -561,9 +586,14 @@ jobs:
         run: |
           set -euo pipefail
           status=0
+          # The transcript surface flag, not the generic extra-file suite: the
+          # transcript's own tool and request ids are high-entropy by format,
+          # so the generic heuristic convicts every real file and the artifact
+          # would only ever publish empty — the surface is gated by containment
+          # of the one reachable credential and the credential shapes instead.
           uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
             --known-secret-env ANTHROPIC_API_KEY \
-            --extra-file "$TRANSCRIPT" \
+            --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?
           if [ "$status" -eq 1 ]; then
