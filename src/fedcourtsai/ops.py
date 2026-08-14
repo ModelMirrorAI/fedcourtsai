@@ -29,6 +29,7 @@ from .schemas import (
     Evaluation,
     FlagsDigest,
     FlagSeverity,
+    ForwardClaimRecord,
     LeakageDigest,
     LiveFrontier,
     ModelUsage,
@@ -242,12 +243,15 @@ def summarize_substance(
     live_frontier: LiveFrontier | None = None,
     previous: OpsReport | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
+    forward_claim: ForwardClaimRecord | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
     Pure over its inputs (no filesystem): the caller supplies the ledger census
     (:func:`fedcourtsai.store.ledger_cell_counts`), the stratified evaluations,
-    the committed statpack, and the published live-frontier snapshot. Deltas
+    the committed statpack, the published live-frontier snapshot, and the
+    forward-claim record its stratify pass produced — carried verbatim so the
+    dashboard and the boards cannot disagree about what was excluded. Deltas
     compare against ``previous``'s substance counts and stay null without a
     comparable prior — a missing or pre-substance snapshot degrades the deltas,
     never the section.
@@ -321,6 +325,7 @@ def summarize_substance(
         cells=cells,
         calibration=calibration,
         predictor_scores=scores,
+        forward_claim=forward_claim,
         live_frontier=live_frontier,
         process_scope=process_scope,
     )
@@ -349,6 +354,9 @@ def render_substance(digest: SubstanceDigest) -> str:
         digest.process_scope == "frozen"
         and c.evaluations_forward == 0
         and c.evaluations_retrospective == 0
+        # An exclusion-emptied headline is not the shakedown state: the cells
+        # exist and were dropped, and the forward-claim line below says so.
+        and (digest.forward_claim is None or digest.forward_claim.excluded == 0)
     )
     lines = [
         "## Substance (is it producing?)",
@@ -361,6 +369,18 @@ def render_substance(digest: SubstanceDigest) -> str:
         f"**{c.evaluations_retrospective}** replay"
         f"{_fmt_delta(c.evaluations_retrospective_delta)}.",
     ]
+    if digest.forward_claim is not None and digest.forward_claim.excluded:
+        placement = (
+            "excluded from the forward/replay counts above"
+            if digest.forward_claim.policy == "exclude"
+            else "counted inside the replay figure above"
+        )
+        lines.append(
+            f"Forward-claim integrity: **{digest.forward_claim.excluded}** cell(s) "
+            f"whose record contradicts its forward claim, {placement} per the "
+            f"`{digest.forward_claim.policy}` policy (see the boards' "
+            f"`forward_claim` block)."
+        )
     if frozen_empty:
         lines.append(
             "_No frozen-process evaluations yet — the headline is scoped to the "

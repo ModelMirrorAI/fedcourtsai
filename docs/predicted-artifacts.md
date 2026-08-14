@@ -400,7 +400,9 @@ directory without knowing which part is which invites trusting the wrong half.
   prediction, the Term). Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
-  condition a forecast's baseline on its own future.
+  condition a forecast's baseline on its own future — and the `mode` is a
+  scoring input in its own right, since a forward claim the record contradicts
+  voids the cell (the forward-claim exclusion, `metrics/README.md`).
 
 ## What the prediction is then scored against
 

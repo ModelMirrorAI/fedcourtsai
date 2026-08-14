@@ -196,3 +196,88 @@ def test_read_only_command_rejects_casestore_cleanly(
     assert result.exit_code == 2
     assert "casestore" in result.stderr
     assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+@mock_aws
+def test_casestore_forward_gate_runs_the_record_half(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The record half of the forward gate holds on the casestore backend.
+
+    The casestore source exposes events but no corpus rows, so the row-level
+    half of `store.forward_refusal_reason` cannot run there — the resolved
+    flag riding the mirrored events must still refuse, and the degradation
+    must be said out loud on the cells it lets through.
+    """
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="fcai-gate")
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "s3://fcai-gate/casestore/v1")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    src = corpus.corpus_db_path(corpus_root)
+    casestore.set_active_transport(casestore.transport_from_settings())  # mirror to moto S3
+    build_fixture_corpus(src)
+    casestore.reset_active_transport()  # the CLI builds its own transport from the env
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+
+    base = ["provision-snapshot", "--corpus-backend", "casestore", "--refuse-terminal"]
+    # scotus/304 is decided, so its mirrored event carries resolved=True: the
+    # record half refuses with no corpus row in sight.
+    refused = runner.invoke(
+        app,
+        [*base, "--court", "scotus", "--docket", "304", "--event", "evt-petition-disposition"],
+    )
+    assert refused.exit_code == 3, refused.output
+    assert "corpus records evt-petition-disposition resolved" in refused.output
+
+    # scotus/305 is open: the cell provisions, and the row-level half ran
+    # against the corpus index through the ordinary read backend (the local
+    # fixture blob here), so no degradation is reported.
+    allowed = runner.invoke(
+        app,
+        [*base, "--court", "scotus", "--docket", "305", "--event", "evt-petition-disposition"],
+    )
+    assert allowed.exit_code == 0, allowed.output
+    assert "without the row-level decided check" not in allowed.output
+
+
+@mock_aws
+def test_casestore_forward_gate_names_an_unreachable_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The row-level half needs the corpus index; when the ordinary backend has
+    # nothing to read, the event-keyed half still gates the cell and the
+    # skipped half is a spoken warning, never a silent pass.
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="fcai-noindex")
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "s3://fcai-noindex/casestore/v1")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    seed_root = tmp_path / "seed"
+    seed_root.mkdir()
+    src = corpus.corpus_db_path(seed_root)
+    casestore.set_active_transport(casestore.transport_from_settings())  # mirror to moto S3
+    build_fixture_corpus(src)
+    casestore.reset_active_transport()
+    # Point the corpus root somewhere without a blob: the casestore serves the
+    # snapshot; the index simply is not there.
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "empty"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+
+    allowed = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--corpus-backend",
+            "casestore",
+            "--refuse-terminal",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+
+    assert allowed.exit_code == 0, allowed.output
+    assert "without the row-level decided check" in allowed.output

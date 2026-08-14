@@ -101,7 +101,11 @@ each as its own least-privilege job holding only the credentials its mode needs:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). It applies the same
+  so the extract is the agent's entire evidentiary input). The labeler's
+  turn-by-turn transcript is scanned and published as a second one-day
+  artifact, `qp-label-transcript` — the thing to open when a run reports
+  success but writes no labels (disclosure argued in
+  [qp-topic.md](qp-topic.md)). It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
@@ -545,20 +549,33 @@ splitting a case's engines) in a deterministic case-id order, with the deferred
 count surfaced as a `::warning::` and in the plan's step summary; a deferred case
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
-`PREDICT_HANDOFF_ENABLED` on/off pause below.
+`PREDICT_HANDOFF_ENABLED` on/off pause below. One interaction to know: a
+forward cell the provisioning gate refuses produces no output, so collect
+records a failure fact that counts toward `predict.max_attempts_per_cell`.
+For a record-gate refusal that terminal state is right — a decided event must
+never re-queue (and the plan-time openness re-check drops it anyway). For a
+*staleness* refusal it means a poller stalled for five predict cycles quietly
+retires those cells; the recovery is to fix the poller and re-queue with a
+fresh `run:predict` issue, or clear the committed attempt facts in a reviewed
+PR where the cap itself was the problem. Distinguishing refusal kinds in the
+failure fact so a staleness refusal never burns the cap is open follow-up
+work.
 
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
 would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
 in the first place; this is the backstop for a manually-filed or partial one.) Note
-the volume cap above can also empty the matrix (when it defers *every* case), and
+the volume cap above can also empty the matrix (when it defers *every* case);
 so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
 — armed, see [budget.md](budget.md)) when the trailing window's measured spend
-reaches the ceiling; the close step cannot tell either from scope-empty, so it
-closes with the out-of-scope note in all three cases. Each cap surfaces its own
-escalated `::error::` for correct attribution, and the close is safe because the
-deferred cases stay in their queues and re-queue next cycle regardless. A
+reaches the ceiling; and so can the plan-time openness re-check, when every
+event the trigger listed has resolved since the issue was queued. The close
+step cannot tell any of them from scope-empty, so it closes with the
+out-of-scope note in all four cases. Each surfaces its own escalated
+`::error::` for correct attribution, and the close is safe in each case for
+its own reason: a cap- or spend-deferred case stays in its queue and re-queues
+next cycle, while a resolved event needs an evaluate run, not a re-queue. A
 spend-breach deferral clears on its own when the window rolls past the burst
 that tripped it (or when the maintainer raises `spend.ceiling_usd`).
 

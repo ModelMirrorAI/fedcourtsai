@@ -14,7 +14,7 @@ import sqlite3
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -23,6 +23,7 @@ from typing import Annotated, Any, Literal, get_args
 from urllib.parse import quote
 
 import typer
+import yaml
 from pydantic import BaseModel, ValidationError
 
 from . import (
@@ -99,6 +100,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
+from .integrity import cell_clock, forward_claim_record
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -177,6 +179,7 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
+    ForwardClaimRecord,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -196,16 +199,20 @@ from .schemas import (
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .spend import SpendVerdict, check_spend
 from .store import (
+    ExcludedCell,
+    StratifiedRun,
     cases_due_for_pull,
     forecastable_events,
+    forward_refusal_reason,
+    forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
-    iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
     ledger_cell_counts,
     open_events,
     resolved_events,
+    stratify,
 )
 from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
@@ -1509,7 +1516,9 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    cells = iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only)
+    run = stratify(settings.data_root, frozen_only=frozen_only)
+    _report_forward_claim_exclusions(run.excluded)
+    cells = run.cells
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
     # ops feeds: no pack means the column is absent, never partly computed.
@@ -1520,6 +1529,7 @@ def leaderboard(
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
+        forward_claim=_forward_claim_from(run),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -1579,9 +1589,12 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(run.excluded)
     board = build_claim_scores(
-        iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions),
+        run.cells,
         process_scope=scope,
+        forward_claim=_forward_claim_from(run),
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -2323,7 +2336,7 @@ def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluat
     predictions = [read_model(p, Prediction) for p in files]
     if not predictions:
         return None
-    latest = max(predictions, key=lambda p: p.created_at)
+    latest = max(predictions, key=cell_clock)
     return latest.context.salience_version if latest.context is not None else None
 
 
@@ -2357,7 +2370,7 @@ def _claim_scores_for(
     if not predictions:
         return None
     return score_claims(
-        max(predictions, key=lambda p: p.created_at),
+        max(predictions, key=cell_clock),
         read_model(outcome_path, Outcome),
         read_model(statpack_path, StatPack),
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
@@ -2453,6 +2466,20 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     mode: Annotated[
         str, typer.Option(help="The cell's provisioned mode: forward | replay ('' = unknown).")
     ] = "",
+    mode_from_context: Annotated[
+        bool,
+        typer.Option(
+            "--mode-from-context",
+            help="Read the mode from the cell's provisioned record/context.json "
+            "— the record provisioning wrote — overriding --mode when the "
+            "context exists and carries a known mode. --mode (or unknown) is "
+            "the fallback, so an unprovisioned cell keeps the caller's word "
+            "and a context carrying an out-of-vocabulary mode is refused with "
+            "a warning rather than passed to the grader: the file sits in the "
+            "agent's workspace, so its value is trusted only inside the "
+            "declared vocabulary.",
+        ),
+    ] = False,
     claude_execution_file: Annotated[
         Path | None, typer.Option(help="Claude Code execution_file JSON to read tool calls from.")
     ] = None,
@@ -2476,6 +2503,20 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     empty log: "retrieved nothing" is itself evidence.
     """
     settings = get_settings()
+    if mode_from_context:
+        context = _read_cell_context(CasePaths(settings.data_root, court, docket))
+        if context is not None:
+            if context.mode in CELL_MODES:
+                mode = context.mode
+            else:
+                # The context file lives in the agent's workspace; an
+                # out-of-vocabulary mode is not a value to hand the grader.
+                typer.echo(
+                    f"::warning::record-retrieval: provisioned context carries an "
+                    f"unknown mode {context.mode!r}; keeping the caller's "
+                    f"({mode or 'unknown'})",
+                    err=True,
+                )
     calls: list[RetrievalCall] = []
     if claude_execution_file is not None:
         calls = retrieval.parse_claude_retrieval(claude_execution_file)
@@ -2713,12 +2754,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified = [
-        (ev, stratum)
-        for ev, stratum, _stage, _moment in iter_stratified_evaluations(
-            settings.data_root, frozen_only=not all_versions
-        )
-    ]
+    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(stratified_run.excluded)
+    stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,
@@ -2726,6 +2764,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         live_frontier=frontier,
         previous=prior,
         process_scope=scope,
+        forward_claim=_forward_claim_from(stratified_run),
     )
     report = build_ops_report(
         generated_at=when,
@@ -3826,6 +3865,78 @@ def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> s
     return terminal
 
 
+def _refuse_forward_if_closed(
+    backend: corpus.CorpusBackend,
+    gate_events: Sequence[corpus.CorpusEvent],
+    gate_row: corpus.CorpusRow | None,
+    court: str,
+    docket: int,
+    event: str,
+    snapshot_date: date,
+    max_snapshot_age_days: int,
+) -> None:
+    """The record and staleness gates of a forward cell; exit 3 on refusal.
+
+    The mechanical half of ``--refuse-terminal`` (the textual scan stays with
+    the caller, which holds the payload): the record gate over the parts
+    provisioning already read on its own connection, the casestore row-half
+    fallback through the ordinary index backend, and the wall-clock staleness
+    bound. Refusals are ``::warning::`` annotations so a fleet of
+    snapshot-less cells is attributable per cause from the Actions UI.
+    """
+    settings = get_settings()
+    case = ids.case_id(court, docket)
+    reason = forward_refusal_reason_from_parts(
+        settings.data_root, court, docket, event, gate_events, gate_row
+    )
+    if reason is None and backend == "casestore":
+        reason = _casestore_row_refusal(
+            corpus.corpus_db_path(settings.corpus_root), court, docket, event
+        )
+    if reason is not None:
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: {reason}",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+    age_days = (date.today() - snapshot_date).days
+    if max_snapshot_age_days and age_days > max_snapshot_age_days:
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: snapshot "
+            f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
+            f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+
+
+def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -> str | None:
+    """The row-level half of the forward record gate, from the casestore path.
+
+    The casestore source exposes events but no corpus rows, so the row half
+    consults the corpus **index** through the ordinary read backend — ranged in
+    the cell workflows, whose provisioning step carries the index credentials
+    beside the casestore URL. Degrades to a spoken warning when no index is
+    reachable: the event-keyed half already ran, and a forward cell must not be
+    lost to an index hiccup the snapshot read did not need.
+    """
+    settings = get_settings()
+    choice = corpus.resolve_backend(None)
+    if choice != "local" or db_path.exists():
+        try:
+            return forward_refusal_reason(
+                db_path, settings.data_root, court, docket, event, backend=choice
+            )
+        except (OSError, corpus_ranged.RangedBackendError):
+            pass
+    typer.echo(
+        "::warning::forward record gate ran without the row-level decided "
+        "check: no corpus index reachable from the casestore path",
+        err=True,
+    )
+    return None
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(
     court: Annotated[str, typer.Option()],
@@ -3847,12 +3958,15 @@ def provision_snapshot(
         bool,
         typer.Option(
             "--refuse-terminal",
-            help="Refuse (exit 3, writing nothing) when the snapshot already "
-            "shows the outcome — the latest entry reads terminal, or any "
-            "entry carries a machine-readable disposition order. A forward "
-            "*prediction* cell must never see a decided docket. Only "
-            "run-predict passes this: an evaluate cell targets exactly "
-            "decided dockets, so the default provisions unconditionally.",
+            help="Refuse (exit 3, writing nothing) when the record or the "
+            "snapshot shows the event is not open: the record already holds "
+            "the outcome (committed outcome.json, corpus resolved flag, or "
+            "the row's latched outcome for the event's stage), the snapshot "
+            "is older than --max-snapshot-age-days, or the snapshot text "
+            "discloses the outcome. A forward *prediction* cell must never "
+            "see a decided docket. Only the forward predict path passes "
+            "this: an evaluate cell targets exactly decided dockets, so the "
+            "default provisions unconditionally.",
         ),
     ] = False,
     event: Annotated[
@@ -3864,6 +3978,19 @@ def provision_snapshot(
             "case-baseline cell.",
         ),
     ] = "",
+    max_snapshot_age_days: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="With --refuse-terminal on a forward cell, refuse (exit 3) a "
+            "snapshot older than this many days. A time bound, not a content "
+            "check: a snapshot taken before a pipeline pause discloses "
+            "nothing about what happened during the pause — including the "
+            "event's own resolution — so a forward cell fed one would claim "
+            "to be live while answering a stale question. 0 (the default) "
+            "disables the bound.",
+        ),
+    ] = 0,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -3880,21 +4007,35 @@ def provision_snapshot(
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
-    snapshot already discloses ``--event``'s own outcome (code 3, nothing
-    written; see :func:`_forward_leakage`).
+    record or the snapshot shows the event is not open (code 3, nothing
+    written): the record already holds the outcome
+    (:func:`fedcourtsai.store.forward_refusal_reason`), the snapshot is older
+    than the forward staleness bound, or the snapshot text discloses the
+    outcome (see :func:`_forward_leakage`).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
+    # The gate reads (events, row) ride the same connection as the snapshot
+    # read, so a ranged cell opens one connection and the egress counters
+    # `_echo_read_stats` reports stay the whole story.
+    gate_active = refuse_terminal and mode == "forward"
+    gate_events: list[corpus.CorpusEvent] = []
+    gate_row: corpus.CorpusRow | None = None
     if backend == "casestore":
         source = _casestore_source()
         found = source.latest_snapshot(case)
         documents = source.documents_for_case(case)
+        if gate_active:
+            gate_events = source.events_for_case(case)
     else:
         with corpus.connect_readonly(db_path, backend=backend) as conn:
             found = corpus.latest_snapshot(conn, case)
             documents = corpus.documents_for_case(conn, case)
+            if gate_active:
+                gate_events = corpus.events_for_case(conn, case)
+                gate_row = corpus.get_row(conn, case)
             _echo_read_stats(conn)
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
@@ -3904,16 +4045,43 @@ def provision_snapshot(
         raise typer.Exit(code=2)
     snapshot_date, payload = found
     # Refuses before writing anything (no snapshot, no context.json);
-    # run-predict's provisioning step is continue-on-error, so the cell runs
-    # snapshot-less and the agent notes the gap per the prompt contract. Opt-in
+    # run-predict distinguishes the exits: a refusal (exit 3) short-circuits
+    # the cell's agent steps entirely, while a missing snapshot (exit 1) under
+    # its continue-on-error leaves the cell running snapshot-less with the gap
+    # noted per the prompt contract. Opt-in
     # because the other callers *must* see decided dockets: run-evaluate
     # provisions the same forward-mode cell for an already-resolved event, and
     # the replay provisioner truncates point-in-time itself.
-    if refuse_terminal and mode == "forward":
+    #
+    # Three gates, mechanical before textual. The record gate asks whether the
+    # outcome *exists* (committed outcome.json, the corpus event's resolved
+    # flag, the row's latched outcome for the event's stage); the
+    # staleness gate bounds how old a "live" snapshot may be, because a paused
+    # pipeline resumes with snapshots that predate everything the world did in
+    # the meantime — including the resolution — and such a snapshot passes the
+    # textual scan by construction. Only then does the textual scan ask whether
+    # the payload itself discloses the outcome. None of this rests on the
+    # agent: a refused forward cell never receives a snapshot or a context —
+    # un-minting is the plan seam's job (the matrix openness re-check), and
+    # run-predict's refusal gate skips the cell's agent steps on exit 3
+    # entirely. Refusals are ::warning::
+    # annotations so a fleet of snapshot-less cells is attributable per cause
+    # from the Actions UI.
+    if gate_active:
+        _refuse_forward_if_closed(
+            backend,
+            gate_events,
+            gate_row,
+            court,
+            docket,
+            event,
+            snapshot_date,
+            max_snapshot_age_days,
+        )
         terminal = _forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
-                f"refusing to provision forward cell for {case}: {terminal}",
+                f"::warning::refusing to provision forward cell for {case}: {terminal}",
                 err=True,
             )
             raise typer.Exit(code=3)
@@ -3972,7 +4140,8 @@ def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
         # A file that exists but does not parse is worth a line: it is either a
         # replay cell's own `{mode, decided_before}` shape, which carries no
         # conditioning and is correctly rejected, or a provisioning bug.
-        typer.echo(f"stamp: {path} carries no usable cell context; leaving it unset.", err=True)
+        # No command prefix: both `stamp-cell` and `record-retrieval` land here.
+        typer.echo(f"{path} carries no usable cell context; leaving it unset.", err=True)
         return None
 
 
@@ -4370,6 +4539,17 @@ def materialize_event(
     local-only open would silently create an empty corpus and find no events) and,
     under the corpus-split mode, it reads the per-case content store by default.
     Exits non-zero if the corpus holds no such event for the case.
+
+    An event.yaml already present at the ledger path is **never rewritten**:
+    the committed record stands, data PRs are additive-only (the path jail
+    rejects any modification), and the corpus row moves — a field populated
+    after the file was committed would otherwise ride into every later cell's
+    run PR as a jailed modification. When the corpus projection differs from
+    the committed file the drift is warned, field by field; the warning is the
+    accepted steady state (the deterministic outcome writer refreshes the
+    definition at resolution on its own lane), and a wholesale ledger backfill
+    would be a one-time migration, not a cell command. ``--out`` still writes
+    wherever it points, unconditionally.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -4397,22 +4577,60 @@ def materialize_event(
         )
         raise typer.Exit(code=1)
     dest = out or CasePaths(settings.data_root, court, docket).event(event).event_file
-    write_yaml(
-        dest,
-        PredictableEvent(
-            event_id=match.event_id,
-            case_id=match.case_id,
-            kind=match.kind,
-            stage=match.stage,
-            moment=match.moment,
-            title=match.title,
-            description=match.description,
-            docket_entry_id=match.docket_entry_id,
-            opened_at=match.opened_at,
-            decision_target=match.decision_target,
-            resolved=match.resolved,
-        ),
+    projected = PredictableEvent(
+        event_id=match.event_id,
+        case_id=match.case_id,
+        kind=match.kind,
+        stage=match.stage,
+        moment=match.moment,
+        title=match.title,
+        description=match.description,
+        docket_entry_id=match.docket_entry_id,
+        opened_at=match.opened_at,
+        decision_target=match.decision_target,
+        resolved=match.resolved,
     )
+    if out is None and dest.is_file():
+        # Never rewrite the committed record (see the docstring); surface drift
+        # instead, so a stale projection is a visible fact rather than a jailed
+        # modification in the next run PR. Two volumes on purpose: the fields a
+        # consumer keys behavior on get a ::warning:: annotation, while
+        # cosmetic drift — upstream caption re-renderings move `title` on most
+        # of the committed ledger, and a schema bump would move
+        # `schema_version` on all of it — stays a plain log line, or the
+        # annotation channel would drown the one drift that matters. An
+        # unreadable committed file degrades to the loud marker rather than
+        # failing the cell: `validate` owns rejecting a malformed ledger, and
+        # a materialize crash here would spend nothing but lose the cell.
+        try:
+            committed_fields = read_model(dest, PredictableEvent).model_dump(mode="json")
+            projected_fields = projected.model_dump(mode="json")
+            drifted = sorted(
+                field
+                for field, value in projected_fields.items()
+                if committed_fields.get(field) != value
+            )
+        except (OSError, ValueError, yaml.YAMLError):
+            drifted = ["<unreadable committed file>"]
+        cosmetic = {"title", "description", "schema_version"}
+        loud = [field for field in drifted if field not in cosmetic]
+        quiet = [field for field in drifted if field in cosmetic]
+        if loud:
+            typer.echo(
+                f"::warning::{case} event {event}: the corpus projection drifted from "
+                f"the committed event.yaml on {', '.join(loud)}; leaving the "
+                f"committed file untouched (a backfill is a migration, not a cell step)",
+                err=True,
+            )
+        if quiet:
+            typer.echo(
+                f"{case} event {event}: cosmetic drift on {', '.join(quiet)} "
+                f"(committed file untouched)",
+                err=True,
+            )
+        typer.echo(f"{case} event {event} already materialized -> {dest}")
+        return
+    write_yaml(dest, projected)
     typer.echo(f"{case} event {event} -> {dest}")
 
 
@@ -4889,13 +5107,43 @@ def discover(
 
 
 def _resolve_cases(
-    cases: list[CaseRequest], default_events: Callable[[str, int], list[str]]
+    cases: list[CaseRequest],
+    default_events: Callable[[str, int], list[str]],
+    *,
+    drop_resolved: Callable[[str, int], list[str]] | None = None,
 ) -> list[CaseRequest]:
-    """Fill in each case's default events when the request listed none."""
-    return [
-        c if c.events else replace(c, events=tuple(default_events(c.court, c.docket)))
-        for c in cases
-    ]
+    """Fill in each case's default events when the request listed none.
+
+    ``drop_resolved`` re-checks a request's *listed* events against the corpus's
+    resolved set at plan time. A trigger issue is written when its events are
+    open and fanned out whenever the workflow runs — and a pipeline pause can
+    put an arbitrary gap between the two, during which an event resolves.
+    Without the re-check the stale listing mints forward cells that
+    provisioning must then refuse one by one; with it the event is dropped
+    here, once, with the cause on the record. Only an *affirmatively resolved*
+    event is dropped — an event the corpus does not track stays listed, because
+    the matrix has always trusted the trigger's event ids and the provisioning
+    record gate backs the trust. The predict matrix passes the corpus's
+    resolved-events read; evaluate passes ``None``, since its listed events are
+    exactly the resolved ones.
+    """
+    kept: list[CaseRequest] = []
+    for c in cases:
+        if not c.events:
+            kept.append(replace(c, events=tuple(default_events(c.court, c.docket))))
+            continue
+        if drop_resolved is None:
+            kept.append(c)
+            continue
+        gone = set(drop_resolved(c.court, c.docket)) & set(c.events)
+        for dropped in sorted(gone):
+            typer.echo(
+                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — "
+                f"the corpus records it resolved (it closed since the run was queued)",
+                err=True,
+            )
+        kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
+    return kept
 
 
 def _scope_filtered(
@@ -5052,6 +5300,25 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
     return verdict
 
 
+def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
+    """The published record for one stratify pass — pairs, denominator and all."""
+    return forward_claim_record(
+        [(cell.evaluation.predictor_id, cell.reason) for cell in run.excluded],
+        run.claimed_forward,
+    )
+
+
+def _report_forward_claim_exclusions(excluded: Sequence[ExcludedCell]) -> None:
+    """One line per dropped cell, so the boards' count is never the only record."""
+    for cell in excluded:
+        ev = cell.evaluation
+        typer.echo(
+            f"::warning::forward-claim exclusion: {ev.case_id} {ev.event_id} "
+            f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
+            err=True,
+        )
+
+
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
     """Surface a volume-cap deferral loudly, so a capped run is never silent.
 
@@ -5134,17 +5401,46 @@ def predict_matrix_cmd(
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
+    requested = _scope_filtered(
+        _requested_cases(body_file, court, docket, event),
+        predict_config.scope,
+        settings.corpus_root,
+        settings.corpus_backend,
+    )
     cases = _resolve_cases(
-        _scope_filtered(
-            _requested_cases(body_file, court, docket, event),
-            predict_config.scope,
-            settings.corpus_root,
-            settings.corpus_backend,
-        ),
+        requested,
         lambda c, d: forecastable_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
+        # Listed events the corpus now records resolved are dropped at plan
+        # time rather than minted into cells provisioning must refuse. Keyed on
+        # the same condition as the scope gate, because under `all` the corpus
+        # is deliberately never consulted (dev / back-testing may fan out over
+        # an empty corpus).
+        drop_resolved=(
+            (
+                lambda c, d: resolved_events(
+                    corpus.corpus_db_path(settings.corpus_root),
+                    c,
+                    d,
+                    backend=settings.corpus_backend,
+                )
+            )
+            if predict_config.scope != PredictScope.all
+            else None
+        ),
     )
+    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
+        # Every listed event fell to the openness re-check, so the emitted
+        # matrix will be empty and the workflow's empty-matrix step will close
+        # the trigger issue with its generic out-of-scope note (it cannot tell
+        # the causes apart). This line is the correctly-attributed record;
+        # safe, because a resolved event needs an evaluate run, not a re-queue.
+        typer.echo(
+            "::error::predict-matrix: the openness re-check dropped every listed event — "
+            "each resolved since the run was queued; nothing is minted",
+            err=True,
+        )
     # Per-predictor plan-time gate, before any model spend: a (predictor, event)
     # cell whose predictor already committed a prediction for that event is not
     # re-minted, so a re-queue where two of three engines landed mints only the

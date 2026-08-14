@@ -77,7 +77,9 @@ surface a cell retrieves with. `stub-cascade` first runs the production
 known case in an isolated data root, failing the leg on a refusal (the same
 command is `continue-on-error` in run-predict, so this is where a guard
 drifting to always-refuse surfaces; the dispatched case must be genuinely
-undisposed), then runs one offline stub `local-cascade` cell over the ranged
+open — snapshot non-terminal, corpus event unresolved, row undecided, no
+committed outcome — since the guard now reads the record as well as the
+snapshot), then runs one offline stub `local-cascade` cell over the ranged
 backend, covering provisioning end to end. `mcp-sidecar` launches the same
 CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs

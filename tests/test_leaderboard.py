@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import process_version
 from fedcourtsai.cli import app
+from fedcourtsai.integrity import forward_claim_record
 from fedcourtsai.leaderboard import (
     FORWARD,
     NO_STAGE_KEY,
@@ -16,6 +17,7 @@ from fedcourtsai.leaderboard import (
     RETROSPECTIVE,
     CellSkill,
     _evaluation_key,
+    _latest_prediction,
     big_case_agreement,
     build_leaderboard,
     classify_stratum,
@@ -49,7 +51,7 @@ from fedcourtsai.schemas import (
     Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
+from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations, stratify
 from tests.conftest import bless_process
 
 runner = CliRunner()
@@ -1436,3 +1438,139 @@ def test_big_case_agreement_counts_cases_not_events(tmp_path: Path) -> None:
     ((predictor, agreement),) = big_case_agreement(tmp_path, frozen_only=False).items()
     assert predictor == "p"
     assert agreement.cases == 1  # one case, two moments
+
+
+def test_stratum_keys_on_the_harness_stamp_not_the_agent_clock(tmp_path: Path) -> None:
+    # The regression this rule exists for: an agent-written created_at that
+    # predates the resolution must not buy a forward classification when the
+    # harness ran the cell after it.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:any", stamped_at=datetime(2026, 6, 25, tzinfo=UTC)
+        ),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [RETROSPECTIVE]
+    assert run.excluded == []
+
+
+def test_a_misprovisioned_forward_cell_is_excluded_under_the_exclude_policy(
+    tmp_path: Path,
+) -> None:
+    # The record contradicts itself: context.mode says forward, the outcome
+    # existed at the harness clock. Not a valid observation of any stratum.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert run.cells == []
+    assert len(run.excluded) == 1
+    assert "forward" in run.excluded[0].reason
+
+
+def test_a_misprovisioned_cell_routes_retrospective_under_that_policy(tmp_path: Path) -> None:
+    # The variant policy shares the machinery and the count: the cell lands in
+    # the retrospective stratum AND still appears on the exclusion ledger.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False, policy="retrospective")
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [RETROSPECTIVE]
+    assert len(run.excluded) == 1
+
+
+def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+    run = stratify(data_root, frozen_only=False)
+
+    board = build_leaderboard(
+        run.cells, process_scope="all", forward_claim=forward_claim_record(len(run.excluded))
+    )
+
+    assert board.forward_claim is not None
+    assert board.forward_claim.policy == "exclude"
+    assert board.forward_claim.excluded == 1
+
+
+def test_a_breaching_mootness_cell_stays_procedural_under_the_retrospective_policy(
+    tmp_path: Path,
+) -> None:
+    # Procedural wins over the breach's forced routing: a mootness-basis
+    # outcome must never enter the timing strata, whatever the forward-claim
+    # policy — the cell still rides the exclusion ledger.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        disposition_basis="mootness",
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False, policy="retrospective")
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [PROCEDURAL]
+    assert len(run.excluded) == 1
+
+
+def test_latest_prediction_keys_on_the_harness_stamp(tmp_path: Path) -> None:
+    # The big-case/agreement joins' latest-pick must match the stratified
+    # join's clock: a run stamped later outranks a run merely created later.
+    data_root = tmp_path / "data"
+    ev = _evaluation("alpha", event_id="evt-a")
+    _write_cell(data_root, ev, predicted_at=datetime(2026, 6, 20, tzinfo=UTC))
+    court, _, docket = ev.case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
+    write_json(
+        event.prediction(ev.predictor_id, "p0"),
+        Prediction(
+            case_id=ev.case_id,
+            event_id=ev.event_id,
+            predictor_id=ev.predictor_id,
+            engine=Engine.claude_code,
+            run_id="p0",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.9,
+            predicted_disposition=Disposition.granted,
+            process_version=ProcessVersion(
+                label="proc-v2",
+                digest="sha256:any",
+                stamped_at=datetime(2026, 12, 31, tzinfo=UTC),
+            ),
+        ),
+    )
+
+    latest = _latest_prediction(data_root / "cases", ev.case_id, ev.event_id, ev.predictor_id)
+
+    assert latest is not None and latest.run_id == "p0"

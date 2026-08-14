@@ -1,6 +1,6 @@
 """Structural invariants of the agent-cell workflows that no runtime check sees.
 
-Three contracts live only as lines in workflow YAML, so a refactor can drop any
+These contracts live only as lines in workflow YAML, so a refactor can drop any
 of them while every gate stays green:
 
 * the **qp-topics oracle fence** — `data/qp-topics/` membership encodes cert
@@ -14,7 +14,11 @@ of them while every gate stays green:
   content store;
 * the **forward leakage guard** — `run-predict`'s provisioning step is the one
   place `--refuse-terminal` defends the forward information set, and it sits
-  behind `continue-on-error`, so losing the flag fails nothing at runtime.
+  behind `continue-on-error`, so losing the flag fails nothing at runtime;
+* the **labeler transcript capture** — the qp-topic labeler's execution log is
+  scanned and published as a short-lived artifact, and every clause of that
+  (the scan gate, the retention window, the survive-failure condition) is a
+  YAML attribute nothing else checks.
 
 Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
@@ -206,3 +210,74 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
     assert lines, "run-evaluate.yml no longer provisions a snapshot"
     for line in lines:
         assert "--refuse-terminal" not in line, line
+
+
+def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
+    """A refused forward cell runs no agent at all.
+
+    Provisioning's exit-3 refusal (the record gate, the staleness bound, or the
+    textual scan) sets `refused=true`; every step that would spend tokens, hold
+    a credential, or write a runner-local config for the agent — the comment
+    token mint, the MCP retrieval config, the engine installs and runs, and the
+    event materialization — must carry the gate, or a refused cell produces a
+    context-less prediction claiming a mode it never had.
+    """
+    wf = _load("run-predict.yml")
+    steps = wf["jobs"]["predict"]["steps"]
+    provision = next(s for s in steps if s.get("id") == "provision")
+    assert provision.get("continue-on-error") is True
+    assert "--max-snapshot-age-days" in provision["run"]  # the staleness bound is armed
+    assert 'echo "refused=true"' in provision["run"]
+    gated = [
+        "Mint agent comment token",
+        "Configure agent retrieval (MCP)",
+        "Materialize the event definition for the ledger",
+        "Predict with Claude Code",
+        "Predict with Codex",
+        "Install the Gemini CLI",
+        "Predict with Gemini",
+    ]
+    names = [s.get("name") for s in steps]
+    for name in gated:
+        step = next(s for s in steps if s.get("name") == name)
+        assert "steps.provision.outputs.refused != 'true'" in str(step.get("if")), name
+    # The gate can only hold for steps that run after provisioning.
+    assert all(
+        names.index(name) > names.index("Provision the case snapshot from the corpus")
+        for name in gated
+    )
+
+
+def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
+    # The retrieval log's mode comes from the provisioned record where one
+    # exists, with the workflow literal as the fallback — one source of truth
+    # for the mode, which is what matters wherever a provisioner writes
+    # `replay` (a refused cell writes no context and never reaches this step).
+    runs = _run_blocks(_load("run-predict.yml"))
+    line = next(r for r in runs if "record-retrieval" in r)
+    assert "--mode forward --mode-from-context" in line
+
+
+def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
+    """The transcript artifact contract: captured always, scanned first, 1-day.
+
+    The labeler's turn-by-turn transcript is the only record of *how* a
+    no-output run failed, and it embeds the QP text the agent read — so it must
+    be uploaded on every path the action survives (a gate-refusing run is as
+    diagnostic as a no-output one), only after the secret scan passed, and
+    under the same shortest-offered retention the qp-texts extract argues for.
+    """
+    wf = _load("run-analytics.yml")
+    steps = wf["jobs"]["qp-topic-label"]["steps"]
+    label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
+    assert label.get("id") == "label", "the labeling step needs an id for its outputs"
+    scan = next(s for s in steps if s.get("id") == "transcript_scan")
+    assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
+    assert "scan-diff-for-secrets" in scan["run"]
+    assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
+    assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]  # the reachable credential
+    upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript")
+    assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
+    assert upload["with"]["retention-days"] == 1
+    assert "!cancelled()" in upload["if"]
+    assert "steps.transcript_scan.outcome == 'success'" in upload["if"]

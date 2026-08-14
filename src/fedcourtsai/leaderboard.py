@@ -16,7 +16,8 @@ its label tracks the Court's vacatur wording, not cert-worthiness. The strata
 are aggregated separately and never blended into one headline number, and only
 forward/retrospective enter the ranking. :func:`classify_stratum` is the single
 definition of the timing split, derivable offline from committed artifacts (the
-prediction's ``created_at`` vs the outcome's ``resolved_at``); the procedural
+prediction's harness clock — :func:`fedcourtsai.integrity.cell_clock` — vs the
+outcome's ``resolved_at``); the procedural
 override lives with the join in ``store.iter_stratified_evaluations``.
 
 Orthogonal to the strata runs the **stage/moment axis**: the ranked board is
@@ -48,6 +49,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
+from .integrity import cell_clock
 from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
 from .pipeline.evaluate import realized_band_rate
 from .pipeline.moments import first_moment
@@ -57,6 +59,7 @@ from .schemas import (
     BigCaseLeaderboard,
     Evaluation,
     EvaluatorAgreement,
+    ForwardClaimRecord,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStage,
@@ -125,15 +128,17 @@ _NO_BRIER: float = 2.0
 _NO_ACCURACY: float = -1.0
 
 
-def classify_stratum(prediction_created_at: datetime, resolved_at: date) -> Stratum:
+def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
     """Which pre-registration stratum a scored cell belongs to.
 
-    Retrospective when the event's resolution predates the prediction's commit.
-    A same-day tie also counts as retrospective — the conservative reading, so a
-    cell whose ordering within the day is unknowable is never presented as a
-    forward forecast.
+    Retrospective when the event's resolution predates the prediction's
+    **harness clock** (:func:`fedcourtsai.integrity.cell_clock` — the process
+    stamp, else the unstamped cell's ``created_at``; the boundary must not
+    rest on a clock the agent controls). A same-day tie also counts as
+    retrospective — the conservative reading, so a cell whose ordering within
+    the day is unknowable is never presented as a forward forecast.
     """
-    return RETROSPECTIVE if resolved_at <= prediction_created_at.date() else FORWARD
+    return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
 
 
 def _mean(values: Sequence[float]) -> float | None:
@@ -375,7 +380,9 @@ def _latest_prediction(
     predictions = [read_model(p, Prediction) for p in files]
     if not predictions:
         return None
-    return max(predictions, key=lambda pr: pr.created_at)
+    # The harness clock, matching the stratified join's latest-selection down
+    # to the tiebreak (path order first, then the clock).
+    return max(predictions, key=cell_clock)
 
 
 def _latest_prediction_is_frozen(
@@ -754,6 +761,7 @@ def build_leaderboard(
     evaluators: Mapping[str, EvaluatorAgreement] | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
+    forward_claim: ForwardClaimRecord | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -824,6 +832,9 @@ def build_leaderboard(
         # Recorded on every build, `all` scope included: it states what the
         # freeze constants were, not that the partition was applied.
         frozen_process=frozen_process_record(),
+        # The forward-claim rule and count the caller's stratify pass applied
+        # (null only on a board constructed without the ledger in hand).
+        forward_claim=forward_claim,
         # The gate versions the ranked cells' baselines were read under. Taken
         # from the harness-stamped `base_rate_salience_version` rather than
         # re-derived, so the board reports the version each cell was actually

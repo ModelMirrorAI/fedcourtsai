@@ -526,9 +526,11 @@ membership is outcome-conditioned (presence predicts a cert grant), the labels
 file's is fetch-conditioned (a questions-presented document is stored for that
 case), and because the two are committed together the pair reconstructs the
 QP-bearing non-grants by difference. That composition is the thing argued in
-`docs/qp-topic.md`, alongside the one non-git channel the labeling run adds:
-its extract of stored petition text rides between the mode's two jobs as a
-one-day Actions artifact, publicly downloadable on this repository. But it
+`docs/qp-topic.md`, alongside the non-git channel the labeling run adds — two
+artifacts under the same one-day window, publicly downloadable on this
+repository: its extract of stored petition text, riding between the mode's two
+jobs, and the labeler's scanned turn-by-turn transcript, which embeds the same
+text plus the agent's own turns. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

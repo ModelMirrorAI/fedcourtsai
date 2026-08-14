@@ -464,23 +464,56 @@ a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
 keep that honest; they stop being latent hygiene the moment this pass runs.
 
-`provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
-only) is the forward-cell guard at the provisioning seam: it refuses to
-provision a forward cell whose snapshot already discloses **its own event's**
-outcome — a forward prediction on a decided event would be a mislabeled
-back-test. The question is keyed on the event (`--event`), because one docket
-carries several events' outcomes at once: a granted cert docket's grant order
-is a disclosed *cert* outcome and is also what opens the merits proceeding, so
-the entry that must refuse a cert cell is the merits cell's own record. On the
-merits event the test is therefore a parsed merits judgment; on every other
-event it is the latest entry reading terminal, any entry carrying a
+`provision-snapshot --refuse-terminal` (the forward predict path's guard —
+`run-predict` in production, mirrored by the integration harness) refuses a
+forward cell at the provisioning seam through three gates, mechanical-first:
+the **record gate** asks whether the event's outcome already *exists* — a
+committed `outcome.json`, the corpus event's `resolved` flag, or the row's
+latched outcome for the event's stage. Under the casestore backend the
+production fleet provisions from (the corpus-split default), the source
+exposes events but no rows, so the row-level half consults the corpus index
+through the ordinary read backend — the cell workflows' provisioning step
+carries the index credentials beside the casestore URL — and when no index is
+reachable the event-keyed checks still gate the cell while the skipped half
+is a spoken warning. The **staleness
+bound** (`--max-snapshot-age-days`, off at the default of 0; `run-predict`
+arms it at 10 days, generous against the live poller's daily-ish refresh) refuses a snapshot old enough to predate a pipeline pause: such a
+snapshot passes every content check by construction, because it was taken
+before anything it should disclose happened, and its case may be genuinely
+pending — the refusal is about the input being stale, not the case being
+decided. Only then does the **textual scan** ask whether the snapshot
+discloses **its own event's** outcome. A forward prediction on a decided
+event would be a mislabeled back-test. The question is keyed on the event
+(`--event`), because one docket carries several events' outcomes at once: a
+granted cert docket's grant order is a disclosed *cert* outcome and is also
+what opens the merits proceeding, so the entry that must refuse a cert cell
+is the merits cell's own record. On the merits event the test is therefore a
+parsed merits judgment (and, record-side, the latched judgment); on every
+other event it is any entry reading terminal, any entry carrying a
 machine-readable disposition order, or — on an application docket — a legible
-interim disposal. A refused
-cell is a legitimate outcome, not an error; the prompt contract tells the agent
-to note the gap in `flags.json` and predict from priors and base rates only,
-without retrieving the case's current docket state (the case already looks
-decided, so its outcome is retrievable — the prompt's predict-as-if-undecided
-rule governs).
+interim disposal. The predict matrix applies the same openness question one
+seam earlier (`predict-matrix` drops a listed event the corpus records
+resolved, wherever the scope gate consults the corpus at all — under
+`predict.scope: all` neither does), so a stale trigger issue sheds its closed
+events at plan time instead of minting cells this guard then refuses one by
+one. A refusal
+(exit 3) is a legitimate outcome, not an error — and it **short-circuits the
+cell**: the workflow withholds the agent token, the retrieval config, the
+engine steps, and the event materialization, so a refused forward cell
+produces nothing rather than a context-less prediction claiming a mode it
+never had. The cell's status records `produced=false` and the collect census
+warns per cell. Only the other non-zero provisioning exit — no snapshot in
+the corpus at all — keeps the best-effort shape: that cell runs snapshot-less,
+notes the gap in `flags.json`, and predicts from priors and base rates only
+per the prompt contract.
+
+One trust boundary to keep in view: `record/context.json` is written by
+provisioning but *lives in the agent's workspace* for the run, so the post-run
+consumers that read it back — `stamp-cell` for the context block,
+`record-retrieval --mode-from-context` for the log's mode — treat its
+harness-written provenance as a statement about the writer, not
+tamper-resistance, and accept its mode only inside the declared vocabulary
+(anything else falls back to the caller's word, with a warning).
 
 One direction under consideration — not a commitment: the cells could
 eventually retrieve case records from CourtListener itself at run time instead
@@ -743,12 +776,20 @@ readiness snapshot); `run-ops` — a corpus-free presenter — renders the
 long-lived issue: loud, never blocking. Because event definitions live in the
 corpus, the predict/evaluate workflows materialize each event's `event.yaml`
 into its ledger directory (`fedcourts materialize-event`) so the judgment PR
-carries it — and the deterministic outcome writer materializes it beside every
-`outcome.json` it writes, refusing to write an outcome whose event the corpus
-does not hold. An event definition also names its **stage** — the decision
-standard that governs it (cert, interim, or merits) — carried from the corpus
-row into `event.yaml` so a cell and its consumers read the standard from the
-record rather than inferring it from the event id. The field is nullable and
+carries it — **on first touch only**: a file already present at the ledger
+path is never rewritten by a cell, because data PRs are additive-only and a
+corpus row that gained fields since the commit would otherwise turn every
+later run PR into a jailed modification (drift is warned, not written). The
+deterministic outcome writer is the asymmetry: it materializes the definition
+beside every `outcome.json` it writes on its own writer lane, refusing to
+write an outcome whose event the corpus does not hold — so the committed
+definition converges at resolution even where cells left it at its
+first-touch shape. An event definition also names its **stage** — the
+decision standard that governs it (cert, interim, or merits) — carried from
+the corpus row into `event.yaml` at that first materialization, so a cell and
+its consumers read the standard from the record rather than inferring it from
+the event id (a file older than the stage axis simply records none, which
+reads as the null below). The field is nullable and
 null means **no stage recorded**: either no Supreme Court standard governs the
 event (a circuit appeal), or the writer does not classify one there yet;
 consumers treat null as "no rule", never as a guess.
