@@ -1016,7 +1016,7 @@ class _MeritsAcc:
     projects each judgment through
     :func:`fedcourtsai.pipeline.judgment.judgment_disturbed` — the single
     definition of "disturbed" the merits baseline shares
-    (:func:`fedcourtsai.pipeline.evaluate.merits_base_rate` pools exactly
+    (:func:`fedcourtsai.pipeline.base_rates.merits_base_rate` pools exactly
     these per-Term counts, strictly-prior). The cohort admitted here is the
     scored population itself: the caller
     (:func:`fedcourtsai.corpus.opens_merits_proceeding`) keeps out the grants

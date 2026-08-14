@@ -13,7 +13,7 @@ from fedcourtsai.claim_metrics import (
     build_claim_scores,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
+from fedcourtsai.integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     ClaimScore,

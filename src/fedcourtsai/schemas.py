@@ -93,7 +93,7 @@ GRANTED_DISPOSITIONS: frozenset[Disposition] = frozenset(
 #: own bucket so the published rate preserves its pre-``gvr`` definition. The
 #: two membership tests are therefore *not* interchangeable, and anything that
 #: reconstructs a published grant count from a published rate — the
-#: leave-one-out in ``pipeline.evaluate.realized_band_rate`` — has to subtract a
+#: leave-one-out in ``pipeline.base_rates.realized_band_rate`` — has to subtract a
 #: case on exactly the terms the numerator counted it, not on the binary
 #: scoring target.
 GRANT_FAMILY_DISPOSITIONS: frozenset[Disposition] = GRANTED_DISPOSITIONS - {
@@ -375,9 +375,9 @@ class SemanticSupport(StrEnum):
 
 # The pre-registration stratum a scored cell belongs to. Defined here, beside
 # the models that carry it, so a field can be typed on the closed vocabulary
-# rather than on a bare string; `fedcourtsai.leaderboard` re-exports it with the
-# named constants and owns `classify_stratum`, the single definition of which
-# cell lands where.
+# rather than on a bare string; `fedcourtsai.integrity` carries the named
+# constants and owns `classify_stratum`, the single definition of which cell
+# lands where.
 Stratum = Literal["forward", "retrospective", "procedural"]
 
 
@@ -1008,7 +1008,7 @@ class ClaimScore(_Strict):
     score: float | None = Field(
         default=None,
         description="(baseline - outcome)^2 - (probability - outcome)^2 — the "
-        "baseline's Brier minus the forecast's (`pipeline.evaluate.claim_score`). "
+        "baseline's Brier minus the forecast's (`pipeline.base_rates.claim_score`). "
         "None when outcome or baseline is None",
     )
 
@@ -1214,7 +1214,7 @@ class Evaluation(_Strict):
         "which of the two published rates — is recorded in base_rate_basis below. On "
         "a merits cell it is instead the statpack merits section's disturbed rate "
         "pooled over grant Terms strictly before the case's "
-        "(`pipeline.evaluate.merits_base_rate`), which is not a salience-band product, "
+        "(`pipeline.base_rates.merits_base_rate`), which is not a salience-band product, "
         "so base_rate_basis and base_rate_salience_version stay null there. An interim "
         "cell has no published rate and omits the field. The naive "
         "baseline the prediction's skill is scored against; null on offline evaluator "
@@ -1633,7 +1633,7 @@ class LeaderboardStratum(_Strict):
         "Its own denominator, separate from `skill_scored`: this metric also "
         "needs the cell's own Term to carry the band under the matching salience "
         "version and to clear the stated minimum resolved count "
-        "(`pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
+        "(`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
         "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
         "than computed on a handful of cases",
     )
@@ -3767,7 +3767,7 @@ class StatPackTermVersionSegments(_Strict):
     A band name means nothing on its own: a ``high`` under one scorer and a
     ``high`` under another are different populations that happen to share a
     label, so the base-rate pool is version-pinned
-    (``pipeline.evaluate._pooled_band_rate``). A prediction freezes the version
+    (``pipeline.base_rates._pooled_band_rate``). A prediction freezes the version
     that banded it and keeps that version for life — which would leave it
     without a baseline the moment the live pass moved on. This block is where a
     non-active scorer's slices stay published, so the pin has something to match.
@@ -4032,7 +4032,7 @@ class _StatPackMeritsCounts(_Strict):
     disturbed rate is the anchor of the pre-registered merits Brier baseline
     (``docs/decision-model.md``): a merits cell's skill is scored against the
     per-grant-Term disturbed rates pooled over Terms strictly before the
-    case's (``pipeline.evaluate.merits_base_rate``), so a skill claim exists
+    case's (``pipeline.base_rates.merits_base_rate``), so a skill claim exists
     only once strictly-prior Terms carry parsed judgments — until then the
     figures stay descriptive, and ``metrics/README.md`` governs what may be
     claimed. ``parsed`` against ``granted`` is the
@@ -4111,7 +4111,7 @@ class _StatPackMeritsCounts(_Strict):
         ge=0.0,
         le=1.0,
         description="disturbed / parsed — the **scored** merits base rate's "
-        "per-Term feed (`pipeline.evaluate.merits_base_rate` pools these "
+        "per-Term feed (`pipeline.base_rates.merits_base_rate` pools these "
         "strictly-prior), conditioned on exactly the population a merits cell "
         "is drawn from. The two non-merits exits (DIG, equally divided) sit in "
         "the denominator as undisturbed, since both leave the judgment below "
@@ -4147,7 +4147,7 @@ class StatPackMerits(_StatPackMeritsCounts):
     is not a salience-band product. Pack-level counts with a per-grant-Term
     breakdown; the per-Term disturbed rates are the committed feed of the
     pre-registered merits Brier baseline
-    (``pipeline.evaluate.merits_base_rate`` pools them strictly-prior), so the
+    (``pipeline.base_rates.merits_base_rate`` pools them strictly-prior), so the
     ``terms`` array is a scoring input as well as a description. The population
     is the grants that open a merits proceeding — the same rule that mints the
     event a merits forecast is made on — minus, label-independently, any row

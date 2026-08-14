@@ -346,7 +346,7 @@ insight), so they are deliberately not declared.
 
 **The baseline is the strictly-prior pooled disturbed rate.** The statpack's
 merits section publishes per-grant-Term counts;
-`pipeline.evaluate.merits_base_rate` pools its `disturbed` over its `parsed`
+`pipeline.base_rates.merits_base_rate` pools its `disturbed` over its `parsed`
 across Terms strictly before the case's, under the identical
 leakage rule the segment base rate applies (the case's own and later Terms
 never contribute), and it is **version-free** because the section is not a

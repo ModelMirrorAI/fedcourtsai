@@ -2,7 +2,7 @@
 
 ``docs/outcome-decomposition.md`` is the design authority: what a claim is, why
 the set is fixed and mandatory, the scoring rule (implemented once, in
-:func:`fedcourtsai.pipeline.evaluate.claim_score`, and only *wired* here), and
+:func:`fedcourtsai.pipeline.base_rates.claim_score`, and only *wired* here), and
 the publishing rules a claim total travels under. This module holds the
 mechanical family's moving parts:
 
@@ -21,8 +21,8 @@ mechanical family's moving parts:
 
 Everything is a pure function of committed artifacts, so re-scoring a cell
 over the same committed inputs — the statpack revision included — reproduces
-the same block byte for byte. Like the rest of
-:mod:`fedcourtsai.pipeline.evaluate`, this module reads no config: the
+the same block byte for byte. Like the baselines it wires
+(:mod:`fedcourtsai.pipeline.base_rates`), this module reads no config: the
 baseline lookback arrives as an argument and resolves at the caller.
 
 The semantic family is out of scope here: its claims need a reader, they have
@@ -52,7 +52,7 @@ from ..schemas import (
     StatPack,
 )
 from . import moments
-from .evaluate import claim_score, merits_base_rate, prediction_base_rate
+from .base_rates import claim_score, merits_base_rate, prediction_base_rate
 from .judgment import judgment_disturbed
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
@@ -197,7 +197,7 @@ def _baseline_disposition(
     """The disposition claim's baseline: the frozen band's risk-set grant rate.
 
     Exactly the segment baseline the headline skill score already uses —
-    :func:`fedcourtsai.pipeline.evaluate.prediction_base_rate`, reused rather
+    :func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`, reused rather
     than duplicated: the band's grant rate pooled over statpack Terms strictly
     before the case's Term, version-pinned, conditioned on the band frozen when
     the cell ran. ``None`` (claim unscored) where the context froze no band or
@@ -282,7 +282,7 @@ def _baseline_judgment_disturbed(
 ) -> float | None:
     """The disturbed claim's baseline: the strictly-prior pooled disturbed rate.
 
-    :func:`fedcourtsai.pipeline.evaluate.merits_base_rate` over the **grant**
+    :func:`fedcourtsai.pipeline.base_rates.merits_base_rate` over the **grant**
     Term — the axis the statpack merits section is keyed on, supplied by the
     caller from the merits event's ``opened_at`` (the grant date). The frozen
     context's docket-number Term is deliberately *not* used: the two disagree
@@ -420,7 +420,7 @@ def score_claims(
 
     Per claim: the outcome from its resolver (``None`` = the availability
     mask), the baseline from its baseline function, and the score from
-    :func:`fedcourtsai.pipeline.evaluate.claim_score` where both exist. The
+    :func:`fedcourtsai.pipeline.base_rates.claim_score` where both exist. The
     ``total`` sums the scored claims only; the ``floor`` is the realized total
     of the control that reports every scored claim's baseline — identically
     zero, computed rather than asserted, because ``claim_score(b, y, b) == 0``

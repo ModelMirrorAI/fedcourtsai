@@ -582,7 +582,8 @@ that assigned it — a `sal-v2 high` and a `sal-v1 high` are
 different populations that happen to share a label. So every band-rate entry
 point pins the version — the two scored baselines
 (`fedcourtsai.pipeline.evaluate.segment_base_rate` and
-`prediction_base_rate`, through their shared pooler), and the board's ex-post
+`fedcourtsai.pipeline.base_rates.prediction_base_rate`, through the pooler they
+share), and the board's ex-post
 `realized_band_rate`, which pins identically on its single Term. They read
 **only** the statpack
 Terms whose `salience_version` matches the version that produced the band

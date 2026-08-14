@@ -16,8 +16,16 @@ from typing import NamedTuple
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .integrity import FORWARD_CLAIM_POLICY, ForwardClaimPolicy, cell_clock, forward_claim_breach
-from .leaderboard import PROCEDURAL, RETROSPECTIVE, StratifiedCell, classify_stratum
+from .integrity import (
+    FORWARD_CLAIM_POLICY,
+    PROCEDURAL,
+    RETROSPECTIVE,
+    ForwardClaimPolicy,
+    StratifiedCell,
+    cell_clock,
+    classify_stratum,
+    forward_claim_breach,
+)
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
@@ -572,7 +580,7 @@ def stratify(
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
     the same event and the event's ``outcome.json`` — all committed artifacts, so
     the split is deterministic and offline — and classifies the cell forward vs
-    retrospective (:func:`fedcourtsai.leaderboard.classify_stratum`), on the
+    retrospective (:func:`fedcourtsai.integrity.classify_stratum`), on the
     prediction's **harness clock** (:func:`fedcourtsai.integrity.cell_clock` —
     the process stamp, with the agent-written ``created_at`` only as the
     unstamped fallback: the stratum boundary is a pre-registration boundary and

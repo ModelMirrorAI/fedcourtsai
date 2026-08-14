@@ -45,7 +45,8 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Literal
 
-from .leaderboard import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, kendall_tau_b
+from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
+from .leaderboard import kendall_tau_b
 from .pipeline.moments import first_moment
 from .process_version import frozen_process_record
 from .schemas import (

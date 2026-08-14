@@ -1,6 +1,6 @@
-"""The mechanical integrity rules a scored cell must pass — clock and claim.
+"""The mechanical integrity rules a scored cell must pass — clock, claim, stratum.
 
-Two questions every scoring surface needs answered the same way, in one leaf
+Three questions every scoring surface needs answered the same way, in one leaf
 module so no join can answer them differently:
 
 **Whose clock says when a cell ran?** The pre-registration boundary must not
@@ -25,6 +25,16 @@ other, and no scored stratum is a valid home for the observation
 pre-registered :data:`FORWARD_CLAIM_POLICY`; the boards publish the policy and
 the count beside their numbers so an exclusion can never be silent.
 
+**Which stratum does the cell belong to?** The pre-registration split is the
+same question asked once more, and it rests on the same clock, so the
+vocabulary lives here too: the :data:`FORWARD` / :data:`RETROSPECTIVE` /
+:data:`PROCEDURAL` names, the :data:`StratifiedCell` tuple the join yields, and
+:func:`classify_stratum`, the single definition of the timing boundary. The
+leaderboard, the claim metrics, the ops report and the store's join all read
+them from here rather than off the board, which is what lets
+:mod:`fedcourtsai.store` — the module every artifact reader goes through —
+stay clear of the board that is built on top of it.
+
 Everything here is derived from committed, harness-written artifacts — the
 context and the stamp are the harness's fields (AGENTS.md), the outcome is the
 docket record — so the rules are properties of the record, never of predictor
@@ -34,10 +44,18 @@ behavior.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 
-from .schemas import ForwardClaimRecord, Outcome, Prediction
+from .schemas import (
+    Evaluation,
+    ForwardClaimRecord,
+    Moment,
+    Outcome,
+    Prediction,
+    Stage,
+    Stratum,
+)
 
 #: What the scoring funnel does with a cell whose forward claim its own record
 #: contradicts. ``"exclude"`` (the registered value) drops the cell from
@@ -53,6 +71,33 @@ from .schemas import ForwardClaimRecord, Outcome, Prediction
 #: record which policy built them, so a flip is one commit plus a refresh.
 ForwardClaimPolicy = Literal["exclude", "retrospective"]
 FORWARD_CLAIM_POLICY: ForwardClaimPolicy = "exclude"
+
+#: One joined cell as ``store.iter_stratified_evaluations`` yields it:
+#: ``(evaluation, stratum, stage, moment)``. The stage and the moment travel
+#: together because neither alone identifies the population a cell belongs to —
+#: the stage names the question, the moment names the information set that
+#: answered it.
+StratifiedCell = tuple["Evaluation", "Stratum", "Stage | None", "Moment | None"]
+
+FORWARD: Stratum = "forward"
+RETROSPECTIVE: Stratum = "retrospective"
+# Cells whose outcome was mootness practice (the outcome's disposition_basis):
+# the ground-truth label tracks the Court's vacatur wording rather than
+# cert-worthiness, so these aggregate separately and never enter the ranking.
+PROCEDURAL: Stratum = "procedural"
+
+
+def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
+    """Which pre-registration stratum a scored cell belongs to.
+
+    Retrospective when the event's resolution predates the prediction's
+    **harness clock** (:func:`cell_clock` — the process stamp, else the
+    unstamped cell's ``created_at``; the boundary must not rest on a clock the
+    agent controls). A same-day tie also counts as retrospective — the
+    conservative reading, so a cell whose ordering within the day is unknowable
+    is never presented as a forward forecast.
+    """
+    return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
 
 
 def cell_clock(prediction: Prediction) -> datetime:

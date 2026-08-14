@@ -8,7 +8,7 @@ the decomposition rests on, so they are pinned here rather than left in prose.
 
 from __future__ import annotations
 
-from fedcourtsai.pipeline.evaluate import claim_score
+from fedcourtsai.pipeline.base_rates import claim_score
 
 
 def test_reporting_the_baseline_scores_exactly_zero_either_way() -> None:
