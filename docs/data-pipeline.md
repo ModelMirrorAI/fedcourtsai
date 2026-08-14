@@ -465,17 +465,27 @@ retrieval cutoff (`decided_before`) and the mode contract are the controls that
 keep that honest; they stop being latent hygiene the moment this pass runs.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
-only) is the forward-cell guard at the provisioning seam: it refuses to
-provision a forward cell whose snapshot already discloses **its own event's**
-outcome — a forward prediction on a decided event would be a mislabeled
-back-test. The question is keyed on the event (`--event`), because one docket
-carries several events' outcomes at once: a granted cert docket's grant order
-is a disclosed *cert* outcome and is also what opens the merits proceeding, so
-the entry that must refuse a cert cell is the merits cell's own record. On the
-merits event the test is therefore a parsed merits judgment; on every other
-event it is the latest entry reading terminal, any entry carrying a
-machine-readable disposition order, or — on an application docket — a legible
-interim disposal. A refused
+only) is the forward-cell guard at the provisioning seam, three gates run
+mechanical-first: the **record gate** asks whether the event's outcome already
+*exists* (a committed `outcome.json`, the corpus event's `resolved` flag, or
+the row's latched outcome for the event's stage), the **staleness bound**
+(`--max-snapshot-age-days`) refuses a snapshot old enough to predate a
+pipeline pause — such a snapshot passes every content check by construction,
+because it was taken before anything it should disclose happened — and only
+then does the **textual scan** ask whether the snapshot discloses **its own
+event's** outcome. A forward prediction on a decided event would be a
+mislabeled back-test. The question is keyed on the event (`--event`), because
+one docket carries several events' outcomes at once: a granted cert docket's
+grant order is a disclosed *cert* outcome and is also what opens the merits
+proceeding, so the entry that must refuse a cert cell is the merits cell's own
+record. On the merits event the test is therefore a parsed merits judgment
+(and, record-side, the latched judgment); on every other event it is the
+latest entry reading terminal, any entry carrying a machine-readable
+disposition order, or — on an application docket — a legible interim disposal.
+The predict matrix applies the same openness question one seam earlier
+(`predict-matrix` drops a listed event the corpus records resolved), so a
+stale trigger issue sheds its closed events at plan time instead of minting
+cells this guard then refuses one by one. A refused
 cell is a legitimate outcome, not an error; the prompt contract tells the agent
 to note the gap in `flags.json` and predict from priors and base rates only,
 without retrieving the case's current docket state (the case already looks

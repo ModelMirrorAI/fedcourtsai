@@ -23,7 +23,9 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.store import (
     cases_due_for_pull,
+    event_recorded_closed,
     forecastable_events,
+    forward_refusal_reason,
     iter_flags,
     iter_tooling,
     iter_tracked_cases,
@@ -1058,3 +1060,101 @@ def test_the_baseline_waits_for_its_own_moment_on_a_cert_docket(tmp_path: Path) 
         )
         conn.commit()
     assert forecastable_events(db, "scotus", 93) == ["evt-petition-disposition"]
+
+
+def _pending_petition(db: Path, docket_id: int) -> None:
+    """A pending, distributed SCOTUS petition with its open cert baseline."""
+    case_id = f"scotus/{docket_id}"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="24-77",
+                    distribution_count=1,
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                )
+            ],
+        )
+
+
+def test_forward_refusal_reason_is_silent_on_a_genuinely_open_event(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _pending_petition(db, 21)
+
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 21, "evt-petition-disposition")
+
+    assert reason is None
+
+
+def test_forward_refusal_reason_reads_the_committed_outcome(tmp_path: Path) -> None:
+    # The ledger's own outcome.json is the most specific record of a closed
+    # event, and it must refuse the forward cell even when the corpus has not
+    # flipped the resolved flag yet.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    _pending_petition(db, 22)
+    outcome = CasePaths(data_root, "scotus", 22).event("evt-petition-disposition").outcome
+    outcome.parent.mkdir(parents=True)
+    outcome.write_text("{}")
+
+    reason = forward_refusal_reason(db, data_root, "scotus", 22, "evt-petition-disposition")
+
+    assert reason is not None and "outcome" in reason
+
+
+def test_forward_refusal_reason_reads_the_resolved_event_flag(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _pending_petition(db, 23)
+    with corpus.connect(db) as conn:
+        corpus.set_event_resolved(conn, "scotus/23", "evt-petition-disposition", resolved=True)
+
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 23, "evt-petition-disposition")
+
+    assert reason is not None and "resolved" in reason
+
+
+def test_forward_refusal_reason_reads_the_decided_row(tmp_path: Path) -> None:
+    # The paused-pipeline shape: the disposition latched on the row while the
+    # event row and the ledger lagged — the record still says decided.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _pending_petition(db, 24)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/24")
+        assert row is not None
+        corpus.upsert_rows(conn, [row.model_copy(update={"disposition": Disposition.denied})])
+
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 24, "evt-petition-disposition")
+
+    assert reason is not None and "decided" in reason
+
+
+def test_forward_refusal_reason_keys_a_merits_event_on_the_judgment(tmp_path: Path) -> None:
+    # A merits cell's outcome is the judgment, not the cert disposition its own
+    # grant latched — the grant must not refuse it, the latched judgment must.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _granted_case(db, 25, disposition=Disposition.granted)
+
+    assert forward_refusal_reason(db, tmp_path / "data", "scotus", 25, "evt-order-judgment") is None
+
+    _granted_case(db, 25, disposition=Disposition.granted, merits_judgment=Judgment.reversed)
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 25, "evt-order-judgment")
+
+    assert reason is not None and "judgment" in reason
+
+
+def test_event_recorded_closed_checks_nothing_without_an_event_id(tmp_path: Path) -> None:
+    assert event_recorded_closed(tmp_path / "data", "scotus", 26, "", []) is None

@@ -197,7 +197,9 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
+    event_recorded_closed,
     forecastable_events,
+    forward_refusal_reason,
     iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
@@ -2453,6 +2455,18 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     mode: Annotated[
         str, typer.Option(help="The cell's provisioned mode: forward | replay ('' = unknown).")
     ] = "",
+    mode_from_context: Annotated[
+        bool,
+        typer.Option(
+            "--mode-from-context",
+            help="When --mode is empty, read the mode from the cell's provisioned "
+            "record/context.json — the harness-written record — instead of a "
+            "caller constant. A missing or unusable context leaves the mode "
+            "unknown, which the cross-evaluator grades as such; that is "
+            "strictly more honest than asserting 'forward' on a cell whose "
+            "provisioning refused.",
+        ),
+    ] = False,
     claude_execution_file: Annotated[
         Path | None, typer.Option(help="Claude Code execution_file JSON to read tool calls from.")
     ] = None,
@@ -2476,6 +2490,10 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     empty log: "retrieved nothing" is itself evidence.
     """
     settings = get_settings()
+    if mode_from_context and not mode:
+        context = _read_cell_context(CasePaths(settings.data_root, court, docket))
+        if context is not None:
+            mode = context.mode
     calls: list[RetrievalCall] = []
     if claude_execution_file is not None:
         calls = retrieval.parse_claude_retrieval(claude_execution_file)
@@ -3826,6 +3844,43 @@ def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> s
     return terminal
 
 
+def _forward_record_refusal(
+    backend: corpus.CorpusBackend,
+    source: provision.CasestoreSource | None,
+    court: str,
+    docket: int,
+    event: str,
+) -> str | None:
+    """The record gate's verdict for a forward cell, keyed on the read backend.
+
+    The full check (:func:`fedcourtsai.store.forward_refusal_reason`) needs the
+    corpus row; the casestore source exposes events but no rows, so that
+    backend runs the record-side half (:func:`fedcourtsai.store.event_recorded_closed`)
+    and says out loud which half it could not run.
+    """
+    settings = get_settings()
+    if backend == "casestore" and source is not None:
+        case = ids.case_id(court, docket)
+        reason = event_recorded_closed(
+            settings.data_root, court, docket, event, source.events_for_case(case)
+        )
+        if reason is None:
+            typer.echo(
+                "::warning::forward record gate ran without the forecastable "
+                "re-check: the casestore backend exposes no corpus row",
+                err=True,
+            )
+        return reason
+    return forward_refusal_reason(
+        corpus.corpus_db_path(settings.corpus_root),
+        settings.data_root,
+        court,
+        docket,
+        event,
+        backend=backend,
+    )
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(
     court: Annotated[str, typer.Option()],
@@ -3847,12 +3902,15 @@ def provision_snapshot(
         bool,
         typer.Option(
             "--refuse-terminal",
-            help="Refuse (exit 3, writing nothing) when the snapshot already "
-            "shows the outcome — the latest entry reads terminal, or any "
-            "entry carries a machine-readable disposition order. A forward "
-            "*prediction* cell must never see a decided docket. Only "
-            "run-predict passes this: an evaluate cell targets exactly "
-            "decided dockets, so the default provisions unconditionally.",
+            help="Refuse (exit 3, writing nothing) when the record or the "
+            "snapshot shows the event is not open: the record already holds "
+            "the outcome (committed outcome.json, corpus resolved flag, or "
+            "the event fell out of the forecastable set), the snapshot is "
+            "older than --max-snapshot-age-days, or the snapshot text "
+            "discloses the outcome. A forward *prediction* cell must never "
+            "see a decided docket. Only run-predict passes this: an "
+            "evaluate cell targets exactly decided dockets, so the default "
+            "provisions unconditionally.",
         ),
     ] = False,
     event: Annotated[
@@ -3864,6 +3922,19 @@ def provision_snapshot(
             "case-baseline cell.",
         ),
     ] = "",
+    max_snapshot_age_days: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="With --refuse-terminal on a forward cell, refuse (exit 3) a "
+            "snapshot older than this many days. A time bound, not a content "
+            "check: a snapshot taken before a pipeline pause discloses "
+            "nothing about what happened during the pause — including the "
+            "event's own resolution — so a forward cell fed one would claim "
+            "to be live while answering a stale question. 0 (the default) "
+            "disables the bound; run-predict arms it.",
+        ),
+    ] = 0,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -3880,13 +3951,17 @@ def provision_snapshot(
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
-    snapshot already discloses ``--event``'s own outcome (code 3, nothing
-    written; see :func:`_forward_leakage`).
+    record or the snapshot shows the event is not open (code 3, nothing
+    written): the record already holds the outcome
+    (:func:`fedcourtsai.store.forward_refusal_reason`), the snapshot is older
+    than the forward staleness bound, or the snapshot text discloses the
+    outcome (see :func:`_forward_leakage`).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
+    source: provision.CasestoreSource | None = None
     if backend == "casestore":
         source = _casestore_source()
         found = source.latest_snapshot(case)
@@ -3909,7 +3984,33 @@ def provision_snapshot(
     # because the other callers *must* see decided dockets: run-evaluate
     # provisions the same forward-mode cell for an already-resolved event, and
     # the replay provisioner truncates point-in-time itself.
+    #
+    # Three gates, mechanical before textual. The record gate asks whether the
+    # outcome *exists* (committed outcome.json, the corpus event's resolved
+    # flag, the queue-time forecastable predicate re-asked at mint time); the
+    # staleness gate bounds how old a "live" snapshot may be, because a paused
+    # pipeline resumes with snapshots that predate everything the world did in
+    # the meantime — including the resolution — and such a snapshot passes the
+    # textual scan by construction. Only then does the textual scan ask whether
+    # the payload itself discloses the outcome. None of this rests on the
+    # agent: a forward cell either survives all three or is never minted.
     if refuse_terminal and mode == "forward":
+        record_reason = _forward_record_refusal(backend, source, court, docket, event)
+        if record_reason is not None:
+            typer.echo(
+                f"refusing to provision forward cell for {case}: {record_reason}",
+                err=True,
+            )
+            raise typer.Exit(code=3)
+        age_days = (date.today() - snapshot_date).days
+        if max_snapshot_age_days and age_days > max_snapshot_age_days:
+            typer.echo(
+                f"refusing to provision forward cell for {case}: snapshot "
+                f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
+                f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
+                err=True,
+            )
+            raise typer.Exit(code=3)
         terminal = _forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
@@ -4889,13 +4990,43 @@ def discover(
 
 
 def _resolve_cases(
-    cases: list[CaseRequest], default_events: Callable[[str, int], list[str]]
+    cases: list[CaseRequest],
+    default_events: Callable[[str, int], list[str]],
+    *,
+    drop_resolved: Callable[[str, int], list[str]] | None = None,
 ) -> list[CaseRequest]:
-    """Fill in each case's default events when the request listed none."""
-    return [
-        c if c.events else replace(c, events=tuple(default_events(c.court, c.docket)))
-        for c in cases
-    ]
+    """Fill in each case's default events when the request listed none.
+
+    ``drop_resolved`` re-checks a request's *listed* events against the corpus's
+    resolved set at plan time. A trigger issue is written when its events are
+    open and fanned out whenever the workflow runs — and a pipeline pause can
+    put an arbitrary gap between the two, during which an event resolves.
+    Without the re-check the stale listing mints forward cells that
+    provisioning must then refuse one by one; with it the event is dropped
+    here, once, with the cause on the record. Only an *affirmatively resolved*
+    event is dropped — an event the corpus does not track stays listed, because
+    the matrix has always trusted the trigger's event ids and the provisioning
+    record gate backs the trust. The predict matrix passes the corpus's
+    resolved-events read; evaluate passes ``None``, since its listed events are
+    exactly the resolved ones.
+    """
+    resolved: list[CaseRequest] = []
+    for c in cases:
+        if not c.events:
+            resolved.append(replace(c, events=tuple(default_events(c.court, c.docket))))
+            continue
+        if drop_resolved is None:
+            resolved.append(c)
+            continue
+        gone = set(drop_resolved(c.court, c.docket)) & set(c.events)
+        for dropped in gone:
+            typer.echo(
+                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — "
+                f"the corpus records it resolved (it closed since the run was queued)",
+                err=True,
+            )
+        resolved.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
+    return resolved
 
 
 def _scope_filtered(
@@ -5134,17 +5265,46 @@ def predict_matrix_cmd(
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
+    requested = _scope_filtered(
+        _requested_cases(body_file, court, docket, event),
+        predict_config.scope,
+        settings.corpus_root,
+        settings.corpus_backend,
+    )
     cases = _resolve_cases(
-        _scope_filtered(
-            _requested_cases(body_file, court, docket, event),
-            predict_config.scope,
-            settings.corpus_root,
-            settings.corpus_backend,
-        ),
+        requested,
         lambda c, d: forecastable_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
+        # Listed events the corpus now records resolved are dropped at plan
+        # time rather than minted into cells provisioning must refuse. Keyed on
+        # the same condition as the scope gate, because under `all` the corpus
+        # is deliberately never consulted (dev / back-testing may fan out over
+        # an empty corpus).
+        drop_resolved=(
+            (
+                lambda c, d: resolved_events(
+                    corpus.corpus_db_path(settings.corpus_root),
+                    c,
+                    d,
+                    backend=settings.corpus_backend,
+                )
+            )
+            if predict_config.scope != PredictScope.all
+            else None
+        ),
     )
+    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
+        # Every listed event fell to the openness re-check, so the emitted
+        # matrix will be empty and the workflow's empty-matrix step will close
+        # the trigger issue with its generic out-of-scope note (it cannot tell
+        # the causes apart). This line is the correctly-attributed record;
+        # safe, because a resolved event needs an evaluate run, not a re-queue.
+        typer.echo(
+            "::error::predict-matrix: the openness re-check dropped every listed event — "
+            "each resolved since the run was queued; nothing is minted",
+            err=True,
+        )
     # Per-predictor plan-time gate, before any model spend: a (predictor, event)
     # cell whose predictor already committed a prediction for that event is not
     # re-minted, so a re-queue where two of three engines landed mints only the

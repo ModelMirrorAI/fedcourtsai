@@ -9,12 +9,14 @@ case set and the event state are read from the packed corpus; the git tree under
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from . import corpus, ids
 from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
+from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
 from .process_version import graded_post_freeze, is_frozen
@@ -388,6 +390,86 @@ def resolved_events(
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if event.resolved]
+
+
+def event_recorded_closed(
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    event_id: str,
+    events: Sequence[corpus.CorpusEvent],
+) -> str | None:
+    """Why the record already treats ``event_id`` as closed, or ``None``.
+
+    The record-side half of the forward gate, split out from
+    :func:`forward_refusal_reason` because it needs no corpus row: the committed
+    ``outcome.json`` and the event's own ``resolved`` flag are both readable
+    under every backend, including the casestore source that exposes events but
+    not rows. Empty ``event_id`` (a caller that scoped no event) checks nothing
+    here — the row-level decided check in :func:`forward_refusal_reason` covers
+    that shape.
+    """
+    if not event_id:
+        return None
+    outcome_path = CasePaths(data_root, court_id, docket_id).event(event_id).outcome
+    if outcome_path.is_file():
+        return f"the ledger already records an outcome for {event_id}"
+    found = next((e for e in events if e.event_id == event_id), None)
+    if found is not None and found.resolved:
+        return f"the corpus records {event_id} resolved"
+    return None
+
+
+def forward_refusal_reason(
+    corpus_db_path: Path,
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    event_id: str,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> str | None:
+    """Why the **record** says no forward cell may be minted for this event.
+
+    The mechanical companion to the snapshot-text guard in provisioning
+    (``_forward_leakage``): that one asks whether the provisioned payload
+    *discloses* the outcome, this one asks whether the outcome *exists* — and a
+    stale snapshot from a paused pipeline answers the first question with
+    silence while the second still says no. Three checks, most specific first:
+    the committed ``outcome.json`` and the corpus event's ``resolved`` flag
+    (both via :func:`event_recorded_closed`), then the row's own latched
+    outcome for the event's stage — the merits judgment for a merits moment,
+    the disposition / resolution date for everything else, mirroring the
+    decided-row refusals the forecastable predicates apply at queue time.
+    Deliberately **not** full :func:`forecastable_event_ids` membership: scope
+    and selection are the plan seams' questions (the predict matrix re-asks
+    them), and the corpus row legitimately lags its own snapshot — a merits
+    cell provisioned on the grant order that opened it must not be refused
+    because the row has not latched the grant yet. This gate asks only the
+    question provisioning owns: does the record already hold this event's
+    outcome?
+
+    Returns ``None`` when the record raises no objection — including when the
+    local corpus is absent, where there is no record to consult (the snapshot
+    read that precedes this in provisioning fails loudly on that shape anyway).
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return None
+    case_id = ids.case_id(court_id, docket_id)
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        events = corpus.events_for_case(conn, case_id)
+        closed = event_recorded_closed(data_root, court_id, docket_id, event_id, events)
+        row = corpus.get_row(conn, case_id)
+    if closed is not None or row is None:
+        return closed
+    spec = moments.spec_for(event_id) if event_id else None
+    if spec is not None and spec.stage is Stage.merits:
+        if row.merits_judgment is not None:
+            return "the corpus already latched the merits judgment"
+    elif row.disposition is not None or corpus.resolution_date(row) is not None:
+        return "the corpus records the case decided"
+    return None
 
 
 def iter_evaluations(data_root: Path) -> list[Evaluation]:

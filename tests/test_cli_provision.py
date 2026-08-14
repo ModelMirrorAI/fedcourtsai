@@ -673,3 +673,129 @@ def test_provision_snapshot_refuses_an_application_disposal_the_vocabulary_misse
     assert result.exit_code == 3
     assert "interim disposal" in result.output
     assert not CasePaths(fixture_corpus.data_root, "scotus", 9525000001).cell_context.exists()
+
+
+def test_provision_refuses_a_forward_cell_whose_event_the_record_resolved(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The record gate: the corpus flipped the event resolved while the snapshot
+    # stayed silent about it (the paused-pipeline shape) — the textual guard
+    # sees nothing, the record still refuses, and nothing is written.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.set_event_resolved(conn, "scotus/305", "evt-petition-disposition", resolved=True)
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--refuse-terminal",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "corpus records evt-petition-disposition resolved" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2025-03-03").exists()
+    assert not paths.cell_context.exists()
+
+
+def test_provision_refuses_a_forward_cell_whose_outcome_is_committed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The ledger's outcome.json is the most specific record of a closed event;
+    # it refuses the forward cell even before the corpus flips the flag.
+    outcome = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305).event("evt-petition-disposition").outcome
+    )
+    outcome.parent.mkdir(parents=True)
+    outcome.write_text("{}")
+
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--refuse-terminal",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "already records an outcome" in result.output
+
+
+def test_provision_refuses_a_stale_forward_snapshot(fixture_corpus: FixtureCorpus) -> None:
+    # The staleness bound: scotus/305's latest fixture snapshot (2025-03-03) is
+    # far older than 30 days, and a forward cell fed a pre-pause snapshot would
+    # claim to be live while answering a stale question. Opt-in via the flag,
+    # so evaluate and replay callers are untouched.
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--refuse-terminal",
+            "--event",
+            "evt-petition-disposition",
+            "--max-snapshot-age-days",
+            "30",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "forward bound" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.exists()
+
+
+def test_provision_record_gate_fires_before_the_textual_scan(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # scotus/304 is decided in the record (cert denied) AND its snapshot text
+    # says so; the refusal must come from the record gate, not the text scan —
+    # the ordering that makes the gate mechanical rather than best-effort.
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "304",
+            "--refuse-terminal",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert "refusing to provision forward cell" in result.output
+    assert "snapshot carries" not in result.output
+
+
+def test_provision_without_refuse_terminal_still_serves_the_resolved_event(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The evaluate caller provisions decided dockets on purpose; the record
+    # gate must stay behind --refuse-terminal.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.set_event_resolved(conn, "scotus/305", "evt-petition-disposition", resolved=True)
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305"],
+    )
+
+    assert result.exit_code == 0, result.output

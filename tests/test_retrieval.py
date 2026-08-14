@@ -456,3 +456,79 @@ def test_record_retrieval_reports_the_redaction_count(
     # fact that it fired has to surface somewhere.
     assert "1 redacted" in result.output
     assert "::warning::" in result.output
+
+
+def test_record_retrieval_takes_its_mode_from_the_cell_context(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The harness-written record, not a workflow constant: provisioning wrote
+    # the cell's mode into record/context.json, and --mode-from-context reads
+    # it back so the retrieval log cannot assert a mode the cell never had.
+    provisioned = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert provisioned.exit_code == 0, provisioned.output
+
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            "--mode-from-context",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
+    )
+    assert json.loads(destination.read_text())["mode"] == "forward"
+
+
+def test_record_retrieval_records_unknown_mode_when_no_context_was_provisioned(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A refused provisioning leaves no context.json; the log must say the mode
+    # is unknown rather than assert forward on a cell that was never one.
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            "--mode-from-context",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
+    )
+    assert json.loads(destination.read_text())["mode"] is None
