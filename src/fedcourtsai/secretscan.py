@@ -547,8 +547,19 @@ def secret_variants(secret: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(variants))
 
 
-def scan_lines(rel: str, lines: Iterable[str], known_secrets: Sequence[str]) -> list[Finding]:
-    """Run every detector over one file's lines; findings carry ``rel`` as the path."""
+def scan_lines(
+    rel: str, lines: Iterable[str], known_secrets: Sequence[str], *, entropy: bool = True
+) -> list[Finding]:
+    """Run every detector over one file's lines; findings carry ``rel`` as the path.
+
+    ``entropy=False`` skips only the generic high-entropy heuristic — literal
+    containment, the structured credential shapes, and the keyword-assignment
+    rule all still run. For an engine transcript, whose format guarantees
+    high-entropy runs as ordinary content (server-generated tool and request
+    ids), the generic heuristic convicts every real file, which turns "scan
+    then publish" into "never publish anything with content"; the detectors
+    that still run are the ones that can actually name a credential there.
+    """
     variant_sets = [secret_variants(secret) for secret in known_secrets]
     findings: list[Finding] = []
     for lineno, line in enumerate(lines, start=1):
@@ -561,20 +572,23 @@ def scan_lines(rel: str, lines: Iterable[str], known_secrets: Sequence[str]) -> 
                 findings.append(Finding(path=rel, rule=rule, line=lineno))
         if _keyword_assignment_hits(line):
             findings.append(Finding(path=rel, rule="keyword-assignment", line=lineno))
-        if _entropy_hits(line):
+        if entropy and _entropy_hits(line):
             findings.append(Finding(path=rel, rule="high-entropy", line=lineno))
     return findings
 
 
-def scan_file(path: Path, rel: str, known_secrets: Sequence[str]) -> list[Finding]:
+def scan_file(
+    path: Path, rel: str, known_secrets: Sequence[str], *, entropy: bool = True
+) -> list[Finding]:
     """Scan one file on disk; unreadable bytes are replaced, never fatal.
 
     Split on ``\\n`` only (not :meth:`str.splitlines`), so reported line
     numbers match what a reviewer sees on GitHub even for files carrying
-    exotic unicode line separators.
+    exotic unicode line separators. ``entropy`` passes through to
+    :func:`scan_lines`.
     """
     text = path.read_bytes().decode("utf-8", errors="replace")
-    return scan_lines(rel, text.split("\n"), known_secrets)
+    return scan_lines(rel, text.split("\n"), known_secrets, entropy=entropy)
 
 
 def scan_changes(
