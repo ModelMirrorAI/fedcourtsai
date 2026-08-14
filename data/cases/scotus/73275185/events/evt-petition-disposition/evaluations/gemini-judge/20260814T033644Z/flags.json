@@ -1,0 +1,32 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73275185",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Mis-provisioned forward cell: The snapshot 2026-07-17.json provided to the predictors contained the terminal outcome of the case (May 11, 2026 GVR). This was noticed by all predictors and constitutes outcome leakage.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely: Candidate gemini-baseline explicitly read the outcome from the mis-provisioned snapshot. Graded leakage as likely.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely: Candidate claude-baseline explicitly read the outcome from the mis-provisioned snapshot. Graded leakage as likely.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely: Candidate codex-baseline explicitly read the outcome from the mis-provisioned snapshot. Graded leakage as likely.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260814T033644Z"
+}

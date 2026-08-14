@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "run_id": "20260814T033644Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (sal-v2 salience-band table, per-Term leading figures)",
+    "record/blinded/<alias>/ staged predictions, reasoning, and retrieval logs",
+    "record/context.json (terminal band derivation only)"
+  ],
+  "helpful": [
+    "statpack band table's explicit leading-vs-bracketed split and its caption naming the salience version and rendered-Term count — made the terminal fallback mechanical",
+    "harness-captured retrieval_log.json mode field plus retrieved_doc_date columns — made the forward-mode leakage check fast and evidence-based"
+  ],
+  "gaps": [
+    "None of the three staged predictions carried a frozen context block, so every skill score here is terminal-basis; a staging-time hint of which fallback applies (or a pre-derived terminal band) would remove the one judgment call in the base-rate step"
+  ],
+  "notes": "No corpus or web retrieval was needed: the staged candidate directories plus the committed statpack covered everything the scoring rules read."
+}

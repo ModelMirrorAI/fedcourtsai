@@ -1,0 +1,41 @@
+{
+  "base_rate_basis": "terminal",
+  "base_rate_salience_version": "sal-v2",
+  "big_case": {
+    "evaluator_score": 0.97,
+    "notes": "A granted dispute over a presidential executive order and the Fourteenth Amendment's birthright-citizenship guarantee has exceptional nationwide legal and institutional stakes."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.8331190583974648,
+  "case_id": "scotus/73129750",
+  "claim_scores": null,
+  "correct": 1,
+  "created_at": "2026-08-14T03:39:46Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "likely",
+    "mode": "forward",
+    "notes": "The rationale candidly states that the provisioned July 14, 2026 snapshot revealed the December 5, 2025 grant and later merits proceedings; captured snapshot reads corroborate access. Admitted knowledge of this case's result makes influence likely despite the candidate's stated effort to reason counterfactually.",
+    "retrieved_outcome_material": true
+  },
+  "leakage_suspected": true,
+  "model": "gpt-5.6-sol",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
+    "label": "proc-v2",
+    "pipeline_sha": "928a4cb421388319bb159d5e223f41a9521cb3e8",
+    "stamped_at": "2026-08-14T03:41:05.521561Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.70625,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,41 @@
+{
+  "base_rate_basis": "terminal",
+  "base_rate_salience_version": "sal-v2",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Cert granted 2026-07-20: the Court's first plenary vehicle on the Bajakajian excessiveness standard since 1998, IJ-litigated with Cato/Colgan/Timbs amici, setting the gravity-of-the-offense methodology for fines and forfeitures nationwide. Significant constitutional-criminal/property question, though the QP is methodological and the stakes modest in dollar terms."
+  },
+  "brier_score": 0.7225,
+  "brier_skill_score": -0.707,
+  "case_id": "scotus/73275187",
+  "claim_scores": null,
+  "correct": 0,
+  "created_at": "2026-08-14T03:40:49Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: predicted 2026-07-17 from the 2026-07-17 snapshot; the petition was granted 2026-07-20, three days later. The log shows two web searches for intervening Excessive Fines authority (Pung, Ellingburg) and no query for this case's own disposition; no retrieved_doc_date at or after 2026-07-20. Not mis-provisioned.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e8a0fed172adc447698a622bd69b318d4c0189be622f8d0d3085042f12760be7",
+    "label": "proc-v2",
+    "pipeline_sha": "928a4cb421388319bb159d5e223f41a9521cb3e8",
+    "stamped_at": "2026-08-14T03:43:40.906589Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3494,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
