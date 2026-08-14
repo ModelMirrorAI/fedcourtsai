@@ -705,9 +705,16 @@ def read_blinding_map(
 
 
 def _alias_resolver(aliases: Mapping[str, str]) -> re.Pattern[str]:
-    """A boundary-anchored alternation over the cell's alias names, longest first."""
+    """A boundary-anchored alternation over the cell's alias names, longest first.
+
+    Case-insensitive, exactly like the blinding-direction resolver above: the
+    aliases are handed out lowercase, but a judge writing prose capitalizes a
+    sentence-initial ``Candidate-a``, and an alias that survives un-aliasing
+    ships unresolvable to the maintainer in the run PR's flag roll-up — the
+    one channel whose key is thrown away with the runner.
+    """
     body = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
-    return re.compile(rf"(?<![A-Za-z0-9]){body}(?![A-Za-z0-9])")
+    return re.compile(rf"(?<![A-Za-z0-9])(?:{body})(?![A-Za-z0-9])", re.IGNORECASE)
 
 
 def _resolve_aliases_in_tree(root: Path, aliases: Mapping[str, str]) -> None:
@@ -737,7 +744,9 @@ def _resolve_aliases_in_tree(root: Path, aliases: Mapping[str, str]) -> None:
     resolver = _alias_resolver(aliases)
 
     def _sub(text: str) -> str:
-        return resolver.sub(lambda m: aliases[m.group(0)], text)
+        # Lowered lookup, because the resolver matches case-insensitively and
+        # the alias map's keys are the lowercase forms it handed out.
+        return resolver.sub(lambda m: aliases[m.group(0).lower()], text)
 
     def _walk(value: Any) -> Any:
         if isinstance(value, str):

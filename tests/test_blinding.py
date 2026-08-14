@@ -815,3 +815,23 @@ def test_the_command_exits_non_zero_when_it_cannot_un_alias(
     )
     assert result.exit_code == 1
     assert "un-aliasing failed" in result.output
+
+
+def test_unaliasing_resolves_a_sentence_initial_capitalized_alias(tmp_path: Path) -> None:
+    # Aliases are handed out lowercase, but a judge's prose capitalizes at
+    # sentence start — "Candidate-a explicitly repeated ..." — and an alias
+    # that survives un-aliasing ships unresolvable in the run PR's flag
+    # roll-up. The resolver matches case-insensitively and looks the match up
+    # lowered, exactly like the blinding-direction resolver.
+    root = tmp_path / "out"
+    root.mkdir()
+    (root / "flags.json").write_text(
+        json.dumps({"note": "Candidate-a repeated the outcome. candidate-b did not."})
+    )
+
+    blinding._resolve_aliases_in_tree(
+        root, {"candidate-a": "gemini-baseline", "candidate-b": "claude-baseline"}
+    )
+
+    resolved = json.loads((root / "flags.json").read_text())
+    assert resolved["note"] == "gemini-baseline repeated the outcome. claude-baseline did not."
