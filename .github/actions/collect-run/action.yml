@@ -63,13 +63,17 @@ inputs:
 runs:
   using: composite
   steps:
-    # One artifact at a time, NOT `actions/download-artifact` over the whole set.
+    # Per-artifact downloads, NOT `actions/download-artifact` over the whole set.
     # That action fetches every artifact as a single fail-fast unit: on
     # 2026-07-18 one transient failure after its five internal retries killed the
     # step, and because the aggregate step is chained under it, all 46 of that
-    # run's successful cells were discarded. Downloading per artifact makes the
-    # loop the degradation boundary, so one bad artifact costs one cell instead
-    # of the run.
+    # run's successful cells were discarded. Downloading per artifact makes each
+    # download its own degradation boundary, so one bad artifact costs one cell
+    # instead of the run. Downloads run with bounded parallelism, but every
+    # shared record — the collected count, the missing-artifacts ledger, the
+    # zero-collected check — is aggregated by a single writer after the workers
+    # finish: each worker touches only its own per-artifact marker file, so no
+    # two processes ever write the same path.
     - name: Download cell artifacts
       shell: bash
       env:
@@ -107,31 +111,43 @@ runs:
         expected=$(wc -l < artifact-names.txt)
         echo "found ${expected} ${ROLE} artifact(s) on this run"
 
-        collected=0
-        : > missing-artifacts.txt
-        while IFS= read -r name; do
-          [ -n "$name" ] || continue
-          downloaded=false
+        # Each worker downloads one artifact with the same 3-attempt/backoff and
+        # clean-extraction discipline the sequential loop held, and records its
+        # outcome as a marker file named after the artifact — `.ok` or `.miss`,
+        # never a shared file. It always returns 0: a failed artifact is a
+        # recorded degradation, not a step failure, and a nonzero return would
+        # make xargs kill the whole batch.
+        download_one() {
+          name=$1
           for attempt in 1 2 3; do
             # Clear any truncated extraction first: a half-written data/ subtree
             # would otherwise be unioned into the PR as if it were complete.
             rm -rf "cell-artifacts/${name}"
             if gh run download "$GITHUB_RUN_ID" --repo "$REPO" \
                  --name "$name" --dir "cell-artifacts/${name}"; then
-              downloaded=true
-              break
+              : > "dl-status/${name}.ok"
+              return 0
             fi
             [ "$attempt" -lt 3 ] && sleep $((attempt * 5))
           done
-          if [ "$downloaded" = true ]; then
-            collected=$((collected + 1))
-          else
-            rm -rf "cell-artifacts/${name}"
-            echo "$name" >> missing-artifacts.txt
-            echo "::warning::artifact ${name} did not download after 3 attempts;" \
-              "that cell's output is NOT in this run's PR"
-          fi
-        done < artifact-names.txt
+          rm -rf "cell-artifacts/${name}"
+          : > "dl-status/${name}.miss"
+          echo "::warning::artifact ${name} did not download after 3 attempts; that cell's output is NOT in this run's PR"
+          return 0
+        }
+        export -f download_one
+
+        # Bounded parallelism: 4 workers cuts the pre-aggregation wall-clock
+        # roughly 4x at full fan-out width while staying gentle on the API.
+        # Artifact names cannot contain newlines (GitHub rejects them), so
+        # newline-delimited xargs input is unambiguous; they are valid filenames
+        # for the marker files for the same reason (no `/` or `\`).
+        mkdir -p dl-status
+        xargs -r -d '\n' -P 4 -n 1 bash -c 'download_one "$1"' _ < artifact-names.txt
+
+        # Single-writer aggregation, after every worker has finished.
+        collected=$(find dl-status -name '*.ok' | wc -l)
+        find dl-status -name '*.miss' -printf '%f\n' | sed 's/\.miss$//' | sort > missing-artifacts.txt
 
         echo "collected ${collected} of ${expected} artifact(s)"
 
