@@ -442,6 +442,16 @@ jobs:
           set -euo pipefail
           mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"
 
+      # The labeler runs with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 (its tool
+      # subprocesses must not inherit the engine API key), and the scrub's
+      # isolation backend is bubblewrap, which the runner image does not
+      # carry — without it the CLI refuses to start rather than degrade.
+      - name: Install bubblewrap for the labeler's subprocess isolation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+
       - name: Label the questions presented with Claude Code
         # Bound the agent below the job timeout so a runaway run trips this
         # *step* instead of the job-level timeout, which would cancel the runner
