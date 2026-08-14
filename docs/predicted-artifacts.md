@@ -456,7 +456,10 @@ Three per-stage differences are worth knowing when reading a scored cell:
   where no band was frozen. The two run several-fold apart in the weak bands,
   so a skill number means something only within one basis, and both it and
   `brier_skill_score` are omitted where no band, no prior-Term rate, or no
-  matching salience version exists.
+  matching salience version exists. A recorded `risk_set` basis must therefore
+  arrive with the `base_rate_salience_version` its band was read under: the
+  stamp fails the cell where that does not resolve, and `validate`'s
+  `base_rate_basis_carries_version` holds the same rule over the ledger.
 - **An interim cell omits both**, by rule and not by accident: no interim
   segment base rate is published, so there is nothing to score skill against.
   The omission is keyed on the stage, not on whether a band happens to be

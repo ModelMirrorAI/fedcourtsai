@@ -20,6 +20,8 @@ Two layers of checks:
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
   event that exist in the corpus (no orphan judgments); every evaluation
   targets a predictor that actually produced a prediction for that event; every
+  evaluation recording a ``risk_set`` base-rate basis carries the salience
+  version that population was banded under; every
   prose document a ``prediction.json`` names resolves to a file beside it; every
   committed claims block is one the claim scorer will not silently void; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
@@ -91,6 +93,7 @@ CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
+CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
@@ -439,11 +442,15 @@ def _load_ids(path: Path) -> tuple[str, str] | None:
     """``(case_id, event_id)`` from a ledger JSON file, or ``None`` if unreadable.
 
     A malformed file is `validate`'s concern (schema law), not this command's, so a
-    file that cannot be parsed is skipped rather than counted as an orphan.
+    file that cannot be parsed is skipped rather than counted as an orphan — and
+    a payload that parses to something other than an object is malformed too, so
+    it is skipped rather than raising out of the verdict.
     """
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
         return None
     case_id, event_id = data.get("case_id"), data.get("event_id")
     if isinstance(case_id, str) and isinstance(event_id, str):
@@ -514,6 +521,8 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
             data = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
+        if not isinstance(data, dict):
+            continue
         predictor_id = data.get("predictor_id")
         if not isinstance(predictor_id, str):
             continue
@@ -526,6 +535,52 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
                 f"evaluation {path}: predictor {predictor_id!r} has no prediction for this event"
             )
     return _check(CHECK_EVALUATION_TARGETS, problems, checked=checked)
+
+
+def check_base_rate_version(data_root: Path) -> CorpusCheck:
+    """A ``risk_set`` base-rate basis must sit beside a non-null salience version.
+
+    The two fields are one record: ``base_rate_basis`` says which population the
+    segment base rate was read over, and ``base_rate_salience_version`` says
+    under which salience version that population was banded — a skill score is
+    only comparable to another taken under the same pair (``metrics/README.md``).
+    On the ``terminal`` path the version is the live scorer's and always
+    resolves; on the ``risk_set`` path it is the scored prediction's frozen
+    ``context.salience_version``, so a null there means the join found no
+    prediction, no frozen context, or no version in it — the rate was taken off
+    a risk-set table nothing pins down.
+
+    Only that pairing is in scope, so a record that took no segment base rate
+    (both halves null) and one whose ``terminal`` version is not yet stamped
+    still pass: the terminal version always resolves from the live scorer, so a
+    gap there is an unstamped cell rather than an unanswerable one.
+
+    The remedy is a corrected evaluation (the terminal basis is the documented
+    fallback where no frozen context exists, and omitting the rate is always
+    open), never rewriting the recorded basis to ``terminal`` after the fact:
+    that would stamp the live scorer's version onto a number read over the
+    risk-set population, making the version half truthful-looking over the wrong
+    population — a worse record than the null, because nothing downstream could
+    tell the two apart.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if data.get("base_rate_basis") != "risk_set":
+            continue
+        checked += 1
+        if data.get("base_rate_salience_version") is None:
+            problems.append(
+                f"evaluation {path}: base_rate_basis 'risk_set' with a null "
+                + "base_rate_salience_version"
+            )
+    return _check(CHECK_BASE_RATE_VERSION, problems, checked=checked)
 
 
 def check_prediction_docs(data_root: Path) -> CorpusCheck:
@@ -728,15 +783,17 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
 
     The subset of layer-C checks that need only the git ledger under ``data/``:
     every judgment references an event defined in git, every evaluation targets
-    a prediction that exists, every prose document a prediction names is there,
-    every committed claims block is one the claim scorer will not void, and
-    every merits-stage event's scored prediction carries its judgment.
+    a prediction that exists, every recorded ``risk_set`` base-rate basis carries
+    the salience version it was banded under, every prose document a prediction
+    names is there, every committed claims block is one the claim scorer will not
+    void, and every merits-stage event's scored prediction carries its judgment.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
     return [
         check_ledger_events_in_git(data_root),
         check_evaluation_targets(data_root),
+        check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
         check_merits_predictions(data_root),
@@ -765,6 +822,7 @@ def _run_checks(
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
+        check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
         check_merits_predictions(data_root),

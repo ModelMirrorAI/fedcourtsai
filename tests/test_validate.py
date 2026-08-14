@@ -36,6 +36,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
+    CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_TARGETS,
@@ -336,6 +337,9 @@ def test_clean_corpus_passes(tmp_path: Path) -> None:
     assert verdict.corpus_rows == 1
     assert verdict.corpus_events == 1
     assert all(c.passed for c in verdict.checks)
+    # The git-only referential checks run on the corpus path too, not only in
+    # the PR gate's offline subset.
+    assert CHECK_BASE_RATE_VERSION in _verdict_by_check(verdict)
 
 
 # --- absent corpus ------------------------------------------------------------
@@ -654,11 +658,110 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     assert names == {
         CHECK_LEDGER_EVENTS_IN_GIT,
         CHECK_EVALUATION_TARGETS,
+        CHECK_BASE_RATE_VERSION,
         CHECK_PREDICTION_DOCS,
         CHECK_PREDICTION_CLAIMS,
         CHECK_MERITS_PREDICTIONS,
     }
     assert all(c.passed for c in checks)
+
+
+# --- C: a risk-set base-rate basis carries its salience version ---------------
+
+
+def _write_basis_evaluation(data_root: Path, predictor: str, fields: dict[str, object]) -> Path:
+    """One evaluation under a fixed event, with the base-rate fields patched in.
+
+    Written through the model, then re-opened as raw JSON so a test can express
+    a field's *absence* (not its null) — the shape a record written before the
+    field existed actually has, and the one the check reads.
+    """
+    event = "evt-motion-stay"
+    run = "2026-02-01T00-00-00Z"
+    path = CasePaths(data_root, "ca9", 1).event(event).evaluation("e1", predictor, run)
+    write_json(
+        path,
+        Evaluation(
+            case_id="ca9/1",
+            event_id=event,
+            predictor_id=predictor,
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 2, 1),
+            correct=1,
+        ),
+    )
+    payload = json.loads(path.read_text())
+    payload.pop("base_rate_basis", None)
+    payload.pop("base_rate_salience_version", None)
+    payload.update(fields)
+    path.write_text(json.dumps(payload))
+    return path
+
+
+def _basis_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_BASE_RATE_VERSION
+    )
+
+
+def test_a_risk_set_basis_without_a_salience_version_fails(tmp_path: Path) -> None:
+    """The pair is one record: a risk-set rate with no version names a banding
+    nothing pins down, and the recorded basis must never be rewritten to
+    `terminal` to fill the gap — that would look truthful over the wrong
+    population."""
+    data_root = tmp_path / "data"
+    offender = _write_basis_evaluation(
+        data_root, "p1", {"base_rate_basis": "risk_set", "base_rate_salience_version": None}
+    )
+    check = _basis_check(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    assert check.failures == 1
+    assert any(str(offender) in p for p in check.problems)
+
+
+def test_a_resolved_or_terminal_or_absent_basis_passes(tmp_path: Path) -> None:
+    """Only the risk-set path can fail: terminal always resolves to the live
+    scorer's version, and a record that took no segment base rate has no basis
+    to carry one."""
+    data_root = tmp_path / "data"
+    _write_basis_evaluation(
+        data_root, "p1", {"base_rate_basis": "risk_set", "base_rate_salience_version": "sal-v2"}
+    )
+    _write_basis_evaluation(
+        data_root, "p2", {"base_rate_basis": "terminal", "base_rate_salience_version": None}
+    )
+    _write_basis_evaluation(data_root, "p3", {})  # no basis recorded at all
+    check = _basis_check(data_root)
+    assert check.passed
+    assert check.checked == 1  # only the risk-set record is in scope
+
+
+def test_the_basis_check_tolerates_unreadable_records(tmp_path: Path) -> None:
+    """Same tolerance as its siblings: a file that does not parse (or is not an
+    object) is `validate_ledger`'s concern — schema law — not this check's.
+
+    Run through the whole referential suite, because a raw-JSON reader that
+    assumes an object would raise out of the verdict rather than report one.
+    """
+    data_root = tmp_path / "data"
+    good = _write_basis_evaluation(
+        data_root, "p1", {"base_rate_basis": "risk_set", "base_rate_salience_version": "sal-v2"}
+    )
+    # parents[2] is evaluations/<evaluator>, so the siblings land where the glob
+    # reaches them — one level deeper and the test would pass by not looking.
+    evaluator_dir = good.parents[2]
+    for predictor, body in (("p2", "{not json"), ("p3", "[]")):
+        malformed = evaluator_dir / predictor / "2026-02-01T00-00-00Z" / "evaluation.json"
+        malformed.parent.mkdir(parents=True)
+        malformed.write_text(body)
+    globbed = (data_root / "cases").glob("*/*/events/*/evaluations/*/*/*/evaluation.json")
+    assert len(list(globbed)) == 3
+    check = _basis_check(data_root)
+    assert check.passed
+    assert check.checked == 1
 
 
 # --- C: a prediction's prose pointers resolve ---------------------------------

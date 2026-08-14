@@ -593,8 +593,9 @@ artifact and never reaches the ledger.
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
 on the `predictor_id` field; under an alias the join misses and the cell's
-`claim_scores` block and `base_rate_salience_version` are *silently* absent
-rather than wrong. `validate`'s
+`claim_scores` block is *silently* absent rather than wrong (so is
+`base_rate_salience_version`, unless the evaluation records a `risk_set` basis,
+which fails the stamp instead). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
 backstop rather than the detector. The cell's order is therefore: blind →
 agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
