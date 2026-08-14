@@ -45,7 +45,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Literal
 
-from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
+from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, evaluation_clock
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import first_moment
 from .process_version import frozen_process_record
@@ -81,8 +81,11 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
     block, so a cell-mean would weight an event by its evaluator count. Blocks
     are therefore deduplicated to one per (case, event) — where copies could
     ever differ (a statpack revision between evaluator stamps), the newest
-    evaluation's block wins, deterministically — and ``cells`` is published
-    beside ``events`` as the raw census of the collapsed multiplicity.
+    evaluation's block wins, deterministically, on the harness clock
+    (:func:`fedcourtsai.integrity.evaluation_clock` — never the agent-written
+    ``created_at``, and aware-normalized so a naive/aware mix cannot raise) —
+    and ``cells`` is published beside ``events`` as the raw census of the
+    collapsed multiplicity.
     """
     cells = 0
     latest: dict[tuple[str, str], tuple[tuple[datetime, str, str], ClaimScoreBlock]] = {}
@@ -91,7 +94,7 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
             continue
         cells += 1
         key = (ev.case_id, ev.event_id)
-        order = (ev.created_at, ev.evaluator_id, ev.run_id)
+        order = (evaluation_clock(ev), ev.evaluator_id, ev.run_id)
         current = latest.get(key)
         if current is None or order > current[0]:
             latest[key] = (order, ev.claim_scores)

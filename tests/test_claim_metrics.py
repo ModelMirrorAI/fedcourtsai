@@ -27,6 +27,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    ProcessVersion,
     Stage,
     Stratum,
 )
@@ -492,3 +493,53 @@ def test_cli_defaults_to_the_frozen_headline(tmp_path: Path) -> None:
     assert board.entries == []
     # Confirm the fixture itself is visible under the pooled view.
     assert iter_stratified_evaluations(data_root, frozen_only=False) != []
+
+
+def test_the_winning_block_keys_on_the_harness_clock_not_the_agent_clock() -> None:
+    # The later *agent-written* created_at sits on the earlier-stamped run: the
+    # dedup must follow the harness stamp (integrity.evaluation_clock), so the
+    # block from the newer-stamped evaluation wins even though the agent clock
+    # points the other way.
+    stamped_early = _evaluation(
+        "alpha",
+        claim_scores=_block(0.4),
+        run_id="r1",
+        created_at=datetime(2026, 6, 30, tzinfo=UTC),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 1, tzinfo=UTC)
+        ),
+    )
+    stamped_late = _evaluation(
+        "alpha",
+        claim_scores=_block(0.2),
+        run_id="r2",
+        created_at=datetime(2026, 6, 1, tzinfo=UTC),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 20, tzinfo=UTC)
+        ),
+    )
+    board = build_claim_scores(_cells((stamped_early, FORWARD), (stamped_late, FORWARD)))
+    stratum = board.entries[0].forward
+    assert stratum is not None
+    assert stratum.events == 1
+    assert stratum.mean_total == pytest.approx(0.2)
+
+
+def test_a_naive_and_aware_created_at_mix_cannot_raise() -> None:
+    # Agent-written created_at carries no offset guarantee; two unstamped runs
+    # of one cell mixing naive and aware clocks must still order (naive reads
+    # as UTC) instead of raising TypeError out of the tuple compare.
+    naive = _evaluation(
+        "alpha", claim_scores=_block(0.4), run_id="r1", created_at=datetime(2026, 6, 1)
+    )
+    aware = _evaluation(
+        "alpha",
+        claim_scores=_block(0.2),
+        run_id="r2",
+        created_at=datetime(2026, 6, 2, tzinfo=UTC),
+    )
+    board = build_claim_scores(_cells((naive, FORWARD), (aware, FORWARD)))
+    stratum = board.entries[0].forward
+    assert stratum is not None
+    assert stratum.events == 1
+    assert stratum.mean_total == pytest.approx(0.2)

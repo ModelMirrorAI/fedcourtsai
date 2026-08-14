@@ -114,6 +114,23 @@ def cell_clock(prediction: Prediction) -> datetime:
     return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
 
 
+def evaluation_clock(evaluation: Evaluation) -> datetime:
+    """When the harness ran this evaluation: the process stamp, else ``created_at``.
+
+    The evaluation-side sibling of :func:`cell_clock`, and a distinct name on
+    purpose: the prediction clock draws the pre-registration boundary, while
+    this one orders re-runs of one grader on one cell (newest wins), so a join
+    reaching for the wrong artifact's clock reads as the type error it is.
+    Same normalization — a bare timestamp reads as UTC, so clocks from
+    different writers always compare instead of raising on a naive/aware mix.
+    """
+    stamped = (
+        evaluation.process_version.stamped_at if evaluation.process_version is not None else None
+    )
+    clock = stamped if stamped is not None else evaluation.created_at
+    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+
+
 def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None:
     """Why this cell's own harness record contradicts its forward claim.
 
