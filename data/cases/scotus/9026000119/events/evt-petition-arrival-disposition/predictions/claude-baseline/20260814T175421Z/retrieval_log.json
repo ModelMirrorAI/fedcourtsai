@@ -1,0 +1,288 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "03dab81667c19884",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:37.890Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8515a2242cbafa4d",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119 -type f | head -50",
+      "result_digest": "24ceff3c2e8a1033",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:38.457Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c275e76d5cba31bb",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/event.yaml /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/context.json /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/documents.json",
+      "result_digest": "8c09ee0183869663",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:45.548Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "d9298bba0004235a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:46.022Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a4e5a6aed797c4f4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/snapshots/2026-08-14.json\"}",
+      "result_digest": "a6f2e1871b4f20e8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:56.291Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fb345398342211d2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/questions-presented.txt\"}",
+      "result_digest": "ed2c8e5c88ba7628",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:14:56.912Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec2a087226f73984",
+      "query": "grep -n \"salience band\\|sal-v2\\|Segment base rate\\|Modern discretionary\\|state\\b\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40; echo ---; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/petition.txt",
+      "result_digest": "d65cdae4998c1dd6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:15:04.447Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "d81b2de85d7cea4a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:15:08.377Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "02ed8deacf9df6aa",
+      "query": "grep -n \"state\\b\\|band\\|arrival\\|federal petitioner\" /home/runner/work/fedcourtsai/fedcourtsai/docs/salience.md | head -60",
+      "result_digest": "a6b2c5c9aa55fed5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:03.665Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "900f7455107781fd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/docs/salience.md\", \"limit\": 100, \"offset\": 120}",
+      "result_digest": "0246e67aa87a5928",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:16:09.375Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bc0501a0e533b422",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/petition.txt\", \"limit\": 260}",
+      "result_digest": "8943eb9c54175ddd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:17:24.998Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0adbbaa485f592f8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/petition.txt\", \"limit\": 340, \"offset\": 260}",
+      "result_digest": "b24e3a375836e0a2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:17:31.810Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "773c42a7a8377fb7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/record/documents/petition.txt\", \"limit\": 220, \"offset\": 600}",
+      "result_digest": "950e684bceaa49c3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:17:37.057Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8690ccd95d547949",
+      "query": "uv run fedcourts paths --court scotus --docket 9026000119 --event evt-petition-arrival-disposition --role predictor 2>&1 | head -30",
+      "result_digest": "029a0702af51f13c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:18:48.164Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6965632855aa117",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "b45287470bc6644c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:18:48.404Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0c9e8bbf4b29cda2",
+      "query": "uv run fedcourts query --court scotus --citation \"549 U.S. 483\" 2>querystderr1.txt; echo \"--stderr--\"; cat querystderr1.txt",
+      "result_digest": "62f88a75a450aff4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:19:04.629Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:20:44.750Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d271ee4bf9d66311",
+      "query": "Ybanez disqualification \"Attorney General\"",
+      "result_digest": "bf4a98bb5175b3f1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:20:49.317Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "80f4e6f9152c67b0",
+      "query": "Ybanez disqualification \"Attorney General\"",
+      "result_digest": "f3850274a1413bce",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:21:00.087Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "1463a85a7d25ed29",
+      "query": "f=$(find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -path \"*predictions/claude-baseline*/prediction.json\" | head -3); echo \"$f\"; cat $(echo \"$f\" | head -1)",
+      "result_digest": "b806b1d83ce1890e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:21:58.778Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d2c615fc15003796",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260814T175421Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "e5347d88cafac1cf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:22:06.293Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ebcffaab2931a711",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T18:22:06Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000119/record/snapshots/2026-08-14.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.06,\\n  \\\"predicted_disposition\\\": \\\"de",
+      "result_digest": "d54ef38449020a33",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:22:15.191Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2c8913c159c08d12",
+      "query": "{\"content\": \"# Forecast \\u2014 Guam v. Ybanez, No. 26-119 (petition disposition, forecast at arrival)\\n\\nThe docket shows **zero distributions** \\u2014 the arrival state this cell forecasts\\nfrom. The petition was docketed July 27, 2026, with the response due August 26,\\n2026. Everything below is a claim about what accrues from that state.\\n\\n**Disposition: denied, most likely without comment.** The Court will deny this\\npetition. Respondents \\u2014 five individual defendants whose prosecution w",
+      "result_digest": "15407204972c0631",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:22:36.615Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1e18fbfd6067c20b",
+      "query": "{\"content\": \"# Rationale \\u2014 why P(grant) = 0.06\\n\\n## The cell and its anchor\\n\\nThis is an arrival-moment cert cell (`moment: arrival`): zero distributions,\\nno CVSG, forecast before any docket-acquired signal exists. The frozen context\\ncarries `band: state` under `sal-v2` \\u2014 the caption-class band for a\\nstate/territorial government petitioner (Guam, through its elected Attorney\\nGeneral). Per `docs/salience.md`, the state class never drives arrival\\nselection, so this cell exists via",
+      "result_digest": "dbd271072f3547f4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:19.388Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "eba12346a09084bd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260814T175421Z/reasoning.md\", \"new_string\": \"Netting these: I take the class marginal (~15\\u201320%) and cut it by roughly\\ntwo-thirds for the petition-quality and vehicle defects, landing at\\n**P(any grant, GVR and summary reversal included) = 0.06** \\u2014 essentially the\\nunconditional paid-arrival rate (~6.5%), which is where this case be",
+      "result_digest": "aeff799196849ee8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:28.367Z",
+      "tool": "Edit"
+    },
+    {
+      "params_digest": "83879e085e4c9c21",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (event.yaml, context.json, the 2026-08-14\\nsnapshot, `record/documents/` petition and questions-presented text) and the\\ncommitted `metrics/statpack.md`:\\n\\n## Corpus lookups\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"549 U.S. 483\\\"` \\u2014 a\\n   known-case lookup for Limtiaco v. Camacho, the most recent plenary grant on\\n   certiorari to the Supreme Court of Guam, sought as a comparable prior.\\n   **Zero rows returned.",
+      "result_digest": "c7cd8af90d2b995d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:38.887Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3193a1b53756734c",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json 2>/dev/null | head -120",
+      "result_digest": "bc1d3f0b0db7bbcd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:40.302Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0ea3218b2d4b84dd",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"scope\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n      \\\"message\\\": \\\"Yardstick note for state-band arrival cells: this cell's frozen band is 'state' (sal-v2), so the scored baseline is the state band's bracketed '",
+      "result_digest": "850432d08887b537",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:51.639Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e4aca32286933a8b",
+      "query": "sed -n '120,260p' /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:52.471Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:23:56.017Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7af3f06e19cfb6f2",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"run_id\\\": \\\"20260814T175421Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\n    \\\"courtlistener\\\"\\n  ],\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md\\\",\\n    \\\"fedcourts query\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"courtlistener MCP search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The provisioned petition tex",
+      "result_digest": "7797556553fd8fc5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:24:10.349Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2acf92fdcee7b769",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_digest": "eeb6f0442150cb92",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T18:24:14.504Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000119",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260814T175421Z",
+  "schema_version": "1.0"
+}

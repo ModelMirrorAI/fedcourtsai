@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000119",
+  "run_id": "20260814T175421Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Yardstick note for state-band arrival cells: this cell's frozen band is 'state' (sal-v2), so the scored baseline is the state band's bracketed 'reached' rate (pooled OT2017-OT2025 ~36%). Because the risk sets are nested and terminal-band-keyed, that figure pools the federal and high terminals - populations selected on docket trajectory or the federal carve-in - which a state-caption petition at arrival (zero distributions) has not exhibited. The arrival-time rate for the state class reconstructed from the same table's terminal-state figures is ~15.5% (41/264), several-fold lower. The arrival guidance in predict.md names the random-slice and federal-carve-in anchors but not the state-band arrival case; if state-caption cases keep entering the arrival cohort via the random draw, skill numbers on them will be inflated by the trajectory-contaminated baseline. My probability (0.06) states my belief, not the baseline."
+    }
+  ]
+}
