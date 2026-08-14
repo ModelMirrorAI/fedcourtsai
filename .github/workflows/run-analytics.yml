@@ -452,26 +452,52 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap
 
-      # The action's bundled installer leaves the CLI's platform-native binary
-      # missing (its package fetch neither runs the postinstall nor resolves
-      # the platform optional dependency) — the agent then dies at startup
-      # ("claude native binary not installed") while the action still exits
-      # `is_error: false` with no output. Install the same pinned CLI the
-      # engine cells run green on these runners — npm resolves the native
-      # binary as a platform optional dependency even with scripts disabled —
-      # and hand the action the executable, which skips its own install path
-      # entirely. Keep the version in step with run-backtest.yml and
-      # integration-test.yml. Secret-free step: registry install only.
+      # The action's bundled install left the CLI's native binary missing on
+      # this job ("claude native binary not installed", while the action still
+      # exited `is_error: false` with no output). Install the pinned CLI here
+      # instead — the same npm pattern run-backtest.yml and integration-test.yml
+      # prove on these runners, kept in version step with both — and hand the
+      # action the executable, which skips its own install path entirely. The
+      # action bundles a slightly newer CLI for the cells it installs itself;
+      # if the labeler ever misbehaves under this pin, matching the bundled
+      # version is the first lever.
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
-        # disabled, and a secret-free environment are the practical controls for
-        # a single global CLI; a lockfile is not expressible for `npm i -g`.
+        timeout-minutes: 5
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
+        # transitive scripts disabled, and a credential-free step environment
+        # are the practical controls for a global CLI; a lockfile is not
+        # expressible for `npm i -g`. The one script run on purpose is the
+        # pinned claude package's own installer, which fetches the native
+        # binary from the vendor's release endpoint — the same vendor trust
+        # executing the agent itself carries.
         run: |
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.207
+          # Claude's native binary is placed by its postinstall, which
+          # --ignore-scripts suppresses; run the pinned package's own
+          # installer explicitly.
+          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
           claude --version
-          echo "path=$(command -v claude)" >> "$GITHUB_OUTPUT"
+          # Fail closed: an empty path would make the action fall back to its
+          # own installer with no signal.
+          path=$(command -v claude)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      # Without the userns relaxation, bubblewrap's uid-map setup is refused
+      # under the runner image's AppArmor policy and every scrubbed subprocess
+      # dies ("bwrap: setting up uid map: Permission denied") — the same
+      # probe-then-set the codex sandbox uses in integration-test.yml.
+      - name: Enable unprivileged user namespaces for the subprocess scrub
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
 
       - name: Label the questions presented with Claude Code
         # Bound the agent below the job timeout so a runaway run trips this
@@ -572,9 +598,11 @@ jobs:
       # is the engine's own API key, so the scan searches for that value
       # literally, exactly as the collect job's scan holds its reachable
       # credential: the agent process is gone by this step, which parses
-      # bytes with tested Python and executes none of them. The literal is
-      # what covers encodings the entropy net cannot (hex), and the scan
-      # fails closed if the variable is unset.
+      # bytes with tested Python and executes none of them. On this surface
+      # the generic entropy rule is off (see the run block below), so the
+      # literal containment plus the structured credential shapes are the
+      # whole gate — which is exactly why the scan failing closed on an
+      # unset variable is load-bearing here.
       - name: Scan the transcript before publishing it
         id: transcript_scan
         if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}

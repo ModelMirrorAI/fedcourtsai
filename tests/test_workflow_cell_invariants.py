@@ -24,6 +24,7 @@ Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -287,6 +288,21 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert label["with"]["path_to_claude_code_executable"] == "${{ steps.claude-cli.outputs.path }}"
     install = next(s for s in steps if s.get("id") == "claude-cli")
     assert "--global @anthropic-ai/claude-code@" in install["run"]
+    # The postinstall is the actual fix: --ignore-scripts suppresses the
+    # script that places the native binary, so the step must run the pinned
+    # package's own installer explicitly.
+    assert "install.cjs" in install["run"]
+    # Ordered before the label step, or the output resolves empty and the
+    # action silently falls back to its own broken installer.
+    assert steps.index(install) < steps.index(label)
+    # The secret-free property the step's comment claims.
+    assert "secrets." not in str(install.get("env") or {})
+    # One CLI pin across every workflow that installs it, as the comments ask.
+    pins = set()
+    for name in ("run-analytics.yml", "run-backtest.yml", "integration-test.yml"):
+        text = (WORKFLOWS / name).read_text()
+        pins.update(re.findall(r"@anthropic-ai/claude-code@([0-9][\w.\-]*)", text))
+    assert len(pins) == 1, f"claude-code CLI pins diverge across workflows: {sorted(pins)}"
     upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript")
     assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
     assert upload["with"]["retention-days"] == 1
