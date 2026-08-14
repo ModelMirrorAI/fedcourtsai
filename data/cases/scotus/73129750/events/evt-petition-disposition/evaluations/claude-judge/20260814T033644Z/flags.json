@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73129750",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "A decided case was provisioned forward: every candidate's retrieval_log.json records mode=forward, but the event resolved 2025-12-05 and the predict run is 2026-07-14, and all three candidates report that the provisioned snapshot (2026-07-14.json, no longer in the record tree; the current snapshot is 2026-08-03.json) contained the Dec 5 2025 grant plus later argument and merits entries. Every prediction in this fan-out therefore knew the outcome from its guaranteed-common input, and the cell carries no forward forecasting signal.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage graded influenced_prediction=likely for codex-baseline, claude-baseline, and gemini-baseline (leakage_suspected=true on all three evaluations). The outcome material arrived via the mis-provisioned snapshot, not retrieval; all three candidates disclosed it. claude-baseline set p=0.99 explicitly because the snapshot states the disposition; gemini-baseline reported p=0.99 as 'certain'; codex-baseline offered a counterfactual p=0.88 but formed it knowing the outcome. Recommend segmenting all three cells out of iteration signal. Also: gemini-baseline's staged retrieval_log.json is heavily degraded (nearly every call row has null query/params_digest/result_digest and most lack timestamps, only tool classes survive), so its leakage grading rests on its prose and retrieval.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

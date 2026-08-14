@@ -1,0 +1,41 @@
+{
+  "base_rate_basis": "terminal",
+  "base_rate_salience_version": "sal-v2",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Notable Excessive Fines civil forfeiture case attracting high-profile amici, challenging the level of abstraction for evaluating offense gravity. High stakes for forfeiture doctrine, though facts are somewhat idiosyncratic."
+  },
+  "brier_score": 0.5041,
+  "brier_skill_score": -0.1905,
+  "case_id": "scotus/73275187",
+  "claim_scores": null,
+  "correct": 0,
+  "created_at": "2026-08-14T03:36:44Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Cell was genuinely open when prediction was made.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:86e7df61bc9224e44f54d9fbb840979fae575d2e6832dac198a0bc15841c6a33",
+    "label": "proc-v2",
+    "pipeline_sha": "928a4cb421388319bb159d5e223f41a9521cb3e8",
+    "stamped_at": "2026-08-14T03:47:47.385518Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3493,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

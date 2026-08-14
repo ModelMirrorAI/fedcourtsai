@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73129750",
+  "gaps": [
+    "the predictors' input snapshot (2026-07-14.json) is no longer in the record tree, so the mis-provisioning could only be corroborated from outcome.json dates and the candidates' concurring prose, not inspected directly",
+    "gemini-baseline's staged retrieval_log.json carries almost no per-call detail (null queries/digests), limiting what the leakage grading can rest on"
+  ],
+  "helpful": [
+    "statpack band table's bracketed-vs-leading figure note, which made the terminal fallback unambiguous",
+    "candidates' own retrieval.md disclosures, which compensated for one degraded harness log"
+  ],
+  "notes": "Cert cell with no frozen context on any candidate: terminal-band fallback used for all three, so the skill scores share one basis.",
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "committed statpack (metrics/statpack.md)",
+    "blinded staging area (record/blinded/)",
+    "pipeline scoring source (src/fedcourtsai/pipeline/evaluate.py) to match definitions"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

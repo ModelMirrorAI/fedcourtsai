@@ -1,0 +1,39 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73275185",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Decided case provisioned forward: all three candidates' retrieval logs say mode=forward, but their provisioned snapshot (2026-07-17.json) already contained the May 11 2026 disposing order. All three disclosed it. Every prediction on this cell is contaminated as forward-skill signal; each was graded leakage influenced_prediction=likely.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Possible outcome label discrepancy: outcome.json records actual_disposition='granted' (disposition_basis='standard'), but the docket's May 11 2026 order reads 'Petition for writ of certiorari before judgment GRANTED. Judgment ... VACATED and case REMANDED' - GVR text. All three candidates predicted 'gvr', so correct=0 for the whole cohort turns entirely on this label. Worth checking the outcome writer's disposition parse; I scored against outcome.json as recorded.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely for gemini-baseline: read the mis-provisioned snapshot containing the disposition, admits knowing the outcome, verified the companion Louisiana v. Callais decision via live CourtListener search, and predicted the leaked disposition (gvr). Disclosure was honest and it filed its own data-quality flag.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely for claude-baseline: read the mis-provisioned snapshot containing the disposition and admits knowing the outcome; firewalled the terminal entries and made no external retrieval on the case, but predicted the leaked disposition (gvr) at the cohort's highest confidence (0.78), so non-use is not demonstrable.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Leakage likely for codex-baseline: read the mis-provisioned snapshot containing the disposition and admits knowing the outcome; excluded the terminal entries and made no external retrieval on the case, but predicted the leaked disposition (gvr, 0.74), so non-use is not demonstrable.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

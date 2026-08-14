@@ -1,0 +1,464 @@
+{
+  "actor_id": "gemini-judge",
+  "calls": [
+    {
+      "params_digest": "4dbd517d1638244a",
+      "query": "{\"strategic_intent\": \"Read the evaluate prompt and agents documentation to understand the task requirements.\", \"title\": \"Reading Prompt and Agent Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:37.376Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4f333312b1459284",
+      "query": "{\"file_path\": \".github/prompts/evaluate.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:39.481Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:39.482Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8cd591d8d2aed994",
+      "query": "{\"dir_path\": \"data/cases/scotus/73129750/record/blinded/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:43.590Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "6fa40af53b4d8b2f",
+      "query": "{\"pattern\": \"data/cases/scotus/73129750/record/blinded/*\", \"respect_git_ignore\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:46.107Z",
+      "tool": "glob"
+    },
+    {
+      "params_digest": "376763802446b0ad",
+      "query": "{\"dir_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:48.774Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "74ce49b8d72ec259",
+      "query": "ls -la data/cases/scotus/73129750/record/blinded/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:51.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2ec989c87a31478f",
+      "query": "{\"strategic_intent\": \"Read the event and outcome context, along with metrics, to establish truth and baselines.\", \"title\": \"Read Event Context and Baselines\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:55.454Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ca0246254d74e2ec",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition/outcome.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:55.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b2b7b3be32ddbd75",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:55.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2849ea9716a691bf",
+      "query": "grep -A 20 \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:42:55.464Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fe9eff74ae2a26b",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/record/blinded/codex-baseline/prediction.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:01.641Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f4cafc4c3eea932f",
+      "query": "{\"strategic_intent\": \"Read codex-baseline's prediction and reasoning to evaluate its performance and check for leakage.\", \"title\": \"Evaluate Candidate A\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:01.641Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a6f4faa11422c26f",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/record/blinded/codex-baseline/retrieval_log.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:01.642Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0892167358204bb0",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/record/blinded/codex-baseline/predicted_reasoning.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:01.642Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2860ae35ee7389ae",
+      "query": "{\"file_path\": \"data/cases/scotus/73129750/record/blinded/codex-baseline/reasoning.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:01.642Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d65034ab33fc6d28",
+      "query": "cat data/cases/scotus/73129750/record/blinded/codex-baseline/prediction.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:05.431Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2fdc60503343484b",
+      "query": "cat data/cases/scotus/73129750/record/blinded/codex-baseline/predicted_reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:05.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7d0b2a5d82a33268",
+      "query": "cat data/cases/scotus/73129750/record/blinded/codex-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:05.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9d80c581323dc89",
+      "query": "cat data/cases/scotus/73129750/record/blinded/codex-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:05.433Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8ee8414d9224d891",
+      "query": "{\"strategic_intent\": \"Read claude-baseline and gemini-baseline predictions to evaluate them and check if they have context blocks.\", \"title\": \"Evaluate Candidate B and C\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:16.848Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "2df3f8cc319836d1",
+      "query": "cat data/cases/scotus/73129750/record/blinded/claude-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:16.866Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7c619c1b75adfac1",
+      "query": "cat data/cases/scotus/73129750/record/blinded/claude-baseline/prediction.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:16.866Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8c01d62c278bbd2",
+      "query": "cat data/cases/scotus/73129750/record/blinded/claude-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:16.867Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d5107f803ac0f617",
+      "query": "cat data/cases/scotus/73129750/record/blinded/claude-baseline/predicted_reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:16.867Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3fd38d0740c3723",
+      "query": "cat data/cases/scotus/73129750/record/blinded/gemini-baseline/prediction.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:20.661Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "74bddb93e64a53f4",
+      "query": "cat data/cases/scotus/73129750/record/blinded/gemini-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:20.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "892c2bb2b17dc492",
+      "query": "cat data/cases/scotus/73129750/record/blinded/gemini-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:20.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "28ff5a39fe6251d7",
+      "query": "jq -r '.properties.leakage' schemas/evaluation.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:30.859Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ad83ca3a7fd2b82d",
+      "query": "jq -r '.\"$defs\".LeakageAssessment' schemas/evaluation.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:33.419Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0bfec01f673fdcde",
+      "query": "{\"strategic_intent\": \"Generate evaluation files for Candidate A, including leakage notes and scoring.\", \"title\": \"Generate Evaluation for Candidate A\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:39.217Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8da4c81246c0cf5e",
+      "query": "mkdir -p data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/codex-baseline/20260814T033644Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:39.233Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2013defbb5539aca",
+      "query": "mkdir -p data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260814T033644Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:39.234Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "699de99b82e58bbf",
+      "query": "mkdir -p data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/claude-baseline/20260814T033644Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:39.234Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "44418020d17e3ab8",
+      "query": "mkdir -p data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:42.887Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9642174dc58b5937",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T03:36:44Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0144,\\n  \\\"segment_base_rate\\\": 0.70625,\\n  \\\"brier_skill_score\\\": 0.833119,\\n  \\\"base_rate_basis\\\": \\\"terminal\\\",\\n  \\\"reasoning_qu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:52.603Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "efad9b17fb28a89a",
+      "query": "{\"content\": \"# Evaluation of Candidate A\\n\\n**Reasoning Quality**: 0.9\\nCandidate A provides a strong legal analysis of the case. It correctly identifies the core issue (birthright citizenship under the Fourteenth Amendment and 8 U.S.C. \\u00a7 1401(a)), the procedural posture (cert before judgment), and the standard for review. It notes the Solicitor General as petitioner, the nationwide injunction, and the companion case, accurately concluding that review is highly likely despite the lack of a ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:43:52.606Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "dc97bd925218e0d2",
+      "query": "{\"strategic_intent\": \"Generate evaluation files for Candidate B and Candidate C.\", \"title\": \"Generate Evaluation for B and C\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:02.520Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "0f51a341e1ab46eb",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T03:36:44Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0001,\\n  \\\"segment_base_rate\\\": 0.70625,\\n  \\\"brier_skill_score\\\": 0.998841,\\n  \\\"base_rate_basis\\\": \\\"terminal\\\",\\n  \\\"reasoning_qu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:02.523Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2998f40e34b6eb53",
+      "query": "{\"content\": \"# Evaluation of Candidate B\\n\\n**Reasoning Quality**: 0.8\\nCandidate B provides a solid legal analysis of the case. It identifies the issue, the procedural posture, and correctly characterizes the likelihood of a grant given the Solicitor General's involvement and the imperative public importance of the case. The candidate explicitly mentions that the true outcome was visible in the snapshot, so it admits the lack of uncertainty heavily anchoring the probability to 0.99.\\n\\n**Data Q",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:02.525Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "db3479306111ab94",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-14T03:36:44Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0001,\\n  \\\"segment_base_rate\\\": 0.70625,\\n  \\\"brier_skill_score\\\": 0.998841,\\n  \\\"base_rate_basis\\\": \\\"terminal\\\",\\n  \\\"reasoning_qu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:02.527Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "126a32d84c561cf2",
+      "query": "{\"content\": \"# Evaluation of Candidate C\\n\\n**Reasoning Quality**: 0.8\\nCandidate C provides an appropriate assessment of the case given its salience. The candidate correctly recognizes that the presence of the Solicitor General petitioning to defend a major Executive Order that was enjoined practically guarantees Supreme Court review. The reasoning is sound.\\n\\n**Data Quality / Baselines**: \\nThe prediction was missing a `context` block with a frozen band. I fell back to the `federal` salience ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:02.530Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cae84a14daf6c9f0",
+      "query": "{\"strategic_intent\": \"Generate cell-level files: tooling.json, flags.json, and retrieval.md.\", \"title\": \"Generate Cell-Level Evaluation Files\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:10.797Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4c77509dab75e8ce",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"gemini-judge\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"A decided case was provisioned forward. The provisioned snapshot (2026-07-14.json) already contained the event's resolution (Dec 5 2025).\\\"\\n    },\\n    {\\n      \\\"category\\\": \\\"d",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:10.800Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d8b4d6e0502b4178",
+      "query": "{\"content\": \"# Retrieval log\\n\\nNo retrieval beyond the provisioned inputs and committed repo files. Consulted `metrics/statpack.md` for base rates and the provisioned `event.yaml` and `outcome.json`.\", \"file_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:10.802Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5cc6a63d0a5874b1",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"gemini-judge\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"shell\\\",\\n    \\\"file-read\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\"\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:10.804Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:26.620Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8b0df02cb5403844",
+      "query": "jq -r '.' schemas/agent_flags.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:32.749Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bbf3d367c7714307",
+      "query": "cat data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/flags.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:36.149Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fe525c785d509bfc",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"gemini-judge\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"A decided case was provisioned forward. The provisioned snapshot (2026-07-14.json) already contained the event's resolution (Dec 5 2025).\\\"\\n    },",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:40.240Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d958767d480b8511",
+      "query": "jq -r '.' schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:44.580Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5b361abd7a85f5e0",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73129750\\\",\\n  \\\"run_id\\\": \\\"20260814T033644Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"gemini-judge\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"shell\\\",\\n    \\\"file-read\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\"\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73129750/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:44:47.851Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:03.786Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9f4563b49f0403a9",
+      "query": "{\"strategic_intent\": \"Complete the evaluation and ensure all deliverables align with prompt constraints.\", \"title\": \"Finalize and Complete\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:07.851Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73129750",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

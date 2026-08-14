@@ -1,0 +1,336 @@
+{
+  "actor_id": "gemini-judge",
+  "calls": [
+    {
+      "params_digest": "b5bfa59b58a34652",
+      "query": "{\"strategic_intent\": \"Read the prompt instructions and evaluate the predictions for the specified cell.\", \"summary\": \"Starting by reading the `.github/prompts/evaluate.md` and `AGENTS.md` files to understand the evaluation process and paths.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:06.762Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:08.960Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4f333312b1459284",
+      "query": "{\"file_path\": \".github/prompts/evaluate.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:08.960Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c21de63e43d70494",
+      "query": "ls -la data/cases/scotus/73275187/events/evt-petition-disposition/record/blinded/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:13.795Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "67bb3ffe09f36b08",
+      "query": "{\"file_path\": \"data/cases/scotus/73275187/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:13.796Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "478328ea0b6a0bdf",
+      "query": "{\"file_path\": \"data/cases/scotus/73275187/events/evt-petition-disposition/outcome.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:13.797Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "80ea0b03631bc611",
+      "query": "ls -la data/cases/scotus/73275187/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:17.188Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "25e8bd01c17ec2a7",
+      "query": "ls -la data/cases/scotus/73275187/record/blinded/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:21.346Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "491c9f247eabb334",
+      "query": "{\"strategic_intent\": \"Retrieve the predictions for each candidate and the base rates from the statpack.\", \"summary\": \"I have identified the event stage as `cert` and the actual outcome as `granted`. I have found three candidate aliases: `gemini-baseline`, `codex-baseline`, and `claude-baseline`. Now, I will read each candidate's prediction and the base rates from `metrics/statpack.md`.\", \"title\": \"Reading Predictions and Statpack\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:27.234Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "963baf364d8762ea",
+      "query": "cat data/cases/scotus/73275187/record/blinded/gemini-baseline/prediction.json data/cases/scotus/73275187/record/blinded/codex-baseline/prediction.json data/cases/scotus/73275187/record/blinded/claude-baseline/prediction.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:27.245Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:27.245Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fb755f0d79471373",
+      "query": "ls -la data/cases/scotus/73275187/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:32.093Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e018629d60b01bb",
+      "query": "cat data/cases/scotus/73275187/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:34.756Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e77a5f831f4a6c61",
+      "query": "python3 -c \"\ndata = [\n    (114, 0.404),\n    (105, 0.352),\n    (106, 0.377),\n    (137, 0.314),\n    (106, 0.340),\n    (100, 0.250),\n    (101, 0.347),\n    (130, 0.400)\n]\ntotal_n = sum(n for n, p in data)\ntotal_g = sum(round(n * p) for n, p in data)\nprint(f'Total n: {total_n}, Total g: {total_g}, Pooled rate: {total_g / total_n}')\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:44.088Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf0b328faf20f591",
+      "query": "cat data/cases/scotus/73275187/record/blinded/gemini-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:47.322Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e463f30383d04a96",
+      "query": "cat data/cases/scotus/73275187/record/blinded/gemini-baseline/predicted_reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:47.323Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aad9b8775e7ae3a0",
+      "query": "cat data/cases/scotus/73275187/record/blinded/gemini-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:51.671Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "74ed3f20b27f5b47",
+      "query": "python3 -c \"\np = 0.15\nactual = 1\nbrier = (p - actual)**2\nbase = 0.3492769744160178\nskill = 1 - (brier / (base - actual)**2)\nprint(f'Brier: {brier}, Skill: {skill}')\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:57.000Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b6024cb6e0dd9ca2",
+      "query": "cat data/cases/scotus/73275187/record/blinded/claude-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:59.726Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd0c840974009b42",
+      "query": "cat data/cases/scotus/73275187/record/blinded/codex-baseline/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:45:59.726Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5a38ab8ebc6b73e7",
+      "query": "cat data/cases/scotus/73275187/record/blinded/claude-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:05.700Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e458ee88c7799cb",
+      "query": "cat data/cases/scotus/73275187/record/blinded/codex-baseline/retrieval_log.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:05.700Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "359e043213dd2d1d",
+      "query": "cat schemas/evaluation.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:10.731Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "488fcf04a8b3d722",
+      "query": "mkdir -p data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260814T033644Z/\nmkdir -p data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/codex-baseline/20260814T033644Z/\nmkdir -p data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/claude-baseline/20260814T033644Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:19.614Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ef151a021a93d5a",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/tooling.json\n{\n  \"case_id\": \"scotus/73275187\",\n  \"run_id\": \"20260814T033644Z\",\n  \"role\": \"evaluator\",\n  \"actor_id\": \"gemini-judge\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\"cat\", \"python\", \"read_file\", \"run_shell_command\"],\n  \"helpful\": [\"read_file\", \"run_shell_command\"],\n  \"notes\": \"Used python to accurately compute the pooled base rate.\"\n}\nEOF",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:23.276Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5f2f26db582bf416",
+      "query": "mkdir -p data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:26.112Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ef151a021a93d5a",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/tooling.json\n{\n  \"case_id\": \"scotus/73275187\",\n  \"run_id\": \"20260814T033644Z\",\n  \"role\": \"evaluator\",\n  \"actor_id\": \"gemini-judge\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\"cat\", \"python\", \"read_file\", \"run_shell_command\"],\n  \"helpful\": [\"read_file\", \"run_shell_command\"],\n  \"notes\": \"Used python to accurately compute the pooled base rate.\"\n}\nEOF",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:29.655Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ffbcb31780ff62b2",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/20260814T033644Z/retrieval.md\nNo retrieval beyond the provisioned inputs.\nEOF",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:32.385Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0d9429e0a57eefac",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260814T033644Z/evaluation.json\n{\n  \"case_id\": \"scotus/73275187\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"evaluator_id\": \"gemini-judge\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260814T033644Z\",\n  \"created_at\": \"2026-08-14T03:36:44Z\",\n  \"correct\": 0,\n  \"brier_score\": 0.7225,\n  \"vote_accuracy\": null,\n  \"segment_base_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:37.509Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2160e53284bfdcd2",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260814T033644Z/evaluation.md\nThe prediction incorrectly forecasted a denial with a probability of 0.15, whereas the actual outcome was a grant. \n\nThe predictor accurately identified the strong initial signals (Call for Response, amicus support) and correctly diagnosed the six-month hold as being related to the pending *Pung v. Isabella County* case. The predictor effectively reasoned ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:41.832Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "468d65d54d26f7e7",
+      "query": "python3 -c \"\nwith open('data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260814T033644Z/evaluation.md', 'w') as f:\n    f.write('''The prediction incorrectly forecasted a denial with a probability of 0.15, whereas the actual outcome was a grant. \n\nThe predictor accurately identified the strong initial signals (Call for Response, amicus support) and correctly diagnosed the six-month hold as being related to the pending *Pung v. Isabella County* case",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:46.084Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bfd3d437d2ee8576",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/codex-baseline/20260814T033644Z/evaluation.json\n{\n  \"case_id\": \"scotus/73275187\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"codex-baseline\",\n  \"evaluator_id\": \"gemini-judge\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260814T033644Z\",\n  \"created_at\": \"2026-08-14T03:36:44Z\",\n  \"correct\": 0,\n  \"brier_score\": 0.5041,\n  \"vote_accuracy\": null,\n  \"segment_base_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:50.976Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1f726fbc159e246e",
+      "query": "python3 -c \"\nwith open('data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/codex-baseline/20260814T033644Z/evaluation.md', 'w') as f:\n    f.write('''The prediction incorrectly forecasted a denial with a probability of 0.29, whereas the actual outcome was a grant. \n\nThe predictor conducted a very thorough analysis of the procedural history, identifying the exact timing of the hold and its relation to the Pung decision. It correctly deduced that Pung did not announce ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:46:55.642Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e496cc3915e6184d",
+      "query": "cat << 'EOF' > data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/claude-baseline/20260814T033644Z/evaluation.json\n{\n  \"case_id\": \"scotus/73275187\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"evaluator_id\": \"gemini-judge\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260814T033644Z\",\n  \"created_at\": \"2026-08-14T03:36:44Z\",\n  \"correct\": 0,\n  \"brier_score\": 0.4225,\n  \"vote_accuracy\": null,\n  \"segment_base_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:47:00.157Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb00b429aa7d85c0",
+      "query": "python3 -c \"\nwith open('data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge/claude-baseline/20260814T033644Z/evaluation.md', 'w') as f:\n    f.write('''The prediction incorrectly forecasted a denial with a probability of 0.35, whereas the actual outcome was a grant. \n\nThe predictor provided an excellent, highly nuanced analysis. It accurately identified the extreme selection of this petition, noting the CFR, three quality amici, elite counsel, the hold for the related ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:47:04.641Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:47:25.666Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c94e40c716e7e327",
+      "query": "find data/cases/scotus/73275187/events/evt-petition-disposition/evaluations/gemini-judge -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:47:34.245Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "04dfafbf9631ef19",
+      "query": "{\"strategic_intent\": \"Conclude the evaluation run.\", \"summary\": \"I have successfully evaluated candidates A, B, and C against the actual event outcome for scotus/73275187 (evt-petition-disposition). The cell was in forward mode with no leakage observed. Since the predictions lacked a `context.band`, the base rate was derived from the terminal band (high). I wrote the evaluation files (`evaluation.json` and `evaluation.md`) for each candidate, as well as the evaluator tooling and retrieval logs, ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:47:40.966Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73275187",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

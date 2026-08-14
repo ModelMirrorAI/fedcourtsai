@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73129750",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "All three blinded predictions were logged as forward even though their provisioned July 14, 2026 snapshots contained this case's December 5, 2025 resolution. Each alias disclosed the outcome, and under the evaluation rubric it likely influenced codex-baseline, claude-baseline, and gemini-baseline. Treat these forecast scores as contaminated forward cells.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate-c's captured retrieval log retained mode and tool classes but had null query slices, timestamps, and document dates despite its retrieval note reporting CourtListener searches. The candidate's candid rationale still made the leakage grade possible, but the log alone was not independently auditable.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

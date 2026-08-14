@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73129750",
+  "gaps": [
+    "Complete query slices and timestamps in gemini-baseline's retrieval log"
+  ],
+  "helpful": [
+    "blinded candidate staging",
+    "captured predictor retrieval logs",
+    "salience-band Term table"
+  ],
+  "notes": "The statpack supported the required terminal-band fallback. Candidate-c's log retained mode and tool classes but not query details, so its candid rationale supplied the decisive leakage evidence.",
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local blinded-input reads",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
