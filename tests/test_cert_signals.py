@@ -307,3 +307,58 @@ def test_compound_moot_motion_denial_is_not_a_mootness_basis() -> None:
         "The motion of petitioner to expedite consideration is denied as "
         "moot, and the petition for a writ of certiorari is denied."
     )
+
+
+def test_cbj_grant_with_a_named_lower_court_reads_as_gvr() -> None:
+    # The prose GVR: the cert-before-judgment grant names the lower court
+    # between "granted" and "vacated", so the gap-bounded GVR rows miss it and
+    # the grant row wins — the tail upgrade must re-label it. This is the
+    # scotus/73275185 order shape (May 11, 2026).
+    text = (
+        "The petition for a writ of certiorari before judgment is granted. The "
+        "judgment of the United States District Court for the Northern District "
+        "of Alabama is vacated, and the case is remanded to that court for "
+        "further consideration in light of Louisiana v. Callais."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.gvr
+    assert matched[1] == "GVR"
+
+
+def test_cbj_grant_without_a_vacatur_stays_granted() -> None:
+    text = "The petition for a writ of certiorari before judgment is granted."
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
+def test_a_recited_vacatur_does_not_upgrade_a_grant() -> None:
+    # The party paper beside the grant recites a vacatur but orders nothing;
+    # the tail carries the same non-order-sentence discipline as the main scan.
+    # The recital sits beyond the gap-bounded GVR rows' reach (a directly
+    # adjacent recital is matched by the pre-existing grant..vacate..remand row
+    # across the sentence boundary — a precision bound this change leaves as
+    # it found it), so what this pins is the upgrade's own guard.
+    text = (
+        "Petition GRANTED. The Chief Justice took no part in the consideration "
+        "or decision of this petition. Brief of respondent suggesting that the "
+        "judgment be vacated and the case remanded filed."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
+def test_the_gvr_upgrade_never_invents_a_disposition() -> None:
+    # A tail with no disposition signal anywhere stays a miss: the upgrade
+    # only re-labels an entry some grant row already matched.
+    text = "We note the judgment was vacated and the case remanded previously."
+
+    assert match_disposition_signal(text) is None

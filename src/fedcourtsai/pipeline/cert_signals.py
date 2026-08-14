@@ -116,6 +116,19 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
     (re.compile(r"\bcertiorari granted\b", re.IGNORECASE), Disposition.granted, "cert granted"),
 )
 
+# The GVR upgrade's tail: a judgment vacated and remanded somewhere in the same
+# entry as a grant. Wider gaps than the GVR rows above (120 vs 60/80), because
+# this never *creates* a disposition — it only re-labels an entry some grant
+# row already matched — so the precision the table's docstring demands is
+# carried by the grant match, and the tail can afford the recall to reach past
+# a named lower court ("The judgment of the United States District Court for
+# the Northern District of Alabama is vacated, and the case is remanded ...").
+# The non-order-sentence guard still applies at the use site, so a grant order
+# beside a party paper *reciting* a vacatur stays a plain grant.
+_GVR_TAIL_RE = re.compile(
+    r"\bjudgment\b.{0,120}?\bvacated\b.{0,120}?\bremand\w*", re.IGNORECASE | re.DOTALL
+)
+
 # How much text around a matched signal to surface as evidence.
 _SNIPPET_PAD = 40
 
@@ -237,8 +250,33 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
             start = max(0, match.start() - _SNIPPET_PAD)
             end = min(len(text), match.end() + _SNIPPET_PAD)
             snippet = " ".join(text[start:end].split())
+            if disposition is Disposition.granted and _gvr_tail(text):
+                # A grant whose entry also vacates and remands the judgment is
+                # a GVR wearing prose: the CBJ form names the lower court
+                # between "granted" and "vacated", so the gap-bounded GVR rows
+                # above miss it and the grant row wins. Upgrading here rather
+                # than widening those gaps keeps the table's precision — the
+                # upgrade can never invent a disposition where none matched.
+                return Disposition.gvr, "GVR", snippet
             return disposition, label, snippet
     return None
+
+
+def _gvr_tail(text: str) -> bool:
+    """Whether an *order* sentence in ``text`` vacates and remands the judgment.
+
+    The same sentence discipline as the main scan: a party paper suggesting a
+    vacatur ("Brief of respondent suggesting that the judgment be vacated and
+    the case remanded filed.") is a recital, not an order, and must not turn
+    the grant beside it into a GVR.
+    """
+    position = 0
+    while (match := _GVR_TAIL_RE.search(text, position)) is not None:
+        if _is_non_order_sentence(_containing_sentence(text, match.start())):
+            position = match.end()
+            continue
+        return True
+    return False
 
 
 # The two docket-progress signals the salience score reads. Defined here, beside
