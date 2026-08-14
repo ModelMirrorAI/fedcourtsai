@@ -230,9 +230,7 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert "scan-diff-for-secrets" in scan["run"]
     assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
     assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]  # the reachable credential
-    upload = next(
-        s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript"
-    )
+    upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript")
     assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
     assert upload["with"]["retention-days"] == 1
     assert "!cancelled()" in upload["if"]
