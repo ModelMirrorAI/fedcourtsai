@@ -1,12 +1,12 @@
 {
-  "base_rate_basis": "risk_set",
+  "base_rate_basis": null,
   "base_rate_salience_version": null,
   "big_case": {
     "evaluator_score": 0.9,
     "notes": "Sequel to Allen v. Milligan. Concerns the constitutionality of Section 2 of the VRA as applied in congressional redistricting. Highly significant for minority representation and election law."
   },
   "brier_score": 0.1225,
-  "brier_skill_score": 0.7050852952723498,
+  "brier_skill_score": null,
   "case_id": "scotus/73275185",
   "claim_scores": null,
   "correct": 0,
@@ -35,7 +35,7 @@
   "reasoning_quality": 0.85,
   "run_id": "20260814T033644Z",
   "schema_version": "1.0",
-  "segment_base_rate": 0.3555045871559633,
+  "segment_base_rate": null,
   "semantic_grades": null,
   "vote_accuracy": null
 }
