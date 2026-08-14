@@ -8,7 +8,11 @@ no-match fixtures are the pending-shaped near-misses a broadened pattern must
 never read as a disposition.
 """
 
+from datetime import date
+
+from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import match_disposition_signal, mootness_disposition
+from fedcourtsai.pipeline.ingest import _live_resolution
 from fedcourtsai.schemas import Disposition
 
 # --- dispositions the resolver must read -----------------------------------------
@@ -307,3 +311,165 @@ def test_compound_moot_motion_denial_is_not_a_mootness_basis() -> None:
         "The motion of petitioner to expedite consideration is denied as "
         "moot, and the petition for a writ of certiorari is denied."
     )
+
+
+def test_cbj_grant_with_a_named_lower_court_reads_as_gvr() -> None:
+    # The prose GVR: the cert-before-judgment grant names the lower court
+    # between "granted" and "vacated", so the gap-bounded GVR rows miss it and
+    # the grant row wins — the tail upgrade must re-label it. This is the
+    # scotus/73275185 order shape (May 11, 2026).
+    text = (
+        "The petition for a writ of certiorari before judgment is granted. The "
+        "judgment of the United States District Court for the Northern District "
+        "of Alabama is vacated, and the case is remanded to that court for "
+        "further consideration in light of Louisiana v. Callais."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.gvr
+    assert matched[1] == "GVR"
+
+
+def test_cbj_grant_without_a_vacatur_stays_granted() -> None:
+    text = "The petition for a writ of certiorari before judgment is granted."
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+    assert matched[1] == "cert granted before judgment"  # the upgrade never clobbers the label
+
+
+def test_a_recited_vacatur_does_not_upgrade_a_grant() -> None:
+    # The party paper beside the grant recites a vacatur but orders nothing;
+    # the tail carries the same non-order-sentence discipline as the main scan.
+    # The recital sits beyond the gap-bounded GVR rows' reach (a directly
+    # adjacent recital is matched by the pre-existing grant..vacate..remand row
+    # across the sentence boundary — a precision bound this change leaves as
+    # it found it), so what this pins is the upgrade's own guard.
+    text = (
+        "Petition GRANTED. The Chief Justice took no part in the consideration "
+        "or decision of this petition. Brief of respondent suggesting that the "
+        "judgment be vacated and the case remanded filed."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
+def test_the_gvr_upgrade_never_invents_a_disposition() -> None:
+    # A tail with no disposition signal anywhere stays a miss: the upgrade
+    # only re-labels an entry some grant row already matched.
+    text = "We note the judgment was vacated and the case remanded previously."
+
+    assert match_disposition_signal(text) is None
+
+
+def test_the_upgrade_only_ever_touches_a_grant() -> None:
+    # The `is Disposition.granted` gate is the only thing keeping a denial
+    # beside an order-shaped vacatur a denial.
+    text = "Petition DENIED. The judgment of the Court of Appeals is vacated and the case remanded."
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.denied
+
+
+def test_a_suggested_vacatur_does_not_upgrade_a_grant() -> None:
+    # Order voice is required: a suggestion that the judgment *be* or *should
+    # be* vacated is not an order, whatever sentence carries it.
+    text = (
+        "The petition for a writ of certiorari is granted. The Solicitor "
+        "General suggests that the judgment below should be vacated and the "
+        "case remanded for reconsideration."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
+def test_a_narrative_vacatur_does_not_upgrade_a_grant() -> None:
+    # Subject anchoring plus order voice: a sentence recounting a past vacatur
+    # in a companion proceeding is narration, not this entry's order.
+    text = (
+        "Petition for a writ of certiorari granted limited to Question 1 "
+        "presented by the petition. Justice Alito took no part. The judgment "
+        "entered below in the companion proceeding was vacated and remanded "
+        "last Term."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
+def test_a_prose_munsingwear_reads_gvr_with_the_mootness_basis() -> None:
+    # The upgrade and the basis read the same vacatur sentence, so the pair is
+    # `gvr` + mootness (the procedural stratum), never a merits GVR.
+    text = (
+        "The petition for a writ of certiorari before judgment is granted. "
+        "The judgment of the United States Court of Appeals for the Ninth "
+        "Circuit is vacated, and the case is remanded with instructions to "
+        "dismiss the case as moot."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.gvr
+    assert mootness_disposition(text) is True
+
+
+def test_a_merits_gvr_keeps_the_standard_basis() -> None:
+    # The real scotus/73275185 shape: a GVR for reconsideration, no mootness.
+    text = (
+        "The petition for a writ of certiorari before judgment is granted. The "
+        "judgment of the United States District Court for the Northern District "
+        "of Alabama is vacated, and the case is remanded to that court for "
+        "further consideration in light of Louisiana v. Callais."
+    )
+
+    assert mootness_disposition(text) is False
+
+
+def test_a_prose_cbj_gvr_resolves_gvr_and_opens_no_merits_proceeding() -> None:
+    # The seam the fix serves: ingest's resolution reads the prose CBJ-GVR
+    # entry as a gvr grant (dating date_cert_granted), and the gvr label keeps
+    # the row out of the merits population — no wasted merits cell.
+    entries = [
+        {
+            "description": "Petition for a writ of certiorari before judgment filed.",
+            "date_filed": "2026-01-15",
+        },
+        {
+            "description": (
+                "The petition for a writ of certiorari before judgment is granted. "
+                "The judgment of the United States District Court for the Northern "
+                "District of Alabama is vacated, and the case is remanded to that "
+                "court for further consideration in light of Louisiana v. Callais."
+            ),
+            "date_filed": "2026-05-11",
+        },
+    ]
+
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+
+    assert disposition == "gvr"
+    assert cert_granted == date(2026, 5, 11)
+    assert cert_denied is None and terminated is None
+    row = corpus.CorpusRow(
+        case_id="scotus/73275185",
+        court="scotus",
+        docket_number="24A1007",
+        disposition=disposition,
+        date_cert_granted=cert_granted,
+    )
+    assert corpus.opens_merits_proceeding(row) is False

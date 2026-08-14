@@ -315,8 +315,8 @@ Three consequences bind every use of the set:
   `data/qp-topics/` **path** rather than the reference set by name, and why that
   path prohibition is what has to hold as artifacts are added under it.
 
-  **One non-committed channel is in scope too, because the boundary is about
-  disclosure and not about git.** The labeling run's extract (`fedcourts
+  **One non-committed channel — carrying two artifacts — is in scope too,
+  because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts
   qp-corpus`) is both things no committed surface carries — the stored petition
   text and the full enumeration of the QP-bearing ingested population — and the
   run mode passes it between its two jobs as a GitHub Actions artifact. This
@@ -330,12 +330,30 @@ Three consequences bind every use of the set:
   `docs/data-sources.md` applies to CourtListener's own content and that keeps
   the rest of the corpus access-gated. It is *not* accepted as a general route
   for corpus content into Actions artifacts, and it is the reason the extract
-  command refuses to write anywhere inside the checkout: the run artifact is the
-  one sanctioned copy, and it is meant to be short-lived. Encrypting it under a
+  command refuses to write anywhere inside the checkout: the run artifacts are the
+  sanctioned copies, and they are meant to be short-lived. Encrypting it under a
   run-scoped key, or collapsing the two jobs behind step-scoped credentials so
   the extract never leaves the runner, would close the channel outright; both
   cost more than the exposure is currently judged to be worth, and that judgment
   is the thing to revisit if the extract ever carries more than this.
+
+  The labeler's **turn-by-turn transcript** (`qp-label-transcript`) rides the
+  same channel under the same terms, because it is the same bytes one step
+  later: the agent reads the extract, so its transcript necessarily embeds the
+  QP text, and what it adds is the agent's own turns — the kickoff prompt, its
+  reasoning, and every tool call's input and output, which is exactly why the
+  scan below exists. It exists
+  because a run that reports success while writing no labels is undiagnosable
+  from the summary block alone, and each re-run costs real model spend — so
+  the transcript is uploaded on every path the action survives (a
+  gate-refusing run is as diagnostic as a no-output one; a hard step-timeout
+  kill leaves no file to capture), only after a secret scan over the
+  transcript passes (a hit withholds the artifact and says so — the collect
+  job's withhold-and-continue posture, minus its trigger-issue report, since a
+  dispatch mode has none), and under the same one-day retention as the
+  extract, for the
+  reasons argued above rather than a second, looser rule for the same
+  disclosure class.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
