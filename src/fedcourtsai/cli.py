@@ -4372,14 +4372,16 @@ def materialize_event(
     under the corpus-split mode, it reads the per-case content store by default.
     Exits non-zero if the corpus holds no such event for the case.
 
-    An event.yaml already committed at the ledger path is **never rewritten**:
-    the committed file is the reviewed record, data PRs are additive-only (the
-    path jail rejects any modification), and the corpus row moves — a field
-    populated after the file was committed would otherwise ride into every
-    later cell's run PR as a jailed modification. When the corpus projection
-    differs from the committed file the drift is warned, field by field, and a
-    deliberate backfill belongs in a one-time migration, not a cell command.
-    ``--out`` still writes wherever it points, unconditionally.
+    An event.yaml already present at the ledger path is **never rewritten**:
+    the committed record stands, data PRs are additive-only (the path jail
+    rejects any modification), and the corpus row moves — a field populated
+    after the file was committed would otherwise ride into every later cell's
+    run PR as a jailed modification. When the corpus projection differs from
+    the committed file the drift is warned, field by field; the warning is the
+    accepted steady state (the deterministic outcome writer refreshes the
+    definition at resolution on its own lane), and a wholesale ledger backfill
+    would be a one-time migration, not a cell command. ``--out`` still writes
+    wherever it points, unconditionally.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
