@@ -26,12 +26,13 @@ Two pure, deterministic halves bracket the agent call:
 **Ordering.** Un-aliasing must run **before** ``stamp-cell --role evaluator``.
 The stamp joins the evaluation to its prediction through
 ``predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json")`` and
-returns ``None`` on no match. The stamp assigns whatever that join produced,
-so under an alias it *silently* writes neither a ``claim_scores`` block nor a
-``base_rate_salience_version`` rather than failing. The self-check is
-``validate data``'s ``check_evaluation_targets``, which resolves the same join
-and reports an orphan loudly — so an alias that survives to the gate fails it
-rather than shipping.
+returns ``None`` on no match. The stamp assigns whatever that join produced, so
+under an alias it *silently* writes no ``claim_scores`` block rather than
+failing (the ``base_rate_salience_version`` is loud only where the evaluation
+records a ``risk_set`` basis, whose null version fails the stamp). The
+self-check is ``validate data``'s ``check_evaluation_targets``, which resolves
+the same join and reports an orphan loudly — so an alias that survives to the
+gate fails it rather than shipping.
 
 **What this is, and what it is not.** It is an *anti-anchoring* measure enforced
 by a prompt contract, not a sandbox. It removes every route by which identity
@@ -828,8 +829,9 @@ def unblind_evaluations(
     **Runs before ``stamp-cell --role evaluator``.** The stamp joins an
     evaluation to its prediction on the ``predictor_id`` field and returns
     ``None`` on no match, so an alias reaching the stamp costs the cell its
-    ``claim_scores`` block and its ``base_rate_salience_version`` silently
-    rather than loudly. ``validate data``'s
+    ``claim_scores`` block silently rather than loudly (a ``risk_set`` basis
+    left without its ``base_rate_salience_version`` does fail the stamp, but
+    only on that basis). ``validate data``'s
     ``check_evaluation_targets`` is the backstop for the same join, and it does
     fail loudly — so the order is: un-alias, stamp, validate.
 
