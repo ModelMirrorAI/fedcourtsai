@@ -822,3 +822,114 @@ def test_matrix_is_unaffected_when_no_spend_section_is_configured(tmp_path: Path
     )
     assert result.exit_code == 0
     assert len(_cells(result.stdout)) == 6
+
+
+def test_predict_matrix_drops_events_resolved_since_queueing(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # The openness re-check: a trigger issue queued while both events were open
+    # fans out after one resolved (the paused-pipeline gap). The resolved
+    # listing is dropped at plan time, with the cause on the record, rather
+    # than minted into a cell provisioning must refuse.
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/24002",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    resolved=True,
+                )
+            ],
+        )
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    assert "dropped evt-petition-cert on scotus/24002" in result.stderr
+    assert "resolved" in result.stderr
+
+
+def test_predict_matrix_errors_when_the_openness_recheck_empties_the_matrix(
+    tmp_path: Path,
+) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # When every listed event resolved since queueing the matrix is empty, and
+    # the workflow's empty-matrix step will close the trigger issue with its
+    # generic out-of-scope note — so the re-check must leave the correctly
+    # attributed record as an ::error:: annotation.
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id=cid,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    resolved=True,
+                )
+                for cid in ("scotus/24001", "scotus/24002")
+            ],
+        )
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::predict-matrix: the openness re-check dropped every listed event" in (
+        result.stderr
+    )
+
+
+def test_predict_matrix_scope_all_skips_the_openness_recheck(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Under `all` the scope gate never consults the corpus, and the openness
+    # re-check follows it: a listed event the corpus records resolved still
+    # fans out, because dev/back-test runs may target exactly that shape.
+    env = _env(tmp_path, scope="all", seed_predictions=False)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/24001",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    resolved=True,
+                )
+            ],
+        )
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+    }
+    assert "dropped" not in result.stderr
