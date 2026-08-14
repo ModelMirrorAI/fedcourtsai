@@ -774,12 +774,20 @@ readiness snapshot); `run-ops` — a corpus-free presenter — renders the
 long-lived issue: loud, never blocking. Because event definitions live in the
 corpus, the predict/evaluate workflows materialize each event's `event.yaml`
 into its ledger directory (`fedcourts materialize-event`) so the judgment PR
-carries it — and the deterministic outcome writer materializes it beside every
-`outcome.json` it writes, refusing to write an outcome whose event the corpus
-does not hold. An event definition also names its **stage** — the decision
-standard that governs it (cert, interim, or merits) — carried from the corpus
-row into `event.yaml` so a cell and its consumers read the standard from the
-record rather than inferring it from the event id. The field is nullable and
+carries it — **on first touch only**: a file already present at the ledger
+path is never rewritten by a cell, because data PRs are additive-only and a
+corpus row that gained fields since the commit would otherwise turn every
+later run PR into a jailed modification (drift is warned, not written). The
+deterministic outcome writer is the asymmetry: it materializes the definition
+beside every `outcome.json` it writes on its own writer lane, refusing to
+write an outcome whose event the corpus does not hold — so the committed
+definition converges at resolution even where cells left it at its
+first-touch shape. An event definition also names its **stage** — the
+decision standard that governs it (cert, interim, or merits) — carried from
+the corpus row into `event.yaml` at that first materialization, so a cell and
+its consumers read the standard from the record rather than inferring it from
+the event id (a file older than the stage axis simply records none, which
+reads as the null below). The field is nullable and
 null means **no stage recorded**: either no Supreme Court standard governs the
 event (a circuit appeal), or the writer does not classify one there yet;
 consumers treat null as "no rule", never as a guess.
