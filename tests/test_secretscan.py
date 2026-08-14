@@ -747,3 +747,35 @@ def test_cli_missing_transcript_file_fails_closed(
     )
     assert result.exit_code == 2
     assert "transcript file" in result.output
+
+
+def test_transcript_surface_catches_prefixed_keys_without_the_known_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The structured shapes are what carry the transcript surface when no
+    # known-secret env var is named: a provider key and a JWT must both
+    # convict without containment.
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    rng = random.Random(20260814)
+    tail = "".join(rng.choice("ABCDEFabcdef0123456789") for _ in range(60))
+    transcript = tmp_path / "claude-execution-output.json"
+    transcript.write_text(
+        f'{{"leak":"sk-ant-api03-{tail}"}}\n'
+        + '{"env":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJydW5uZXIifQ.'
+        + tail[:20]
+        + '"}\n'
+    )
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--transcript-file",
+            str(transcript),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "model-provider-key" in result.output
+    assert "jwt" in result.output
