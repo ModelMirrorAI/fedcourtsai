@@ -23,6 +23,7 @@ from typing import Annotated, Any, Literal, get_args
 from urllib.parse import quote
 
 import typer
+import yaml
 from pydantic import BaseModel, ValidationError
 
 from . import (
@@ -4536,6 +4537,17 @@ def materialize_event(
     local-only open would silently create an empty corpus and find no events) and,
     under the corpus-split mode, it reads the per-case content store by default.
     Exits non-zero if the corpus holds no such event for the case.
+
+    An event.yaml already present at the ledger path is **never rewritten**:
+    the committed record stands, data PRs are additive-only (the path jail
+    rejects any modification), and the corpus row moves — a field populated
+    after the file was committed would otherwise ride into every later cell's
+    run PR as a jailed modification. When the corpus projection differs from
+    the committed file the drift is warned, field by field; the warning is the
+    accepted steady state (the deterministic outcome writer refreshes the
+    definition at resolution on its own lane), and a wholesale ledger backfill
+    would be a one-time migration, not a cell command. ``--out`` still writes
+    wherever it points, unconditionally.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -4563,22 +4575,60 @@ def materialize_event(
         )
         raise typer.Exit(code=1)
     dest = out or CasePaths(settings.data_root, court, docket).event(event).event_file
-    write_yaml(
-        dest,
-        PredictableEvent(
-            event_id=match.event_id,
-            case_id=match.case_id,
-            kind=match.kind,
-            stage=match.stage,
-            moment=match.moment,
-            title=match.title,
-            description=match.description,
-            docket_entry_id=match.docket_entry_id,
-            opened_at=match.opened_at,
-            decision_target=match.decision_target,
-            resolved=match.resolved,
-        ),
+    projected = PredictableEvent(
+        event_id=match.event_id,
+        case_id=match.case_id,
+        kind=match.kind,
+        stage=match.stage,
+        moment=match.moment,
+        title=match.title,
+        description=match.description,
+        docket_entry_id=match.docket_entry_id,
+        opened_at=match.opened_at,
+        decision_target=match.decision_target,
+        resolved=match.resolved,
     )
+    if out is None and dest.is_file():
+        # Never rewrite the committed record (see the docstring); surface drift
+        # instead, so a stale projection is a visible fact rather than a jailed
+        # modification in the next run PR. Two volumes on purpose: the fields a
+        # consumer keys behavior on get a ::warning:: annotation, while
+        # cosmetic drift — upstream caption re-renderings move `title` on most
+        # of the committed ledger, and a schema bump would move
+        # `schema_version` on all of it — stays a plain log line, or the
+        # annotation channel would drown the one drift that matters. An
+        # unreadable committed file degrades to the loud marker rather than
+        # failing the cell: `validate` owns rejecting a malformed ledger, and
+        # a materialize crash here would spend nothing but lose the cell.
+        try:
+            committed_fields = read_model(dest, PredictableEvent).model_dump(mode="json")
+            projected_fields = projected.model_dump(mode="json")
+            drifted = sorted(
+                field
+                for field, value in projected_fields.items()
+                if committed_fields.get(field) != value
+            )
+        except (OSError, ValueError, yaml.YAMLError):
+            drifted = ["<unreadable committed file>"]
+        cosmetic = {"title", "description", "schema_version"}
+        loud = [field for field in drifted if field not in cosmetic]
+        quiet = [field for field in drifted if field in cosmetic]
+        if loud:
+            typer.echo(
+                f"::warning::{case} event {event}: the corpus projection drifted from "
+                f"the committed event.yaml on {', '.join(loud)}; leaving the "
+                f"committed file untouched (a backfill is a migration, not a cell step)",
+                err=True,
+            )
+        if quiet:
+            typer.echo(
+                f"{case} event {event}: cosmetic drift on {', '.join(quiet)} "
+                f"(committed file untouched)",
+                err=True,
+            )
+        typer.echo(f"{case} event {event} already materialized -> {dest}")
+        return
+    write_yaml(dest, projected)
     typer.echo(f"{case} event {event} -> {dest}")
 
 

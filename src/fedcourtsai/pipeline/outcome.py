@@ -1197,8 +1197,9 @@ def mint_moment_events(
     MAX-latched ``resolved`` make a re-detection unable to duplicate an event
     or reopen a merits event a later judgment has closed. ``record_outcomes``
     materializes ``event.yaml`` only beside a
-    written outcome, but the ledger's event definitions are
-    materialized-on-touch and the merits event is *born at* an outcome write:
+    written outcome, but a cell materializes a ledger event
+    definition on first touch only and the merits event is *born at* an
+    outcome write:
     the deterministic writers commit straight from this working tree, so this
     is the only seam that can put the open event definition in the git tree it
     ships with (an open ``event.yaml`` with ``resolved=False`` is the same
