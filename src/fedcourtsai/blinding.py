@@ -705,9 +705,21 @@ def read_blinding_map(
 
 
 def _alias_resolver(aliases: Mapping[str, str]) -> re.Pattern[str]:
-    """A boundary-anchored alternation over the cell's alias names, longest first."""
+    """A boundary-anchored alternation over the cell's alias names, longest first.
+
+    Case-insensitive like the blinding-direction resolver above (the aliases
+    are handed out lowercase, but a judge writing prose capitalizes a
+    sentence-initial ``Candidate-a``, and an alias that survives un-aliasing
+    ships unresolvable to the maintainer in the run PR's flag roll-up — the
+    one channel whose key is thrown away with the runner). The right boundary
+    is deliberately tighter than that resolver's: a digit after the token
+    (``candidate-a1``) proves it is not the alias, so it must not resolve.
+    The non-capturing group is load-bearing — ``|`` binds loosest, so without
+    it the lookbehind would anchor only the first alternative and the
+    lookahead only the last, leaving every middle alias unbounded.
+    """
     body = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
-    return re.compile(rf"(?<![A-Za-z0-9]){body}(?![A-Za-z0-9])")
+    return re.compile(rf"(?<![A-Za-z0-9])(?:{body})(?![A-Za-z0-9])", re.IGNORECASE)
 
 
 def _resolve_aliases_in_tree(root: Path, aliases: Mapping[str, str]) -> None:
@@ -736,8 +748,13 @@ def _resolve_aliases_in_tree(root: Path, aliases: Mapping[str, str]) -> None:
         return
     resolver = _alias_resolver(aliases)
 
+    # Lowered once: the resolver matches case-insensitively, the map's keys
+    # are the lowercase forms it handed out, and a lookup miss must stay
+    # impossible whatever case a key arrives in.
+    lowered = {alias.lower(): predictor for alias, predictor in aliases.items()}
+
     def _sub(text: str) -> str:
-        return resolver.sub(lambda m: aliases[m.group(0)], text)
+        return resolver.sub(lambda m: lowered[m.group(0).lower()], text)
 
     def _walk(value: Any) -> Any:
         if isinstance(value, str):
@@ -866,7 +883,7 @@ def _assert_no_alias_survives(evaluator_dir: Path) -> None:
     stray = sorted(
         child.name
         for child in evaluator_dir.iterdir()
-        if child.is_dir() and child.name.startswith(ALIAS_PREFIX)
+        if child.is_dir() and child.name.lower().startswith(ALIAS_PREFIX)
     )
     if stray:
         raise BlindingError(
