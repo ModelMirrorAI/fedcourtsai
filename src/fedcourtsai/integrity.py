@@ -53,6 +53,7 @@ from .schemas import (
     Moment,
     Outcome,
     Prediction,
+    ProcessVersion,
     Stage,
     Stratum,
 )
@@ -100,6 +101,17 @@ def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
     return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
 
 
+def _harness_clock(process_version: ProcessVersion | None, created_at: datetime) -> datetime:
+    """The one stamp-else-created_at rule behind both typed clocks.
+
+    Private so the normalization is written once; the two public names exist
+    for call-site type safety, not for divergent rules.
+    """
+    stamped = process_version.stamped_at if process_version is not None else None
+    clock = stamped if stamped is not None else created_at
+    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+
+
 def cell_clock(prediction: Prediction) -> datetime:
     """When the harness ran this cell: the process stamp, else ``created_at``.
 
@@ -107,11 +119,7 @@ def cell_clock(prediction: Prediction) -> datetime:
     zone any writer in this pipeline uses), so clocks from different writers
     always compare.
     """
-    stamped = (
-        prediction.process_version.stamped_at if prediction.process_version is not None else None
-    )
-    clock = stamped if stamped is not None else prediction.created_at
-    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+    return _harness_clock(prediction.process_version, prediction.created_at)
 
 
 def evaluation_clock(evaluation: Evaluation) -> datetime:
@@ -133,11 +141,7 @@ def evaluation_clock(evaluation: Evaluation) -> datetime:
     ``stamp-cell`` invocation); a backdated ``--stamped-at`` can misstate
     that vintage, which is a reason the flag is harness-side only.
     """
-    stamped = (
-        evaluation.process_version.stamped_at if evaluation.process_version is not None else None
-    )
-    clock = stamped if stamped is not None else evaluation.created_at
-    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+    return _harness_clock(evaluation.process_version, evaluation.created_at)
 
 
 def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None:

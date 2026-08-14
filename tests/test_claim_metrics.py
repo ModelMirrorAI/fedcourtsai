@@ -521,6 +521,7 @@ def test_the_winning_block_keys_on_the_harness_clock_not_the_agent_clock() -> No
     board = build_claim_scores(_cells((stamped_early, FORWARD), (stamped_late, FORWARD)))
     stratum = board.entries[0].forward
     assert stratum is not None
+    assert stratum.cells == 2
     assert stratum.events == 1
     assert stratum.mean_total == pytest.approx(0.2)
 
@@ -541,6 +542,7 @@ def test_a_naive_and_aware_created_at_mix_cannot_raise() -> None:
     board = build_claim_scores(_cells((naive, FORWARD), (aware, FORWARD)))
     stratum = board.entries[0].forward
     assert stratum is not None
+    assert stratum.cells == 2
     assert stratum.events == 1
     assert stratum.mean_total == pytest.approx(0.2)
 

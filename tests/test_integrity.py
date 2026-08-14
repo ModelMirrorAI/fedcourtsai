@@ -89,7 +89,7 @@ def test_cell_clock_normalizes_a_bare_timestamp_to_utc() -> None:
     # Agent-written created_at is not guaranteed an offset; clocks from
     # different writers must still compare.
     prediction = _prediction(created_at=datetime(2026, 1, 1))
-    assert cell_clock(prediction).tzinfo is not None
+    assert cell_clock(prediction) == datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def test_forward_claim_breach_needs_a_forward_context() -> None:
@@ -202,4 +202,4 @@ def test_evaluation_clock_normalizes_a_bare_timestamp_to_utc() -> None:
     # Same rule as the prediction clock: a naive created_at reads as UTC so
     # clocks from different writers always compare.
     evaluation = _evaluation(created_at=datetime(2026, 1, 1))
-    assert evaluation_clock(evaluation).tzinfo is not None
+    assert evaluation_clock(evaluation) == datetime(2026, 1, 1, tzinfo=UTC)
