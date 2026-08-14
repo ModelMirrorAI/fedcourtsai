@@ -471,7 +471,8 @@ jobs:
           settings: |
             {
               "env": {
-                "ENABLE_PROMPT_CACHING_1H": "1"
+                "ENABLE_PROMPT_CACHING_1H": "1",
+                "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
               }
             }
           # The kickoff prompt carries the variable contract inline: some engines
@@ -500,51 +501,6 @@ jobs:
             --max-turns 120
             --permission-mode bypassPermissions
 
-      # The transcript is the only record of *how* the labeler failed: the
-      # action reports a summary block and discards the turn-by-turn log with
-      # the runner, so a success-that-wrote-nothing run (the shape this job has
-      # produced) is undiagnosable without a paid re-run. Scan before
-      # publishing — the transcript is agent-adjacent bytes no other scan sees
-      # — and withhold on a hit rather than fail the job, mirroring the collect
-      # job's withhold-and-continue posture: the labels result is the run's
-      # substance, and losing it over a transcript false positive would
-      # obscure it. No --known-secret-env: this job holds no CourtListener
-      # token, and handing the scan a credential to search for would spread
-      # the credential to buy little; the entropy/keyword heuristics run
-      # regardless.
-      - name: Scan the transcript before publishing it
-        id: transcript_scan
-        if: ${{ always() && steps.label.outputs.execution_file != '' }}
-        continue-on-error: true
-        env:
-          TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
-        run: |
-          set -euo pipefail
-          if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
-              --extra-file "$TRANSCRIPT" \
-              --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"; then
-            echo "::warning::transcript scan hit; withholding the qp-label-transcript artifact"
-            exit 1
-          fi
-
-      - name: Upload the transcript
-        # `always()` + gated on the scan, not on the labeling step's outcome: a
-        # gate-refusing run (sub-80% agreement) is as diagnostic as a no-output
-        # one, and a step timeout must not take the evidence down with it.
-        if: ${{ always() && steps.transcript_scan.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: qp-label-transcript
-          path: ${{ steps.label.outputs.execution_file }}
-          if-no-files-found: warn
-          # One day, for the same reason as the extract above, stated there in
-          # full: the transcript necessarily embeds the QP text the agent read
-          # from $QP_TEXTS, so it is the same disclosure class as `qp-texts`
-          # and gets the same shortest-offered window — retention bounds the
-          # window, not the audience, and docs/qp-topic.md argues the
-          # disclosure out loud.
-          retention-days: 1
-
       # The labeler's only declared output is $LABELS_OUT, under $RUNNER_TEMP, so
       # a modified work tree is a contract violation. The reference set is out of
       # reach above; the gate itself is not, because `setup-python-env` installs
@@ -566,6 +522,75 @@ jobs:
           fi
           echo "work tree pristine"
 
+      # The transcript is the only record of *how* the labeler failed: the
+      # action reports a summary block and discards the turn-by-turn log with
+      # the runner, so a success-that-wrote-nothing run (the shape this job
+      # can produce) is undiagnosable without a paid re-run. Ordered after the
+      # tree-pristine assert so the scanner below executes reviewed code on a
+      # clean run, and `!cancelled()` so a tampered or failed run — the runs
+      # that need diagnosing most — still captures its evidence. Scan before
+      # publishing — the transcript is agent-authored bytes no other scan sees
+      # — and withhold on a hit rather than fail the job, mirroring the
+      # collect job's withhold-and-continue posture (minus its trigger-issue
+      # report: a dispatch mode has none, so the warning and the step summary
+      # are the record). The one credential reachable from the labeler's env
+      # is the engine's own API key, so the scan searches for that value
+      # literally, exactly as the collect job's scan holds its reachable
+      # credential: the agent process is gone by this step, which parses
+      # bytes with tested Python and executes none of them. The literal is
+      # what covers encodings the entropy net cannot (hex), and the scan
+      # fails closed if the variable is unset.
+      - name: Scan the transcript before publishing it
+        id: transcript_scan
+        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          status=0
+          uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+            --known-secret-env ANTHROPIC_API_KEY \
+            --extra-file "$TRANSCRIPT" \
+            --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::warning::transcript scan hit; withholding the qp-label-transcript artifact"
+            echo "transcript withheld: secret scan hit" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          elif [ "$status" -ne 0 ]; then
+            echo "::warning::transcript scan could not run (exit ${status}); withholding the artifact"
+            echo "transcript withheld: scan did not run (exit ${status})" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Upload the transcript
+        # Gated on the scan, not on the labeling step's outcome: a
+        # gate-refusing run (sub-80% agreement) is as diagnostic as a
+        # no-output one. `!cancelled()` covers every path the action survives;
+        # the hard step-timeout kill is the one path with no execution file to
+        # capture, and the step below says so.
+        if: ${{ !cancelled() && steps.transcript_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: qp-label-transcript
+          path: ${{ steps.label.outputs.execution_file }}
+          if-no-files-found: warn
+          # One day, for the same reason as the extract above, stated there in
+          # full: the transcript necessarily embeds the QP text the agent read
+          # from $QP_TEXTS, so it is the same disclosure class as `qp-texts`
+          # and gets the same shortest-offered window — retention bounds the
+          # window, not the audience, and docs/qp-topic.md argues the
+          # disclosure out loud.
+          retention-days: 1
+
+      - name: Note a run with no transcript to capture
+        if: ${{ !cancelled() && steps.label.outputs.execution_file == '' }}
+        run: |
+          echo "::warning::the labeling step reported no execution file; no transcript artifact this run"
+
       # Fail loud if the labeler produced nothing. `claude-code-action` can exit
       # `is_error: false` while the agent aborted on an internal error and never
       # wrote `$LABELS_OUT`, which otherwise surfaces two steps later as the
@@ -580,7 +605,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -s "$LABELS_OUT" ]; then
-            echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output; the qp-label-transcript run artifact carries the turn-by-turn transcript to diagnose from."
+            echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output; the qp-label-transcript run artifact carries the turn-by-turn transcript to diagnose from (absent only when the scan withheld it or the action died before writing it — see the labeling step's log)."
             exit 1
           fi
           echo "labeler wrote $(wc -l < "$LABELS_OUT") label line(s)"

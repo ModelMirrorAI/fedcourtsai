@@ -101,7 +101,11 @@ each as its own least-privilege job holding only the credentials its mode needs:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). It applies the same
+  so the extract is the agent's entire evidentiary input). The labeler's
+  turn-by-turn transcript is scanned and published as a second one-day
+  artifact, `qp-label-transcript` — the thing to open when a run reports
+  success but writes no labels (disclosure argued in
+  [qp-topic.md](qp-topic.md)). It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
