@@ -210,7 +210,7 @@ stays outside the gate:
   the prior-Term pool: a band name means something only under the salience
   version that assigned it, so a Term carrying another version contributes
   nothing rather than a blend. It rests on a **stated minimum** —
-  `pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`, 30 measured *after* the
+  `pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`, 30 measured *after* the
   leave-one-out and binding on the weighted denominator **and** the observed
   row count behind it, since a reweighted Term can otherwise clear a weighted
   31 on as few as five real petitions (the `baseline` band's risk set reaches
@@ -494,7 +494,7 @@ cell can never be frozen — the fallback only ever positions cells inside
 diagnostic views, so no pre-registration boundary rests on a clock the agent
 controls — `fedcourtsai.integrity.cell_clock`) against the
 outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
-`fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
+`fedcourtsai.integrity` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
 
@@ -542,7 +542,7 @@ decision standards and support no cross-cell claim. Skill scores appear only
 where a scored base rate exists for the stage. The cert segment has one, and
 the **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
-(`pipeline.evaluate.merits_base_rate`; `docs/decision-model.md` is the
+(`pipeline.base_rates.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is scored **only against that declared
 baseline** — and this the leaderboard now enforces where it can: a merits
@@ -829,7 +829,7 @@ the rendered table) and
   claimed from it:** the counts are *descriptive* facts about the parsed
   cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of
   the **registered merits Brier baseline**
-  (`pipeline.evaluate.merits_base_rate` pools them across grant Terms strictly
+  (`pipeline.base_rates.merits_base_rate` pools them across grant Terms strictly
   before a case's; `docs/decision-model.md` registers the design, denominator
   included: the two procedural exits sit in it as undisturbed). A merits skill
   claim exists only under that pooled strictly-prior baseline — never against a

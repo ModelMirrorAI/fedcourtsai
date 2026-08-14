@@ -14,11 +14,13 @@ never ex-ante forecasting skill. A cell whose outcome was mootness practice
 (the outcome's ``disposition_basis``) is *procedural* regardless of timing —
 its label tracks the Court's vacatur wording, not cert-worthiness. The strata
 are aggregated separately and never blended into one headline number, and only
-forward/retrospective enter the ranking. :func:`classify_stratum` is the single
-definition of the timing split, derivable offline from committed artifacts (the
-prediction's harness clock — :func:`fedcourtsai.integrity.cell_clock` — vs the
-outcome's ``resolved_at``); the procedural
-override lives with the join in ``store.iter_stratified_evaluations``.
+forward/retrospective enter the ranking. The board consumes that vocabulary
+rather than defining it: the stratum names and
+:func:`fedcourtsai.integrity.classify_stratum`, the single definition of the
+timing split, live in :mod:`fedcourtsai.integrity` beside the harness clock the
+split rests on (:func:`fedcourtsai.integrity.cell_clock`, vs the outcome's
+``resolved_at`` — derivable offline from committed artifacts); the procedural
+override lives with the join in ``store.stratify``.
 
 Orthogonal to the strata runs the **stage/moment axis**: the ranked board is
 cert's *first* forecast moment, and every other population — a different
@@ -45,13 +47,18 @@ import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
-from .integrity import cell_clock
+from .integrity import (
+    FORWARD,
+    PROCEDURAL,
+    RETROSPECTIVE,
+    StratifiedCell,
+    cell_clock,
+)
+from .pipeline.base_rates import realized_band_rate
 from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
-from .pipeline.evaluate import realized_band_rate
 from .pipeline.moments import first_moment
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
@@ -78,20 +85,6 @@ from .serialize import read_model
 #: The join key for per-cell figures the board computes at render rather than
 #: reading off the record, since ``Evaluation`` is not hashable.
 EvaluationKey = tuple[str, str, str, str, str]
-
-#: One joined cell as ``store.iter_stratified_evaluations`` yields it:
-#: ``(evaluation, stratum, stage, moment)``. The stage and the moment travel
-#: together because neither alone identifies the population a cell belongs to —
-#: the stage names the question, the moment names the information set that
-#: answered it.
-StratifiedCell = tuple["Evaluation", "Stratum", "Stage | None", "Moment | None"]
-
-FORWARD: Stratum = "forward"
-RETROSPECTIVE: Stratum = "retrospective"
-# Cells whose outcome was mootness practice (the outcome's disposition_basis):
-# the ground-truth label tracks the Court's vacatur wording rather than
-# cert-worthiness, so these aggregate separately and never enter the ranking.
-PROCEDURAL: Stratum = "procedural"
 
 # The `stages` key a stage-less cell shares (a null-stage event of a
 # non-case-baseline kind — see `store.iter_stratified_evaluations`'s
@@ -126,19 +119,6 @@ _NO_BRIER: float = 2.0
 # Accuracies are bounded in [0, 1]; a predictor with no cells in a stratum sorts
 # after every predictor that has any, without colliding with a real worst score.
 _NO_ACCURACY: float = -1.0
-
-
-def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
-    """Which pre-registration stratum a scored cell belongs to.
-
-    Retrospective when the event's resolution predates the prediction's
-    **harness clock** (:func:`fedcourtsai.integrity.cell_clock` — the process
-    stamp, else the unstamped cell's ``created_at``; the boundary must not
-    rest on a clock the agent controls). A same-day tie also counts as
-    retrospective — the conservative reading, so a cell whose ordering within
-    the day is unknowable is never presented as a forward forecast.
-    """
-    return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
 
 
 def _mean(values: Sequence[float]) -> float | None:
@@ -486,7 +466,7 @@ def skill_components(
     ``skill_scored``, never a substituted value.
 
     **The realized-Term column** re-reads the same band from the case's own Term
-    (:func:`fedcourtsai.pipeline.evaluate.realized_band_rate`, leave-one-out)
+    (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)
     instead of the strictly-prior pool. Holding the level at what obtained nets
     out level-knowledge and leaves **discrimination** — a predictor with the
     Term's level right but no ability to separate its cases scores positive on
@@ -590,7 +570,7 @@ def _harness_merits_baseline(evaluation: Evaluation) -> float | None:
     A merits cell's ``segment_base_rate`` is the **evaluator's** hand-pooled
     read of the statpack merits section, while the harness independently pools
     the identical quantity for the ``judgment-disturbed`` claim
-    (:func:`fedcourtsai.pipeline.evaluate.merits_base_rate`, the public seam the
+    (:func:`fedcourtsai.pipeline.base_rates.merits_base_rate`, the public seam the
     claim baseline uses) and
     records it on the ``claim_scores`` block. A ``judgment-disturbed`` row is
     itself the merits marker — the claim set keys on the minted merits event —

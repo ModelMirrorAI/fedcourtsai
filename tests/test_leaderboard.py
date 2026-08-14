@@ -9,18 +9,20 @@ from typer.testing import CliRunner
 
 from fedcourtsai import process_version
 from fedcourtsai.cli import app
-from fedcourtsai.integrity import forward_claim_record
-from fedcourtsai.leaderboard import (
+from fedcourtsai.integrity import (
     FORWARD,
-    NO_STAGE_KEY,
     PROCEDURAL,
     RETROSPECTIVE,
+    classify_stratum,
+    forward_claim_record,
+)
+from fedcourtsai.leaderboard import (
+    NO_STAGE_KEY,
     CellSkill,
     _evaluation_key,
     _latest_prediction,
     big_case_agreement,
     build_leaderboard,
-    classify_stratum,
     evaluator_agreement,
     kendall_tau_b,
     skill_components,

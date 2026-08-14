@@ -1,8 +1,14 @@
-"""Tests for the deterministic evaluate helpers, focused on the segment baseline.
+"""Tests for the deterministic evaluate helpers and the baselines they score against.
 
-`is_correct` / `brier_score` / `vote_accuracy` are exercised through the runner
-and leaderboard suites; here we pin the two segment-baseline helpers, whose whole
-point is a *leakage-safe* skill score keyed on the salience band.
+Two modules, tested together because they are one path: `pipeline.evaluate`
+holds the scorers and `segment_base_rate`, while `pipeline.base_rates` holds
+the pooled baselines those scorers are measured against. The baselines live in
+a leaf so the leaderboard can read them without importing the corpus-bound
+half; neither half means much without the other, so one file pins both.
+`is_correct` / `brier_score` / `vote_accuracy` are
+exercised through the runner and leaderboard suites; here we pin the baseline
+helpers, whose whole point is a *leakage-safe* skill score keyed on the
+salience band.
 """
 
 from __future__ import annotations
@@ -12,16 +18,18 @@ from datetime import date, datetime
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline.evaluate import (
+from fedcourtsai.pipeline.base_rates import (
     MERITS_BASE_RATE_MIN_PARSED,
     REALIZED_BAND_RATE_MIN_RESOLVED,
+    merits_base_rate,
+    prediction_base_rate,
+    realized_band_rate,
+)
+from fedcourtsai.pipeline.evaluate import (
     brier_skill,
     brier_skill_score,
     is_correct,
     judgment_correct,
-    merits_base_rate,
-    prediction_base_rate,
-    realized_band_rate,
     segment_base_rate,
 )
 from fedcourtsai.pipeline.salience import salience_band
