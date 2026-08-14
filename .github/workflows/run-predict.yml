@@ -848,11 +848,12 @@ jobs:
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
     # see the download step's comment), with up to 3 attempts and backoff per
-    # artifact, so a full-width fan-out (~90 cells at 5-10s per download)
-    # spends 2-4 minutes before aggregation begins. 20 bounds the job while
-    # leaving the aggregation its share plus headroom for a retry-heavy pass;
-    # a cap kill during collect is recoverable (`gh run rerun --failed`).
-    timeout-minutes: 20
+    # artifact. A clean full-width pass (~90 cells at 5-10s per download)
+    # spends 2-4 minutes before aggregation begins, but an all-retry pass
+    # still approaches 17, and a cap kill can land mid-aggregation — after
+    # the branch push, before the PR — costing a maintainer round trip. 30
+    # keeps that margin rather than chasing the clean-pass speedup.
+    timeout-minutes: 30
     environment: prod
     permissions:
       contents: write # commit the run's predictions to a branch
