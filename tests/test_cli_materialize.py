@@ -1,12 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import Disposition, Engine, Moment, PredictableEvent, Prediction
-from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -183,3 +183,98 @@ def test_materialize_event_absent_local_corpus_exits_without_creating_it(tmp_pat
     assert result.exit_code == 1
     assert "No corpus" in result.stderr
     assert not (tmp_path / "corpus" / "corpus.db").exists()
+
+
+def _materialize(court: str, docket: int, event: str) -> Result:
+    return runner.invoke(
+        app,
+        ["materialize-event", "--court", court, "--docket", str(docket), "--event", event],
+    )
+
+
+def test_materialize_event_leaves_a_committed_event_yaml_untouched(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The committed file is the reviewed record and data PRs are additive-only:
+    # a re-materialization over an existing event.yaml must not rewrite it,
+    # even when the corpus projection has since gained fields — that rewrite is
+    # exactly the modification the path jail rejects on the run PR.
+    first = _materialize("scotus", 305, "evt-petition-disposition")
+    assert first.exit_code == 0, first.output
+    dest = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .event_file
+    )
+    committed = dest.read_bytes()
+
+    second = _materialize("scotus", 305, "evt-petition-disposition")
+
+    assert second.exit_code == 0, second.output
+    assert "already materialized" in second.output
+    assert dest.read_bytes() == committed
+
+
+def test_materialize_event_warns_when_the_corpus_row_has_drifted(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A projection that no longer matches the committed file is surfaced field
+    # by field rather than silently written or silently ignored.
+    first = _materialize("scotus", 305, "evt-petition-disposition")
+    assert first.exit_code == 0, first.output
+    dest = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .event_file
+    )
+    committed = read_model(dest, PredictableEvent)
+    write_yaml(dest, committed.model_copy(update={"title": "An older projection"}))
+    stale = dest.read_bytes()
+
+    second = _materialize("scotus", 305, "evt-petition-disposition")
+
+    assert second.exit_code == 0, second.output
+    assert "drifted" in second.output
+    assert "title" in second.output
+    assert dest.read_bytes() == stale  # warned, never rewritten
+
+
+def test_materialize_event_still_writes_through_an_explicit_out(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # --out is the maintainer's escape hatch and writes unconditionally.
+    out = tmp_path / "elsewhere" / "event.yaml"
+    first = runner.invoke(
+        app,
+        [
+            "materialize-event",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--out",
+            str(out),
+        ],
+    )
+    assert first.exit_code == 0, first.output
+    out.write_text("stale bytes\n")
+
+    second = runner.invoke(
+        app,
+        [
+            "materialize-event",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--out",
+            str(out),
+        ],
+    )
+
+    assert second.exit_code == 0, second.output
+    assert read_model(out, PredictableEvent).event_id == "evt-petition-disposition"
