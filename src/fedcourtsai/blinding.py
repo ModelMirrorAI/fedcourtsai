@@ -523,7 +523,8 @@ def latest_prediction_dirs(event_paths: EventPaths) -> dict[str, Path]:
     maximum of the harness clock (the process stamp, else ``created_at`` —
     :func:`fedcourtsai.integrity.cell_clock`) over the run directories in name
     order — which is
-    exactly the stratified join's rule over path-sorted runs, the rule every
+    exactly the stratified join's rule over path-sorted runs — the harness
+    clock — the rule every
     downstream join already uses
     (:func:`fedcourtsai.store.iter_stratified_evaluations`, and the stamp's
     ``claim_scores`` and base-rate-version lookups). It has to be that rule down

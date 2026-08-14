@@ -106,9 +106,10 @@ as `usage.json` records the engine's own log rather than trusting the agent — 
 compromised or hallucinating agent cannot fake its process version. The same
 clock discipline reaches past the freeze: the forward/retrospective stratum
 boundary keys on the cell's harness clock (`fedcourtsai.integrity.cell_clock`
-— the stamp's `stamped_at`, with the agent-written `created_at` only as the
-unstamped-legacy fallback), so no pre-registration boundary anywhere rests on
-a clock the agent controls.
+— the stamp's `stamped_at`; an unstamped **shakedown** cell falls back to its
+agent-written `created_at`, safe exactly because an unstamped cell can never
+be frozen), so no pre-registration boundary anywhere rests on a clock the
+agent controls.
 
 The stamp step is deterministic and local, so unlike the best-effort log
 captures beside it, it is **must-succeed**: a missing artifact (a no-output cell)
@@ -152,7 +153,9 @@ the digests whose cells count toward the headline. Everything keys off it:
 ## What defaults to frozen, and what stays version-blind
 
 The frozen filter lives at the one shared producer both surfaces read
-(`store.iter_stratified_evaluations`, `frozen_only=True` by default), so the
+(`store.stratify`, `frozen_only=True` by default — the boards call it directly
+so the scored cells and the `forward_claim` exclusion record come from one
+pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
 leaderboard headline and the ops dashboard's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled
 shakedown view. The filter partitions on the **prediction's** stamp — the

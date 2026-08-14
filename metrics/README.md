@@ -118,7 +118,9 @@ stays outside the gate:
   appears on every build, an `"all"`-scope
   one included, as the partition's definition rather than a claim it was
   applied (`claim-scores.json` carries the identical block; null on a
-  board built before the record existed). And `salience_versions` lists the distinct
+  board built before the record existed). `forward_claim` sits beside it —
+  the forward-claim integrity rule the build applied and how many cells it
+  caught (the exclusion defined beside the strata below). And `salience_versions` lists the distinct
   salience versions the ranked cells' baselines were read under. The gate is
   not part of any actor's process, so a change to it moves **no process
   digest** and the frozen/shakedown partition cannot see it — but it decides
@@ -265,7 +267,9 @@ stays outside the gate:
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
 - `claim-scores.json` — the mechanical claim-score surface: every
-  harness-computed `claim_scores` block in the evaluations ledger, rolled up
+  harness-computed `claim_scores` block in the evaluations ledger (minus any
+  forward-claim breaching cell — that exclusion applies to every scored
+  surface), rolled up
   per predictor **per stratum** and published beside the leaderboard.
   `fedcourts claim-scores` produces it, deterministic and offline, defaulting
   to the same frozen process scope as the board; while no committed evaluation
@@ -484,24 +488,32 @@ pre-registration standard: a cell is **forward** when the event was still
 unresolved at the prediction's **harness clock** and **retrospective** when it
 had already resolved (same-day ties count as retrospective, the conservative
 reading). The split is deterministic and offline — the harness clock (the
-harness-written process stamp, with the agent-written `created_at` only as the
-unstamped-legacy fallback; a pre-registration boundary must not rest on a
-clock the agent controls — `fedcourtsai.integrity.cell_clock`) against the
+harness-written process stamp; an unstamped **shakedown** cell falls back to
+its agent-written `created_at`, which is safe exactly because an unstamped
+cell can never be frozen — the fallback only ever positions cells inside
+diagnostic views, so no pre-registration boundary rests on a clock the agent
+controls — `fedcourtsai.integrity.cell_clock`) against the
 outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
 
 **The forward-claim exclusion.** A cell whose harness-written record *claims*
-`forward` (`context.mode`) while its event had already resolved at the cell's
-harness clock is **not a forecast** — its claim and its record contradict each
-other, so it is not a valid observation of either timing stratum
+`forward` (`context.mode`) while its event had resolved **strictly before**
+the cell's harness clock day is **not a forecast** — its claim and its record
+contradict each other, so it is not a valid observation of any scored stratum
 (`fedcourtsai.integrity.forward_claim_breach`, a property of the record alone,
-never of predictor behavior). Under the pre-registered policy
-(`integrity.FORWARD_CLAIM_POLICY = "exclude"`) such a cell is excluded from
-every scored stratum; the boards publish the policy and the count in their
-`forward_claim` block so the exclusion is never silent. The provisioning-side
-record gate exists so this class never occurs; the scoring-side rule is the
+never of predictor behavior). A same-day resolution is deliberately not a
+breach: the record cannot distinguish an honest forward cell that lost a
+same-day race from a mis-provisioned one, so the tie falls to the rule above
+— same-day counts as retrospective — and exclusion is reserved for the
+unambiguous contradiction. Under the registered policy
+(`integrity.FORWARD_CLAIM_POLICY = "exclude"`) a breaching cell is excluded
+from every scored stratum; the boards publish the policy and the count in
+their `forward_claim` block, and the board builders name each dropped cell on
+stderr, so the exclusion is never silent. The provisioning-side record gate
+reads the corpus's view at provisioning time, so a resolution the corpus has
+not yet ingested can still slip through it; this scoring-side rule is the
 defense in depth that makes the claim mechanical rather than trusted.
 
 **The procedural stratum.** A cell whose outcome was mootness practice — a

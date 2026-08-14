@@ -466,7 +466,8 @@ def test_the_provisioning_skip_is_anchored_on_the_case_layout(tmp_path: Path) ->
 
 
 def test_the_latest_prediction_is_the_one_downstream_scores(ledger: Path) -> None:
-    """`created_at` decides, matching every join the harness makes on the same cell."""
+    """The harness clock decides (created_at here — the runs are unstamped),
+    matching every join the harness makes on the same cell."""
     _seed_prediction(
         ledger,
         "claude-baseline",
@@ -497,7 +498,7 @@ def test_a_created_at_tie_breaks_the_way_the_stamp_breaks_it(ledger: Path) -> No
 
     event_dir = CasePaths(ledger, COURT, DOCKET).event(EVENT).base
     files = sorted(event_dir.glob("predictions/claude-baseline/*/prediction.json"))
-    downstream = max(files, key=lambda p: json.loads(p.read_text())["created_at"])
+    downstream = max(files, key=lambda p: blinding._cell_clock(p.parent))
     assert downstream.parent == latest["claude-baseline"]
 
 
@@ -846,3 +847,24 @@ def test_a_harness_stamp_outranks_an_agent_backdate_in_latest_selection(ledger: 
     latest = blinding.latest_prediction_dirs(CasePaths(ledger, COURT, DOCKET).event(EVENT))
 
     assert latest["claude-baseline"].name == "20260101T000000Z"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "not json at all",
+        json.dumps({"created_at": 12345}),
+        json.dumps({"created_at": "not-a-timestamp"}),
+        json.dumps({"process_version": {"stamped_at": "also-not"}, "created_at": None}),
+    ],
+)
+def test_cell_clock_degrades_to_the_epoch_on_unreadable_bytes(tmp_path: Path, payload: str) -> None:
+    # This runs pre-agent over committed bytes; a malformed prediction must
+    # sort first (the epoch), never crash the staging step.
+    directory = tmp_path / "run"
+    directory.mkdir()
+    (directory / "prediction.json").write_text(payload)
+
+    clock = blinding._cell_clock(directory)
+
+    assert clock == blinding._EPOCH

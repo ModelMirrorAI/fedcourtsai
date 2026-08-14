@@ -362,9 +362,11 @@ only when its run's collect PR merges — so the figure it compares is a *floor*
 spend inside the window, never a live balance.
 Two consequences of a breach belong beside the value. Deferral never destroys
 queued work, but it can destroy a **claim**: a forward cert cell deferred past
-its petition's resolution re-mints as a retrospective cell
-([`metrics/README.md`](../metrics/README.md)), permanently outside the
-headline strata — a genuine breach trades forward coverage, which is why the
+its petition's resolution is permanently outside the headline strata —
+refused outright at provisioning where the record already shows the
+resolution, re-minted as a retrospective cell where only the clock does, and
+excluded from every scored stratum in the mis-provisioned case whose record
+still claims forward ([`metrics/README.md`](../metrics/README.md)) — a genuine breach trades forward coverage, which is why the
 ceiling sits above every legitimate month rather than at the envelope's
 average. And the ceiling reads **all** measured spend, replay and backtest
 campaigns included — money is money by design — so a large iteration campaign

@@ -8,6 +8,7 @@ from fedcourtsai.integrity import (
     forward_claim_breach,
     forward_claim_record,
 )
+from fedcourtsai.leaderboard import FORWARD, RETROSPECTIVE, classify_stratum
 from fedcourtsai.schemas import (
     Disposition,
     Engine,
@@ -117,3 +118,42 @@ def test_forward_claim_record_carries_the_policy() -> None:
     record = forward_claim_record(2)
     assert record.policy == FORWARD_CLAIM_POLICY
     assert record.excluded == 2
+
+
+def test_a_same_day_tie_is_not_a_breach() -> None:
+    # An honest forward cell that lost a same-day race looks identical to a
+    # mis-provisioned one, so the tie falls to the stratum boundary's own
+    # conservative rule (retrospective), never to exclusion.
+    prediction = _prediction(created_at=datetime(2026, 3, 1, 18, 0, tzinfo=UTC), mode="forward")
+    assert forward_claim_breach(prediction, _outcome(date(2026, 3, 1))) is None
+
+
+def test_an_excluded_cell_could_never_have_classified_forward() -> None:
+    # The argument that defeats "you dropped the cells that made you look
+    # bad": the breach predicate (strictly before the clock day) implies the
+    # retrospective predicate (on or before), so exclusion can only ever touch
+    # cells outside the claimable stratum. Pinned at the boundary so a flip of
+    # either operator fails here.
+    clock = datetime(2026, 3, 2, tzinfo=UTC)
+    for resolved in (date(2026, 3, 1), date(2026, 3, 2), date(2026, 3, 3)):
+        prediction = _prediction(created_at=clock, mode="forward")
+        breach = forward_claim_breach(prediction, _outcome(resolved))
+        stratum = classify_stratum(clock, resolved)
+        if breach is not None:
+            assert stratum is RETROSPECTIVE
+    assert classify_stratum(clock, date(2026, 3, 3)) is FORWARD
+    assert (
+        forward_claim_breach(
+            _prediction(created_at=clock, mode="forward"), _outcome(date(2026, 3, 3))
+        )
+        is None
+    )
+
+
+def test_forward_claim_record_splits_by_predictor_and_carries_the_denominator() -> None:
+    record = forward_claim_record(
+        [("beta", "reason"), ("alpha", "reason"), ("beta", "reason")], claimed_forward=5
+    )
+    assert record.excluded == 3
+    assert record.claimed_forward == 5
+    assert record.by_predictor == {"alpha": 1, "beta": 2}

@@ -549,10 +549,16 @@ class ExcludedCell(NamedTuple):
 
 
 class StratifiedRun(NamedTuple):
-    """:func:`stratify`'s result: the scorable cells, and what was excluded."""
+    """:func:`stratify`'s result: the scorable cells, and what was excluded.
+
+    ``claimed_forward`` is the breach check's denominator: in-scope cells whose
+    harness record carried a forward-claiming context at all — what tells "no
+    claim breached" apart from "nothing recorded a claim to check".
+    """
 
     cells: list[StratifiedCell]
     excluded: list[ExcludedCell]
+    claimed_forward: int = 0
 
 
 def stratify(
@@ -616,9 +622,10 @@ def stratify(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return StratifiedRun([], [])
+        return StratifiedRun([], [], 0)
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
+    claimed_forward = 0
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -633,20 +640,24 @@ def stratify(
         ):
             continue
         outcome = read_model(event_dir / "outcome.json", Outcome)
+        # A mootness-basis outcome never enters the forward/retrospective
+        # skill aggregates — the label tracks vacatur practice, not
+        # cert-worthiness. Under the retrospective policy a breaching mootness
+        # cell therefore routes procedural, not retrospective; under exclude
+        # it is dropped like any breaching cell.
+        procedural = outcome.disposition_basis == "mootness"
+        if latest.context is not None and latest.context.mode == "forward":
+            claimed_forward += 1
         breach = forward_claim_breach(latest, outcome)
         if breach is not None:
             excluded.append(ExcludedCell(evaluation, breach))
             if policy == "exclude":
                 continue
-            stratum: Stratum = RETROSPECTIVE
+            stratum: Stratum = PROCEDURAL if procedural else RETROSPECTIVE
         else:
-            # A mootness-basis outcome routes to the procedural stratum
-            # regardless of timing: the label tracks vacatur practice, not
-            # cert-worthiness, so it must not enter the forward/retrospective
-            # skill aggregates.
             stratum = (
                 PROCEDURAL
-                if outcome.disposition_basis == "mootness"
+                if procedural
                 else classify_stratum(cell_clock(latest), outcome.resolved_at)
             )
         event = read_model(event_dir / "event.yaml", PredictableEvent)
@@ -658,17 +669,17 @@ def stratify(
         if stage is None and event.kind in _FORECASTABLE_KINDS:
             stage = Stage.cert
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded)
+    return StratifiedRun(cells, excluded, claimed_forward)
 
 
 def iter_stratified_evaluations(
     data_root: Path, *, frozen_only: bool = True
 ) -> list[StratifiedCell]:
-    """:func:`stratify`'s scorable cells alone, for callers that need no ledger.
+    """:func:`stratify`'s scorable cells alone, for a caller that needs no ledger.
 
-    The thin wrapper the existing joins call; the boards call
-    :func:`stratify` directly so the exclusion count they publish and the
-    cells they aggregate come from one pass.
+    The cells-only seam; the boards call :func:`stratify` directly so the
+    exclusion record they publish and the cells they aggregate come from one
+    pass.
     """
     return stratify(data_root, frozen_only=frozen_only).cells
 

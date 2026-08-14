@@ -11,14 +11,16 @@ resolution would otherwise classify as a forward forecast. :func:`cell_clock`
 prefers the harness-written process stamp and falls back to the agent-written
 ``created_at`` only where no stamp exists — and an unstamped cell is outside
 the frozen headline by construction (``is_frozen`` refuses a null), so the
-fallback only ever positions cells inside diagnostic views. Never the git
+fallback only ever positions cells — and adjudicates breaches — inside
+diagnostic views, where an agent-movable clock costs a diagnostic row, never
+a claim. Never the git
 commit timestamp: the stratified join is documented deterministic and offline
 over committed artifacts, and a git read would break that.
 
 **May the cell's forward claim be believed?** A cell whose harness-written
-record says ``mode: forward`` while its event had already resolved when the
-harness ran it is not a forecast — the claim and the record contradict each
-other, and no stratum is a valid home for the observation
+record says ``mode: forward`` while its event had resolved before the harness
+clock's day is not a forecast — the claim and the record contradict each
+other, and no scored stratum is a valid home for the observation
 (:func:`forward_claim_breach`). What happens to such a cell is the
 pre-registered :data:`FORWARD_CLAIM_POLICY`; the boards publish the policy and
 the count beside their numbers so an exclusion can never be silent.
@@ -31,18 +33,22 @@ behavior.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Literal
 
 from .schemas import ForwardClaimRecord, Outcome, Prediction
 
 #: What the scoring funnel does with a cell whose forward claim its own record
-#: contradicts. ``"exclude"`` (the pre-registered value) drops the cell from
+#: contradicts. ``"exclude"`` (the registered value) drops the cell from
 #: every scored stratum: the retrospective stratum is the iteration signal,
-#: measured over cells that were *told* they were retrospective and held to
-#: replay etiquette, and a cell that believed it was forward degrades exactly
-#: that signal. ``"retrospective"`` instead forces the cell into the
-#: retrospective stratum while still counting it on the board. A maintainer
+#: measured over cells the clock honestly places after their resolution —
+#: replay cells held to replay etiquette, and late cells that never claimed
+#: otherwise — and a cell that believed it was forward, retrieved
+#: unrestricted, and asserted a false mode degrades exactly that signal.
+#: ``"retrospective"`` instead forces the cell into the retrospective stratum
+#: (procedural still wins for a mootness-basis outcome) while counting it on
+#: the board. A maintainer
 #: moves this in a reviewed commit, the ``FROZEN_*`` pattern; the boards
 #: record which policy built them, so a flip is one commit plus a refresh.
 ForwardClaimPolicy = Literal["exclude", "retrospective"]
@@ -67,27 +73,49 @@ def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None
     """Why this cell's own harness record contradicts its forward claim.
 
     ``None`` unless the harness-written context claims ``forward`` **and** the
-    event had already resolved when the harness ran the cell
-    (:func:`cell_clock`, date-resolution — the conservative same-day reading
-    the stratum boundary also takes). A null-context cell cannot breach: it
-    asserts nothing, and the clock alone already routes it retrospective
-    wherever it ran late. A ``replay`` cell cannot breach: running after the
-    resolution is its design.
+    event had resolved strictly before the cell's harness clock day
+    (:func:`cell_clock`). A same-day tie is deliberately **not** a breach: the
+    record is ambiguous there — an honest forward cell that lost a same-day
+    race looks identical to a mis-provisioned one — so the tie falls to the
+    stratum boundary's own conservative rule (same-day counts as
+    retrospective) rather than to exclusion. A null-context cell cannot
+    breach: it asserts nothing, and the clock alone already routes it
+    retrospective wherever it ran late. A ``replay`` cell cannot breach:
+    running after the resolution is its design.
     """
     context = prediction.context
     if context is None or context.mode != "forward":
         return None
     resolved_at = outcome.resolved_at
     clock_date = cell_clock(prediction).date()
-    if resolved_at <= clock_date:
+    if resolved_at < clock_date:
         return (
             f"the record claims a forward cell, but the event resolved "
-            f"{resolved_at.isoformat()} — on or before the cell's harness clock "
+            f"{resolved_at.isoformat()} — before the cell's harness clock day "
             f"({clock_date.isoformat()})"
         )
     return None
 
 
-def forward_claim_record(excluded: int) -> ForwardClaimRecord:
-    """The record every scoring surface publishes beside its numbers."""
-    return ForwardClaimRecord(policy=FORWARD_CLAIM_POLICY, excluded=excluded)
+def forward_claim_record(
+    excluded: Sequence[tuple[str, str]] | int, claimed_forward: int = 0
+) -> ForwardClaimRecord:
+    """The record every scoring surface publishes beside its numbers.
+
+    ``excluded`` is the exclusion ledger's ``(predictor_id, reason)`` pairs
+    (a bare count is accepted where a caller has only the number and no
+    per-predictor split to publish).
+    """
+    if isinstance(excluded, int):
+        return ForwardClaimRecord(
+            policy=FORWARD_CLAIM_POLICY, excluded=excluded, claimed_forward=claimed_forward
+        )
+    by_predictor: dict[str, int] = {}
+    for predictor_id, _reason in excluded:
+        by_predictor[predictor_id] = by_predictor.get(predictor_id, 0) + 1
+    return ForwardClaimRecord(
+        policy=FORWARD_CLAIM_POLICY,
+        excluded=len(excluded),
+        claimed_forward=claimed_forward,
+        by_predictor=dict(sorted(by_predictor.items())),
+    )

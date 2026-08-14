@@ -16,7 +16,8 @@ its label tracks the Court's vacatur wording, not cert-worthiness. The strata
 are aggregated separately and never blended into one headline number, and only
 forward/retrospective enter the ranking. :func:`classify_stratum` is the single
 definition of the timing split, derivable offline from committed artifacts (the
-prediction's ``created_at`` vs the outcome's ``resolved_at``); the procedural
+prediction's harness clock — :func:`fedcourtsai.integrity.cell_clock` — vs the
+outcome's ``resolved_at``); the procedural
 override lives with the join in ``store.iter_stratified_evaluations``.
 
 Orthogonal to the strata runs the **stage/moment axis**: the ranked board is

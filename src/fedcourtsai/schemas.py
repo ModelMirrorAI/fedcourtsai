@@ -1544,7 +1544,9 @@ class LeaderboardStratum(_Strict):
     """Aggregates over one stratum of a predictor's evaluations.
 
     A cell is *forward* when the event was still unresolved at the prediction's
-    commit time and *retrospective* when it had already resolved — in which case
+    harness clock (`integrity.cell_clock` — the process stamp, else the
+    unstamped cell's `created_at`) and *retrospective* when it had already
+    resolved — in which case
     the outcome is public knowledge inside every modern model's training data, so
     the cell measures recall plus calibration, never ex-ante forecasting skill.
     The strata are therefore aggregated separately and never blended into one
@@ -1856,14 +1858,33 @@ class ForwardClaimRecord(_Strict):
         description="What the funnel does with a breaching cell "
         "(`integrity.FORWARD_CLAIM_POLICY`): `exclude` drops it from every "
         "scored stratum; `retrospective` forces it into the retrospective "
-        "stratum while still counting it. Either way the cell is never a "
-        "forward observation."
+        "stratum (procedural still wins for a mootness-basis outcome) while "
+        "still counting it. Either way the cell is never a forward "
+        "observation. Deliberately stage-blind, like `big_case`: the rule is "
+        "a record-integrity property, not a stage-scoped skill figure, so its "
+        "counts must never be subtracted from the cert-scoped totals."
     )
     excluded: int = Field(
         ge=0,
         description="How many in-scope cells breached the forward claim this "
         "build — listed under whichever policy applied, so the two variants "
         "publish the same count and a policy flip is visible as exactly that",
+    )
+    claimed_forward: int = Field(
+        ge=0,
+        description="The denominator: in-scope cells whose harness record "
+        "carries a forward-claiming context at all. A context-null cell can "
+        "never breach, so `excluded: 0` over a ledger of context-null cells "
+        "means 'nothing recorded a claim to check', not 'every claim held' — "
+        "this count is what tells the two apart",
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="Excluded-cell counts keyed by predictor id (only "
+        "predictors with a nonzero count appear) — exclusion falling "
+        "differentially on one engine changes the scored population, which "
+        "is the cross-engine comparability condition, so the split is "
+        "published rather than pooled",
     )
 
 
@@ -2217,8 +2238,9 @@ class ClaimScoreBoard(_Strict):
     )
     evaluations_total: int = Field(
         ge=0,
-        description="Cert-stage evaluation cells in scope, with or without a "
-        "claim block — the surface's whole population, cert-stage because only "
+        description="Cert-stage evaluation cells in scope (after the "
+        "forward-claim exclusion the `forward_claim` block records), with or "
+        "without a claim block — the surface's population, cert-stage because only "
         "the cert-stage event kinds declare a claim set, so a cell on any "
         "other stage is never owed a block and belongs outside the absence "
         "counts",

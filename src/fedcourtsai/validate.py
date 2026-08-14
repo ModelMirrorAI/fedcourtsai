@@ -47,6 +47,7 @@ import yaml
 from pydantic import ValidationError
 
 from . import corpus
+from .integrity import cell_clock
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
@@ -661,7 +662,7 @@ def check_merits_predictions(data_root: Path) -> CorpusCheck:
             if not predictions:
                 continue
             checked += 1
-            latest = max(predictions, key=lambda p: p.created_at)
+            latest = max(predictions, key=cell_clock)
             if latest.judgment is None:
                 problems.append(
                     f"prediction {predictor_dir}: latest prediction for merits-stage "

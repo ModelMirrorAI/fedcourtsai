@@ -354,6 +354,9 @@ def render_substance(digest: SubstanceDigest) -> str:
         digest.process_scope == "frozen"
         and c.evaluations_forward == 0
         and c.evaluations_retrospective == 0
+        # An exclusion-emptied headline is not the shakedown state: the cells
+        # exist and were dropped, and the forward-claim line below says so.
+        and (digest.forward_claim is None or digest.forward_claim.excluded == 0)
     )
     lines = [
         "## Substance (is it producing?)",
@@ -367,9 +370,14 @@ def render_substance(digest: SubstanceDigest) -> str:
         f"{_fmt_delta(c.evaluations_retrospective_delta)}.",
     ]
     if digest.forward_claim is not None and digest.forward_claim.excluded:
+        placement = (
+            "excluded from the forward/replay counts above"
+            if digest.forward_claim.policy == "exclude"
+            else "counted inside the replay figure above"
+        )
         lines.append(
             f"Forward-claim integrity: **{digest.forward_claim.excluded}** cell(s) "
-            f"whose record contradicts its forward claim, handled per the "
+            f"whose record contradicts its forward claim, {placement} per the "
             f"`{digest.forward_claim.policy}` policy (see the boards' "
             f"`forward_claim` block)."
         )

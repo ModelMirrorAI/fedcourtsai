@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, ops
 from fedcourtsai.cli import app
+from fedcourtsai.integrity import forward_claim_record
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
@@ -1638,3 +1639,22 @@ def test_leakage_digest_stays_all_versions_while_substance_is_frozen(tmp_path: P
     # ...but the leakage diagnostic still sees the shakedown contamination.
     assert report["leakage"]["assessed"] >= 1
     assert report["leakage"]["likely"] >= 1
+
+
+def test_render_substance_names_the_forward_claim_exclusions() -> None:
+    # The rendered line appears exactly when the record carries a non-zero
+    # count, so an exclusion is legible on the dashboard, not only on the
+    # boards.
+    quiet = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        forward_claim=forward_claim_record(0),
+    )
+    loud = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        forward_claim=forward_claim_record(2),
+    )
+
+    assert "Forward-claim integrity" not in ops.render_substance(quiet)
+    assert "Forward-claim integrity: **2** cell(s)" in ops.render_substance(loud)
