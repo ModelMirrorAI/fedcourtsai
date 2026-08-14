@@ -336,7 +336,8 @@ def summarize_semantic_grades(
       cell (the evaluations path is keyed on ``run_id``), and two runs are two
       grades from one grader on one unit. Collapse them the way
       ``claim_metrics`` collapses blocks — newest wins, on
-      ``(created_at, evaluator_id, run_id)`` — before calling; otherwise the
+      ``(evaluation_clock(ev), evaluator_id, run_id)`` with the harness clock
+      from ``fedcourtsai.integrity`` — before calling; otherwise the
       ``ValueError`` below fires on an ordinary state.
     - **Publish the agreement figure with any count or share taken from here.**
 

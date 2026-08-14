@@ -53,6 +53,7 @@ from .schemas import (
     Moment,
     Outcome,
     Prediction,
+    ProcessVersion,
     Stage,
     Stratum,
 )
@@ -100,6 +101,17 @@ def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
     return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
 
 
+def _harness_clock(process_version: ProcessVersion | None, created_at: datetime) -> datetime:
+    """The one stamp-else-created_at rule behind both typed clocks.
+
+    Private so the normalization is written once; the two public names exist
+    for call-site type safety, not for divergent rules.
+    """
+    stamped = process_version.stamped_at if process_version is not None else None
+    clock = stamped if stamped is not None else created_at
+    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+
+
 def cell_clock(prediction: Prediction) -> datetime:
     """When the harness ran this cell: the process stamp, else ``created_at``.
 
@@ -107,11 +119,29 @@ def cell_clock(prediction: Prediction) -> datetime:
     zone any writer in this pipeline uses), so clocks from different writers
     always compare.
     """
-    stamped = (
-        prediction.process_version.stamped_at if prediction.process_version is not None else None
-    )
-    clock = stamped if stamped is not None else prediction.created_at
-    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+    return _harness_clock(prediction.process_version, prediction.created_at)
+
+
+def evaluation_clock(evaluation: Evaluation) -> datetime:
+    """When the harness ran this evaluation: the process stamp, else ``created_at``.
+
+    The evaluation-side sibling of :func:`cell_clock`, and a distinct name on
+    purpose: the prediction clock draws the pre-registration boundary, while
+    this one orders re-runs of one grader on one cell (newest wins), so a join
+    reaching for the wrong artifact's clock reads as the type error it is.
+    Same normalization — a bare timestamp reads as UTC, so clocks from
+    different writers always compare instead of raising on a naive/aware mix.
+
+    The ``created_at`` fallback is contained the same way the prediction
+    side's is: ``graded_post_freeze`` refuses a null stamp, so inside a
+    frozen-scope build every evaluation is stamped and the agent-movable
+    clock never picks a winning block behind a claimable mean — the fallback
+    only ever orders diagnostic (``--all-versions``) views. The stamp is the
+    exact statpack vintage (the block and the stamp are written by one
+    ``stamp-cell`` invocation); a backdated ``--stamped-at`` can misstate
+    that vintage, which is a reason the flag is harness-side only.
+    """
+    return _harness_clock(evaluation.process_version, evaluation.created_at)
 
 
 def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None:
