@@ -216,9 +216,9 @@ token stays comment-only and writes `flags.json` locally — the trusted `collec
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
 worst a misbehaving `collect` run can do with it is post an issue comment or read
 the repository's own Actions artifacts — that job also holds `actions: read`, so
-it can fetch its run's cell artifacts one at a time instead of as a single
-fail-fast batch (a transient failure of which once discarded a whole run's
-output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
+it can fetch its run's cell artifacts per artifact (four at a time) instead of
+as a single fail-fast batch (a transient failure of which once discarded a
+whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
 

@@ -780,13 +780,14 @@ jobs:
     # partial output, one draft PR a maintainer finishes.
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
     runs-on: ubuntu-latest
-    # The collect action downloads cell artifacts strictly one at a time (the
-    # loop is the degradation boundary — see the download step's comment), with
-    # up to 3 attempts and backoff per artifact, so a full-width fan-out
-    # (~90 cells at 5-10s per download) spends 8-15 minutes before any
-    # aggregation or PR work begins. 15 had no headroom at that width and
-    # killed two whole runs at the cap; 30 bounds the job while leaving the
-    # aggregation its share.
+    # The collect action downloads cell artifacts per artifact with bounded
+    # parallelism (4 workers; each download is its own degradation boundary —
+    # see the download step's comment), with up to 3 attempts and backoff per
+    # artifact. A clean full-width pass (~90 cells at 5-10s per download)
+    # spends 2-4 minutes before aggregation begins, but an all-retry pass
+    # still approaches 17, and a cap kill can land mid-aggregation — after
+    # the branch push, before the PR — costing a maintainer round trip. 30
+    # keeps that margin rather than chasing the clean-pass speedup.
     timeout-minutes: 30
     environment: prod
     permissions:
