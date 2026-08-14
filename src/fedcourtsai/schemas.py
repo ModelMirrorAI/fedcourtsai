@@ -1842,6 +1842,31 @@ class FrozenProcessRecord(_Strict):
     )
 
 
+class ForwardClaimRecord(_Strict):
+    """The forward-claim integrity rule in force when a board was built.
+
+    A cell whose harness-written record claims ``mode: forward`` while its
+    event had already resolved when the harness ran it is not a forecast
+    (:mod:`fedcourtsai.integrity`). This block states what the scoring funnel
+    did with such cells and how many there were, so an exclusion can never be
+    silent — the same reason ``frozen_process`` records the freeze constants.
+    """
+
+    policy: Literal["exclude", "retrospective"] = Field(
+        description="What the funnel does with a breaching cell "
+        "(`integrity.FORWARD_CLAIM_POLICY`): `exclude` drops it from every "
+        "scored stratum; `retrospective` forces it into the retrospective "
+        "stratum while still counting it. Either way the cell is never a "
+        "forward observation."
+    )
+    excluded: int = Field(
+        ge=0,
+        description="How many in-scope cells breached the forward claim this "
+        "build — listed under whichever policy applied, so the two variants "
+        "publish the same count and a policy flip is visible as exactly that",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -1876,6 +1901,13 @@ class Leaderboard(_Strict):
         "every build, an `all`-scope one included, as the partition's "
         "definition and never a claim it was applied; null on a board built "
         "before the record existed, or one constructed without it",
+    )
+    forward_claim: ForwardClaimRecord | None = Field(
+        default=None,
+        description="The forward-claim integrity rule applied to this build "
+        "and the count of cells it caught (`integrity.forward_claim_breach`); "
+        "null on a board built before the record existed, or one constructed "
+        "without it",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -2176,6 +2208,12 @@ class ClaimScoreBoard(_Strict):
         "the leaderboard records them — the partition's definition, never a "
         "claim it was applied; null on a surface built before the record "
         "existed, or one constructed without it",
+    )
+    forward_claim: ForwardClaimRecord | None = Field(
+        default=None,
+        description="The forward-claim integrity rule applied to this build, "
+        "exactly as the leaderboard records it; null on a surface built "
+        "before the record existed, or one constructed without it",
     )
     evaluations_total: int = Field(
         ge=0,
@@ -5062,6 +5100,13 @@ class SubstanceDigest(_Strict):
         "The prediction *census* (`cells.predictions` / `events_predicted`) is "
         "always version-blind, so a frozen scope with many predictions but zero "
         "frozen evaluations is the honest shakedown state, not a mismatch.",
+    )
+    forward_claim: ForwardClaimRecord | None = Field(
+        default=None,
+        description="The forward-claim integrity rule applied to the scored-cell "
+        "figures, exactly as the boards record it — so the dashboard and the "
+        "leaderboard cannot disagree about what was excluded; null on a report "
+        "built before the record existed",
     )
 
 

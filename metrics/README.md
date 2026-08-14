@@ -481,13 +481,28 @@ before the model's training cutoff has the outcome inside the model's weights �
 the caption alone can retrieve it — so scoring it measures recall plus
 calibration, not ex-ante forecasting skill. The clean structural separator is the
 pre-registration standard: a cell is **forward** when the event was still
-unresolved at the prediction's commit and **retrospective** when it had already
-resolved (same-day ties count as retrospective, the conservative reading). The
-split is deterministic and offline — the prediction's `created_at` against the
+unresolved at the prediction's **harness clock** and **retrospective** when it
+had already resolved (same-day ties count as retrospective, the conservative
+reading). The split is deterministic and offline — the harness clock (the
+harness-written process stamp, with the agent-written `created_at` only as the
+unstamped-legacy fallback; a pre-registration boundary must not rest on a
+clock the agent controls — `fedcourtsai.integrity.cell_clock`) against the
 outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+
+**The forward-claim exclusion.** A cell whose harness-written record *claims*
+`forward` (`context.mode`) while its event had already resolved at the cell's
+harness clock is **not a forecast** — its claim and its record contradict each
+other, so it is not a valid observation of either timing stratum
+(`fedcourtsai.integrity.forward_claim_breach`, a property of the record alone,
+never of predictor behavior). Under the pre-registered policy
+(`integrity.FORWARD_CLAIM_POLICY = "exclude"`) such a cell is excluded from
+every scored stratum; the boards publish the policy and the count in their
+`forward_claim` block so the exclusion is never silent. The provisioning-side
+record gate exists so this class never occurs; the scoring-side rule is the
+defense in depth that makes the claim mechanical rather than trusted.
 
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
@@ -915,8 +930,9 @@ the replay runs, `backtest.json`, `cert-backtest.json`,
 `salience-replay.json`) are **iteration
 instruments** — for tuning prompts, retrieval, and calibration — and are
 **never claimable performance**; the project claims results only from genuine
-forward predictions. Timing is the integrity mechanism: the prediction's git
-commit timestamp against the outcome's `resolved_at`, both content-addressed
+forward predictions. Timing is the integrity mechanism: the prediction's
+harness clock (`fedcourtsai.integrity.cell_clock` — the process stamp, else
+the unstamped cell's `created_at`) against the outcome's `resolved_at`, both
 committed artifacts, decides the stratum — not any restriction on what a cell
 could retrieve. Replay cells run with the same tools as forward cells; the
 cross-evaluator's leakage grading (the `leakage` block on each

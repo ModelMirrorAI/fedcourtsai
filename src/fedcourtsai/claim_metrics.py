@@ -56,6 +56,7 @@ from .schemas import (
     ClaimScoreEntry,
     ClaimScoreStratum,
     Evaluation,
+    ForwardClaimRecord,
     Stage,
     Stratum,
 )
@@ -194,6 +195,7 @@ def build_claim_scores(
     cells: Iterable[StratifiedCell],
     *,
     process_scope: Literal["frozen", "all"] = "frozen",
+    forward_claim: ForwardClaimRecord | None = None,
 ) -> ClaimScoreBoard:
     """Roll stratified evaluations up into the claim-score surface.
 
@@ -244,6 +246,7 @@ def build_claim_scores(
             entries.append(entry)
     return ClaimScoreBoard(
         process_scope=process_scope,
+        forward_claim=forward_claim,
         # Recorded on every build, `all` scope included: it states what the
         # freeze constants were, not that the partition was applied.
         frozen_process=frozen_process_record(),

@@ -2,6 +2,7 @@
   "entries": [],
   "evaluations_total": 0,
   "evaluator_agreement": {},
+  "forward_claim": null,
   "forward_evaluations": 0,
   "frozen_process": {
     "digests": [

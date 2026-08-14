@@ -99,6 +99,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
+from .integrity import forward_claim_record
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -202,12 +203,12 @@ from .store import (
     forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
-    iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
     ledger_cell_counts,
     open_events,
     resolved_events,
+    stratify,
 )
 from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
@@ -1511,7 +1512,8 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    cells = iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only)
+    run = stratify(settings.data_root, frozen_only=frozen_only)
+    cells = run.cells
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
     # ops feeds: no pack means the column is absent, never partly computed.
@@ -1522,6 +1524,7 @@ def leaderboard(
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
+        forward_claim=forward_claim_record(len(run.excluded)),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -1581,9 +1584,11 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
     board = build_claim_scores(
-        iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions),
+        run.cells,
         process_scope=scope,
+        forward_claim=forward_claim_record(len(run.excluded)),
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -2743,12 +2748,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified = [
-        (ev, stratum)
-        for ev, stratum, _stage, _moment in iter_stratified_evaluations(
-            settings.data_root, frozen_only=not all_versions
-        )
-    ]
+    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
+    stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,
@@ -2756,6 +2757,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         live_frontier=frontier,
         previous=prior,
         process_scope=scope,
+        forward_claim=forward_claim_record(len(stratified_run.excluded)),
     )
     report = build_ops_report(
         generated_at=when,

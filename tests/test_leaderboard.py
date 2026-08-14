@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import process_version
 from fedcourtsai.cli import app
+from fedcourtsai.integrity import forward_claim_record
 from fedcourtsai.leaderboard import (
     FORWARD,
     NO_STAGE_KEY,
@@ -49,7 +50,7 @@ from fedcourtsai.schemas import (
     Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
+from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations, stratify
 from tests.conftest import bless_process
 
 runner = CliRunner()
@@ -1436,3 +1437,83 @@ def test_big_case_agreement_counts_cases_not_events(tmp_path: Path) -> None:
     ((predictor, agreement),) = big_case_agreement(tmp_path, frozen_only=False).items()
     assert predictor == "p"
     assert agreement.cases == 1  # one case, two moments
+
+
+def test_stratum_keys_on_the_harness_stamp_not_the_agent_clock(tmp_path: Path) -> None:
+    # The regression this rule exists for: an agent-written created_at that
+    # predates the resolution must not buy a forward classification when the
+    # harness ran the cell after it.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:any", stamped_at=datetime(2026, 6, 25, tzinfo=UTC)
+        ),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [RETROSPECTIVE]
+    assert run.excluded == []
+
+
+def test_a_misprovisioned_forward_cell_is_excluded_under_the_exclude_policy(
+    tmp_path: Path,
+) -> None:
+    # The record contradicts itself: context.mode says forward, the outcome
+    # existed at the harness clock. Not a valid observation of any stratum.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert run.cells == []
+    assert len(run.excluded) == 1
+    assert "forward" in run.excluded[0].reason
+
+
+def test_a_misprovisioned_cell_routes_retrospective_under_that_policy(tmp_path: Path) -> None:
+    # The variant policy shares the machinery and the count: the cell lands in
+    # the retrospective stratum AND still appears on the exclusion ledger.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False, policy="retrospective")
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [RETROSPECTIVE]
+    assert len(run.excluded) == 1
+
+
+def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+    run = stratify(data_root, frozen_only=False)
+
+    board = build_leaderboard(
+        run.cells, process_scope="all", forward_claim=forward_claim_record(len(run.excluded))
+    )
+
+    assert board.forward_claim is not None
+    assert board.forward_claim.policy == "exclude"
+    assert board.forward_claim.excluded == 1

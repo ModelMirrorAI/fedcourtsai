@@ -265,6 +265,33 @@
       "title": "ClaimScoreStratum",
       "type": "object"
     },
+    "ForwardClaimRecord": {
+      "additionalProperties": false,
+      "description": "The forward-claim integrity rule in force when a board was built.\n\nA cell whose harness-written record claims ``mode: forward`` while its\nevent had already resolved when the harness ran it is not a forecast\n(:mod:`fedcourtsai.integrity`). This block states what the scoring funnel\ndid with such cells and how many there were, so an exclusion can never be\nsilent \u2014 the same reason ``frozen_process`` records the freeze constants.",
+      "properties": {
+        "excluded": {
+          "description": "How many in-scope cells breached the forward claim this build \u2014 listed under whichever policy applied, so the two variants publish the same count and a policy flip is visible as exactly that",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        },
+        "policy": {
+          "description": "What the funnel does with a breaching cell (`integrity.FORWARD_CLAIM_POLICY`): `exclude` drops it from every scored stratum; `retrospective` forces it into the retrospective stratum while still counting it. Either way the cell is never a forward observation.",
+          "enum": [
+            "exclude",
+            "retrospective"
+          ],
+          "title": "Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "excluded"
+      ],
+      "title": "ForwardClaimRecord",
+      "type": "object"
+    },
     "FrozenProcessRecord": {
       "additionalProperties": false,
       "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
@@ -333,6 +360,18 @@
       ],
       "default": null,
       "description": "The judge validation over the forward stratum \u2014 the only stratum whose mechanical totals are forecasts; null when the stratum has no cells in scope"
+    },
+    "forward_claim": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ForwardClaimRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The forward-claim integrity rule applied to this build, exactly as the leaderboard records it; null on a surface built before the record existed, or one constructed without it"
     },
     "frozen_process": {
       "anyOf": [

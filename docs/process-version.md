@@ -103,7 +103,12 @@ The agent writes `prediction.json` / `evaluation.json`; a post-agent step
 `validate`) reads that file and injects the `ProcessVersion` derived from the
 registry. So a cell's version is what the harness resolved at run time, exactly
 as `usage.json` records the engine's own log rather than trusting the agent — a
-compromised or hallucinating agent cannot fake its process version.
+compromised or hallucinating agent cannot fake its process version. The same
+clock discipline reaches past the freeze: the forward/retrospective stratum
+boundary keys on the cell's harness clock (`fedcourtsai.integrity.cell_clock`
+— the stamp's `stamped_at`, with the agent-written `created_at` only as the
+unstamped-legacy fallback), so no pre-registration boundary anywhere rests on
+a clock the agent controls.
 
 The stamp step is deterministic and local, so unlike the best-effort log
 captures beside it, it is **must-succeed**: a missing artifact (a no-output cell)

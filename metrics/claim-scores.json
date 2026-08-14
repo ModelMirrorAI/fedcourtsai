@@ -3,6 +3,7 @@
   "entries": [],
   "evaluations_total": 0,
   "forward_agreement": null,
+  "forward_claim": null,
   "frozen_process": {
     "digests": [
       "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",

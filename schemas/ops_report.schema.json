@@ -536,6 +536,33 @@
       "title": "FlagsDigest",
       "type": "object"
     },
+    "ForwardClaimRecord": {
+      "additionalProperties": false,
+      "description": "The forward-claim integrity rule in force when a board was built.\n\nA cell whose harness-written record claims ``mode: forward`` while its\nevent had already resolved when the harness ran it is not a forecast\n(:mod:`fedcourtsai.integrity`). This block states what the scoring funnel\ndid with such cells and how many there were, so an exclusion can never be\nsilent \u2014 the same reason ``frozen_process`` records the freeze constants.",
+      "properties": {
+        "excluded": {
+          "description": "How many in-scope cells breached the forward claim this build \u2014 listed under whichever policy applied, so the two variants publish the same count and a policy flip is visible as exactly that",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        },
+        "policy": {
+          "description": "What the funnel does with a breaching cell (`integrity.FORWARD_CLAIM_POLICY`): `exclude` drops it from every scored stratum; `retrospective` forces it into the retrospective stratum while still counting it. Either way the cell is never a forward observation.",
+          "enum": [
+            "exclude",
+            "retrospective"
+          ],
+          "title": "Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "excluded"
+      ],
+      "title": "ForwardClaimRecord",
+      "type": "object"
+    },
     "LeakageDigest": {
       "additionalProperties": false,
       "description": "The evaluators' leakage grading rolled up for the run-ops dashboard.\n\nThe visibility half of the backtest-as-iteration doctrine: replay cells run\nwith the same tools as forward cells, so the dashboard must show \u2014 across\nruns \u2014 whether outcome material is contaminating the backtest's iteration\nsignal. Counts are over committed ``evaluation.json`` files carrying a\n``leakage`` block within ``window_days`` of generation; ``likely`` offenders\nare listed (capped) so a repeat pattern names its predictor.",
@@ -1112,6 +1139,18 @@
         },
         "cells": {
           "$ref": "#/$defs/SubstanceCells"
+        },
+        "forward_claim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForwardClaimRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The forward-claim integrity rule applied to the scored-cell figures, exactly as the boards record it \u2014 so the dashboard and the leaderboard cannot disagree about what was excluded; null on a report built before the record existed"
         },
         "live_frontier": {
           "anyOf": [

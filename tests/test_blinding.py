@@ -815,3 +815,34 @@ def test_the_command_exits_non_zero_when_it_cannot_un_alias(
     )
     assert result.exit_code == 1
     assert "un-aliasing failed" in result.output
+
+
+def test_a_harness_stamp_outranks_an_agent_backdate_in_latest_selection(ledger: Path) -> None:
+    """The harness clock decides, matching the stratified join's rule.
+
+    A run whose agent-written `created_at` is later must not outrank a run
+    whose harness stamp is later still — both the grader's staging and the
+    stratifier read the same clock, or the two halves of a cell would describe
+    different predictions.
+    """
+    # The fixture run carries created_at 2026-07-18 and no stamp. Add an
+    # earlier-created run whose harness stamp postdates everything.
+    stamped_dir = _seed_prediction(
+        ledger,
+        "claude-baseline",
+        "claude-code",
+        "claude-fable-5",
+        run_id="20260101T000000Z",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    payload = json.loads((stamped_dir / "prediction.json").read_text())
+    payload["process_version"] = {
+        "label": "proc-v2",
+        "digest": "sha256:any",
+        "stamped_at": "2026-12-31T00:00:00+00:00",
+    }
+    (stamped_dir / "prediction.json").write_text(json.dumps(payload))
+
+    latest = blinding.latest_prediction_dirs(CasePaths(ledger, COURT, DOCKET).event(EVENT))
+
+    assert latest["claude-baseline"].name == "20260101T000000Z"
