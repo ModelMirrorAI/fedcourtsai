@@ -337,6 +337,19 @@ Three consequences bind every use of the set:
   cost more than the exposure is currently judged to be worth, and that judgment
   is the thing to revisit if the extract ever carries more than this.
 
+  The labeler's **turn-by-turn transcript** (`qp-label-transcript`) rides the
+  same channel under the same terms, because it is the same bytes one step
+  later: the agent reads the extract, so its transcript necessarily embeds the
+  QP text, and it adds only the agent's own reasoning about it. It exists
+  because a run that reports success while writing no labels is undiagnosable
+  from the summary block alone, and each re-run costs real model spend — so
+  the transcript is uploaded on every path (a gate-refusing run is as
+  diagnostic as a no-output one), only after the run's secret scan passes (a
+  hit withholds the artifact and says so, mirroring the collect job's
+  posture), and under the same one-day retention as the extract, for the
+  reasons argued above rather than a second, looser rule for the same
+  disclosure class.
+
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
 and labeler error cannot be separated, least of all on the boundary labels.

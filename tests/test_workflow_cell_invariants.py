@@ -206,3 +206,28 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
     assert lines, "run-evaluate.yml no longer provisions a snapshot"
     for line in lines:
         assert "--refuse-terminal" not in line, line
+
+
+def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
+    """The transcript artifact contract: captured always, scanned first, 1-day.
+
+    The labeler's turn-by-turn transcript is the only record of *how* a
+    no-output run failed, and it embeds the QP text the agent read — so it must
+    be uploaded on every path (a gate-refusing run is as diagnostic as a
+    no-output one), only after the secret scan passed, and under the same
+    shortest-offered retention the qp-texts extract argues for.
+    """
+    wf = _load("run-analytics.yml")
+    steps = wf["jobs"]["qp-topic-label"]["steps"]
+    label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
+    assert label.get("id") == "label", "the labeling step needs an id for its outputs"
+    scan = next(s for s in steps if s.get("id") == "transcript_scan")
+    assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
+    assert "scan-diff-for-secrets" in scan["run"]
+    upload = next(
+        s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript"
+    )
+    assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
+    assert upload["with"]["retention-days"] == 1
+    assert "always()" in upload["if"]
+    assert "steps.transcript_scan.outcome == 'success'" in upload["if"]
