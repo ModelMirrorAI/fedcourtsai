@@ -59,9 +59,11 @@ reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and a labeling run's
 per-case labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text. One **non-git** public channel is
-argued in the same place and nowhere else: the labeling run passes its extract
-of stored questions-presented text between its two jobs as a one-day GitHub
-Actions artifact, which on a public repository any logged-in user can download.
+argued in the same place and nowhere else, carrying two one-day GitHub Actions
+artifacts: the extract of stored questions-presented text the labeling run
+passes between its two jobs, and the labeler's scanned transcript, which
+embeds the same text; on a public repository any logged-in user can download
+either for its retention window.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and the channel is accepted for that
 run alone, not as a route for corpus content generally. That reasoning may quote or summarize
