@@ -276,6 +276,17 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert "scan-diff-for-secrets" in scan["run"]
     assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
     assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]  # the reachable credential
+    # The transcript surface, not the generic one: an execution log's own tool
+    # ids are high-entropy by format, so the --extra-file detector suite
+    # convicts every real transcript and the artifact only ever publishes
+    # empty. --transcript-file keeps containment + the credential shapes.
+    assert "--transcript-file" in scan["run"]
+    assert "--extra-file" not in scan["run"]
+    # The action must run the pre-installed pinned CLI: its own installer
+    # skips the package postinstall and the native binary goes missing.
+    assert label["with"]["path_to_claude_code_executable"] == "${{ steps.claude-cli.outputs.path }}"
+    install = next(s for s in steps if s.get("id") == "claude-cli")
+    assert "--global @anthropic-ai/claude-code@" in install["run"]
     upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript")
     assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
     assert upload["with"]["retention-days"] == 1
