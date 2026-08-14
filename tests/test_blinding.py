@@ -835,3 +835,24 @@ def test_unaliasing_resolves_a_sentence_initial_capitalized_alias(tmp_path: Path
 
     resolved = json.loads((root / "flags.json").read_text())
     assert resolved["note"] == "gemini-baseline repeated the outcome. claude-baseline did not."
+
+
+def test_the_resolver_bounds_every_alternative(tmp_path: Path) -> None:
+    # `|` binds loosest: without the non-capturing group the lookbehind
+    # anchored only the first alternative and the lookahead only the last, so
+    # a middle alias resolved inside larger tokens. Three aliases, middle one
+    # embedded — none may resolve.
+    root = tmp_path / "out"
+    root.mkdir()
+    (root / "note.md").write_text("xcandidate-b y precandidate-a candidate-c1\n")
+
+    blinding._resolve_aliases_in_tree(
+        root,
+        {
+            "candidate-a": "gemini-baseline",
+            "candidate-b": "claude-baseline",
+            "candidate-c": "codex-baseline",
+        },
+    )
+
+    assert (root / "note.md").read_text() == "xcandidate-b y precandidate-a candidate-c1\n"
