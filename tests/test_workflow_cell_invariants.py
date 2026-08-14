@@ -238,8 +238,10 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         step = next(s for s in steps if s.get("name") == name)
         assert "steps.provision.outputs.refused != 'true'" in str(step.get("if")), name
     # The gate can only hold for steps that run after provisioning.
-    assert all(names.index(name) > names.index("Provision the case snapshot from the corpus")
-               for name in gated)
+    assert all(
+        names.index(name) > names.index("Provision the case snapshot from the corpus")
+        for name in gated
+    )
 
 
 def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
