@@ -780,7 +780,14 @@ jobs:
     # partial output, one draft PR a maintainer finishes.
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The collect action downloads cell artifacts strictly one at a time (the
+    # loop is the degradation boundary — see the download step's comment), with
+    # up to 3 attempts and backoff per artifact, so a full-width fan-out
+    # (~90 cells at 5-10s per download) spends 8-15 minutes before any
+    # aggregation or PR work begins. 15 had no headroom at that width and
+    # killed two whole runs at the cap; 30 bounds the job while leaving the
+    # aggregation its share.
+    timeout-minutes: 30
     environment: prod
     permissions:
       contents: write # commit the run's evaluations to a branch
