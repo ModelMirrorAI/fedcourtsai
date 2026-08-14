@@ -543,3 +543,36 @@ def test_a_naive_and_aware_created_at_mix_cannot_raise() -> None:
     assert stratum is not None
     assert stratum.events == 1
     assert stratum.mean_total == pytest.approx(0.2)
+
+
+def test_a_statpack_revision_between_evaluator_stamps_picks_the_newer_stamp() -> None:
+    # The registered scenario: two *different* judges of one prediction whose
+    # blocks differ because a statpack revision landed between their stamps.
+    # The later-stamped judge's block carries the newer vintage and must win,
+    # even though the earlier-stamped judge wrote the later agent clock.
+    earlier_vintage = _evaluation(
+        "alpha",
+        claim_scores=_block(0.4),
+        evaluator_id="eval-a",
+        run_id="r1",
+        created_at=datetime(2026, 6, 30, tzinfo=UTC),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 1, tzinfo=UTC)
+        ),
+    )
+    later_vintage = _evaluation(
+        "alpha",
+        claim_scores=_block(0.2),
+        evaluator_id="eval-b",
+        run_id="r1",
+        created_at=datetime(2026, 6, 1, tzinfo=UTC),
+        process_version=ProcessVersion(
+            label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 20, tzinfo=UTC)
+        ),
+    )
+    board = build_claim_scores(_cells((earlier_vintage, FORWARD), (later_vintage, FORWARD)))
+    stratum = board.entries[0].forward
+    assert stratum is not None
+    assert stratum.cells == 2
+    assert stratum.events == 1
+    assert stratum.mean_total == pytest.approx(0.2)

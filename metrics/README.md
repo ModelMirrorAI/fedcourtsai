@@ -313,7 +313,9 @@ stays outside the gate:
   evaluator of the same prediction carries an identical harness block, so
   blocks are deduplicated to one per event before averaging (the newest
   evaluation's block wins where a statpack revision between evaluator stamps
-  ever made copies differ), and `cells` beside `events` is the raw evaluation
+  ever made copies differ — newest on the harness stamp,
+  `fedcourtsai.integrity.evaluation_clock`, never the agent-written
+  `created_at`), and `cells` beside `events` is the raw evaluation
   census. Strata are never pooled, and a total or pair set is never
   comparable across process versions or across the frozen/all scope: the
   artifact publishes its scope, keyed on the prediction's stamp exactly like

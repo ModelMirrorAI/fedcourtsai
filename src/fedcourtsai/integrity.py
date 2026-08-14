@@ -123,6 +123,15 @@ def evaluation_clock(evaluation: Evaluation) -> datetime:
     reaching for the wrong artifact's clock reads as the type error it is.
     Same normalization — a bare timestamp reads as UTC, so clocks from
     different writers always compare instead of raising on a naive/aware mix.
+
+    The ``created_at`` fallback is contained the same way the prediction
+    side's is: ``graded_post_freeze`` refuses a null stamp, so inside a
+    frozen-scope build every evaluation is stamped and the agent-movable
+    clock never picks a winning block behind a claimable mean — the fallback
+    only ever orders diagnostic (``--all-versions``) views. The stamp is the
+    exact statpack vintage (the block and the stamp are written by one
+    ``stamp-cell`` invocation); a backdated ``--stamped-at`` can misstate
+    that vintage, which is a reason the flag is harness-side only.
     """
     stamped = (
         evaluation.process_version.stamped_at if evaluation.process_version is not None else None
