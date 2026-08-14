@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275185",
+  "run_id": "20260814T033644Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "All three blinded candidates were recorded as forward, but their July 17, 2026 prediction logs show access to a snapshot containing this event's May 11, 2026 terminal disposition. The cell should not be treated as clean forward-skill evidence."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate-a explicitly repeated the terminal GVR material from the post-resolution snapshot and then predicted GVR; outcome influence is graded likely."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate-c expressly saw a grant-side summary disposition tied to Callais in the post-resolution snapshot before predicting GVR; outcome influence is graded likely."
+    },
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "During delegated evaluator review, a broad file-discovery command listed filenames beneath the committed predictions tree, breaching the blind-path contract. No committed prediction file was opened, the primary scorer was not given any identity, and identities were not used in scoring."
+    }
+  ]
+}

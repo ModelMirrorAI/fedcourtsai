@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275185",
+  "run_id": "20260814T033644Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads (blinded staging, statpack, schemas, snapshot, context)",
+    "shell (grep/python for table pooling and Brier arithmetic)"
+  ],
+  "helpful": [
+    "The statpack band table's caption stating 9 of 9 Terms rendered made the pooling window unambiguous.",
+    "The cell's own context.json carrying the terminal band and salience version made the no-frozen-context fallback mechanical."
+  ],
+  "gaps": [
+    "The staged predictions predate the frozen context block, so every skill score here is terminal-basis; a harness note in the staging area saying 'no context by age' vs 'context stripped' would remove any doubt.",
+    "A machine-readable statpack (per-band per-Term counts) would avoid re-deriving pooled rates from rendered percentages."
+  ],
+  "notes": "All three candidates disclosed the same mis-provisioned forward snapshot; the leakage grading leaned on the harness log plus their disclosures."
+}

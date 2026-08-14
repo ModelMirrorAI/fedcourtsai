@@ -1,0 +1,7 @@
+# Evaluation
+
+Candidate-b correctly predicted a grant. With P(grant) = 0.99 and `actual_granted` = 1, its Brier score is 0.0001. This petition-kind event is scored under the cert rules. The prediction has no frozen context band, so the terminal fallback applies. The federal-government petition places the case in the `federal` band; the leading sal-v2 federal rates over strictly prior OT2017–OT2024 pool to 113/160 = 0.70625, yielding Brier skill of 0.9988411045722047. No votes were predicted, so vote accuracy is not scored.
+
+The reasoning is strong and specific: it addresses Rule 11, Solicitor General posture, imperative public importance, related litigation, the companion-petition vehicle risk, the brief in opposition, and relist mechanics. It also candidly separates a counterfactual predecision range from the actual basis for 0.99. The limitation is that the recorded probability is explicitly driven by the already-known result rather than the otherwise thoughtful predecision analysis. I assign reasoning quality 0.92.
+
+The leakage assessment is adverse. Although the retrieval log labels the cell `forward`, it shows reads of the July 14, 2026 snapshot, and the reasoning quotes the December 5, 2025 grant and later merits events. It expressly says that the known disposition moved the estimate from a counterfactual 0.93–0.96 to 0.99. Outcome material therefore was present and likely influenced the prediction; this was an already-decided case mis-provisioned as forward. The leakage finding does not alter the quantitative scores.

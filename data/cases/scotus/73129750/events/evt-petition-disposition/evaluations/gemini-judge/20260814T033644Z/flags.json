@@ -1,0 +1,33 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73129750",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "A decided case was provisioned forward. The provisioned snapshot (2026-07-14.json) already contained the event's resolution (Dec 5 2025).",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate codex-baseline admitted knowing the outcome from the provisioned snapshot (likely leakage).",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate claude-baseline admitted knowing the outcome from the provisioned snapshot (likely leakage).",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate gemini-baseline admitted knowing the outcome from the provisioned snapshot (likely leakage).",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,88 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "params_digest": "7214422e61c8b392",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,260p' AGENTS.md && sed -n '1,320p' .github/prompts/evaluate.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_digest": "2510799fce0b55ea",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:38:32.786Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "e1e32c64a18071a4",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '261,620p' AGENTS.md && sed -n '321,760p' .github/prompts/evaluate.md && cat schemas/evaluation.schema.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_digest": "9ba1721da4daab8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:38:34.838Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "e19931cba4fe171d",
+      "query": "const r = await tools.exec_command({\"cmd\":\"base='data/cases/scotus/73275185'; event=\\\"$base/events/evt-petition-disposition\\\"; cand=\\\"$base/record/blinded/codex-baseline\\\"; for f in \\\"$event/event.yaml\\\" \\\"$event/outcome.json\\\" \\\"$cand/prediction.json\\\" \\\"$cand/reasoning.md\\\" \\\"$cand/retrieval.md\\\" \\\"$cand/retrieval_log.json\\\"; do echo \\\"### $f\\\"; sed -n '1,320p' \\\"$f\\\"; done\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_digest": "4b43583c9fd83278",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:38:38.773Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "3ac1a6cd64314db2",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n -A85 -B8 '^## Segment base rate by salience band|^### Term 20|salience version|Base rate by salience|Segment base' metrics/statpack.md | sed -n '1,320p'\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_digest": "d502f197aa260790",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:38:44.974Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5a0c8e3a95533a6d",
+      "query": "const r = await tools.exec_command({\"cmd\":\"awk 'BEGIN{r=38/249; b=(0.74-1)^2; bb=(r-1)^2; printf(\\\"rate=%.15f brier=%.15f baseline_brier=%.15f skill=%.15f\\\\n\\\",r,b,bb,1-b/bb)}'\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":2000}); text(r.output)",
+      "result_digest": "afa6f8cef233eb5a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:39:01.406Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "8d1cb7e00f9c0c37",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n -i 'federal|high|state|elevated|band|signal|relist|response|amic' metrics/statpack.md | sed -n '1,180p'\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":12000}); text(r.output)",
+      "result_digest": "60bb00e18e8bbcaf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:39:16.642Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "4213453b06742a68",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-14T03:39:53.486Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/73275185",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "role": "evaluator",
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0"
+}

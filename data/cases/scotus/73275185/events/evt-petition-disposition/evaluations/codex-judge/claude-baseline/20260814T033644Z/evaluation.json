@@ -1,0 +1,38 @@
+{
+  "base_rate_basis": "terminal",
+  "base_rate_salience_version": "sal-v2",
+  "big_case": null,
+  "brier_score": 0.0484,
+  "brier_skill_score": 0.9325970126457177,
+  "case_id": "scotus/73275185",
+  "claim_scores": null,
+  "correct": 0,
+  "created_at": "2026-08-14T03:40:08Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "possible",
+    "mode": "forward",
+    "notes": "Candidate-b's captured log and reasoning show that it read a July 17 snapshot containing May 11 disposition and judgment entries. It expressly excluded them and developed a substantial pre-disposition rationale, but awareness of the grant-side resolution could still have anchored the forecast.",
+    "retrieved_outcome_material": true
+  },
+  "leakage_suspected": true,
+  "model": "gpt-5.6-sol",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
+    "label": "proc-v2",
+    "pipeline_sha": "928a4cb421388319bb159d5e223f41a9521cb3e8",
+    "stamped_at": "2026-08-14T03:41:47.194266Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20260814T033644Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.15261044176706828,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
