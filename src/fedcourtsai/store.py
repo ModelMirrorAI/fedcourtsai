@@ -11,11 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .leaderboard import PROCEDURAL, StratifiedCell, classify_stratum
+from .integrity import FORWARD_CLAIM_POLICY, ForwardClaimPolicy, cell_clock, forward_claim_breach
+from .leaderboard import PROCEDURAL, RETROSPECTIVE, StratifiedCell, classify_stratum
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
@@ -539,23 +541,60 @@ def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | No
     return moment if moment is not None else (first_moment(stage) if stage is not None else None)
 
 
-def iter_stratified_evaluations(
-    data_root: Path, *, frozen_only: bool = True
-) -> list[StratifiedCell]:
+class ExcludedCell(NamedTuple):
+    """A scored cell the forward-claim rule kept out of every stratum."""
+
+    evaluation: Evaluation
+    reason: str
+
+
+class StratifiedRun(NamedTuple):
+    """:func:`stratify`'s result: the scorable cells, and what was excluded.
+
+    ``claimed_forward`` is the breach check's denominator: in-scope cells whose
+    harness record carried a forward-claiming context at all — what tells "no
+    claim breached" apart from "nothing recorded a claim to check".
+    """
+
+    cells: list[StratifiedCell]
+    excluded: list[ExcludedCell]
+    claimed_forward: int = 0
+
+
+def stratify(
+    data_root: Path,
+    *,
+    frozen_only: bool = True,
+    policy: ForwardClaimPolicy = FORWARD_CLAIM_POLICY,
+) -> StratifiedRun:
     """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
     the same event and the event's ``outcome.json`` — all committed artifacts, so
     the split is deterministic and offline — and classifies the cell forward vs
-    retrospective (:func:`fedcourtsai.leaderboard.classify_stratum`). An
+    retrospective (:func:`fedcourtsai.leaderboard.classify_stratum`), on the
+    prediction's **harness clock** (:func:`fedcourtsai.integrity.cell_clock` —
+    the process stamp, with the agent-written ``created_at`` only as the
+    unstamped fallback: the stratum boundary is a pre-registration boundary and
+    must not rest on a clock the agent controls). An
     evaluation names the predictor but not a prediction run, so when the
-    predictor ran the event more than once the **latest** prediction's
-    ``created_at`` decides: the cell is forward only if even the newest
+    predictor ran the event more than once the **latest** prediction's clock
+    decides: the cell is forward only if even the newest
     prediction predates the resolution — the conservative reading, so a possibly
     post-resolution prediction is never presented as a forward forecast. An
     evaluation can only exist for a resolved event with a real prediction (the
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
+
+    A cell whose harness record **contradicts its own forward claim**
+    (:func:`fedcourtsai.integrity.forward_claim_breach` — ``context.mode``
+    says forward, the outcome existed when the harness ran it) is not a valid
+    observation of any stratum. Under ``policy="exclude"`` (the pre-registered
+    default) it lands in ``excluded`` and never in ``cells``; under
+    ``policy="retrospective"`` it is forced into the retrospective stratum
+    *and* still listed in ``excluded``, so both variants publish the same
+    count and the boards' ``forward_claim`` block states which rule built
+    them.
 
     The third element is the event's decision **stage**, read off its committed
     ``event.yaml`` and normalized for stratification: a petition/appeal-kind
@@ -583,8 +622,10 @@ def iter_stratified_evaluations(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return []
+        return StratifiedRun([], [], 0)
     cells: list[StratifiedCell] = []
+    excluded: list[ExcludedCell] = []
+    claimed_forward = 0
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -593,20 +634,32 @@ def iter_stratified_evaluations(
             event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
         )
         predictions = [read_model(p, Prediction) for p in prediction_files]
-        latest = max(predictions, key=lambda p: p.created_at)
+        latest = max(predictions, key=cell_clock)
         if frozen_only and not (
             is_frozen(latest.process_version) and graded_post_freeze(evaluation.process_version)
         ):
             continue
         outcome = read_model(event_dir / "outcome.json", Outcome)
-        # A mootness-basis outcome routes to the procedural stratum regardless
-        # of timing: the label tracks vacatur practice, not cert-worthiness,
-        # so it must not enter the forward/retrospective skill aggregates.
-        stratum: Stratum = (
-            PROCEDURAL
-            if outcome.disposition_basis == "mootness"
-            else classify_stratum(latest.created_at, outcome.resolved_at)
-        )
+        # A mootness-basis outcome never enters the forward/retrospective
+        # skill aggregates — the label tracks vacatur practice, not
+        # cert-worthiness. Under the retrospective policy a breaching mootness
+        # cell therefore routes procedural, not retrospective; under exclude
+        # it is dropped like any breaching cell.
+        procedural = outcome.disposition_basis == "mootness"
+        if latest.context is not None and latest.context.mode == "forward":
+            claimed_forward += 1
+        breach = forward_claim_breach(latest, outcome)
+        if breach is not None:
+            excluded.append(ExcludedCell(evaluation, breach))
+            if policy == "exclude":
+                continue
+            stratum: Stratum = PROCEDURAL if procedural else RETROSPECTIVE
+        else:
+            stratum = (
+                PROCEDURAL
+                if procedural
+                else classify_stratum(cell_clock(latest), outcome.resolved_at)
+            )
         event = read_model(event_dir / "event.yaml", PredictableEvent)
         # Stage normalization for stratification: a missing/null stage on a
         # petition/appeal-kind event reads as cert — the case-baseline kinds
@@ -616,7 +669,19 @@ def iter_stratified_evaluations(
         if stage is None and event.kind in _FORECASTABLE_KINDS:
             stage = Stage.cert
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return cells
+    return StratifiedRun(cells, excluded, claimed_forward)
+
+
+def iter_stratified_evaluations(
+    data_root: Path, *, frozen_only: bool = True
+) -> list[StratifiedCell]:
+    """:func:`stratify`'s scorable cells alone, for a caller that needs no ledger.
+
+    The cells-only seam; the boards call :func:`stratify` directly so the
+    exclusion record they publish and the cells they aggregate come from one
+    pass.
+    """
+    return stratify(data_root, frozen_only=frozen_only).cells
 
 
 def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:

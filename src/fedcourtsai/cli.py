@@ -100,6 +100,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
+from .integrity import cell_clock, forward_claim_record
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -178,6 +179,7 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
+    ForwardClaimRecord,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -197,18 +199,20 @@ from .schemas import (
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .spend import SpendVerdict, check_spend
 from .store import (
+    ExcludedCell,
+    StratifiedRun,
     cases_due_for_pull,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
-    iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
     ledger_cell_counts,
     open_events,
     resolved_events,
+    stratify,
 )
 from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
@@ -1512,7 +1516,9 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    cells = iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only)
+    run = stratify(settings.data_root, frozen_only=frozen_only)
+    _report_forward_claim_exclusions(run.excluded)
+    cells = run.cells
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
     # ops feeds: no pack means the column is absent, never partly computed.
@@ -1523,6 +1529,7 @@ def leaderboard(
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
+        forward_claim=_forward_claim_from(run),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -1582,9 +1589,12 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(run.excluded)
     board = build_claim_scores(
-        iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions),
+        run.cells,
         process_scope=scope,
+        forward_claim=_forward_claim_from(run),
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -2326,7 +2336,7 @@ def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluat
     predictions = [read_model(p, Prediction) for p in files]
     if not predictions:
         return None
-    latest = max(predictions, key=lambda p: p.created_at)
+    latest = max(predictions, key=cell_clock)
     return latest.context.salience_version if latest.context is not None else None
 
 
@@ -2360,7 +2370,7 @@ def _claim_scores_for(
     if not predictions:
         return None
     return score_claims(
-        max(predictions, key=lambda p: p.created_at),
+        max(predictions, key=cell_clock),
         read_model(outcome_path, Outcome),
         read_model(statpack_path, StatPack),
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
@@ -2744,12 +2754,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified = [
-        (ev, stratum)
-        for ev, stratum, _stage, _moment in iter_stratified_evaluations(
-            settings.data_root, frozen_only=not all_versions
-        )
-    ]
+    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(stratified_run.excluded)
+    stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,
@@ -2757,6 +2764,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         live_frontier=frontier,
         previous=prior,
         process_scope=scope,
+        forward_claim=_forward_claim_from(stratified_run),
     )
     report = build_ops_report(
         generated_at=when,
@@ -5288,6 +5296,25 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
                 f"spend is at least this figure.\n"
             )
     return verdict
+
+
+def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
+    """The published record for one stratify pass — pairs, denominator and all."""
+    return forward_claim_record(
+        [(cell.evaluation.predictor_id, cell.reason) for cell in run.excluded],
+        run.claimed_forward,
+    )
+
+
+def _report_forward_claim_exclusions(excluded: Sequence[ExcludedCell]) -> None:
+    """One line per dropped cell, so the boards' count is never the only record."""
+    for cell in excluded:
+        ev = cell.evaluation
+        typer.echo(
+            f"::warning::forward-claim exclusion: {ev.case_id} {ev.event_id} "
+            f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
+            err=True,
+        )
 
 
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:

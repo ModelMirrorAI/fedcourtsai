@@ -60,6 +60,48 @@
       "title": "EvaluatorAgreement",
       "type": "object"
     },
+    "ForwardClaimRecord": {
+      "additionalProperties": false,
+      "description": "The forward-claim integrity rule in force when a board was built.\n\nA cell whose harness-written record claims ``mode: forward`` while its\nevent had already resolved when the harness ran it is not a forecast\n(:mod:`fedcourtsai.integrity`). This block states what the scoring funnel\ndid with such cells and how many there were, so an exclusion can never be\nsilent \u2014 the same reason ``frozen_process`` records the freeze constants.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Excluded-cell counts keyed by predictor id (only predictors with a nonzero count appear) \u2014 exclusion falling differentially on one engine changes the scored population, which is the cross-engine comparability condition, so the split is published rather than pooled",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "claimed_forward": {
+          "description": "The denominator: in-scope cells whose harness record carries a forward-claiming context at all. A context-null cell can never breach, so `excluded: 0` over a ledger of context-null cells means 'nothing recorded a claim to check', not 'every claim held' \u2014 this count is what tells the two apart",
+          "minimum": 0,
+          "title": "Claimed Forward",
+          "type": "integer"
+        },
+        "excluded": {
+          "description": "How many in-scope cells breached the forward claim this build \u2014 listed under whichever policy applied, so the two variants publish the same count and a policy flip is visible as exactly that",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        },
+        "policy": {
+          "description": "What the funnel does with a breaching cell (`integrity.FORWARD_CLAIM_POLICY`): `exclude` drops it from every scored stratum; `retrospective` forces it into the retrospective stratum (procedural still wins for a mootness-basis outcome) while still counting it. Either way the cell is never a forward observation. Deliberately stage-blind, like `big_case`: the rule is a record-integrity property, not a stage-scoped skill figure, so its counts must never be subtracted from the cert-scoped totals.",
+          "enum": [
+            "exclude",
+            "retrospective"
+          ],
+          "title": "Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "excluded",
+        "claimed_forward"
+      ],
+      "title": "ForwardClaimRecord",
+      "type": "object"
+    },
     "FrozenProcessRecord": {
       "additionalProperties": false,
       "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
@@ -276,7 +318,7 @@
     },
     "LeaderboardStratum": {
       "additionalProperties": false,
-      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns sit here, and they are never blended either. ``population_brier_skill_score``\nscores against the strictly-prior pooled band rate \u2014 the leakage-safe\nbaseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nBoth are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
+      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\nharness clock (`integrity.cell_clock` \u2014 the process stamp, else the\nunstamped cell's `created_at`) and *retrospective* when it had already\nresolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns sit here, and they are never blended either. ``population_brier_skill_score``\nscores against the strictly-prior pooled band rate \u2014 the leakage-safe\nbaseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nBoth are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
       "properties": {
         "accuracy": {
           "description": "Mean correctness across evaluations",
@@ -418,6 +460,18 @@
       "description": "Per evaluator, how far its big-case reads track the rest of the panel's \u2014 the check on grader latitude, keyed by evaluator_id. Orthogonal to the ranking and never part of it: it describes the judges, not the competitors",
       "title": "Evaluator Agreement",
       "type": "object"
+    },
+    "forward_claim": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ForwardClaimRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The forward-claim integrity rule applied to this build and the count of cells it caught (`integrity.forward_claim_breach`); null on a board built before the record existed, or one constructed without it"
     },
     "forward_evaluations": {
       "default": 0,
