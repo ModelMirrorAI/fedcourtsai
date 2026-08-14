@@ -1,6 +1,6 @@
-"""The mechanical integrity rules a scored cell must pass — clock and claim.
+"""The mechanical integrity rules a scored cell must pass — clock, claim, stratum.
 
-Two questions every scoring surface needs answered the same way, in one leaf
+Three questions every scoring surface needs answered the same way, in one leaf
 module so no join can answer them differently:
 
 **Whose clock says when a cell ran?** The pre-registration boundary must not
@@ -25,6 +25,16 @@ other, and no scored stratum is a valid home for the observation
 pre-registered :data:`FORWARD_CLAIM_POLICY`; the boards publish the policy and
 the count beside their numbers so an exclusion can never be silent.
 
+**Which stratum does the cell belong to?** The pre-registration split is the
+same question asked once more, and it rests on the same clock, so the
+vocabulary lives here too: the :data:`FORWARD` / :data:`RETROSPECTIVE` /
+:data:`PROCEDURAL` names, the :data:`StratifiedCell` tuple the join yields, and
+:func:`classify_stratum`, the single definition of the timing boundary. The
+leaderboard, the claim metrics, the ops report and the store's join all read
+them from here rather than off the board, which is what lets
+:mod:`fedcourtsai.store` — the module every artifact reader goes through —
+stay clear of the board that is built on top of it.
+
 Everything here is derived from committed, harness-written artifacts — the
 context and the stamp are the harness's fields (AGENTS.md), the outcome is the
 docket record — so the rules are properties of the record, never of predictor
@@ -34,10 +44,19 @@ behavior.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 
-from .schemas import ForwardClaimRecord, Outcome, Prediction
+from .schemas import (
+    Evaluation,
+    ForwardClaimRecord,
+    Moment,
+    Outcome,
+    Prediction,
+    ProcessVersion,
+    Stage,
+    Stratum,
+)
 
 #: What the scoring funnel does with a cell whose forward claim its own record
 #: contradicts. ``"exclude"`` (the registered value) drops the cell from
@@ -54,6 +73,44 @@ from .schemas import ForwardClaimRecord, Outcome, Prediction
 ForwardClaimPolicy = Literal["exclude", "retrospective"]
 FORWARD_CLAIM_POLICY: ForwardClaimPolicy = "exclude"
 
+#: One joined cell as ``store.iter_stratified_evaluations`` yields it:
+#: ``(evaluation, stratum, stage, moment)``. The stage and the moment travel
+#: together because neither alone identifies the population a cell belongs to —
+#: the stage names the question, the moment names the information set that
+#: answered it.
+StratifiedCell = tuple["Evaluation", "Stratum", "Stage | None", "Moment | None"]
+
+FORWARD: Stratum = "forward"
+RETROSPECTIVE: Stratum = "retrospective"
+# Cells whose outcome was mootness practice (the outcome's disposition_basis):
+# the ground-truth label tracks the Court's vacatur wording rather than
+# cert-worthiness, so these aggregate separately and never enter the ranking.
+PROCEDURAL: Stratum = "procedural"
+
+
+def classify_stratum(prediction_clock: datetime, resolved_at: date) -> Stratum:
+    """Which pre-registration stratum a scored cell belongs to.
+
+    Retrospective when the event's resolution predates the prediction's
+    **harness clock** (:func:`cell_clock` — the process stamp, else the
+    unstamped cell's ``created_at``; the boundary must not rest on a clock the
+    agent controls). A same-day tie also counts as retrospective — the
+    conservative reading, so a cell whose ordering within the day is unknowable
+    is never presented as a forward forecast.
+    """
+    return RETROSPECTIVE if resolved_at <= prediction_clock.date() else FORWARD
+
+
+def _harness_clock(process_version: ProcessVersion | None, created_at: datetime) -> datetime:
+    """The one stamp-else-created_at rule behind both typed clocks.
+
+    Private so the normalization is written once; the two public names exist
+    for call-site type safety, not for divergent rules.
+    """
+    stamped = process_version.stamped_at if process_version is not None else None
+    clock = stamped if stamped is not None else created_at
+    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+
 
 def cell_clock(prediction: Prediction) -> datetime:
     """When the harness ran this cell: the process stamp, else ``created_at``.
@@ -62,11 +119,29 @@ def cell_clock(prediction: Prediction) -> datetime:
     zone any writer in this pipeline uses), so clocks from different writers
     always compare.
     """
-    stamped = (
-        prediction.process_version.stamped_at if prediction.process_version is not None else None
-    )
-    clock = stamped if stamped is not None else prediction.created_at
-    return clock if clock.tzinfo is not None else clock.replace(tzinfo=UTC)
+    return _harness_clock(prediction.process_version, prediction.created_at)
+
+
+def evaluation_clock(evaluation: Evaluation) -> datetime:
+    """When the harness ran this evaluation: the process stamp, else ``created_at``.
+
+    The evaluation-side sibling of :func:`cell_clock`, and a distinct name on
+    purpose: the prediction clock draws the pre-registration boundary, while
+    this one orders re-runs of one grader on one cell (newest wins), so a join
+    reaching for the wrong artifact's clock reads as the type error it is.
+    Same normalization — a bare timestamp reads as UTC, so clocks from
+    different writers always compare instead of raising on a naive/aware mix.
+
+    The ``created_at`` fallback is contained the same way the prediction
+    side's is: ``graded_post_freeze`` refuses a null stamp, so inside a
+    frozen-scope build every evaluation is stamped and the agent-movable
+    clock never picks a winning block behind a claimable mean — the fallback
+    only ever orders diagnostic (``--all-versions``) views. The stamp is the
+    exact statpack vintage (the block and the stamp are written by one
+    ``stamp-cell`` invocation); a backdated ``--stamped-at`` can misstate
+    that vintage, which is a reason the flag is harness-side only.
+    """
+    return _harness_clock(evaluation.process_version, evaluation.created_at)
 
 
 def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None:

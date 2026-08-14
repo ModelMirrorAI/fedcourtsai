@@ -3,15 +3,19 @@
 from datetime import UTC, date, datetime
 
 from fedcourtsai.integrity import (
+    FORWARD,
     FORWARD_CLAIM_POLICY,
+    RETROSPECTIVE,
     cell_clock,
+    classify_stratum,
+    evaluation_clock,
     forward_claim_breach,
     forward_claim_record,
 )
-from fedcourtsai.leaderboard import FORWARD, RETROSPECTIVE, classify_stratum
 from fedcourtsai.schemas import (
     Disposition,
     Engine,
+    Evaluation,
     Outcome,
     Prediction,
     PredictionContext,
@@ -85,7 +89,7 @@ def test_cell_clock_normalizes_a_bare_timestamp_to_utc() -> None:
     # Agent-written created_at is not guaranteed an offset; clocks from
     # different writers must still compare.
     prediction = _prediction(created_at=datetime(2026, 1, 1))
-    assert cell_clock(prediction).tzinfo is not None
+    assert cell_clock(prediction) == datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def test_forward_claim_breach_needs_a_forward_context() -> None:
@@ -157,3 +161,45 @@ def test_forward_claim_record_splits_by_predictor_and_carries_the_denominator() 
     assert record.excluded == 3
     assert record.claimed_forward == 5
     assert record.by_predictor == {"alpha": 1, "beta": 2}
+
+
+def _evaluation(
+    *,
+    created_at: datetime,
+    stamped_at: datetime | None = None,
+) -> Evaluation:
+    return Evaluation(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        predictor_id="alpha",
+        evaluator_id="eval-a",
+        engine=Engine.claude_code,
+        run_id="20260101T000000Z",
+        created_at=created_at,
+        correct=1,
+        process_version=(
+            ProcessVersion(label="proc-v2", digest="sha256:x", stamped_at=stamped_at)
+            if stamped_at is not None
+            else None
+        ),
+    )
+
+
+def test_evaluation_clock_prefers_the_harness_stamp() -> None:
+    evaluation = _evaluation(
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    assert evaluation_clock(evaluation) == datetime(2026, 2, 2, tzinfo=UTC)
+
+
+def test_evaluation_clock_falls_back_to_created_at_on_an_unstamped_cell() -> None:
+    evaluation = _evaluation(created_at=datetime(2026, 1, 1, tzinfo=UTC))
+    assert evaluation_clock(evaluation) == datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def test_evaluation_clock_normalizes_a_bare_timestamp_to_utc() -> None:
+    # Same rule as the prediction clock: a naive created_at reads as UTC so
+    # clocks from different writers always compare.
+    evaluation = _evaluation(created_at=datetime(2026, 1, 1))
+    assert evaluation_clock(evaluation) == datetime(2026, 1, 1, tzinfo=UTC)

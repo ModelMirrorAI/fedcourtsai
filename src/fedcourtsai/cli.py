@@ -277,10 +277,12 @@ def validate(
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
     git tree (with its declared ids matching the path) while every evaluation
-    targets a real prediction, every prose document a prediction names sits
-    beside it, and every committed claims block is one the claim scorer will
-    not silently void. The corpus-dependent referential checks need the
-    remote, so they run scheduled via ``validate-corpus`` rather than here.
+    targets a real prediction, every recorded ``risk_set`` base-rate basis
+    carries the salience version it was banded under, every prose document a
+    prediction names sits beside it, and every committed claims block is one
+    the claim scorer will not silently void. The corpus-dependent referential
+    checks need the remote, so they run scheduled via ``validate-corpus``
+    rather than here.
     """
     result = validate_ledger(path)
     references = run_ledger_referential_checks(path)
@@ -2231,6 +2233,15 @@ def stamp_cell(
     derived from the recorded ``base_rate_basis`` and the scored prediction's
     frozen context (:func:`_base_rate_salience_version_for`), so both are the
     harness's word and an evaluator-authored value never survives the stamp.
+
+    A recorded ``risk_set`` basis whose version does not resolve exits non-zero
+    after every cell is stamped. The null is still written — it is the
+    deterministic record of what resolution produced — but a basis without its
+    version half names a population nothing pins down, and rewriting the basis
+    to ``terminal`` instead would stamp the live scorer's version onto a rate
+    read over the risk-set table. ``validate``'s
+    :func:`fedcourtsai.validate.check_base_rate_version` holds the same rule
+    over the committed ledger.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -2287,6 +2298,7 @@ def stamp_cell(
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
     stamped = 0
+    basis_records: dict[Path, tuple[str | None, str | None]] = {}
     for path in targets:
         if not path.is_file():
             continue
@@ -2302,16 +2314,55 @@ def stamp_cell(
             # derived deterministically from the basis the evaluation names and
             # the same committed inputs, overwritten unconditionally so it is
             # the harness's word and never the evaluator's.
-            cell_update["base_rate_salience_version"] = _base_rate_salience_version_for(
-                event_paths, record
-            )
+            version = _base_rate_salience_version_for(event_paths, record)
+            cell_update["base_rate_salience_version"] = version
+            basis_records[path] = (record.base_rate_basis, version)
         write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
     if stamped == 0:
         typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
         return
+    # Echoed before the guard so a failed cell's log still says how many stamps
+    # landed; the guard is judged after every cell is written, so one
+    # unresolvable record does not strand the run's remaining stamps.
     typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+    _fail_on_unversioned_risk_set(basis_records)
+
+
+def _fail_on_unversioned_risk_set(
+    basis_records: Mapping[Path, tuple[str | None, str | None]],
+) -> None:
+    """Exit non-zero where a stamped ``risk_set`` basis resolved no salience version.
+
+    Takes each stamped evaluation's ``(base_rate_basis, base_rate_salience_version)``
+    as written. The null version is written either way — it is the deterministic
+    record of what the resolution produced — and this is what stops the cell
+    passing as a scored one: a risk-set base rate is banded under the scored
+    prediction's frozen ``context.salience_version``, so a basis recorded without
+    one names a population nothing pins down, and the two halves are only
+    comparable together (``metrics/README.md``). One ``::error::`` per offender,
+    so a maintainer reading the run log sees every cell at once.
+    """
+    offenders = [
+        path
+        for path, (basis, version) in sorted(basis_records.items())
+        if basis == "risk_set" and version is None
+    ]
+    if not offenders:
+        return
+    for path in offenders:
+        typer.echo(
+            f"::error::stamp: {path} records base_rate_basis 'risk_set' but no salience "
+            + "version resolves — the join found no prediction for this predictor, no "
+            + "frozen context on its latest one, or no `salience_version` in that "
+            + "context. A risk-set base rate is banded under the scored prediction's "
+            + "frozen `context.salience_version`, so a basis recorded without one names "
+            + "a population nothing pins down: the cell needed the terminal basis (the "
+            + "documented fallback) or no segment base rate at all.",
+            err=True,
+        )
+    raise typer.Exit(code=1)
 
 
 def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluation) -> str | None:

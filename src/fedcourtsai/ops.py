@@ -20,7 +20,7 @@ from typing import Literal
 
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
-from .leaderboard import FORWARD, RETROSPECTIVE
+from .integrity import FORWARD, RETROSPECTIVE
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,

@@ -114,14 +114,18 @@ agent controls.
 The stamp step is deterministic and local, so unlike the best-effort log
 captures beside it, it is **must-succeed**: a missing artifact (a no-output cell)
 is a clean no-op, but a registry/prompt inconsistency fails the cell rather than
-shipping an unstamped-but-frozen-looking prediction. An evaluate cell scores every
-predictor, so the evaluator stamp covers all of its `evaluation.json`.
+shipping an unstamped-but-frozen-looking prediction, as does an evaluation
+recording a `risk_set` base-rate basis whose salience version does not resolve —
+a basis is only readable beside the version it was banded under. An evaluate cell
+scores every predictor, so the evaluator stamp covers all of its
+`evaluation.json`.
 
 **On an evaluate cell the stamp runs after un-aliasing, and the order is not
 interchangeable.** The stamp joins each evaluation to the prediction it scored on
 the `predictor_id` field, so under a blind-grading alias the join simply misses
-and the cell's `claim_scores` block and `base_rate_salience_version` are
-*silently* absent rather than wrong. So
+and the cell's `claim_scores` block is *silently* absent rather than wrong —
+`base_rate_salience_version` too, except where the evaluation records a
+`risk_set` basis, which fails the stamp rather than losing its version half. So
 `fedcourts unblind-evaluations` runs first, then `stamp-cell`, then `validate` —
 whose `check_evaluation_targets` resolves the same join and is the loud backstop
 for an alias that survived.

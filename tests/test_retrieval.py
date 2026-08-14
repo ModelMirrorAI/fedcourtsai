@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import random
 import time
 from pathlib import Path
 
@@ -19,6 +21,15 @@ from fedcourtsai.retrieval import (
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
+
+# A synthetic stand-in for a Fernet token, never a real credential: the v1
+# version+timestamp header then base64url ciphertext. Seeded from random bytes
+# rather than a repeated pattern, because capture-time redaction confirms the
+# run's entropy before rewriting it — a patterned blob is prose to the
+# redactor, which is the whole point of the confirmation.
+_FERNET = "gAAAAAB" + base64.urlsafe_b64encode(
+    random.Random(20260804).randbytes(360)
+).decode().rstrip("=")
 
 
 def test_claude_transcript_tool_calls_with_results(tmp_path: Path) -> None:
@@ -269,7 +280,6 @@ def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> N
     # A transcript records whatever a tool call carried. `message` is not a
     # query key, so the whole params blob becomes the slice — which is how a
     # token riding in an engine payload reaches the log.
-    fernet = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30  # synthetic, never a real token
     rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
     rollout.parent.mkdir(parents=True)
     rollout.write_text(
@@ -281,7 +291,7 @@ def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> N
                     "type": "function_call",
                     "name": "mcp__courtlistener__search",
                     "call_id": "c1",
-                    "arguments": json.dumps({"message": fernet}),
+                    "arguments": json.dumps({"message": _FERNET}),
                 },
             }
         )
@@ -290,7 +300,7 @@ def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> N
     assert len(calls) == 1
     query = calls[0].query
     assert query is not None
-    assert fernet[:40] not in query
+    assert _FERNET[:40] not in query
     assert "[redacted:fernet-token]" in query
     # The params digest still covers the unredacted payload, so the audit trail
     # keeps its identity even though the text is gone.
@@ -301,7 +311,6 @@ def test_capture_redacts_a_credential_sitting_past_the_query_cap(tmp_path: Path)
     # Redaction runs over the whole candidate, not the kept slice: a token
     # beyond the truncation point must not be a token the next payload
     # ordering promotes into the log.
-    fernet = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
     transcript = [
         {
             "type": "assistant",
@@ -312,7 +321,7 @@ def test_capture_redacts_a_credential_sitting_past_the_query_cap(tmp_path: Path)
                         "type": "tool_use",
                         "id": "toolu_1",
                         "name": "mcp__courtlistener__search",
-                        "input": {"q": "cert petition " + "standing doctrine " * 40 + fernet},
+                        "input": {"q": "cert petition " + "standing doctrine " * 40 + _FERNET},
                     }
                 ]
             },
@@ -359,14 +368,13 @@ def test_capture_redacts_the_tool_name_and_timestamp(tmp_path: Path) -> None:
     # Every string harvested from a transcript is redacted, not just the query
     # slice: nothing about a transcript guarantees which field a payload lands
     # in, and the log is committed whole.
-    blob = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
     transcript = [
         {
             "type": "assistant",
-            "timestamp": f"2026-07-10T12:00:01Z {blob}",
+            "timestamp": f"2026-07-10T12:00:01Z {_FERNET}",
             "message": {
                 "content": [
-                    {"type": "tool_use", "id": "toolu_1", "name": f"tool-{blob}", "input": {}}
+                    {"type": "tool_use", "id": "toolu_1", "name": f"tool-{_FERNET}", "input": {}}
                 ]
             },
         }
@@ -411,7 +419,6 @@ def test_capture_bounds_the_work_a_payload_can_ask_for(tmp_path: Path) -> None:
 def test_record_retrieval_reports_the_redaction_count(
     fixture_corpus: FixtureCorpus, tmp_path: Path
 ) -> None:
-    blob = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
     transcript = [
         {
             "type": "assistant",
@@ -421,7 +428,7 @@ def test_record_retrieval_reports_the_redaction_count(
                         "type": "tool_use",
                         "id": "t1",
                         "name": "mcp__courtlistener__search",
-                        "input": {"message": blob},
+                        "input": {"message": _FERNET},
                     }
                 ]
             },

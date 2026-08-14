@@ -119,14 +119,17 @@ each as its own least-privilege job holding only the credentials its mode needs:
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
-read backends, the two sidecars, cascade cells, and the collect writer**,
-against the real corpus remote for every scenario but collect — the tested
-`fedcourts corpus-integration-check` read set, a
+read backends, the two sidecars, cascade cells, the collect writer, and the
+qp-topic measure path**,
+against the real corpus remote for every scenario but collect and qp-topic —
+the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
 `local-cascade` cell, the `collect-run` composite over synthetic cell
 artifacts (corpus-free and environment-free; every write surface stubbed or
-diverted on the runner), or (the one token-spending scenario) a single
+diverted on the runner), the `qp-topic-measure` composite over canned labels
+built from the committed reference set (token-free and credential-free;
+outside the required suite), or (the one token-spending scenario) a single
 real-engine cell over the service sidecar — dispatched around changes to
 corpus access, the sidecars, engine CLIs, the collect contract, or the
 corpus-consuming workflows and before releases — from main, or via the
@@ -593,8 +596,9 @@ artifact and never reaches the ledger.
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
 on the `predictor_id` field; under an alias the join misses and the cell's
-`claim_scores` block and `base_rate_salience_version` are *silently* absent
-rather than wrong. `validate`'s
+`claim_scores` block is *silently* absent rather than wrong (so is
+`base_rate_salience_version`, unless the evaluation records a `risk_set` basis,
+which fails the stamp instead). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
 backstop rather than the detector. The cell's order is therefore: blind →
 agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.

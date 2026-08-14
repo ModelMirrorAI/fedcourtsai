@@ -118,8 +118,17 @@ pre-registration record's commit ids.
     runs in the harness-captured tool-call transcript (`retrieval_log.json`) to
     a `[redacted:…]` marker rather than withholding the run over them: that
     text is whatever a tool call carried, not something the agent chose to
-    write. It names only the shapes it recognizes, so what it misses still
-    meets the scan. The scan has no merge-time counterpart by design: its job is to act
+    write. It names only the shapes it recognizes, and what it declines to
+    rewrite it leaves byte-for-byte, so the scan reads exactly what it would
+    have read had redaction never run and no finding is silenced. What it does
+    not get is a backstop. The Fernet-token rule — the one prefix short enough
+    to occur inside ordinary agent-authored text — therefore confirms a run's
+    entropy before rewriting, and a run padded below the bar is what the scan's
+    own entropy detector also reads as ordinary. Containment still catches the
+    pipeline's own token however it is padded; for a third-party credential
+    riding in a payload the confirmation is the only layer that sees it, which
+    is why it scores windows and the run as a whole rather than averaging one
+    span. The scan has no merge-time counterpart by design: its job is to act
     before the push, and it needs a live token env that the merge-time check —
     running on PR branches without the `prod` environment — cannot hold.
   - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That
@@ -216,9 +225,9 @@ token stays comment-only and writes `flags.json` locally — the trusted `collec
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
 worst a misbehaving `collect` run can do with it is post an issue comment or read
 the repository's own Actions artifacts — that job also holds `actions: read`, so
-it can fetch its run's cell artifacts one at a time instead of as a single
-fail-fast batch (a transient failure of which once discarded a whole run's
-output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
+it can fetch its run's cell artifacts per artifact (four at a time) instead of
+as a single fail-fast batch (a transient failure of which once discarded a
+whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
 

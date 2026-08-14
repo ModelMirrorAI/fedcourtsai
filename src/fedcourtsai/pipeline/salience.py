@@ -46,7 +46,7 @@ version the live pass scores with and stamps onto the corpus and onto every
 :class:`~fedcourtsai.schemas.PredictionContext`. A refit registers a new version
 beside the old rather than editing it, so a past ranking always replays against
 the function that produced it, and the base-rate pool stays pinned to the scorer
-whose band it is quoting (``pipeline.evaluate._pooled_band_rate``).
+whose band it is quoting (``pipeline.base_rates._pooled_band_rate``).
 
 The corpus itself is deliberately **single-version**: ``salience_score`` and
 ``salience_version`` are one column each, holding the active scorer's view. What

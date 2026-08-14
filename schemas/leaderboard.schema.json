@@ -414,7 +414,7 @@
         },
         "realized_term_skill_scored": {
           "default": 0,
-          "description": "Evaluations contributing to population_realized_term_skill_score. Its own denominator, separate from `skill_scored`: this metric also needs the cell's own Term to carry the band under the matching salience version and to clear the stated minimum resolved count (`pipeline.evaluate.REALIZED_BAND_RATE_MIN_RESOLVED`) after the leave-one-out, so it is omitted \u2014 visibly, here \u2014 on a thin band rather than computed on a handful of cases",
+          "description": "Evaluations contributing to population_realized_term_skill_score. Its own denominator, separate from `skill_scored`: this metric also needs the cell's own Term to carry the band under the matching salience version and to clear the stated minimum resolved count (`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the leave-one-out, so it is omitted \u2014 visibly, here \u2014 on a thin band rather than computed on a handful of cases",
           "minimum": 0,
           "title": "Realized Term Skill Scored",
           "type": "integer"

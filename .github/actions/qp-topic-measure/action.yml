@@ -1,0 +1,126 @@
+name: Measure a qp-topic labeling run
+description: >
+  The post-label half of a qp-topic labeling run: assert the labeler wrote its
+  declared output, measure it against the hand reference set with the tested
+  `fedcourts qp-topics` command (which owns the whole publication decision and
+  refuses to write below the agreement/coverage gate), render the measured
+  block into the step summary, and re-validate the data root the artifact was
+  written into.
+
+  Shared verbatim by the production labeling job (`run-analytics.yml`,
+  `qp-topic-label` mode) and the token-free `qp-topic` integration-test
+  scenario, so the scenario exercises the exact steps the paid run depends on
+  rather than a copy that can drift. The caller keeps everything upstream of
+  the labels file — the extract, the model call, the oracle fence, and the
+  transcript capture: those are the paid run's security posture and stay
+  reviewable next to its trigger.
+
+inputs:
+  labels:
+    description: The labeler's JSONL output — one object per labeled text.
+    required: true
+  texts:
+    description: The `qp-corpus` extract the labeler read, for the shadow pass.
+    required: true
+  labeler:
+    description: Who assigned the labels — engine and model, free-form.
+    required: true
+  data-root:
+    description: >
+      Data root holding `qp-topics/qp-topic-reference.json`; the labels
+      artifact is written and validated there. The production job uses the
+      checkout's `data`; the integration-test scenario points at a
+      runner-temp root seeded from the committed reference set.
+    required: false
+    default: data
+  transcript-hint:
+    description: >
+      Appended to the no-output error: where the caller captured a labeler
+      transcript, this names the artifact so the operator lands on the
+      diagnostic record. Empty where no transcript exists (the canned
+      integration-test legs).
+    required: false
+    default: ''
+
+outputs:
+  measured-file:
+    description: >
+      The sanitized measured block (backticks stripped) the measure step
+      rendered into the step summary — the same bytes a caller may embed in a
+      PR body. Declared as an output because the production PR step depends
+      on it; consuming the path any other way is an undeclared contract.
+    value: ${{ steps.measure.outputs.measured-file }}
+
+runs:
+  using: composite
+  steps:
+    # Fail loud if the labeler produced nothing. `claude-code-action` can exit
+    # `is_error: false` while the agent aborted on an internal error and never
+    # wrote its output file, which otherwise surfaces a step later as the
+    # measure command's cryptic "--labels: path does not exist". Assert the one
+    # declared output exists and is non-empty so a no-output run reads as an
+    # agent failure to re-run rather than a gate refusal to interpret.
+    - name: Assert the labeler wrote its output
+      shell: bash
+      env:
+        LABELS_OUT: ${{ inputs.labels }}
+        LABELER: ${{ inputs.labeler }}
+        TRANSCRIPT_HINT: ${{ inputs.transcript-hint }}
+      run: |
+        set -euo pipefail
+        if [ ! -s "$LABELS_OUT" ]; then
+          echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output.${TRANSCRIPT_HINT:+ $TRANSCRIPT_HINT}"
+          exit 1
+        fi
+        echo "labeler wrote $(wc -l < "$LABELS_OUT") label line(s)"
+
+    - name: Measure the run and write the labels artifact
+      id: measure
+      shell: bash
+      env:
+        LABELS_OUT: ${{ inputs.labels }}
+        TEXTS: ${{ inputs.texts }}
+        LABELER: ${{ inputs.labeler }}
+        DATA_ROOT: ${{ inputs.data-root }}
+        # The measure command reads the reference set and writes the artifact
+        # under the settings data root, while `validate` takes the path as an
+        # argument — one input feeds both so they can never point at
+        # different trees.
+        FEDCOURTS_DATA_ROOT: ${{ inputs.data-root }}
+      run: |
+        set -euo pipefail
+        # The tested command owns the whole publication decision: it validates
+        # every label against the vocabulary, joins on both keys, measures
+        # agreement against the hand reference set, and REFUSES to write below
+        # the agreement/coverage gate (exit non-zero, no artifact, no override
+        # flag). Capture rather than fail fast, because a refusal is a result
+        # to report: the measured block reaches the step summary either way.
+        status=0
+        uv run fedcourts qp-topics \
+          --labels "$LABELS_OUT" \
+          --texts "$TEXTS" \
+          --labeler "$LABELER" > "$RUNNER_TEMP/measured.txt" 2>&1 || status=$?
+        cat "$RUNNER_TEMP/measured.txt"
+        # On the failure path the command quotes up to 160 characters of the
+        # offending labels line into its error, and those bytes are the
+        # agent's. Strip backticks (octal 140) so a crafted label cannot close
+        # the fence below and inject markdown into a public step summary or,
+        # later, into the PR body rendered from the same file.
+        tr -d '\140' < "$RUNNER_TEMP/measured.txt" > "$RUNNER_TEMP/measured-safe.txt"
+        {
+          echo "### qp-topic-v0 labeling run"
+          echo
+          echo "Agreement with a single v0 reference rater, not accuracy; the"
+          echo "reference frame is grant-enriched, so it certifies the grant"
+          echo "stream only (see docs/qp-topic.md)."
+          echo
+          echo '```'
+          cat "$RUNNER_TEMP/measured-safe.txt"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        echo "measured-file=$RUNNER_TEMP/measured-safe.txt" >> "$GITHUB_OUTPUT"
+        if [ "$status" -ne 0 ]; then
+          echo "::error::qp-topics published nothing; the measured block above is the result"
+          exit "$status"
+        fi
+        uv run fedcourts validate "$DATA_ROOT"

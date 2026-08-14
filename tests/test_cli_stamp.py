@@ -377,6 +377,74 @@ def test_stamp_evaluator_derives_the_base_rate_salience_version(_data_root: Path
         assert stamped["base_rate_salience_version"] == expected, predictor
 
 
+def test_stamp_evaluator_fails_a_risk_set_basis_that_resolves_no_version(
+    _data_root: Path,
+) -> None:
+    """A recorded `risk_set` basis beside a null version fails the cell.
+
+    The basis says the segment base rate was read over the risk-set population;
+    the version says under which banding. With no frozen context on the scored
+    prediction the version does not resolve, so the pair names a population
+    nothing pins down — and rewriting the basis to `terminal` would stamp the
+    live scorer's version onto a rate taken over the other table. The null is
+    still written (it is what resolution produced), the sibling cells are still
+    stamped, and the exit is non-zero.
+    """
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 6).event(event)
+    # A prediction with no frozen context — provisioning failed, so the risk-set
+    # band it would have been read under was never recorded.
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/6",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=None,
+        ),
+    )
+    for predictor, basis in (("claude-baseline", "risk_set"), ("codex-baseline", "terminal")):
+        write_json(
+            event_paths.evaluation("claude-judge", predictor, "RID"),
+            Evaluation(
+                case_id="scotus/6",
+                event_id=event,
+                predictor_id=predictor,
+                evaluator_id="claude-judge",
+                engine="claude-code",
+                run_id="RID",
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                correct=1,
+                base_rate_basis=basis,
+                segment_base_rate=0.3555,
+            ),
+        )
+
+    result = _stamp("evaluator", "claude-judge", 6, event, "RID")
+    assert result.exit_code != 0
+    offender = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    assert "::error::" in result.output
+    assert str(offender) in result.output
+    assert "risk_set" in result.output
+
+    # The offending cell is still stamped, with the null the resolution produced.
+    stamped = json.loads(offender.read_text())
+    assert stamped["base_rate_salience_version"] is None
+    assert stamped["process_version"]["pipeline_sha"] == "sha-abc"
+    # And one bad cell does not strand the rest of the run's stamps.
+    sibling = json.loads(
+        event_paths.evaluation("claude-judge", "codex-baseline", "RID").read_text()
+    )
+    assert sibling["base_rate_salience_version"] == SALIENCE_VERSION
+
+
 def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

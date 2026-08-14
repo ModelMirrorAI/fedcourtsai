@@ -67,6 +67,7 @@ on:
           - engine-smoke
           - mcp-sidecar
           - collect
+          - qp-topic
           - all
       # The known-good case the scenarios target: it must exist in the corpus
       # with at least one open (predictable) event and — for the snapshot and
@@ -381,6 +382,133 @@ jobs:
             --engine stub --require-predictions \
             ${EVENT:+--event "$EVENT"} | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # --- qp-topic: the labeling pipeline's post-label half, token-free -----
+
+      # Drives the shared qp-topic-measure composite — the exact steps the
+      # paid labeling run depends on — over canned inputs built from the
+      # committed reference set, so the no-output guard, the publication
+      # gate's refusal, and the publish-and-validate path are all exercised
+      # with no model spend and no credentials. The extract and the model
+      # call stay uncovered here by design: the extract needs QP document
+      # rows no fixture corpus writes, and the model call is exactly what
+      # `run-analytics` pays for. The leg rides this matrix job — whose
+      # environment binding and id-token grant it never uses — deliberately:
+      # a second credential-free job header for one non-required scenario is
+      # not worth the surface, and the leg needs no variables, so it runs to
+      # completion from any branch anyway (an unconfigured branch environment
+      # resolves empty).
+      - name: Seed canned labeling inputs from the committed reference set
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/qp-topic"
+          mkdir -p "$root/data/qp-topics"
+          # The oracle-fence step above deleted data/qp-topics from the
+          # working tree, so recover the reference set from the commit.
+          git show HEAD:data/qp-topics/qp-topic-reference.json \
+            > "$root/data/qp-topics/qp-topic-reference.json"
+          # The extract shape `qp-corpus` produces, minus the texts (an empty
+          # text fires no shadow rule), and one label line per reference
+          # entry: agreement and coverage both 100%.
+          jq '[.entries[] | {case_id, docket_number, text: ""}]' \
+            "$root/data/qp-topics/qp-topic-reference.json" > "$root/qp-texts.json"
+          # `label` is a jq keyword, so the object key needs the explicit form.
+          jq -c '.entries[] | {case_id, docket_number, label: .label}' \
+            "$root/data/qp-topics/qp-topic-reference.json" > "$root/qp-labels.jsonl"
+          # A labeler that produced nothing (the no-output guard's case) ...
+          : > "$root/qp-labels-empty.jsonl"
+          # ... and one that disagrees on every third entry: agreement ~67%,
+          # far enough under the 80% gate that the measure must refuse.
+          jq -c '.entries | to_entries[] | if (.key % 3) == 0
+              then {case_id: .value.case_id, docket_number: .value.docket_number,
+                    label: (if .value.label == "tax" then "criminal-law" else "tax" end)}
+              else {case_id: .value.case_id, docket_number: .value.docket_number,
+                    label: .value.label} end' \
+            "$root/data/qp-topics/qp-topic-reference.json" > "$root/qp-labels-drifted.jsonl"
+
+      - name: Measure a run whose labeler wrote nothing (must fail)
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        id: qp-empty
+        continue-on-error: true
+        uses: ./.github/actions/qp-topic-measure
+        with:
+          labels: ${{ runner.temp }}/qp-topic/qp-labels-empty.jsonl
+          texts: ${{ runner.temp }}/qp-topic/qp-texts.json
+          labeler: canned/none
+          data-root: ${{ runner.temp }}/qp-topic/data
+
+      # Pin the *reason*, not just the failure: the guard fires before the
+      # measure step, so measured.txt not existing yet proves the no-output
+      # assert refused — a plain outcome check would stay green even if the
+      # guard were dropped and the measure command's own "no label lines"
+      # error failed the leg instead.
+      - name: Assert the no-output guard refused before measuring
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        env:
+          EMPTY_OUTCOME: ${{ steps.qp-empty.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$EMPTY_OUTCOME" != "failure" ]; then
+            echo "::error::a labeler that wrote nothing passed the measure"
+            exit 1
+          fi
+          if [ -e "$RUNNER_TEMP/measured.txt" ]; then
+            echo "::error::the no-output guard did not fire; the measure step ran on an empty labels file"
+            exit 1
+          fi
+
+      - name: Measure a drifted run (the gate must refuse to publish)
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        id: qp-drifted
+        continue-on-error: true
+        uses: ./.github/actions/qp-topic-measure
+        with:
+          labels: ${{ runner.temp }}/qp-topic/qp-labels-drifted.jsonl
+          texts: ${{ runner.temp }}/qp-topic/qp-texts.json
+          labeler: canned/drifted
+          data-root: ${{ runner.temp }}/qp-topic/data
+
+      - name: Assert the gate refused the drifted run and published nothing
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        env:
+          DRIFTED_OUTCOME: ${{ steps.qp-drifted.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$DRIFTED_OUTCOME" != "failure" ]; then
+            echo "::error::a drifted labeler passed the publication gate"
+            exit 1
+          fi
+          # The refusal, in the gate's own words — a different failure (a
+          # join error, a vocabulary reject) must not satisfy this leg.
+          if ! grep -q "refusing to write" "$RUNNER_TEMP/measured.txt"; then
+            echo "::error::the drifted run failed for some reason other than the publication gate"
+            exit 1
+          fi
+          if [ -e "$RUNNER_TEMP/qp-topic/data/qp-topics/qp-topics.json" ]; then
+            echo "::error::a refused run left a labels artifact behind"
+            exit 1
+          fi
+
+      - name: Measure a faithful run (must publish and validate)
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        uses: ./.github/actions/qp-topic-measure
+        with:
+          labels: ${{ runner.temp }}/qp-topic/qp-labels.jsonl
+          texts: ${{ runner.temp }}/qp-topic/qp-texts.json
+          labeler: canned/reference
+          data-root: ${{ runner.temp }}/qp-topic/data
+
+      - name: Assert the published artifact carries the whole reference set
+        if: ${{ matrix.scenario == 'qp-topic' }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/qp-topic"
+          expected=$(jq '.cases' "$root/data/qp-topics/qp-topic-reference.json")
+          jq -e --argjson n "$expected" \
+            '.cases == $n and .agreement.gate_passed == true and .vocabulary == "qp-topic-v0"' \
+            "$root/data/qp-topics/qp-topics.json" > /dev/null
+          echo "qp-topic scenario: published $expected case(s), gate passed" >> "$GITHUB_STEP_SUMMARY"
 
       # --- engine-smoke: one real agent cell over the service sidecar --------
 

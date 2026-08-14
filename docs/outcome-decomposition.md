@@ -9,7 +9,7 @@ scores them.
 
 **The mechanical cert-stage family and the merits judgment claim are
 implemented; everything else here is pre-registration — with one carve-out, the
-semantic family, which is neither.** The scoring rule is `pipeline.evaluate.claim_score`; the
+semantic family, which is neither.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — three cert-stage claims under `cert-v1`, and the one merits
 claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
 event — live
@@ -407,7 +407,8 @@ That is a starting posture, not a permanent one — but note where the process
 digest actually moves, because it is not where it looks. The digest hashes the
 prompt bytes and the resolved actor config, so it moves as soon as a **prompt**
 asks for claims: that is the advisory step, not the folding-in step. Composing a
-headline differently is a `leaderboard` / `pipeline.evaluate` edit and moves no
+headline differently is a `leaderboard` / `pipeline.evaluate` /
+`pipeline.base_rates` edit and moves no
 digest at all. What folding-in would break is comparability with cells already
 blessed under an earlier digest, which is a promotion-time decision rather than a
 digest one.
@@ -611,7 +612,7 @@ and not every order event is merits) declares exactly one claim,
 `judgment-disturbed`: the binary disturbed projection of `Outcome.judgment`,
 restating the merits headline `probability` the way the cert set's
 `disposition` claim restates its headline (a divergent pair voids the block
-identically). Its baseline is `pipeline.evaluate.merits_base_rate` — the
+identically). Its baseline is `pipeline.base_rates.merits_base_rate` — the
 statpack merits section's disturbed rate pooled over strictly-prior Terms,
 version-free — read at the **grant** Term (`grant_term_year` over the merits
 event's `opened_at`), never the frozen context's docket-number Term, which

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import random
+import struct
 import time
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.collect import PathChange, parse_name_status
 from fedcourtsai.secretscan import (
+    _MAX_SEGMENT,
     Finding,
     redact_credentials,
     render_issue_comment,
@@ -412,6 +414,9 @@ _OPAQUE = base64.urlsafe_b64encode(bytes(range(7, 71))).decode().rstrip("=")
     [
         (_FERNET, "fernet-token"),
         (f'{{"message": "{_FERNET}"}}', "fernet-token"),
+        # No left anchor: a token pasted into the middle of a longer run in
+        # the same alphabet is still a token, and the prefix still finds it.
+        ("session-" + _FERNET, "fernet-token"),
         (_JWT, "jwt"),
         ("sk-ant-api03-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
         ("sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
@@ -459,6 +464,126 @@ def test_credential_headers_and_assignments_are_redacted(text: str, secret: str)
     # rewrite the line past what the collect scan would have flagged.
     for start in range(0, len(secret) - 12):
         assert secret[start : start + 12] not in redacted
+
+
+def test_a_message_payload_loses_only_the_token_span() -> None:
+    # The shape capture-time redaction exists to survive: a delegated-agent
+    # `send_message` payload is exactly the evidence the leakage grading reads,
+    # so the credential-shaped *span* goes and the instruction around it stays
+    # legible. A rule that ate the containing value instead would leave the
+    # audit trail unrecoverable.
+    prose = (
+        "Review the cell's flags.json and report whether the delegated "
+        "reviewer read outside its own prediction path."
+    )
+    redacted = redact_credentials(f'{{"message": "{prose} {_FERNET}"}}')
+    assert redacted == f'{{"message": "{prose} [redacted:fernet-token]"}}'
+    assert _FERNET not in redacted
+
+
+# A long run in the base64url alphabet that carries the Fernet header without
+# any of a token's entropy. Synthetic and periodic rather than drawn from a
+# captured payload: it stands for the class the confirmation exists to spare —
+# agent-authored text long enough, and in the right alphabet, to be convicted
+# by a six-character prefix alone — not for any particular observed payload.
+_PATTERNED_RUN = "gAAAAAB" + "Xy7qL2m9Vt4Rz8Wc" * 30
+
+# The same class in the shape it actually turns up in: a readable identifier
+# run, where `_` carries the word breaks that would otherwise end the match.
+_IDENTIFIER_RUN = (
+    "gAAAAAB-report_whether_the_delegated_reviewer_read_outside_its_own_cell"
+    "-listing_under_the_committed_predictions_tree_evaluations_entry_four"
+)
+
+
+def test_a_low_entropy_run_carrying_the_fernet_prefix_survives() -> None:
+    # Left whole, not partly rewritten: the prefix says where a token *could*
+    # start, and the entropy discriminator — the same one the opaque rule and
+    # the scan use — says this run is not one.
+    assert redact_credentials(_PATTERNED_RUN) == _PATTERNED_RUN
+    # And withdrawing the rewrite costs the gate nothing *here*, because the
+    # scan reads the identical run on the identical threshold and finds
+    # nothing either. Where that symmetry would have cost something — a real
+    # token diluted below the bar — the windowed score keeps the redaction;
+    # see the test below.
+    assert _scan(_PATTERNED_RUN) == []
+    assert _scan(f'{{"message": "{_PATTERNED_RUN}"}}') == []
+    assert redact_credentials(_IDENTIFIER_RUN) == _IDENTIFIER_RUN
+    assert _scan(_IDENTIFIER_RUN) == []
+
+
+@pytest.mark.parametrize(
+    "diluted",
+    [
+        # Filler after the token, in the same separator-free alphabet.
+        _FERNET[:140] + "_standing_doctrine" * 16,
+        _FERNET[:140] + "Aa1_" * 200,
+        # And before it — worse, because the greedy match starts at the *first*
+        # header and swallows the real token, so the genuine occurrence inside
+        # the span is never offered to the rule a second time.
+        "gAAAAA" + "Aa1_" * 300 + _FERNET[:140],
+        "gAAAAA" + "_standing_doctrine" * 40 + _FERNET[:140],
+    ],
+    ids=["words-after", "padding-after", "padding-before", "words-before"],
+)
+def test_a_token_diluted_with_low_entropy_filler_is_still_redacted(diluted: str) -> None:
+    # The evasion a whole-span-average confirmation opens: the match is greedy
+    # over an alphabet with no separator, so an agent can pad a real token
+    # until the span's mean entropy falls under the bar. The scan cannot
+    # backstop this one — it scores the same maximal run on the same
+    # threshold — so redaction is the only layer, and it has to hold.
+    assert _scan(diluted) == [], "the scan is blind here; redaction is the only layer"
+    redacted = redact_credentials(f'{{"message": "{diluted}"}}')
+    assert "[redacted:fernet-token]" in redacted
+    assert _FERNET[:60] not in redacted
+
+
+def _fernet_token(plaintext_bytes: int, rng: random.Random) -> str:
+    """A synthetic token in the real Fernet v1 layout — never a real credential.
+
+    Version byte, 64-bit timestamp, IV, whole cipher blocks, 32-byte HMAC. The
+    shortest such token is 100 base64url characters.
+    """
+    body = (
+        b"\x80"
+        + struct.pack(">Q", 1786000000)
+        + rng.randbytes(16)
+        + rng.randbytes(((plaintext_bytes // 16) + 1) * 16)
+        + rng.randbytes(32)
+    )
+    return base64.urlsafe_b64encode(body).decode().rstrip("=")
+
+
+def test_real_fernet_tokens_are_redacted_at_every_plaintext_size() -> None:
+    # The confirmation may not cost the rule its actual job. At minimum token
+    # length one 64-char window is a large enough fraction of the whole that
+    # sampling variance starts to bite; scoring the whole run alongside the
+    # windows, at a quarter-window stride, is what holds this case.
+    rng = random.Random(20260814)
+    for plaintext in (1, 16, 32, 256, 1024):
+        for _ in range(200):
+            token = _fernet_token(plaintext, rng)
+            assert token.startswith("gAAAAA")
+            assert redact_credentials(token) == "[redacted:fernet-token]"
+
+
+def test_a_token_straddling_the_match_ceiling_is_still_redacted() -> None:
+    # The seam between the repeat ceiling and the decline path: a header
+    # landing in the last window-width of a ceiling-bounded match is consumed
+    # with that match — `re.sub` resumes past it — so the token behind it is
+    # never offered to the rule a second time, and the padded run blinds the
+    # opaque rule and the scan alike. Confirming over the maximal alphabet run
+    # rather than over the truncated match is what sees it.
+    #
+    # Swept across the band rather than probed at one offset: the failure is
+    # alignment-dependent, so a single point would pass by luck.
+    token = _fernet_token(32, random.Random(20260815))
+    for offset in range(_MAX_SEGMENT - 60, _MAX_SEGMENT + 7):
+        filler = "Aa1_" * ((offset - 6) // 4) + "A" * ((offset - 6) % 4)
+        text = "gAAAAA" + filler + token
+        assert text.index(token) == offset, "fixture must place the header where intended"
+        assert _scan(text) == [], "the scan is blind here too; redaction is the only layer"
+        assert token[:60] not in redact_credentials(text)
 
 
 def test_redaction_never_leaves_a_run_the_scan_would_have_withheld() -> None:
@@ -515,10 +640,15 @@ def test_redaction_is_idempotent() -> None:
 
 
 def test_redaction_terminates_on_a_hostile_payload() -> None:
-    # Every multi-part pattern is repeat-bounded, because the text redaction
-    # reads is agent-influenced and arrives uncapped: an unbounded `{n,}`
-    # either side of a required literal backtracks quadratically, which is a
-    # hung capture step and a lost cell rather than a slow one.
+    # Every variable run in the patterns is repeat-bounded, because the text
+    # redaction reads is agent-influenced and arrives uncapped: an unbounded
+    # `{n,}` either side of a required literal backtracks quadratically, which
+    # is a hung capture step and a lost cell rather than a slow one. The
+    # fernet rule adds a second way to spend forever — its confirmation reads
+    # the whole alphabet run each match sits in, so a payload made of nothing
+    # but headers would rescore the same run once per header if the verdict
+    # were not remembered across the pass.
     started = time.monotonic()
     redact_credentials("-eyJ" * 50_000)
+    redact_credentials("gAAAAA" * 50_000)
     assert time.monotonic() - started < 10

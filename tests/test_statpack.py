@@ -22,7 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.evaluate import merits_base_rate
+from fedcourtsai.pipeline.base_rates import merits_base_rate
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
