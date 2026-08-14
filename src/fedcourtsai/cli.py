@@ -5700,6 +5700,27 @@ def assert_paths_cmd(
     typer.echo(f"path jail OK ({len(changes)} change(s))")
 
 
+def _scan_listed_files(
+    files: list[Path] | None, secrets: list[str], *, entropy: bool, noun: str
+) -> tuple[list[secretscan.Finding], bool]:
+    """Scan caller-named files beside the change set; a missing one fails closed.
+
+    The caller writes each file immediately before scanning, so absence is a
+    misconfigured gate, never an empty surface. ``entropy`` passes through to
+    the scanner — off for a transcript, whose format guarantees high-entropy
+    ids as ordinary content.
+    """
+    findings: list[secretscan.Finding] = []
+    misconfigured = False
+    for path in files or []:
+        if path.is_file():
+            findings.extend(secretscan.scan_file(path, str(path), secrets, entropy=entropy))
+        else:
+            misconfigured = True
+            typer.echo(f"::error::secret-scan: {noun} {path} is missing", err=True)
+    return findings, misconfigured
+
+
 @app.command("scan-diff-for-secrets")
 def scan_diff_for_secrets_cmd(
     name_status_file: Annotated[
@@ -5719,6 +5740,19 @@ def scan_diff_for_secrets_cmd(
             help="Rendered text about to be posted (a PR body, a flag roll-up) to "
             "scan alongside the change set (repeatable). Must exist: the caller "
             "writes it immediately before scanning."
+        ),
+    ] = None,
+    transcript_file: Annotated[
+        list[Path] | None,
+        typer.Option(
+            help="An engine transcript to scan with every detector except the "
+            "generic high-entropy heuristic (repeatable; must exist, like "
+            "--extra-file). A transcript's server-generated tool and request "
+            "ids are high-entropy by format, so the generic heuristic convicts "
+            "every real file and the artifact it gates never publishes with "
+            "content; literal containment of each --known-secret-env credential "
+            "and the structured credential shapes still run and are the "
+            "detectors that can name a secret there."
         ),
     ] = None,
     issue_comment_file: Annotated[
@@ -5741,8 +5775,10 @@ def scan_diff_for_secrets_cmd(
     text) live in ``secretscan``. On a hit the collect job withholds the
     branch — nothing pushed, no PR — because the push itself would publish
     the secret; a scan misconfiguration (a named env var that is unset or
-    too short, a missing ``--extra-file``) fails the same way rather than
-    silently dropping a detector or a surface.
+    too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
+    same way rather than silently dropping a detector or a surface. A
+    ``--transcript-file`` is scanned without the generic high-entropy
+    heuristic only — see the option's help for why that surface needs it.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -5759,12 +5795,13 @@ def scan_diff_for_secrets_cmd(
             )
     changes = parse_name_status(name_status_file.read_text())
     findings = secretscan.scan_changes(changes, Path(), secrets)
-    for extra in extra_file or []:
-        if extra.is_file():
-            findings.extend(secretscan.scan_file(extra, str(extra), secrets))
-        else:
-            misconfigured = True
-            typer.echo(f"::error::secret-scan: extra file {extra} is missing", err=True)
+    for files, entropy, noun in (
+        (extra_file, True, "extra file"),
+        (transcript_file, False, "transcript file"),
+    ):
+        listed_findings, missing = _scan_listed_files(files, secrets, entropy=entropy, noun=noun)
+        findings.extend(listed_findings)
+        misconfigured = misconfigured or missing
     if findings:
         for line in secretscan.render_warnings(findings):
             typer.echo(line, err=True)
