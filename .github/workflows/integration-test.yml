@@ -330,7 +330,10 @@ jobs:
 
       # The production provisioning command, exercised end to end before the
       # cascade: run-predict's own step passes the same
-      # `--mode forward --refuse-terminal` but is continue-on-error there (a
+      # `--mode forward --refuse-terminal` (plus a staleness bound this
+      # harness deliberately leaves off — a fixed known case's snapshot ages,
+      # and the bound would turn the leg red on calendar time alone) but is
+      # continue-on-error there (a
       # refusal must not burn the whole fan-out), so the guard drifting to
       # always-refuse — or the flag silently dropping out — fails nothing at
       # runtime, while local-cascade provisions in-process and never runs this

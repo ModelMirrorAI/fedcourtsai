@@ -549,7 +549,17 @@ splitting a case's engines) in a deterministic case-id order, with the deferred
 count surfaced as a `::warning::` and in the plan's step summary; a deferred case
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
-`PREDICT_HANDOFF_ENABLED` on/off pause below.
+`PREDICT_HANDOFF_ENABLED` on/off pause below. One interaction to know: a
+forward cell the provisioning gate refuses produces no output, so collect
+records a failure fact that counts toward `predict.max_attempts_per_cell`.
+For a record-gate refusal that terminal state is right — a decided event must
+never re-queue (and the plan-time openness re-check drops it anyway). For a
+*staleness* refusal it means a poller stalled for five predict cycles quietly
+retires those cells; the recovery is to fix the poller and re-queue with a
+fresh `run:predict` issue, or clear the committed attempt facts in a reviewed
+PR where the cap itself was the problem. Distinguishing refusal kinds in the
+failure fact so a staleness refusal never burns the cap is open follow-up
+work.
 
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
