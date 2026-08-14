@@ -4036,8 +4036,10 @@ def provision_snapshot(
         raise typer.Exit(code=2)
     snapshot_date, payload = found
     # Refuses before writing anything (no snapshot, no context.json);
-    # run-predict's provisioning step is continue-on-error, so the cell runs
-    # snapshot-less and the agent notes the gap per the prompt contract. Opt-in
+    # run-predict distinguishes the exits: a refusal (exit 3) short-circuits
+    # the cell's agent steps entirely, while a missing snapshot (exit 1) under
+    # its continue-on-error leaves the cell running snapshot-less with the gap
+    # noted per the prompt contract. Opt-in
     # because the other callers *must* see decided dockets: run-evaluate
     # provisions the same forward-mode cell for an already-resolved event, and
     # the replay provisioner truncates point-in-time itself.
@@ -4052,8 +4054,8 @@ def provision_snapshot(
     # the payload itself discloses the outcome. None of this rests on the
     # agent: a refused forward cell never receives a snapshot or a context —
     # un-minting is the plan seam's job (the matrix openness re-check), and
-    # under the workflow's continue-on-error the refused cell still runs
-    # snapshot-less per the prompt contract. Refusals are ::warning::
+    # run-predict's refusal gate skips the cell's agent steps on exit 3
+    # entirely. Refusals are ::warning::
     # annotations so a fleet of snapshot-less cells is attributable per cause
     # from the Actions UI.
     if gate_active:

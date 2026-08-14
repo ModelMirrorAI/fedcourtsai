@@ -496,14 +496,16 @@ seam earlier (`predict-matrix` drops a listed event the corpus records
 resolved, wherever the scope gate consults the corpus at all — under
 `predict.scope: all` neither does), so a stale trigger issue sheds its closed
 events at plan time instead of minting cells this guard then refuses one by
-one. A refused
-cell is a legitimate outcome, not an error; the prompt contract tells the agent
-to note the gap in `flags.json` and predict from priors and base rates only,
-without retrieving the case's current docket state (under the record gate and
-the textual scan the case already looks decided, so its outcome is
-retrievable; under the staleness bound the docket's current state is exactly
-the information the cell's stale input lacks — either way the prompt's
-predict-as-if-undecided rule governs).
+one. A refusal
+(exit 3) is a legitimate outcome, not an error — and it **short-circuits the
+cell**: the workflow withholds the agent token, the retrieval config, the
+engine steps, and the event materialization, so a refused forward cell
+produces nothing rather than a context-less prediction claiming a mode it
+never had. The cell's status records `produced=false` and the collect census
+warns per cell. Only the other non-zero provisioning exit — no snapshot in
+the corpus at all — keeps the best-effort shape: that cell runs snapshot-less,
+notes the gap in `flags.json`, and predicts from priors and base rates only
+per the prompt contract.
 
 One trust boundary to keep in view: `record/context.json` is written by
 provisioning but *lives in the agent's workspace* for the run, so the post-run

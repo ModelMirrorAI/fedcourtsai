@@ -206,3 +206,46 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
     assert lines, "run-evaluate.yml no longer provisions a snapshot"
     for line in lines:
         assert "--refuse-terminal" not in line, line
+
+
+def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
+    """A refused forward cell runs no agent at all.
+
+    Provisioning's exit-3 refusal (the record gate, the staleness bound, or the
+    textual scan) sets `refused=true`; every step that would spend tokens, hold
+    a credential, or write a runner-local config for the agent — the comment
+    token mint, the MCP retrieval config, the engine installs and runs, and the
+    event materialization — must carry the gate, or a refused cell produces a
+    context-less prediction claiming a mode it never had.
+    """
+    wf = _load("run-predict.yml")
+    steps = wf["jobs"]["predict"]["steps"]
+    provision = next(s for s in steps if s.get("id") == "provision")
+    assert provision.get("continue-on-error") is True
+    assert "--max-snapshot-age-days" in provision["run"]  # the staleness bound is armed
+    assert 'echo "refused=true"' in provision["run"]
+    gated = [
+        "Mint agent comment token",
+        "Configure agent retrieval (MCP)",
+        "Materialize the event definition for the ledger",
+        "Predict with Claude Code",
+        "Predict with Codex",
+        "Install the Gemini CLI",
+        "Predict with Gemini",
+    ]
+    names = [s.get("name") for s in steps]
+    for name in gated:
+        step = next(s for s in steps if s.get("name") == name)
+        assert "steps.provision.outputs.refused != 'true'" in str(step.get("if")), name
+    # The gate can only hold for steps that run after provisioning.
+    assert all(names.index(name) > names.index("Provision the case snapshot from the corpus")
+               for name in gated)
+
+
+def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
+    # The retrieval log's mode comes from the provisioned record, with the
+    # workflow literal as the fallback — never the literal alone, which would
+    # assert `forward` on a cell whose provisioning refused.
+    runs = _run_blocks(_load("run-predict.yml"))
+    line = next(r for r in runs if "record-retrieval" in r)
+    assert "--mode forward --mode-from-context" in line

@@ -130,24 +130,6 @@ jobs:
       max-parallel: 6
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
-      - name: Mint agent comment token
-        id: agent-token
-        # Only the Claude step consumes this token (Codex never took one, and
-        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
-        # mint a live credential in cells that cannot use it.
-        if: matrix.engine == 'claude-code'
-        # Least-privilege token the agent itself uses to comment on the triggering
-        # issue/PR. No contents:write — the agent only writes files locally, which
-        # ride to the collect job as an artifact; that job (its own token) does the
-        # commit/PR, so a prompt injection in docket text cannot push code here.
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: read
-          permission-issues: write
-          permission-pull-requests: write
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -182,6 +164,7 @@ jobs:
       # Best-effort — neither a missing snapshot nor a terminal-docket refusal
       # (below) must abort the run; the agent notes the gap per prompt.
       - name: Provision the case snapshot from the corpus
+        id: provision
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
@@ -206,19 +189,35 @@ jobs:
         # event, and the mode in record/context.json keys the prompt contract's
         # retrieval etiquette; the cert back-test's replay provisioner
         # writes `replay` itself.
-        # `--refuse-terminal` + `--event`: leakage guard — if the snapshot
-        # already shows THIS EVENT's outcome, refuse it (exit 3, nothing
-        # written) rather than hand the predictor the answer. The event key is
-        # load-bearing because one docket carries several events' outcomes at
-        # once: on the merits event the outcome is the judgment, and the cert
-        # grant that opened the event is its legitimate record; on every other
-        # event it is a terminal latest entry, any machine-readable disposition
-        # order, or an application docket's legible interim disposal — the
-        # docket resolved after fan-out, or an order the routing rule cannot
-        # see behind an administrative tail. Only this workflow passes the
+        # `--refuse-terminal` + `--event`: the forward gate — refuse (exit 3,
+        # nothing written) when the record already holds this event's outcome,
+        # the snapshot is older than the staleness bound, or the snapshot text
+        # shows THIS EVENT's outcome. The event key is load-bearing because
+        # one docket carries several events' outcomes at once: on the merits
+        # event the outcome is the judgment, and the cert grant that opened
+        # the event is its legitimate record. Only this workflow passes the
         # flag: run-evaluate provisions the same cell for an already-resolved
         # event, where a decided docket is the point.
-        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal
+        # `--max-snapshot-age-days 10`: generous against the live poller's
+        # daily-ish refresh on selected petitions, so a healthy pipeline never
+        # trips it — only a resumed pause or a stalled poller does.
+        # Exit 3 is a REFUSAL and short-circuits the cell (`refused=true`
+        # gates the token mint, the engine steps, and the materialization
+        # below): a refused forward cell must not run at all, or it produces a
+        # context-less prediction that claims a mode it never had. Any other
+        # non-zero exit (no snapshot in the corpus) keeps today's best-effort
+        # shape: the cell runs snapshot-less and the agent notes the gap per
+        # the prompt contract.
+        run: |
+          status=0
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 || status=$?
+          if [ "$status" -eq 3 ]; then
+            echo "refused=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::forward gate refused ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}; no cell runs"
+          elif [ "$status" -ne 0 ]; then
+            echo "::warning::no snapshot for ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} (exit ${status}); the cell runs snapshot-less"
+            exit "$status"
+          fi
 
       # A predictable event is a corpus fact, not a committed file. Project it into
       # the event's ledger directory so the prediction PR carries its event.yaml and
@@ -226,6 +225,10 @@ jobs:
       # without the corpus. Runs before the agent so a genuinely missing event fails
       # the job before any model tokens are spent.
       - name: Materialize the event definition for the ledger
+        # Skipped on a refused cell: with no agent running there is no
+        # prediction PR to carry the event.yaml, and the projection read is
+        # egress for nothing.
+        if: steps.provision.outputs.refused != 'true'
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -266,6 +269,7 @@ jobs:
       # corpus tooling rather than failing) — so the generated file, though
       # workspace-local and gitignored, contains nothing worth reading.
       - name: Configure agent retrieval (MCP)
+        if: steps.provision.outputs.refused != 'true'
         env:
           ENGINE: ${{ matrix.engine }}
           PREDICTOR_ID: ${{ matrix.predictor_id }}
@@ -368,9 +372,30 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      - name: Mint agent comment token
+        id: agent-token
+        # Only the Claude step consumes this token (Codex never took one, and
+        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
+        # mint a live credential in cells that cannot use it — or in a cell the
+        # forward gate refused, which runs no agent at all.
+        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true'
+        # Minted after provisioning so the refusal gate above can actually
+        # withhold it — a step cannot be gated on the output of a later step.
+        # Least-privilege token the agent itself uses to comment on the triggering
+        # issue/PR. No contents:write — the agent only writes files locally, which
+        # ride to the collect job as an artifact; that job (its own token) does the
+        # commit/PR, so a prompt injection in docket text cannot push code here.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Predict with Claude Code
         id: predict_claude
-        if: matrix.engine == 'claude-code'
+        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true'
         # Bound the agent below the job timeout so a runaway run trips this *step*
         # (leaving the finalize step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
@@ -453,7 +478,7 @@ jobs:
 
       - name: Predict with Codex
         id: predict_codex
-        if: matrix.engine == 'codex'
+        if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
         uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
@@ -541,7 +566,7 @@ jobs:
       # this step's env carries nothing. The workspace settings file is written
       # here too; its telemetry log feeds the usage-capture step.
       - name: Install the Gemini CLI
-        if: matrix.engine == 'gemini'
+        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true'
         # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
         # disabled, and a secret-free environment are the practical controls for
         # a single global CLI; a lockfile is not expressible for `npm i -g`.
@@ -564,7 +589,7 @@ jobs:
       # usage-capture step), and the same headless `--yolo` prompt call.
       - name: Predict with Gemini
         id: predict_gemini
-        if: matrix.engine == 'gemini'
+        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
         env:
@@ -688,7 +713,7 @@ jobs:
           args=(record-retrieval
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
             --run-id "$RUN_ID" --engine "$ENGINE"
-            --role predictor --actor "$PREDICTOR_ID" --mode forward)
+            --role predictor --actor "$PREDICTOR_ID" --mode forward --mode-from-context)
           if [ "$ENGINE" = "claude-code" ] && [ -n "$CLAUDE_EXECUTION_FILE" ]; then
             args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
           elif [ "$ENGINE" = "gemini" ]; then
