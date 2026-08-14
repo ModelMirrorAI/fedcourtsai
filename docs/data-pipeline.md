@@ -476,8 +476,8 @@ through the ordinary read backend — the cell workflows' provisioning step
 carries the index credentials beside the casestore URL — and when no index is
 reachable the event-keyed checks still gate the cell while the skipped half
 is a spoken warning. The **staleness
-bound** (`--max-snapshot-age-days`, off at the default of 0 — the caller
-arms it) refuses a snapshot old enough to predate a pipeline pause: such a
+bound** (`--max-snapshot-age-days`, off at the default of 0; `run-predict`
+arms it at 10 days, generous against the live poller's daily-ish refresh) refuses a snapshot old enough to predate a pipeline pause: such a
 snapshot passes every content check by construction, because it was taken
 before anything it should disclose happened, and its case may be genuinely
 pending — the refusal is about the input being stale, not the case being

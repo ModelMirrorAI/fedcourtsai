@@ -245,9 +245,10 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
 
 
 def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
-    # The retrieval log's mode comes from the provisioned record, with the
-    # workflow literal as the fallback — never the literal alone, which would
-    # assert `forward` on a cell whose provisioning refused.
+    # The retrieval log's mode comes from the provisioned record where one
+    # exists, with the workflow literal as the fallback — one source of truth
+    # for the mode, which is what matters wherever a provisioner writes
+    # `replay` (a refused cell writes no context and never reaches this step).
     runs = _run_blocks(_load("run-predict.yml"))
     line = next(r for r in runs if "record-retrieval" in r)
     assert "--mode forward --mode-from-context" in line

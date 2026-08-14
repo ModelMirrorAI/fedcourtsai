@@ -209,14 +209,21 @@ jobs:
         # shape: the cell runs snapshot-less and the agent notes the gap per
         # the prompt contract.
         run: |
+          set -euo pipefail
           status=0
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 || status=$?
-          if [ "$status" -eq 3 ]; then
-            echo "refused=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::forward gate refused ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}; no cell runs"
-          elif [ "$status" -ne 0 ]; then
-            echo "::warning::no snapshot for ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} (exit ${status}); the cell runs snapshot-less"
+          if [ "$status" -eq 1 ]; then
+            # Exit 1 is provisioning's own "no snapshot in the corpus" — the
+            # one shape that keeps the best-effort snapshot-less cell.
+            echo "::warning::no snapshot for ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}; the cell runs snapshot-less"
             exit "$status"
+          elif [ "$status" -ne 0 ]; then
+            # Exit 3 is the gate's refusal; anything else non-zero is an
+            # unclassified fault inside the gate reads, and the fail-closed
+            # direction is the refusal's: a forward cell must not run on a
+            # record the gate could not check.
+            echo "refused=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::forward gate refused ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} (exit ${status}); no cell runs"
           fi
 
       # A predictable event is a corpus fact, not a committed file. Project it into
@@ -254,7 +261,10 @@ jobs:
       # step env only; warn-only health so a degraded upstream never blocks
       # the cell, which runs on corpus tooling and provisioned inputs — the
       # prompt contract says so). Mirrors the corpus sidecar above.
-      - uses: ./.github/actions/mcp-sidecar
+      - # A refused cell serves no agent: do not launch a token-holding
+        # sidecar process for it.
+        if: steps.provision.outputs.refused != 'true'
+        uses: ./.github/actions/mcp-sidecar
         with:
           role: predictor
           actor: ${{ matrix.predictor_id }}
