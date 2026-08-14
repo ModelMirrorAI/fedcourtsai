@@ -811,8 +811,9 @@ provenance denominator — and nothing records
 authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
-coverage — no corpus row carries a body yet, though the channel that fills
-them exists (`fedcourts enrich-opinions`). Their blind-grading
+coverage — the operator-run channel that fills it (`fedcourts
+enrich-opinions`) has landed bodies on fewer than ten rows against a
+cert-granted slice of ≈1,250. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool names — the staged retrieval log respells them as
 engine-neutral classes (`fedcourtsai.blinding.neutral_tool_class`), so the
@@ -953,7 +954,7 @@ definition is fixed now:
 estimator under exactly these rules, with the evaluator's
 `reasoning_quality` grade as the semantic side of each pair — the
 judge-graded number the ledger already carries — pending the semantic claim
-family itself, which awaits opinion ingestion. That grade is formed under the
+family itself, which awaits opinion coverage. That grade is formed under the
 blinding bracket above, so the pair's semantic side carries no *named* anchor on
 which predictor wrote the rationale; it carries the residuals the blinding
 module names — the call-class profile and prose style — and
@@ -967,9 +968,9 @@ Everything above this heading is pre-registration in the strict sense: settled
 before there is data to fit it to, and changed only by a new declaration
 version. **This section is not.** `semantic-v0` is an **alpha** methodology for
 grading a predicted rationale against what the Court actually wrote — laid out
-and wired now so that iteration is fast when opinion text arrives, provisional,
-unproven against a single real opinion, and expected to change once one is
-seen.
+and wired now so that iteration is fast when opinion text reaches coverage,
+provisional, unproven against a single real opinion, and expected to change
+once one is seen.
 
 Four facts are what make that an honest label rather than a loophole.
 
@@ -1376,11 +1377,14 @@ sides is not one series.
 
 In dependency order, most binding first:
 
-1. **Opinion coverage.** No corpus row carries an opinion body yet. The channel
-   that fills them exists — `fedcourts enrich-opinions`, scoped to the
-   cert-granted slice (`docs/data-pipeline.md`) — so what is missing is a run
-   of it, not a design. Until it lands, nothing can be graded against text that
-   is not there, and no amount of methodology substitutes.
+1. **Opinion coverage.** Fewer than ten corpus rows carry an opinion body,
+   against a cert-granted slice of ≈1,250. The channel that fills them —
+   `fedcourts enrich-opinions`, operator-run over that slice
+   (`docs/data-pipeline.md`) — has run, so what is missing is neither a design
+   nor a dispatch but *yield*: a walk converges only the grants whose docket
+   links a published cluster upstream, and re-walks the rest every run. Until
+   coverage is a slice rather than a rounding error, nothing can be graded
+   against text that is not there, and no amount of methodology substitutes.
 2. **A grader prompt.** None exists, deliberately: writing one moves a digest
    and makes cells produce data under a methodology that has never met an
    opinion.
