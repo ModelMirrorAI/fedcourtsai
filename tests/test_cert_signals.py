@@ -465,6 +465,13 @@ def test_a_lowercase_narrative_vacatur_does_not_upgrade_a_grant() -> None:
             "United States v. Doe, VACATED AND REMANDED (9th Cir. 2024), is "
             "attached."
         ),
+        # A doubled interior space between auxiliary and participle: the
+        # sentence is whitespace-collapsed before matching, so the
+        # fixed-width lookbehinds still see the marker.
+        (
+            "THE JUDGMENT OF THE UNITED STATES COURT OF APPEALS FOR THE NINTH "
+            "CIRCUIT WAS  VACATED AND REMANDED LAST TERM."
+        ),
     ],
 )
 def test_a_capitalized_narrative_vacatur_does_not_upgrade_a_grant(tail_sentence: str) -> None:

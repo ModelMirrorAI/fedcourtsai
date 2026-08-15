@@ -291,7 +291,11 @@ def _gvr_tail_sentence(text: str) -> str | None:
     starts = _sentence_boundaries(text)
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(text)
-        sentence = text[start:end].strip()
+        # Collapsed to single spaces before matching: the narrative-marker
+        # lookbehinds are fixed-width, so an interior double space (which
+        # upstream entry text does carry — ingestion strips but never
+        # collapses) would otherwise un-bar every one of them.
+        sentence = " ".join(text[start:end].split())
         if _GVR_TAIL_RE.match(sentence) and not _is_non_order_sentence(sentence):
             return sentence
     return None
