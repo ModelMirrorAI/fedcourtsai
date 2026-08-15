@@ -4668,9 +4668,10 @@ def unblind_evaluations_cmd(
     **This must run before ``stamp-cell --role evaluator``.** The stamp joins an
     evaluation to the prediction it scored on the ``predictor_id`` field and
     returns nothing on no match, so an alias reaching the stamp costs the cell
-    its ``claim_scores`` block *and* its ``base_rate_salience_version`` — both
-    *silently*, since the stamp assigns whatever the join produced rather than
-    failing. The self-check is
+    its ``claim_scores`` block *silently* — the stamp assigns whatever the join
+    produced rather than failing — while a ``risk_set`` base rate left with no
+    ``base_rate_salience_version`` fails the stamp outright. The self-check for
+    the silent half is
     ``validate data``'s ``check_evaluation_targets``, which resolves the same
     join and reports an orphan loudly — so the cell's order is: un-alias, stamp,
     validate.
