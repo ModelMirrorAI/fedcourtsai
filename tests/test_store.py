@@ -223,8 +223,16 @@ def _cvsg_case(
     disposition: Disposition | None = None,
     docket_number: str = "24-1234",
     stage: Stage | None = Stage.cert,
+    distribution_count: int | None = 1,
 ) -> None:
-    """A SCOTUS petition whose CVSG order has been minted beside its baseline."""
+    """A SCOTUS petition whose CVSG order has been minted beside its baseline.
+
+    ``distribution_count`` defaults to distributed — the baseline's
+    distribution moment has occurred, so its cell may mint (the arrival
+    moment owns the pre-distribution forecast). Pass ``None`` for the
+    unparsed-distribution shape the corpus really holds: a CVSG latched on a
+    row with no distribution signal at all.
+    """
     case_id = f"scotus/{docket_id}"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -236,10 +244,7 @@ def _cvsg_case(
                     docket_number=docket_number,
                     disposition=disposition,
                     cvsg_date=date(2025, 3, 3),
-                    # Distributed: the baseline's distribution moment has
-                    # occurred, so its cell may mint (the arrival moment owns
-                    # the pre-distribution forecast).
-                    distribution_count=1,
+                    distribution_count=distribution_count,
                 )
             ],
         )
@@ -313,6 +318,101 @@ def test_forecastable_events_requires_the_cert_stage_on_the_cvsg_order(tmp_path:
     _cvsg_case(db, 24, stage=None)
 
     assert forecastable_events(db, "scotus", 24) == ["evt-petition-disposition"]
+
+
+def test_forecastable_events_admits_a_cvsg_order_before_any_distribution(tmp_path: Path) -> None:
+    # The premature-distribution refusal is the distribution moment's alone: a
+    # CVSG latched on a row with no distribution signal (the
+    # unparsed-distribution backlog shape) keeps its cell, while the baseline
+    # beside it stays refused. Pins the refusal against widening to another
+    # cert moment.
+    db = corpus.corpus_db_path(tmp_path)
+    _cvsg_case(db, 25, distribution_count=None)
+
+    assert forecastable_events(db, "scotus", 25) == ["evt-order-cvsg-disposition"]
+
+
+def test_forecastable_events_refuses_a_predistribution_baseline_through_every_arm(
+    tmp_path: Path,
+) -> None:
+    """A zero-distribution petition baseline is refused by the whole or-chain.
+
+    The distribution moment has not happened, so no arm may admit its cell —
+    asserted on :func:`forecastable_events` rather than either predicate in
+    isolation, because the admission is an or-chain and a refusal one arm
+    applies alone is re-admitted by the other. (The cert-stage arm reaches
+    the baseline too: it is a declared cert-stage event of a pending
+    petition.)
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/26",
+                    court="scotus",
+                    docket_number="24-2600",
+                    # Undistributed: no conference distribution has occurred.
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/26",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                )
+            ],
+        )
+
+    assert forecastable_events(db, "scotus", 26) == []
+
+
+def test_forecastable_events_admits_the_arrival_moment_before_any_distribution(
+    tmp_path: Path,
+) -> None:
+    # The arrival event is petition-kind too, and it is defined at zero
+    # distributions — the docketing-time information set is its whole point —
+    # so the shared premature-distribution refusal must key on the declared
+    # moment, never the kind. The baseline beside it stays refused.
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/27",
+                    court="scotus",
+                    docket_number="24-2700",
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/27",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="scotus/27",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                ),
+            ],
+        )
+
+    assert forecastable_events(db, "scotus", 27) == ["evt-petition-arrival-disposition"]
 
 
 def test_forecastable_events_keeps_an_application_row_out_of_the_cert_arm(
@@ -816,6 +916,8 @@ def test_forecastable_events_keeps_a_cert_dockets_stay_motion_out_of_the_interim
                     case_id="scotus/9525000009",
                     court="scotus",
                     docket_number="24-1234",
+                    # Distributed: the baseline's own moment precondition.
+                    distribution_count=1,
                 )
             ],
         )

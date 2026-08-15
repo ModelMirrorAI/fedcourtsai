@@ -179,18 +179,52 @@ def forecastable_events(
         return forecastable_event_ids(conn, court_id, docket_id)
 
 
+def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether this is a SCOTUS distribution-moment cell with no distribution yet.
+
+    The information-set precondition the two cert-capable arms share: the
+    petition baseline's moment is the **first distribution**, so a petition the
+    Court has not yet distributed has no distribution-moment cell to mint — its
+    docketing-time forecast belongs to the arrival moment, on the arrival
+    event. One predicate rather than a per-arm condition, because
+    :func:`forecastable_event_ids` admits on an or-chain and both the
+    case-baseline arm and the cert-stage arm can reach a petition-kind cert
+    event: a refusal applied in one arm alone is no refusal at all — the other
+    arm re-admits exactly what it refused.
+
+    Keyed on the declared **moment** where a declaration exists, not on the
+    kind: the arrival event is petition-kind too, and it is *defined* at zero
+    distributions — refusing it here would refuse the very cohort the moment
+    exists for. An undeclared petition-kind event keeps the kind reading,
+    which on a SCOTUS cert docket names the same distribution baseline.
+    Non-SCOTUS rows have no distribution concept and are never premature.
+    """
+    if row is None or row.court != "scotus":
+        return False
+    if row.distributed_for_conference is not None or row.distribution_count:
+        return False
+    spec = moments.spec_for(event.event_id)
+    if spec is not None:
+        return spec.moment is Moment.distribution
+    return event.kind == EventKind.petition
+
+
 def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
     """Whether an event is a forecastable cert-stage moment of a pending petition.
 
     The cert admission: an event the register declares at the **cert stage**,
-    on a scotus row that is neither an application docket nor already decided.
-    In practice this arm carries the **CVSG order** — the later cert moment,
-    minted when the call for the Solicitor General's views latches while the
-    petition is still awaiting disposition — since the petition baseline the
-    register also declares is already admitted by the case-baseline arm; the
-    or-chain makes the overlap harmless, and this arm's row refusals are a
-    strict superset of that arm's, so nothing the baseline arm refuses can
-    enter through this one.
+    on a scotus row that is neither an application docket nor already decided,
+    whose declared moment's information set exists
+    (:func:`_premature_distribution_cell`). In practice this arm carries the
+    **CVSG order** and the **arrival moment** — the cert moments past the
+    registry's first position (the arrival moment is chronologically the
+    *earliest*; registry order is not chronology) — since the petition
+    baseline the register also declares is already admitted by the
+    case-baseline arm. The or-chain makes that overlap harmless only
+    while nothing the baseline arm refuses can enter through this one, which
+    is why the distribution-moment refusal is the shared predicate rather
+    than the baseline arm's own condition: an or-chain routes around any
+    refusal applied on one side alone.
 
     The form check mirrors the case-baseline arm's mislabeled-application
     refusal: a CVSG exists only on a cert docket, but admission is keyed on
@@ -215,6 +249,7 @@ def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) 
         and row.disposition is None
         and corpus.resolution_date(row) is None
         and corpus.out_of_scope_reason(row) is None
+        and not _premature_distribution_cell(event, row)
     )
 
 
@@ -344,30 +379,29 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
     refusal. So a declared non-first moment defers entirely to its stage's own
     arm, whatever its kind.
 
-    And the baseline carries its own information-set precondition on a SCOTUS
-    cert docket: the moment is the **first distribution**, so a petition the
-    Court has not yet distributed has no distribution-moment cell to mint —
-    its docketing-time forecast is the arrival moment's, on the arrival
-    event. Without this an arrival-selected petition would sweep premature
-    baseline cells whose snapshots carry no conference at all, filed under a
-    moment that has not happened. Non-SCOTUS dockets have no distribution
-    concept and admit as before.
+    And the baseline carries the information-set precondition on a SCOTUS
+    cert docket (:func:`_premature_distribution_cell`, shared with the
+    cert-stage arm so the or-chain cannot route around it): the moment is the
+    **first distribution**, so a petition the Court has not yet distributed
+    has no distribution-moment cell to mint — its docketing-time forecast is
+    the arrival moment's, on the arrival event. Without this an
+    arrival-selected petition would sweep premature baseline cells whose
+    snapshots carry no conference at all, filed under a moment that has not
+    happened. Non-SCOTUS dockets have no distribution concept and admit as
+    before.
     """
     if event.kind not in _FORECASTABLE_KINDS:
         return False
     spec = moments.spec_for(event.event_id)
     if spec is not None and spec.ordinal != 0:
         return False
-    if row is not None and row.court == "scotus":
-        if corpus.is_scotus_application_form(row.docket_number):
-            return False
-        if (
-            event.kind == EventKind.petition
-            and row.distributed_for_conference is None
-            and not row.distribution_count
-        ):
-            return False
-    return True
+    if (
+        row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+    ):
+        return False
+    return not _premature_distribution_cell(event, row)
 
 
 def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
