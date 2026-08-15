@@ -93,9 +93,13 @@ stays outside the gate:
   **merits** moments and nothing else, because an individual cert vote is never
   scored (`docs/decision-model.md`), so the ranked cert board carries no vote
   mean — a mean reasoning-quality summary, and counts (events scored,
-  evaluations, evaluators), each reported **per stratum** — the `forward` and
+  evaluations) reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
-  never blended into one number, with only the timing strata ranked. Each
+  never blended into one number, with only the timing strata ranked. Two counts
+  sit on the entry rather than the stratum, because they describe the whole
+  entry: `evaluators`, the distinct judges that scored it, and `events_scored`
+  pooled across its strata, which the coverage contract below reads against the
+  board's own. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the
   skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
@@ -129,13 +133,95 @@ stays outside the gate:
   with the agent-written `created_at` only where no stamp exists, which the
   frozen scope excludes), ties broken deterministically, and the collapse
   applied inside the scope so a re-grade outside the frozen partition cannot
-  displace the frozen grading it superseded. The collapse stops at the
+  displace the frozen grading it superseded. **`superseded_gradings` is what
+  the collapse dropped from the stratified pass that produced the ranked
+  cells** — the two agreement views collapse separately, over their own scope,
+  and are not in the figure. It is the board's only trace of a re-grade: a
+  survivor is indistinguishable from a cell graded once, and every figure
+  around it is already post-collapse, so re-grading — a maintainer-reachable
+  operation — could otherwise move a standing with nothing on any published
+  artifact recording that it happened. Read it as an audit line, never as a
+  term: it is **not** subtracted from any count on the board, and a count
+  plus it is not a ledger total. Its population is the **scope gate's**, which
+  is the board's process scope but a slightly wider set of cells. The scope
+  half is exact: the collapse runs after the gate, so a `frozen` board's figure
+  counts only supersessions among frozen-scope cells and a re-grade the freeze
+  excludes appears on the `--all-versions` board instead. The cell half is
+  wider in two ways. It is stage-blind like `forward_claim` (a superseded
+  grading shares its survivor's stage), so it spans the ranked board and every
+  `stages` block at once and must never be netted against a stage-scoped
+  total. And it is taken where the collapse runs, which is *before* the
+  forward-claim exclusion, exactly like `claimed_forward` — so a supersession
+  of a cell the exclusion then drops is counted while the cell itself reaches
+  no block, and a board reading `predictors_ranked: 0` can still carry a
+  nonzero count. Nonzero is not by itself a fault — a
+  re-grade is a legitimate operation — but it is the cue to ask **why** a cell
+  was graded twice before reading a standing that a re-grade could have moved.
+  Read it beside the scope, because a zero has two meanings: on an empty
+  frozen board — the committed state while `FROZEN_SINCE` is still ahead of
+  every stamped grading — nothing was in scope to supersede, so `0` is the
+  shakedown state rather than a clean audit, and re-grades in the shakedown
+  ledger are counted on no committed artifact at all. `--all-versions` is where
+  they show. The collapse stops at the
   evaluator: a panel of judges reading one prediction is several observations,
   which is what `evaluators`, the panel means, and the leave-one-out agreement
   figures measure. (`claim-scores.json`'s *aggregates* collapse one step
   further, to the event, for a reason that does not apply here — every
   evaluator of one prediction carries an *identical* harness-computed block, so
-  there is no second observation to keep. Its judge validation stays per cell.)
+  there is no second observation to keep. Its judge validation stays per cell.
+  The dashboard's substance funnel reads the same collapsed pass and publishes
+  no count of its own; the board's is the audit line for all three, since one
+  collapse rule builds them.)
+
+  **Check coverage before comparing two engines.** Grading is gated at
+  `(evaluator, event)` grain: a run gives a judge the events it has not graded
+  yet, so a prediction committed after that judge graded its event is never
+  scored by that judge — only a judge still to reach the event can pick it up.
+  The scored set
+  is therefore **selected, not sampled**, and the selection can fall
+  differentially — an engine whose cells backfill late accumulates
+  systematically fewer scored events than one that ran on time, and nothing in
+  the ranking, the means, or either skill column adjusts for that. Each entry
+  publishes its own `events_scored` and its population publishes the
+  `events_scored` union across entries. An entry **at** its population's
+  figure was scored on the whole set — the entry's events are a subset of the
+  union, so equal cardinality is equal set — and an entry **below** it was
+  ranked over a subset. Never sum the **entries** to recover that union: two
+  predictors scored on one event are one event, so the sum overstates it.
+  (Summing an entry's *stratum* blocks is a different matter and does
+  reproduce its figure — a predictor's strata partition its events.) A
+  cross-engine claim over unequal coverage is a claim over two different
+  populations and is not licensed by this artifact; where the coverage is
+  unequal, the honest reading is per-predictor coverage figures, or a
+  comparison restricted by hand to the events both engines were scored on. The
+  denominator is the events *someone* was scored on: an event nobody was scored
+  on leaves numerator and denominator alike and is invisible here, so this
+  measures coverage **relative between entries**, never coverage of the
+  predicted population. The absolute gap — a prediction carrying no evaluation
+  at all — is still a ledger scan (`fedcourtsai.matrix.event_has_evaluations`
+  names the seam it comes from).
+
+  **Equal coverage is necessary, not sufficient.** It certifies the same event
+  *set* and nothing else, and two residuals survive it, so equality is never
+  on its own a licence to compare. **Stratum mix**: `events_scored` pools
+  forward, retrospective and procedural, while the rank key is the forward
+  stratum — two entries at equal coverage can carry a forward block against no
+  forward block at all, which is not a comparison. **Panel depth**: the gate is
+  per judge, so a late prediction can still be picked up by a judge that has
+  yet to run, on a thinner panel — equal coverage with unequal `evaluations`
+  or `evaluators` means the two means are taken over differently-weighted
+  cells. Read each stratum's own `evaluations` and the entry's `evaluators`
+  beside the coverage figure, and require both entries to carry a non-null
+  `forward` block over the same events before any forward comparison. The
+  pre-registered form of the condition is per-stratum, per-(predictor, event,
+  evaluator); this artifact publishes the pooled grain, which is why it can
+  refuse a comparison but never bless one. The build says so out loud — `fedcourts leaderboard` warns per
+  population, naming each short predictor and its coverage — so the hazard does
+  not depend on a reader doing the subtraction, and the refresh PR's headline
+  flags it too. Each `stages` block denominates its own coverage the same way,
+  against its own entries and never the cert board's, and is warned on
+  separately: a stage is scored on its own events, so measuring a merits entry
+  against the cert union would report short coverage for every one of them.
 
   **The board also names its partitions.** `frozen_process` records the freeze
   constants in force at build time — the blessed digest set and the freeze
@@ -367,7 +453,9 @@ stays outside the gate:
   `fedcourtsai.integrity.evaluation_clock`, never the agent-written
   `created_at`), and `cells` beside `events` is the census of counted
   gradings — one per judge, after the board-wide run collapse above, so a
-  superseded re-grade appears in neither. Strata are never pooled, and a total or pair set is never
+  superseded re-grade appears in neither; the leaderboard's
+  `superseded_gradings` is the audit line for both surfaces, since one collapse
+  rule builds them. Strata are never pooled, and a total or pair set is never
   comparable across process versions or across the frozen/all scope: the
   artifact publishes its scope, keyed on the prediction's stamp exactly like
   the leaderboard, and a scope that comes to hold more than one

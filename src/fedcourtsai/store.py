@@ -601,11 +601,20 @@ class StratifiedRun(NamedTuple):
     ``claimed_forward`` is the breach check's denominator: in-scope cells whose
     harness record carried a forward-claiming context at all — what tells "no
     claim breached" apart from "nothing recorded a claim to check".
+
+    ``superseded`` is how many in-scope gradings the run collapse dropped —
+    the only place a re-grade is still countable. Every cell in ``cells`` is a
+    survivor, so without this the operation leaves no trace on anything built
+    downstream; the leaderboard publishes it so a standing that moved because a
+    cell was re-graded says so. Counted **after** the scope gate, exactly where the
+    collapse runs, so it is always "superseded within this scope" and never
+    mixes a re-grade the scope excludes into a scoped board's audit line.
     """
 
     cells: list[StratifiedCell]
     excluded: list[ExcludedCell]
     claimed_forward: int = 0
+    superseded: int = 0
 
 
 def stratify(
@@ -644,7 +653,9 @@ def stratify(
     one prediction is several observations, which is what the ``evaluators``
     counts and the agreement views measure. It runs **after** the scope gate
     below, so a re-grade outside the scope cannot displace the in-scope grading
-    it superseded.
+    it superseded — and how many gradings it dropped comes back as
+    ``superseded``, since a survivor carries no mark of having superseded
+    anything and the boards have nothing else to audit a re-grade from.
 
     A cell whose harness record **contradicts its own forward claim**
     (:func:`fedcourtsai.integrity.forward_claim_breach` — ``context.mode``
@@ -682,7 +693,7 @@ def stratify(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return StratifiedRun([], [], 0)
+        return StratifiedRun([], [], 0, 0)
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
     claimed_forward = 0
@@ -707,9 +718,12 @@ def stratify(
     # grading on the frozen board rather than lose the cell to a newer run the
     # board does not admit. Every counter below therefore sees one grading per
     # (case, event, predictor, evaluator).
-    for evaluation, event_dir, latest in latest_evaluation_runs(
-        scoped, lambda cell: cell.evaluation
-    ):
+    survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
+    # The one place a re-grade is still countable: every survivor below is
+    # indistinguishable from a cell that was graded once, so the boards take
+    # their audit line from this difference rather than re-scanning the ledger.
+    superseded = len(scoped) - len(survivors)
+    for evaluation, event_dir, latest in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome never enters the forward/retrospective
         # skill aggregates — the label tracks vacatur practice, not
@@ -740,7 +754,7 @@ def stratify(
         if stage is None and event.kind in _FORECASTABLE_KINDS:
             stage = Stage.cert
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded, claimed_forward)
+    return StratifiedRun(cells, excluded, claimed_forward, superseded)
 
 
 def iter_stratified_evaluations(

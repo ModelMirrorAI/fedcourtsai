@@ -182,6 +182,9 @@ from .schemas import (
     Engine,
     Evaluation,
     ForwardClaimRecord,
+    Leaderboard,
+    LeaderboardEntry,
+    LeaderboardStageEntry,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -1545,6 +1548,18 @@ def leaderboard(
     writes through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger and pack reproduce the file byte for byte.
 
+    Two audit figures ride beside the standings, because neither is recoverable
+    from the ranked numbers themselves. ``superseded_gradings`` counts the
+    gradings the run collapse dropped: every figure on the board is taken after
+    it, so a re-graded cell is otherwise indistinguishable from a once-graded
+    one. Each entry's ``events_scored``, against its population's own, is the
+    scored set's coverage: grading is gated at ``(evaluator, event)`` grain, so
+    a predictor whose cells landed after its events were graded is compared
+    over a subset — the command warns when that inequality exists, per
+    population, and the ranks adjust for none of it. Silence is not a licence:
+    equal coverage certifies the same event set, never the same stratum mix or
+    panel depth (``metrics/README.md``).
+
     Defaults to the **frozen** headline: only cells whose predictor ran the
     blessed frozen process. Until a stamped cell postdates the freeze instant
     that is legitimately empty. ``--all-versions`` pools every process version.
@@ -1566,12 +1581,22 @@ def leaderboard(
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
+        superseded_gradings=run.superseded,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     empty_note = (
         "  (frozen headline empty — no frozen-process evaluations yet)"
         if scope == "frozen" and board.predictors_ranked == 0
+        else ""
+    )
+    # A re-grade is invisible on the board's own figures — every one of them is
+    # taken after the collapse — so the count says so in the log too, where a
+    # maintainer who ran `evaluate-matrix --force`, or re-ran a cached matrix,
+    # is watching.
+    regrade_note = (
+        f"  ({board.superseded_gradings} superseded grading(s) collapsed away)"
+        if board.superseded_gradings
         else ""
     )
     # An unreadable pack and a board where no cell qualified both render the
@@ -1583,12 +1608,15 @@ def leaderboard(
             "realized-Term skill omitted from every stratum.",
             err=True,
         )
+    _report_uneven_coverage(board)
     typer.echo(
         f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
-        f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
+        f"{board.procedural_evaluations} procedural) over "
+        f"{board.events_scored} scored event(s) "
+        f"-> {destination}{empty_note}{regrade_note}"
     )
 
 
@@ -5804,6 +5832,50 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
         [(cell.evaluation.predictor_id, cell.reason) for cell in run.excluded],
         run.claimed_forward,
     )
+
+
+def _report_uneven_coverage(board: Leaderboard) -> None:
+    """Warn where a population's predictors were not scored on the same events.
+
+    Grading is gated at ``(evaluator, event)`` grain, so the scored set is
+    *selected*: a prediction committed after a judge graded its event is never
+    scored by that judge, and an engine whose cells backfill late is compared
+    over a subset of the population's events. The ranks and means make no
+    adjustment for that, so two entries at unequal coverage are not a
+    cross-engine comparison at all. The board carries the counts; this makes the
+    inequality itself loud at build time, so a comparability hazard does not
+    wait for a reader to do the subtraction. It stays silent on equal coverage,
+    which is not the same as endorsing the comparison: equality certifies the
+    same event set and neither the stratum mix nor the panel depth, both of
+    which the board publishes for the reader to check.
+
+    Every population is checked against **its own** denominator — the ranked
+    cert board and each ``stage@moment`` block — because a stage is scored on
+    its own events, and measuring a merits entry against the cert union would
+    report short coverage for every one of them.
+    """
+    populations: list[tuple[str, int, Sequence[LeaderboardStageEntry | LeaderboardEntry]]] = [
+        ("cert", board.events_scored, board.entries)
+    ]
+    populations += [
+        (key, board.stages[key].events_scored, board.stages[key].entries)
+        for key in sorted(board.stages)
+    ]
+    for population, covered, entries in populations:
+        short = [
+            f"{entry.predictor_id} {entry.events_scored}/{covered}"
+            for entry in entries
+            if entry.events_scored < covered
+        ]
+        if not short:
+            continue
+        typer.echo(
+            f"::warning::leaderboard [{population}]: unequal scored-set coverage — "
+            + ", ".join(short)
+            + ". Ranks and means make no adjustment for this; a cross-engine "
+            "comparison over unequal coverage is over different populations.",
+            err=True,
+        )
 
 
 def _report_forward_claim_exclusions(excluded: Sequence[ExcludedCell]) -> None:

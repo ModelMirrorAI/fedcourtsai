@@ -847,9 +847,13 @@ supersedes rather than double-counts, and the `evaluate-matrix` plan gate drops 
 cell whose judge has already graded the event (per evaluator) so a re-derivation
 spends model tokens only on the *missing* judges. The gate works at (evaluator,
 event) grain, which carries one accepted limitation: a prediction committed
-*after* a judge graded the event is not re-scored. What the coarse grain buys is
-the spend, and what it costs is a coverage gap findable by a ledger scan (a
-resolved event whose prediction has no matching evaluation).
+*after* a judge graded the event is not re-scored by that judge. What the coarse
+grain buys is the spend, and what it costs is a coverage gap that falls
+differentially — an engine whose cells backfill late accumulates fewer scored
+events than one that ran on time. The leaderboard publishes that gap rather than
+leaving it to a ledger scan: every entry carries its own `events_scored` against
+the board's union, and `fedcourts leaderboard` warns when they are unequal
+(`metrics/README.md`).
 
 An `EVALUATE_HANDOFF_ENABLED` pause switch mirrors `PREDICT_HANDOFF_ENABLED`:
 holding it costs latency alone — a held window re-derives on resume rather than

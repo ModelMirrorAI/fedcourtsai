@@ -37,7 +37,22 @@ second ``evaluation.json`` beside the first, so the ledger reads collapse on
 or correlation: the stratified join does it for the score aggregates, and
 :func:`_scoped_evaluations` for the two agreement views, which read the ledger
 directly. Never across evaluators, whose multiplicity is the panel the
-``evaluators`` count and both agreement views measure.
+``evaluators`` count and both agreement views measure. The board then publishes
+how many gradings that collapse dropped (``superseded_gradings``), because a
+survivor looks exactly like a cell that was only ever graded once: without the
+count, a maintainer-reachable re-grade could move a standing and leave no mark
+on any artifact.
+
+Coverage is published beside the ranking for the same reason. Grading is gated
+at ``(evaluator, event)`` grain, so the scored set is selected rather than
+sampled: a prediction committed after a judge graded its event is never scored
+by that judge, and an engine whose cells backfill late is ranked over fewer
+events than one that ran on time. Each entry carries its ``events_scored`` and
+its population carries the union across entries, so unequal coverage is readable
+off the artifact before any cross-engine comparison rests on it — nothing here
+adjusts a rank or a mean for it. Equality is necessary and not sufficient: it
+certifies the same event *set*, never the same stratum mix or panel depth, so
+the check refuses a comparison rather than blessing one.
 
 Skill is reported twice, against two baselines that answer different questions
 and are never combined. The cell's recorded ``brier_skill_score`` scores
@@ -718,6 +733,19 @@ def _stratum_total(
     return sum(len(strata[stratum]) for strata in by_predictor.values())
 
 
+def _events_scored(evals: Iterable[Evaluation]) -> int:
+    """Distinct ``(case, event)`` pairs a set of evaluations covers.
+
+    A **union**, which is why a board-level coverage figure can never be summed
+    out of its entries: two predictors scored on one event are one event. That
+    union is exactly the denominator the per-predictor count has to be read
+    against — the grading gate works at ``(evaluator, event)`` grain, so a
+    predictor whose cells landed after its events were graded is ranked over a
+    subset of the board's scored set, and nothing else on the board shows it.
+    """
+    return len({(ev.case_id, ev.event_id) for ev in evals})
+
+
 def _stage_board(
     cells: Sequence[tuple[Evaluation, Stratum]], skills: Mapping[EvaluationKey, CellSkill]
 ) -> LeaderboardStage:
@@ -742,6 +770,7 @@ def _stage_board(
             LeaderboardStageEntry(
                 predictor_id=predictor_id,
                 evaluators=len({ev.evaluator_id for ev in evals}),
+                events_scored=_events_scored(evals),
                 forward=_aggregate(strata[FORWARD], skills),
                 retrospective=_aggregate(strata[RETROSPECTIVE], skills),
                 procedural=_aggregate(strata[PROCEDURAL], skills),
@@ -752,6 +781,7 @@ def _stage_board(
             _stratum_total(by_predictor, stratum)
             for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
         ),
+        events_scored=_events_scored(ev for ev, _ in cells),
         forward_evaluations=_stratum_total(by_predictor, FORWARD),
         retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
@@ -767,6 +797,7 @@ def build_leaderboard(
     process_scope: Literal["frozen", "all"] = "frozen",
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
     forward_claim: ForwardClaimRecord | None = None,
+    superseded_gradings: int = 0,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -801,6 +832,16 @@ def build_leaderboard(
         ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
         seam). Recording it makes the empty frozen headline self-explaining rather
         than reading as a regression.
+
+    ``superseded_gradings`` is likewise the caller's to supply
+        (``store.StratifiedRun.superseded``): ``cells`` holds only survivors of the
+        run collapse, so by the time the board sees them a re-graded cell is
+        indistinguishable from a once-graded one. Publishing the count beside the
+        standings is what keeps a maintainer-reachable re-grade from moving a rank
+        with nothing on any artifact recording that it happened. It must be the
+        count from the same scoped pass that produced ``cells``; the default
+        states "no collapse information supplied", which is also the truth for a
+        board built from hand-made cells.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -821,6 +862,7 @@ def build_leaderboard(
                 predictor_id=predictor_id,
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
+                events_scored=_events_scored(evals),
                 forward=_aggregate(strata[FORWARD], cell_skills),
                 retrospective=_aggregate(strata[RETROSPECTIVE], cell_skills),
                 procedural=_aggregate(strata[PROCEDURAL], cell_skills),
@@ -840,6 +882,9 @@ def build_leaderboard(
         # The forward-claim rule and count the caller's stratify pass applied
         # (null only on a board constructed without the ledger in hand).
         forward_claim=forward_claim,
+        # The same pass's run-collapse count. The cells below are survivors, so
+        # this is the only surface on which a re-grade is visible at all.
+        superseded_gradings=superseded_gradings,
         # The gate versions the ranked cells' baselines were read under. Taken
         # from the harness-stamped `base_rate_salience_version` rather than
         # re-derived, so the board reports the version each cell was actually
@@ -849,6 +894,7 @@ def build_leaderboard(
             {ev.base_rate_salience_version for ev, _ in cert_cells if ev.base_rate_salience_version}
         ),
         predictors_ranked=len(entries),
+        events_scored=_events_scored(ev for ev, _ in cert_cells),
         evaluations_total=sum(
             _stratum_total(by_predictor, stratum)
             for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
