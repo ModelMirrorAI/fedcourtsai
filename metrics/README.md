@@ -105,15 +105,15 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against. A **merits** cell carries a second, stronger check: its
-  `segment_base_rate` is the evaluator's hand-pooled read of the statpack
-  merits section, but the harness independently pools the identical quantity
-  for the `judgment-disturbed` claim, so a merits cell whose hand-arithmetic
-  contradicts the harness block is dropped too — the merits skill column never
-  rests on a baseline the harness actively contradicts. Where the harness
-  recorded no such baseline (no block, an unscored claim, or a refusal it made
-  and the evaluator did not) there is nothing to check against and the
-  internal-coherence check stands alone.
+  against. That coherence check is the only one, and what it guards in
+  practice is the **cert** cell, because it is the only stage whose base rate
+  is the evaluator's arithmetic at all: on a **merits** or **interim** cell
+  whose `event.yaml` names its stage, `stamp-cell` writes `segment_base_rate`
+  and `brier_skill_score` together from the statpack, so the pair agrees by
+  construction and there is no hand-pooled rate left to catch. The cert rate stays the evaluator's
+  because it alone requires a judgment — which band population the rate is
+  taken over, recorded in `base_rate_basis` — while both pooled rates are a
+  ratio of published integer counts with nothing to decide.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so
@@ -607,13 +607,14 @@ The **merits stage has a registered baseline** — the statpack merits section's
 (`pipeline.base_rates.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is scored **only against that declared
-baseline** — and this the leaderboard now enforces where it can: a merits
-cell's evaluator-recorded `segment_base_rate` is cross-checked against the
-harness's own pooled merits baseline (the `judgment-disturbed` claim's), and a
-cell whose hand-arithmetic contradicts it is dropped from `skill_scored` rather
-than ranked on a rate only the evaluator computed (where the harness recorded
-no such baseline the cross-check is a no-op and the internal-coherence check
-stands alone). Skill is scored only
+baseline**, which holds by construction rather than by a check:
+`stamp-cell` writes a merits cell's
+`segment_base_rate` from that same pooler (and an interim cell's from its
+own), so no cell this harness stamps on a stage-resolving event can be ranked
+on a rate the harness did not compute — the record itself does not distinguish
+a stamped rate from a written one, so that is a property of how a cell is
+produced, not something the board can re-derive. Skill is
+scored only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,

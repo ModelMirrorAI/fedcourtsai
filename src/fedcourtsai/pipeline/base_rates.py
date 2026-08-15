@@ -360,9 +360,10 @@ def merits_base_rate(
     :func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order` never
     ran on, whose parsed counts may still contain the cert-order class the
     rate must exclude (``metrics/README.md`` rules such a section unquotable;
-    this makes the rule structural for the harness-pooled baseline, while the
-    evaluator-recorded ``segment_base_rate`` stays governed by the prompt's
-    omit rule) — or
+    this makes the rule structural for every consumer, the recorded
+    ``segment_base_rate`` included — ``stamp-cell`` stamps a merits cell's from
+    this function, so a section the guard refuses leaves the field null rather
+    than resting on an evaluator honouring an omit rule) — or
     when the pooled sample is below :data:`MERITS_BASE_RATE_MIN_PARSED` — the
     already-contracted no-baseline answer, never an invented or degenerate rate.
     """

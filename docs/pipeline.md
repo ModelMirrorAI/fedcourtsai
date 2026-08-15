@@ -598,7 +598,9 @@ artifact and never reaches the ledger.
 on the `predictor_id` field; under an alias the join misses and the cell's
 `claim_scores` block is *silently* absent rather than wrong (so is
 `base_rate_salience_version`, unless the evaluation records a `risk_set` basis,
-which fails the stamp instead). `validate`'s
+which fails the stamp instead, and so is an interim cell's harness-stamped
+`segment_base_rate`, which reads the application Term off that same
+prediction). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
 backstop rather than the detector. The cell's order is therefore: blind →
 agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.

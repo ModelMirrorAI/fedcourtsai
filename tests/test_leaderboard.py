@@ -829,58 +829,17 @@ def _disturbed_block(baseline: float | None) -> ClaimScoreBlock:
     )
 
 
-def test_a_merits_cell_is_dropped_when_its_baseline_disagrees_with_the_harness(
-    tmp_path: Path,
-) -> None:
-    """A merits cell's hand-pooled `segment_base_rate` is cross-checked, not trusted.
+def test_no_cell_is_cross_checked_against_its_claim_baseline(tmp_path: Path) -> None:
+    """A claim baseline that disagrees with `segment_base_rate` drops no cell.
 
-    The evaluator pools the merits baseline by hand while the harness pools the
-    identical quantity for the `judgment-disturbed` claim. A cell whose
-    `segment_base_rate` matches the harness block is kept; one that diverges is
-    dropped — visibly, in `skill_scored` — rather than ranked on a baseline the
-    harness never sanctioned. Both cells reproduce their own recorded skill, so
-    only the cross-check separates them.
-    """
-    # Outcome granted -> baseline Brier (0.4 - 1)**2 = 0.36, implied skill
-    # 1 - 0.25/0.36 = 0.3056; both cells record a self-consistent skill.
-    agrees = _evaluation(
-        "alpha",
-        event_id="evt-agree",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=_disturbed_block(0.4),
-    )
-    diverges = _evaluation(
-        "alpha",
-        event_id="evt-diverge",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        # A wrong-pool-magnitude divergence (~0.02, a lookback-window mistake),
-        # not a several-fold one, so the fixture bites at the merits tolerance
-        # rather than passing under a loose one.
-        claim_scores=_disturbed_block(0.42),
-    )
-    _write_cell(tmp_path, agrees, stage=Stage.merits)
-    _write_cell(tmp_path, diverges, stage=Stage.merits)
-    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
-    scored = {
-        key[1]: cell.prior_term_baseline
-        for key, cell in skill_components(cells, tmp_path, None).items()
-        if cell.prior_term_baseline is not None
-    }
-    assert scored == {"evt-agree": pytest.approx(0.36)}
-
-
-def test_a_cert_cell_is_never_cross_checked_against_its_claim_baseline(tmp_path: Path) -> None:
-    """The merits cross-check is merits-only, keyed on the judgment-disturbed row.
-
-    A cert cell's `disposition` claim baseline is a genuinely different pool
-    from its `segment_base_rate` (risk-set band rate vs the terminal-basis rate
-    the prompt sanctions), so cross-checking it would false-drop legitimately
-    graded cells. A cert cell whose claim block carries no judgment-disturbed
-    row is never cross-checked — it survives on internal coherence alone.
+    On a **cert** cell the two are genuinely different pools — the disposition
+    claim's against the terminal-basis rate the prompt sanctions — so checking
+    one against the other would false-drop legitimately graded cells. On a
+    **merits** cell they are one quantity that `stamp-cell` writes from one
+    pooler, so a divergence between two committed records is a stale artifact
+    rather than evidence about the rate. Internal coherence is the only gate
+    either stage passes through, and both cells here reproduce their own
+    recorded skill.
     """
     cert = _evaluation(
         "alpha",
@@ -895,64 +854,29 @@ def test_a_cert_cell_is_never_cross_checked_against_its_claim_baseline(tmp_path:
             claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
         ),
     )
+    # A merits cell whose judgment-disturbed baseline diverges by a wrong-pool
+    # magnitude (~0.02, the size a different lookback window moves it). It stays
+    # scored: the rate is the harness's own, not arithmetic to second-guess.
+    merits = _evaluation(
+        "alpha",
+        event_id="evt-merits",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        claim_scores=_disturbed_block(0.42),
+    )
     _write_cell(tmp_path, cert, stage=Stage.cert)
+    _write_cell(tmp_path, merits, stage=Stage.merits)
     cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
     scored = {
-        key[1]
+        key[1]: cell.prior_term_baseline
         for key, cell in skill_components(cells, tmp_path, None).items()
         if cell.prior_term_baseline is not None
     }
-    assert scored == {"evt-cert"}
-
-
-def test_a_merits_cell_without_a_harness_block_rests_on_internal_coherence(
-    tmp_path: Path,
-) -> None:
-    """No harness baseline to check against -> the cross-check is a no-op, not a drop.
-
-    A merits cell whose claim block is absent (or whose judgment-disturbed row
-    carries no baseline) keeps the same treatment a cert cell gets: the
-    internal-coherence check alone. The cross-check only ever removes cells the
-    harness actively contradicts.
-    """
-    no_block = _evaluation(
-        "alpha",
-        event_id="evt-no-block",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-    )
-    null_baseline = _evaluation(
-        "alpha",
-        event_id="evt-null-baseline",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=_disturbed_block(None),
-    )
-    # A block present but carrying no judgment-disturbed row (the lookup's
-    # trailing None path) — also nothing to check against.
-    other_claim = _evaluation(
-        "alpha",
-        event_id="evt-other-claim",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=ClaimScoreBlock(
-            declared_set_version="cert-v1",
-            claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
-        ),
-    )
-    _write_cell(tmp_path, no_block, stage=Stage.merits)
-    _write_cell(tmp_path, null_baseline, stage=Stage.merits)
-    _write_cell(tmp_path, other_claim, stage=Stage.merits)
-    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
-    scored = {
-        key[1]
-        for key, cell in skill_components(cells, tmp_path, None).items()
-        if cell.prior_term_baseline is not None
+    assert scored == {
+        "evt-cert": pytest.approx(0.36),
+        "evt-merits": pytest.approx(0.36),
     }
-    assert scored == {"evt-no-block", "evt-null-baseline", "evt-other-claim"}
 
 
 def test_skill_components_omits_a_band_under_the_minimum(tmp_path: Path) -> None:

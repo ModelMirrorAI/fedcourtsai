@@ -536,14 +536,19 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
             ),
         ),
     )
-    seed_evaluation(
-        _data_root,
-        "scotus",
-        7,
-        event,
-        evaluator_id="claude-judge",
-        predictor_id="claude-baseline",
-        run_id="RID",
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/7",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,  # (0.2 - 0)**2
+        ),
     )
 
     result = _stamp("evaluator", "claude-judge", 7, event, "RID")
@@ -574,13 +579,166 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
     # No band was frozen, so the basis record stays null on both halves — the
     # interim pool is not a band product.
     assert stamped["base_rate_salience_version"] is None
+    # The headline pair is stamped off the same frozen application Term:
+    # 0.10, and 1 - 0.04/(0.10 - 0)**2.
+    assert stamped["segment_base_rate"] == pytest.approx(0.10)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.01)
+
+
+def test_stamp_evaluator_clears_the_pair_where_the_pack_has_no_interim_section(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No interim section in the pack -> both halves cleared on an interim cell.
+
+    The interim sibling of the merits refusal: an absent section is no pool, so
+    the harness writes the null rather than letting a recorded rate stand in
+    for a baseline it never computed.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 9).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/9",
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            moment=Moment.arrival,
+            title="Application for a stay",
+            opened_at=date(2026, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/9",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    # The prediction carries the frozen application Term, so the join resolves
+    # and the pack is the only thing standing between the cell and a rate.
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/9",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 3, 2, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-03-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 3, 1),
+                signals_observable=True,
+                band=None,
+                term=2026,
+            ),
+        ),
+    )
+    # A pack with cert Terms only — nothing the interim arm can pool.
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(corpus_rows=1, terms=[]),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/9",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,
+            segment_base_rate=0.42,
+            brier_skill_score=0.1,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 9, event, "RID")
+    assert result.exit_code == 0, result.output
+    # The discarded number is said out loud — the only trace an overwrite that
+    # changes the value ever leaves.
+    assert "::warning::" in result.output
+    assert "0.42" in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["segment_base_rate"] is None
+    assert stamped["brier_skill_score"] is None
+
+
+def test_stamp_leaves_a_cert_cells_recorded_base_rate_alone(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cert pair is the evaluator's: the stamp touches neither half.
+
+    Which band population the rate is taken over is a judgment about the scored
+    prediction's frozen band, so the harness records the basis version beside it
+    but never overwrites the rate — and the internal-coherence check on the
+    board is what stands behind the cert column's arithmetic.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 10).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/10",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for a writ of certiorari",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/10",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,
+            base_rate_basis="terminal",
+            segment_base_rate=0.067,
+            brier_skill_score=0.443,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 10, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["segment_base_rate"] == pytest.approx(0.067)
+    assert stamped["brier_skill_score"] == pytest.approx(0.443)
+    assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
 
 
 def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The merits claim's baseline is read at the **grant** Term, not the
-    frozen context's docket-number Term.
+    """The merits baselines are read at the **grant** Term, not the frozen
+    context's docket-number Term — the claim block's and the headline
+    `segment_base_rate` the stamp writes beside it, which is one pooled
+    quantity computed once and never the evaluator's word.
 
     The two disagree for a petition docketed into the incoming Term and granted
     before that Term opens, and there the docket Term runs one later — pooling
@@ -655,21 +813,48 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
             ),
         ),
     )
-    seed_evaluation(
-        _data_root,
-        "scotus",
-        5,
-        event,
-        evaluator_id="claude-judge",
-        predictor_id="claude-baseline",
-        run_id="RID",
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/5",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,  # (0.8 - 1)**2, on the disturbed binary
+            # A hand-pooled pair, schema-valid and wrong: neither half survives.
+            # The basis is the merits stage's other non-answer — a band record
+            # on a rate no band produced — and does not survive either.
+            segment_base_rate=0.85,
+            brier_skill_score=0.9,
+            base_rate_basis="risk_set",
+        ),
+    )
+    # A second predictor's cell, scored without a Brier: the rate is still the
+    # harness's, but nothing derives a skill from it.
+    write_json(
+        event_paths.evaluation("claude-judge", "codex-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/5",
+            event_id=event,
+            predictor_id="codex-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+        ),
     )
 
     result = _stamp("evaluator", "claude-judge", 5, event, "RID")
     assert result.exit_code == 0, result.output
 
     eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
-    block = json.loads(eval_path.read_text())["claim_scores"]
+    stamped = json.loads(eval_path.read_text())
+    block = stamped["claim_scores"]
     assert block["declared_set_version"] == "merits-v1"
     [row] = block["claims"]
     assert row["claim_id"] == "judgment-disturbed"
@@ -677,3 +862,102 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
     assert row["baseline"] == pytest.approx(0.70)
     assert row["outcome"] == 1
     assert row["score"] == pytest.approx(0.30**2 - 0.20**2)
+    # The headline pair is stamped from the same pool and the same Term, so the
+    # evaluator's own numbers are gone: 0.70, and 1 - 0.04/(0.70 - 1)**2.
+    assert stamped["segment_base_rate"] == pytest.approx(0.70)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.09)
+    # Neither half of the basis record applies: the merits pool is no band
+    # product, so the stamp clears both rather than letting a recorded
+    # `risk_set` pull a salience version onto it — or fail the cell on a guard
+    # whose documented remedy means nothing on a harness-pooled stage.
+    assert stamped["base_rate_basis"] is None
+    assert stamped["base_rate_salience_version"] is None
+
+    # No Brier to score: the rate stands, the skill it would derive does not.
+    sibling = json.loads(
+        event_paths.evaluation("claude-judge", "codex-baseline", "RID").read_text()
+    )
+    assert sibling["segment_base_rate"] == pytest.approx(0.70)
+    assert sibling["brier_skill_score"] is None
+
+
+def test_stamp_evaluator_clears_the_pair_where_the_merits_pool_refuses(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merits pool below its floor clears **both** halves, never leaves one.
+
+    An evaluator-authored number must not survive where the harness declined to
+    compute one: nothing downstream distinguishes a recorded rate the harness
+    stands behind from one it does not, so the refusal has to reach the record
+    as a null on both halves rather than leaving the agent's pair in place.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = MERITS_EVENT_ID
+    event_paths = CasePaths(_data_root, "scotus", 8).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/8",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Merits judgment",
+            opened_at=date(2024, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/8",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.other,
+            actual_granted=1,
+            judgment=Judgment.reversed,
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            merits=StatPackMerits(
+                parsed=10,
+                disturbed=7,
+                # One prior Term, far below MERITS_BASE_RATE_MIN_PARSED.
+                terms=[
+                    StatPackMeritsTerm(term=2022, parsed=10, disturbed=7, cert_order_excluded=0)
+                ],
+            ),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/8",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,
+            segment_base_rate=0.7,
+            brier_skill_score=0.55,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 8, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    stamped = json.loads(eval_path.read_text())
+    assert stamped["segment_base_rate"] is None
+    assert stamped["brier_skill_score"] is None
+
+    # And the same where there is no pack at all to pool from.
+    (tmp_path / "metrics" / "statpack.json").unlink()
+    assert _stamp("evaluator", "claude-judge", 8, event, "RID").exit_code == 0
+    stamped = json.loads(eval_path.read_text())
+    assert stamped["segment_base_rate"] is None
+    assert stamped["brier_skill_score"] is None

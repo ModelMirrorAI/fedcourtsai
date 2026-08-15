@@ -463,7 +463,9 @@ in prose.
   (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
-  and `process_version` are the harness's, never the evaluator's word.
+  and `process_version` are the harness's, never the evaluator's word — as are
+  `segment_base_rate` and `brier_skill_score` on the two stages whose pool the
+  harness computes (below).
   `semantic_grades` is null on every cell — the counterpart of the prediction's
   `semantic_claims` above, and empty for the same reason: no prompt asks a
   grader for a block, and no opinion body is ingested to grade against, so the
@@ -475,7 +477,8 @@ in prose.
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, and what drove the `reasoning_quality` score.
 
-Three per-stage differences are worth knowing when reading a scored cell:
+Four things are worth knowing when reading a scored cell — one per stage, plus
+who writes the baseline on each:
 
 - **A cert cell** carries `segment_base_rate` where one is derivable: its
   frozen salience band's grant rate, pooled over Terms strictly before the
@@ -496,13 +499,27 @@ Three per-stage differences are worth knowing when reading a scored cell:
   the case's own — but it is no band product either, so `base_rate_basis` and
   `base_rate_salience_version` stay null there exactly as they do on a merits
   cell, keyed on the stage rather than on whether a band happens to be frozen.
-  Both fields are omitted below the pool's own floor, and while the stage's
-  prompt rule omits the skill fields ([salience.md](salience.md)).
+  `segment_base_rate` and `brier_skill_score` are both cleared below the pool's
+  own floor (`INTERIM_BASE_RATE_MIN_RESOLVED`).
 - **A merits cell's baseline is registered and scored** — the statpack's
   pooled strictly-prior disturbed rate (its cohort guarded label-independently
   against cert-order-dated judgments), keyed on the grant Term and returning
-  nothing below a stated minimum of parsed judgments — feeding both the
-  evaluator's `brier_skill_score` and the claim block's difference form.
+  nothing below a stated minimum of parsed judgments — feeding both the cell's
+  `brier_skill_score` and the claim block's difference form.
+- **On both pooled stages the whole base-rate record is the harness's, not the
+  evaluator's.** `stamp-cell --role evaluator` writes `segment_base_rate` and
+  the `brier_skill_score` derived from it, exactly as it writes `claim_scores`,
+  and clears both where it cannot compute them — so a hand-pooled number never
+  survives. It clears `base_rate_basis` and `base_rate_salience_version` there
+  too, which is what makes their null structural rather than a rule an
+  evaluator has to honour. Only the cert rate is the evaluator's, because only
+  there is a judgment involved: which band population the rate is taken over.
+  One seam to read around while the evaluate prompt still carries its pre-stamp
+  rules for these stages: a cell's `evaluation.md` may describe a rate the
+  agent pooled itself — a window, an `n`, a censoring caveat — beside an
+  `evaluation.json` the harness stamped. The JSON is the record; the prose
+  stops describing a second number at the next coordinated re-bless
+  ([process-version.md](process-version.md)).
 
 An evaluation of the cert prediction above, had that petition been denied
 without a further relist. Its `process_version` stamp is omitted for brevity,

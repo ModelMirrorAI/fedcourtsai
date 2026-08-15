@@ -40,8 +40,8 @@ directly. Never across evaluators, whose multiplicity is the panel the
 ``evaluators`` count and both agreement views measure.
 
 Skill is reported twice, against two baselines that answer different questions
-and are never combined. The evaluator's recorded ``brier_skill_score`` scores
-against the **strictly-prior** pooled band rate: leakage-safe, the primary
+and are never combined. The cell's recorded ``brier_skill_score`` scores
+against the **strictly-prior** pooled rate: leakage-safe, the primary
 outcome measure, and the only one that may rank.
 :func:`skill_components` adds the ex-post complement — the same band scored
 against the rate the case's own Term realized — computed at render rather than
@@ -68,7 +68,6 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
-from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
@@ -522,14 +521,13 @@ def skill_components(
     ``actual_granted`` nor can the ratio recover it. See :class:`CellSkill` for
     why the terms travel rather than the ratios.
 
-    **The prior-Term column** takes the baseline the evaluator recorded
+    **The prior-Term column** takes the baseline the cell records
     (``segment_base_rate``) over the population it already had: cells whose
     ``brier_skill_score`` is non-null, which the schema ties to a recorded rate
-    and Brier. Only where its aggregation happens changes — plus the two drops
+    and Brier. Only where its aggregation happens changes — plus the one drop
     :func:`_prior_baseline` adds: a cell whose recorded skill and recorded
-    inputs disagree, and a merits cell whose recorded rate contradicts the
-    harness's own pooled merits baseline. Both are omissions from
-    ``skill_scored``, never a substituted value.
+    inputs disagree. An omission from ``skill_scored``, never a substituted
+    value.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)
@@ -616,41 +614,12 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #: carry three decimals), tight enough that a skill taken against a different
 #: band cannot pass — band rates differ several-fold, so a mismatch moves the
 #: score far further than this.
+#:
+#: On the stages where ``stamp-cell`` writes the base rate and the skill
+#: together (merits and interim) the check passes by construction — both halves
+#: come from one set of inputs — so what it guards in practice is the **cert**
+#: cell, whose pair is the evaluator's own arithmetic.
 _SKILL_COHERENCE_TOLERANCE = 1e-2
-
-#: How far the evaluator's recorded merits ``segment_base_rate`` may sit from the
-#: harness's own pooled merits baseline before :func:`_prior_baseline` drops the
-#: cell. Tighter than the coherence tolerance above because both sides pool the
-#: *same* integer counts, so they agree to the record's 3-decimal precision — a
-#: gap this small is a rounding artifact, a larger one a genuinely different
-#: pool (a wrong lookback window, say). It cannot, at any tolerance the 3-decimal
-#: record supports, catch a one-Term axis shift, whose effect on a pooled rate is
-#: ~5e-4; that error class is the durable fix's to remove (harness-stamp the
-#: rate), not this sampling check's to detect.
-_MERITS_BASELINE_TOLERANCE = 1e-3
-
-
-def _harness_merits_baseline(evaluation: Evaluation) -> float | None:
-    """The harness's own merits baseline for this cell, off its claim block.
-
-    A merits cell's ``segment_base_rate`` is the **evaluator's** hand-pooled
-    read of the statpack merits section, while the harness independently pools
-    the identical quantity for the ``judgment-disturbed`` claim
-    (:func:`fedcourtsai.pipeline.base_rates.merits_base_rate`, the public seam the
-    claim baseline uses) and
-    records it on the ``claim_scores`` block. A ``judgment-disturbed`` row is
-    itself the merits marker — the claim set keys on the minted merits event —
-    so this doubles as "is this a merits cell to cross-check". ``None`` when the
-    block or the row is absent, or the row carries no baseline — nothing to
-    check against.
-    """
-    block = evaluation.claim_scores
-    if block is None:
-        return None
-    for row in block.claims:
-        if row.claim_id == CLAIM_JUDGMENT_DISTURBED:
-            return row.baseline
-    return None
 
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
@@ -669,19 +638,14 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     rather than published on a baseline it was never graded against. Harness
     output always agrees; a stale or hand-written record need not.
 
-    A **merits** cell carries a second, stronger check, keyed on the presence of
-    a harness ``judgment-disturbed`` baseline (the merits marker — a null stage
-    on a merits event would slip a stage test, but the claim row cannot). Its
-    ``segment_base_rate`` is the evaluator's hand-pooled read of the statpack
-    merits section, and nothing in the record ties it to the truth — but the
-    harness pools the identical quantity for that claim. The two must agree
-    within :data:`_MERITS_BASELINE_TOLERANCE`; a cell whose hand-arithmetic
-    contradicts the harness is dropped rather than ranked on a baseline the
-    harness never sanctioned. This catches a wrong pool (a different lookback),
-    not a one-Term axis shift, which is below the check's resolution — see the
-    tolerance. Where the harness recorded no baseline (no block, an unscored
-    claim, or a refusal it made and the evaluator did not) there is nothing to
-    check against and the cell rests on the internal-coherence check alone.
+    That check is the only one, and it is enough because the rate itself is
+    only the evaluator's word where a judgment had to be made: on merits and
+    interim cells ``stamp-cell`` writes the rate and the skill together from
+    the statpack (:func:`fedcourtsai.cli._harness_base_rate_for`), so a wrong
+    pool cannot reach the board to be caught, and the check passes trivially.
+    On a **cert** cell both halves are the evaluator's arithmetic against its
+    own frozen band, and this is what stands between that arithmetic and the
+    published column.
     """
     recorded_rate = evaluation.segment_base_rate
     if (
@@ -699,14 +663,6 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
         evaluation.brier_skill_score,
         rel_tol=_SKILL_COHERENCE_TOLERANCE,
         abs_tol=_SKILL_COHERENCE_TOLERANCE,
-    ):
-        return None
-    harness = _harness_merits_baseline(evaluation)
-    if harness is not None and not math.isclose(
-        harness,
-        recorded_rate,
-        rel_tol=_MERITS_BASELINE_TOLERANCE,
-        abs_tol=_MERITS_BASELINE_TOLERANCE,
     ):
         return None
     return baseline
