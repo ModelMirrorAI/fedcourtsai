@@ -123,16 +123,20 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
 # that vacates and remands the judgment. Matched per sentence and anchored to
 # the sentence's own subject — what actually defeats the bare-vacatur row on
 # the prose form is that row's *entry-start* `^` anchor, since the vacatur is
-# the entry's second sentence there — with order voice ("is/are vacated")
-# required so a narrative or suggested vacatur ("the judgment ... was vacated
-# last Term", "suggests that the judgment be vacated") never re-labels a real
-# merits grant. The gaps only need to span a named lower court between
+# the entry's second sentence there — with order voice required so a narrative
+# or suggested vacatur ("the judgment ... was vacated last Term", "suggests
+# that the judgment be vacated") never re-labels a real merits grant. Order
+# voice takes two forms: the prose copula ("is/are [hereby] vacated") and the
+# terse all-caps clerk form ("Judgment of the ... Court ... VACATED and case
+# REMANDED"), admitted case-sensitively via the scoped `(?-i:...)` group so
+# the bare lowercase past participle — the narrative shapes' — still never
+# matches alone. The gaps only need to span a named lower court between
 # "judgment" and "vacated". A false upgrade is costlier than a miss on the
 # label axis (`gvr` leaves the merits population silently), which is why every
 # bound here is tight even though the upgrade can never *create* a
 # disposition.
 _GVR_TAIL_RE = re.compile(
-    r"^(?:the\s+)?judgment\b.{0,120}?\b(?:is|are)\s+(?:hereby\s+)?vacated\b"
+    r"^(?:the\s+)?judgment\b.{0,120}?\b(?:(?:is|are)\s+(?:hereby\s+)?vacated|(?-i:VACATED))\b"
     r".{0,120}?\bremand\w*",
     re.IGNORECASE | re.DOTALL,
 )

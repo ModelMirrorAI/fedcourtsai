@@ -391,6 +391,46 @@ def test_cbj_grant_with_a_named_lower_court_reads_as_gvr() -> None:
     assert matched[1] == "GVR"
 
 
+def test_allcaps_cbj_grant_with_a_named_lower_court_reads_as_gvr() -> None:
+    # The terse all-caps clerk form of the same order: no copula anywhere —
+    # "Judgment ... VACATED and case REMANDED" — with the lower court named
+    # between the verbs, so the gap-bounded rows miss it, the entry-start
+    # anchor misses it (the vacatur is the second sentence), and the prose
+    # copula the tail otherwise requires never appears. The case-sensitive
+    # VACATED alternative is what re-labels it.
+    text = (
+        "Petition for writ of certiorari before judgment GRANTED. Judgment of "
+        "the United States District Court for the Northern District of Alabama "
+        "VACATED and case REMANDED for further consideration in light of "
+        "Louisiana v. Callais."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.gvr
+    assert matched[1] == "GVR"
+
+
+def test_a_lowercase_copulaless_vacatur_does_not_upgrade_a_grant() -> None:
+    # The precision bound on the all-caps admission: lowercase "vacated"
+    # without the order-voice copula is exactly the narrative shape the tail
+    # exists to exclude, and the case-sensitive `(?-i:VACATED)` group must not
+    # relax it. The named court holds the vacatur beyond the gap-bounded
+    # grant..vacate..remand row's reach, so the tail is the only path that
+    # could re-label this entry.
+    text = (
+        "Petition GRANTED. The judgment of the United States Court of Appeals "
+        "for the Ninth Circuit, previously vacated and remanded in an earlier "
+        "round of this litigation, returns on a renewed petition."
+    )
+
+    matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+
+
 def test_cbj_grant_without_a_vacatur_stays_granted() -> None:
     text = "The petition for a writ of certiorari before judgment is granted."
 
