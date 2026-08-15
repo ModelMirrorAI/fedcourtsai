@@ -570,6 +570,7 @@ jobs:
       # AGREEMENT_GATE would pass the measure step and then be erased by the PR
       # step's branch cut, leaving a reviewer a clean diff over a rigged number.
       - name: Restore the reference set and assert the tree is pristine
+        id: pristine
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/qp-topics-oracle"
@@ -587,9 +588,12 @@ jobs:
       # action reports a summary block and discards the turn-by-turn log with
       # the runner, so a success-that-wrote-nothing run (the shape this job
       # can produce) is undiagnosable without a paid re-run. Ordered after the
-      # tree-pristine assert so the scanner below executes reviewed code on a
-      # clean run, and `!cancelled()` so a tampered or failed run — the runs
-      # that need diagnosing most — still captures its evidence. Scan before
+      # tree-pristine assert AND gated on its success: the scanner runs this
+      # checkout's Python with the engine key in its env, so a tampered tree
+      # forfeits its transcript artifact rather than handing unreviewed code
+      # the credential — the pristine step's own log records the tampering,
+      # which is the diagnosis that run needs. `!cancelled()` still covers the
+      # labeler-failed runs, the ones the transcript exists for. Scan before
       # publishing — the transcript is agent-authored bytes no other scan sees
       # — and withhold on a hit rather than fail the job, mirroring the
       # collect job's withhold-and-continue posture (minus its trigger-issue
@@ -605,7 +609,7 @@ jobs:
       # unset variable is load-bearing here.
       - name: Scan the transcript before publishing it
         id: transcript_scan
-        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        if: ${{ !cancelled() && steps.pristine.outcome == 'success' && steps.label.outputs.execution_file != '' }}
         continue-on-error: true
         timeout-minutes: 5
         env:

@@ -273,6 +273,12 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
     assert label.get("id") == "label", "the labeling step needs an id for its outputs"
     scan = next(s for s in steps if s.get("id") == "transcript_scan")
+    # The scan executes this checkout's Python with the engine key in its env,
+    # so it must never run on a tree the pristine assertion rejected — a
+    # tampered checkout forfeits its transcript artifact.
+    pristine = next(s for s in steps if s.get("id") == "pristine")
+    assert "assert the tree is pristine" in pristine["name"]
+    assert "steps.pristine.outcome == 'success'" in scan["if"]
     assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
     assert "scan-diff-for-secrets" in scan["run"]
     assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
