@@ -1,0 +1,12 @@
+case_id: scotus/9526000124
+decision_target: disposition
+description: Disposition of the application, forecast once a response has been filed.
+docket_entry_id: null
+event_id: evt-brief-response-disposition
+kind: brief
+moment: response-filed
+opened_at: '2026-08-03'
+resolved: false
+schema_version: '1.0'
+stage: interim
+title: Donald J. Trump, President of the United States, et al. v. California, et al.
