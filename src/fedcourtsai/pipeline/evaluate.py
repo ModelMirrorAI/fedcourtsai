@@ -22,11 +22,11 @@ inputs. Config resolves one level out, at the caller.
 
 from __future__ import annotations
 
-from ..corpus import CorpusRow, scotus_term_year
+from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
 from ..schemas import Outcome, Prediction, StatPack
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring.
-from .base_rates import _pooled_band_rate, merits_base_rate  # noqa: F401
+from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate  # noqa: F401
 from .salience import SALIENCE_VERSION, salience_band
 
 
@@ -65,9 +65,21 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
 def segment_base_rate(
     row: CorpusRow, statpack: StatPack, *, lookback_terms: int = 0
 ) -> float | None:
-    """The band rate for a case whose band is read from the row **now**.
+    """The stage-appropriate prior-Term rate for a case, banded from the row **now**.
 
-    For a resolved case that is its *terminal* band, so this pools
+    Three arms, keyed on what the docket number is. An **application** docket
+    (``YYAnnn``) takes the interim arm — the substantive slice's grant rate
+    pooled over application-Terms strictly before its own
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`) — and it is
+    tested first, because an A-form number carries no cert Term and would
+    otherwise fall straight through to ``None``. It takes no band: the interim
+    stage is not a salience-band product, so there is no band to read and none is
+    invented. A cert docket takes the band arm below. Anything else — a bare
+    sequential number, an original docket, a blank — carries no Term on either
+    axis and yields ``None``.
+
+    The cert arm: the band rate for a case whose band is read from the row
+    **now**. For a resolved case that is its *terminal* band, so this pools
     ``est_grant_rate`` — the rate over rows that ended in the band. Baseline and
     grouping match, which is what makes the number meaningful.
 
@@ -94,8 +106,12 @@ def segment_base_rate(
     present as a zero-row cursor entry, shortens the sample rather than pulling an
     older Term in to refill the slot. That keeps the window a claim about the
     recency of the Court's behaviour, and keeps it from shifting — silently, and in
-    every published skill number — as the walker's coverage changes.
+    every published skill number — as the walker's coverage changes. It bounds
+    the interim arm's pool identically.
     """
+    application_term = scotus_application_term_year(row.docket_number)
+    if application_term is not None:
+        return interim_base_rate(application_term, statpack, lookback_terms=lookback_terms)
     term = scotus_term_year(row.docket_number)
     if term is None:
         return None

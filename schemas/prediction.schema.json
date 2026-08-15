@@ -98,6 +98,20 @@
       "additionalProperties": false,
       "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written four\ndifferent ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
       "properties": {
+        "amicus_briefs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Amicus briefs the snapshot's entries recorded as at provisioning; masked by `signals_observable` like the rest. Unbounded above, so the increment claim over it is a strict rise with no vacuous arm \u2014 unlike the two flags, which can only rise once",
+          "title": "Amicus Briefs"
+        },
         "band": {
           "anyOf": [
             {
@@ -171,6 +185,32 @@
           "title": "Mode",
           "type": "string"
         },
+        "referred_to_court": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the snapshot showed this application already referred to the full Court rather than left with a Circuit Justice, as at provisioning; masked by `signals_observable` like the rest",
+          "title": "Referred To Court"
+        },
+        "response_requested": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the snapshot showed the Court (or a Circuit Justice) had already requested a response to this application, as at provisioning \u2014 the prediction end of the interim increment pair, whose resolution end is `Outcome.interim_signals`. Masked by `signals_observable` exactly as the cert signals above are: one mask covers both signal families, because a snapshot disclosing no proceedings discloses neither. Frozen only on an application docket \u2014 null on every cert cell, which declares no claim that reads it, and whose information set this block is part of",
+          "title": "Response Requested"
+        },
         "salience_version": {
           "anyOf": [
             {
@@ -223,7 +263,7 @@
             }
           ],
           "default": null,
-          "description": "The case's October Term, the leakage guard's key",
+          "description": "The case's October Term, the leakage guard's key \u2014 the cert Term parsed from a `YY-NNNN` petition number, or the application Term parsed from a `YYAnnn` application number. Both baselines pool Terms strictly before it; which pool is keyed on the stage, not on this field",
           "title": "Term"
         }
       },

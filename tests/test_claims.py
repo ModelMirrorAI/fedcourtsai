@@ -3,7 +3,7 @@
 `pipeline.claims` owns the declaration table, the resolvers (with the
 availability mask), the strictly-prior baselines, and the `score_claims`
 orchestrator; the scoring *rule* itself is pinned in `test_claim_scoring.py`.
-The invariants worth pinning here: the cert set is exactly the three declared
+The invariants worth pinning here: each stage's set is exactly its declared
 claims in a stable order, resolution reads only committed artifacts and masks
 what the record does not disclose, baselines never see the case's own Term, and
 an old prediction without the claims/context blocks yields no block rather than
@@ -20,13 +20,18 @@ from typing import Literal
 import pytest
 
 from fedcourtsai.pipeline.claims import (
+    CLAIM_AMICUS_INCREMENT,
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
     CLAIM_DISSENT_FROM_DENIAL,
+    CLAIM_INTERIM_DISPOSITION,
     CLAIM_JUDGMENT_DISTURBED,
+    CLAIM_REFERRAL_INCREMENT,
     CLAIM_RELIST_INCREMENT,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SET_CERT_V1,
     CLAIM_SET_CERT_V2,
+    CLAIM_SET_INTERIM_V1,
     CLAIM_SET_MERITS_V1,
     CLAIM_SUMMARY_ROUTE,
     claim_baseline,
@@ -46,6 +51,7 @@ from fedcourtsai.schemas import (
     Engine,
     Evaluation,
     FeeClass,
+    InterimResolutionSignals,
     Judgment,
     JusticeVote,
     Outcome,
@@ -53,6 +59,8 @@ from fedcourtsai.schemas import (
     PredictionContext,
     ResolutionSignals,
     StatPack,
+    StatPackInterim,
+    StatPackInterimTerm,
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackTerm,
@@ -690,6 +698,147 @@ def test_summary_route_resolves_from_the_committed_marker() -> None:
     )
 
 
+# --- the interim set: four claims under interim-v1 --------------------------------
+
+_INTERIM_EVENT = "evt-motion-disposition"
+
+
+def _interim_pack(*, rate_terms: dict[int, tuple[int, int]]) -> StatPack:
+    """A pack whose interim section carries ``term -> (granted, resolved)``."""
+    terms = [
+        StatPackInterimTerm(
+            term=year,
+            applications=resolved,
+            substantive=resolved,
+            substantive_resolved=resolved,
+            substantive_granted=granted,
+        )
+        for year, (granted, resolved) in sorted(rate_terms.items(), reverse=True)
+    ]
+    return StatPack(
+        corpus_rows=1,
+        interim=StatPackInterim(
+            substantive_resolved=sum(t.substantive_resolved for t in terms),
+            substantive_granted=sum(t.substantive_granted for t in terms),
+            terms=terms,
+        ),
+    )
+
+
+def _interim_context(
+    *,
+    term: int | None = 2026,
+    signals_observable: bool = True,
+    response_requested: bool | None = False,
+    referred_to_court: bool | None = False,
+    amicus_briefs: int | None = 0,
+) -> PredictionContext:
+    """An application cell's frozen context: no band, an application Term, the trio."""
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2026, 3, 1),
+        signals_observable=signals_observable,
+        band=None,
+        salience_version=None,
+        response_requested=response_requested,
+        referred_to_court=referred_to_court,
+        amicus_briefs=amicus_briefs,
+        term=term,
+    )
+
+
+_INTERIM_UNMOVED = object()  # sentinel: the default block, distinct from an explicit None
+
+
+def _interim_outcome(
+    *,
+    granted: int = 0,
+    response_requested: bool = False,
+    referred_to_court: bool = False,
+    amicus_briefs: int = 0,
+    signals: InterimResolutionSignals | object | None = _INTERIM_UNMOVED,
+) -> Outcome:
+    if signals is _INTERIM_UNMOVED:
+        signals = InterimResolutionSignals(
+            response_requested=response_requested,
+            referred_to_court=referred_to_court,
+            amicus_briefs=amicus_briefs,
+        )
+    assert signals is None or isinstance(signals, InterimResolutionSignals)
+    return Outcome(
+        case_id="scotus/2",
+        event_id=_INTERIM_EVENT,
+        resolved_at=date(2026, 6, 1),
+        actual_disposition=Disposition.granted if granted else Disposition.denied,
+        actual_granted=granted,
+        interim_signals=signals,
+    )
+
+
+def _interim_claims(
+    disposition: float = 0.1,
+    response: float = 0.3,
+    referral: float = 0.2,
+    amicus: float = 0.4,
+) -> list[ClaimProbability]:
+    return [
+        ClaimProbability(claim_id=CLAIM_INTERIM_DISPOSITION, probability=disposition),
+        ClaimProbability(claim_id=CLAIM_RESPONSE_REQUESTED_INCREMENT, probability=response),
+        ClaimProbability(claim_id=CLAIM_REFERRAL_INCREMENT, probability=referral),
+        ClaimProbability(claim_id=CLAIM_AMICUS_INCREMENT, probability=amicus),
+    ]
+
+
+def _interim_prediction(
+    *,
+    claims: list[ClaimProbability] | None,
+    context: PredictionContext | None,
+    probability: float = 0.1,
+) -> Prediction:
+    return Prediction(
+        case_id="scotus/2",
+        event_id=_INTERIM_EVENT,
+        predictor_id="p",
+        engine=Engine.claude_code,
+        run_id="r",
+        created_at=datetime(2026, 3, 1),
+        input_snapshot="x",
+        granted=int(probability >= 0.5),
+        probability=probability,
+        predicted_disposition=Disposition.granted if probability >= 0.5 else Disposition.denied,
+        context=context,
+        claims=claims,
+    )
+
+
+def test_the_interim_set_is_exactly_the_four_claims_in_stable_order() -> None:
+    declared = declared_claim_set(_INTERIM_EVENT)
+    assert declared is not None
+    version, claim_ids = declared
+    assert version == CLAIM_SET_INTERIM_V1
+    assert claim_ids == (
+        CLAIM_INTERIM_DISPOSITION,
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    )
+    # A distinct id from the cert claim, because baseline routing keys on it and
+    # the two draw on different populations.
+    assert CLAIM_INTERIM_DISPOSITION != CLAIM_DISPOSITION
+
+
+def test_interim_disposition_resolves_the_grant_flag() -> None:
+    ctx = _interim_context()
+    assert resolve_claim(CLAIM_INTERIM_DISPOSITION, ctx, _interim_outcome(granted=1)) == 1
+    assert resolve_claim(CLAIM_INTERIM_DISPOSITION, ctx, _interim_outcome(granted=0)) == 0
+    # `actual_granted` is required and immutable, so the mask never bites here —
+    # not even on an outcome that froze no interim signals block.
+    assert (
+        resolve_claim(CLAIM_INTERIM_DISPOSITION, ctx, _interim_outcome(granted=1, signals=None))
+        == 1
+    )
+
+
 def test_summary_route_assessability_never_depends_on_the_route() -> None:
     """The marker is the only source, even where the label would settle it.
 
@@ -865,3 +1014,142 @@ def test_a_cert_v2_moment_missing_a_new_claim_voids_the_block() -> None:
     problems = claim_block_problems(prediction)
     assert [p for p in problems if CLAIM_SUMMARY_ROUTE in p]
     assert [p for p in problems if CLAIM_DISSENT_FROM_DENIAL in p]
+
+
+def test_the_response_requested_increment_truth_table() -> None:
+    ctx = _interim_context(response_requested=False)
+    unmoved = _interim_outcome(response_requested=False)
+    fired = _interim_outcome(response_requested=True)
+    assert resolve_claim(CLAIM_RESPONSE_REQUESTED_INCREMENT, ctx, unmoved) == 0
+    assert resolve_claim(CLAIM_RESPONSE_REQUESTED_INCREMENT, ctx, fired) == 1
+    # Max-latched: a request already on the docket leaves nothing to forecast,
+    # so the claim is vacuous — masked, a property of the record.
+    already = _interim_context(response_requested=True)
+    assert resolve_claim(CLAIM_RESPONSE_REQUESTED_INCREMENT, already, fired) is None
+
+
+def test_the_referral_increment_truth_table() -> None:
+    ctx = _interim_context(referred_to_court=False)
+    unmoved = _interim_outcome(referred_to_court=False)
+    fired = _interim_outcome(referred_to_court=True)
+    assert resolve_claim(CLAIM_REFERRAL_INCREMENT, ctx, unmoved) == 0
+    assert resolve_claim(CLAIM_REFERRAL_INCREMENT, ctx, fired) == 1
+    # A referral is never undone, so the same vacuity arm applies.
+    already = _interim_context(referred_to_court=True)
+    assert resolve_claim(CLAIM_REFERRAL_INCREMENT, already, fired) is None
+
+
+def test_the_interim_increments_are_masked_three_ways() -> None:
+    # (1) no resolution-end block, (2) prediction-time signals unobservable —
+    # the null then means "nobody looked", not "the Court had not acted" — and
+    # (3) the field itself undisclosed at prediction. All three are properties
+    # of the record, never of the predictor.
+    increments = (
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    )
+    blind = _interim_context(
+        signals_observable=False,
+        response_requested=None,
+        referred_to_court=None,
+        amicus_briefs=None,
+    )
+    undisclosed = _interim_context(
+        response_requested=None, referred_to_court=None, amicus_briefs=None
+    )
+    for claim_id in increments:
+        no_block = resolve_claim(claim_id, _interim_context(), _interim_outcome(signals=None))
+        assert no_block is None, claim_id
+        assert resolve_claim(claim_id, blind, _interim_outcome()) is None, claim_id
+        assert resolve_claim(claim_id, undisclosed, _interim_outcome()) is None, claim_id
+
+
+def test_the_amicus_increment_is_about_the_rise_not_the_level() -> None:
+    # A count, not a flag: strict comparison of both committed ends, and no
+    # vacuity arm — a docket already carrying briefs can always carry another.
+    ctx = _interim_context(amicus_briefs=2)
+    assert resolve_claim(CLAIM_AMICUS_INCREMENT, ctx, _interim_outcome(amicus_briefs=2)) == 0
+    assert resolve_claim(CLAIM_AMICUS_INCREMENT, ctx, _interim_outcome(amicus_briefs=5)) == 1
+
+
+def test_the_interim_disposition_baseline_never_pools_the_cases_own_term() -> None:
+    pack = _interim_pack(
+        rate_terms={
+            2026: (60, 60),  # the case's own application Term: must not contribute
+            2025: (6, 60),
+        }
+    )
+    ctx = _interim_context(term=2026)
+    assert claim_baseline(CLAIM_INTERIM_DISPOSITION, ctx, pack, lookback_terms=0) == pytest.approx(
+        0.10
+    )
+    # No frozen Term (a docket number neither parser reads) => unscored.
+    no_term = _interim_context(term=None)
+    assert claim_baseline(CLAIM_INTERIM_DISPOSITION, no_term, pack, lookback_terms=0) is None
+
+
+def test_the_interim_increment_baselines_are_none_until_the_statpack_carries_the_cut() -> None:
+    # The pack's escalation columns are terminal counts over the whole
+    # substantive slice, not the arrival-conditioned hazard the claims need.
+    pack = _interim_pack(rate_terms={2025: (6, 60)})
+    ctx = _interim_context()
+    for claim_id in (
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ):
+        assert claim_baseline(claim_id, ctx, pack, lookback_terms=0) is None, claim_id
+
+
+def test_interim_score_claims_end_to_end_matches_the_hand_computed_rule() -> None:
+    pack = _interim_pack(rate_terms={2025: (6, 60)})
+    prediction = _interim_prediction(
+        claims=_interim_claims(disposition=0.1, response=0.3, referral=0.2, amicus=0.4),
+        context=_interim_context(amicus_briefs=1),
+        probability=0.1,
+    )
+    outcome = _interim_outcome(granted=1, response_requested=True, amicus_briefs=3)
+    block = score_claims(prediction, outcome, pack, lookback_terms=0)
+    assert block is not None
+    assert block.declared_set_version == CLAIM_SET_INTERIM_V1
+    by_id = {row.claim_id: row for row in block.claims}
+    assert list(by_id) == [
+        CLAIM_INTERIM_DISPOSITION,
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ]
+
+    # Disposition: y=1, b=0.10, p=0.1 -> (0.10-1)^2 - (0.1-1)^2, which is 0.
+    disposition = by_id[CLAIM_INTERIM_DISPOSITION]
+    assert disposition.outcome == 1
+    assert disposition.baseline == pytest.approx(0.10)
+    assert disposition.score == pytest.approx((0.10 - 1) ** 2 - (0.1 - 1) ** 2)
+
+    # The three increments resolve — a response was called for, no referral, the
+    # amicus count rose 1 -> 3 — but carry no baseline, so none of them scores.
+    assert by_id[CLAIM_RESPONSE_REQUESTED_INCREMENT].outcome == 1
+    assert by_id[CLAIM_REFERRAL_INCREMENT].outcome == 0
+    assert by_id[CLAIM_AMICUS_INCREMENT].outcome == 1
+    for claim_id in (
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ):
+        assert by_id[claim_id].baseline is None and by_id[claim_id].score is None
+
+    assert block.total == pytest.approx((0.10 - 1) ** 2 - (0.1 - 1) ** 2)
+    assert block.floor == 0.0
+    assert block.lift == pytest.approx(block.total)
+
+
+def test_a_divergent_interim_disposition_claim_voids_the_block() -> None:
+    # The interim disposition claim restates the interim headline probability,
+    # so a divergent pair is malformed exactly as at the other two stages.
+    pack = _interim_pack(rate_terms={2025: (6, 60)})
+    divergent = _interim_prediction(
+        claims=_interim_claims(disposition=0.6), context=_interim_context(), probability=0.1
+    )
+    assert score_claims(divergent, _interim_outcome(), pack, lookback_terms=0) is None
+    assert claim_block_problems(divergent)

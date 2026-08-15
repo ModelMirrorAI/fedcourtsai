@@ -14,8 +14,9 @@ per predictor per pre-registration stratum — the same stratification the
 leaderboard uses, via the same ``store.iter_stratified_evaluations`` join and
 the same frozen-scope default — and are never pooled across strata or across
 process-version scope. The population is the **cert-stage** cells, because the
-surface never blends stages: the minted merits event declares its own set
-(``merits-v1``) and its cells do carry blocks, but a total pooled across two
+surface never blends stages: the interim moments and the minted merits event
+declare sets of their own (``interim-v1``, ``merits-v1``) and their cells do
+carry blocks, but a total pooled across two
 stages' claim sets is not one quantity, so a non-cert cell belongs outside
 this surface rather than inside its absence counts until a per-stage surface
 exists.
@@ -217,7 +218,8 @@ def build_claim_scores(
     ``process_scope`` by the caller — recording the scope makes the empty
     frozen headline self-explaining rather than reading as a regression. The
     surface's population is the **cert-stage** cells only: stages are never
-    blended, so a merits cell's block (the ``merits-v1`` set) sits outside
+    blended, so an interim or merits cell's block (the ``interim-v1`` and
+    ``merits-v1`` sets) sits outside
     this surface until a per-stage claim surface exists, and counting a
     non-cert cell here as an
     "absence" would dilute the operational-absence counts with cells drawn

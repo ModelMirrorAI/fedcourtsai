@@ -26,11 +26,15 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cascade
 from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 from fedcourtsai.pipeline.claims import (
+    CLAIM_AMICUS_INCREMENT,
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
     CLAIM_DISSENT_FROM_DENIAL,
+    CLAIM_INTERIM_DISPOSITION,
     CLAIM_JUDGMENT_DISTURBED,
+    CLAIM_REFERRAL_INCREMENT,
     CLAIM_RELIST_INCREMENT,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SUMMARY_ROUTE,
 )
 from fedcourtsai.schemas import Disposition, Evaluation, Judgment, Outcome, Prediction
@@ -136,20 +140,21 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     """The fixture's application docket runs the interim cell end to end offline.
 
     scotus/306 (`26A11`) is a resolved substantive stay application, so its
-    motion-baseline event carries `Stage.interim`: provision → stub predict →
-    interim outcome (a granted stay, no cert `signals` block) → evaluate →
+    motion-baseline event carries `Stage.interim`: provision → stub predict (the
+    whole declared `interim-v1` set) → interim outcome (a granted stay, the
+    interim escalation block and no cert `signals` block) → evaluate →
     validate, then the leaderboard build segments the cell into the unranked
     `interim` stages block, never the cert board.
 
     What this proves is the *composition* — an interim cell reaches every stage
     and lands in the right block. The rules it composes are pinned at their own
     seams, because the stub writes no skill fields and the cascade runs no
-    stamp step, so the null skill/claim fields here would read null for any
-    cell: the band suppression in
+    stamp step, so the null skill/claim-score fields here would read null for
+    any cell: the band suppression in
     ``tests/test_cli_provision.py::test_an_application_snapshot_freezes_no_band``,
-    the absent cert baseline in ``tests/test_evaluate.py``'s
-    ``segment_base_rate`` cases, the interim ``signals`` guard in
-    ``tests/test_cascade.py``, and the claim block in ``tests/test_claims.py`` /
+    the interim baseline in ``tests/test_evaluate.py``'s ``segment_base_rate``
+    cases, the interim ``signals`` guard in ``tests/test_cascade.py``, and the
+    claim resolvers and baselines in ``tests/test_claims.py`` /
     ``tests/test_cli_stamp.py``.
     """
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -171,14 +176,24 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
 
     # The interim outcome: relief granted, dated, and no cert signals block —
     # distribution count and CVSG are observations nobody makes on an application.
+    # The interim block is there instead, the resolution end of the three
+    # escalation increments (the fixture row carries all four latched columns).
     outcome = read_model(report.outcomes[0], Outcome)
     assert outcome.actual_granted == 1
     assert outcome.signals is None
+    assert outcome.interim_signals is not None
 
-    # A motion-kind event declares no claim set, so the stub prediction carries
-    # no claims field — the prompt's declared-set rule, exercised offline.
+    # The interim baseline moment declares `interim-v1`, so the stub prediction
+    # answers all four claims — the prompt's declared-set rule, exercised offline.
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
-    assert read_model(prediction_path, Prediction).claims is None
+    claims = read_model(prediction_path, Prediction).claims
+    assert claims is not None
+    assert [claim.claim_id for claim in claims] == [
+        CLAIM_INTERIM_DISPOSITION,
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ]
 
     # The cell is scored on the probability: stub P=0.0 against a granted stay.
     # The skill and claim fields are null, which the stub would write for any

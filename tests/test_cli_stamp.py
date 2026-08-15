@@ -24,8 +24,10 @@ from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
     EventKind,
+    InterimResolutionSignals,
     Judgment,
     JusticeVote,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -33,6 +35,8 @@ from fedcourtsai.schemas import (
     ResolutionSignals,
     Stage,
     StatPack,
+    StatPackInterim,
+    StatPackInterimTerm,
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackTerm,
@@ -443,6 +447,133 @@ def test_stamp_evaluator_fails_a_risk_set_basis_that_resolves_no_version(
         event_paths.evaluation("claude-judge", "codex-baseline", "RID").read_text()
     )
     assert sibling["base_rate_salience_version"] == SALIENCE_VERSION
+
+
+def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The production join for an interim cell: `stamp-cell` computes the block.
+
+    Every interim moment declares `interim-v1`, so the harness scores four rows
+    here. Only `interim-disposition` carries a baseline — pooled over the
+    application Terms strictly before the cell's own, which the frozen context
+    carries as the `YYAnnn` Term — while the three escalation increments resolve
+    from both committed ends and stay unscored for want of a conditioned cut.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 7).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/7",
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            moment=Moment.arrival,
+            title="Application for a stay",
+            opened_at=date(2026, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/7",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 3, 2, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-03-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 3, 1),
+                signals_observable=True,
+                band=None,  # an application freezes none, by rule
+                response_requested=False,
+                referred_to_court=False,
+                amicus_briefs=1,
+                term=2026,  # the APPLICATION Term, from a `26Annn` number
+            ),
+            claims=[
+                ClaimProbability(claim_id="interim-disposition", probability=0.2),
+                ClaimProbability(claim_id="response-requested-increment", probability=0.4),
+                ClaimProbability(claim_id="referral-increment", probability=0.3),
+                ClaimProbability(claim_id="amicus-increment", probability=0.6),
+            ],
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/7",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+            interim_signals=InterimResolutionSignals(
+                response_requested=True,
+                referred_to_court=False,
+                amicus_briefs=3,
+            ),
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            interim=StatPackInterim(
+                substantive_resolved=110,
+                substantive_granted=56,
+                terms=[
+                    # The cell's OWN Term, all-granted so pooling it is unmissable.
+                    StatPackInterimTerm(term=2026, substantive_resolved=50, substantive_granted=50),
+                    StatPackInterimTerm(term=2025, substantive_resolved=60, substantive_granted=6),
+                ],
+            ),
+        ),
+    )
+    seed_evaluation(
+        _data_root,
+        "scotus",
+        7,
+        event,
+        evaluator_id="claude-judge",
+        predictor_id="claude-baseline",
+        run_id="RID",
+    )
+
+    result = _stamp("evaluator", "claude-judge", 7, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    stamped = json.loads(eval_path.read_text())
+    block = stamped["claim_scores"]
+    assert block["declared_set_version"] == "interim-v1"
+    rows = {row["claim_id"]: row for row in block["claims"]}
+    assert list(rows) == [
+        "interim-disposition",
+        "response-requested-increment",
+        "referral-increment",
+        "amicus-increment",
+    ]
+    # OT2025 alone: 6/60 = 0.10. The own Term would drag it to 56/110.
+    assert rows["interim-disposition"]["baseline"] == pytest.approx(0.10)
+    assert rows["interim-disposition"]["outcome"] == 0
+    assert rows["interim-disposition"]["score"] == pytest.approx(0.10**2 - 0.20**2)
+    # The increments resolve from both ends and go unscored for want of a cut.
+    assert rows["response-requested-increment"]["outcome"] == 1
+    assert rows["referral-increment"]["outcome"] == 0
+    assert rows["amicus-increment"]["outcome"] == 1  # 1 -> 3
+    for claim_id in ("response-requested-increment", "referral-increment", "amicus-increment"):
+        assert rows[claim_id]["baseline"] is None
+        assert rows[claim_id]["score"] is None
+    # No band was frozen, so the basis record stays null on both halves — the
+    # interim pool is not a band product.
+    assert stamped["base_rate_salience_version"] is None
 
 
 def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(

@@ -27,7 +27,7 @@ from enum import StrEnum
 from typing import Any, Literal
 
 from .. import corpus
-from . import cert_signals
+from . import cert_signals, interim_signals
 
 
 @dataclass(frozen=True)
@@ -76,9 +76,24 @@ def project_row(
       snapshots resolve) stays a declared gap for any caption-keyed scorer
       rather than a replay-validated claim.
     - **Docket-acquired signals are re-derived from the payload** via the same
-      parsers the cell-context builder uses (``distribution_count``,
-      ``cvsg_date``), so they reflect the moment the payload represents rather
-      than where the petition ended up. ``distributed_for_conference`` is left
+      parsers the cell-context builder uses — the cert pair
+      (``distribution_count``, ``cvsg_date``) and the interim escalation trio
+      (``response_requested``, ``referred_to_court``, ``amicus_briefs``) — so
+      they reflect the moment the payload represents rather than where the case
+      ended up. Both families are monotone, which is exactly why re-deriving
+      matters: the latched columns hold the *ending* state. The interim trio is
+      nulled outright where the payload discloses no proceedings, for the same
+      reason the cert pair is: silence is unknown, not zero, and the corpus
+      itself distinguishes a confident ``False``/``0`` from a never-parsed
+      ``None``. Both families are derived unconditionally rather than switching
+      on the docket form: the projection's job is to report what the payload
+      says, and which of the two a consumer may read is a question about the
+      *stage*, settled by each consumer. So a cert docket carries the trio too —
+      its entries name no response request and no referral, while its amicus
+      entries do count. This row is internal (the gate replay's interim ladder
+      reads it as-of here); the *cell-visible* freeze narrows it, and
+      :func:`fedcourtsai.pipeline.cell_context.build` states why.
+      ``distributed_for_conference`` is left
       ``None`` — a caller that wants the as-of conference derives it with
       :func:`asof_conference` and sets it on the row, keeping the derivation
       moment explicit.
@@ -88,6 +103,10 @@ def project_row(
       never-scored petition, which is what it was at the cutoff.
     """
     observable = cert_signals.snapshot_carries_proceedings(payload)
+    texts = [text for text, _ in cert_signals.proceedings_entries(payload)]
+    requested, referred, amicus = (
+        interim_signals.escalation_signals(texts) if observable else (None, None, None)
+    )
     return AsOfRow(
         row=corpus.CorpusRow(
             case_id=base.case_id,
@@ -102,6 +121,9 @@ def project_row(
             sample_weight=base.sample_weight,
             distribution_count=cert_signals.snapshot_distribution_count(payload),
             cvsg_date=cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload)),
+            response_requested=requested,
+            referred_to_court=referred,
+            amicus_briefs=amicus,
         ),
         cutoff=cutoff,
         observable=observable,

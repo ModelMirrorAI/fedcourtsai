@@ -463,10 +463,11 @@ def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     a referral is usually the disposition docket entry itself, so it carries
     no forecast horizon — a slot spent on it funds a prediction of an already
     written order. A deliberate *ordering*, not a scored rate: no grant
-    probability is asserted (the interim base rate is still accumulating —
-    ``docs/salience.md``), only which pending applications the bounded reserve
-    funds first. ``None`` signals sort as absent, so a never-parsed row never
-    outranks a parsed one.
+    probability is asserted, only which pending applications the bounded reserve
+    funds first. The ordering is nonetheless a **selection** the interim
+    baseline is not conditioned on, which is registered as the estimator's
+    stated limitation (``docs/salience.md``, *The interim docket*). ``None``
+    signals sort as absent, so a never-parsed row never outranks a parsed one.
     """
     return (
         0 if row.response_requested else 1,

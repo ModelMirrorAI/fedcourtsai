@@ -19,8 +19,10 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.base_rates import (
+    INTERIM_BASE_RATE_MIN_RESOLVED,
     MERITS_BASE_RATE_MIN_PARSED,
     REALIZED_BAND_RATE_MIN_RESOLVED,
+    interim_base_rate,
     merits_base_rate,
     prediction_base_rate,
     realized_band_rate,
@@ -45,6 +47,8 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     StatPack,
+    StatPackInterim,
+    StatPackInterimTerm,
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackTerm,
@@ -162,16 +166,10 @@ def test_segment_base_rate_none_when_no_prior_term_data() -> None:
     # Only the case's own Term is present -> nothing precedes it -> no base rate.
     pack = _statpack(_term(2024, {"high": (0.90, 100)}))
     assert segment_base_rate(_row("24-100"), pack) is None
-    # And None for a docket with no derivable Term year.
+    # And None for a docket with no derivable Term year on either axis.
     assert (
         segment_base_rate(_row("bare-docket"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
     )
-    # An interim application docket is the same answer for a stage-level reason:
-    # an `A`-form number carries no cert Term, so the cert band pool it would
-    # have to be drawn from does not apply to it at all. The evaluate prompt's
-    # interim rule (omit `segment_base_rate` and `brier_skill_score`) is the
-    # agent-side half of this.
-    assert segment_base_rate(_row("26A11"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
 
 
 def test_segment_base_rate_skips_bands_with_nothing_resolved() -> None:
@@ -669,6 +667,100 @@ def test_prior_term_and_realized_term_skill_can_disagree_in_sign() -> None:
     assert prior_skill == pytest.approx(1 - 0.25 / 0.36)
     assert realized_skill == pytest.approx(1 - 0.25 / 0.16)
     assert prior_skill > 0 > realized_skill
+
+
+# --- interim_base_rate: the strictly-prior pooled substantive grant rate ---------
+
+
+def _interim_term(year: int, *, granted: int, resolved: int) -> StatPackInterimTerm:
+    """One application-Term row of the interim section — the counters it pools."""
+    return StatPackInterimTerm(
+        term=year,
+        applications=resolved,
+        substantive=resolved,
+        substantive_resolved=resolved,
+        substantive_granted=granted,
+    )
+
+
+def _interim_pack(*terms: StatPackInterimTerm) -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        interim=StatPackInterim(
+            substantive_resolved=sum(t.substantive_resolved for t in terms),
+            substantive_granted=sum(t.substantive_granted for t in terms),
+            terms=list(terms),
+        ),
+    )
+
+
+def _application_row(docket: str) -> corpus.CorpusRow:
+    return corpus.CorpusRow(case_id=f"scotus/{docket}", court="scotus", docket_number=docket)
+
+
+def test_interim_base_rate_pools_only_terms_before_the_applications() -> None:
+    # OT2026 application: its own Term never contributes, on the application-Term
+    # axis — the same leakage guard the two sibling baselines apply.
+    pack = _interim_pack(
+        _interim_term(2026, granted=60, resolved=60),
+        _interim_term(2025, granted=4, resolved=40),
+        _interim_term(2024, granted=2, resolved=40),
+    )
+    assert interim_base_rate(2026, pack) == pytest.approx(6 / 80)
+
+
+def test_interim_base_rate_lookback_bounds_the_pool_as_a_term_year_band() -> None:
+    pack = _interim_pack(
+        _interim_term(2025, granted=6, resolved=60),
+        _interim_term(2022, granted=60, resolved=60),  # outside a 2-Term window
+    )
+    assert interim_base_rate(2026, pack, lookback_terms=2) == pytest.approx(0.10)
+
+
+def test_interim_base_rate_none_without_a_section_or_prior_terms() -> None:
+    assert interim_base_rate(2026, StatPack()) is None
+    pack = _interim_pack(_interim_term(2026, granted=6, resolved=60))
+    assert interim_base_rate(2026, pack) is None  # only the application's own Term
+
+
+def test_the_interim_floor_binds_on_the_pooled_count_not_the_per_term_one() -> None:
+    # Two thin Terms that each fall short still clear the floor together: the
+    # floor is a statement about the pooled sample, so it clears by
+    # accumulation exactly as the merits one does.
+    halves = _interim_pack(
+        _interim_term(2025, granted=3, resolved=25),
+        _interim_term(2024, granted=2, resolved=25),
+    )
+    assert interim_base_rate(2026, halves) == pytest.approx(5 / 50)
+    # One short of the floor is no baseline, never a degenerate rate.
+    short = _interim_pack(
+        _interim_term(2025, granted=3, resolved=25),
+        _interim_term(2024, granted=2, resolved=24),
+    )
+    assert interim_base_rate(2026, short) is None
+    assert INTERIM_BASE_RATE_MIN_RESOLVED == 50
+
+
+def test_segment_base_rate_takes_the_interim_arm_on_an_application_docket() -> None:
+    """An `A`-form docket is scored against the interim pool, not the cert bands.
+
+    The cert band table is a different population resolving on a different
+    standard, so the arm is chosen by the docket form rather than fallen through
+    to: a pack carrying only cert Terms yields nothing for an application.
+    """
+    cert_only = _statpack(_term(2025, {"high": (0.4, 100)}))
+    assert segment_base_rate(_application_row("26A11"), cert_only) is None
+
+    cleared = _interim_pack(
+        _interim_term(2025, granted=6, resolved=60),
+        _interim_term(2026, granted=60, resolved=60),  # own Term: never pooled
+    )
+    assert segment_base_rate(_application_row("26A11"), cleared) == pytest.approx(0.10)
+
+    # One resolution short of the floor: no baseline, and no fallback to the
+    # pack-level rate or to the cert band table.
+    thin = _interim_pack(_interim_term(2025, granted=6, resolved=49))
+    assert segment_base_rate(_application_row("26A11"), thin) is None
 
 
 # --- merits_base_rate: the strictly-prior pooled disturbed rate ------------------

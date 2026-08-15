@@ -293,10 +293,10 @@ bounded drift the carve-outs already produce (see
 [salience.md](salience.md)). A selected application occupies its slot until
 it resolves, so the reserve's firm effect is the one on *concurrency*: at most
 five interim cells are ever in flight, against the ≈16 substantive applications
-live at any moment, and an unfilled reserve costs nothing. The slice
-is predicted but not
-yet skill-scored: the interim segment base rate publishes only at the
-pre-registered resolved-count floor ([salience.md](salience.md)).
+live at any moment, and an unfilled reserve costs nothing. The slice is
+predicted, and its base rate is registered and wired — pooled over application
+Terms strictly before the case's own, above its own per-pool floor
+([salience.md](salience.md)).
 
 **The merits docket: a second cell on a case already funded, unbounded by
 design.** A cert grant opens a merits event

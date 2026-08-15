@@ -22,7 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.base_rates import merits_base_rate
+from fedcourtsai.pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED, merits_base_rate
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
@@ -1141,8 +1141,20 @@ def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:
     assert "## The interim docket (applications)" in md
     # The caption carries the interpretation contract with the figures.
     interim_section = md.split("## The interim docket (applications)")[1]
-    assert "resolved substantive" in interim_section
-    assert "not a segment base rate" in interim_section
+    assert "resolved substantive slice" in interim_section
+    # The caption names the estimator the rows ground, its strictly-prior rule,
+    # and the floor below which there is no baseline and no substitute.
+    assert "ground the interim stage's scored base rate" in interim_section
+    assert "strictly" in interim_section
+    assert f"= {INTERIM_BASE_RATE_MIN_RESOLVED}" in interim_section
+    assert "no baseline and no substitute" in interim_section
+    # The two selections that make the pooled rate narrower than it looks ride
+    # the caption, as do the escalation columns' own denominator and censoring.
+    assert "scored population is narrower than the pooled one" in interim_section
+    assert "escalation-ladder order" in interim_section
+    assert "parse coverage is uneven across" in interim_section
+    assert "right-censored rather than terminal" in interim_section
+    assert "No rate here conditions on them" in interim_section
     assert "**7** application(s): 1 extension, 4 substantive" in interim_section
     # Rates print raw-count denominators beside them; per-Term rows carry the
     # kind counts, the substantive-only rate, and the escalation signals.
