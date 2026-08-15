@@ -538,10 +538,13 @@ outright: `correct` on a merits cell *is* this comparison
 (`pipeline.evaluate.is_correct`), because a merits outcome's
 `actual_disposition` is always the off-vocabulary `other` and comparing
 dispositions there would score every cell against a constant the merits
-contract never defines. Both are computed by the shared helpers, but on a real
-cell they are the evaluator's field to write — the harness stamps
-`claim_scores`, the base-rate basis record, and, on a merits or interim cell,
-the whole skill record of `brier_score` / `segment_base_rate` /
+contract never defines. Both are computed by the shared helpers, and they split
+on ownership: `correct` is harness-stamped on **every** stage from the two
+committed artifacts, because a label comparison needs no pooled baseline and so
+no band judgment, while `judgment_correct` remains the evaluator's field to
+write — no published figure ranks on it. Beside `correct` the harness also
+stamps `claim_scores`, the base-rate basis record, and, on a merits or interim
+cell, the whole skill record of `brier_score` / `segment_base_rate` /
 `brier_skill_score`.
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole

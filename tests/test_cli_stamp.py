@@ -739,10 +739,13 @@ def test_stamp_leaves_a_cert_cells_recorded_base_rate_alone(
     assert stamped["segment_base_rate"] == pytest.approx(0.067)
     assert stamped["brier_skill_score"] == pytest.approx(0.443)
     # Untouched even though this cell has no prediction and no outcome to
-    # recompute one from: the cert stage is not stamped at all, so the absence
-    # never reaches the clearing path.
+    # recompute one from: none of the trio is stamped on a cert cell, so the
+    # absence never reaches the clearing path.
     assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
+    # `correct` is not part of the trio and takes no cert exemption: with
+    # neither artifact to compare, the stamp clears it.
+    assert stamped["correct"] is None
 
 
 def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
@@ -1198,14 +1201,15 @@ def test_stamp_scores_the_merits_brier_on_the_undisturbed_side(
 def test_stamp_evaluator_clears_the_brier_with_no_committed_outcome(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No outcome -> no stamped Brier, and so no skill, whatever was recorded.
+    """No outcome -> no stamped Brier, no skill, and no `correct` either.
 
     The tolerant-clearing half of the rule. An interim cell can be stamped
     before its application resolves, and the harness has no binary to score
     against then; leaving the evaluator's number in place would let exactly the
     unchecked value the stamp exists to displace survive the one case where
-    nothing can check it. The base rate, which needs the outcome no more than
-    the pack does, stands.
+    nothing can check it. `correct` takes the same clearing off the same two
+    artifacts. The base rate, which needs the outcome no more than the pack
+    does, stands.
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event = "evt-motion-disposition"
@@ -1280,6 +1284,233 @@ def test_stamp_evaluator_clears_the_brier_with_no_committed_outcome(
     )
     assert stamped["brier_score"] is None
     assert stamped["brier_skill_score"] is None
+    assert stamped["correct"] is None
     # The pool needs only the pack and the frozen application Term: OT2025
     # alone, 6/60.
     assert stamped["segment_base_rate"] == pytest.approx(0.10)
+
+
+def test_stamp_recomputes_correct_on_a_cert_cell(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cert stage's skill-record exemption does not extend to `correct`.
+
+    The exemption is about the *baseline*: which band population a pooled rate
+    is taken over is a judgment about the frozen band, and that judgment reaches
+    the skill through `segment_base_rate`. `correct` has no baseline and no
+    band — it is a label comparison between two committed artifacts — so there
+    is nothing here for an evaluator to exercise judgment over, and the
+    leaderboard's first rank key is recomputed rather than taken on its word.
+    Here the evaluator scores a denial call correct against a granted outcome;
+    the stamp writes the 0, says so, and leaves the cert trio alone.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 13).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/13",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for a writ of certiorari",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/13",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/13",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.granted,
+            actual_granted=1,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/13",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,  # wrong: `denied` against a `granted` outcome
+            brier_score=0.64,
+            base_rate_basis="terminal",
+            segment_base_rate=0.067,
+            brier_skill_score=-9.28,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 13, event, "RID")
+    assert result.exit_code == 0, result.output
+    # The discarded bit is named out loud, as a discarded Brier or rate is.
+    assert "::warning::" in result.output
+    assert "recorded correct 1" in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] == 0
+    # Regression guard on the exemption itself: the trio is still the
+    # evaluator's on a cert cell, stamped `correct` beside it or not.
+    assert stamped["brier_score"] == pytest.approx(0.64)
+    assert stamped["segment_base_rate"] == pytest.approx(0.067)
+    assert stamped["brier_skill_score"] == pytest.approx(-9.28)
+    assert stamped["base_rate_basis"] == "terminal"
+
+
+def test_stamp_recomputes_correct_on_the_merits_judgment_axis(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merits cell's `correct` is the judgment match, and the stamp writes it.
+
+    The routing is `pipeline.evaluate.is_correct`'s, on the **outcome**: a
+    merits outcome's `actual_disposition` is the off-vocabulary `other`, so the
+    comparison is judgment-to-judgment. The evaluator here records a 1 for a
+    `reversed` call against an `affirmed` outcome — the disposition comparison's
+    free `other == other` match, which is exactly the constant the merits axis
+    exists to avoid — and the stamp replaces it with the 0.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = MERITS_EVENT_ID
+    event_paths = CasePaths(_data_root, "scotus", 14).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/14",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Merits judgment",
+            opened_at=date(2024, 3, 1),  # a March grant → October Term 2023
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/14",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.6,
+            predicted_disposition=Disposition.other,
+            judgment=Judgment.reversed,
+            votes=[JusticeVote(justice="Roberts", vote=VoteValue.majority)],
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/14",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.other,
+            actual_granted=0,
+            judgment=Judgment.affirmed,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/14",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,  # the disposition match, not the judgment one
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 14, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "recorded correct 1" in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] == 0
+    # The Brier is scored on the disturbed binary off the same two artifacts.
+    assert stamped["brier_score"] == pytest.approx(0.36)
+
+
+def test_stamp_clears_correct_with_no_committed_prediction(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An outcome but no prediction to compare it against -> `correct` is null.
+
+    The other half of the tolerant clearing: the join is the evaluation's
+    *predictor*, so a cell whose predictor committed nothing readable has no
+    label to compare and the harness declines a bit rather than letting the
+    evaluator's stand where nothing can check it. Agreement is no defence — the
+    recorded 0 here happens to be right, and is cleared anyway.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 15).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/15",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for a writ of certiorari",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/15",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/15",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=0,
+        ),
+    )
+
+    assert _stamp("evaluator", "claude-judge", 15, event, "RID").exit_code == 0
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] is None

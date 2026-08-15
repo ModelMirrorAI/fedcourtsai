@@ -437,11 +437,18 @@
       "description": "The harness-computed mechanical claim scores over the prediction's declared claim set (`fedcourtsai.pipeline.claims`). Advisory: it segments and describes, and never alters `correct`, `brier_score`, `vote_accuracy`, or `brier_skill_score`. Never the evaluator's word \u2014 the harness computes the block from committed artifacts. Null on records written before the block existed and on predictions carrying no claims block."
     },
     "correct": {
-      "description": "1 if the prediction named the right outcome label on the stage's own axis: the disposition on a cert/interim cell, the judgment on a merits cell (whose `actual_disposition` is always the off-vocabulary `other`, so a disposition comparison there would score every cell against a constant). Computed identically in code by `pipeline.evaluate.is_correct`; the leaderboard's accuracy column is its mean.",
-      "maximum": 1,
-      "minimum": 0,
-      "title": "Correct",
-      "type": "integer"
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1 if the prediction named the right outcome label on the stage's own axis: the disposition on a cert/interim cell, the judgment on a merits cell (whose `actual_disposition` is always the off-vocabulary `other`, so a disposition comparison there would score every cell against a constant). Harness-stamped **at stamp time** by `stamp-cell --role evaluator` on **every** stage \u2014 cert included, unlike the skill record beside it \u2014 from the scored prediction's committed label and the outcome's, through `pipeline.evaluate.is_correct`, and never the evaluator's word: the comparison needs no pooled baseline and so no salience band to choose, which is the whole of the cert stage's skill-record exemption. Cleared to null where either committed artifact is missing \u2014 no prediction from this predictor, or no outcome \u2014 so a hand-written bit never survives that refusal; an unstamped or pre-existing record keeps whatever it was written with. The leaderboard's accuracy column is its mean over the cells where it is non-null.",
+      "title": "Correct"
     },
     "created_at": {
       "format": "date-time",
@@ -471,7 +478,7 @@
         }
       ],
       "default": null,
-      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. The evaluator's field, like `correct` \u2014 on a merits cell the harness stamps the claim block, the base-rate basis record, and the whole skill record (`brier_score`, `segment_base_rate`, `brier_skill_score`), but never this \u2014 computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
+      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. **The evaluator's field**, unlike `correct` beside it \u2014 on a merits cell the harness stamps that bit, the claim block, the base-rate basis record, and the whole skill record (`brier_score`, `segment_base_rate`, `brier_skill_score`), but never this one, which no published figure ranks on \u2014 computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
       "title": "Judgment Correct"
     },
     "leakage": {

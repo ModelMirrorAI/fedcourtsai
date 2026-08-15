@@ -284,7 +284,11 @@ def summarize_substance(
 
     deny_rate, base_cases = _deny_base_rate(statpack)
     segment_rate, segment_cases = _segment_base_rate(statpack)
-    accuracy = round(sum(ev.correct for ev in replay) / len(replay), 4) if replay else None
+    # A cell whose `correct` the stamp could not compute leaves both halves of
+    # the fraction, exactly as the leaderboard's accuracy column treats it — a
+    # missing artifact is not a wrong call.
+    replay_correct = [ev.correct for ev in replay if ev.correct is not None]
+    accuracy = round(sum(replay_correct) / len(replay_correct), 4) if replay_correct else None
     briers = [ev.brier_score for ev in replay if ev.brier_score is not None]
     skills = [ev.brier_skill_score for ev in replay if ev.brier_skill_score is not None]
     calibration = SubstanceCalibration(
@@ -310,11 +314,15 @@ def summarize_substance(
     for predictor_id in sorted(by_predictor):
         evals = by_predictor[predictor_id]
         quality = [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
+        # Same rule as the calibration block above: a null `correct` is a
+        # missing figure, not a zero, so it leaves the row's fraction entirely
+        # and a predictor with no computable cell reports no accuracy at all.
+        row_correct = [ev.correct for ev in evals if ev.correct is not None]
         scores.append(
             PredictorScoreRow(
                 predictor_id=predictor_id,
                 evaluations=len(evals),
-                accuracy=round(sum(ev.correct for ev in evals) / len(evals), 4),
+                accuracy=(round(sum(row_correct) / len(row_correct), 4) if row_correct else None),
                 median=_quantile(quality, 0.5),
                 p25=_quantile(quality, 0.25),
                 p75=_quantile(quality, 0.75),

@@ -1317,16 +1317,25 @@ class Evaluation(_Strict):
     )
     run_id: str
     created_at: datetime
-    correct: int = Field(
+    correct: int | None = Field(
         ge=0,
         le=1,
         description="1 if the prediction named the right outcome label on the "
         "stage's own axis: the disposition on a cert/interim cell, the judgment "
         "on a merits cell (whose `actual_disposition` is always the "
         "off-vocabulary `other`, so a disposition comparison there would score "
-        "every cell against a constant). Computed identically in code by "
-        "`pipeline.evaluate.is_correct`; the leaderboard's accuracy column is "
-        "its mean.",
+        "every cell against a constant). Harness-stamped **at stamp time** by "
+        "`stamp-cell --role evaluator` on **every** stage — cert included, "
+        "unlike the skill record beside it — from the scored prediction's "
+        "committed label and the outcome's, through "
+        "`pipeline.evaluate.is_correct`, and never the evaluator's word: the "
+        "comparison needs no pooled baseline and so no salience band to choose, "
+        "which is the whole of the cert stage's skill-record exemption. Cleared "
+        "to null where either committed artifact is missing — no prediction "
+        "from this predictor, or no outcome — so a hand-written bit never "
+        "survives that refusal; an unstamped or pre-existing record keeps "
+        "whatever it was written with. The leaderboard's accuracy column is its "
+        "mean over the cells where it is non-null.",
     )
     brier_score: float | None = Field(
         default=None,
@@ -1356,10 +1365,11 @@ class Evaluation(_Strict):
         "outcome's — the merits-axis analogue of `correct`, on the full Judgment "
         "vocabulary (a `reversed` call against a `vacated` outcome is 0). Null "
         "wherever either side records no judgment: every non-merits cell, and "
-        "records written before the field existed. The evaluator's field, like "
-        "`correct` — on a merits cell the harness stamps the claim block, the "
-        "base-rate basis record, and the whole skill record (`brier_score`, "
-        "`segment_base_rate`, `brier_skill_score`), but never this — computed "
+        "records written before the field existed. **The evaluator's field**, "
+        "unlike `correct` beside it — on a merits cell the harness stamps that "
+        "bit, the claim block, the base-rate basis record, and the whole skill "
+        "record (`brier_score`, `segment_base_rate`, `brier_skill_score`), but "
+        "never this one, which no published figure ranks on — computed "
         "identically in code by `pipeline.evaluate.judgment_correct`, which the "
         "offline engines use. Descriptive accuracy, never a "
         "proper score: `brier_score` on the disturbed binary is the scored axis, "
@@ -1783,7 +1793,24 @@ class LeaderboardStratum(_Strict):
 
     events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
     evaluations: int = Field(ge=0, description="Evaluations counted in this stratum")
-    accuracy: float = Field(ge=0.0, le=1.0, description="Mean correctness across evaluations")
+    accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean `Evaluation.correct` over the evaluations that report "
+        "one. A cell whose `correct` the stamp could not compute — no readable "
+        "prediction, or no committed outcome — leaves both halves of this "
+        "fraction rather than entering as a wrong call, so `accuracy_scored` "
+        "beside it is the true denominator. Null when no cell in the stratum "
+        "reports one, in which case the entry sorts last on this key",
+    )
+    accuracy_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations contributing to accuracy — the cells carrying "
+        "a non-null `correct`. Below `evaluations` wherever a cell's committed "
+        "prediction or outcome was unreadable at stamp time",
+    )
     mean_brier_score: float | None = Field(
         default=None,
         ge=0.0,
@@ -5391,7 +5418,8 @@ class PredictorScoreRow(_Strict):
     """One predictor's evaluation-score distribution (the at-a-glance view).
 
     ``median`` / ``p25`` / ``p75`` summarize the cross-evaluator
-    ``reasoning_quality`` grades; ``accuracy`` is the share of correct calls.
+    ``reasoning_quality`` grades; ``accuracy`` is the share of correct calls
+    over the cells reporting a ``correct`` at all, null where none does.
     All strata pooled — the leaderboard remains the stratified reference.
     """
 

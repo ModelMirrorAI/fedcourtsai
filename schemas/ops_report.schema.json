@@ -794,7 +794,7 @@
     },
     "PredictorScoreRow": {
       "additionalProperties": false,
-      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.",
+      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls\nover the cells reporting a ``correct`` at all, null where none does.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.",
       "properties": {
         "accuracy": {
           "anyOf": [

@@ -263,6 +263,52 @@ def test_ranking_orders_by_forward_then_retrospective() -> None:
     ]
 
 
+def test_accuracy_averages_only_over_the_cells_reporting_correct() -> None:
+    """A null `correct` leaves both halves of the fraction, never a zero.
+
+    The stamp clears `correct` where the committed prediction or outcome it
+    compares was unreadable, so a null is a *missing* figure. Entering it as a
+    wrong call would score a missing artifact against the predictor on the
+    board's first rank key, so it drops out of the numerator and the
+    denominator alike — which `accuracy_scored` publishes, as every other
+    column publishes its own.
+    """
+    cells = [
+        _forward(_evaluation("alpha", correct=1, event_id="evt-a")),
+        _forward(_evaluation("alpha", correct=None, event_id="evt-b")),
+        _forward(_evaluation("alpha", correct=0, event_id="evt-c")),
+    ]
+    stratum = build_leaderboard(cells).entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 3
+    # 1/2, not 1/3 — the null cell is out of both halves.
+    assert stratum.accuracy == 0.5
+    assert stratum.accuracy_scored == 2
+
+
+def test_a_stratum_with_no_reported_correct_has_no_accuracy_and_sorts_last() -> None:
+    """All-null `correct` -> a null column, and the rank sentinel puts it last.
+
+    A predictor whose cells the stamp could not score has no accuracy to
+    publish, and publishing a 0.0 would both invent a figure and rank it as the
+    worst possible forecaster. It sorts behind a predictor that genuinely
+    scored 0 — a real zero is evidence, a missing figure is not — and ahead of
+    nothing, since having no forward stratum at all takes the same sentinel.
+    """
+    cells = [
+        _forward(_evaluation("unscored", correct=None, brier_score=None, event_id="evt-a")),
+        _forward(_evaluation("wrong", correct=0, brier_score=0.9, event_id="evt-a")),
+        _forward(_evaluation("right", correct=1, brier_score=0.1, event_id="evt-a")),
+    ]
+    board = build_leaderboard(cells)
+    unscored = next(e for e in board.entries if e.predictor_id == "unscored")
+    assert unscored.forward is not None
+    assert unscored.forward.accuracy is None
+    assert unscored.forward.accuracy_scored == 0
+    assert unscored.forward.evaluations == 1
+    assert [e.predictor_id for e in board.entries] == ["right", "wrong", "unscored"]
+
+
 def test_missing_optionals_average_only_over_present() -> None:
     cells = [
         _forward(_evaluation("alpha", brier_score=0.2, reasoning_quality=None)),

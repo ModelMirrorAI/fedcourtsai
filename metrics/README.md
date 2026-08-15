@@ -99,7 +99,15 @@ stays outside the gate:
   sit on the entry rather than the stratum, because they describe the whole
   entry: `evaluators`, the distinct judges that scored it, and `events_scored`
   pooled across its strata, which the coverage contract below reads against the
-  board's own. Each
+  board's own. The **accuracy** column is the mean of each cell's `correct`,
+  which the harness stamps on **every** stage — cert included, unlike the skill
+  record beside it — from the scored prediction's committed label and the
+  outcome's, so the board's first rank key is recomputed from committed
+  artifacts rather than taken on the evaluator's word. A cell whose `correct`
+  the stamp could not compute (no readable prediction, or no committed outcome)
+  leaves both halves of the fraction rather than entering as a wrong call, which
+  is what `accuracy_scored` beside the column records; read accuracy against
+  that count. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the
   skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
