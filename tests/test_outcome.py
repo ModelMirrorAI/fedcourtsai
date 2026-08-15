@@ -11,15 +11,19 @@ from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
     CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
+    OrderMarkers,
     Resolution,
     appears_decided,
     detect_resolution,
     disposition_basis,
+    disposition_route,
     granted_flag,
     interim_disposal_signal,
     is_machine_readable,
     merits_event_for,
     mint_moment_events,
+    noted_dissent_from_denial,
+    read_order_markers,
     record_outcomes,
     resolution_signals,
     resolve_case,
@@ -1285,6 +1289,195 @@ def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> N
     assert default.outcomes["evt-petition-review"].disposition_basis == "standard"
 
 
+def _granted_payload(*entries: tuple[str, str]) -> dict[str, object]:
+    """A live-shaped payload from (date, text) pairs, in docket order."""
+    return {
+        "CaseNumber": "25-100",
+        "ProceedingsandOrder": [{"Date": raw, "Text": text} for raw, text in entries],
+    }
+
+
+def test_disposition_route_separates_a_summary_merits_grant_from_a_plenary_one() -> None:
+    # The committed shape of a summary reversal recorded before the label
+    # existed: one order grants and decides, so the parsed judgment carries the
+    # grant's own date. The recorded disposition stays `granted` — the marker
+    # travels beside the label rather than relabelling it, which is what keeps
+    # the merits population and every disposition figure fixed.
+    summary = _granted_payload(
+        ("Jan 12 2026", "Petition for a writ of certiorari filed."),
+        (
+            "May 11 2026",
+            "Petition GRANTED. Judgment REVERSED and case REMANDED. Opinion per curiam.",
+        ),
+    )
+    assert (
+        disposition_route(
+            summary, disposition=Disposition.granted, date_cert_granted=date(2026, 5, 11)
+        )
+        == "summary-merits"
+    )
+    # An argued case's judgment lands months after its grant.
+    plenary = _granted_payload(
+        ("Jan 12 2026", "Petition GRANTED."),
+        ("Jun 25 2026", "Judgment REVERSED and case REMANDED."),
+    )
+    assert (
+        disposition_route(
+            plenary, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        == "plenary"
+    )
+    # A grant with no judgment on the docket yet is still plenary review.
+    pending = _granted_payload(("Jan 12 2026", "Petition GRANTED."))
+    assert (
+        disposition_route(
+            pending, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        == "plenary"
+    )
+
+
+def test_disposition_route_reads_the_label_where_the_label_is_the_route() -> None:
+    covered = _granted_payload(("May 11 2026", "Petition GRANTED. Judgment VACATED and REMANDED."))
+    for disposition, expected in (
+        (Disposition.gvr, "gvr"),
+        (Disposition.summary_reversal, "summary-merits"),
+    ):
+        route = disposition_route(
+            covered, disposition=disposition, date_cert_granted=date(2026, 5, 11)
+        )
+        assert route == expected
+
+
+def test_disposition_route_admits_every_grant_on_the_same_coverage_test() -> None:
+    """Assessability keys on coverage, never on the route the record shows.
+
+    Gating only the plain-`granted` path would make the case that resolves 1
+    always assessable and the case that resolves 0 assessable only where a
+    payload was retained, so the assessed subpopulation would run richer in
+    cert-order dispositions than the baseline's population — a mask correlated
+    with the outcome it masks. Every grant-family label takes the same two
+    admission tests.
+    """
+    no_proceedings = {"CaseNumber": "25-100"}
+    with_proceedings = _granted_payload(("May 11 2026", "Petition GRANTED."))
+    for disposition in (
+        Disposition.gvr,
+        Disposition.summary_reversal,
+        Disposition.granted,
+        Disposition.granted_in_part,
+    ):
+        assert (
+            disposition_route(
+                no_proceedings, disposition=disposition, date_cert_granted=date(2026, 5, 11)
+            )
+            is None
+        ), disposition
+        assert (
+            disposition_route(with_proceedings, disposition=disposition, date_cert_granted=None)
+            is None
+        ), disposition
+
+
+def test_disposition_route_masks_what_the_record_cannot_carry() -> None:
+    payload = _granted_payload(("Jan 12 2026", "Petition GRANTED."))
+    # A denial and an unresolved docket have no route to read.
+    assert (
+        disposition_route(payload, disposition=Disposition.denied, date_cert_granted=None) is None
+    )
+    assert disposition_route(payload, disposition=None, date_cert_granted=None) is None
+    # A grant with no cert-grant date cannot be tested against the judgment's
+    # gap, and a payload disclosing no proceedings discloses nothing at all —
+    # both are "not assessed", never a guessed plenary.
+    assert (
+        disposition_route(payload, disposition=Disposition.granted, date_cert_granted=None) is None
+    )
+    assert (
+        disposition_route(
+            {"CaseNumber": "25-100"},
+            disposition=Disposition.granted,
+            date_cert_granted=date(2026, 1, 12),
+        )
+        is None
+    )
+    # A judgment on the docket that the strict date parse refuses leaves the
+    # grant→judgment gap unmeasurable. Unknown, not plenary — recording plenary
+    # would be the one answer an undated summary reversal contradicts.
+    undated = _granted_payload(
+        ("Jan 12 2026", "Petition GRANTED."),
+        ("2026", "Judgment REVERSED and case REMANDED."),
+    )
+    assert (
+        disposition_route(
+            undated, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        is None
+    )
+
+
+def test_noted_dissent_from_denial_distinguishes_false_from_unobserved() -> None:
+    noted = _granted_payload(
+        ("Jan 12 2026", "DISTRIBUTED for Conference of 1/16/2026."),
+        (
+            "Jan 20 2026",
+            "Petition DENIED. Justice Sotomayor, with whom Justice Jackson joins, "
+            "dissenting from the denial of certiorari.",
+        ),
+    )
+    denied = Disposition.denied
+    assert noted_dissent_from_denial(noted, disposition=denied) is True
+    quiet = _granted_payload(("Jan 20 2026", "Petition DENIED."))
+    assert noted_dissent_from_denial(quiet, disposition=denied) is False
+    # A payload with the proceedings key removed wholesale — a redacted replay
+    # snapshot, or a channel that never retained order text — observed nothing.
+    assert noted_dissent_from_denial({"CaseNumber": "25-100"}, disposition=denied) is None
+
+
+def test_noted_dissent_from_denial_is_written_only_on_a_denial() -> None:
+    """The would-grant notation is self-anchored, so the gate is load-bearing.
+
+    "Justice Alito would grant the petition and set the case for argument" is a
+    real grant-side order-list notation carrying no disposition of its own, so
+    without the gate a granted docket would commit a true dissent-from-denial
+    marker — an assertion the field does not cover. The resolver masks it either
+    way; committed ground truth should not need the resolver to be right.
+    """
+    grant_side = _granted_payload(
+        (
+            "Jan 20 2026",
+            "Justice Alito would grant the petition and set the case for argument.",
+        ),
+    )
+    assert noted_dissent_from_denial(grant_side, disposition=Disposition.denied) is True
+    for disposition in (Disposition.granted, Disposition.gvr, Disposition.dismissed, None):
+        assert noted_dissent_from_denial(grant_side, disposition=disposition) is None, disposition
+
+
+def test_the_order_markers_thread_into_the_written_ground_truth() -> None:
+    row = from_api_docket(DECIDED_DOCKET)
+    markers = OrderMarkers(route="summary-merits", dissent=True)
+    resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"], order=markers)
+    written = resolution.outcomes["evt-petition-review"]
+    assert written.disposition_route == "summary-merits"
+    assert written.noted_dissent_from_denial is True
+    # Defaults are "not assessed", so a channel holding no payload records no
+    # observation rather than a silent negative.
+    default = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
+    assert default.outcomes["evt-petition-review"].disposition_route is None
+    assert default.outcomes["evt-petition-review"].noted_dissent_from_denial is None
+
+
+def test_read_order_markers_reads_both_halves_from_one_payload() -> None:
+    payload = _granted_payload(
+        (
+            "Jan 20 2026",
+            "Petition DENIED. Justice Thomas would grant the petition for a writ of certiorari.",
+        ),
+    )
+    markers = read_order_markers(payload, disposition=Disposition.denied, date_cert_granted=None)
+    assert markers == OrderMarkers(route=None, dissent=True)
+
+
 def test_resolution_signals_are_frozen_onto_the_outcome() -> None:
     """The signals a cert-stage forecast resolves against are copied out of the
     mutable corpus columns and into the immutable record, so re-scoring the same
@@ -1545,7 +1738,7 @@ def test_two_declared_moments_of_one_stage_both_resolve(monkeypatch: pytest.Monk
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_version=moments.CLAIM_SET_CERT_V1,
+        claim_set_version=moments.CLAIM_SET_CERT_V2,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(
@@ -1589,7 +1782,7 @@ def test_one_undeclared_event_takes_the_whole_stage_to_triage(
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_version=moments.CLAIM_SET_CERT_V1,
+        claim_set_version=moments.CLAIM_SET_CERT_V2,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(

@@ -79,6 +79,7 @@ from .interim_signals import ApplicationKind
 from .outcome import (
     disposition_basis,
     interim_disposal_signal,
+    read_order_markers,
     resolve_case,
     termination_signal,
 )
@@ -200,6 +201,15 @@ def ingest_live_payload(
         "scotus",
         docket_id,
         disposition_basis=disposition_basis(record),
+        # The two order-text markers read the RAW payload rather than the mapped
+        # record: `_live_entries` synthesizes a list even for a payload carrying
+        # no proceedings key at all, which would report "assessed, nothing
+        # found" where nothing was disclosed — and the raw payload is what the
+        # snapshot stores, so a later cascade over the same case marks the
+        # outcome identically.
+        order=read_order_markers(
+            payload, disposition=row.disposition, date_cert_granted=row.date_cert_granted
+        ),
     )
 
     extraction = extract_events(record, normalize=from_live_record)

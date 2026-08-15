@@ -49,10 +49,13 @@ from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stag
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from .outcome import (
+    NO_ORDER_MARKERS,
+    OrderMarkers,
     build_merits_outcome,
     disposition_basis,
     granted_flag,
     is_machine_readable,
+    read_order_markers,
     resolution_signals,
 )
 from .runner import Runner, RunRequest, get_runner
@@ -124,6 +127,8 @@ def _outcome_for_resolved(
     row: corpus.CorpusRow,
     event: corpus.CorpusEvent,
     basis: Literal["standard", "mootness"] = "standard",
+    *,
+    order: OrderMarkers = NO_ORDER_MARKERS,
 ) -> Outcome | None:
     """Ground-truth :class:`Outcome` for an already-resolved event, or ``None``.
 
@@ -176,6 +181,8 @@ def _outcome_for_resolved(
         signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
+        disposition_route=None if interim else order.route,
+        noted_dissent_from_denial=None if interim else order.dissent,
     )
 
 
@@ -308,14 +315,20 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     targets = _select_events(all_events, event)
 
     snapshot: Path | None = None
-    # The provisioned snapshot also supplies the outcome's basis marker, so a
-    # cascade over a resolved mootness case grades like the live channel would.
+    # The provisioned snapshot also supplies the outcome's order-text markers, so
+    # a cascade over a resolved case grades like the live channel would. Without a
+    # stored snapshot they stay at their not-assessed defaults rather than being
+    # guessed from the row.
     basis: Literal["standard", "mootness"] = "standard"
+    order = NO_ORDER_MARKERS
     if found is not None:
         snapshot_date, payload = found
         snapshot = case_paths.snapshot(snapshot_date.isoformat())
         write_raw_json(snapshot, payload)
         basis = disposition_basis(payload)
+        order = read_order_markers(
+            payload, disposition=row.disposition, date_cert_granted=row.date_cert_granted
+        )
 
     # Materialize the git event definitions, and the ground truth for any resolved
     # target, that the agents read — the workflow's provisioning step.
@@ -324,7 +337,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         events = case_paths.event(ev.event_id)
         write_yaml(events.event_file, _event_definition(ev))
         if ev.resolved:
-            outcome = _outcome_for_resolved(row, ev, basis)
+            outcome = _outcome_for_resolved(row, ev, basis, order=order)
             if outcome is not None:
                 write_json(events.outcome, outcome)
                 outcomes.append(events.outcome)

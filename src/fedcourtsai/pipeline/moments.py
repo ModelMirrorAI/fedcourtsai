@@ -36,7 +36,7 @@ from ..schemas import EventKind, Moment, Stage
 #: The declared claim-set versions, named here and resolved to claim ids by
 #: :mod:`fedcourtsai.pipeline.claims`. Strings rather than an import, so this
 #: module stays a leaf and the claims module can read this table.
-CLAIM_SET_CERT_V1 = "cert-v1"
+CLAIM_SET_CERT_V2 = "cert-v2"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 
 
@@ -84,7 +84,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the petition for a writ of certiorari.",
-        claim_set_version=CLAIM_SET_CERT_V1,
+        claim_set_version=CLAIM_SET_CERT_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "cvsg-disposition"),
@@ -97,7 +97,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast after the Court called for "
             "the Solicitor General's views."
         ),
-        claim_set_version=CLAIM_SET_CERT_V1,
+        claim_set_version=CLAIM_SET_CERT_V2,
     ),
     MomentSpec(
         # Chronologically the EARLIEST cert moment (docketing precedes every
@@ -117,7 +117,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast at docketing — before any "
             "distribution or docket-acquired signal exists."
         ),
-        claim_set_version=CLAIM_SET_CERT_V1,
+        claim_set_version=CLAIM_SET_CERT_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),

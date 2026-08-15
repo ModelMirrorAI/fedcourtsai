@@ -11,7 +11,11 @@ never read as a disposition.
 from datetime import date
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline.cert_signals import match_disposition_signal, mootness_disposition
+from fedcourtsai.pipeline.cert_signals import (
+    dissent_from_denial,
+    match_disposition_signal,
+    mootness_disposition,
+)
 from fedcourtsai.pipeline.ingest import _live_resolution
 from fedcourtsai.schemas import Disposition
 
@@ -473,3 +477,56 @@ def test_a_prose_cbj_gvr_resolves_gvr_and_opens_no_merits_proceeding() -> None:
         date_cert_granted=cert_granted,
     )
     assert corpus.opens_merits_proceeding(row) is False
+
+
+# --- the noted dissent from a denial ---------------------------------------------
+
+#: Real-shaped order-list text carrying each of the four notations. Aggregated
+#: existence is all that is read: no fixture asserts *which* Justice.
+_DISSENT_SHAPES = (
+    "Petition DENIED. Justice Sotomayor, with whom Justice Jackson joins, "
+    + "dissenting from the denial of certiorari.",
+    "Petition DENIED. Justice Thomas would grant the petition for a writ of certiorari.",
+    "Statement of Justice Alito respecting the denial of certiorari.",
+    "Petition DENIED. JUSTICE GORSUCH, dissenting.",
+    # The bare notation as the clerk usually files it — a recital ending in
+    # "filed", which the disposition guard would reject and this one must not.
+    "Petition DENIED. Statement of Justice Alito, dissenting, filed.",
+)
+
+#: Shapes the parser must stay silent on: a plain denial, every grant-side
+#: disposition (a dissent from a GVR is not a dissent from a denial), and the
+#: pending-docket near-misses the disposition table's own guards exist for.
+_NOT_A_NOTED_DISSENT = (
+    "Petition DENIED.",
+    "Petition DENIED. Justice Barrett took no part in the consideration or "
+    + "decision of this petition.",
+    "DISTRIBUTED for Conference of 9/29/2025.",
+    "Judgment VACATED and case REMANDED for further consideration in light of "
+    + "Louisiana v. Callais. Justice Alito, dissenting.",
+    "Petition for a writ of certiorari granted; statement of Justice Alito filed.",
+    "The petition for a writ of certiorari before judgment is granted. The "
+    + "judgment of the United States Court of Appeals for the Ninth Circuit is "
+    + "vacated, and the case is remanded with instructions to dismiss the case as moot.",
+    "Motion of petitioner to expedite consideration of the petition for a writ "
+    + "of certiorari in the event the petition is granted filed.",
+    "Brief of respondent suggesting that the judgment be vacated and the case " + "remanded filed.",
+)
+
+
+def test_dissent_from_denial_reads_the_four_order_list_notations() -> None:
+    for text in _DISSENT_SHAPES:
+        assert dissent_from_denial(text) is True, text
+
+
+def test_dissent_from_denial_stays_silent_on_quiet_denials_and_grants() -> None:
+    for text in _NOT_A_NOTED_DISSENT:
+        assert dissent_from_denial(text) is False, text
+
+
+def test_the_bare_notation_needs_its_own_entry_to_be_the_denial() -> None:
+    # "Justice X, dissenting" names no denial, so alone it is as likely to be a
+    # merits dissent; the three denial-worded notations do name one and read on
+    # an entry of their own, as an order list files them.
+    assert dissent_from_denial("Justice Gorsuch, dissenting.") is False
+    assert dissent_from_denial("Justice Thomas would grant the petition.") is True

@@ -28,12 +28,23 @@ from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 from fedcourtsai.pipeline.claims import (
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
+    CLAIM_DISSENT_FROM_DENIAL,
     CLAIM_JUDGMENT_DISTURBED,
     CLAIM_RELIST_INCREMENT,
+    CLAIM_SUMMARY_ROUTE,
 )
 from fedcourtsai.schemas import Disposition, Evaluation, Judgment, Outcome, Prediction
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
+
+#: The declared cert set, in reporting order — every cert moment carries it.
+_CERT_CLAIM_IDS = [
+    CLAIM_DISPOSITION,
+    CLAIM_RELIST_INCREMENT,
+    CLAIM_CVSG_INCREMENT,
+    CLAIM_SUMMARY_ROUTE,
+    CLAIM_DISSENT_FROM_DENIAL,
+]
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
@@ -286,7 +297,7 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
     General, so beside its resolved cert baseline it carries the resolved
     `evt-order-cvsg-disposition` event the CVSG mints (kind `order`,
     `Stage.cert`, opened at the CVSG date): provision → stub predict (the whole
-    declared `cert-v1` set, since both cert moments declare the same claims) →
+    declared `cert-v2` set, since both cert moments declare the same claims) →
     a cert-vocabulary outcome off the row's disposition → evaluate → validate.
 
     What this proves is the *composition* — a later-moment cert cell reaches
@@ -325,17 +336,13 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
     assert outcome.signals is not None
     assert outcome.signals.cvsg_date == cvsg_case.cvsg_date
 
-    # The prediction answers the whole declared cert-v1 set — the same set the
+    # The prediction answers the whole declared cert-v2 set — the same set the
     # baseline declares, because the claims do not change with the moment —
     # with the disposition claim restating the headline probability exactly.
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
     prediction = read_model(prediction_path, Prediction)
     assert prediction.claims is not None
-    assert [c.claim_id for c in prediction.claims] == [
-        CLAIM_DISPOSITION,
-        CLAIM_RELIST_INCREMENT,
-        CLAIM_CVSG_INCREMENT,
-    ]
+    assert [c.claim_id for c in prediction.claims] == _CERT_CLAIM_IDS
     assert prediction.claims[0].probability == prediction.probability
     assert prediction.judgment is None  # the cert contract, not the merits one
 
@@ -348,7 +355,7 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
 
 
 def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> None:
-    """A cert cell's stub prediction answers the whole declared cert-v1 set.
+    """A cert cell's stub prediction answers the whole declared cert-v2 set.
 
     The claim_scores block itself is stamped by the workflow's post-agent
     `stamp-cell` step, which the cascade deliberately does not run — production
@@ -375,11 +382,7 @@ def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> Non
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
     prediction = read_model(prediction_path, Prediction)
     assert prediction.claims is not None
-    assert [c.claim_id for c in prediction.claims] == [
-        CLAIM_DISPOSITION,
-        CLAIM_RELIST_INCREMENT,
-        CLAIM_CVSG_INCREMENT,
-    ]
+    assert [c.claim_id for c in prediction.claims] == _CERT_CLAIM_IDS
     disposition = next(c for c in prediction.claims if c.claim_id == CLAIM_DISPOSITION)
     assert disposition.probability == prediction.probability
 

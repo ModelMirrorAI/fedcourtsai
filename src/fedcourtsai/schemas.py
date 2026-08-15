@@ -113,6 +113,19 @@ MERITS_PROCEEDING_DISPOSITIONS: frozenset[Disposition] = frozenset(
     {Disposition.granted, Disposition.granted_in_part}
 )
 
+#: The granted dispositions whose **label alone** names the route the case took
+#: out of the cert order: :data:`GRANTED_DISPOSITIONS` less the ones that open a
+#: merits proceeding. Named rather than recomputed at each reader because two
+#: readers need it — `pipeline.outcome.disposition_route`, which writes the
+#: route marker (a GVR and a summary reversal both dispose in the order that
+#: grants, while a plain `granted` needs the order text to separate a plenary
+#: grant from a summary merits reversal recorded before the `summary-reversal`
+#: label existed), and `pipeline.base_rates.summary_route_base_rate`, whose
+#: numerator is this set's published count.
+CERT_ORDER_DISPOSITIONS: frozenset[Disposition] = (
+    GRANTED_DISPOSITIONS - MERITS_PROCEEDING_DISPOSITIONS
+)
+
 
 #: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
 #: only statutory numbers in the decision model; every vote threshold is Court
@@ -905,6 +918,30 @@ class Outcome(_Strict):
         "cert-worthiness, so scoring segments the cell into the leaderboard's "
         "procedural stratum instead of the headline strata",
     )
+    disposition_route: Literal["plenary", "gvr", "summary-merits"] | None = Field(
+        default=None,
+        description="How a granted petition's review was routed — whether the "
+        "grant resolved the case in the cert order itself rather than by plenary "
+        "review. 'gvr' where the order granted, vacated and remanded without "
+        "reaching the merits; 'summary-merits' where the judgment rode the grant "
+        "order (granted and decided together, so no merits proceeding followed); "
+        "'plenary' where review was set for briefing and argument. Null means not "
+        "assessed — a denial, an interim outcome, a record disclosing no order "
+        "text, or no cert-grant date to measure the gap against — so a committed "
+        "outcome never asserts a route nobody read. Deliberately a separate "
+        "marker rather than a relabel: `actual_disposition` stays as recorded, "
+        "which is what keeps the merits population and every disposition figure "
+        "fixed across the field's introduction",
+    )
+    noted_dissent_from_denial: bool | None = Field(
+        default=None,
+        description="Whether the denied petition's order text records any noted "
+        "dissent from, or statement respecting, the denial — aggregated existence "
+        "only, never which Justice. Null means no retained order text was "
+        "assessed, which false has to stay distinguishable from: most of the "
+        "ledger carries no payload, and reading absence as 'nobody dissented' "
+        "would invent an observation, exactly as an absent `signals` block does",
+    )
 
 
 class LeakageAssessment(_Strict):
@@ -1029,7 +1066,11 @@ class ClaimScoreBlock(_Strict):
 
     declared_set_version: str = Field(
         description="The claim-set declaration that produced this block's rows, "
-        "e.g. 'cert-v1' — the versioned constant in `fedcourtsai.pipeline.claims`"
+        "e.g. 'cert-v2' — the versioned constant in `fedcourtsai.pipeline.claims`, "
+        "resolved from the event at stamp time. Two totals are comparable only "
+        "under the same version, a different one summing over a different set; "
+        "nothing enforces that, so an aggregate reports the versions it pooled "
+        "(`declared_set_versions`) and metrics/README.md governs the reading"
     )
     claims: list[ClaimScore] = Field(
         default_factory=list,

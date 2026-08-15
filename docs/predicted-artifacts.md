@@ -98,12 +98,20 @@ kinds resolve on the cert standard by construction.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
   axis, so they travel with `granted: 1`.
-- The declared set is **`cert-v1`**, three claims: `disposition` — which must
+- The declared set is **`cert-v2`**, five claims: `disposition` — which must
   equal the top-level `probability` exactly, being the same belief restated so
-  the set is self-describing — plus `relist-increment` and `cvsg-increment`.
+  the set is self-describing — plus `relist-increment` and `cvsg-increment`,
+  plus `summary-disposition-route` and `dissent-from-denial`.
   Both increments are forecasts *from* the state the snapshot showed, never
   levels: they resolve the count and CVSG date at resolution against the ones
-  frozen in the cell's `context`.
+  frozen in the cell's `context`. The two additions are conditional levels
+  rather than increments — P(the grant disposes in the cert order | granted)
+  and P(some Justice notes a dissent | denied) — each masked on the branch it
+  does not apply to, and the dissent claim is aggregated existence only, never
+  a named Justice. `cert-v1`'s three-claim form survives only as the fallback
+  for a petition event that is not a declared moment — an entry-pinned filing,
+  a legacy id — since the set is resolved from the event
+  ([outcome-decomposition.md](outcome-decomposition.md)).
 - `votes` is optional and `judgment` is null: no majority opinion accompanies a
   denial, so there is usually no vote to forecast.
 
@@ -135,7 +143,9 @@ absent optional field as null.
   "claims": [
     {"claim_id": "disposition", "probability": 0.05},
     {"claim_id": "relist-increment", "probability": 0.35},
-    {"claim_id": "cvsg-increment", "probability": 0.08}
+    {"claim_id": "cvsg-increment", "probability": 0.08},
+    {"claim_id": "summary-disposition-route", "probability": 0.30},
+    {"claim_id": "dissent-from-denial", "probability": 0.04}
   ],
   "context": {
     "schema_version": "1.0",
@@ -504,13 +514,17 @@ as on the predictions above:
   "base_rate_salience_version": "sal-v2",
   "brier_skill_score": 0.443,
   "claim_scores": {
-    "declared_set_version": "cert-v1",
+    "declared_set_version": "cert-v2",
     "claims": [
       {"claim_id": "disposition", "probability": 0.05, "baseline": 0.067,
        "outcome": 0, "score": 0.001989},
       {"claim_id": "relist-increment", "probability": 0.35, "baseline": null,
        "outcome": 0, "score": null},
       {"claim_id": "cvsg-increment", "probability": 0.08, "baseline": null,
+       "outcome": 0, "score": null},
+      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.348,
+       "outcome": null, "score": null},
+      {"claim_id": "dissent-from-denial", "probability": 0.04, "baseline": null,
        "outcome": 0, "score": null}
     ],
     "total": 0.001989,
@@ -531,13 +545,15 @@ single cell's skill figure is illustrative only — never a rank signal, and
 never comparable across bases. The `floor` of 0.0 beside the total prices
 *baseline-restating and nothing else*: base-rate drift and
 baseline estimation error stay unpriced, so a positive total is not by itself
-skill. The total covers **one of the three declared claims**; the other two
-carry a null baseline, because the committed statpack publishes no cut that
-supports a strictly-prior, properly-conditioned rate for them, and they go
-unscored rather than scored against an invented number — which makes this total
-incomparable with a block where all three scored. And a claim's `outcome` can
-itself be null, masked because the *record* discloses nothing: a property of
-the record, never of the predictor.
+skill. The total covers **one of the five declared claims**, and the other four
+go unscored for two different reasons. Three carry a null baseline, because the
+committed statpack publishes no cut that supports a strictly-prior,
+properly-conditioned rate for them, and an absent baseline is preferred to an
+invented one — which makes this total incomparable with a block where more of
+them scored. The fourth, the route claim, carries a baseline but a null
+`outcome`: the petition was denied, so the claim is vacuously masked. That
+asymmetry is the point — a baseline is a property of the frozen conditioning,
+an outcome a property of the record, and either can be missing on its own.
 
 Nothing about a single cell is a performance claim. What may be said from a set
 of these numbers, and over which strata, is `metrics/README.md`'s subject; how

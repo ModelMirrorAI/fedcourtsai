@@ -44,6 +44,7 @@ from ..schemas import (
     ClaimProbability,
     ClaimScore,
     ClaimScoreBlock,
+    Disposition,
     EventKind,
     Judgment,
     Outcome,
@@ -52,13 +53,27 @@ from ..schemas import (
     StatPack,
 )
 from . import moments
-from .base_rates import claim_score, merits_base_rate, prediction_base_rate
+from .base_rates import (
+    claim_score,
+    merits_base_rate,
+    prediction_base_rate,
+    summary_route_base_rate,
+)
 from .judgment import judgment_disturbed
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
 CLAIM_DISPOSITION = "disposition"
 CLAIM_RELIST_INCREMENT = "relist-increment"
 CLAIM_CVSG_INCREMENT = "cvsg-increment"
+
+# The two cert-stage claims `cert-v2` adds, both routing forecast content the
+# predict prompt already elicits in prose and nothing scored. Each is an
+# **aggregate**: the route claim asks whether the grant disposed in the cert
+# order at all, not by which of the two spellings, and the dissent claim asks
+# whether any Justice noted a dissent, never which — the eight tests' volume
+# condition rules the per-Justice form out (`docs/outcome-decomposition.md`).
+CLAIM_SUMMARY_ROUTE = "summary-disposition-route"
+CLAIM_DISSENT_FROM_DENIAL = "dissent-from-denial"
 
 # The declared merits-stage claim id: the binary disturbed projection of the
 # judgment axis. The multi-class judgment form waits on a schema field carrying
@@ -74,6 +89,7 @@ CLAIM_JUDGMENT_DISTURBED = "judgment-disturbed"
 # change to which claims a set carries is a NEW version, never an in-place
 # edit — same discipline as the salience function's `sal-v1`.
 CLAIM_SET_CERT_V1 = "cert-v1"
+CLAIM_SET_CERT_V2 = "cert-v2"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 
 # Per event kind: the set id and the declared claims, in reporting order. The
@@ -83,12 +99,33 @@ CLAIM_SET_MERITS_V1 = "merits-v1"
 # below is keyed on the minted merits event id instead, because the stage is
 # not derivable from an event id's kind segment (the merits event's kind is
 # `order` — the grant order opened it — and not every order event is merits).
+#
+# This kind-keyed table stays on `cert-v1` while the declared cert *moments*
+# advance to `cert-v2`. It is the fallback for what is not a declared moment —
+# an entry-pinned petition event, a legacy id minted before the moment table —
+# and those were elicited under cert-v1's contract, so scoring them against a
+# larger set would report claims their cells were never asked for as unstated.
+# A version id is a claim about what was asked, not about when it is scored.
 DECLARED_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[str, ...]]] = {
     EventKind.petition: (
         CLAIM_SET_CERT_V1,
         (CLAIM_DISPOSITION, CLAIM_RELIST_INCREMENT, CLAIM_CVSG_INCREMENT),
     ),
 }
+
+# The declared cert set: cert-v1's three claims, in their existing order, plus
+# the two mechanical additions. Order is append-only across a version bump so a
+# reader diffing two blocks reads down the same rows.
+_CERT_V2_CLAIM_SET: tuple[str, tuple[str, ...]] = (
+    CLAIM_SET_CERT_V2,
+    (
+        CLAIM_DISPOSITION,
+        CLAIM_RELIST_INCREMENT,
+        CLAIM_CVSG_INCREMENT,
+        CLAIM_SUMMARY_ROUTE,
+        CLAIM_DISSENT_FROM_DENIAL,
+    ),
+)
 
 # The merits declaration. Reached through the declared-moment table rather than
 # by event id: every merits moment carries it, because a forecast taken after
@@ -104,6 +141,7 @@ _MERITS_CLAIM_SET: tuple[str, tuple[str, ...]] = (
 #: resolvers.
 _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_CERT_V1: DECLARED_CLAIM_SETS[EventKind.petition],
+    CLAIM_SET_CERT_V2: _CERT_V2_CLAIM_SET,
     CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
 }
 
@@ -258,6 +296,131 @@ def _baseline_cvsg_increment(
     return None
 
 
+def _resolve_summary_route(context: PredictionContext, outcome: Outcome) -> int | None:
+    """Did the grant dispose of the case in the cert order itself?
+
+    1 for a GVR or a summary merits disposition, 0 for a grant set down for
+    plenary review, read **only** from the outcome's committed
+    ``disposition_route`` marker — written by the refresh channel from the order
+    text it held (:func:`fedcourtsai.pipeline.outcome.disposition_route`), never
+    re-derived here.
+
+    That the marker is the only source matters, and reading a 1 off a
+    ``gvr`` / ``summary-reversal`` label where the marker is absent would be the
+    natural shortcut: it would recover a resolution on outcomes committed before
+    the marker existed. It is refused because it would make **assessability
+    depend on the answer** — the cases resolving 1 would always be assessable
+    while the cases resolving 0 would be assessable only where a payload
+    happened to be retained, so the assessed subpopulation's realized rate would
+    sit above the baseline's and a predictor could bank the difference without
+    forecasting anything. The marker's own writer applies the matching symmetric
+    admission test.
+
+    Masked (``None``) two ways, both properties of the record. **Vacuous** on
+    every denial: there is no route to forecast where review was refused, and
+    the conditioning is not cosmetic — unconditionally the summary class runs
+    near one percent of resolved petitions, a baseline close enough to the
+    boundary that the eight tests' volume condition rejects the claim, while
+    conditioned on the grant family it is a coin-flip-scale question. **Not
+    assessed** on any grant whose record carried no route marker: false and
+    unread must stay apart, and a coverage sentinel is what says which.
+    """
+    if not outcome.actual_granted:
+        return None
+    if outcome.disposition_route is None:
+        return None
+    return int(outcome.disposition_route != "plenary")
+
+
+def _resolve_dissent_from_denial(context: PredictionContext, outcome: Outcome) -> int | None:
+    """Did any Justice note a dissent from — or a statement respecting — the denial?
+
+    Aggregated existence, read straight off the outcome's committed
+    ``noted_dissent_from_denial`` marker. **Nothing here or anywhere else in the
+    mechanical family resolves a per-Justice form**: such notings sit near one
+    percent of petitions and concentrate in two Justices, so the fine claim fails
+    the eight tests' volume condition while the aggregate passes it, and the
+    per-Justice channel would additionally need a vote record
+    ``docs/decision-model.md`` pre-registers as never scored.
+
+    Masked (``None``) **vacuously** on every disposition that is not a denial —
+    a granted petition was never denied, and a dismissal or a withdrawal is not
+    the Court refusing review, so neither has a denial to have dissented from —
+    and on the **coverage** sentinel, a null marker meaning no retained order
+    text was assessed. Most of the ledger carries no payload, so that mask is the
+    common state, not an edge. The vacuity test keys on the disposition rather
+    than on ``actual_granted`` so it names the same population the claim does
+    and the marker's writer gates on: `P(some Justice noted a dissent | denied)`.
+    """
+    if outcome.actual_disposition != Disposition.denied:
+        return None
+    if outcome.noted_dissent_from_denial is None:
+        return None
+    return int(outcome.noted_dissent_from_denial)
+
+
+def _baseline_summary_route(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The summary-route baseline: the prior Terms' cert-order share of grants.
+
+    :func:`fedcourtsai.pipeline.base_rates.summary_route_base_rate` over the
+    frozen context's Term — pooled cert-order dispositions over pooled grants,
+    Terms strictly before it only. Conditioned on the grant family, matching the
+    resolver's own conditioning; the function's docstring states why the
+    published counts make the rate an **under**statement of the class it prices,
+    and why nothing the pack publishes bounds the residual today.
+
+    Keyed on ``context.term`` — the docket-number Term — rather than the grant
+    Term, which is the cert stage's convention and the same axis
+    :func:`_baseline_disposition` anchors on: a cert cell is not supplied a grant
+    Term, and inventing one from the outcome would condition a baseline on the
+    very fact the claim resolves against. It carries the convention's known
+    residual: a petition docketed into the incoming Term but granted before that
+    Term opens has a docket Term one *later* than its grant Term, so the pool can
+    include the cohort it was granted alongside. That is the same **class** of
+    exposure the disposition claim already carries, over the same small
+    population — but not the same magnitude, and the difference is worth stating
+    rather than glossing: a grant rate moves a couple of points between Terms
+    while the cert-order share of grants moves across a 0.29-0.46 band, and the
+    affected petitions are enriched in exactly the GVRs this claim resolves.
+
+    ``None`` where the context froze no Term, or where the pooled prior grants do
+    not clear the baseline's stated minimum.
+    """
+    if context.term is None:
+        return None
+    return summary_route_base_rate(context.term, statpack, lookback_terms=lookback_terms)
+
+
+def _baseline_dissent_from_denial(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The dissent-from-denial baseline no committed artifact yet supports.
+
+    The honest baseline is the strictly-prior-Term share of *denied* petitions
+    whose order text records a noted dissent, over the scored segment. The
+    committed pack publishes no cut that carries it — no section counts order-list
+    notations at all — and the record that would feed one
+    (``Outcome.noted_dissent_from_denial``) starts empty and fills only as
+    dockets refresh, so even a new cut would price a coverage-limited population
+    until the retained-text gap closes. ``None`` until it lands; the claim stays
+    declared, because the set is fixed and scoring is keyed on a baseline
+    existing, not on redeclaring the set — the same standing the two increment
+    claims have, and what the block banks meanwhile is the committed
+    probabilities.
+    """
+    return None
+
+
 def _resolve_judgment_disturbed(context: PredictionContext, outcome: Outcome) -> int | None:
     """Did the Court disturb the judgment below — the merits declared binary.
 
@@ -304,6 +467,8 @@ _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
     CLAIM_DISPOSITION: _resolve_disposition,
     CLAIM_RELIST_INCREMENT: _resolve_relist_increment,
     CLAIM_CVSG_INCREMENT: _resolve_cvsg_increment,
+    CLAIM_SUMMARY_ROUTE: _resolve_summary_route,
+    CLAIM_DISSENT_FROM_DENIAL: _resolve_dissent_from_denial,
     CLAIM_JUDGMENT_DISTURBED: _resolve_judgment_disturbed,
 }
 
@@ -325,6 +490,8 @@ _BASELINES: Mapping[str, _BaselineFn] = {
     CLAIM_DISPOSITION: _baseline_disposition,
     CLAIM_RELIST_INCREMENT: _baseline_relist_increment,
     CLAIM_CVSG_INCREMENT: _baseline_cvsg_increment,
+    CLAIM_SUMMARY_ROUTE: _baseline_summary_route,
+    CLAIM_DISSENT_FROM_DENIAL: _baseline_dissent_from_denial,
     CLAIM_JUDGMENT_DISTURBED: _baseline_judgment_disturbed,
 }
 

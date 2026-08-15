@@ -15,16 +15,20 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
 from fedcourtsai.pipeline.claims import (
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
+    CLAIM_DISSENT_FROM_DENIAL,
     CLAIM_JUDGMENT_DISTURBED,
     CLAIM_RELIST_INCREMENT,
     CLAIM_SET_CERT_V1,
+    CLAIM_SET_CERT_V2,
     CLAIM_SET_MERITS_V1,
+    CLAIM_SUMMARY_ROUTE,
     claim_baseline,
     claim_block_problems,
     declared_claim_set,
@@ -33,12 +37,15 @@ from fedcourtsai.pipeline.claims import (
 )
 from fedcourtsai.pipeline.judgment import judgment_disturbed
 from fedcourtsai.schemas import (
+    GRANTED_DISPOSITIONS,
     BaseRateBucket,
     ClaimProbability,
     ClaimScoreBlock,
     Disposition,
+    DispositionShare,
     Engine,
     Evaluation,
+    FeeClass,
     Judgment,
     JusticeVote,
     Outcome,
@@ -49,6 +56,7 @@ from fedcourtsai.schemas import (
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackTerm,
+    StatPackTermClass,
     StatPackTermSegment,
     VoteValue,
 )
@@ -151,7 +159,15 @@ def _claims(
 # --- the declaration table --------------------------------------------------------
 
 
-def test_the_cert_set_is_exactly_the_three_claims_in_stable_order() -> None:
+def test_the_kind_keyed_cert_fallback_stays_at_cert_v1s_three_claims() -> None:
+    """A petition event that is not a declared moment keeps the older set.
+
+    The kind-keyed table is the fallback for an entry-pinned petition event or a
+    legacy id minted before the moment table, and those were elicited under
+    cert-v1's contract; scoring them against a larger set would report claims
+    their cells were never asked for as unstated. Only the declared moments
+    advance — see the cert-v2 section below.
+    """
     declared = declared_claim_set(_EVENT_ID)
     assert declared is not None
     version, claim_ids = declared
@@ -559,3 +575,293 @@ def test_a_divergent_disturbed_claim_voids_the_block() -> None:
     assert (
         score_claims(prediction, _merits_outcome(Judgment.reversed), pack, lookback_terms=0) is None
     )
+
+
+# --- cert-v2: the summary-route and dissent-from-denial claims ---------------------
+
+#: A declared cert **moment**, which carries `cert-v2`. The module's `_EVENT_ID`
+#: is deliberately not one — it exercises the kind-keyed fallback instead.
+_CERT_MOMENT = "evt-petition-disposition"
+
+
+def _cert_v2_claims(
+    disposition: float = 0.2,
+    relist: float = 0.5,
+    cvsg: float = 0.05,
+    route: float = 0.3,
+    dissent: float = 0.1,
+) -> list[ClaimProbability]:
+    return [
+        *_claims(disposition=disposition, relist=relist, cvsg=cvsg),
+        ClaimProbability(claim_id=CLAIM_SUMMARY_ROUTE, probability=route),
+        ClaimProbability(claim_id=CLAIM_DISSENT_FROM_DENIAL, probability=dissent),
+    ]
+
+
+def _cert_outcome(
+    *,
+    disposition: Disposition,
+    route: Literal["plenary", "gvr", "summary-merits"] | None = None,
+    dissent: bool | None = None,
+) -> Outcome:
+    return Outcome(
+        case_id="scotus/1",
+        event_id=_CERT_MOMENT,
+        resolved_at=date(2025, 6, 1),
+        actual_disposition=disposition,
+        actual_granted=int(disposition in GRANTED_DISPOSITIONS),
+        signals=ResolutionSignals(distribution_count=1),
+        disposition_route=route,
+        noted_dissent_from_denial=dissent,
+    )
+
+
+def _shares(counts: dict[str, int]) -> list[DispositionShare]:
+    resolved = sum(counts.values())
+    return [
+        DispositionShare(
+            disposition=Disposition(name.replace("_", "-")),
+            count=count,
+            share=count / resolved,
+        )
+        for name, count in counts.items()
+    ]
+
+
+def _disposition_term(year: int, *, ifp: dict[str, int] | None = None, **paid: int) -> StatPackTerm:
+    """A Term with per-fee-class disposition counts, paid by keyword.
+
+    The Term-level `base_rates` carries the pooled counts the way the real pack
+    does, so a baseline reading the wrong surface is visibly wrong rather than
+    accidentally right: the IFP block is what separates them.
+    """
+    ifp_counts = ifp or {}
+    pooled = {name: paid.get(name, 0) + ifp_counts.get(name, 0) for name in {*paid, *ifp_counts}}
+    return StatPackTerm(
+        term=year,
+        base_rates=BaseRateBucket(resolved=sum(pooled.values()), dispositions=_shares(pooled)),
+        classes=[
+            StatPackTermClass(fee_class=FeeClass.paid, dispositions=_shares(paid)),
+            *(
+                [StatPackTermClass(fee_class=FeeClass.ifp, dispositions=_shares(ifp_counts))]
+                if ifp_counts
+                else []
+            ),
+        ],
+    )
+
+
+def test_the_declared_cert_moment_carries_cert_v2s_five_claims() -> None:
+    declared = declared_claim_set(_CERT_MOMENT)
+    assert declared is not None
+    version, claim_ids = declared
+    assert version == CLAIM_SET_CERT_V2
+    # Append-only against cert-v1's order, so a reader diffing two blocks reads
+    # down the same rows.
+    assert claim_ids == (
+        CLAIM_DISPOSITION,
+        CLAIM_RELIST_INCREMENT,
+        CLAIM_CVSG_INCREMENT,
+        CLAIM_SUMMARY_ROUTE,
+        CLAIM_DISSENT_FROM_DENIAL,
+    )
+    # Every declared cert moment carries the same set — the claims do not change
+    # because the forecast was taken later.
+    for moment in ("evt-order-cvsg-disposition", "evt-petition-arrival-disposition"):
+        assert declared_claim_set(moment) == declared
+
+
+def test_summary_route_resolves_from_the_committed_marker() -> None:
+    ctx = _context()
+    granted = Disposition.granted
+    assert (
+        resolve_claim(CLAIM_SUMMARY_ROUTE, ctx, _cert_outcome(disposition=granted, route="plenary"))
+        == 0
+    )
+    assert (
+        resolve_claim(
+            CLAIM_SUMMARY_ROUTE, ctx, _cert_outcome(disposition=granted, route="summary-merits")
+        )
+        == 1
+    )
+    assert (
+        resolve_claim(CLAIM_SUMMARY_ROUTE, ctx, _cert_outcome(disposition=granted, route="gvr"))
+        == 1
+    )
+
+
+def test_summary_route_assessability_never_depends_on_the_route() -> None:
+    """The marker is the only source, even where the label would settle it.
+
+    Reading 1 off a `gvr` label whose outcome carries no marker would recover a
+    resolution — and would make the cases resolving 1 always assessable while
+    the cases resolving 0 are assessable only where a payload was retained. The
+    assessed subpopulation's rate would then sit above the baseline's, and a
+    predictor could bank the gap without forecasting anything. So an unmarked
+    outcome is masked whatever its label says.
+    """
+    ctx = _context()
+    for disposition in (Disposition.gvr, Disposition.summary_reversal, Disposition.granted):
+        unmarked = _cert_outcome(disposition=disposition)
+        assert resolve_claim(CLAIM_SUMMARY_ROUTE, ctx, unmarked) is None
+    # With the marker present, the same labels resolve.
+    marked = _cert_outcome(disposition=Disposition.gvr, route="gvr")
+    assert resolve_claim(CLAIM_SUMMARY_ROUTE, ctx, marked) == 1
+
+
+def test_summary_route_is_vacuous_on_a_denial() -> None:
+    # The grant conditioning is what carries the claim past the eight tests'
+    # volume condition: a denial has no route to forecast, so it is masked
+    # rather than resolved 0 into an unconditional near-boundary rate.
+    ctx = _context()
+    for disposition in (Disposition.denied, Disposition.dismissed):
+        outcome = _cert_outcome(disposition=disposition, route=None, dissent=True)
+        assert resolve_claim(CLAIM_SUMMARY_ROUTE, ctx, outcome) is None
+
+
+def test_dissent_from_denial_truth_table() -> None:
+    ctx = _context()
+    denied = Disposition.denied
+    noted = _cert_outcome(disposition=denied, dissent=True)
+    quiet = _cert_outcome(disposition=denied, dissent=False)
+    unread = _cert_outcome(disposition=denied, dissent=None)
+    assert resolve_claim(CLAIM_DISSENT_FROM_DENIAL, ctx, noted) == 1
+    assert resolve_claim(CLAIM_DISSENT_FROM_DENIAL, ctx, quiet) == 0
+    # Coverage mask: no retained order text was assessed, which false must stay
+    # distinguishable from.
+    assert resolve_claim(CLAIM_DISSENT_FROM_DENIAL, ctx, unread) is None
+
+
+def test_dissent_from_denial_is_vacuous_on_anything_but_a_denial() -> None:
+    # A granted petition was never denied, and a dismissal or a withdrawal is
+    # not the Court refusing review — so none of them has a denial to have
+    # dissented from, even where the payload-level read set the marker. The test
+    # keys on the disposition rather than on `actual_granted`, so it names the
+    # same population the claim and the marker's writer do.
+    ctx = _context()
+    for disposition in (
+        Disposition.granted,
+        Disposition.gvr,
+        Disposition.dismissed,
+        Disposition.withdrawn,
+    ):
+        outcome = _cert_outcome(disposition=disposition, dissent=True)
+        assert resolve_claim(CLAIM_DISSENT_FROM_DENIAL, ctx, outcome) is None, disposition
+
+
+def test_the_summary_route_baseline_pools_strictly_prior_terms() -> None:
+    pack = _statpack(
+        _disposition_term(2025, granted=0, gvr=100, denied=900),  # own Term: excluded
+        _disposition_term(2024, granted=60, gvr=40, denied=5000),
+        _disposition_term(2023, granted=90, gvr=10, denied=5000),
+    )
+    ctx = _context(term=2025)
+    # Pooled over both prior Terms: 50 cert-order dispositions over 200 grants.
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, pack, lookback_terms=0) == pytest.approx(0.25)
+    # The lookback bounds the pool as a Term-year band, exactly as the other
+    # pooled baselines do: only OT2024 is inside a one-Term window.
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, pack, lookback_terms=1) == pytest.approx(0.40)
+
+
+def test_the_summary_route_baseline_reads_the_paid_class_only() -> None:
+    """IFP rows are Tier-0-excluded, so they are never a scored cell.
+
+    They are also GVR-heavy, so pooling them prices a population no cell belongs
+    to — and on the committed pack that gap is about eleven points, several
+    times the drift term the register calls dominant. The Term-level
+    `base_rates` block here carries the pooled counts the real pack carries, so
+    a baseline reading the wrong surface reads 0.70 instead of 0.40.
+    """
+    pack = _statpack(
+        _disposition_term(2024, granted=60, gvr=40, denied=5000, ifp={"gvr": 60, "denied": 4000}),
+    )
+    ctx = _context(term=2025)
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, pack, lookback_terms=0) == pytest.approx(0.40)
+
+
+def test_the_summary_route_baseline_conditions_on_the_grant_family_only() -> None:
+    # Denials never enter the denominator: the resolver masks them, so a
+    # baseline counting them would be conditioned differently from the claim.
+    dense = _statpack(_disposition_term(2024, granted=60, gvr=40, denied=0))
+    sparse = _statpack(_disposition_term(2024, granted=60, gvr=40, denied=9_000))
+    ctx = _context(term=2025)
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, dense, lookback_terms=0) == pytest.approx(0.40)
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, sparse, lookback_terms=0) == pytest.approx(0.40)
+
+
+def test_the_summary_route_baseline_refuses_a_thin_prior_history() -> None:
+    thin = _statpack(_disposition_term(2024, granted=8, gvr=2, denied=4000))
+    ctx = _context(term=2025)
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, thin, lookback_terms=0) is None
+    # A prior Term thin in PAID grants does not clear the floor on the strength
+    # of its IFP grants, which are not the scored population.
+    ifp_heavy = _statpack(
+        _disposition_term(2024, granted=8, gvr=2, denied=4000, ifp={"gvr": 200, "granted": 50})
+    )
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, ifp_heavy, lookback_terms=0) is None
+    # And with no prior Term at all there is nothing to pool.
+    own_only = _statpack(_disposition_term(2025, granted=60, gvr=40))
+    assert claim_baseline(CLAIM_SUMMARY_ROUTE, ctx, own_only, lookback_terms=0) is None
+
+
+def test_the_dissent_baseline_is_none_until_a_cut_carries_it() -> None:
+    # No published section counts order-list notations, so the honest baseline
+    # is no baseline; the claim stays declared and banks its probabilities.
+    pack = _statpack(_disposition_term(2024, granted=60, gvr=40, denied=5000))
+    assert claim_baseline(CLAIM_DISSENT_FROM_DENIAL, _context(), pack, lookback_terms=0) is None
+
+
+def test_cert_v2_score_claims_end_to_end() -> None:
+    pack = _statpack(
+        _term(2024, rate=0.06),  # the band segment the disposition baseline reads
+        _disposition_term(2023, granted=60, gvr=40, denied=5000),
+    )
+    prediction = _prediction(
+        claims=_cert_v2_claims(disposition=0.2, route=0.3, dissent=0.1),
+        context=_context(term=2025),
+        event_id=_CERT_MOMENT,
+    )
+    outcome = _cert_outcome(disposition=Disposition.denied, dissent=True)
+    block = score_claims(prediction, outcome, pack, lookback_terms=0)
+
+    assert block is not None
+    assert block.declared_set_version == CLAIM_SET_CERT_V2
+    by_id = {row.claim_id: row for row in block.claims}
+    assert list(by_id) == [
+        CLAIM_DISPOSITION,
+        CLAIM_RELIST_INCREMENT,
+        CLAIM_CVSG_INCREMENT,
+        CLAIM_SUMMARY_ROUTE,
+        CLAIM_DISSENT_FROM_DENIAL,
+    ]
+
+    # The route claim is vacuous on a denial: masked, and out of the total —
+    # its baseline still computes, since a baseline is a property of the frozen
+    # conditioning rather than of the outcome.
+    route = by_id[CLAIM_SUMMARY_ROUTE]
+    assert route.outcome is None and route.score is None
+    assert route.baseline == pytest.approx(0.40)
+
+    # The dissent claim resolved true but has no baseline yet, so it banks its
+    # probability and scores nothing.
+    dissent = by_id[CLAIM_DISSENT_FROM_DENIAL]
+    assert dissent.outcome == 1
+    assert dissent.baseline is None and dissent.score is None
+    assert dissent.probability == pytest.approx(0.1)
+
+    # Only the disposition claim scores, exactly as under cert-v1.
+    assert block.total == pytest.approx(0.06**2 - 0.2**2)
+    assert block.floor == 0.0
+
+
+def test_a_cert_v2_moment_missing_a_new_claim_voids_the_block() -> None:
+    # The set is fixed and mandatory: a cell answering only cert-v1's three
+    # against a cert-v2 moment scores nothing rather than the half it chose,
+    # and `validate` names the gap while the cell can still be fixed.
+    pack = _statpack(_term(2024, rate=0.06))
+    prediction = _prediction(claims=_claims(), context=_context(), event_id=_CERT_MOMENT)
+    outcome = _cert_outcome(disposition=Disposition.denied)
+    assert score_claims(prediction, outcome, pack, lookback_terms=0) is None
+    problems = claim_block_problems(prediction)
+    assert [p for p in problems if CLAIM_SUMMARY_ROUTE in p]
+    assert [p for p in problems if CLAIM_DISSENT_FROM_DENIAL in p]

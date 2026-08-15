@@ -29,6 +29,9 @@ resolves one level out, at the caller.
 from __future__ import annotations
 
 from ..schemas import (
+    CERT_ORDER_DISPOSITIONS,
+    GRANTED_DISPOSITIONS,
+    FeeClass,
     PredictionContext,
     StatPack,
     StatPackTerm,
@@ -383,6 +386,118 @@ def merits_base_rate(
     if parsed < MERITS_BASE_RATE_MIN_PARSED:
         return None
     return disturbed / parsed
+
+
+#: The smallest strictly-prior grant sample the summary-route baseline may rest
+#: on, and the same figure — and the same reasoning — as
+#: :data:`MERITS_BASE_RATE_MIN_PARSED`: a rate near 0.35 over thirty grants
+#: carries a standard error of about 0.09, and a degenerate rate off one or two
+#: prior grants would dominate a claim total in ``claim_score``'s difference
+#: form. It clears on a single prior Term of paid live-slice grants (the paid
+#: grant family runs some ninety a Term), so it binds only at the very start of
+#: a corpus's history. Like the merits floor it states the count and **defers
+#: the smoothing rule**, which is the standing debt on it: at the floor the
+#: unpriced baseline-estimation expectation is ``p(1-p)/n ~ 0.008`` per claim,
+#: the same order as the drift term ``docs/outcome-decomposition.md`` already
+#: calls dominant. A stated pre-registration choice, not a knob.
+SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS = 30
+
+#: The fee class the salience gate actually predicts on. IFP petitions are
+#: Tier-0-excluded (``docs/salience.md``), so they are never a scored cell — and
+#: they are 28% of the pack's pooled grant family at roughly three-quarters GVR,
+#: so pooling them would price a population no cell belongs to.
+_SCORED_FEE_CLASS = FeeClass.paid
+
+
+def summary_route_base_rate(
+    term: int, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The rate at which a grant disposed in the cert order, over prior Terms.
+
+    The baseline for the declared cert-stage summary-route claim: pooled
+    ``CERT_ORDER_DISPOSITIONS`` count over pooled ``GRANTED_DISPOSITIONS`` count,
+    taken over Terms **strictly before** ``term`` — the same leakage rule
+    :func:`_pooled_band_rate` and :func:`merits_base_rate` apply, with the same
+    ``lookback_terms`` Term-year band (``0`` = unbounded).
+
+    **The population is the scored population**, which is why the counts come
+    from each Term's **paid** :class:`~fedcourtsai.schemas.StatPackTermClass`
+    rather than from the Term-level ``base_rates.dispositions``. IFP petitions
+    are Tier-0-excluded by the salience gate, so no cell is ever an IFP row —
+    yet they supply nearly a third of the pack's pooled grant family at
+    roughly three-quarters GVR, so the all-class rate runs about eleven points
+    above the paid one. Against a difference-form rule that is not a rounding
+    error: a predictor knowing only the paid segment's own rate would bank
+    ``(b_all - b_paid)^2 ~ 0.012`` per scored claim, which the identically-zero
+    floor cannot price. The band cut is *not* needed for the same reason it
+    would be harmless — the cert-order share is flat across the salience bands —
+    so the fee class is the whole of the population gap.
+
+    Reading the class blocks is also a **coverage** cut, not only a population
+    one: the two classes do not sum to the Term-level total (1,125 against 1,158
+    on the committed pack), so a row the census places in neither stream is
+    dropped rather than pooled. Dropping it is the conservative direction — the
+    scored population is exactly the paid stream — but it means this denominator
+    is a subset of the Term's published grant family, and the floor below is
+    measured against the subset.
+
+    Reading the fee-class cut also sidesteps the ``gvr`` label's
+    forward-convention hazard, which the Term-level split carries and
+    :class:`~fedcourtsai.schemas.StatPackTerm` warns is "meaningless between"
+    Terms: the un-relabelled Terms sit entirely in the IFP class, whose
+    cert-order count drops to zero where its neighbours run near 0.9, while the
+    paid series stays inside a 0.29-0.46 band throughout.
+
+    **Conditioned on the grant, deliberately.** The unconditional summary rate
+    over all petitions is around one percent, close enough to the boundary that
+    a season's realized total would be one Bernoulli draw
+    (``docs/outcome-decomposition.md``, the eight tests' volume condition). The
+    claim's resolver masks every denial, so its population is the grant family
+    and its baseline has to be the same population — a denominator of all
+    resolved petitions would be a baseline conditioned differently from the
+    claim.
+
+    **The published counts are denial-reweighted, and here that is harmless.**
+    Only denials were ever subsampled, so every row inside the grant family
+    carries weight 1 and this ratio is an unweighted count of grants either way.
+
+    **One residual bias remains, and it is not a safety margin.** A summary
+    reversal is a cert-order disposition that no resolver mints — the
+    ``summary-reversal`` label has none — so such an order sits in the
+    ``granted`` bucket and counts in the denominator but not the numerator,
+    pushing the rate down by an amount nothing the pack publishes bounds. Note
+    what that does and does not buy: under this project's difference-form rule a
+    baseline that is wrong in *either* direction hands a predictor reporting the
+    true rate ``(pi - b)^2`` for free, and the floor prices none of it. A
+    downward-biased baseline is therefore not "conservative"; it is unearned
+    score, and the cut that would retire it is exactly the one
+    ``Outcome.disposition_route`` exists to build.
+
+    ``None`` when no strictly-prior Term carries a paid class, or when the
+    pooled grant sample is below :data:`SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS` —
+    the already-contracted no-baseline answer, never an invented or degenerate
+    rate.
+    """
+    oldest = term - lookback_terms if lookback_terms > 0 else None
+    cert_order = 0
+    grants = 0
+    for entry in statpack.terms:
+        if entry.term >= term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the configured lookback window
+        for klass in entry.classes:
+            if klass.fee_class != _SCORED_FEE_CLASS:
+                continue
+            for share in klass.dispositions:
+                if share.disposition not in GRANTED_DISPOSITIONS:
+                    continue
+                grants += share.count
+                if share.disposition in CERT_ORDER_DISPOSITIONS:
+                    cert_order += share.count
+    if grants < SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS:
+        return None
+    return cert_order / grants
 
 
 def claim_score(p: float, y: int, b: float) -> float:
