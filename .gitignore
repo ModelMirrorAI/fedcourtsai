@@ -239,3 +239,8 @@ __marimo__/
 # The evaluate cell's alias maps: the key that undoes blind grading
 # (`fedcourtsai.blinding`). Runner-local by design and never a ledger artifact.
 /.blinding/
+
+# The qp-topic labeling run's second checkout, from which its transcript
+# scanner is installed: a whole repo plus a venv, runner-local, and the one
+# tree in the workspace that must never be committed from.
+/.transcript-scanner/

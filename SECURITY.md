@@ -86,15 +86,19 @@ runbook, [docs/security.md](docs/security.md).
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the workspace the editable install resolves through — so
   the scanner is built from a checkout taken *after* the agent exits and
-  fetched from GitHub, into a venv inside that fresh tree. The same job's
-  tree-pristine assertion is a separate control for a separate threat, a
-  rigged measurement rather than a stolen key, and it gates the measure step
-  rather than the capture: a tampered run keeps the transcript that is its
-  evidence. The bound on the isolation is a shared runner: the runner user
-  holds passwordless sudo and an agent can leave a process behind, so one that
-  goes after the interpreter itself is outside what this reaches; what it
-  removes is every path needing neither escalation nor persistence. A
-  different surface is
+  fetched from GitHub, into a venv inside that fresh tree, with the package
+  cache and the interpreter it is built on inside that tree too, and with the
+  environment levers that reach into a process regardless of its import path
+  (`PYTHONPATH`, `LD_PRELOAD`, an executable `core.hooksPath` in global git
+  config) closed alongside. The same job's tree-pristine assertion is a
+  separate control for a separate threat, a rigged measurement rather than a
+  stolen key, and it gates the measure step rather than the capture: a
+  tampered run keeps the transcript that is its evidence. What that isolation
+  still trusts, named rather than implied: the `uv` binary and the runner
+  image's own files, which the labeler reaches only through the passwordless
+  sudo the runner user holds, and anything a process it left behind does
+  between steps. What it removes is the class needing neither — a file dropped
+  before the agent exits. A different surface is
   handled a layer earlier instead: the tool-call log the harness harvests from
   an engine transcript into `retrieval_log.json` records whatever a tool call
   carried, which is not the agent's choice, so

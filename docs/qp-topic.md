@@ -367,20 +367,27 @@ Three consequences bind every use of the set:
   that assertion compares tracked files, and an untracked module or a `.pth`
   dropped into the venv is invisible to it. So the scanner is built after the
   agent exits, from a second checkout of this run's commit fetched from GitHub
-  into its own path, installed into a venv inside that fresh tree and resolved
-  through a package cache inside it too. Nothing on the resulting import path
-  passed through the workspace, its object store, or any file that existed
-  while the agent ran. That is also why a tampered tree keeps its transcript:
+  into its own path, installed into a venv inside that fresh tree, resolved
+  through a package cache inside it, and built on a managed interpreter
+  downloaded into it — no part of the scanner's source or its site-packages
+  passes through the workspace, its object store, or the caches uv keeps in
+  the runner user's home. The import path is not the only way into a process,
+  so two more levers are closed with it: git reads no global or system config
+  for that clone (`core.hooksPath` and `init.templateDir` are code, and both
+  fire during a checkout), and both steps unset `PYTHONPATH`, `LD_PRELOAD` and
+  their kin, because the runner applies every earlier step's `$GITHUB_ENV`
+  writes to later ones and the labeling step's subprocesses can append there.
+  That is also why a tampered tree keeps its transcript:
   the capture exists to diagnose exactly that run, and the scan no longer has
   to trust the tree. The pristine assertion remains, gating the measure step,
-  because a rigged *number* is a different threat from a stolen key. The bound
-  is worth stating out loud: the labeler shares a runner with these steps, the
-  runner user holds passwordless sudo, and nothing stops an agent leaving a
-  process behind — so one willing to escalate or to persist can still reach
-  the interpreter, `uv`, or these files between steps. What the fresh checkout
-  removes is the entire class that needs neither: the standing tamper of the
-  editable install's own import path, invisible to the assertion and free to
-  the agent.
+  because a rigged *number* is a different threat from a stolen key.
+
+  What stays trusted is worth naming rather than implying: the `uv` binary and
+  the runner image's own files, reachable only with the passwordless sudo the
+  runner user holds, and whatever a process the labeler left behind does
+  between these steps. What the fresh install removes is the class that needs
+  neither — drop a file, exit — which is the class an editable install hands
+  over for free and the assertion cannot see.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error

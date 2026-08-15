@@ -375,7 +375,12 @@ jobs:
     needs: qp-topic-extract
     if: ${{ inputs.mode == 'qp-topic-label' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # The step caps have to fit inside this one or the run loses its artifact
+    # to the job clock: setup and the CLI install, the 40-minute labeler, then
+    # the three post-agent transcript steps at 5 each, then measure and the PR.
+    # The transcript steps are diagnostics and must never be what costs a paid
+    # run its labels, so the budget is sized for all of them, not raced.
+    timeout-minutes: 65
     environment: prod
     concurrency:
       group: run-analytics-qp-topic-label
@@ -396,6 +401,20 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+
+      # Recorded before the agent runs, because `$GITHUB_PATH` is appendable
+      # from any step — the labeling step's subprocesses included — and the
+      # runner applies those writes to every step that follows. The scanner
+      # install below must not resolve its toolchain through a PATH the
+      # labeler edited. This pins *which* binary, not its bytes; the binary
+      # itself is trusted, as the scanner steps' comment says out loud.
+      - name: Record the uv binary path
+        id: uv-bin
+        run: |
+          set -euo pipefail
+          path=$(command -v uv)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
 
       - name: Download the extract
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -608,34 +627,56 @@ jobs:
       # runs and is fetched over the network once it is gone. So the scanner
       # comes from a second checkout of this run's own commit, taken here,
       # into its own path, with the scanner installed from it into a venv
-      # inside that same fresh tree. Nothing on the resulting import path
-      # passes through the workspace, its object store, its venv, or any file
-      # that existed while the agent was alive.
-      # Bounded honestly: the labeler shares a runner with these steps. The
-      # runner user holds passwordless sudo, and nothing stops an agent leaving
-      # a process behind, so one willing to escalate or to persist can still
-      # reach the interpreter, `uv`, or these files between steps. What this
-      # removes is the whole class that needs neither — the standing tamper of
-      # the editable install's own import path, which the assertion above
-      # cannot see and which costs the agent nothing.
+      # inside that same fresh tree, resolved through a package cache inside
+      # it too. No part of the scanner's source or its site-packages passes
+      # through the workspace, its object store, its venv, or uv's cache in the
+      # runner user's home.
+      # The import path does not end at the tree, so neither does the
+      # isolation: the venv is built on a *managed* interpreter downloaded
+      # into the same fresh path (uv's default install dir sits in the runner
+      # user's home, and a `sitecustomize.py` there is on every venv's
+      # `sys.path`), git reads no global or system config for the clone
+      # (`core.hooksPath` and `init.templateDir` are code, and both fire during
+      # a checkout), and the steps run with the interpreter's own environment
+      # levers unset — the runner applies `$GITHUB_ENV` and `$GITHUB_PATH`
+      # writes from *earlier* steps to later ones, and the labeling step's
+      # subprocesses can append to those files.
+      # What stays trusted, named rather than implied: the `uv` binary and the
+      # runner image's own files (reachable only with the passwordless sudo the
+      # runner user holds), and anything a process the agent left behind does
+      # between these steps. What is removed is the class that needs neither
+      # sudo nor a surviving process — a file dropped and the agent exits —
+      # which is exactly the class the assertion above cannot see.
       - name: Clear the isolated scanner path
+        id: scanner_clear
         if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
         # A `.git` the agent planted at this path would be *reused* by the
         # checkout below rather than replaced, and its hooks would run during
-        # the checkout. Remove the path so the clone is a clone.
+        # the checkout. Remove the path so the clone is a clone — and the
+        # checkout is gated on this succeeding, because a swallowed `rm`
+        # failure is precisely the case that hands the checkout that `.git`.
+        # The empty config file is where git's `--global` writes go for the two
+        # steps below (`actions/checkout` records a `safe.directory` there);
+        # created here, after the agent, so it holds only what they put in it.
         continue-on-error: true
         run: |
           set -euo pipefail
           rm -rf "${GITHUB_WORKSPACE:?}/.transcript-scanner"
+          : > "${RUNNER_TEMP:?}/scanner-gitconfig"
 
       - name: Check out the scanner afresh from GitHub
-        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        if: ${{ !cancelled() && steps.scanner_clear.outcome == 'success' }}
         # This step and the install below carry the scan's own posture, for the
         # scan's own reason: this run's artifact is the labels, and a network
         # blip on the transcript surface must never cost them. A scanner that
         # failed to build leaves the scan with no executable, which is the
-        # fail-closed path it already has — withhold, do not fail.
+        # fail-closed path it already has — withhold, do not fail. The timeout
+        # bounds the clock too: `continue-on-error` bounds only the outcome.
         continue-on-error: true
+        timeout-minutes: 5
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/scanner-gitconfig
+          GIT_CONFIG_SYSTEM: /dev/null
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # This run's own commit — the bytes the workflow itself was read
@@ -648,33 +689,54 @@ jobs:
           persist-credentials: false
 
       - name: Install the scanner into its own venv
-        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        if: ${{ !cancelled() && steps.scanner_clear.outcome == 'success' }}
         continue-on-error: true
         timeout-minutes: 5
         env:
           # A package cache the labeler can write is on the import path just as
-          # surely as a venv it can write, and uv's default cache sits under
-          # the runner user's home. Resolve through a cache inside the fresh
-          # tree instead: every dependency is fetched now and checked against
-          # the freshly checked-out lockfile's hashes.
+          # surely as a venv it can write, and uv's default cache and managed
+          # interpreters both sit under the runner user's home. Resolve through
+          # a cache and an interpreter inside the fresh tree instead: every
+          # dependency is fetched now and checked against the freshly
+          # checked-out lockfile's hashes, and uv checksums the interpreter.
           UV_CACHE_DIR: ${{ github.workspace }}/.transcript-scanner/.uv-cache
+          UV_PYTHON_INSTALL_DIR: ${{ github.workspace }}/.transcript-scanner/.uv-python
+          UV_BIN: ${{ steps.uv-bin.outputs.path }}
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/scanner-gitconfig
+          GIT_CONFIG_SYSTEM: /dev/null
         run: |
           set -euo pipefail
+          # Every lever that puts a caller's code inside a process it starts,
+          # and every one of them is settable from an earlier step's
+          # `$GITHUB_ENV`. Unset for the whole block: it builds the scanner.
+          unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
+          unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
           cd "${GITHUB_WORKSPACE}/.transcript-scanner"
           # This tree must be this commit and nothing else. A `.git` that
           # survived the clear step would have been reused rather than cloned,
-          # and anything its hooks wrote during the checkout shows up here —
-          # checked before the sync, which adds untracked paths of its own.
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+          # and anything its hooks wrote during the checkout shows up here.
+          # `--ignored` because the one thing a hook would plant — a `.venv`
+          # that `uv sync` then reuses, `.pth` files and all — is a path
+          # `.gitignore` hides. Checked before the sync, which adds ignored
+          # paths of its own.
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::the scanner checkout is not this run's commit; refusing to scan"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=all --ignored)" ]; then
             echo "::error::the scanner checkout is not a clean clone; refusing to scan"
             exit 1
           fi
           # Runtime dependencies only — the scanner is one CLI command, and the
           # dev group is a wider supply chain to admit for no gain here.
-          uv sync --locked --no-default-groups
-          # Fail here rather than inside the scan if the entry point is unusable.
-          ./.venv/bin/fedcourts scan-diff-for-secrets --help >/dev/null
+          # `--no-config` skips the user-level `uv.toml` (agent-writable, and
+          # nothing this install needs is in one); `--python 3.12` pins the
+          # managed interpreter to the project's floor rather than letting the
+          # newest one uv can fetch decide what the scanner runs on.
+          "$UV_BIN" sync --locked --no-default-groups --no-config \
+            --managed-python --python 3.12
+          # Fail here rather than inside the scan if the scanner is unusable.
+          ./.venv/bin/python -E -s -m fedcourtsai.cli scan-diff-for-secrets --help >/dev/null
 
       # The transcript is the only record of *how* the labeler failed: the
       # action reports a summary block and discards the turn-by-turn log with
@@ -706,16 +768,25 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # The isolated install above, by absolute path: a bare `uv run` would
           # resolve the project out of the workspace the labeler just wrote to.
-          SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/fedcourts
+          SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
+          # This is the one step that holds the key, so it is the one an
+          # injected environment variable is worth aiming at: the runner
+          # applies every earlier step's `$GITHUB_ENV` writes here, and the
+          # labeling step's subprocesses can append to that file. A planted
+          # `PYTHONPATH` or `LD_PRELOAD` would put agent code inside this
+          # process whatever the import path says. `-E -s` below covers the
+          # PYTHON* family exhaustively; the unset covers the loader's.
+          unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
+          unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
           status=0
           # The transcript surface flag, not the generic extra-file suite: the
           # transcript's own tool and request ids are high-entropy by format,
           # so the generic heuristic convicts every real file and the artifact
           # would only ever publish empty — the surface is gated by containment
           # of the one reachable credential and the credential shapes instead.
-          "$SCANNER" scan-diff-for-secrets --name-status-file /dev/null \
+          "$SCANNER" -E -s -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
             --known-secret-env ANTHROPIC_API_KEY \
             --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \

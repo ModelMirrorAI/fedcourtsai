@@ -354,20 +354,37 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     assert label_at < steps.index(src) < scan_at
 
     # A `.git` planted at the path would be reused, hooks and all, rather than
-    # replaced — so the path is cleared before the clone.
-    clear = next(
-        s
-        for s in steps
-        if "rm -rf" in str(s.get("run") or "") and ".transcript-scanner" in str(s.get("run") or "")
-    )
+    # replaced — so the path is cleared before the clone, and the clone is
+    # gated on that having worked: a swallowed `rm` failure is the one case
+    # that hands the checkout exactly the `.git` it must not reuse.
+    clear = next(s for s in steps if s.get("id") == "scanner_clear")
+    assert ".transcript-scanner" in clear["run"]
     assert label_at < steps.index(clear) < steps.index(src)
+    assert "steps.scanner_clear.outcome == 'success'" in src["if"]
+    # Global and system git config are executable (`core.hooksPath`,
+    # `init.templateDir`) and fire during a checkout.
+    assert src["env"]["GIT_CONFIG_SYSTEM"] == "/dev/null"
+    assert "${{ runner.temp }}" in src["env"]["GIT_CONFIG_GLOBAL"]
 
-    install = next(s for s in steps if "UV_CACHE_DIR" in str((s.get("env") or {}).keys()))
+    install = next(s for s in steps if "UV_CACHE_DIR" in (s.get("env") or {}))
     # A package cache the labeler can write reaches the import path as surely
-    # as a venv it can write, and uv's default cache sits in the runner's home.
+    # as a venv it can write, and so does the interpreter the venv is built on
+    # — uv keeps both under the runner user's home by default.
     assert ".transcript-scanner" in install["env"]["UV_CACHE_DIR"]
-    assert "uv sync --locked" in install["run"]
+    assert ".transcript-scanner" in install["env"]["UV_PYTHON_INSTALL_DIR"]
+    assert "--managed-python" in install["run"]
+    assert "sync --locked" in install["run"]
+    assert "steps.scanner_clear.outcome == 'success'" in install["if"]
     assert steps.index(src) < steps.index(install) < scan_at
+
+    # `$GITHUB_ENV` and `$GITHUB_PATH` are appendable from any earlier step,
+    # the labeling step's subprocesses included, and the runner applies those
+    # writes to every step that follows — so a planted `PYTHONPATH` or
+    # `LD_PRELOAD` reaches the one process holding the key regardless of what
+    # is on the import path. Both the build and the scan strip them.
+    for step in (install, scan):
+        assert "unset PYTHONPATH" in step["run"]
+        assert "unset LD_PRELOAD" in step["run"]
 
     # None of the three may fail the run: the artifact is the labels, and a
     # scanner that failed to build leaves the scan its existing fail-closed
@@ -377,9 +394,10 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
 
     # And the scan invokes that install by absolute path. A bare `uv run` here
     # is the whole bug: it resolves the project out of the labeler's workspace.
+    # `-E -s` is the exhaustive form of the unset above over the PYTHON* family.
     assert "uv run" not in scan["run"]
-    assert '"$SCANNER" scan-diff-for-secrets' in scan["run"]
-    assert scan["env"]["SCANNER"].endswith(".transcript-scanner/.venv/bin/fedcourts")
+    assert '"$SCANNER" -E -s -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
+    assert scan["env"]["SCANNER"].endswith(".transcript-scanner/.venv/bin/python")
 
 
 def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -> None:
