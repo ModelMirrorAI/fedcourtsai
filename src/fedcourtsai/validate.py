@@ -890,14 +890,14 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
     An individual cert vote is never scored (``docs/decision-model.md``), and
     ``pipeline.moments.scores_votes`` enforces that wherever the harness computes
     the figure. But on a real cell ``vote_accuracy`` is the *evaluator's* field to
-    write, like ``brier_score`` — the harness stamps ``claim_scores``, the
-    base-rate basis record, and (on the merits and interim stages only) the
-    ``segment_base_rate`` / ``brier_skill_score`` pair, but never this field on
-    any stage — so the computed gate cannot speak for an agent that wrote the
-    number itself. The leaderboard refuses to aggregate such a value,
-    which keeps it out of every published total; this check refuses to let it be
-    committed at all, so the prohibition holds on the artifact and not merely on
-    the figures derived from it.
+    write on every stage — the harness stamps ``claim_scores``, the base-rate
+    basis record, and (on the merits and interim stages only) the whole skill
+    record of ``brier_score`` / ``segment_base_rate`` / ``brier_skill_score``,
+    but never this field anywhere — so the computed gate cannot speak for an
+    agent that wrote the number itself. The leaderboard refuses to aggregate
+    such a value, which keeps it out of every published total; this check
+    refuses to let it be committed at all, so the prohibition holds on the
+    artifact and not merely on the figures derived from it.
 
     Read against the committed ``event.yaml`` rather than the moments register:
     an ``evaluation.json`` does not carry its event's stage, and the ledger's

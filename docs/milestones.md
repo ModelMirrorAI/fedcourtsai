@@ -178,10 +178,10 @@ each freeze commit is recorded here.
     set with no digest of its own;
   - the **claim-set declarations** `cert-v2`, `interim-v1` and `semantic-v1`,
     which are tables rather than prompt bytes or actor config;
-  - the **harness base-rate stamp**, which moves `segment_base_rate` and
-    `brier_skill_score` off the evaluator and onto `stamp-cell` on the merits
-    and interim stages — a change to *who computes a scored number*, which the
-    scoring-baseline rule puts in this list;
+  - the **harness skill stamp**, which moves `brier_score`,
+    `segment_base_rate`, and `brier_skill_score` off the evaluator and onto
+    `stamp-cell` on the merits and interim stages — a change to *who computes a
+    scored number*, which the scoring-baseline rule puts in this list;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.

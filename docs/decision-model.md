@@ -539,8 +539,10 @@ outright: `correct` on a merits cell *is* this comparison
 `actual_disposition` is always the off-vocabulary `other` and comparing
 dispositions there would score every cell against a constant the merits
 contract never defines. Both are computed by the shared helpers, but on a real
-cell they are the evaluator's field to write, like `brier_score` — the harness
-stamps only `claim_scores` and the base-rate basis record.
+cell they are the evaluator's field to write — the harness stamps
+`claim_scores`, the base-rate basis record, and, on a merits or interim cell,
+the whole skill record of `brier_score` / `segment_base_rate` /
+`brier_skill_score`.
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole
 domain, with no consistency term between submitted numbers anywhere (the

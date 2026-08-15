@@ -139,7 +139,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.evaluate import brier_skill
+from .pipeline.evaluate import brier_score, brier_skill
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -2415,19 +2415,25 @@ def stamp_cell(
     frozen context (:func:`_base_rate_salience_version_for`), so both are the
     harness's word and an evaluator-authored value never survives the stamp.
 
-    **Who owns the segment base rate.** The harness stamps it wherever the pool
-    is a Term-keyed ratio of published integer counts with no band to choose —
-    every **merits** and every **interim** cell — because there the evaluator
-    exercises no judgment and hand-pooling only adds arithmetic the record
-    cannot check. On those two stages the whole base-rate record is written
-    unconditionally (:func:`_base_rate_record_for`): ``segment_base_rate`` and
-    the ``brier_skill_score`` derived from it, each cleared where an input is
-    missing so a hand-pooled number never survives a refusal, and both halves
-    of the basis record cleared with them, since neither pooled rate is a
-    salience-band product. The **cert** path stays the evaluator's and neither
-    the rate nor its skill is touched there: which band population the rate is
-    taken over — ``risk_set`` against ``terminal`` — is a judgment about the
-    scored prediction's frozen band, recorded in ``base_rate_basis``.
+    **Who owns the skill record.** The harness stamps it wherever the baseline
+    pool is a Term-keyed ratio of published integer counts with no band to
+    choose — every **merits** and every **interim** cell — because there the
+    evaluator exercises no judgment and hand-computing only adds arithmetic the
+    record cannot check. On those two stages the whole record is written
+    unconditionally (:func:`_skill_record_for`): the ``brier_score`` recomputed
+    from the scored prediction's committed ``probability`` and the outcome's
+    ``actual_granted``, the ``segment_base_rate`` pooled from the statpack, and
+    the ``brier_skill_score`` derived from those two — each cleared where an
+    input is missing so a hand-written number never survives a refusal, and both
+    halves of the basis record cleared with them, since neither pooled rate is a
+    salience-band product. All three come off one set of committed artifacts, so
+    the skill ratio is verifiable rather than merely self-consistent: stamping
+    the denominator over an agent-written numerator would reproduce from the
+    record and still be wrong. The **cert** path stays the evaluator's and none
+    of the three is touched there: which band population the rate is taken over
+    — ``risk_set`` against ``terminal`` — is a judgment about the scored
+    prediction's frozen band, recorded in ``base_rate_basis``, and the
+    leaderboard's coherence check is what holds that arithmetic to its record.
 
     A recorded ``risk_set`` basis whose version does not resolve exits non-zero
     after every cell is stamped. The null is still written — it is the
@@ -2505,15 +2511,14 @@ def stamp_cell(
             # evaluator-authored one is replaced — with the computed block where
             # the committed inputs support one, with nothing otherwise.
             cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
-            # The base-rate record, same discipline: derived deterministically
-            # from the stage and the committed inputs, overwritten
-            # unconditionally so what it says is the harness's word. The
-            # basis pair it returns is what the risk-set guard below judges —
-            # the record as stamped, never as the evaluator wrote it.
-            base_rate_fields, basis_records[path] = _base_rate_record_for(
-                event_paths, record, settings
-            )
-            cell_update.update(base_rate_fields)
+            # The skill record — Brier, base rate, and the ratio over them —
+            # same discipline: derived deterministically from the stage and the
+            # committed inputs, overwritten unconditionally so what it says is
+            # the harness's word. The basis pair it returns is what the risk-set
+            # guard below judges — the record as stamped, never as the evaluator
+            # wrote it.
+            skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
+            cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
@@ -2651,50 +2656,60 @@ def _statpack_for(settings: Settings) -> StatPack | None:
     return _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
 
 
-#: The stages whose ``segment_base_rate`` the harness stamps rather than the
+#: The stages whose whole skill record — ``brier_score``, ``segment_base_rate``,
+#: and the ``brier_skill_score`` over them — the harness stamps rather than the
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
 #: judgment for an evaluator to exercise. The cert stage is absent by design —
 #: see :func:`stamp_cell`.
-_HARNESS_BASE_RATE_STAGES = (Stage.merits, Stage.interim)
+_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 
-def _base_rate_record_for(
+def _skill_record_for(
     event_paths: EventPaths, evaluation: Evaluation, settings: Settings
 ) -> tuple[dict[str, object], tuple[str | None, str | None]]:
-    """This cell's whole base-rate record as a stamp update, plus its basis pair.
+    """This cell's whole skill record as a stamp update, plus its basis pair.
 
-    Two shapes, keyed on the stage. On a **cert** cell the rate and the skill
-    are the evaluator's — which band population the rate was taken over is a
-    judgment about the scored prediction's frozen band — so only the version
-    half of the basis record is derived here
-    (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores`` is:
-    deterministically, and overwriting whatever the evaluator wrote.
+    Two shapes, keyed on the stage. On a **cert** cell the Brier, the rate, and
+    the skill are the evaluator's — which band population the rate was taken
+    over is a judgment about the scored prediction's frozen band, and the
+    leaderboard's coherence check is what stands between that arithmetic and the
+    published column — so only the version half of the basis record is derived
+    here (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores``
+    is: deterministically, and overwriting whatever the evaluator wrote.
 
-    On a stage of :data:`_HARNESS_BASE_RATE_STAGES` the **whole** record is the
-    harness's, and all four fields are assigned unconditionally. The rate and
-    its skill are computed (:func:`_harness_base_rate_for`,
-    :func:`_harness_skill_for`) and are ``None`` where the harness declines a
-    pool — an evaluator-authored number surviving that refusal is the one thing
-    stamping the pair exists to prevent. Both halves of the **basis record**
-    are cleared, because neither pooled rate is a salience-band product: there
-    is no band population for a basis to name, and a recorded one would
-    otherwise pull a salience version onto a rate no band ever produced — or
-    fail the cell on the risk-set guard, whose remedy (the terminal basis)
-    means nothing on a stage the harness pools itself.
+    On a stage of :data:`_HARNESS_SKILL_STAGES` the **whole** record is the
+    harness's, and all five fields are assigned unconditionally. The Brier, the
+    rate, and the skill over them are computed (:func:`_harness_brier_for`,
+    :func:`_harness_base_rate_for`, :func:`_harness_skill_for`) and are ``None``
+    where an input is missing — an evaluator-authored number surviving that
+    refusal is the one thing stamping them exists to prevent. All three come off
+    one set of committed inputs, which is what makes the ratio verifiable rather
+    than merely internally consistent: a stamped skill whose numerator was the
+    evaluator's word would reproduce from the record and still be wrong.
+
+    Both halves of the **basis record** are cleared, because neither pooled rate
+    is a salience-band product: there is no band population for a basis to name,
+    and a recorded one would otherwise pull a salience version onto a rate no
+    band ever produced — or fail the cell on the risk-set guard, whose remedy
+    (the terminal basis) means nothing on a stage the harness pools itself.
 
     The returned ``(basis, version)`` pair is the record **as stamped**, so the
     guard judges what was written rather than what the evaluator proposed.
     """
-    if _event_stage_and_opened(event_paths)[0] not in _HARNESS_BASE_RATE_STAGES:
+    if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
         version = _base_rate_salience_version_for(event_paths, evaluation)
         return ({"base_rate_salience_version": version}, (evaluation.base_rate_basis, version))
+    outcome = _outcome_for(event_paths)
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
-    _warn_on_discarded_base_rate(evaluation, rate)
+    brier = _harness_brier_for(event_paths, evaluation, outcome)
+    _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
+    _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
     return (
         {
+            "brier_score": brier,
             "segment_base_rate": rate,
-            "brier_skill_score": _harness_skill_for(event_paths, evaluation, rate),
+            "brier_skill_score": _harness_skill_for(brier, outcome, rate),
             "base_rate_basis": None,
             "base_rate_salience_version": None,
         },
@@ -2702,34 +2717,73 @@ def _base_rate_record_for(
     )
 
 
-#: How far a recorded ``segment_base_rate`` may sit from the stamped one before
-#: :func:`_warn_on_discarded_base_rate` says so. Both pool the same published
-#: integer counts, so they agree to the record's 3-decimal precision; a wider
-#: gap is a different pool (a different window, or a different Term axis).
-_BASE_RATE_ECHO_TOLERANCE = 1e-3
+#: How far a recorded number may sit from the stamped one before
+#: :func:`_warn_on_discarded_number` says so. Committed records carry three
+#: decimals and both sides compute from the same committed inputs, so an
+#: agreeing pair lands inside this; a wider gap is a different computation — a
+#: different pool window or Term axis for the rate, a different probability or
+#: binary for the Brier. Absolute rather than relative, so it is a floor on what
+#: gets *said*, not on what gets written: a disagreeing Brier under it — which a
+#: squared quantity reaches near ``p == y`` — is still replaced, silently.
+_STAMP_ECHO_TOLERANCE = 1e-3
 
 
-def _warn_on_discarded_base_rate(evaluation: Evaluation, stamped: float | None) -> None:
-    """Say when a stamped rate replaces a *different* number the evaluator wrote.
+def _warn_on_discarded_number(
+    evaluation: Evaluation, field: str, recorded: float | None, stamped: float | None
+) -> None:
+    """Say when a stamped number replaces a *different* one the evaluator wrote.
 
     The stamp overwrites either way — that is the point — but an overwrite that
     changes the number is the one thing a maintainer would want to see, and a
     silent one leaves no trace that the evaluator's own arithmetic disagreed
-    (or that the harness refused a pool the evaluator was willing to state).
+    (or that the harness declined a number the evaluator was willing to state).
     One ``::warning::``, never a failure: the harness's number is not in doubt,
     and a cell that produced its output must not fail on a note about it.
+
+    It is also why the evaluate prompt goes on eliciting a number the stamp
+    discards. An elicited value the harness overwrites is not waste: it is the
+    only independent read of the same quantity anywhere in the run, so a
+    systematic disagreement — an evaluator scoring the wrong binary, or reading
+    a stale probability — surfaces here and nowhere else. A field the prompt
+    stopped asking for would leave that check with nothing to compare.
     """
-    recorded = evaluation.segment_base_rate
     if recorded is None or (
-        stamped is not None and abs(stamped - recorded) <= _BASE_RATE_ECHO_TOLERANCE
+        stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE
     ):
         return
     typer.echo(
         f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
-        + f"segment_base_rate {recorded} on a harness-pooled stage; the stamp wrote "
+        + f"{field} {recorded} on a harness-stamped stage; the stamp wrote "
         + f"{stamped} instead.",
         err=True,
     )
+
+
+def _harness_brier_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> float | None:
+    """The harness's own Brier score for one evaluation, or ``None``.
+
+    ``(probability - actual_granted)**2`` over the two committed artifacts,
+    through the same numeric core every scoring surface uses
+    (:func:`fedcourtsai.pipeline.evaluate.brier_score`), so the stamped
+    numerator is the definition rather than a restatement of it. The scored
+    prediction is the predictor's **latest** for this event — the join
+    ``claim_scores`` and the base rate already use, since an evaluation records
+    its predictor and not a prediction run id.
+
+    Neither input can be partly there: ``Prediction.probability`` and
+    ``Outcome.actual_granted`` are both schema-required, so a readable artifact
+    always carries its half of the formula. ``None`` only where an artifact is
+    absent outright — no prediction from this predictor, or no committed
+    outcome — which is the same tolerant clearing the rate takes: this runs as
+    a post-agent step, so a missing input suppresses the number rather than
+    failing a cell that already produced its output.
+    """
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or outcome is None:
+        return None
+    return brier_score(latest, outcome)
 
 
 def _harness_base_rate_for(
@@ -2737,7 +2791,7 @@ def _harness_base_rate_for(
 ) -> float | None:
     """The harness's own segment base rate for one evaluation, or ``None``.
 
-    Computed on the two stages of :data:`_HARNESS_BASE_RATE_STAGES`, from the
+    Computed on the two stages of :data:`_HARNESS_SKILL_STAGES`, from the
     committed statpack under the same ``salience.base_rate_lookback_terms``
     window every other pooled baseline answers to. **Merits**: the disturbed
     rate over grant Terms strictly before the cell's, keyed on the Term
@@ -2757,7 +2811,7 @@ def _harness_base_rate_for(
     number the harness cannot stand behind.
     """
     stage = _event_stage_and_opened(event_paths)[0]
-    if stage not in _HARNESS_BASE_RATE_STAGES:
+    if stage not in _HARNESS_SKILL_STAGES:
         return None
     statpack = _statpack_for(settings)
     if statpack is None:
@@ -2783,24 +2837,25 @@ def _harness_base_rate_for(
 
 
 def _harness_skill_for(
-    event_paths: EventPaths, evaluation: Evaluation, base_rate: float | None
+    brier: float | None, outcome: Outcome | None, base_rate: float | None
 ) -> float | None:
-    """The Brier skill of a stamped base rate against the cell's recorded Brier.
+    """The Brier skill of a stamped base rate against the *stamped* Brier.
 
-    Written wherever the harness stamps the rate, through the same numeric core
+    Written wherever the harness stamps the pair, through the same numeric core
     the evaluate path and the cert back-test share
-    (:func:`fedcourtsai.pipeline.evaluate.brier_skill`), so the pair cannot
-    disagree with itself: both halves are derived from one set of inputs.
-    ``None`` when any of them is missing — no stamped rate, no recorded
-    ``brier_score``, no committed outcome to score against — and where the
-    baseline is already exact, the ratio's undefined case.
+    (:func:`fedcourtsai.pipeline.evaluate.brier_skill`). Both arguments are the
+    harness's own numbers rather than the record's, so the ratio is correct by
+    construction end to end: nothing the evaluator wrote reaches the numerator
+    or the denominator. ``None`` when any input is missing — no stamped Brier,
+    no stamped rate, no committed outcome to score against — and where the
+    baseline is already exact, the ratio's undefined case. (The outcome guard is
+    redundant against the Brier's, which is ``None`` whenever the outcome is;
+    it is kept because it is what makes ``actual_granted`` reachable, and
+    because the two would have to be un-coupled by hand to make it wrong.)
     """
-    if base_rate is None or evaluation.brier_score is None:
+    if brier is None or base_rate is None or outcome is None:
         return None
-    outcome = _outcome_for(event_paths)
-    if outcome is None:
-        return None
-    return brier_skill(evaluation.brier_score, outcome.actual_granted, base_rate)
+    return brier_skill(brier, outcome.actual_granted, base_rate)
 
 
 def _grant_term_for(event_paths: EventPaths) -> int | None:
@@ -2834,8 +2889,10 @@ def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date
 
     ``(None, None)`` where no ``event.yaml`` exists or it does not parse: the
     stamp runs after an agent has already produced output, so an unreadable
-    definition suppresses whatever it keys — the merits grant Term, the
-    harness-stamped base rate — rather than failing the cell.
+    definition suppresses whatever it keys — the merits grant Term, and the
+    harness-stamped skill record, which is not merely emptied but not stamped
+    at all, since an unnamed stage takes the cert branch and leaves what the
+    evaluator wrote — rather than failing the cell.
 
     The stage comes back as the enum's **value** (the schema models are built
     with ``use_enum_values``), so compare it with ``==`` or ``in`` and never

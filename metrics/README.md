@@ -106,12 +106,17 @@ stays outside the gate:
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
   against. That coherence check is the only one, and what it guards in
-  practice is the **cert** cell, because it is the only stage whose base rate
-  is the evaluator's arithmetic at all: on a **merits** or **interim** cell
-  whose `event.yaml` names its stage, `stamp-cell` writes `segment_base_rate`
-  and `brier_skill_score` together from the statpack, so the pair agrees by
-  construction and there is no hand-pooled rate left to catch. The cert rate stays the evaluator's
-  because it alone requires a judgment — which band population the rate is
+  practice is the **cert** cell, because it is the only stage whose numbers are
+  the evaluator's arithmetic at all: on a **merits** or **interim** cell
+  whose `event.yaml` names its stage, `stamp-cell` writes all three together —
+  `brier_score` recomputed from the scored prediction's probability and the
+  committed outcome, `segment_base_rate` pooled from the statpack, and the
+  ratio over them — so they agree by construction and there is no hand-computed
+  number left to catch. Reproducing from the record is not the same as being
+  right, which is why the numerator is stamped too rather than checked: a skill
+  derived from an unverified Brier would satisfy the coherence check and still
+  publish the wrong number. The cert numbers stay the evaluator's
+  because they alone require a judgment — which band population the rate is
   taken over, recorded in `base_rate_basis` — while both pooled rates are a
   ratio of published integer counts with nothing to decide.
 
@@ -627,10 +632,12 @@ disturbed)²` and its skill is scored **only against that declared
 baseline**, which holds by construction rather than by a check:
 `stamp-cell` writes a merits cell's
 `segment_base_rate` from that same pooler (and an interim cell's from its
-own), so no cell this harness stamps on a stage-resolving event can be ranked
-on a rate the harness did not compute — the record itself does not distinguish
-a stamped rate from a written one, so that is a property of how a cell is
-produced, not something the board can re-derive. Skill is
+own), and writes the Brier beside it from the scored prediction's committed
+probability and the committed outcome, so no cell this harness stamps on a
+stage-resolving event can be ranked on a rate or a Brier the harness did not
+compute — the record itself does not distinguish a stamped number from a
+written one, so that is a property of how a cell is produced, not something the
+board can re-derive. Skill is
 scored only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it

@@ -483,9 +483,10 @@ in prose.
   (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
-  and `process_version` are the harness's, never the evaluator's word — as are
-  `segment_base_rate` and `brier_skill_score` on the two stages whose pool the
-  harness computes (below).
+  and `process_version` are the harness's, never the evaluator's word — as is
+  the whole skill record of `brier_score`, `segment_base_rate`, and
+  `brier_skill_score` on the two stages whose pool the harness computes
+  (below), which leaves `brier_score` the evaluator's on a cert cell only.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
   above: written on a **merits** cell, one ordinal grade per declared claim, and
   null on every other stage. No opinion body is ingested, so every grade it
@@ -528,17 +529,28 @@ who writes the baseline on each:
   against cert-order-dated judgments), keyed on the grant Term and returning
   nothing below a stated minimum of parsed judgments — feeding both the cell's
   `brier_skill_score` and the claim block's difference form.
-- **On both pooled stages the whole base-rate record is the harness's, not the
-  evaluator's.** `stamp-cell --role evaluator` writes `segment_base_rate` and
-  the `brier_skill_score` derived from it, exactly as it writes `claim_scores`,
-  and clears both where it cannot compute them — so a hand-pooled number never
-  survives. It clears `base_rate_basis` and `base_rate_salience_version` there
-  too, which is what makes their null structural rather than a rule an
-  evaluator has to honour. Only the cert rate is the evaluator's, because only
-  there is a judgment involved: which band population the rate is taken over.
-  The evaluate prompt says the same thing from the agent's side: on those two
-  stages it writes neither field and reads the stamped pair, so the prose in
-  `evaluation.md` describes the harness's number rather than one of its own.
+- **On both pooled stages the whole skill record is the harness's, not the
+  evaluator's.** `stamp-cell --role evaluator` writes `brier_score` —
+  recomputed as `(probability - actual_granted)**2` from the scored
+  prediction's committed probability and the committed outcome —
+  `segment_base_rate`, and the `brier_skill_score` derived from those two,
+  exactly as it writes `claim_scores`, and clears each where it cannot compute
+  it, so a hand-written number never survives. All three off one set of
+  committed artifacts is what makes the ratio *verifiable*: stamping the
+  denominator over an agent-written numerator would reproduce from the record
+  and still be wrong. It clears `base_rate_basis` and
+  `base_rate_salience_version` there too, which is what makes their null
+  structural rather than a rule an evaluator has to honour. Only the cert
+  numbers are the evaluator's, because only there is a judgment involved: which
+  band population the rate is taken over. The evaluate prompt says the same
+  thing from the agent's side for the pooled **pair**: on those two stages it
+  writes neither field and reads the stamped values, so `evaluation.md`'s prose
+  about the rate and the skill describes the harness's numbers. The prompt still
+  has the agent compute the **Brier** itself, so a merits or interim
+  `evaluation.md` may narrate a number its own `evaluation.json` does not carry
+  — the stamp overwrites the field either way, and says so with a `::warning::`
+  in the run log where the two disagree. Reading a pooled-stage cell, the JSON
+  is the record.
 
 An evaluation of the cert prediction above, had that petition been denied
 without a further relist. Its `process_version` stamp is omitted for brevity,
