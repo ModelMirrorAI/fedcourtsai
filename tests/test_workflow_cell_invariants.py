@@ -17,8 +17,9 @@ of them while every gate stays green:
   behind `continue-on-error`, so losing the flag fails nothing at runtime;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
-  (the scan gate, the retention window, the survive-failure condition) is a
-  YAML attribute nothing else checks.
+  (the scan gate, the retention window, the survive-failure condition, and the
+  post-agent checkout the scanner is installed from, since the scan holds the
+  engine key) is a YAML attribute nothing else checks.
 
 Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
@@ -260,7 +261,7 @@ def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
 
 
 def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
-    """The transcript artifact contract: captured on clean trees, scanned first, 1-day.
+    """The transcript artifact contract: captured always, scanned first, 1-day.
 
     The labeler's turn-by-turn transcript is the only record of *how* a
     no-output run failed, and it embeds the QP text the agent read — so it must
@@ -273,17 +274,24 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
     assert label.get("id") == "label", "the labeling step needs an id for its outputs"
     scan = next(s for s in steps if s.get("id") == "transcript_scan")
-    # The scan executes this checkout's Python with the engine key in its env,
-    # so it must never run on a tree the pristine assertion rejected — a
-    # tampered checkout forfeits its transcript artifact.
+    # A tampered tree is a run that needs diagnosing, and the scanner is
+    # installed out of the labeler's reach (asserted below), so the tree's
+    # state must not gate the capture: the transcript survives the tampering
+    # it is evidence of.
+    assert "steps.pristine.outcome" not in scan["if"]
     pristine = next(s for s in steps if s.get("id") == "pristine")
     assert "assert the tree is pristine" in pristine["name"]
-    # The assertion must record a real outcome even on a labeler failure — a
-    # skipped step's outcome reads as not-success, which would silently
-    # forfeit the transcript on the failed runs the capture exists for.
+    # The assertion must record a real outcome even on a labeler failure: a run
+    # that both failed and tampered has to say which, and a skipped step says
+    # nothing.
     assert "!cancelled()" in pristine["if"]
-    assert steps.index(pristine) < steps.index(scan)
-    assert "steps.pristine.outcome == 'success'" in scan["if"]
+    # What the assertion does gate is the *number*. The measure step runs this
+    # checkout's `fedcourts qp-topics`, so it must stay on the default
+    # `success()` gate — an `if:` of its own would let a rigged tree be
+    # measured.
+    measure = next(s for s in steps if s.get("id") == "measure")
+    assert "if" not in measure, "the measure step must stay on the default success() gate"
+    assert steps.index(pristine) < steps.index(measure)
     assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
     assert "scan-diff-for-secrets" in scan["run"]
     assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
@@ -319,6 +327,97 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert upload["with"]["retention-days"] == 1
     assert "!cancelled()" in upload["if"]
     assert "steps.transcript_scan.outcome == 'success'" in upload["if"]
+
+
+def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() -> None:
+    """The scan holds the engine key, so it must import no byte the agent wrote.
+
+    `setup-python-env` installs this project editable, so a workspace `uv run`
+    resolves `fedcourtsai` through the checkout and its gitignored venv — both
+    written to freely by a labeler running `bypassPermissions`, and the venv
+    side is invisible to the tree-pristine assertion, which compares tracked
+    files only. The scanner therefore comes from a second checkout taken after
+    the agent finished and fetched from GitHub, with its own venv inside it.
+    """
+    steps = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
+    label_at = steps.index(next(s for s in steps if s.get("id") == "label"))
+    scan = next(s for s in steps if s.get("id") == "transcript_scan")
+    scan_at = steps.index(scan)
+
+    src = next(s for s in steps if s.get("id") == "scanner_src")
+    assert "actions/checkout@" in src["uses"]
+    assert src["with"]["path"] == ".transcript-scanner"
+    # Resolved against the remote at this run's own commit — never out of the
+    # workspace object store, which the agent rewrites as freely as the tree.
+    assert src["with"]["ref"] == "${{ github.sha }}"
+    assert src["with"]["persist-credentials"] is False
+    # After the agent, or the tree it clones is a tree the agent outlived.
+    assert label_at < steps.index(src) < scan_at
+
+    # A `.git` planted at the path would be reused, hooks and all, rather than
+    # replaced — so the path is cleared before the clone, and the clone is
+    # gated on that having worked: a swallowed `rm` failure is the one case
+    # that hands the checkout exactly the `.git` it must not reuse.
+    clear = next(s for s in steps if s.get("id") == "scanner_clear")
+    assert ".transcript-scanner" in clear["run"]
+    assert label_at < steps.index(clear) < steps.index(src)
+    assert "steps.scanner_clear.outcome == 'success'" in src["if"]
+    # Global and system git config are executable (`core.hooksPath`,
+    # `init.templateDir`) and fire during a checkout.
+    assert src["env"]["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert "${{ runner.temp }}" in src["env"]["GIT_CONFIG_GLOBAL"]
+
+    install = next(s for s in steps if s.get("id") == "scanner_install")
+    # A package cache the labeler can write reaches the import path as surely
+    # as a venv it can write, and so does the interpreter the venv is built on
+    # — uv keeps both under the runner user's home by default.
+    assert ".transcript-scanner" in install["env"]["UV_CACHE_DIR"]
+    assert ".transcript-scanner" in install["env"]["UV_PYTHON_INSTALL_DIR"]
+    assert "--managed-python" in install["run"]
+    assert "sync --locked" in install["run"]
+    assert "steps.scanner_src.outcome == 'success'" in install["if"]
+    assert steps.index(src) < steps.index(install) < scan_at
+    # `uv` sits where `setup-uv` put it — writable by the runner user without
+    # sudo — so the path recorded before the agent ran is not enough on its own.
+    assert install["env"]["UV_SHA256"] == "${{ steps.uv-bin.outputs.sha256 }}"
+    assert "sha256sum --check" in install["run"]
+    # `rm`, `git` and `sha256sum` all come off PATH, and `$GITHUB_PATH` prepends
+    # ahead of everything — so the toolchain PATH is pinned to root-owned
+    # directories, which puts those three behind the same sudo as the image.
+    for step in (clear, src, install):
+        assert step["env"]["PATH"].startswith("/usr/local/sbin:")
+    # The scan must not run at all without the install: `$SCANNER` is a path
+    # inside the workspace, and an ungated step would execute whatever is there.
+    assert "steps.scanner_install.outcome == 'success'" in scan["if"]
+
+    # `$GITHUB_ENV` and `$GITHUB_PATH` are appendable from any earlier step,
+    # the labeling step's subprocesses included, and the runner applies those
+    # writes to every step that follows — so a planted `PYTHONPATH` or
+    # `LD_PRELOAD` reaches the one process holding the key regardless of what
+    # is on the import path. Both the build and the scan strip them.
+    for step in (install, scan):
+        assert "unset PYTHONPATH" in step["run"]
+        assert "unset LD_PRELOAD" in step["run"]
+
+    # None of the three may fail the run: the artifact is the labels, and a
+    # scanner that failed to build leaves the scan its existing fail-closed
+    # path — no executable, so the transcript is withheld rather than published.
+    for step in (clear, src, install):
+        assert step.get("continue-on-error") is True
+
+    # And the scan invokes that install by absolute path. A bare `uv run` here
+    # is the whole bug: it resolves the project out of the labeler's workspace.
+    # `-E -s` is the exhaustive form of the unset above over the PYTHON* family;
+    # `-P` drops the implicit working-directory entry, which `-m` would
+    # otherwise put *first* on `sys.path` — and a run step's default working
+    # directory is the workspace the labeler wrote to. The working-directory
+    # override is the same answer from the other side; neither alone is
+    # load-bearing, and dropping either quietly re-opens the import path.
+    assert "uv run" not in scan["run"]
+    assert '"$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
+    assert scan["env"]["SCANNER"].endswith(".transcript-scanner/.venv/bin/python")
+    assert scan["working-directory"].endswith("/.transcript-scanner")
+    assert "-E -s -P -m fedcourtsai.cli" in install["run"]
 
 
 def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -> None:

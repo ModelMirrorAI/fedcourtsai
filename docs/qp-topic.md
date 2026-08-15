@@ -347,9 +347,7 @@ Three consequences bind every use of the set:
   from the summary block alone, and each re-run costs real model spend — so
   the transcript is uploaded on every path the action survives (a
   gate-refusing run is as diagnostic as a no-output one; a hard step-timeout
-  kill leaves no file to capture; a tree the pristine assertion rejects
-  forfeits its transcript, since the scanner runs this checkout's code and
-  must never run tampered code with the engine key in reach), only after a
+  kill is the one path that leaves no file to capture), only after a
   secret scan over the
   transcript passes (a hit withholds the artifact and says so — the collect
   job's withhold-and-continue posture, minus its trigger-issue report, since a
@@ -361,6 +359,43 @@ Three consequences bind every use of the set:
   extract, for the
   reasons argued above rather than a second, looser rule for the same
   disclosure class.
+
+  That scan holds the engine API key, so what it *imports* is as much a part of
+  the gate as what it reads. `setup-python-env` installs this project editable,
+  which would put the labeler's own tree — and its gitignored venv — on the
+  scanner's import path, where the tree-pristine assertion cannot follow: that
+  assertion compares tracked files, and an untracked module or a `.pth`
+  dropped into the venv is invisible to it. So the scanner is built after the
+  agent exits, from a second checkout of this run's commit fetched from GitHub
+  into a path of its own — cleared first, since a `.git` left there would be
+  reused rather than replaced, and then verified to be this commit and nothing
+  else, ignored files included — installed into a venv inside that fresh tree,
+  resolved through a package cache inside it, and built on a managed
+  interpreter downloaded into it. No part of the scanner's source or its
+  site-packages comes from the labeler's tree, its venv, its object store, or
+  the caches uv keeps in the runner user's home. The import path is not the
+  only way into a process, so two more levers close with it: git reads no
+  global or system config for that clone (`core.hooksPath` and
+  `init.templateDir` are code, and both fire during a checkout), and the
+  install and the scan both unset `PYTHONPATH`, `LD_PRELOAD` and their kin —
+  and run Python with `-P`, since `-m` would otherwise put the working
+  directory first on the import path — because the runner applies every
+  earlier step's `$GITHUB_ENV` writes to later ones and the labeling step's
+  subprocesses can append there. The toolchain that builds the scanner is held
+  the same way: `uv` against a digest recorded before the agent ran, and PATH
+  pinned to the root-owned directories so `git` is the image's. A tampered
+  tree therefore keeps its transcript — the capture exists to diagnose exactly
+  that run, and the scan does not have to trust the tree. The pristine
+  assertion gates the measure step instead, because a rigged *number* is a
+  different threat from a stolen key. What the isolation still trusts, and why
+  that set is the bound rather than the mechanism, is stated as an invariant in
+  [SECURITY.md](../SECURITY.md).
+
+  Three steps stand between the transcript and the artifact, and all three are
+  `continue-on-error`, so a scanner that fails to build costs the run its
+  transcript rather than its labels: the scan then finds no executable and
+  takes the same withhold-and-say-so path a scan that could not run for any
+  other reason takes.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
