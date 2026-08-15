@@ -128,12 +128,14 @@ each freeze commit is recorded here.
   out-of-sample re-census once frozen-window Terms accrue. The scored window
   opens at the first post-promotion metrics refresh, as it did for `sal-v2`.
 
-- Freeze commit: `8d256a32f`, to be tagged **`prereg/proc-v3`**. Carried to
-  `main` by the promotion tagged `promotion/<FILL: YYYY-MM-DD>` (merge commit
-  `<FILL: sha>`, merged `<FILL: instant>`) — the auditor's comparison of the
-  cutover procedure is that date against the freeze instant, and it is a **hard
-  gate before the tag is minted**, not a note: the `prereg/` namespace blocks
-  update and deletion, so a tag over a bad instant burns the label. It blesses
+- Freeze commit: `8d256a32f`, tagged **`prereg/proc-v3`**. Carried to
+  `main` by the promotion tagged `promotion/2026-08-15` (merge commit
+  `596740de4`, merged `2026-08-15T16:13:46Z`) — the auditor's comparison of the
+  cutover procedure is that date against the freeze instant, and it was a **hard
+  gate before the tag was minted**, not a note: the `prereg/` namespace blocks
+  update and deletion, so a tag over a bad instant burns the label. The merge
+  precedes the instant by under eight hours — inside the gate, with the
+  tight margin the entry below anticipated. It blesses
   the six proc-v3 digests (three predictors, three evaluators) and keeps the
   freeze instant at `2026-08-16T00:00:00Z`, deliberately unmoved from proc-v2's.
   Holding it is safe in the direction that matters — proc-v2 has zero stamped
@@ -154,8 +156,8 @@ each freeze commit is recorded here.
   precedes the freeze instant, so `is_frozen`'s time cutoff excludes them
   mechanically, and **zero cells were ever counted under proc-v2**: its headline
   is legitimately empty forever, and its tag stays as the record that the label
-  was registered and then superseded. The grep must be **re-run at promotion
-  time** — cells land on `main` continuously, so the count can move.
+  was registered and then superseded. The grep was re-run against `main` at
+  promotion time, as the procedure requires — the count held at 27.
 
   What moved every digest is the prompt pair: `.github/prompts/predict.md`
   elicits `cert-v2`'s five claims (the two additions in the conditional forms
