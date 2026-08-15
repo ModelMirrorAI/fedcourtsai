@@ -1268,7 +1268,8 @@ def interim_response_events_for(
     **requested** response precedes the disposition by a median 17 days and
     never fewer than 3, on 12.3% of applications, with a 37.0% grant rate
     against a 7.8% base. A **filed** response covers more — 30.6% — but precedes
-    the disposition by a median of only 2 days, and 7 of 67 land the same day.
+    the disposition by a median of only 2 days, and 7 of the 67 filed responses
+    (30.6% of 219) land the same day.
     The response-requested share is the one of these the statpack's `interim`
     section can restate (`response_requested` over `substantive`); the filed
     share and both horizons rest on corpus-only fields no artifact publishes, so

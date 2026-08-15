@@ -40,7 +40,7 @@ application Term, OT2025, still open — a Term-to-date count.
 |---|---:|---|
 | Cert — paid modern-cert petitions | 1,498 | at most the pool the gate selects from (11,987 rows over eight Terms) |
 | Merits — cert grants opening a proceeding | 65 | paid `granted`, excluding the `gvr` label, which disposes of a petition without opening a proceeding |
-| Interim — substantive applications | 179 | 13.1% of OT2025's 1,365 parsed application dockets; 82.6% are extensions and 4.2% unreadable asks |
+| Interim — substantive applications | 179 | 13.1% of OT2025-to-date's 1,365 parsed application dockets; 82.6% are extensions and 4.2% unreadable asks. An open Term over an accumulating cohort — recompute from the statpack's `interim` section rather than quoting these |
 
 **A case is forecast more than once.** Each stage asks one question and the case
 passes several points at which it can honestly be forecast, each with a
@@ -55,7 +55,7 @@ case-equivalent.
 | cert | arrival | 98 | the sal-v3 arrival cohort, **beside** `N`, filling forward from the registration-fixed cohort start (the OT2026 docket-year roll — the standing pending backlog never enters): 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~23 from the federal-petitioner carve-in under `caption-v2`, whose census run passed statistical verification (8/8 complete Terms at 9.1–17.7× lift; per-Term 11–41, so a heavy government-litigation Term runs high; the caption-v1 cut carved ~20, with caption-v2 adding ≈2.5/Term — `docs/salience.md`) |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
 | interim | response requested | 10 | 15.1% of the 67 selected arrivals — 27 of OT2025's 179 substantive applications |
-| interim | response filed | 21 | 30.6% of the 67, measured over the pack-wide 219-substantive population the moment was declared against; the response-filed timestamp is published in no artifact, so this one rate cannot be refreshed from the pack |
+| interim | response filed | 21 | 30.6% of the 67 selected arrivals, the rate measured over the 219-substantive population the moment was declared against (a different 67: 67 of those 219 drew a filed response); the response-filed timestamp is published in no artifact, so this one rate cannot be refreshed from the pack |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
 | | **total** | **838–865** | **≈$10.9–11.2K/Term** at the $13 planning rate, arrival slice + carve-in included (≈$11.4K at the bound if the federal carve-in's conference-cohort reach adds its full ~14) |
@@ -132,9 +132,10 @@ population is the relist-selected slice rather than the docket-wide mean.
 
 **The interim reserve bounds concurrency, and is sized to trade inside `N`
 rather than add spend.** Substantive applications resolve in a *mean* of 27.1
-days (median 13, p95 110) — measured over the whole accumulated substantive
-slice, which OT2025's 179 dominate at 72% of the pack-wide 249 — so OT2025's
-179 arrivals need ≈13 concurrent slots against
+days (median 13, p95 110) — the same declaration-time 219-substantive
+measurement as the moment horizons above, over corpus-only fields no artifact
+republishes — so OT2025-to-date's 179 arrivals need ≈13 concurrent slots
+against
 `interim_reserve_slots: 5` — the reserve is continuously full, and the predicted
 interim slice is therefore a ladder-ordered subsample of the substantive stream
 rather than the stream itself.
@@ -157,10 +158,12 @@ would be funded.
 Two things bound the interim figures. Lifespans run from each docket's first
 entry to its disposing entry rather than from the `date_filed` /
 `date_decided` columns, which are null on a substantial minority of the rows
-and null disproportionately on the long-lived ones; the entry-based measure
-therefore reaches every *resolved* application and only those — 243 of the
-pack-wide 249, and 178 of OT2025's own 179 — the remainder being applications
-still pending. And OT2025 is open, so the arrival count is a partial year
+and null disproportionately on the long-lived ones. An entry-based lifespan
+exists only for a *resolved* application, so the measure covered 218 of the
+219 rows it was taken over, the exception being the one then still pending.
+The same rule against today's pack would reach 243 of the accumulated 249 (178
+of OT2025-to-date's own 179) — a property of the population, not a denominator
+the figures above were recomputed on. And OT2025 is open, so the arrival count is a partial year
 divided into a full-year denominator — saturation is understated, not
 overstated.
 
@@ -197,7 +200,12 @@ recorded cost a mild undercount.
 Measured per-cell cost spans **≈$0.25–7.87 by model mix** (blended mean **≈$1.87**
 over the 422 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
 gemini ≈$0.55; evaluate, from the four graded events: claude-judge ≈$4.68, codex-judge
-≈$1.03, gemini-judge ≈$0.72); the cheapest cells approach ≈$0.25 only when the
+≈$1.03, gemini-judge ≈$0.72). **That $1.87 is the ledger's mix, not the
+design's**: 410 of the 422 cells are predict, and evaluate cells cost more, so
+the mean the funding knob has to cover is the one at the design mix of three
+predict and three evaluate cells per case — **$2.00** ($12.01 ÷ 6). Read $1.87
+as what has been spent per cell so far and $2.00 as what a fully-tournamented
+case implies. The cheapest cells approach ≈$0.25 only when the
 byte-stable prefix (AGENTS.md + prompt template + schema) is served from the prompt
 cache — automatic on all three engines, billing cached reads at ≈0.1×, and the
 reason to keep that prefix stable. Budget the range, not the point. The evaluate
@@ -261,9 +269,12 @@ evaluate:  3 evaluator cells × $2.12 = $6.36
 per case ≈ $13   (planning rate, three engines cross-evaluated)
 ```
 
-`$2.12` is a **deliberately conservative** per-cell rate, held above the current
-measured blended mean of `$1.87` (422 cells) so the knob does not have to be
-re-cut every time the ledger grows. Priced at today's measured per-engine means
+`$2.12` is a **deliberately conservative** per-cell rate, held above the
+**$2.00** a fully-tournamented case implies at today's measured per-engine
+means ($12.01 ÷ 6 cells) so the knob does not have to be re-cut every time the
+ledger grows. That margin is ~6%, not the ~13% a comparison against the
+ledger's `$1.87` blended mean would suggest — the ledger is 97% predict cells,
+and the design mix is half evaluate. Priced at those same per-engine means
 the same case is **≈$12** — predict `$5.58` (claude `$3.65` + codex `$1.38` +
 gemini `$0.55`) plus evaluate `$6.43` (claude `$4.68` + codex `$1.03` + gemini
 `$0.72`). Treat `$13` as the number to fund against and `$12` as the number to
@@ -278,12 +289,14 @@ call), so the gate spends nothing to *decide* what the tournament runs on. Raisi
 **The interim docket: a quota'd stream, capped at five cases in flight.**
 [salience.md](salience.md)'s interim-docket section carries a second selection
 problem — stays, injunctions, vacaturs pending certiorari — and the quota is what
-keeps it small. Across the 1,365 parsed application dockets of the walked
+keeps it small. Across the 1,365 parsed application dockets of the still-open
 OT2025 Term, **82.6%** are
 time-extension requests and **4.2%** carry an ask the parser cannot read; both
 are filtered out deterministically by
 `interim_signals.is_predictable_application` (≈$0, no model call), leaving the
-**13.1%** substantive slice as the only population ever predicted. The stream is
+**13.1%** substantive slice as the only population ever predicted (an open Term
+over an accumulating cohort — recompute from the statpack's `interim` section
+rather than quoting these). The stream is
 budgeted as a **bounded reserve defined inside the per-conference spend
 envelope**: `salience.interim_reserve_slots` in
 [config/tracking.yaml](../config/tracking.yaml), set to `5` and enforced by the
@@ -302,7 +315,8 @@ bounded drift the carve-outs already produce (see
 [salience.md](salience.md)). A selected application occupies its slot until
 it resolves, so the reserve's firm effect is the one on *concurrency*: at most
 five interim cells are ever in flight, against the ≈13 substantive applications
-live at any moment, and an unfilled reserve costs nothing. The slice is
+live at any moment on OT2025-to-date's arrival rate — a floor, since the Term
+is open. An unfilled reserve costs nothing. The slice is
 predicted, and its base rate is registered and wired — pooled over application
 Terms strictly before the case's own, above its own per-pool floor
 ([salience.md](salience.md)).
@@ -341,7 +355,7 @@ ledger by both plan seams before either mints a matrix. Reaching it **defers**:
 the predict queue and the evaluate backlog are untouched and re-derive next cycle.
 
 The shipped value is **$2,500 over a 30-day trailing window** — ~2.1× the
-Term's average month (≈$1.2K: the 836–863 events/Term at the $13
+Term's average month (≈$1.2K: the 838–865 events/Term at the $13
 planning rate, spread over the ~9 months the Term spans; on a 12-month spread
 the multiple is 2.8×, so the claim is conservative). What it protects against
 is a **burst, not a rate**. The steady state cannot reach it: even a
@@ -490,7 +504,7 @@ plus a fixed ~220 events from the other two":
 
 | Scenario | ≈ Annual | Inference (= total − ≈$5.5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$16.5K | ≈$11K | ≈836–863 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~96 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
+| Bootstrapping | ≈$16.5K | ≈$11K | ≈838–865 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~98 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$21K |
 | Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — comfortably past the ≈5,500-event whole-docket ceiling (≈$70K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$19K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
 | Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
