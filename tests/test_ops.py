@@ -1192,10 +1192,18 @@ def test_substance_accuracy_skips_the_cells_reporting_no_correct() -> None:
     digest = ops.summarize_substance(cell_counts=(3, 3, 3), stratified_evaluations=stratified)
     assert digest.calibration.sample == 3
     assert digest.calibration.accuracy == 1.0  # 1/1, not 1/3
+    assert digest.calibration.accuracy_scored == 1
     by_id = {row.predictor_id: row for row in digest.predictor_scores}
     assert by_id["scored"].accuracy == 1.0
     assert by_id["scored"].evaluations == 2
+    assert by_id["scored"].accuracy_scored == 1
     assert by_id["unscored"].accuracy is None
+    assert by_id["unscored"].accuracy_scored == 0
+    # The rendered line prints accuracy's own base against the cell count, so a
+    # percentage over one cell cannot read as a percentage over three.
+    md = ops.render_substance(digest)
+    assert "(n=1 of 3)" in md
+    assert "| unscored | 1 | — | 0 |" in md
 
 
 def test_quantiles_are_deterministic_on_an_odd_sample() -> None:

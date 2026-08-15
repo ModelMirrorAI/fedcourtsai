@@ -13,10 +13,12 @@ indistinguishable post-hoc without re-resolving the source docket text (which th
 ``outcome.json`` does not carry), and is an accepted residual — immaterial on the
 binary ``actual_granted`` axis, where ``gvr`` already counts as a grant, so the
 Brier score and the ranked leaderboard are unaffected regardless. Relabeling is
-also inert for the leaderboard: it reads the committed ``evaluation.json`` records
-(whose ``correct`` / Brier were frozen at evaluation time), not the outcome, and
-the relabeled cell keeps ``disposition_basis == "mootness"`` so it stays in the
-procedural stratum. Deterministic, offline, idempotent.
+also inert for the leaderboard, but not because a committed number cannot move:
+``correct`` is stamped from the outcome, so re-running ``stamp-cell`` over a
+relabeled cell would recompute it. Nothing does — this migration rewrites the
+outcome alone — and the relabeled cell keeps ``disposition_basis == "mootness"``,
+so it stays in the non-ranked procedural stratum whatever its bit says.
+Deterministic, offline, idempotent.
 """
 
 from __future__ import annotations

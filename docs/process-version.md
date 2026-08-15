@@ -93,8 +93,12 @@ unchanged digests. **Who** computes a scored number sits outside the digest for
 the same reason — and the rule covers the numerator as well as the baseline it
 is scored against: on the merits and interim stages the rate, the Brier, and
 the skill over them are all stamped from harness code rather than computed by
-the evaluator, so a change there moves how a number was produced without moving
-any actor's digest, and belongs in the freeze record beside the window. The
+the evaluator, and on **every** stage so is `correct` — the accuracy column's
+per-cell bit, which needs no pooled baseline and so takes no cert exemption. A
+change there moves how a number was produced without moving
+any actor's digest, and belongs in the freeze record beside the window. This is
+the standard's own trigger case rather than an aside: the same prompt, the same
+definition, the same digest, a different author for the number. The
 quantity itself is unchanged in every such move — the harness computes what the
 prompt defined — which is exactly why no digest moves and why the freeze record
 is the only place the change is visible. (The salience *version* does have a boundary:

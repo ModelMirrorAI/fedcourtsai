@@ -5365,15 +5365,31 @@ class SubstanceCalibration(_Strict):
     """Calibration on the scored replay sample, anchored to the deny base rate.
 
     Replay (retrospective) cells only — the iteration-signal stratum. ``sample``
-    is printed beside every number so a small-N figure cannot masquerade as
-    signal. ``lift_over_always_deny`` is replay accuracy minus the modern-cert
+    is the cell count, printed beside every number so a small-N figure cannot
+    masquerade as signal — but it is not every number's own denominator:
+    ``accuracy`` is a mean over the cells reporting a ``correct``, which
+    ``accuracy_scored`` carries and the rendered line prints beside it. ``sample``
+    is the ceiling, that count the actual base.
+
+    ``lift_over_always_deny`` is replay accuracy minus the modern-cert
     denial base rate (the accuracy an always-deny predictor would score); null
-    until both halves exist.
+    until both halves exist. The two are **not** taken over the same set: the
+    minuend runs over ``accuracy_scored`` replay cells, the subtrahend over the
+    statpack's whole modern-cert slice, so where ``accuracy_scored`` sits below
+    ``sample`` the lift is a difference of differently-populated rates — an
+    orientation, never an effect size.
     """
 
     sample: int = Field(ge=0, description="Scored replay evaluations")
     mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
     accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    accuracy_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Replay evaluations contributing to accuracy — the cells "
+        "carrying a non-null `correct`. Below `sample` wherever a cell's "
+        "committed prediction or outcome was unreadable at stamp time",
+    )
     deny_base_rate: float | None = Field(
         default=None,
         ge=0.0,
@@ -5419,13 +5435,22 @@ class PredictorScoreRow(_Strict):
 
     ``median`` / ``p25`` / ``p75`` summarize the cross-evaluator
     ``reasoning_quality`` grades; ``accuracy`` is the share of correct calls
-    over the cells reporting a ``correct`` at all, null where none does.
+    over the cells reporting a ``correct`` at all — ``accuracy_scored``, which
+    sits below ``evaluations`` wherever the stamp could not compute one — and
+    null where none does.
     All strata pooled — the leaderboard remains the stratified reference.
     """
 
     predictor_id: str
     evaluations: int = Field(ge=0)
     accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    accuracy_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations contributing to accuracy — the cells carrying "
+        "a non-null `correct`. Below `evaluations` wherever a cell's committed "
+        "prediction or outcome was unreadable at stamp time",
+    )
     median: float | None = Field(default=None, ge=0.0, le=1.0)
     p25: float | None = Field(default=None, ge=0.0, le=1.0)
     p75: float | None = Field(default=None, ge=0.0, le=1.0)

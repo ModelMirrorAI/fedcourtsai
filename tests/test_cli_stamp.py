@@ -1514,3 +1514,238 @@ def test_stamp_clears_correct_with_no_committed_prediction(
         event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
     )
     assert stamped["correct"] is None
+
+
+def test_stamp_is_silent_where_the_recorded_correct_agrees(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An agreeing bit is overwritten **quietly** — the note is about disagreement.
+
+    The stamp assigns unconditionally either way, so this is not a test of what
+    gets written but of what gets *said*: a warning on every stamped cell would
+    be noise a maintainer learns to skip, which is exactly how the disagreeing
+    case gets missed. Here the evaluator's `correct` matches what the two
+    committed artifacts produce, and nothing is echoed about it.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 16).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/16",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for a writ of certiorari",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/16",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/16",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/16",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,  # right: `denied` against a `denied` outcome
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 16, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "correct" not in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] == 1
+
+
+def test_stamp_warns_where_the_evaluator_recorded_no_correct(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An omitted bit is said too: it kills the independent read, silently.
+
+    The elicited value the stamp discards is the only second read of the
+    stamped quantity anywhere in a run, so an evaluator that writes nothing
+    leaves the harness's arithmetic unchecked — and, unlike a wrong value,
+    produces no disagreement to notice. The omission direction is on for
+    `correct` because the prompt requires it of every cell; on a field where a
+    null is the normal shape it stays off.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 17).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/17",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for a writ of certiorari",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/17",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/17",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/17",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=None,
+            # A null Brier on a cert cell is the normal shape and stays quiet,
+            # which is what makes the omission warning field-specific.
+            brier_score=None,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 17, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "recorded no correct" in result.output
+    assert "brier_score" not in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] == 1
+
+
+def test_stamp_recomputes_correct_on_an_interim_cell(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The third stage, stated rather than inferred from the other two.
+
+    Cert and merits between them exercise both arms of the stage branch and
+    both routings inside `is_correct`; interim is a harness-skill stage whose
+    axis is the disposition, so it is the one combination neither covers. The
+    claim is "every stage", so every stage is asserted.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 18).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/18",
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            moment=Moment.arrival,
+            title="Application for a stay",
+            opened_at=date(2026, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/18",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 3, 2, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-03-01.json",
+            granted=1,
+            probability=0.8,
+            predicted_disposition=Disposition.granted,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 3, 1),
+                signals_observable=True,
+                band=None,
+                term=2026,
+            ),
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/18",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/18",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,  # wrong: `granted` against a `denied` outcome
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 18, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "recorded correct 1" in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["correct"] == 0
+    assert stamped["brier_score"] == pytest.approx(0.64)

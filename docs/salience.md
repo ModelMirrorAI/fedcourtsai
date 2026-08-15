@@ -823,11 +823,15 @@ rather than folding it into an undifferentiated "granted."
 - **Migration is a forward-convention change, not a retroactive relabel.** New
   resolutions label a GVR `gvr`; outcomes recorded before the label keep `granted`,
   because retroactively flipping a decided outcome would penalize a past
-  `granted` prediction for using the *then-current* vocabulary (its `correct` is
-  frozen and fair). The one exception a one-time deterministic backfill *can* fix
+  `granted` prediction for using the *then-current* vocabulary. `correct` is no
+  defence there: it is stamped from the outcome, so a re-stamp after a relabel
+  would recompute it — what protects the past cell is that the relabel does not
+  happen, not that its bit could not move. The one exception a one-time
+  deterministic backfill *can* fix
   from committed data alone is the **identifiable Munsingwear vacatur** (`granted`
   + `mootness` basis → `gvr`), which is already in the non-ranked procedural
-  stratum, so no metric moves. A plain-`granted` **merits** GVR in history is an
+  stratum and unranked whatever its bit says, so no published metric moves —
+  and nothing re-stamps it in any case. A plain-`granted` **merits** GVR in history is an
   accepted residual — indistinguishable post-hoc without re-resolving the source
   docket text (the `outcome.json` does not carry it), and immaterial on the binary
   axis.

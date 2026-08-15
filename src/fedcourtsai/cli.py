@@ -2753,7 +2753,13 @@ def _skill_record_for(
     """
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
-    _warn_on_discarded_number(evaluation, "correct", evaluation.correct, correct)
+    # The one field the evaluate prompt requires of every cell, so a null is a
+    # contract miss rather than a stage's silence — and it costs the stamped
+    # bit its only independent read, which is worth as much noise as a
+    # disagreement.
+    _warn_on_discarded_number(
+        evaluation, "correct", evaluation.correct, correct, warn_on_omission=True
+    )
     if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
         version = _base_rate_salience_version_for(event_paths, evaluation)
         return (
@@ -2791,7 +2797,12 @@ _STAMP_ECHO_TOLERANCE = 1e-3
 
 
 def _warn_on_discarded_number(
-    evaluation: Evaluation, field: str, recorded: float | None, stamped: float | None
+    evaluation: Evaluation,
+    field: str,
+    recorded: float | None,
+    stamped: float | None,
+    *,
+    warn_on_omission: bool = False,
 ) -> None:
     """Say when a stamped number replaces a *different* one the evaluator wrote.
 
@@ -2808,15 +2819,28 @@ def _warn_on_discarded_number(
     systematic disagreement — an evaluator scoring the wrong binary, or reading
     a stale probability — surfaces here and nowhere else. A field the prompt
     stopped asking for would leave that check with nothing to compare.
+
+    ``warn_on_omission`` extends that to the other direction: an evaluator that
+    simply *omits* the elicited value kills the independent read as effectively
+    as a wrong one, and silently, since there is then no disagreement to
+    report. It is off by default because on an optional field an omission is
+    the normal shape — most cells legitimately record no Brier or no rate — and
+    on by exception for a field the prompt requires of every cell, where a null
+    is a prompt-contract miss rather than a stage's silence.
+
+    "Harness-stamped" in the note is said of the **field**, not the stage: on a
+    cert cell ``correct`` is stamped while the skill record beside it is not, so
+    naming the stage would misdescribe exactly the cell this most often fires on.
     """
-    if recorded is None or (
-        stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE
-    ):
+    if recorded is None:
+        if not (warn_on_omission and stamped is not None):
+            return
+    elif stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE:
         return
+    said = f"recorded no {field}" if recorded is None else f"recorded {field} {recorded}"
     typer.echo(
-        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
-        + f"{field} {recorded} on a harness-stamped stage; the stamp wrote "
-        + f"{stamped} instead.",
+        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} {said} "
+        + f"for a harness-stamped field; the stamp wrote {stamped}.",
         err=True,
     )
 

@@ -295,6 +295,7 @@ def summarize_substance(
         sample=len(replay),
         mean_brier=round(sum(briers) / len(briers), 4) if briers else None,
         accuracy=accuracy,
+        accuracy_scored=len(replay_correct),
         deny_base_rate=deny_rate,
         base_rate_cases=base_cases,
         lift_over_always_deny=(
@@ -323,6 +324,7 @@ def summarize_substance(
                 predictor_id=predictor_id,
                 evaluations=len(evals),
                 accuracy=(round(sum(row_correct) / len(row_correct), 4) if row_correct else None),
+                accuracy_scored=len(row_correct),
                 median=_quantile(quality, 0.5),
                 p25=_quantile(quality, 0.25),
                 p75=_quantile(quality, 0.75),
@@ -400,14 +402,24 @@ def render_substance(digest: SubstanceDigest) -> str:
     if cal.sample > 0:
         brier = "—" if cal.mean_brier is None else f"{cal.mean_brier:.3f}"
         accuracy = "—" if cal.accuracy is None else f"{cal.accuracy:.0%}"
-        cal_lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** (n={cal.sample})")
+        # Accuracy prints its own denominator, not the cell count: a cell whose
+        # `correct` the stamp could not compute is out of the fraction, so
+        # `sample` would overstate what the percentage was taken over.
+        scored = (
+            f"n={cal.accuracy_scored}"
+            if cal.accuracy_scored == cal.sample
+            else f"n={cal.accuracy_scored} of {cal.sample}"
+        )
+        cal_lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** ({scored})")
     if cal.deny_base_rate is not None:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
         cal_lines.append(
             f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
             f"(est. over {cal.base_rate_cases:,} resolved modern-cert petitions, "
             "live/historical slice, denial-reweighted) · "
-            f"lift **{lift}**"
+            f"lift **{lift}** — a difference of rates over different "
+            "populations (the accuracy's scored cells vs the whole modern-cert "
+            "slice), so an orientation rather than an effect size"
         )
     if cal.segment_grant_rate is not None:
         skill = "—" if cal.mean_brier_skill is None else f"{cal.mean_brier_skill:+.3f}"
@@ -424,15 +436,19 @@ def render_substance(digest: SubstanceDigest) -> str:
         lines += [
             "",
             "**Evaluation scores by predictor** (reasoning quality, all strata pooled)",
-            "| Predictor | Cells | Accuracy | Median | p25-p75 |",
-            "|-----------|------:|---------:|-------:|---------|",
+            "| Predictor | Cells | Accuracy | Scored | Median | p25-p75 |",
+            "|-----------|------:|---------:|-------:|-------:|---------|",
         ]
         for row in digest.predictor_scores:
             accuracy = "—" if row.accuracy is None else f"{row.accuracy:.0%}"
             median = "—" if row.median is None else f"{row.median:.2f}"
             spread = "—" if row.p25 is None or row.p75 is None else f"{row.p25:.2f}-{row.p75:.2f}"
+            # `Scored` is accuracy's own denominator, beside the cell count
+            # rather than replacing it: the gap is the cells the stamp could
+            # not score, and a column that hid it would read as a full sample.
             lines.append(
-                f"| {row.predictor_id} | {row.evaluations} | {accuracy} | {median} | {spread} |"
+                f"| {row.predictor_id} | {row.evaluations} | {accuracy} | "
+                f"{row.accuracy_scored} | {median} | {spread} |"
             )
 
     frontier = digest.live_frontier

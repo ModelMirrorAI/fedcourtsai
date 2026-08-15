@@ -825,7 +825,8 @@ def build_leaderboard(
 
         One entry per predictor, each carrying its **forward** and **retrospective**
         aggregates separately (a stratum with no cells is null, never zero-filled
-        into a blend). Entries rank by forward accuracy (desc), forward Brier (asc,
+        into a blend). Entries rank by forward accuracy (desc, missing last),
+        forward Brier (asc,
         missing last), the retrospective pair as tie-break, then ``predictor_id`` —
         a total order, so the ranking is deterministic even under ties. ``big_case``
         (from :func:`big_case_agreement`) attaches each predictor's big-case

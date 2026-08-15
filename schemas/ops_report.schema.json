@@ -794,7 +794,7 @@
     },
     "PredictorScoreRow": {
       "additionalProperties": false,
-      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls\nover the cells reporting a ``correct`` at all, null where none does.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.",
+      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls\nover the cells reporting a ``correct`` at all \u2014 ``accuracy_scored``, which\nsits below ``evaluations`` wherever the stamp could not compute one \u2014 and\nnull where none does.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.",
       "properties": {
         "accuracy": {
           "anyOf": [
@@ -809,6 +809,13 @@
           ],
           "default": null,
           "title": "Accuracy"
+        },
+        "accuracy_scored": {
+          "default": 0,
+          "description": "Evaluations contributing to accuracy \u2014 the cells carrying a non-null `correct`. Below `evaluations` wherever a cell's committed prediction or outcome was unreadable at stamp time",
+          "minimum": 0,
+          "title": "Accuracy Scored",
+          "type": "integer"
         },
         "evaluations": {
           "minimum": 0,
@@ -923,7 +930,7 @@
     },
     "SubstanceCalibration": {
       "additionalProperties": false,
-      "description": "Calibration on the scored replay sample, anchored to the deny base rate.\n\nReplay (retrospective) cells only \u2014 the iteration-signal stratum. ``sample``\nis printed beside every number so a small-N figure cannot masquerade as\nsignal. ``lift_over_always_deny`` is replay accuracy minus the modern-cert\ndenial base rate (the accuracy an always-deny predictor would score); null\nuntil both halves exist.",
+      "description": "Calibration on the scored replay sample, anchored to the deny base rate.\n\nReplay (retrospective) cells only \u2014 the iteration-signal stratum. ``sample``\nis the cell count, printed beside every number so a small-N figure cannot\nmasquerade as signal \u2014 but it is not every number's own denominator:\n``accuracy`` is a mean over the cells reporting a ``correct``, which\n``accuracy_scored`` carries and the rendered line prints beside it. ``sample``\nis the ceiling, that count the actual base.\n\n``lift_over_always_deny`` is replay accuracy minus the modern-cert\ndenial base rate (the accuracy an always-deny predictor would score); null\nuntil both halves exist. The two are **not** taken over the same set: the\nminuend runs over ``accuracy_scored`` replay cells, the subtrahend over the\nstatpack's whole modern-cert slice, so where ``accuracy_scored`` sits below\n``sample`` the lift is a difference of differently-populated rates \u2014 an\norientation, never an effect size.",
       "properties": {
         "accuracy": {
           "anyOf": [
@@ -938,6 +945,13 @@
           ],
           "default": null,
           "title": "Accuracy"
+        },
+        "accuracy_scored": {
+          "default": 0,
+          "description": "Replay evaluations contributing to accuracy \u2014 the cells carrying a non-null `correct`. Below `sample` wherever a cell's committed prediction or outcome was unreadable at stamp time",
+          "minimum": 0,
+          "title": "Accuracy Scored",
+          "type": "integer"
         },
         "base_rate_cases": {
           "anyOf": [
