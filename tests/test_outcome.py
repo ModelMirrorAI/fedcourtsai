@@ -20,6 +20,7 @@ from fedcourtsai.pipeline.outcome import (
     disposition_route,
     granted_flag,
     interim_disposal_signal,
+    interim_resolution_signals,
     is_machine_readable,
     merits_event_for,
     mint_moment_events,
@@ -173,6 +174,34 @@ def test_decided_application_records_the_interim_outcome_on_the_interim_baseline
     assert outcome.actual_granted == 1
     assert outcome.resolved_at == date(2024, 8, 15)
     assert outcome.signals is None
+    # A REST-shaped row carries none of the application-parsed columns, so the
+    # coverage sentinel is null and no interim block is written either — the
+    # absence says "never parsed", which is exactly true of this channel.
+    assert outcome.interim_signals is None
+
+    # With the live channel's latched columns present, the block is written.
+    parsed = row.model_copy(
+        update={
+            "application_kind": "substantive",
+            "response_requested": True,
+            "referred_to_court": False,
+            "amicus_briefs": 2,
+        }
+    )
+    resolved = detect_resolution(
+        parsed,
+        "scotus",
+        9001,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    interim = resolved.outcomes["evt-motion-disposition"].interim_signals
+    assert interim is not None
+    assert (interim.response_requested, interim.referred_to_court, interim.amicus_briefs) == (
+        True,
+        False,
+        2,
+    )
 
 
 def test_interim_routing_never_touches_a_cert_docket() -> None:
@@ -1577,6 +1606,37 @@ def test_a_parsed_petition_with_no_cvsg_says_so_unambiguously() -> None:
     assert signals is not None
     assert signals.distribution_count == 1  # distributed once, never relisted
     assert signals.cvsg_date is None
+
+
+def test_interim_resolution_signals_are_frozen_onto_the_outcome() -> None:
+    """The interim twin: the escalation trio is copied out of the mutable corpus
+    columns into the immutable record, so an increment claim's resolution end
+    stops moving once the application is decided."""
+    signals = interim_resolution_signals("substantive", True, False, 3)
+    assert signals is not None
+    assert signals.response_requested is True
+    assert signals.referred_to_court is False
+    assert signals.amicus_briefs == 3
+
+
+def test_a_never_application_parsed_row_records_no_interim_signals() -> None:
+    """`application_kind` is the coverage sentinel for the whole interim signal
+    family, exactly as `distribution_count` is for the cert one."""
+    assert interim_resolution_signals(None, True, True, 1) is None
+
+
+def test_an_unobserved_interim_signal_is_never_coerced_to_false_or_zero() -> None:
+    """A missing latched column means nobody observed it, and the block's whole
+    value is that a `False` inside it means the Court did not act. Manufacturing
+    one would resolve an increment claim against a fact nobody recorded, so any
+    absent value suppresses the block outright."""
+    assert interim_resolution_signals("substantive", None, False, 0) is None
+    assert interim_resolution_signals("substantive", False, None, 0) is None
+    assert interim_resolution_signals("substantive", False, False, None) is None
+    # All four present, all falsy: a real observation, and the block exists.
+    signals = interim_resolution_signals("substantive", False, False, 0)
+    assert signals is not None
+    assert signals.amicus_briefs == 0
 
 
 def test_an_outcome_written_before_the_block_existed_still_parses() -> None:

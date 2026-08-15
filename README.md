@@ -197,10 +197,11 @@ lifecycle under the interim stage: docketed → holds or waits for one of the
 bounded reserve slots (ladder order above; a slot frees only when an occupant
 resolves) → predicted on its interim baseline, re-forecast when the Court
 requests a response and when that response arrives → resolved through the
-interim disposition vocabulary and evaluated. Interim outcomes publish
-descriptively; interim skill becomes claimable only when the statpack's
-interim segment base rate publishes under its pre-registered rule
-([`docs/salience.md`](docs/salience.md)). A **granted** cert petition needs no
+interim disposition vocabulary and evaluated. The stage's baseline is registered
+and wired — the substantive slice pooled over application-Terms strictly before
+the case's own — and an interim skill number exists only where that pool clears
+its pre-registered floor, travelling with the selection caveats registered
+alongside it ([`docs/salience.md`](docs/salience.md)). A **granted** cert petition needs no
 selection at all for its merits events — the grant itself is the Court's
 selection, so the merits stage bypasses the salience gate entirely.
 

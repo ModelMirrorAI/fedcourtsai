@@ -306,10 +306,10 @@ stays outside the gate:
   scored still appears with `scored: 0` so the coverage gap stays visible.
 
   **Counts and comparability.** The population is the **cert-stage** cells:
-  the board never blends stages, so although the minted merits event
-  declares its own set (`merits-v1` — one claim, restating the merits
-  headline), a non-cert cell's block sits outside this surface (and outside
-  its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
+  the board never blends stages, so although the other two stages declare
+  their own sets (`interim-v1` on every interim moment, `merits-v1` on the
+  minted merits event), a non-cert cell's block sits outside this surface (and
+  outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
   evaluator of the same prediction carries an identical harness block, so
   blocks are deduplicated to one per event before averaging (the newest
   evaluation's block wins where a statpack revision between evaluator stamps
@@ -541,8 +541,15 @@ standard by construction); a stage-less cell of any other kind shares one
 `(none)` bucket so coverage stays visible — that bucket's *counts* are the
 claimable part, while its means pool cells of unknown, possibly heterogeneous
 decision standards and support no cross-cell claim. Skill scores appear only
-where a scored base rate exists for the stage. The cert segment has one, and
-the **merits stage has a registered baseline** — the statpack merits section's
+where a scored base rate exists for the stage. All three now have one. The
+**interim stage's** is the statpack interim section's substantive grant rate,
+pooled over application Terms strictly before the case's own
+(`pipeline.base_rates.interim_base_rate`), subject to its own per-pool floor and
+carrying the selection caveats registered in
+[`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
+substantive slice while the scored cells are reserve-selected on the escalation
+ladder, so an interim skill number is not by itself evidence of forecast skill.
+The **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
 (`pipeline.base_rates.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
@@ -607,8 +614,13 @@ band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
 outcome's `actual_disposition` is always the off-vocabulary `other`. The
-interim stage has no registered base rate, so its block carries counts,
-accuracy, and Brier with its skill figure null and `skill_scored` zero. Every
+interim stage's base rate is registered and pooled from the pack's interim
+section — the substantive slice's grant rate over application-Terms strictly
+before the case's own, subject to its own pooled floor
+([`docs/salience.md`](../docs/salience.md)) — so its block reports skill on the
+same terms as the merits one: a figure where a cell's baseline exists, and null
+with `skill_scored` zero where the pooled sample is below the floor or the
+cell's own evaluation recorded no skill. Every
 non-cert block — both stages and the `(none)` bucket — reports the realized-Term
 skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
@@ -621,7 +633,8 @@ stated minimum, and every Term inside the pooled window must carry a
 non-null guard count (the null-provenance refusal under `statpack.json`
 above) — behind any of these there is no baseline, the declared claim goes
 unscored, and the merits stage block's skill figure is null with
-`skill_scored` zero, exactly as the interim block's are. A merits cell
+`skill_scored` zero. The interim block is null the same way and for the same
+class of reason, its own floor standing in for these. A merits cell
 records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
@@ -782,14 +795,14 @@ the rendered table) and
   ungranted), and the escalation-signal counts (response requested, referred
   to the Court, amicus on file — max-latched ending states, not
   as-at-prediction values, and no rate here conditions on them). **What may be claimed
-  from it:** the counts and the substantive-application grant rate are
-  *descriptive* facts about the accumulated cohort, nothing more. The rate is
-  not a segment base rate — the interim stage is predicted (the substantive
-  slice, under the reserve quota) but its scored base rate publishes only at
-  the pre-registered resolved-count floor in
-  [`docs/salience.md`](../docs/salience.md) — so until then no skill,
-  calibration, or baseline claim may
-  rest on it, and it is comparable to nothing the cert sections publish (a
+  from it:** the pack-level counts and grant rate are *descriptive* facts about
+  the accumulated cohort, nothing more — the pack-level rate is **not** a base
+  rate for any cell, because it contains that cell's own Term. The scored
+  interim baseline is built from the **per-Term rows** instead: the substantive
+  slice pooled over application-Terms strictly before the case's own, and only
+  where that pooled sample clears the per-pool floor pre-registered in
+  [`docs/salience.md`](../docs/salience.md); below the floor a cell carries no
+  baseline and no substitute. Either way the rate is comparable to nothing the cert sections publish (a
   different population resolving on a different standard, unweighted where the
   cert cuts are denial-reweighted). Extensions are counted so the docket's
   administrative dominance stays visible, but they never pool into any rate.

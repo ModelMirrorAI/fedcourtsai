@@ -76,6 +76,7 @@ from ..schemas import (
     MERITS_PROCEEDING_DISPOSITIONS,
     Disposition,
     EventKind,
+    InterimResolutionSignals,
     Judgment,
     Moment,
     Outcome,
@@ -666,6 +667,41 @@ def resolution_signals(
     return ResolutionSignals(distribution_count=distribution_count, cvsg_date=cvsg_date)
 
 
+def interim_resolution_signals(
+    application_kind: str | None,
+    response_requested: bool | None,
+    referred_to_court: bool | None,
+    amicus_briefs: int | None,
+) -> InterimResolutionSignals | None:
+    """The interim escalation signals to freeze onto a resolving application's outcome.
+
+    Takes the four values rather than a row for the same reason
+    :func:`resolution_signals` does: the ingest-stage and the persisted row are
+    different models and both reach this, so passing the fields keeps one rule in
+    one place without coupling it to either.
+
+    ``None`` when the proceedings were never application-parsed — an absent
+    ``application_kind`` is the coverage sentinel for the whole interim signal
+    family, the twin of ``distribution_count``'s role on the cert side — and
+    also when any single latched value is absent. An unobserved signal is never
+    coerced to ``False`` or ``0``: the block's whole value is that a ``False``
+    inside it means the Court did not act, and one manufactured from a missing
+    column would resolve an increment claim against a fact nobody recorded.
+    """
+    if (
+        application_kind is None
+        or response_requested is None
+        or referred_to_court is None
+        or amicus_briefs is None
+    ):
+        return None
+    return InterimResolutionSignals(
+        response_requested=response_requested,
+        referred_to_court=referred_to_court,
+        amicus_briefs=amicus_briefs,
+    )
+
+
 def _build_outcome(
     row: CorpusRow,
     event_id: str,
@@ -682,9 +718,12 @@ def _build_outcome(
     cert was granted, not at the merits termination; for an application docket
     the cert dates are empty by construction, so it is the disposing entry's
     date the interim resolver latched at ingest. ``interim`` marks an
-    interim-stage recording, whose outcome never carries the ``signals`` block:
-    those are the cert docket's resolution signals (distribution count, CVSG),
-    observations nobody makes on an application.
+    interim-stage recording, and it selects **which** signals block the outcome
+    carries — never both, because the two describe different dockets. A cert
+    outcome carries ``signals`` (distribution count, CVSG), observations nobody
+    makes on an application; an interim outcome carries ``interim_signals``
+    (response requested, referral, amicus count), observations nobody makes on a
+    petition.
 
     ``route`` and ``dissent`` are the cert-order markers the caller computed
     from the payload in hand (:func:`disposition_route`,
@@ -703,6 +742,16 @@ def _build_outcome(
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
+        interim_signals=(
+            interim_resolution_signals(
+                row.application_kind,
+                row.response_requested,
+                row.referred_to_court,
+                row.amicus_briefs,
+            )
+            if interim
+            else None
+        ),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
         disposition_route=None if interim else route,

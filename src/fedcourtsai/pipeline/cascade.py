@@ -54,6 +54,7 @@ from .outcome import (
     build_merits_outcome,
     disposition_basis,
     granted_flag,
+    interim_resolution_signals,
     is_machine_readable,
     read_order_markers,
     resolution_signals,
@@ -167,10 +168,12 @@ def _outcome_for_resolved(
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):
         return None
     assert row.disposition is not None  # narrowed by is_machine_readable above
-    # An interim (application-docket) outcome never carries the cert `signals`
-    # block — distribution count and CVSG are observations nobody makes on an
-    # application — keyed on the same tolerant docket-form recognizer the live
-    # resolution path uses (`pipeline.outcome._build_outcome`).
+    # Which signals block the outcome carries is keyed on the same tolerant
+    # docket-form recognizer the live resolution path uses
+    # (`pipeline.outcome._build_outcome`), and never both: the cert pair
+    # (distribution count, CVSG) are observations nobody makes on an
+    # application, and the interim escalation trio none nobody makes on a
+    # petition.
     interim = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     return Outcome(
         case_id=row.case_id,
@@ -179,6 +182,16 @@ def _outcome_for_resolved(
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
+        interim_signals=(
+            interim_resolution_signals(
+                row.application_kind,
+                row.response_requested,
+                row.referred_to_court,
+                row.amicus_briefs,
+            )
+            if interim
+            else None
+        ),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
         disposition_route=None if interim else order.route,

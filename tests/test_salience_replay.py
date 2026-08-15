@@ -104,6 +104,75 @@ def test_projection_without_proceedings_is_unobservable_not_zero() -> None:
     )
     assert projected.observable is False
     assert projected.row.distribution_count is None  # unknown, never asserted as 0
+    # The interim trio goes null with it: one observability flag, both signal
+    # families, because both come off the same proceedings list.
+    assert projected.row.response_requested is None
+    assert projected.row.referred_to_court is None
+    assert projected.row.amicus_briefs is None
+
+
+def _application_row() -> corpus.CorpusRow:
+    """An application row carrying the latched *ending* escalation state."""
+    return corpus.CorpusRow(
+        case_id="scotus/2",
+        court="scotus",
+        docket_number="26A11",
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=True,
+        amicus_briefs=4,
+        disposition=Disposition.granted,
+    )
+
+
+def test_projection_rederives_the_interim_signals_rather_than_reading_the_latches() -> None:
+    """The interim trio is re-derived from the payload, like the cert pair.
+
+    The latched columns hold the *ending* state — the trio is monotone, exactly
+    as the distribution count is — so a cell conditioned on them would be
+    conditioned on its own future. Here the payload discloses only the
+    application's arrival, so the projection reports the arrival state and not
+    the row's latched `True / True / 4`.
+    """
+    payload = {
+        "CaseNumber": "26A11",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jan 5 2026",
+                "Text": "Application (26A11) for a stay, submitted to The Chief Justice.",
+            },
+        ],
+    }
+    projected = asof.project_row(
+        _application_row(), payload, cutoff=date(2026, 1, 6), provenance="truncated"
+    )
+    assert projected.observable is True
+    assert projected.row.response_requested is False
+    assert projected.row.referred_to_court is False
+    assert projected.row.amicus_briefs == 0
+
+
+def test_projection_reads_the_interim_signals_the_payload_does_disclose() -> None:
+    payload = {
+        "CaseNumber": "26A11",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jan 5 2026",
+                "Text": "Application (26A11) for a stay, submitted to The Chief Justice.",
+            },
+            {
+                "Date": "Jan 8 2026",
+                "Text": "Response to application (26A11) requested by The Chief Justice.",
+            },
+            {"Date": "Jan 9 2026", "Text": "Brief amicus curiae of the State of X filed."},
+        ],
+    }
+    projected = asof.project_row(
+        _application_row(), payload, cutoff=date(2026, 1, 10), provenance="truncated"
+    )
+    assert projected.row.response_requested is True
+    assert projected.row.referred_to_court is False  # no referral entry yet
+    assert projected.row.amicus_briefs == 1
 
 
 # --- asof_conference: the latest-entry-wins rule, as-of ---------------------------

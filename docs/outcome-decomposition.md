@@ -7,11 +7,12 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-**The mechanical cert-stage family and the merits judgment claim are
-implemented; everything else here is pre-registration — with one carve-out, the
+**The mechanical family is implemented at all three stages; everything else here
+is pre-registration — with one carve-out, the
 semantic family, which is neither.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — five cert-stage claims under `cert-v2`, carried by every
-declared cert moment, and the one merits
+declared cert moment, four interim claims under `interim-v1` carried by every
+interim moment, and the one merits
 claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
 event — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
@@ -803,6 +804,79 @@ and carry the pool guard's count on every Term inside the window
 affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
 same way; `docs/decision-model.md` is the registered design.
 
+**The declared interim set: `interim-v1`.** All three interim moments — the
+application on arrival, after the Court called for a response, and once one was
+filed — declare the same four claims, reached through the moment table like the
+merits set. The claims do not change because the forecast was taken later; only
+the information set does, and that lives on the aggregation key.
+
+| Claim | Resolver | Baseline |
+| --- | --- | --- |
+| `interim-disposition` | `Outcome.actual_granted` — the interim binary (relief granted), restating the headline `probability` so the set is self-describing, and voiding the block on a divergent pair exactly as its two siblings do. It reads the same committed field the cert `disposition` claim reads and reuses the same resolver; the id is distinct because baseline routing is keyed on it, and pooling the two under one id would average a cert grant rate with an interim one over populations resolving on different standards | The substantive slice's grant rate pooled over **application**-Terms strictly before the case's own (`base_rates.interim_base_rate`), read from the frozen context's Term. Version-free and band-free — an application freezes no salience band by rule, so there is nothing for the cert set's frozen-band pairing to condition on. `None` below the pooled floor, and its registered limitation travels with it: the pool is the whole substantive slice while the scored cells are reserve-selected in escalation-ladder order, so it is not conditioned as the predictor is (`docs/salience.md`) |
+| `response-requested-increment` | 1 iff `Outcome.interim_signals.response_requested`, given false — and observable — at prediction; masked as **vacuous** where the Court had already called for one, the flag being max-latched so there is nothing left to forecast. The CVSG increment's shape, over the interim docket's analogue of it | None yet. The pack's `response_requested` column is an **unconditional** count over the whole substantive slice — every application that had drawn a request as at the build, pending ones included. The claim needs the arrival-conditioned hazard: among prior-Term applications that had not yet drawn one at the disclosed posture, the rate that went on to. An unconditional level fails test 3 above; and because the column's denominator is the whole slice while the resolved counts beside it are the machine-matched-resolved subset, it is also **right-censored** — a still-pending application contributes a "no" it may yet reverse — which is test 5 |
+| `referral-increment` | 1 iff `Outcome.interim_signals.referred_to_court`, given false — and observable — at prediction; vacuous-masked on an application already referred, a referral never being undone | None yet, the same two gaps over `referred_to_court`: unconditional across the slice rather than the rate at which an unreferred application becomes a referred one, and censored by the same pending tail |
+| `amicus-increment` | 1 iff `Outcome.interim_signals.amicus_briefs` rose strictly past `Prediction.context.amicus_briefs`; masked where either end is undisclosed, and with **no** vacuity arm — the count is unbounded above, so a docket already carrying briefs can always carry another. The relist increment's shape rather than the CVSG's | None yet, and the gap is sharper. `with_amicus` *is* published per Term, so coverage is not the problem: it counts applications carrying *at least one* brief, collapsing the conditioning variable itself to a flag while the claim is a rise past a specific count — test 3 at its sharpest — and it carries the same pending-tail censoring |
+
+Against the eight tests, in order of what they decided here.
+
+**Test 2** is what the set is built around — three of the
+four claims are increments resolved from *both* committed ends, the frozen
+context's as-at-prediction values against the outcome's `interim_signals`, which
+is what the monotone signals demand. **Test 1** passes for all four: each
+resolves against a quantity the provisioned snapshot discloses a state of, read
+as at the cell's own moment rather than as it stands now.
+
+**Test 3** is the register's hardest question here, and the reason three of four
+baselines are `None`: no published cut is conditioned the way the predictor is,
+and an unconditional share offered in its place would make an uninformative
+claim look informative. It also lands, unresolved, on the *fourth*. The interim
+disposition baseline pools the whole substantive slice while the cells scored
+against it are reserve-selected in escalation-ladder order, so it is coarser
+than the disclosed conditioning. That gap is registered in
+[salience.md](salience.md) rather than corrected — the conditioned pool is a
+later estimator, applied forward — and it is why an interim skill number is not
+by itself evidence of forecast skill. **Test 4** is not reached: only the
+disposition claim carries a baseline at all, so no floor-bearing control exists
+to bound a free score against.
+
+**Test 5** bites twice on that baseline. Its denominator is selected for
+machine-matchable resolution text, and the escalation columns beside it are
+right-censored by the pending tail — a second, independent reason the increment
+baselines stay `None`. Both caveats travel with the number wherever it is quoted
+rather than being corrected away. **Test 7** is clean on weighting — the
+application stream carries no denial sampling, so every row stands for itself
+and the counts are raw — but **not** on frame uniformity: parse coverage differs
+sharply between application-Terms, so a pooled rate blends a Term the poller
+covered fully with one it reached only in part, and that unevenness is the
+leading candidate explanation for the spread between Term rates. **Test 8**
+passes on the realized substantive grant rate, which runs between roughly 9% and
+32% by Term —
+clear of the boundary where a season's total collapses to a Bernoulli draw.
+**Test 6** holds because the two ends are read at two different times from two
+different channels: the resolution end is a latched corpus column frozen at
+resolution, the prediction end a re-parse of the provisioned snapshot's own
+entries. Neither is a function of the other.
+
+Two seams the set does not reach today. No published surface reads an
+`interim-v1` block: the claim board filters to the cert stage's first moment, so
+the block is computed and banked rather than reported. And the predict and
+evaluate prompts do not yet ask for the set — that half moves on its own
+re-bless, since a prompt edit moves the pre-registered process digest — so the
+declaration is exercised offline by the stub cascade until it does.
+
+Two properties of the record are worth stating rather than discovering. The
+response-filed moment is the one at which `response_requested` is usually
+*already* true, so that cell's increment block is mostly vacuous-masked; that is
+a fact about the ladder, correctly handled by the mask, not a defect in the set.
+And no claim is about a response being **filed**, deliberately: a respondent may
+answer uninvited, so it is not a rung of the Court's own attention; its committed
+channel is a date column carrying the undated-entry undercount rather than a
+max-latched flag; and the moment named for it is the one whose keep-or-drop
+decision is still open — nothing in the moment register marks it provisional,
+because the question is whether the moment earns its cells at all, not whether
+the harness can mint it. Retiring it costs the set nothing, whereas a claim
+declared on it would settle that question by inertia.
+
 **What stays out, and why.** The merits vote and writing claims wait for a
 real vote source:
 `Outcome.votes` is `[]` in every committed outcome — the merits outcome
@@ -844,11 +918,14 @@ end is immutable and committed, so it scores the same way forever.
 The other end is committed too: `Prediction.context` is the harness-written
 `PredictionContext` block, derived from the provisioned snapshot — never the
 agent's word — carrying `distribution_count`, `cvsg_date`, the salience band
-and its version, and `signals_observable`, which is what keeps absence honest
+and its version, the interim escalation trio (`response_requested`,
+`referred_to_court`, `amicus_briefs`, frozen on application cells only), and
+`signals_observable`, which is what keeps absence honest for both families
 (a snapshot whose proceedings were never parsed reads as unobservable, not as
 zero). An increment claim is therefore computable end to
 end: the prediction-time value from the prediction's own context block, the
-resolution-time value from `Outcome.signals`. The block is nullable, and
+resolution-time value from the outcome's matching signals block — `signals` at
+the cert stage, `interim_signals` at the interim one, on the identical argument. The block is nullable, and
 **every committed prediction predates it** — the field and the harness path
 are committed, no committed data yet exercises them — so an increment claim
 scores only the cells that carry the block: a coverage boundary the claim's
@@ -875,11 +952,12 @@ why that half of the taxonomy is pre-registered rather than implemented. The
 merits *judgment* half is not blocked: judgment detection resolves
 `Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
 
-The cert-stage half is declared: `Outcome.signals` and the two order-text
-markers beside it freeze what a cert-stage
-claim resolves *against*, `Prediction.context` freezes what it resolves *from*,
-and `cert-v2` and `merits-v1` above are the sets the eight tests were applied
-to. A change to
+All three mechanical halves are declared: `Outcome.signals` and the two
+order-text markers beside it freeze what a cert-stage claim resolves *against*,
+`Outcome.interim_signals` does the same at the interim stage,
+`Prediction.context` freezes what any of them resolves *from*, and
+`cert-v2`, `interim-v1`, and `merits-v1` above are the sets the eight tests were
+applied to. A change to
 what a set carries is a new declaration version, never an in-place edit —
 the same discipline the salience function keeps, which is why the id and the
 claim count move together and a reader can price a total from the id alone.
@@ -979,7 +1057,7 @@ Four facts are what make that an honest label rather than a loophole.
   produces a semantic grade, and no published number depends on any rule
   written here. That is precisely what lets it change freely: there is nothing
   downstream to break.
-- **It commits a predictor to nothing.** Where `cert-v2` and `merits-v1` are
+- **It commits a predictor to nothing.** Where the three mechanical sets are
   declarations a predictor is held to, `semantic-v0` declares nothing:
   `pipeline.semantic`'s declaration tables are empty and
   `declared_semantic_claim_set` returns `None` for every event, which the tests

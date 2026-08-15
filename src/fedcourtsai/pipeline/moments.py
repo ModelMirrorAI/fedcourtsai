@@ -37,6 +37,7 @@ from ..schemas import EventKind, Moment, Stage
 #: :mod:`fedcourtsai.pipeline.claims`. Strings rather than an import, so this
 #: module stays a leaf and the claims module can read this table.
 CLAIM_SET_CERT_V2 = "cert-v2"
+CLAIM_SET_INTERIM_V1 = "interim-v1"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 
 
@@ -127,7 +128,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the application for interim relief.",
-        claim_set_version=None,
+        claim_set_version=CLAIM_SET_INTERIM_V1,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "response-requested-disposition"),
@@ -139,7 +140,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description=(
             "Disposition of the application, forecast after the Court called for a response."
         ),
-        claim_set_version=None,
+        claim_set_version=CLAIM_SET_INTERIM_V1,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.brief.value, "response-disposition"),
@@ -149,7 +150,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=2,
         decision_target="disposition",
         description=("Disposition of the application, forecast once a response has been filed."),
-        claim_set_version=None,
+        claim_set_version=CLAIM_SET_INTERIM_V1,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "judgment"),

@@ -10,7 +10,8 @@ mechanical family's moving parts:
   event, per exact event id), exactly which claims a prediction carries,
   under a versioned set id;
 - the **resolvers** — pure functions from committed artifacts (the prediction's
-  frozen ``context``, the outcome's ``signals`` block) to 0 / 1 / ``None``,
+  frozen ``context``, the outcome's stage-appropriate signals block) to
+  0 / 1 / ``None``,
   where ``None`` is the availability mask: the record does not disclose what
   the claim needs, a property of the record and never of the predictor;
 - the **baselines** — strictly-prior-Term rates from the committed statpack,
@@ -55,6 +56,7 @@ from ..schemas import (
 from . import moments
 from .base_rates import (
     claim_score,
+    interim_base_rate,
     merits_base_rate,
     prediction_base_rate,
     summary_route_base_rate,
@@ -75,6 +77,18 @@ CLAIM_CVSG_INCREMENT = "cvsg-increment"
 CLAIM_SUMMARY_ROUTE = "summary-disposition-route"
 CLAIM_DISSENT_FROM_DENIAL = "dissent-from-denial"
 
+# The declared interim-stage claim ids, in reporting order. The disposition
+# claim is `interim-disposition` rather than a second use of `disposition`, and
+# the distinctness is load-bearing rather than cosmetic: baseline routing is
+# keyed on the claim id, the two claims draw on different sections of the
+# statpack over different populations resolving on different standards, and any
+# aggregate that pooled them by id would be averaging a cert grant rate with an
+# interim one.
+CLAIM_INTERIM_DISPOSITION = "interim-disposition"
+CLAIM_RESPONSE_REQUESTED_INCREMENT = "response-requested-increment"
+CLAIM_REFERRAL_INCREMENT = "referral-increment"
+CLAIM_AMICUS_INCREMENT = "amicus-increment"
+
 # The declared merits-stage claim id: the binary disturbed projection of the
 # judgment axis. The multi-class judgment form waits on a schema field carrying
 # a per-label distribution, exactly as the cert disposition claim's does; the
@@ -90,6 +104,7 @@ CLAIM_JUDGMENT_DISTURBED = "judgment-disturbed"
 # edit — same discipline as the salience function's `sal-v1`.
 CLAIM_SET_CERT_V1 = "cert-v1"
 CLAIM_SET_CERT_V2 = "cert-v2"
+CLAIM_SET_INTERIM_V1 = "interim-v1"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 
 # Per event kind: the set id and the declared claims, in reporting order. The
@@ -136,20 +151,43 @@ _MERITS_CLAIM_SET: tuple[str, tuple[str, ...]] = (
     (CLAIM_JUDGMENT_DISTURBED,),
 )
 
+# The interim declaration, reached the same way: every interim moment carries
+# it, whether the forecast is taken on arrival, after the Court called for a
+# response, or once one was filed. The three escalation claims are increments
+# from both committed ends — the frozen context's as-at-prediction values
+# against the outcome's `interim_signals` — which is what a monotone signal
+# demands. Deliberately absent: a claim about a *response being filed*. A
+# respondent may answer uninvited, so it is not a rung of the Court's own
+# ladder of attention; its committed channel is a date column carrying the
+# undated-entry undercount rather than a max-latched flag; and the moment named
+# for it is the one whose keep-or-drop decision is still open, so declaring a
+# claim on it would let the claim set decide that question by inertia.
+_INTERIM_CLAIM_SET: tuple[str, tuple[str, ...]] = (
+    CLAIM_SET_INTERIM_V1,
+    (
+        CLAIM_INTERIM_DISPOSITION,
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ),
+)
+
 #: Set version -> its declaration, the resolution the moment table names by
 #: string. The table stays a leaf module; the claim ids stay here with their
 #: resolvers.
 _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_CERT_V1: DECLARED_CLAIM_SETS[EventKind.petition],
     CLAIM_SET_CERT_V2: _CERT_V2_CLAIM_SET,
+    CLAIM_SET_INTERIM_V1: _INTERIM_CLAIM_SET,
     CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
 }
 
 # The claims that restate the prediction's headline `probability` — one belief
 # written twice so each set is self-describing (the cert disposition claim on a
-# petition, the disturbed claim on the merits event). A pair that diverges is
-# malformed and voids the block; see `score_claims`.
-_HEADLINE_CLAIMS = (CLAIM_DISPOSITION, CLAIM_JUDGMENT_DISTURBED)
+# petition, the interim one on an application, the disturbed claim on the merits
+# event). A pair that diverges is malformed and voids the block; see
+# `score_claims`.
+_HEADLINE_CLAIMS = (CLAIM_DISPOSITION, CLAIM_INTERIM_DISPOSITION, CLAIM_JUDGMENT_DISTURBED)
 
 
 def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
@@ -157,7 +195,10 @@ def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
 
     A **declared forecast moment** (:mod:`fedcourtsai.pipeline.moments`) declares
     whatever its stage declares — every cert moment carries the cert set, every
-    merits moment the merits set. The claims do not change because the forecast
+    interim moment the interim set, every merits moment the merits set. Only the
+    cert stage also declares by *kind*, for the entry-pinned petition ids that
+    predate the moment table; an interim or merits set is reachable through the
+    table alone. The claims do not change because the forecast
     was taken later; only the information set does, and that lives on the
     aggregation key rather than in the declaration. Bumping a set version per
     moment would fragment every claim aggregate for no semantic gain.
@@ -359,6 +400,67 @@ def _resolve_dissent_from_denial(context: PredictionContext, outcome: Outcome) -
     return int(outcome.noted_dissent_from_denial)
 
 
+def _resolve_response_requested_increment(
+    context: PredictionContext, outcome: Outcome
+) -> int | None:
+    """Did the Court call for a response after prediction time, given none then?
+
+    The interim analogue of the CVSG increment, and masked the same three ways,
+    all properties of the record: an outcome without an ``interim_signals``
+    block observed nothing at resolution; a context whose signals were
+    unobservable cannot tell "no request yet" from "nobody looked", so its null
+    flag fixes no prediction-time state; and a request already on the docket at
+    prediction time makes the increment vacuous — the flag is max-latched and,
+    once true, stays true, so there is nothing left to forecast.
+    """
+    if (
+        outcome.interim_signals is None
+        or not context.signals_observable
+        or context.response_requested is None
+    ):
+        return None
+    if context.response_requested:
+        return None
+    return int(outcome.interim_signals.response_requested)
+
+
+def _resolve_referral_increment(context: PredictionContext, outcome: Outcome) -> int | None:
+    """Was the application referred to the full Court after prediction time?
+
+    The same three-way mask and the same vacuity arm as the response-requested
+    increment, over the referral flag: a referral is never undone, so a context
+    that already discloses one leaves nothing to forecast.
+    """
+    if (
+        outcome.interim_signals is None
+        or not context.signals_observable
+        or context.referred_to_court is None
+    ):
+        return None
+    if context.referred_to_court:
+        return None
+    return int(outcome.interim_signals.referred_to_court)
+
+
+def _resolve_amicus_increment(context: PredictionContext, outcome: Outcome) -> int | None:
+    """Did the amicus count rise past its value as at prediction?
+
+    The relist increment's shape rather than the CVSG's: a count, not a flag, so
+    it is resolved by strict comparison of both committed ends and there is no
+    vacuity arm — the count is unbounded above, so a docket that already carries
+    amicus briefs can always carry another. Masked (``None``) where either end
+    is undisclosed. The count is monotone and never falls, so the strict
+    comparison reads any non-rise as no increment.
+    """
+    if (
+        outcome.interim_signals is None
+        or not context.signals_observable
+        or context.amicus_briefs is None
+    ):
+        return None
+    return int(outcome.interim_signals.amicus_briefs > context.amicus_briefs)
+
+
 def _baseline_summary_route(
     context: PredictionContext,
     statpack: StatPack,
@@ -397,6 +499,47 @@ def _baseline_summary_route(
     return summary_route_base_rate(context.term, statpack, lookback_terms=lookback_terms)
 
 
+def _baseline_interim_disposition(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The interim disposition claim's baseline: the strictly-prior interim rate.
+
+    :func:`fedcourtsai.pipeline.base_rates.interim_base_rate` over the frozen
+    context's Term, which on an application cell is the **application** Term the
+    interim statpack section is keyed on — read from the ``YYAnnn`` number at
+    provisioning, so it needs no clock and cohort-mates share a pool. Version-free
+    and band-free, because the interim section is neither: an application freezes
+    no salience band by rule, so there is nothing here for the cert set's
+    ``prediction_base_rate`` pairing to condition on.
+
+    ``grant_term`` is unused — it addresses the merits section, which is keyed on
+    a different Term of a different case population — but the parameter stays in
+    the signature because :class:`_BaselineFn` is one shape for every claim.
+
+    ``None`` — claim unscored, never an invented rate — where the context froze
+    no Term, where no prior application-Term resolved anything substantive, or
+    where the pooled strictly-prior sample is below the interim floor.
+
+    Two limits are stated rather than guarded. The rate is the same at all three
+    interim moments, so a forecast taken after the Court called for a response is
+    scored against the arrival-time unconditional rate — the register's test 3
+    again, and the reason a moment-conditioned pool is the estimator's registered
+    next step. And ``context.term`` is whichever Term the docket number yielded:
+    on the anomaly of an interim moment pinned to a *cert* docket it is the cert
+    Term, and this would pool the interim section by it — the right time axis
+    over the wrong population. No committed cell has that shape, and the claim
+    board excludes interim cells today, so the exposure is a hand-pinned
+    cross-stage event rather than a live path.
+    """
+    if context.term is None:
+        return None
+    return interim_base_rate(context.term, statpack, lookback_terms=lookback_terms)
+
+
 def _baseline_dissent_from_denial(
     context: PredictionContext,
     statpack: StatPack,
@@ -417,6 +560,73 @@ def _baseline_dissent_from_denial(
     existing, not on redeclaring the set — the same standing the two increment
     claims have, and what the block banks meanwhile is the committed
     probabilities.
+    """
+    return None
+
+
+def _baseline_response_requested_increment(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The response-requested-increment baseline the published statpack cannot support.
+
+    The committed pack's interim section publishes ``response_requested`` as an
+    unconditional count over the whole substantive slice — every application that
+    had drawn a request as at the build, pending ones included. Two things are
+    wrong with it as a baseline, and the second is the one that binds. It is an
+    unconditional level rather than the arrival-conditioned hazard the claim
+    needs (among prior-Term applications that had *not* yet drawn a request at
+    the disclosed posture, the rate that went on to), which is test 3 of the
+    outcome-decomposition register. And its denominator is the whole substantive
+    slice while the resolved counts beside it are the machine-matched-resolved
+    subset, so the column is **right-censored**: an application still pending
+    when the pack was built contributes a "no" it may yet reverse, exactly the
+    censoring failure test 5 asks about. ``None`` until a per-Term cut
+    conditioned as the claim is lands; the claim stays declared, because scoring
+    is keyed on a baseline existing rather than on redeclaring the set, and the
+    probabilities bank from the first claiming cell so they are there to score
+    when it does.
+    """
+    return None
+
+
+def _baseline_referral_increment(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The referral-increment baseline the published statpack cannot support.
+
+    The same two gaps, over ``referred_to_court``: the pack's count is
+    unconditional across the substantive slice rather than the rate at which an
+    unreferred application becomes a referred one, and it is censored by the
+    pending tail the same way. ``None`` until a strictly-prior per-Term cut
+    carries the claim's own conditioning.
+    """
+    return None
+
+
+def _baseline_amicus_increment(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None,
+) -> float | None:
+    """The amicus-increment baseline the published statpack cannot support.
+
+    ``with_amicus`` is published per Term, so the gap is not coverage — it is
+    that the column counts applications carrying *at least one* amicus brief,
+    while the claim is a rise past the specific count the snapshot disclosed.
+    Collapsing the count to a flag discards the conditioning variable itself,
+    which is the register's test 3 at its sharpest, and the column carries the
+    same pending-tail censoring as its two siblings. ``None`` until a per-Term
+    amicus-*count* cut over the substantive slice lands.
     """
     return None
 
@@ -469,6 +679,14 @@ _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
     CLAIM_CVSG_INCREMENT: _resolve_cvsg_increment,
     CLAIM_SUMMARY_ROUTE: _resolve_summary_route,
     CLAIM_DISSENT_FROM_DENIAL: _resolve_dissent_from_denial,
+    # The interim disposition resolves off the same committed field — an
+    # application's `actual_granted` is the interim binary, written by the same
+    # rule — so it reuses the resolver rather than restating it. What separates
+    # the two claims is the baseline, and that is keyed on the id.
+    CLAIM_INTERIM_DISPOSITION: _resolve_disposition,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT: _resolve_response_requested_increment,
+    CLAIM_REFERRAL_INCREMENT: _resolve_referral_increment,
+    CLAIM_AMICUS_INCREMENT: _resolve_amicus_increment,
     CLAIM_JUDGMENT_DISTURBED: _resolve_judgment_disturbed,
 }
 
@@ -492,6 +710,10 @@ _BASELINES: Mapping[str, _BaselineFn] = {
     CLAIM_CVSG_INCREMENT: _baseline_cvsg_increment,
     CLAIM_SUMMARY_ROUTE: _baseline_summary_route,
     CLAIM_DISSENT_FROM_DENIAL: _baseline_dissent_from_denial,
+    CLAIM_INTERIM_DISPOSITION: _baseline_interim_disposition,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT: _baseline_response_requested_increment,
+    CLAIM_REFERRAL_INCREMENT: _baseline_referral_increment,
+    CLAIM_AMICUS_INCREMENT: _baseline_amicus_increment,
     CLAIM_JUDGMENT_DISTURBED: _baseline_judgment_disturbed,
 }
 

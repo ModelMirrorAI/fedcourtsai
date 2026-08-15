@@ -54,7 +54,18 @@ def build(
     that never had them — says nothing about the docket's posture, and a band
     derived from that silence would assert ``baseline`` about a petition whose
     position is simply unknown. The evaluator then falls back rather than scoring
-    against an invented conditioning.
+    against an invented conditioning. The one flag governs **both** signal
+    families: the cert pair and the interim escalation trio come off the same
+    proceedings list, so a payload that discloses none discloses neither.
+
+    The interim trio is frozen only on an **application** docket, even though the
+    projection derives it for anything. This object is read by the cell
+    (``record/context.json``), so what it carries is part of the cell's
+    information set: handing a cert cell a pre-computed amicus count would widen
+    that set for every cert cell without a prompt edit to bound it, which is
+    exactly the silent move ``docs/process-version.md`` exists to prevent. An
+    application cell needs the trio because its declared claims resolve against
+    it; a cert cell has no claim that reads it.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
@@ -103,6 +114,16 @@ def build(
     # docs/salience.md).
     application = corpus.is_scotus_application_form(docket_number)
     band = salience_band(projected.row) if observable and not application else None
+    # The Term axis follows the docket form, because the two stages' baselines
+    # pool different sections keyed on different Terms: a cert petition's
+    # `YY-NNNN` number gives the cert Term the band table is keyed on, an
+    # application's `YYAnnn` number the application Term the interim section is
+    # keyed on. Both are read from the number alone, so both are as
+    # leakage-safe as the number is; which pool a cell's Term addresses is
+    # decided by the claim it is scoring, never by this field.
+    term = corpus.scotus_term_year(docket_number) if docket_number else None
+    if term is None and application:
+        term = corpus.scotus_application_term_year(docket_number)
     return PredictionContext(
         mode=mode,
         snapshot_date=snapshot_date,
@@ -114,5 +135,8 @@ def build(
         cvsg_date=cvsg,
         band=band,
         salience_version=SALIENCE_VERSION if band else None,
-        term=corpus.scotus_term_year(docket_number) if docket_number else None,
+        response_requested=projected.row.response_requested if application else None,
+        referred_to_court=projected.row.referred_to_court if application else None,
+        amicus_briefs=projected.row.amicus_briefs if application else None,
+        term=term,
     )

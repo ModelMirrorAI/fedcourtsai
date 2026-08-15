@@ -822,7 +822,7 @@ rather than folding it into an undifferentiated "granted."
   score captures the stakes — with deterministic mootness-proneness deferred to a
   possible later scorer version.
 
-## The interim docket (predicted, quota'd; published descriptively, not yet skill-scored)
+## The interim docket (predicted, quota'd; its estimator registered and wired)
 
 The cert program above selects petitions. The interim docket — stays,
 injunctions, vacaturs pending certiorari — needs its own, because no
@@ -912,9 +912,11 @@ queues its motion/interim baseline forward, debounced to daily by the shared
 applications too, since a selection can postdate the application's last
 docket change. A machine-matched resolution then records the interim
 `outcome.json` on the same baseline — the interim disposition vocabulary,
-dated by the disposing entry, with no cert-only `signals` block.
+dated by the disposing entry, carrying the interim escalation block
+(`interim_signals`) in place of the cert-only `signals` one.
 
-**What is still missing is the rate; the cohort keeps accumulating.** The live
+**The cohort keeps accumulating, and both ends of a claim are now committed.**
+The live
 cycle re-polls unresolved applications up to a small per-cycle cap
 (`live.max_applications_per_run`). Each poll persists the ask
 (`application_kind` — arrival-time,
@@ -922,30 +924,43 @@ so safe to condition on) and the three ladder signals as latched corpus
 columns, so an interim cohort can be assembled from the index: which
 applications, which asks, how far each had escalated by resolution. The latched
 signals are the *ending* band — the thing the two traps above forbid
-conditioning a rate on directly — while the as-at-prediction values a valid
-rate needs stay recoverable from the per-poll dated snapshots, whose entry
-dates carry each signal's onset. One caveat bounds the accumulation itself: an
+conditioning a rate on directly — so the as-at-prediction values a valid rate
+needs are re-derived from the provisioned snapshot and frozen onto the cell's
+own `PredictionContext`, while the ending values are frozen onto the
+`outcome.json` as `interim_signals`. That pair is what makes an interim
+increment claim resolvable at all
+([outcome-decomposition.md](outcome-decomposition.md), *The declared interim
+set*). One caveat bounds the accumulation itself: an
 application counts as resolved only when the interim disposition vocabulary
 matches its disposing entry, so the resolved set is selected for
 machine-matchable resolution text (an unmatched resolution stays in the
 rotation as a visibly long-unresolved residue rather than silently counting).
-The accumulating cohort is published descriptively — the statpack's
-interim section carries the counts by ask, the substantive slice's
-resolved/granted counts and raw grant rate, and the escalation-signal counts,
-pack-level and per application-Term — but **no interim skill is scored**:
-`segment_base_rate` yields nothing for an application docket, so an interim
-cell's evaluation carries a null skill, and the leaderboard segments the cell
-into its unranked `interim` stage block, never the cert board. The predict and
-evaluate prompts carry the agent-side half of the same rule in their interim
-rules: the predictor reads the statpack's interim section as
-descriptive counts rather than a scored base rate, and the evaluator omits
-`segment_base_rate` and `brier_skill_score` (with `base_rate_basis` null) as
-the stage's standing rule rather than a per-cell anomaly.
-**Pre-registered claimability rule:** the interim segment base rate publishes
-— and skill over the interim stage becomes claimable — once the statpack's
-substantive **resolved count reaches 25**; until then the stage reports
-counts and raw rates only. The estimator is pre-registered with the floor,
-because the forking paths close now or never: when it publishes, the rate is
+The cohort is published — the statpack's interim section carries the counts by
+ask, the substantive slice's resolved/granted counts and raw grant rate, and
+the escalation-signal counts, pack-level and per application-Term — and its
+**per-Term entries are what the scored baseline pools**:
+`segment_base_rate` takes an application arm keyed on the `YYAnnn` Term
+(`base_rates.interim_base_rate`), which is the estimator registered below. The
+pack-level rate beside it stays descriptive and is never the baseline, because
+it contains the case's own Term. The leaderboard still segments an interim cell
+into its unranked `interim` stage block rather than the cert board: the two
+stages resolve on different standards over different populations, and a shared
+ranking would compare them. The predict and evaluate prompts carry the
+agent-side half of **both** the baseline and the claim set, and it moves on its
+own re-bless (`docs/process-version.md`), because a prompt edit moves the
+pre-registered process digest. Until that re-bless their interim rules read the
+statpack's interim section as descriptive counts, omit `segment_base_rate` /
+`brier_skill_score` (with `base_rate_basis` null), and ask for no `claims`
+block — so no interim cell records a skill number whatever the estimator
+computes, and none answers the declared `interim-v1` set whatever the
+declaration says. The harness half is wired and the prompt is what turns it on;
+until it does, the interim set is exercised only by the offline stub cascade.
+**Pre-registered claimability rule:** the stage stopped being descriptive-only
+once the statpack's substantive **resolved count reached 25** — a condition on
+the *stage*, long since satisfied, and not on any individual cell. Whether a
+given cell gets a baseline is the separate per-pool floor registered below, and
+that is the one that binds today. The estimator was pre-registered with the
+stage rule, because the forking paths close now or never: the rate is
 pooled over the **substantive resolved slice of application-Terms strictly
 before the case's own** (the same leakage rule the cert band rate uses),
 **unweighted raw counts** (the application stream has no denial sampling, so
@@ -960,10 +975,89 @@ lands as `denied` / ungranted; if that collapse proves material once volume
 exists, changing it is a new reading applied forward, never a silent
 relabel. The floor, the estimator, and the collapses are fixed here, before
 any interim cell has been scored, so none can be tuned to a result. The
-**merits** stage is a stage ahead of that: its baseline is not merely
-pre-registered but wired — the statpack merits section's disturbed rate pooled
-strictly-prior (`docs/decision-model.md`) — so interim is the only stage whose
-estimator is written down and waiting on its cohort.
+**merits** stage's baseline is registered the same way and likewise wired — the
+statpack merits section's disturbed rate pooled strictly-prior
+(`docs/decision-model.md`).
+
+**Pre-registered: the per-pool floor is 50 resolved.** The pack-level count
+above governs when the *stage* stops being descriptive-only; this governs
+whether any individual cell gets a baseline at all. `interim_base_rate` returns
+a rate only where the **pooled strictly-prior** substantive resolved sample
+reaches `INTERIM_BASE_RATE_MIN_RESOLVED = 50`. The figure is derived, not
+preferred, and it is deliberately not the 30 its cert and merits siblings use.
+Thirty rests on an absolute standard-error argument, which is tolerable where
+the baseline enters as a *difference* (the claim rule's `(b − y)² − (p − y)²`)
+or as the denominator of a ratio at a rate near one half. Neither holds here.
+This baseline's principal consumer is `brier_skill`, whose denominator is
+`(b − y)²`; the modal interim outcome is a denial, so on most cells that
+denominator is `b²`. Squaring **doubles** the relative error transmitted from
+the rate, and — unlike per-cell noise — it lands on every cell's denominator at
+once, biasing the published mean rather than averaging out of it. Holding the
+transmitted relative error at or under one third therefore needs
+`n ≥ 36(1 − p)/p`: 36 at `p = 0.5`, 84 at `p = 0.3`, unbounded as `p` falls.
+**The criterion cannot pin a number, and 50 is not claimed to satisfy it.** It
+is monotone decreasing in `p` and unbounded, so at the rates this docket has
+actually shown it asks for roughly 231 resolutions at the pooled 13.5% and
+roughly 364 at a single Term's 9%; 50 clears it only for `p` above about 0.42.
+What the criterion establishes is that **thirty is too low here**, and what 50
+buys is stated exactly: an absolute standard error of at most 0.071, inside the
+bound the siblings accept at thirty (0.091). So the figure is chosen on the
+siblings' own absolute-SE standard at a tighter tolerance, with the
+relative-error argument as the reason for tightening rather than as a bound it
+meets. The floor
+binds on the **pooled** sample, so it clears by accumulation exactly as the
+merits floor does. Below it there is **no baseline and no substitute**: not the
+pack-level rate (it contains the case's own Term), not a single Term's, and not
+the cert band table (a different population on a different standard) — the cell
+carries a null skill, visibly, rather than a borrowed number. Its effect today
+is that no single-Term pool qualifies, and that effect is **accepted rather
+than incidental**: 50 was chosen with the committed pack visible, and the
+criterion's own value at `p = 0.5` (36) would have admitted the one single-Term
+pool that exists. What is *not* registered is a companion "at least two Terms"
+condition — considered and **rejected**, because a
+second parameter with no derivation behind it, chosen in knowledge of which
+cells it would exclude, is a forking path however reasonable it sounds.
+
+**Pre-registered: `base_rate_basis` stays null on every interim cell**, as it
+does on every merits cell. Both of the field's literal values name
+salience-band populations, and the interim pool is not a band product — an
+application freezes no band by rule, so there is no band whose population the
+basis could be naming. Adding a third value would redefine the field from
+"which band was this scored against" to "which pool", orphan the role of
+`base_rate_salience_version` beside it, and widen a published `Literal` for a
+distinction the record already carries: the **stage axis on the event** says
+which pool a cell was scored against, and it says it for every cell rather than
+only the ones that got a baseline. `base_rate_salience_version` stays null
+beside it for the same reason — the interim estimator is version-free, because
+there is no scorer to version.
+
+**Pre-registered: the pooled population is wider than the scored one, and the
+gap is recorded rather than corrected.** The estimator pools the whole
+strictly-prior substantive slice, while the cells scored against it are the
+reserve's occupants — and the reserve fills its bounded slots in **escalation
+ladder order** (a requested response first, then the amicus count). A predicted
+application therefore sits systematically higher on those rungs than the cohort
+behind the rate: of the accumulated substantive slice only about a fifth ever
+drew a response request, while a reserve-selected cell is frequently picked
+*because* it did. The baseline is unconditioned on the ladder and the scored set
+is selected on it, which is the outcome-decomposition register's test 3 answered
+in the negative. Two consequences travel with any interim skill number: it is
+**not by itself evidence of forecast skill** — a positive value is consistent
+with the reserve's pick order alone — and the conditioned rate the claim really
+wants is not derivable from any committed cut, because the pack publishes no
+ladder-by-grant cross-tab. Conditioning the pool on the rung frozen in the
+cell's own context (which now carries it) is the registered **next** estimator,
+applied forward as a new reading, never a silent re-reading of this one. Two
+further selections ride the counts themselves and belong beside any quoted
+figure: resolution is machine-matched, and **parse coverage is uneven across
+application-Terms** — the live poller reaches recently-active applications, so a
+Term it reached late contributes a subsample rather than a census, and a pooled
+rate blends Terms of unlike coverage. That unevenness is the leading candidate
+explanation for the spread between Term rates, and no interim comparison should
+treat that spread as a change in the Court's behaviour.
+
+The three decisions are fixed here, before any interim cell has been scored, so
+none can be tuned to a result.
 
 ## Shared discipline: leakage / timing
 

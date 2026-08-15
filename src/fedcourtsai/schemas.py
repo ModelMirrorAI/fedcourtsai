@@ -651,8 +651,38 @@ class PredictionContext(_Strict):
     salience_version: str | None = Field(
         default=None, description="Version of the scorer that produced band"
     )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the snapshot showed the Court (or a Circuit Justice) "
+        "had already requested a response to this application, as at "
+        "provisioning — the prediction end of the interim increment pair, whose "
+        "resolution end is `Outcome.interim_signals`. Masked by "
+        "`signals_observable` exactly as the cert signals above are: one mask "
+        "covers both signal families, because a snapshot disclosing no "
+        "proceedings discloses neither. Frozen only on an application docket — "
+        "null on every cert cell, which declares no claim that reads it, and "
+        "whose information set this block is part of",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether the snapshot showed this application already "
+        "referred to the full Court rather than left with a Circuit Justice, as "
+        "at provisioning; masked by `signals_observable` like the rest",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        ge=0,
+        description="Amicus briefs the snapshot's entries recorded as at "
+        "provisioning; masked by `signals_observable` like the rest. Unbounded "
+        "above, so the increment claim over it is a strict rise with no vacuous "
+        "arm — unlike the two flags, which can only rise once",
+    )
     term: int | None = Field(
-        default=None, description="The case's October Term, the leakage guard's key"
+        default=None,
+        description="The case's October Term, the leakage guard's key — the cert "
+        "Term parsed from a `YY-NNNN` petition number, or the application Term "
+        "parsed from a `YYAnnn` application number. Both baselines pool Terms "
+        "strictly before it; which pool is keyed on the stage, not on this field",
     )
 
 
@@ -887,6 +917,51 @@ class ResolutionSignals(_Strict):
     )
 
 
+class InterimResolutionSignals(_Strict):
+    """The interim docket's escalation signals as at resolution, frozen into the outcome.
+
+    The interim twin of :class:`ResolutionSignals`, and a *different* block
+    rather than an extension of it: the cert signals (a distribution count, a
+    CVSG) are observations nobody makes on an application, and these three are
+    observations nobody makes on a petition. Sharing one block would have every
+    consumer branch on which half is populated.
+
+    It carries the same two properties that make the cert block scoreable. All
+    three signals are **monotone** over an application's life — the Court does
+    not un-request a response, un-refer an application, or un-file an amicus
+    brief — so a forecast about them is a forecast about an increment, which
+    needs the value as at prediction as well: that end is
+    ``Prediction.context`` (:class:`PredictionContext`), which carries the same
+    three fields. And the corpus columns behind them hold the *current* value,
+    not the value at any fixed moment, so copying them onto the outcome at
+    resolution is what makes a re-score of the same cell reproduce the same
+    number.
+
+    **Deliberately no dates.** The corpus's ``*_at`` columns are moment-minting
+    dates read from entry text, and an undated entry is skipped there by rule —
+    so they carry a known undercount that the max-latched booleans do not. The
+    resolution *value* is the flag; the date's job is opening an event, and it
+    keeps it.
+    """
+
+    response_requested: bool = Field(
+        description="Whether the Court (or a Circuit Justice) had requested a "
+        "response by resolution — the interim analogue of a CVSG, and an "
+        "affirmative act of attention rather than a rescheduling",
+    )
+    referred_to_court: bool = Field(
+        description="Whether the application had been referred to the full Court "
+        "rather than decided by a Circuit Justice alone — the signal the interim "
+        "aggregation rule turns on",
+    )
+    amicus_briefs: int = Field(
+        ge=0,
+        description="How many amicus briefs the application's docket recorded as "
+        "at resolution — a stakes proxy, counted per entry naming amicus curiae "
+        "(a multi-filer entry counts once)",
+    )
+
+
 class Outcome(_Strict):
     """``outcome.json`` — realized ground truth, written once an event resolves."""
 
@@ -920,6 +995,16 @@ class Outcome(_Strict):
         "`Prediction.context` block's half of the pair. Absent on outcomes "
         "written before the block existed, "
         "and on events whose proceedings were never live-parsed",
+    )
+    interim_signals: InterimResolutionSignals | None = Field(
+        default=None,
+        description="The interim docket's escalation signals frozen as at "
+        "resolution — the interim twin of `signals`, and never populated "
+        "beside it: the two blocks describe different dockets. Present iff the "
+        "application was application-parsed (`CorpusRow.application_kind` "
+        "non-null is the coverage sentinel for the whole interim signal family, "
+        "exactly as `distribution_count` is for the cert one) and every latched "
+        "value was observed. Absent means not observed, never observed-as-false",
     )
     vote_provenance: VoteProvenance | None = Field(
         default=None,
@@ -1282,8 +1367,12 @@ class Evaluation(_Strict):
         "a merits cell it is instead the statpack merits section's disturbed rate "
         "pooled over grant Terms strictly before the case's "
         "(`pipeline.base_rates.merits_base_rate`), which is not a salience-band product, "
-        "so base_rate_basis and base_rate_salience_version stay null there. An interim "
-        "cell has no published rate and omits the field. The naive "
+        "so base_rate_basis and base_rate_salience_version stay null there. On an "
+        "interim cell it is the statpack interim section's substantive grant rate "
+        "pooled over application Terms strictly before the case's "
+        "(`pipeline.base_rates.interim_base_rate`), which is no band product either, "
+        "so both basis fields stay null there too; it is null below that pool's "
+        "own floor, and null wherever the stage's prompt rule omits it. The naive "
         "baseline the prediction's skill is scored against; null on offline evaluator "
         "outputs, when no prior-Term data exists for the stage's rate, and on records "
         "written before the field existed.",
@@ -1292,7 +1381,10 @@ class Evaluation(_Strict):
         default=None,
         description="Which salience-band population segment_base_rate was taken over. "
         "Null wherever the rate is not a band product — a merits cell's Term-pooled "
-        "disturbed rate, and an interim cell, which takes no rate at all. 'risk_set' "
+        "disturbed rate, and an interim cell's application-Term-pooled grant rate: "
+        "an application freezes no band by rule, so there is no band population for "
+        "this field to name, and the event's stage axis carries the disambiguation "
+        "instead. 'risk_set' "
         "pools across every petition that had REACHED the prediction's frozen band — "
         "the population a live cell was actually in, and the right basis wherever the "
         "prediction carries a frozen band. 'terminal' pools across petitions that "
@@ -3966,15 +4058,25 @@ class _StatPackInterimCounts(_Strict):
 
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. Descriptive only — the substantive grant rate describes the
-    accumulated cohort, and is **not** a segment base rate: the interim stage's
-    scored base rate publishes only at the pre-registered resolved-count floor
-    (``docs/salience.md``, *The interim docket*), so until then no skill or
-    calibration claim rests on these figures. Extensions are counted so the
+    reweighted. This slice's own ``substantive_grant_rate`` stays **descriptive**
+    — it describes the accumulated cohort and, at the pack level, contains every
+    Term including a scored case's own. The *scored* interim baseline is built
+    from the per-Term entries instead
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`): pooled over
+    Terms strictly before the case's, and only where the pooled sample clears the
+    pre-registered floor (``docs/salience.md``, *The interim docket*).
+    Extensions are counted so the
     docket's administrative dominance is visible, but they never pool into any
     rate — an extension is granted as a matter of course, and admitting it would
     hand the rate the Court's calendar rather than its judgment
     (``docs/salience.md``, *The interim docket*).
+
+    Two denominators, so read each figure against its own. The resolved/granted
+    counts cover the machine-matched-resolved subset; the three escalation
+    counters below cover **every** substantive application in the slice, pending
+    ones included, which makes them right-censored rather than terminal — an
+    application still open when the pack was built contributes a "no" it may yet
+    reverse. That is one of the reasons no claim baseline is derived from them.
     """
 
     applications: int = Field(
@@ -4075,9 +4177,10 @@ class StatPackInterim(_StatPackInterimCounts):
     different population resolving on a different standard, so they get their own
     section rather than a salience band — this section deliberately carries no
     ``salience_version``, because it is not a salience-band product. Pack-level
-    counts with a per-application-Term breakdown; the accumulating cohort that
-    will eventually ground an interim segment base rate, published descriptively
-    until then. A stage section exists only once its corpus feed does: the pack
+    counts with a per-application-Term breakdown; the per-Term entries are what
+    the interim segment base rate pools strictly-prior, while the pack-level
+    figures beside them stay descriptive. A stage section exists only once its
+    corpus feed does: the pack
     omits it entirely while the corpus holds no application rows — the same
     joining rule the merits sibling (:class:`StatPackMerits`) follows on the
     ``merits_judgment`` column.

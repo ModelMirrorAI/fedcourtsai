@@ -159,6 +159,9 @@ absent optional field as null.
     "cvsg_date": null,
     "band": "baseline",
     "salience_version": "sal-v3",
+    "response_requested": null,
+    "referred_to_court": null,
+    "amicus_briefs": null,
     "term": 2025
   },
   "process_version": {
@@ -186,8 +189,15 @@ grant or denial of the requested relief.
 - `predicted_disposition` draws from four labels only — `granted`, `denied`,
   `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
   are cert-stage routes the interim vocabulary never records.
-- **No `claims` field.** No interim moment declares a set, whatever the
-  event's kind, so the cell writes none and the stamped record carries a null.
+- **A `claims` field over `interim-v1`** — `interim-disposition` (restating the
+  headline `probability`), `response-requested-increment`, `referral-increment`,
+  `amicus-increment`, in that order. Every interim moment declares the same four,
+  whatever the event's kind. Only the first has a baseline today, and only above
+  the interim pool's floor; the three increments bank their probabilities against
+  a cut the statpack does not yet carry
+  ([outcome-decomposition.md](outcome-decomposition.md)). Cells run under a
+  process whose prompt does not ask for the set write no block, and a missing
+  block stays a legitimate state.
 - `votes` is optional and `judgment` is null. None of the cert signals exists
   here either: an application is not distributed for conference and a CVSG is a
   cert-stage act, so the cell reads the escalation ladder — response requested,
@@ -216,7 +226,13 @@ every committed prediction carries them.
   "big_case_score": 0.7,
   "big_case_rationale": "A statewide election rule, weeks before the ballot deadline.",
   "reasoning_doc": "reasoning.md",
-  "predicted_reasoning_doc": "predicted_reasoning.md"
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "claims": [
+    {"claim_id": "interim-disposition", "probability": 0.28},
+    {"claim_id": "response-requested-increment", "probability": 0.45},
+    {"claim_id": "referral-increment", "probability": 0.30},
+    {"claim_id": "amicus-increment", "probability": 0.55}
+  ]
 }
 ```
 
@@ -406,8 +422,9 @@ directory without knowing which part is which invites trusting the wrong half.
   [process-version.md](process-version.md).
 - **`context`** on `prediction.json` — the `PredictionContext` block: the
   cell's mode and replay cutoff, and the conditioning state frozen at
-  provisioning (the salience band, the distribution count and CVSG date as at
-  prediction, the Term). Written by provisioning and copied on by the stamp. It
+  provisioning: the salience band, the distribution count and CVSG date as at
+  prediction, the Term, and — on an application cell only — the interim
+  escalation trio as at prediction. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a
@@ -470,10 +487,13 @@ Three per-stage differences are worth knowing when reading a scored cell:
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
   `base_rate_basis_carries_version` holds the same rule over the ledger.
-- **An interim cell omits both**, by rule and not by accident: no interim
-  segment base rate is published, so there is nothing to score skill against.
-  The omission is keyed on the stage, not on whether a band happens to be
-  frozen.
+- **An interim cell's baseline is registered and wired** — the statpack interim
+  section's substantive grant rate pooled over application Terms strictly before
+  the case's own — but it is no band product either, so `base_rate_basis` and
+  `base_rate_salience_version` stay null there exactly as they do on a merits
+  cell, keyed on the stage rather than on whether a band happens to be frozen.
+  Both fields are omitted below the pool's own floor, and while the stage's
+  prompt rule omits the skill fields ([salience.md](salience.md)).
 - **A merits cell's baseline is registered and scored** — the statpack's
   pooled strictly-prior disturbed rate (its cohort guarded label-independently
   against cert-order-dated judgments), keyed on the grant Term and returning

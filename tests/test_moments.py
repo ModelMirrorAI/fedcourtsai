@@ -10,7 +10,14 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.cli import _forward_leakage
 from fedcourtsai.pipeline import moments
-from fedcourtsai.pipeline.claims import declared_claim_set
+from fedcourtsai.pipeline.claims import (
+    CLAIM_AMICUS_INCREMENT,
+    CLAIM_INTERIM_DISPOSITION,
+    CLAIM_REFERRAL_INCREMENT,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT,
+    CLAIM_SET_INTERIM_V1,
+    declared_claim_set,
+)
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
 from fedcourtsai.pipeline.outcome import (
     MERITS_EVENT_ID,
@@ -324,15 +331,25 @@ def test_the_interim_response_moments_are_distinct_events() -> None:
     assert interim_response_events_for(row, []) == []
 
 
-def test_no_interim_moment_declares_claims() -> None:
-    """The interim stage has no declared claim set at any moment.
+def test_every_interim_moment_declares_the_same_interim_set() -> None:
+    """All three interim moments declare `interim-v1`, with the same four ids.
 
-    Its base rate is still accumulating toward the pre-registered floor, so
-    there is nothing for a claim to be scored against — and a later moment does
-    not change that.
+    The claims do not change because the forecast was taken later — only the
+    information set does, and that lives on the aggregation key — so the three
+    moments must agree exactly, order included.
     """
-    for spec in moments.moments_for(Stage.interim):
-        assert declared_claim_set(spec.event_id) is None
+    expected = (
+        CLAIM_SET_INTERIM_V1,
+        (
+            CLAIM_INTERIM_DISPOSITION,
+            CLAIM_RESPONSE_REQUESTED_INCREMENT,
+            CLAIM_REFERRAL_INCREMENT,
+            CLAIM_AMICUS_INCREMENT,
+        ),
+    )
+    declared = [declared_claim_set(spec.event_id) for spec in moments.moments_for(Stage.interim)]
+    assert len(declared) == 3
+    assert declared == [expected, expected, expected]
 
 
 def test_a_granted_case_reaches_the_predict_queue_without_being_salience_selected(

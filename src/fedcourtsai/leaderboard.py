@@ -704,9 +704,11 @@ def _stage_board(
     ``predictor_id`` and never ranked — a stage resolves on its own decision
     standard, so nothing here is comparable to the cert board or another stage.
     Only cert cells ever carry a realized-Term baseline, so a stage block's
-    realized-Term figure is null and its count zero — the same shape the interim
-    block's prior-Term skill already has, and for the same reason: no other
-    stage publishes a band rate.
+    realized-Term figure is null and its count zero: the realized-Term rate is a
+    *band* rate, and no other stage is a salience-band product. Their
+    prior-Term skill is a separate question — the interim and merits stages both
+    have a registered strictly-prior baseline of their own, each with its own
+    floor.
     """
     by_predictor = _group_by_predictor(cells)
     entries: list[LeaderboardStageEntry] = []
