@@ -241,6 +241,7 @@ __marimo__/
 /.blinding/
 
 # The qp-topic labeling run's second checkout, from which its transcript
-# scanner is installed: a whole repo plus a venv, runner-local, and the one
-# tree in the workspace that must never be committed from.
+# scanner is installed: a whole repo plus a venv, runner-local, and prophylactic
+# here — `actions/checkout` forces the path under the workspace, so this keeps a
+# second repository out of `git status` and out of any future `git add -A`.
 /.transcript-scanner/

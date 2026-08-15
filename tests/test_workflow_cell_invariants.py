@@ -344,8 +344,9 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     scan = next(s for s in steps if s.get("id") == "transcript_scan")
     scan_at = steps.index(scan)
 
-    src = next(s for s in steps if (s.get("with") or {}).get("path") == ".transcript-scanner")
+    src = next(s for s in steps if s.get("id") == "scanner_src")
     assert "actions/checkout@" in src["uses"]
+    assert src["with"]["path"] == ".transcript-scanner"
     # Resolved against the remote at this run's own commit — never out of the
     # workspace object store, which the agent rewrites as freely as the tree.
     assert src["with"]["ref"] == "${{ github.sha }}"
@@ -366,7 +367,7 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     assert src["env"]["GIT_CONFIG_SYSTEM"] == "/dev/null"
     assert "${{ runner.temp }}" in src["env"]["GIT_CONFIG_GLOBAL"]
 
-    install = next(s for s in steps if "UV_CACHE_DIR" in (s.get("env") or {}))
+    install = next(s for s in steps if s.get("id") == "scanner_install")
     # A package cache the labeler can write reaches the import path as surely
     # as a venv it can write, and so does the interpreter the venv is built on
     # — uv keeps both under the runner user's home by default.
@@ -374,8 +375,20 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     assert ".transcript-scanner" in install["env"]["UV_PYTHON_INSTALL_DIR"]
     assert "--managed-python" in install["run"]
     assert "sync --locked" in install["run"]
-    assert "steps.scanner_clear.outcome == 'success'" in install["if"]
+    assert "steps.scanner_src.outcome == 'success'" in install["if"]
     assert steps.index(src) < steps.index(install) < scan_at
+    # `uv` sits where `setup-uv` put it — writable by the runner user without
+    # sudo — so the path recorded before the agent ran is not enough on its own.
+    assert install["env"]["UV_SHA256"] == "${{ steps.uv-bin.outputs.sha256 }}"
+    assert "sha256sum --check" in install["run"]
+    # `rm`, `git` and `sha256sum` all come off PATH, and `$GITHUB_PATH` prepends
+    # ahead of everything — so the toolchain PATH is pinned to root-owned
+    # directories, which puts those three behind the same sudo as the image.
+    for step in (clear, src, install):
+        assert step["env"]["PATH"].startswith("/usr/local/sbin:")
+    # The scan must not run at all without the install: `$SCANNER` is a path
+    # inside the workspace, and an ungated step would execute whatever is there.
+    assert "steps.scanner_install.outcome == 'success'" in scan["if"]
 
     # `$GITHUB_ENV` and `$GITHUB_PATH` are appendable from any earlier step,
     # the labeling step's subprocesses included, and the runner applies those
@@ -394,10 +407,17 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
 
     # And the scan invokes that install by absolute path. A bare `uv run` here
     # is the whole bug: it resolves the project out of the labeler's workspace.
-    # `-E -s` is the exhaustive form of the unset above over the PYTHON* family.
+    # `-E -s` is the exhaustive form of the unset above over the PYTHON* family;
+    # `-P` drops the implicit working-directory entry, which `-m` would
+    # otherwise put *first* on `sys.path` — and a run step's default working
+    # directory is the workspace the labeler wrote to. The working-directory
+    # override is the same answer from the other side; neither alone is
+    # load-bearing, and dropping either quietly re-opens the import path.
     assert "uv run" not in scan["run"]
-    assert '"$SCANNER" -E -s -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
+    assert '"$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
     assert scan["env"]["SCANNER"].endswith(".transcript-scanner/.venv/bin/python")
+    assert scan["working-directory"].endswith("/.transcript-scanner")
+    assert "-E -s -P -m fedcourtsai.cli" in install["run"]
 
 
 def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -> None:

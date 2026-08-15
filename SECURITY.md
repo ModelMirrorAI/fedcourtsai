@@ -84,21 +84,27 @@ runbook, [docs/security.md](docs/security.md).
   withholds the artifact, and with no trigger issue on a dispatch run the
   run's warning and step summary are the record. Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
-  writes freely in the workspace the editable install resolves through — so
-  the scanner is built from a checkout taken *after* the agent exits and
-  fetched from GitHub, into a venv inside that fresh tree, with the package
-  cache and the interpreter it is built on inside that tree too, and with the
-  environment levers that reach into a process regardless of its import path
-  (`PYTHONPATH`, `LD_PRELOAD`, an executable `core.hooksPath` in global git
-  config) closed alongside. The same job's tree-pristine assertion is a
+  writes freely in the tree the editable install resolves through — so the
+  scanner is built from a checkout taken *after* the agent exits and fetched
+  from GitHub, into a venv inside that fresh tree, with the package cache and
+  the interpreter it is built on inside that tree too, and with the levers
+  that put a caller's code inside a process it starts (`PYTHONPATH`,
+  `LD_PRELOAD`, an executable `core.hooksPath` in global git config) closed
+  alongside. The same job's tree-pristine assertion is a
   separate control for a separate threat, a rigged measurement rather than a
   stolen key, and it gates the measure step rather than the capture: a
-  tampered run keeps the transcript that is its evidence. What that isolation
-  still trusts, named rather than implied: the `uv` binary and the runner
-  image's own files, which the labeler reaches only through the passwordless
-  sudo the runner user holds, and anything a process it left behind does
-  between steps. What it removes is the class needing neither — a file dropped
-  before the agent exits. A different surface is
+  tampered run keeps the transcript that is its evidence. The toolchain that
+  builds the scanner is held the same way: `uv` is checked against a digest
+  recorded before the agent ran, since it sits where the runner user can
+  rewrite it, and PATH is pinned to the root-owned directories so `git` is the
+  image's. What that isolation still trusts, named rather than implied: the
+  action bundles the runner unpacks before a job's first step, which sit in a
+  runner-user-writable path and are pinned by identity and not by bytes; the
+  runner image's own files, behind the passwordless sudo the runner user
+  holds; and anything a process the agent left behind does between steps. What
+  it removes is the drop-a-file class on the scanner's **Python import path**
+  and on the toolchain that builds it — the class an editable install hands
+  over for free. A different surface is
   handled a layer earlier instead: the tool-call log the harness harvests from
   an engine transcript into `retrieval_log.json` records whatever a tool call
   carried, which is not the agent's choice, so
