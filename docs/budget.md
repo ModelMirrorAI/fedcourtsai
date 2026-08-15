@@ -357,7 +357,7 @@ the predict queue and the evaluate backlog are untouched and re-derive next cycl
 The shipped value is **$2,500 over a 30-day trailing window** — ~2.1× the
 Term's average month (≈$1.2K: the 838–865 events/Term at the $13
 planning rate, spread over the ~9 months the Term spans; on a 12-month spread
-the multiple is 2.8×, so the claim is conservative). What it protects against
+the multiple is ~2.7×, so the claim is conservative). What it protects against
 is a **burst, not a rate**. The steady state cannot reach it: even a
 regression to a non-binding cap burns $1.8–2.3K per 30 days (the prior
 150/200 replay selected 1,228–1,349/Term ≈ $16–17.5K, and the 150-cap
