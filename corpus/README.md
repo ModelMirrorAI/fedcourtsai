@@ -42,8 +42,12 @@ The corpus has two halves:
 
   Document text leaves are content-addressed and dated snapshots immutable per
   day, so bulk content is never overwritten in place; the small manifests are
-  versioned by the bucket rather than deleted. Its location comes from
-  `FEDCOURTS_CASESTORE_URL`.
+  versioned by the bucket rather than deleted. The `questions-presented` leaf is
+  *derived* from the stored petition text rather than fetched, so a fixed
+  extractor can be carried onto rows already stored (`fedcourts
+  backfill-questions-presented`) under that same rule: the re-derivation writes
+  a new leaf and re-points the manifest, and the superseded text stays
+  readable. Its location comes from `FEDCOURTS_CASESTORE_URL`.
 
 SQLite keeps the index a single artifact — one pointer, queryable with
 plain SQL. The format is internal; the stable contract is the **row schema**

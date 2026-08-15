@@ -139,6 +139,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
+from .pipeline.documents import backfill_questions_presented
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
@@ -787,6 +788,97 @@ def backfill_merits_judgments_cmd(
         ", ".join(f"{value}: {count}" for value, count in result.terminations.items()) or "none"
     )
     typer.echo(f"  terminations: {terminations}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("backfill-questions-presented")
+def backfill_questions_presented_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Rewrite the questions-presented rows; omit for a dry-run that only counts.",
+        ),
+    ] = False,
+) -> None:
+    """Re-derive each SCOTUS case's questions presented from its stored petition text.
+
+    The `questions-presented` row is **derived** from the petition, and the
+    ingest path derives it only when the petition itself is (re)fetched — an
+    unchanged petition URL is never re-fetched, so a row keeps whatever the
+    extractor said the day it was ingested and an extractor fix never reaches
+    it. This pass closes that gap: over the live-slice SCOTUS cases holding
+    petition text (SQLite, or the per-case content store under the corpus-split
+    mode — documents reach the corpus on that channel only), run the current
+    extractor (`pipeline/documents.py`) and rewrite the row only where its
+    output differs from what is stored. Nothing is fetched and no PDF is
+    re-read — the input is text the corpus already holds. A stored full-length
+    question the extractor can no longer derive is reported (`refused`) rather
+    than emptied: that reading is as likely to be this pass misjudging a
+    question as a bad row, and the sweep does not decide it alone. Each rewrite
+    is
+    classified by the extraction hole it comes from (`stale-toc-fragment`,
+    `prose-terminator-fragment`, `below-floor`, `other-change`, plus
+    `derived-anew` where a case had no row), so the dry run is the triage list;
+    the printed `QPBackfillResult` carries the untruncated case-id ledger of
+    which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
+    the command echoes. Idempotent. A
+    deliberate maintainer surface, never scheduled: dry-run by default, run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Fails loud if
+    the corpus is absent, or if it holds no petition text at all (a payload-free
+    index, or a split-mode blob with no content store configured — the wrong
+    blob for this command).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the questions-presented backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        # The pointer the rewrite is about to supersede. Where the replaced text
+        # is recoverable from depends on the mode: from this blob in the
+        # self-contained mode, which holds the documents inline; from the prior
+        # content-addressed leaf and the bucket-versioned manifest under the
+        # split mode, where the blob carries no document text at all. Echo it
+        # either way — it is what names the corpus state the ledger below
+        # describes.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with corpus.connect(db_path) as conn:
+        result = backfill_questions_presented(conn, apply=apply)
+    if not result.petitions:
+        typer.echo(
+            f"backfill-questions-presented: no stored petition text in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if apply else "would rewrite"
+    distribution = (
+        ", ".join(f"{reason}: {count}" for reason, count in result.reasons.items()) or "none"
+    )
+    # Summary first: the per-case ledger below runs to the size of the change
+    # set, and a first pass over an unconverged corpus would bury the counts.
+    typer.echo(
+        f"backfill-questions-presented ({'applied' if apply else 'dry-run'}): "
+        f"{result.petitions} stored petition(s) — {result.unchanged} unchanged, "
+        f"{verb} {result.updated}, {result.no_petition_text} without petition text"
+    )
+    typer.echo(f"  reasons: {distribution}")
+    if result.refused:
+        typer.echo(
+            f"  REFUSED: {result.refused} carry a full-length question this pass "
+            "cannot re-derive — never emptied automatically; triage them"
+        )
+    for case_id, reason in result.changes.items():
+        typer.echo(f"  {case_id}: {reason}")
+    if apply:
+        _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
 
 

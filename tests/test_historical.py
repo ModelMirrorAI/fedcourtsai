@@ -409,7 +409,10 @@ def test_loader_enriches_an_existing_courtlistener_row(tmp_path: Path) -> None:
 
 def test_documents_fetched_only_from_the_floor_term_up(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
-    pdf = _pdf("QUESTION PRESENTED Whether Z. PARTIES TO THE PROCEEDING Acme.")
+    pdf = _pdf(
+        "QUESTION PRESENTED Whether the agency exceeded its statutory authority. "
+        "PARTIES TO THE PROCEEDING Acme."
+    )
     rich = _decided("22-2", _GRANTED_ENTRY)
     rich["ProceedingsandOrder"][0]["Links"] = [
         {"Description": "Petition", "DocumentUrl": "https://example/22.pdf"}
