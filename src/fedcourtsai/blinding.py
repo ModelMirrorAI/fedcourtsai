@@ -61,9 +61,12 @@ number depends on naming them:
   which narrows the guessing space the way prose style does. The same holds
   for the capture profile: one engine's telemetry logs no results at all, so
   an all-``unobserved`` log with a ``result_capture_coverage`` of 0.0 points
-  at it. That marker is kept regardless, because dropping it makes every
-  uncaptured call read as one that returned nothing — a leakage grade wrong in
-  a known direction, which is the worse of the two harms.
+  at it — marginally, since that engine's staged log already carries a null
+  ``result_digest`` and a null ``retrieved_doc_date`` on every row, both of
+  which pass the mask untouched. The marker is kept regardless, because
+  dropping it makes every uncaptured call read as one that returned nothing —
+  a leakage grade wrong in a known direction, which is the worse of the two
+  harms.
 - **Style is not masked.** Three candidates over three known engines is a small
   guessing space, and an engine may recognise its own prose.
 

@@ -440,8 +440,9 @@ directory without knowing which part is which invites trusting the wrong half.
   "this call surfaced nothing" is a claim only the marker can support. The
   evaluate prompt does not name the marker — the process the frozen partition
   keys on cannot gain a reading instruction without moving
-  ([process-version.md](process-version.md)) — so it serves a maintainer and
-  the tool-usage rollup until the next re-blessing carries the instruction.
+  ([process-version.md](process-version.md)) — so it serves a maintainer, and
+  is available to the tool-usage rollup, which does not yet read it, until the
+  next re-blessing carries the instruction.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts
