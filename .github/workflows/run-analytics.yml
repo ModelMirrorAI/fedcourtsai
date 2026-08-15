@@ -428,8 +428,12 @@ jobs:
         with:
           name: qp-texts
           # Under $RUNNER_TEMP for the same reason the extract job wrote it
-          # there: petition text never lands inside the checkout.
-          path: ${{ runner.temp }}
+          # there: petition text never lands inside the checkout. The `qp-io`
+          # subdirectory is the labeler's ONE granted path outside the checkout
+          # (`--add-dir` below) — it holds exactly the extract and the output
+          # slot, and never the oracle, which sits beside it in $RUNNER_TEMP
+          # where the grant does not reach.
+          path: ${{ runner.temp }}/qp-io
 
       # The regression tripwire for the split above: the agent step must inherit
       # no cloud credential from the job env. This job assumes no role at all, so
@@ -472,11 +476,14 @@ jobs:
       # subprocesses must not inherit the engine API key), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
       # carry — without it the CLI refuses to start rather than degrade.
-      - name: Install bubblewrap for the labeler's subprocess isolation
+      # socat is the CLI's other sandbox dependency: absent, the Bash sandbox
+      # fails to initialize ("Sandbox dependencies not available") and every
+      # shell command the labeler issues is refused.
+      - name: Install bubblewrap and socat for the labeler's sandbox
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bubblewrap
+          sudo apt-get install -y -qq bubblewrap socat
 
       # The action's bundled install left the CLI's native binary missing on
       # this job ("claude native binary not installed", while the action still
@@ -533,8 +540,8 @@ jobs:
         timeout-minutes: 40
         uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
         env:
-          QP_TEXTS: ${{ runner.temp }}/qp-texts.json
-          LABELS_OUT: ${{ runner.temp }}/qp-labels.jsonl
+          QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
+          LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
         with:
           # Auth is the Anthropic API key (pay-per-token), as for every automated
           # cell: see docs/budget.md.
@@ -569,8 +576,8 @@ jobs:
             Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
             questions-presented text in the extract:
 
-            QP_TEXTS=${{ runner.temp }}/qp-texts.json
-            LABELS_OUT=${{ runner.temp }}/qp-labels.jsonl
+            QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
+            LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
             LABELER=claude-code/${{ inputs.label_model }}
 
             These values are authoritative; the same identifiers are exported as
@@ -587,8 +594,11 @@ jobs:
             --model ${{ inputs.label_model }}
             --max-turns 120
             --permission-mode bypassPermissions
+            --add-dir ${{ runner.temp }}/qp-io
 
-      # The labeler's only declared output is $LABELS_OUT, under $RUNNER_TEMP, so
+      # The labeler's only declared output is $LABELS_OUT, in the granted
+      # `qp-io` directory under $RUNNER_TEMP — the checkout is read-only
+      # territory by contract — so
       # a modified work tree is a contract violation. The reference set is out of
       # reach above; the gate itself is not, because `setup-python-env` installs
       # the project editable and `uv run fedcourts qp-topics` therefore executes
@@ -894,8 +904,8 @@ jobs:
         id: measure
         uses: ./.github/actions/qp-topic-measure
         with:
-          labels: ${{ runner.temp }}/qp-labels.jsonl
-          texts: ${{ runner.temp }}/qp-texts.json
+          labels: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+          texts: ${{ runner.temp }}/qp-io/qp-texts.json
           labeler: ${{ env.LABELER }}
           transcript-hint: >-
             The qp-label-transcript run artifact carries the turn-by-turn

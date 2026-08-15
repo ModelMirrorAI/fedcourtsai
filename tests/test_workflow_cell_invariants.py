@@ -83,6 +83,38 @@ def test_every_agent_checkout_deletes_the_qp_topic_oracle() -> None:
             assert "if" not in step, f"{name}: the oracle fence must not carry an `if:`"
 
 
+def test_the_labeler_reaches_exactly_the_qp_io_directory() -> None:
+    """The labeler's file access outside the checkout is one granted directory.
+
+    The pinned CLI confines reads and writes to the checkout plus explicit
+    `--add-dir` grants, so the extract and the output slot live in a dedicated
+    `qp-io` subdirectory of $RUNNER_TEMP and that subdirectory is the one
+    grant. Three ways this could rot silently: the grant widens to the bare
+    temp directory (which holds the diverted oracle — handing the labeler the
+    reference set destroys the measurement), one of the staged paths drifts
+    out of the granted directory (the agent is structurally unable to reach
+    it and every run fails no-output, the shape run 31894995596 diagnosed),
+    or the sandbox's socat dependency drops from the install (no shell
+    command can execute at all)."""
+    wf = _load("run-analytics.yml")
+    steps = wf["jobs"]["qp-topic-label"]["steps"]
+    label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
+    args = label["with"]["claude_args"]
+    assert "--add-dir ${{ runner.temp }}/qp-io" in args
+    # The grant is the subdirectory, never the bare temp dir beside the oracle.
+    assert "--add-dir ${{ runner.temp }}\n" not in args + "\n"
+    for env_key in ("QP_TEXTS", "LABELS_OUT"):
+        assert "${{ runner.temp }}/qp-io/" in label["env"][env_key]
+    # The oracle's diversion target sits outside the granted directory.
+    oracle = next(s for s in steps if "qp-topics-oracle" in str(s.get("run") or ""))
+    assert '"$RUNNER_TEMP/qp-topics-oracle"' in oracle["run"]
+    measure = next(s for s in steps if "qp-topic-measure" in str(s.get("uses") or ""))
+    assert measure["with"]["labels"] == "${{ runner.temp }}/qp-io/qp-labels.jsonl"
+    assert measure["with"]["texts"] == "${{ runner.temp }}/qp-io/qp-texts.json"
+    sandbox = next(s for s in steps if "bubblewrap" in str(s.get("run") or ""))
+    assert "socat" in sandbox["run"]
+
+
 def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     """The labeler needs the reference set back for its measure step, so it
     moves the directory aside and restores it from the commit — restoring the
