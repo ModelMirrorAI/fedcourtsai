@@ -347,7 +347,10 @@ Three consequences bind every use of the set:
   from the summary block alone, and each re-run costs real model spend — so
   the transcript is uploaded on every path the action survives (a
   gate-refusing run is as diagnostic as a no-output one; a hard step-timeout
-  kill leaves no file to capture), only after a secret scan over the
+  kill leaves no file to capture; a tree the pristine assertion rejects
+  forfeits its transcript, since the scanner runs this checkout's code and
+  must never run tampered code with the engine key in reach), only after a
+  secret scan over the
   transcript passes (a hit withholds the artifact and says so — the collect
   job's withhold-and-continue posture, minus its trigger-issue report, since a
   dispatch mode has none; the transcript surface runs literal containment of
