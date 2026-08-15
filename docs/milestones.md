@@ -104,6 +104,25 @@ each freeze commit is recorded here.
   prescribes); zero cells were ever stamped
   under any interim digest set.
 
+- **`sal-v3` registered and activated (caption-v2 carve-in), 2026-08-15.** The
+  registration commit (`be774099c`) adds the `caption-v2` rule and the
+  `sal-v3` scorer with `sal-v2` still active; the activation commit flips the
+  one constant. Its caption-census freeze record, quoted here because the
+  census artifact is deliberately uncommitted: `caption-v2` over corpus
+  `e665971350fbc5d2729e424c6fd6d0f2b927b59253922cccb60f6dd1fe276469`, scored
+  segment OT2017–24, pooled federal 133/181 (0.7348) against `caption-v1`'s
+  114/161 (0.7081), private 0.0524 against 0.0540, 20 rows across 16 distinct
+  captions migrating `private`→`federal` in the complete Terms (plus 2 in
+  right-censored OT2025), one-directional by construction — and because the
+  recovered captions were surfaced partly by a grant-ranked residual scan,
+  the pooled-rate rise and the lift rise are **not** evidence for the
+  widening; the evidence of record is the migrated captions' outcome-free
+  precision (no false positive among the 20 migrated complete-Term rows) and
+  the pre-registered per-Term replication shape, with the incremental class's
+  forward rate estimable only by an out-of-sample re-census once
+  frozen-window Terms accrue. The scored window opens at the first
+  post-promotion metrics refresh, as it did for `sal-v2`.
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
