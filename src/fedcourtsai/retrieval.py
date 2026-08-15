@@ -68,7 +68,7 @@ _DOC_DATE_RE = re.compile(
 )
 # Schema cap on calls per log; a longer transcript is truncated head-first
 # (the earliest calls are the retrieval-shaped ones worth grading).
-_MAX_CALLS = 500
+RETRIEVAL_CALL_CAP = 500
 
 
 def _digest(payload: Any) -> str | None:
@@ -175,7 +175,7 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
                     retrieved_doc_date=_doc_date(result) if result is not None else None,
                 )
             )
-    return calls[:_MAX_CALLS]
+    return calls[:RETRIEVAL_CALL_CAP]
 
 
 def _message_blocks(event: Any) -> list[dict[str, Any]]:
@@ -250,7 +250,7 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
                 retrieved_doc_date=_doc_date(result) if result is not None else None,
             )
         )
-    return calls[:_MAX_CALLS]
+    return calls[:RETRIEVAL_CALL_CAP]
 
 
 def _maybe_json(params: Any) -> Any:
@@ -285,7 +285,7 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     admitting them (this once accepted any node with a ``function_name`` and no
     event name) both drowned the log — ~90% of rows, one per distinct tool per
     flush — and, because a null timestamp sorts first, pushed real calls past
-    ``_MAX_CALLS``. Requiring the tool-call event name keeps only the log
+    ``RETRIEVAL_CALL_CAP``. Requiring the tool-call event name keeps only the log
     records; a real one always carries it.
     """
     calls: list[RetrievalCall] = []
@@ -316,4 +316,4 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     # The stack walk visits nested containers in reverse; restore log order by
     # timestamp where present (stable for ties/absent stamps).
     calls.sort(key=lambda call: call.timestamp or "")
-    return calls[:_MAX_CALLS]
+    return calls[:RETRIEVAL_CALL_CAP]
