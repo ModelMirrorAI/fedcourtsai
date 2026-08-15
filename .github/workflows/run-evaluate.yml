@@ -645,9 +645,10 @@ jobs:
       # this cell's retrieval_log.json, which the capture step writes; run first
       # and alias strings would ship in the log. Before the stamp, because
       # `stamp-cell --role evaluator` joins each evaluation to the prediction it
-      # scored on `predictor_id`, and under an alias that join misses and drops
-      # claim_scores and base_rate_salience_version silently. `validate` in
-      # "Record cell status" is the loud backstop.
+      # scored on `predictor_id`, and under an alias that join misses: it drops
+      # claim_scores silently, while a `risk_set` base rate left with no
+      # salience version fails the stamp step itself. `validate` in
+      # "Record cell status" is the backstop for the silent half.
       # No success() guard on the provisioning step by design: gating this on
       # step 1 would let a skipped un-aliasing pass quietly, which is the
       # failure this whole design exists to prevent. When step 1 never ran
