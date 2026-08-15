@@ -133,7 +133,7 @@ from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
-from .pipeline.caption import caption_census
+from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
@@ -556,16 +556,30 @@ def reconcile_salience_selection_cmd(
 
 
 @app.command("caption-census")
-def caption_census_cmd() -> None:
+def caption_census_cmd(
+    rule_version: str = typer.Option(
+        CAPTION_RULE_VERSION,
+        "--rule-version",
+        help="Which registered caption rule cuts the frame (caption-v1, caption-v2).",
+    ),
+) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
 
     A deterministic, read-only cut of the salience gate's scored segment
-    (live-slice, paid, modern-cert, resolved) under the committed caption rule
-    (`pipeline.caption`, `caption-v1`) — the artifact any caption-keyed
-    selection constant must be frozen from, after a statistical review of the
-    run (`docs/salience.md`). Prints a `CaptionCensus`. Fails loud if the
-    corpus is absent.
+    (live-slice, paid, modern-cert, resolved) under one registered caption rule
+    (`pipeline.caption`) — the artifact any caption-keyed selection constant
+    must be frozen from, after a statistical review of the run
+    (`docs/salience.md`), and the run names the rule version it was cut under.
+    Prints a `CaptionCensus`. Fails loud if the corpus is absent or the rule
+    version is unregistered.
     """
+    if rule_version not in CAPTION_RULES:
+        typer.echo(
+            f"unregistered caption rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(CAPTION_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -585,7 +599,8 @@ def caption_census_cmd() -> None:
         pointer = corpus_remote.pointer_path_for(db_path)
         corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        census = caption_census(conn, corpus_sha256=corpus_sha)
+        census = caption_census(conn, corpus_sha256=corpus_sha, rule_version=rule_version)
+    typer.echo(f"caption census ({census.rule_version}), pooled:", err=True)
     for cell in census.pooled:
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(

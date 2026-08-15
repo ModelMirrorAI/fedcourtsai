@@ -464,7 +464,9 @@ def test_an_empty_term_still_yields_its_cells(tmp_path: Path) -> None:
     report = replay_gate(
         db, terms=[2019], policies=[CutoffPolicy.arrival, CutoffPolicy.resolution], config=_CONFIG
     )
-    assert report.cells_evaluated == 4  # 2 (term, policy) cells x 2 registered versions
+    # 2 (term, policy) cells x every registered version — the cell grid is the
+    # product, so registering a scorer widens it rather than replacing a cell.
+    assert report.cells_evaluated == 2 * len(registered_versions())
     assert all(cell.eligible == 0 and cell.selected == 0 for cell in report.cells)
 
 
@@ -513,9 +515,10 @@ def test_cli_writes_a_valid_report(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     report = read_model(out, SalienceReplay)  # validates against the schema model
     assert report.terms == [2023]
     assert report.policies == ["arrival", "distribution-1", "resolution"]
-    assert report.cells_evaluated == 6  # 3 policies x 2 registered versions
+    cells = 3 * len(registered_versions())  # 3 policies x every registered version
+    assert report.cells_evaluated == cells
     assert report.salience_version == SALIENCE_VERSION
-    assert "salience-replay: 6 cell(s)" in result.output
+    assert f"salience-replay: {cells} cell(s)" in result.output
 
 
 def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:
@@ -553,32 +556,39 @@ def test_cli_rejects_non_year_terms(tmp_path: Path) -> None:
 def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     tmp_path: Path, two_versions: SalienceScorer
 ) -> None:
-    """The version axis, exercised — the single shipped version cannot show it.
+    """The version axis, exercised — a foreign band vocabulary shows it plainly.
 
-    Two scorers, one reconstruction each (Term, policy). What must be identical
-    across a moment's cells is everything the projection decided: how many rows
-    were eligible, how many had no snapshot, and where each reconstruction came
-    from. What must differ is the banding, because that is the only thing the
-    comparison is entitled to attribute to the scorer."""
+    Every registered scorer, one shared reconstruction per (Term, policy). What
+    must be identical across a moment's cells is everything the projection
+    decided: how many rows were eligible, how many had no snapshot, and where
+    each reconstruction came from. What must differ is the banding, because that
+    is the only thing the comparison is entitled to attribute to the scorer."""
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 3  # one (term, policy) cell x 3 registered versions
+    assert report.cells_evaluated == 4  # one (term, policy) cell x 4 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1"}
-    active, toy, v1 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1"))
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"}
+    active, toy, v1, v3 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"))
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1):
+    for other in (toy, v1, v3):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
 
     # The banding is not: each cell reports its own scorer's vocabulary, and
     # no version's band names appear under another's.
-    assert set(active.bands) <= {"federal", "high", "state", "elevated", "baseline", "unobservable"}
+    caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
+    assert set(active.bands) <= caption_bands
+    assert set(v3.bands) <= caption_bands  # sal-v3 shares sal-v2's vocabulary exactly
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
-    assert sum(active.bands.values()) == sum(toy.bands.values()) == sum(v1.bands.values())
+    assert (
+        sum(active.bands.values())
+        == sum(toy.bands.values())
+        == sum(v1.bands.values())
+        == sum(v3.bands.values())
+    )
