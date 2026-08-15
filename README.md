@@ -38,7 +38,7 @@ auto-merge-gated pull requests.
 | _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing run-pull's corpus-write lock | Script |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
-| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex (replay) |
+| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex + Gemini (replay) |
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
 `run-analytics` (corpus analysis, metrics refresh, and the qp-topic labeler),
@@ -116,7 +116,7 @@ then three parallel selection arms (design:
    is instead selected **at arrival** by predicate: a frozen deterministic
    random slice of new filings (its draw key and cohort start are themselves
    pre-registered, filling forward from the OT2026 docket-year roll), plus
-   every petition the federal government files (the `caption-v1` **federal
+   every petition the federal government files (the `caption-v2` **federal
    petitioner** class). No rank, no capacity — a predicate, not a competition.
    The cohort's results report apart from the escalation cohort's (two moments
    are two populations), and its own two rules report apart from each other:
@@ -330,9 +330,9 @@ docs/               design & operations references (see Documentation below)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
-- [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert set, and the pre-registered rest)
+- [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert, interim, and merits sets, and the pre-registered rest)
 - [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, the hand-labeled reference set, and the labeling run)
-- [Decision model](docs/decision-model.md) (pre-registered: vote thresholds by stage, and what is observable)
+- [Decision model](docs/decision-model.md) (vote thresholds by stage and what is observable; vote accuracy scored on merits moments, margins pre-registered only)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)

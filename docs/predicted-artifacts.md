@@ -170,7 +170,7 @@ absent optional field as null.
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v2",
+    "label": "proc-v3",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",

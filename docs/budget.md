@@ -40,7 +40,7 @@ application Term, OT2025, still open — a Term-to-date count.
 |---|---:|---|
 | Cert — paid modern-cert petitions | 1,498 | at most the pool the gate selects from (11,987 rows over eight Terms) |
 | Merits — cert grants opening a proceeding | 65 | paid `granted`, excluding the `gvr` label, which disposes of a petition without opening a proceeding |
-| Interim — substantive applications | 219 | 15.5% of the 1,410 parsed application dockets; 80.4% are extensions and 4.1% unreadable asks |
+| Interim — substantive applications | 179 | 13.1% of OT2025's 1,365 parsed application dockets; 82.6% are extensions and 4.2% unreadable asks |
 
 **A case is forecast more than once.** Each stage asks one question and the case
 passes several points at which it can honestly be forecast, each with a
@@ -127,7 +127,7 @@ population is the relist-selected slice rather than the docket-wide mean.
 
 **The interim reserve bounds concurrency, and is sized to trade inside `N`
 rather than add spend.** Substantive applications resolve in a *mean* of 27.1
-days (median 13, p95 110), so 219 arrivals need ≈16 concurrent slots against
+days (median 13, p95 110), so 179 arrivals need ≈13 concurrent slots against
 `interim_reserve_slots: 5` — the reserve is continuously full, and the predicted
 interim slice is therefore a ladder-ordered subsample of the substantive stream
 rather than the stream itself.
@@ -149,9 +149,10 @@ would be funded.
 
 Two things bound the interim figures. Lifespans run from each docket's first
 entry to its disposing entry rather than from the `date_filed` /
-`date_decided` columns, which are null on 57 of the 219 rows and null
-disproportionately on the long-lived ones; the entry-based measure covers 218,
-the exception being the one application still pending. And OT2025 is open, so
+`date_decided` columns, which are null on a material share of the rows and null
+disproportionately on the long-lived ones; the entry-based measure covers 178 of
+the 179, the exception being the one application still pending. And OT2025 is
+open, so
 the arrival count is a partial year divided into a full-year denominator —
 saturation is understated, not overstated.
 
@@ -180,19 +181,19 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary` —
-**≈$767 total inference spend on the ledger to date**, across the 413 cells the
+**≈$787 total inference spend on the ledger to date**, across the 422 cells the
 per-cell figures below draw on.
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
 recorded cost a mild undercount.
-Measured per-cell cost spans **≈$0.25–7.87 by model mix** (blended mean **≈$1.86**
-over the 413 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
-gemini ≈$0.55; evaluate, from the one graded event: claude-judge ≈$4.16, codex-judge
-≈$0.92, gemini-judge ≈$0.52); the cheapest cells approach ≈$0.25 only when the
+Measured per-cell cost spans **≈$0.25–7.87 by model mix** (blended mean **≈$1.87**
+over the 422 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
+gemini ≈$0.55; evaluate, from the four graded events: claude-judge ≈$4.68, codex-judge
+≈$1.03, gemini-judge ≈$0.72); the cheapest cells approach ≈$0.25 only when the
 byte-stable prefix (AGENTS.md + prompt template + schema) is served from the prompt
 cache — automatic on all three engines, billing cached reads at ≈0.1×, and the
 reason to keep that prefix stable. Budget the range, not the point. The evaluate
-means come from a single event, so treat them as a first measurement rather than a
+means come from four events, so treat them as a first measurement rather than a
 settled figure; the planning rate below is held deliberately above both.
 
 **One agentic surface sits outside the registry**, and outside the per-cell
@@ -253,12 +254,12 @@ per case ≈ $13   (planning rate, three engines cross-evaluated)
 ```
 
 `$2.12` is a **deliberately conservative** per-cell rate, held above the current
-measured blended mean of `$1.86` (413 cells) so the knob does not have to be
+measured blended mean of `$1.87` (422 cells) so the knob does not have to be
 re-cut every time the ledger grows. Priced at today's measured per-engine means
-the same case is **≈$11** — predict `$5.58` (claude `$3.65` + codex `$1.38` +
-gemini `$0.55`) plus evaluate `$5.60` (claude `$4.16` + codex `$0.92` + gemini
-`$0.52`). Treat `$13` as the number to fund against and `$11` as the number to
-expect; the evaluate half rests on a single graded event, so it is indicative
+the same case is **≈$12** — predict `$5.58` (claude `$3.65` + codex `$1.38` +
+gemini `$0.55`) plus evaluate `$6.43` (claude `$4.68` + codex `$1.03` + gemini
+`$0.72`). Treat `$13` as the number to fund against and `$12` as the number to
+expect; the evaluate half rests on four graded events, so it is indicative
 rather than settled, and the gap is the margin.
 
 So `N ≈ inference_budget / (≈$13 per fully-tournamented case)`. Tier-1 salience
@@ -269,12 +270,12 @@ call), so the gate spends nothing to *decide* what the tournament runs on. Raisi
 **The interim docket: a quota'd stream, capped at five cases in flight.**
 [salience.md](salience.md)'s interim-docket section carries a second selection
 problem — stays, injunctions, vacaturs pending certiorari — and the quota is what
-keeps it small. Across the 1,410 parsed application dockets of the walked
-OT2025 Term, **80.4%** are
-time-extension requests and **4.1%** carry an ask the parser cannot read; both
+keeps it small. Across the 1,365 parsed application dockets of the walked
+OT2025 Term, **82.6%** are
+time-extension requests and **4.2%** carry an ask the parser cannot read; both
 are filtered out deterministically by
 `interim_signals.is_predictable_application` (≈$0, no model call), leaving the
-**15.5%** substantive slice as the only population ever predicted. The stream is
+**13.1%** substantive slice as the only population ever predicted. The stream is
 budgeted as a **bounded reserve defined inside the per-conference spend
 envelope**: `salience.interim_reserve_slots` in
 [config/tracking.yaml](../config/tracking.yaml), set to `5` and enforced by the
@@ -292,7 +293,7 @@ so a conference's realized count can transiently drift above `N` — the same
 bounded drift the carve-outs already produce (see
 [salience.md](salience.md)). A selected application occupies its slot until
 it resolves, so the reserve's firm effect is the one on *concurrency*: at most
-five interim cells are ever in flight, against the ≈16 substantive applications
+five interim cells are ever in flight, against the ≈13 substantive applications
 live at any moment, and an unfilled reserve costs nothing. The slice is
 predicted, and its base rate is registered and wired — pooled over application
 Terms strictly before the case's own, above its own per-pool floor
@@ -380,20 +381,20 @@ provider's bill is its per-case line × `C`:
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
 |-------------------|---------------:|----------------:|-------:|------:|---------------:|
-| Anthropic (`claude-fable-5`) | $3.65 | $4.16 | $7.81 | ≈70% | ≈$470 |
-| OpenAI (`gpt-5.6-sol`) | $1.38 | $0.92 | $2.30 | ≈21% | ≈$140 |
-| Google (`gemini-3.1-pro-preview`) | $0.55 | $0.52 | $1.07 | ≈10% | ≈$64 |
-| **Total** | **$5.58** | **$5.60** | **≈$11** | | **≈$0.7K** |
+| Anthropic (`claude-fable-5`) | $3.65 | $4.68 | $8.33 | ≈69% | ≈$500 |
+| OpenAI (`gpt-5.6-sol`) | $1.38 | $1.03 | $2.41 | ≈20% | ≈$145 |
+| Google (`gemini-3.1-pro-preview`) | $0.55 | $0.72 | $1.27 | ≈11% | ≈$76 |
+| **Total** | **$5.58** | **$6.43** | **≈$12** | | **≈$0.7K** |
 
 The predict column rests on 138 / 132 / 140 cells per engine and is solid; the
-evaluate column is one graded event, so read it as a first measurement. Roughly
+evaluate column is four graded events, so read it as a first measurement. Roughly
 **seven dollars in ten go to Anthropic** — size that provider's spend limit
 accordingly, and expect a limit breach there to cost a third of a run's coverage
 (the other engines are billed independently). The `C` = 60 column is a
 reference month built from the caps — the long-conference cycle at its
 24-petition cap plus three regular conferences at the 12 cap (24 + 3 × 12 =
 60; `C` counts cases per month) — roughly a *mean* Term month, not a peak. At
-the $13 planning rate that capped component is ≈60 × $13 ≈ **$780** (≈$660
+the $13 planning rate that capped component is ≈60 × $13 ≈ **$780** (≈$720
 measured); the floor/CVSG carve-outs ride above the caps and add on the order
 of $200–250/month at the planning rate in relist-heavy months. The caps make
 the capped component insensitive to the one cohort whose realized size is not

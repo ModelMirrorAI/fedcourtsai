@@ -111,10 +111,10 @@ CLAIM_SET_MERITS_V1 = "merits-v1"
 # Per event kind: the set id and the declared claims, in reporting order. The
 # set is fixed and mandatory (docs/outcome-decomposition.md, *Why the set is
 # mandatory*): a predictor answers every declared claim and adds none. Only
-# petition-kind (cert-stage) events declare a kind-keyed set; the merits set
-# below is keyed on the minted merits event id instead, because the stage is
-# not derivable from an event id's kind segment (the merits event's kind is
-# `order` — the grant order opened it — and not every order event is merits).
+# petition-kind (cert-stage) events declare a kind-keyed set; the interim and
+# merits sets below are reached through the declared-moment table instead,
+# because a stage is not derivable from an event id's kind segment (a merits
+# moment's kind is `order` or `brief`, and not every such event is merits).
 #
 # This kind-keyed table stays on `cert-v1` while the declared cert *moments*
 # advance to `cert-v2`. It is the fallback for what is not a declared moment —
