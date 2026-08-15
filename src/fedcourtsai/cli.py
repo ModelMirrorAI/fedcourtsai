@@ -1522,7 +1522,9 @@ def leaderboard(
     Deterministic and offline: aggregates the newest committed
     ``evaluation.json`` per (case, event, predictor, evaluator) under ``data/``
     into one best-first standing per predictor — accuracy, mean
-    Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
+    Brier score, mean vote accuracy (declared merits moments only — an
+    individual cert vote is never scored, so the ranked board carries no vote
+    mean), a reasoning-quality summary, and counts,
     each reported **per stratum** (forward forecasts vs retrospective cells vs
     procedural mootness-basis cells, never blended and with only the timing
     strata ranked; see the ``Leaderboard`` schema). The ranked board is the

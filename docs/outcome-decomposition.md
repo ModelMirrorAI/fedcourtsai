@@ -755,10 +755,11 @@ scores rather than before it is declared.
 
 The per-Justice prohibition is structural, not stylistic: nothing in the
 mechanical family records or
-resolves a per-Justice dissent, and nothing writes one into `Outcome.votes`,
-because `docs/decision-model.md` pre-registers that an individual cert vote is
-never scored and a vote-populating channel owes a stage gate this claim does
-not pass through.
+resolves a per-Justice dissent, and nothing writes one into `Outcome.votes`.
+`docs/decision-model.md` pre-registers that an individual cert vote is never
+scored, and `pipeline.moments.scores_votes` enforces it — vote scoring is
+admitted only on a declared merits moment, so a channel that populated cert
+votes would not put this claim through a scored path.
 
 **`cert-v1` is superseded where it is declared, and kept where it is the
 fallback.** A version id names what a cell was *asked*, and the declaration is

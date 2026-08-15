@@ -319,6 +319,24 @@ def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
     assert scored.mean_vote_accuracy == 0.5
 
 
+def test_the_vote_gate_reads_the_cell_not_the_block_it_landed_in() -> None:
+    """The gate keys on the cell's own event, never on its block's stage.
+
+    An undeclared event stratified into the merits block is still denied: the
+    register is the authority on stage, and the join that placed the cell is
+    not. Without this the aggregate could be rewritten to trust the block —
+    cheaper, and wrong in exactly the direction the prohibition guards.
+    """
+    stray = _evaluation("alpha", event_id="evt-motion-stay", vote_accuracy=0.5)
+    block = build_leaderboard([_forward(stray, Stage.merits)]).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    stratum = block.entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 1  # the cell aggregates; only its votes do not
+    assert stratum.mean_vote_accuracy is None
+
+
 def test_all_optionals_absent_stay_none() -> None:
     cells = [
         _forward(_evaluation("alpha", brier_score=None, vote_accuracy=None, reasoning_quality=None))

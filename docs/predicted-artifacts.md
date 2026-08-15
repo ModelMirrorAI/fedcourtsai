@@ -458,9 +458,9 @@ in prose.
   prediction name the right label on the stage's own axis: the disposition at
   cert and interim, the judgment at merits), `brier_score` on the stage's
   binary, `judgment_correct` on a merits cell only, `vote_accuracy` over the
-  Justices both sides name — also on a merits cell only, because an individual
-  cert vote is never scored (`docs/decision-model.md`) —
-  `reasoning_quality`, a structured `leakage`
+  Justices both sides name — also on a merits cell only, since that is the one
+  stage whose votes are scored at all and an individual cert vote never is
+  (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
   and `process_version` are the harness's, never the evaluator's word.

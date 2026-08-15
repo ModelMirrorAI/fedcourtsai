@@ -232,9 +232,12 @@ def scores_votes(event_id: str) -> bool:
     :func:`spec_for` documents is the wrong one for a prohibition; a caller
     reading a vocabulary loses nothing by falling back, while a guard that
     falls back scores exactly the ids it cannot vouch for.
+
+    Expressed through :func:`declares` rather than re-reading the table, so the
+    equality-not-identity rule that function documents holds here by
+    construction instead of by inspection.
     """
-    spec = _BY_EVENT_ID.get(event_id)
-    return spec is not None and spec.stage == Stage.merits
+    return declares(event_id, Stage.merits)
 
 
 def first_moment(stage: Stage) -> Moment | None:

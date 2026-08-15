@@ -18,7 +18,7 @@ from datetime import date, datetime
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, ids
 from fedcourtsai.pipeline.base_rates import (
     INTERIM_BASE_RATE_MIN_RESOLVED,
     MERITS_BASE_RATE_MIN_PARSED,
@@ -44,6 +44,7 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
     Engine,
+    EventKind,
     Judgment,
     JusticeVote,
     Outcome,
@@ -1036,15 +1037,24 @@ def test_vote_accuracy_is_denied_by_default_off_the_register() -> None:
     Denial is the default rather than the cert stage being named: the register
     is the only authority on an event's stage, so an id it does not declare —
     an entry-pinned event, a record older than the table — is one that cannot be
-    shown *not* to be cert. Interim moments are declared and unscored for the
-    plainer reason that the stage forecasts no votes.
+    shown *not* to be cert.
     """
-    assert not scores_votes("evt-appeal-disposition")
-    prediction, outcome = _voting_pair("evt-appeal-disposition")
+    undeclared = ids.event_id(EventKind.appeal.value, "disposition")
+    assert not scores_votes(undeclared)
+    prediction, outcome = _voting_pair(undeclared)
     assert vote_accuracy(prediction, outcome) is None
+
+
+def test_vote_accuracy_is_not_scored_at_the_interim_stage() -> None:
+    """Declared, and still unscored — for a plainer reason than the cert rule.
+
+    An interim moment is on the register, so this is not the deny-by-default
+    fallback: the stage simply forecasts no votes, and admitting only merits
+    moments is what makes that hold without a second rule.
+    """
     for spec in moments_for(Stage.interim):
-        interim_prediction, interim_outcome = _voting_pair(spec.event_id)
-        assert vote_accuracy(interim_prediction, interim_outcome) is None, spec.event_id
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert vote_accuracy(prediction, outcome) is None, spec.event_id
 
 
 def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> None:

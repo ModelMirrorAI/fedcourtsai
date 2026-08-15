@@ -3,8 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai.pipeline.evaluate import brier_score, is_correct, vote_accuracy
-from fedcourtsai.pipeline.moments import moments_for
+from fedcourtsai.pipeline.evaluate import brier_score, is_correct
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -18,7 +17,6 @@ from fedcourtsai.schemas import (
     ModelUsage,
     Outcome,
     Prediction,
-    Stage,
     TrackedCase,
     UsageRole,
     VoteValue,
@@ -215,18 +213,13 @@ def test_agent_flags_forbids_extra_fields() -> None:
 
 
 def test_scoring() -> None:
-    # On the declared merits moment, because that is the one stage whose votes
-    # are scored at all (`pipeline.moments.scores_votes`) — a cert vote is never
-    # scored, so `vote_accuracy` would be null anywhere else.
-    event_id = moments_for(Stage.merits)[0].event_id
     pred = _prediction(
-        event_id=event_id,
         probability=0.75,
         votes=[JusticeVote(justice="smith", vote=VoteValue.grant)],
     )
     outcome = Outcome(
         case_id="ca9/123",
-        event_id=event_id,
+        event_id="evt-motion-stay",
         resolved_at=date(2026, 7, 1),
         actual_disposition=Disposition.granted,
         actual_granted=1,
@@ -234,7 +227,6 @@ def test_scoring() -> None:
     )
     assert is_correct(pred, outcome) == 1
     assert brier_score(pred, outcome) == pytest.approx(0.0625)
-    assert vote_accuracy(pred, outcome) == 1.0
 
 
 def test_is_correct_treats_gvr_as_a_distinct_label_but_a_grant_for_brier() -> None:

@@ -487,8 +487,9 @@ gate enforces "merits-stage event ⇒ the scored prediction carries a judgment"
 from the committed `event.yaml`, the two halves meeting because a prediction
 does not carry its event's stage. The block is scored by `vote_accuracy`
 alone: over the Justices the outcome record actually names, under
-`vote_provenance` — never over what the predictor attempted, and never
-entering any total beyond that per-cell fraction. Today the merits outcome
+`vote_provenance` — never over what the predictor attempted. Beyond that
+per-cell fraction it enters one aggregate only, the merits block's
+`mean_vote_accuracy`, and no ranked total anywhere. Today the merits outcome
 writer records **no** votes, deliberately: the terminal docket entry's
 authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
@@ -516,9 +517,13 @@ cannot be shown *not* to be cert. The consequence is that an ingestion channel
 populating `Outcome.votes` at the cert stage — noted dissents from denial are
 published on the order list and are the obvious candidate — changes nothing
 about what is scored. That is what makes the rule structural rather than a
-property of what a particular record contains, and the tests that fail when the
-gate is removed sit beside the scorer and the board (`tests/test_evaluate.py`,
-`tests/test_leaderboard.py`).
+property of what a particular record contains. A third seam covers the one the
+first two cannot: `vote_accuracy` is the evaluator's own field to write, so
+`validate`'s `vote_accuracy_only_on_merits_events` refuses to let a scored vote
+be *committed* off a merits event, rather than only refusing to aggregate it.
+The tests that fail when any of the three is removed sit beside the scorer, the
+board, and the gate (`tests/test_evaluate.py`, `tests/test_leaderboard.py`,
+`tests/test_replay.py`, `tests/test_validate.py`).
 
 **`judgment_correct` is descriptive, not a score.** The exact-match bit on the
 full vocabulary (`Evaluation.judgment_correct`) reports
