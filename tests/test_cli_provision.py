@@ -5,7 +5,6 @@ from typing import Any
 
 from typer.testing import CliRunner
 
-import fedcourtsai.cli as cli_module
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
@@ -854,7 +853,7 @@ def test_the_staleness_bound_is_inclusive_at_the_boundary(
         def today(cls) -> "_FrozenToday":
             return cls(2025, 4, 2)  # 30 days after the snapshot
 
-    monkeypatch.setattr(cli_module, "date", _FrozenToday)
+    monkeypatch.setattr("fedcourtsai.cli.date", _FrozenToday)
     base = [
         "provision-snapshot",
         "--court",

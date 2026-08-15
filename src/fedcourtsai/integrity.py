@@ -85,7 +85,7 @@ FORWARD_CLAIM_POLICY: ForwardClaimPolicy = "exclude"
 #: together because neither alone identifies the population a cell belongs to —
 #: the stage names the question, the moment names the information set that
 #: answered it.
-StratifiedCell = tuple["Evaluation", "Stratum", "Stage | None", "Moment | None"]
+StratifiedCell = tuple[Evaluation, Stratum, Stage | None, Moment | None]
 
 FORWARD: Stratum = "forward"
 RETROSPECTIVE: Stratum = "retrospective"

@@ -27,10 +27,26 @@ from __future__ import annotations
 from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
 from ..schemas import Outcome, Prediction, StatPack
 
-# `merits_base_rate` is re-exported, not used here — see the module docstring.
-from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate  # noqa: F401
+# `merits_base_rate` is re-exported, not used here — see the module docstring
+# and `__all__`, which is what states the re-export to both linters.
+from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate
 from .moments import scores_votes
 from .salience import SALIENCE_VERSION, salience_band
+
+# The module's public surface — including `merits_base_rate`, re-exported from
+# `base_rates` so the whole set of names an evaluator is told to match resolves
+# under the one module the prompt gives it (see the module docstring).
+__all__ = [
+    "brier_score",
+    "brier_skill",
+    "brier_skill_score",
+    "interim_base_rate",
+    "is_correct",
+    "judgment_correct",
+    "merits_base_rate",
+    "segment_base_rate",
+    "vote_accuracy",
+]
 
 
 def is_correct(prediction: Prediction, outcome: Outcome) -> int:
