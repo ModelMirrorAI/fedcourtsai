@@ -440,10 +440,12 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,250 all-time and ≈120–130 a Term — at three REST requests a case
-(docket, cluster, opinion), dropping to two on the rare row whose newest
-snapshot is REST-shaped rather than the live channel's. That is ≈3,750 requests
-to converge the standing backlog and ≈400 a Term to hold it, against the held
+together: ≈1,250 all-time and ≈120–130 a Term — at up to three REST requests a
+case (docket, cluster, opinion), dropping to two on the rare row whose newest
+snapshot is REST-shaped rather than the live channel's, and to one on a case
+that stops at the docket. So ≈3,750 requests bounds a sweep of the standing
+backlog in which every case reaches its opinion, and ≈400 a Term bounds a
+Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
 (30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
 and [budget.md](budget.md)). `--max-cases`
@@ -452,8 +454,14 @@ run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and
 because the governor is per-process, not shared across runs, the pass is run
 outside a pull window rather than beside one. Convergence is not monotone: a
-grant that never publishes an opinion (a GVR, a DIG) is retried every run, so
-that residue has to be raised past, not waited out. The
+grant that never publishes an opinion (a GVR, a DIG) is retried every run, and
+so is a decided grant whose docket links no cluster upstream — the walk's
+dominant refusal, since the id a granted row carries is its petition-stage
+docket and the published cluster hangs off it only sometimes. Both residues
+head a `case_id`-ordered walk, so they have to be raised past, not waited out —
+and because a refused case stops at its first request, a sweep's spend sits
+nearer the row count than the bound above while the coverage it buys is only
+the rows that reach a cluster. The
 same arithmetic is why the pass is *not* pointed at the whole corpus: opinion
 coverage at bulk scale is the replication channel's problem
 ([data-sources.md](data-sources.md)), not more REST.
@@ -462,7 +470,7 @@ Filling the bit for this slice is what makes the `--full` read path live, and it
 lands bodies for exactly the population the merits forecast stream is about — so
 a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
-keep that honest; they stop being latent hygiene the moment this pass runs.
+keep that honest, and they bind wherever the bit is filled.
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a

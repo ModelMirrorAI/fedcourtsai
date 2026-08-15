@@ -9,15 +9,17 @@ fields the retrieval surface's prior ranking keys on, and the opinion body is
 the input a semantic claim family needs — so coverage here is the precondition
 for both, not an end in itself.
 
-**Scope is the budget argument.** Three REST requests per case — the docket
-(for its ``clusters`` list), the cluster, and the lead opinion — dropping to two
-where a stored REST-shaped snapshot already links the cluster. That is rare on
-this population: a granted SCOTUS docket is the set the live channel re-polls,
-so its newest snapshot is normally a supremecourt.gov payload, which carries no
-``clusters`` list. The cert-granted slice is ≈1,250 rows all-time (grants and
-GVRs together) and ≈120 to 130 a Term, so converging the standing backlog costs
-≈3,750 requests and holding it ≈400 a Term — days of the allowance the pull
-windows leave, not a budget event. ``max_cases`` bounds any one run on top of
+**Scope is the budget argument.** Up to three REST requests per case — the
+docket (for its ``clusters`` list), the cluster, and the lead opinion —
+dropping to two where a stored REST-shaped snapshot already links the cluster.
+That is rare on this population: a granted SCOTUS docket is the set the live
+channel re-polls, so its newest snapshot is normally a supremecourt.gov
+payload, which carries no ``clusters`` list. A case whose docket links no
+cluster stops at one. The cert-granted slice is ≈1,250 rows all-time (grants
+and GVRs together) and ≈120 to 130 a Term, so ≈3,750 requests bounds a sweep of
+the standing backlog in which every case reaches its opinion and ≈400 a Term
+bounds a Term's new grants — days of the allowance the pull windows leave, not
+a budget event. ``max_cases`` bounds any one run on top of
 the client's own governor, and either wall — the client's request budget
 (:class:`RateBudgetExceeded`) or a 429 its retries could not clear — stops the
 walk cleanly with the unfinished cases reported as deferred. Corpus-wide opinion coverage
@@ -34,9 +36,12 @@ reports as such, converging on the run after its opinion publishes. Candidates
 are walked in ``case_id`` order, deterministically: a converged case drops out
 of the next run's predicate, and one that found no cluster is retried, which is
 what lets a grant pick up its opinion once published. That retry is also the
-pass's one standing limitation — a grant that never publishes an opinion at all
-(a GVR, a DIG) never converges, so once that residue exceeds ``max_cases`` the
-cap can no longer reach past it. It is an operator-run command for that reason;
+pass's standing limitation, and two populations sit inside it: a grant that
+never publishes an opinion at all (a GVR, a DIG), and a decided grant whose
+docket links no cluster upstream — the dominant refusal, since the id a granted
+row carries is its petition-stage docket and the published cluster hangs off it
+only sometimes. Neither converges, so once that residue exceeds ``max_cases``
+the cap can no longer reach past it. It is an operator-run command for that reason;
 putting it on a schedule wants an ordering, or a last-attempted cursor, that
 the residue cannot sit at the head of.
 
