@@ -566,15 +566,15 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
     assert report.cells_evaluated == 4  # one (term, policy) cell x 4 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"}
-    active, toy, v1, v3 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3"))
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"}
+    active, toy, v1, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"))
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v3):
+    for other in (toy, v1, v2):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -583,12 +583,12 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     # no version's band names appear under another's.
     caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
     assert set(active.bands) <= caption_bands
-    assert set(v3.bands) <= caption_bands  # sal-v3 shares sal-v2's vocabulary exactly
+    assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
         sum(active.bands.values())
         == sum(toy.bands.values())
         == sum(v1.bands.values())
-        == sum(v3.bands.values())
+        == sum(v2.bands.values())
     )

@@ -452,7 +452,7 @@ def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
     assert context["distribution_count"] == 2
     assert context["cvsg_date"] == "2025-03-03"
     assert context["band"] == "high"
-    assert context["salience_version"] == "sal-v2"
+    assert context["salience_version"] == "sal-v3"
     assert context["term"] == 2024  # docket 24-12
 
 
@@ -475,7 +475,7 @@ def test_the_cell_context_reads_the_caption_band_from_the_payload(
     assert context["signals_observable"] is True
     assert context["distribution_count"] == 0  # arrival posture: nothing distributed
     assert context["band"] == "federal"
-    assert context["salience_version"] == "sal-v2"
+    assert context["salience_version"] == "sal-v3"
 
 
 def test_a_repeated_conference_does_not_inflate_the_frozen_count(

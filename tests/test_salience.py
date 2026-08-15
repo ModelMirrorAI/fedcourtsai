@@ -931,7 +931,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
     # active first, then the rest sorted
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3")
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2")
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer

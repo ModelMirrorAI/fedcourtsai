@@ -739,7 +739,7 @@ the rendered table) and
   second, since that is the population it was in when it ran; one without a frozen
   band falls back to the first, which matches the terminal band it has to be
   grouped by. Under a scorer whose order interleaves a fixed-at-filing class
-  among the trajectory tiers (sal-v2's `federal`/`state`), a weaker band's risk
+  among the trajectory tiers (the caption-banded versions' `federal`/`state`), a weaker band's risk
   set also contains the stronger classes' petitions — populations a private
   petitioner was never in — so the "population it was in" reading is
   approximate there (measured at roughly +1 point on `elevated`), a property of
@@ -787,7 +787,8 @@ the rendered table) and
   product; the per-Term rows share the cert tables' replay self-selection
   rule (anchor strictly before your clock).
 
-  **The arrival cohort's claim rule** (sal-v2's `cert@arrival` cells). The
+  **The arrival cohort's claim rule** (the caption-banded scorers'
+  `cert@arrival` cells — the active `sal-v3`, and `sal-v2` cells beside it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
   leaderboard's per-moment block pools them mechanically, so that block's
@@ -796,9 +797,9 @@ the rendered table) and
   `federal` vs the slice's mix). Only the random slice's skill transfers to
   live prospective use: it alone is selection-bias-free, and its baseline is
   exactly the unconditional paid-arrival grant rate. And no arrival cell
-  minted before the first sal-v2-rendered statpack carries any baseline at
-  all (the version-pinned pool's designed `None`) — its skill column is
-  empty, not zero, and supports no claim.
+  minted before the first statpack rendered after its salience version was
+  registered carries any baseline at all (the version-pinned pool's designed
+  `None`) — its skill column is empty, not zero, and supports no claim.
 
   The second stage section is the **merits section** (`merits`), present only
   once a corpus row carries a parsed `merits_judgment` (the

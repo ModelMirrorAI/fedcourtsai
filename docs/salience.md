@@ -117,7 +117,7 @@ Deferred, each with a stated reason:
   presented to sharpen the deterministic score — is **default off** for the first
   release, so `sal-v1` is fully deterministic and free.
 
-### `sal-v2`, the active scorer: two cohorts, never pooled
+### `sal-v2`: two cohorts, never pooled
 
 `sal-v1`'s features are docket-acquired — relists and CVSG accumulate over a
 petition's life — so at arrival every observable petition scores `baseline` and the gate
@@ -173,10 +173,11 @@ into `sal-v2` on a verified census replicating in all eight complete Terms
 right-censored and counted as supportive, never held-out). The **state**
 class never enters selection — per-Term unstable, its below-cap
 slice underperforming the arrival population — though it is a *band* under
-`sal-v2` (placed above `elevated` from the class marginal — a registration
-choice pending measurement, since the band's own realized rate, net of its
-strongest members leaving for `high`, is unmeasured until the first sal-v2
-statpack renders). The gate replay still
+both caption-banded versions (placed above `elevated` from the class
+marginal — a registration choice pending measurement, since the band's own
+realized rate, net of its strongest members leaving for `high`, is thin in
+every rendered pack: 26 resolved rows in its best Term, under the 30-row
+realized floor). The gate replay still
 cannot validate any caption feature, because the replay's reconstruction
 carries the terminal caption: a declared gap, never papered over with a
 replay number.
@@ -204,11 +205,12 @@ rule reaches **selection** only through a salience version that names it,
 because a frozen constant names the predicate it was frozen from: `caption-v1`
 through `sal-v2`, `caption-v2` through `sal-v3`.
 
-`sal-v2`'s activation sequences deliberately: the promotion carrying the flip,
-then a metrics refresh, then prediction. A `sal-v2` cell minted before the refreshed
-statpack has **no published baseline** — the version-pinned pool's designed
-`None`, never a blend — so its skill column is legitimately empty and supports
-no claim; the refresh, not the flip, is what opens the scored window.
+A caption-banded version's activation sequences deliberately: the promotion
+carrying the flip, then a metrics refresh, then prediction. A cell minted
+under a version before that version's first refreshed statpack has **no
+published baseline** — the version-pinned pool's designed `None`, never a
+blend — so its skill column is legitimately empty and supports no claim; the
+refresh, not the flip, is what opens the scored window.
 
 Three constraints carry over from the versioning discipline. `sal-v2` is a
 **new frozen version, never an in-place edit** — `sal-v1` rankings must replay
@@ -246,18 +248,44 @@ is why it is a **new registered version and not an edit**: the
 widening under the old label would re-point a published constant at a
 population it was never measured on.
 
-Registration and activation are separate steps, and the gap between them is
-where the review sits. `sal-v3` is registered while `SALIENCE_VERSION` still
-names `sal-v2`, so nothing the live pass selects, latches, or stamps changes —
-and registering *first* is what keeps the flip from opening an unscored
-window: the next metrics refresh publishes `sal-v3`'s bands in
-`statpack.json`'s `alt_segments`, so a cell minted under the flipped version
-finds its version-pinned pool already there rather than the designed `None`.
-Activating means flipping that one constant, and the bar is the same one
+`sal-v3` is the **active** scorer. Registration and activation are separate
+steps, and the gap between them is where the review sits: a version is
+registered while `SALIENCE_VERSION` still names its predecessor, so nothing
+the live pass selects, latches, or stamps changes until the flip. The
+registration order does not matter to scoring, because the statpack build
+emits every registered version's bands in every Term — the active version's
+in `segments`, each other's in `alt_segments` — so whichever version is
+active at render time, every registered version's pool is in the
+next-rendered pack. The refresh is still what opens the scored window: a
+committed pack rendered before a version was registered carries no block for
+it, so a `sal-v3` cell minted before the first post-registration refresh has
+the version-pinned pool's designed `None` — legitimately empty, supporting no
+claim, exactly as a pre-refresh `sal-v2` cell did. The bar the flip cleared is the same one
 `sal-v2` cleared: a statistically reviewed `caption-v2` census, per Term and
 pooled on the same frame as `caption-v1`'s, showing the widened class
-replicating rather than diluting — then the promotion carrying the flip, then a
-metrics refresh, then prediction.
+replicating rather than diluting — with the evidential weight on the migrated
+captions' outcome-free precision and the pre-registered replication shape,
+never on the pooled-rate rise (the recovered captions were surfaced partly by
+a grant-ranked residual scan, so any recall-gain figure is outcome-selected).
+That selection also reaches the published number itself, in a known
+direction, so it is stated where the number is read: the migrated rows enter
+the `federal` pool with an outcome-selected grant record, sitting the pooled
+`federal` rate roughly two to three points above an unbiased forward
+estimate, and the trajectory bands they drained about a point low — on the
+skill denominator a relative effect of a few tenths of a percent, far inside
+a band that runs 11–41 resolved rows per complete Term on the census frame
+(the statpack band, whose denominators the realized floor reads, runs 9–39
+under `caption-v1`). Only an out-of-sample
+re-census under `caption-v2`, once frozen-window Terms accrue, can estimate
+the incremental class's forward rate; the activation review is not a
+substitute for it. The sequencing holds as it did for `sal-v2`: the promotion
+carrying the flip, then a metrics refresh, then prediction. On the realized
+column, the flip only relieves pressure: under
+`REALIZED_BAND_RATE_MIN_RESOLVED = 30` the `federal` band clears the floor in
+one complete Term under either rule (OT2020 — 39 rows under `caption-v1`, 41
+under `caption-v2`, with OT2023 moving from 22 to 29), so the other Terms'
+realized-Term suppression is the designed answer for a thin pool, not a
+consequence of the flip.
 
 Two things the extra registered version does **not** license. The gate replay
 scores `sal-v3` as it scores every registered version, but `sal-v2` and
@@ -320,7 +348,7 @@ could otherwise leak:
 ## Selection — deterministic rank-and-cap, sticky per conference
 
 Selection ranks the scored set and caps it to `N` — and, where the active
-scorer selects arrivals (`selects_arrivals`, sal-v2), the same write pass runs
+scorer selects arrivals (`selects_arrivals` — true of both caption-banded versions), the same write pass runs
 a second, cohort-less arm: every undistributed pending petition the keyed draw
 or the carve-in predicate picks is latched with no rank and no capacity, and
 its owed `evt-petition-arrival-disposition` event is minted in the same pass,
