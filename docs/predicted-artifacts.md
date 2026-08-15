@@ -431,7 +431,17 @@ directory without knowing which part is which invites trusting the wrong half.
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the
-  agent does not write it; credential-shaped runs are redacted at capture.
+  agent does not write it; credential-shaped runs are redacted at capture. Each
+  call also states whether capture saw its result at all — `result_capture` is
+  `captured` when the paired result item was in the log and `unobserved` when
+  nothing came back to capture, with `result_capture_coverage` the log-level
+  share. Read it before reading the digests: a null `result_digest` is what a
+  captured-but-empty result and a never-captured one both leave behind, so
+  "this call surfaced nothing" is a claim only the marker can support. The
+  evaluate prompt does not name the marker — the process the frozen partition
+  keys on cannot gain a reading instruction without moving
+  ([process-version.md](process-version.md)) — so it serves a maintainer and
+  the tool-usage rollup until the next re-blessing carries the instruction.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts

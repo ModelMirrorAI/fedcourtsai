@@ -15,10 +15,10 @@ log tool calls in the same places their token usage lives:
   with a ``call_id`` their ``*_output`` items echo. The hosted
   ``web_search_call`` is the exception: it runs provider-side and carries a
   query but no ``call_id`` and no output item, so such a row records what was
-  asked and never what came back — a null ``retrieved_doc_date`` there means
-  the results were not captured, not that nothing was found.
+  asked and never what came back.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
-  ``function_name`` / ``function_args`` attributes.
+  ``function_name`` / ``function_args`` attributes, and no result payload at
+  all.
 
 All parsers normalize to :class:`~fedcourtsai.schemas.RetrievalCall` rows.
 Long parameters and results are digested (SHA-256, 16 hex chars), with a
@@ -26,6 +26,14 @@ truncated human-legible ``query`` slice kept where one is extractable — the
 log is an audit trail, not a content mirror. Deliberately tolerant, exactly
 like the usage parsers: an unreadable or unrecognized log yields ``[]``,
 because capture is instrumentation that must never fail a real run.
+
+Every row also states whether its result was seen at all: ``result_capture``
+is ``captured`` where the transcript carried the paired result item and
+``unobserved`` where nothing came back to capture — every Gemini row, and a
+hosted Codex ``web_search_call``. The digests cannot say it, because a null
+``result_digest`` or ``retrieved_doc_date`` is what a captured-empty result
+and an uncaptured one both leave behind; without the marker a reader grades
+"this call surfaced nothing" over calls whose results were never in the log.
 
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
@@ -162,7 +170,12 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
             if block.get("type") != "tool_use" or not block.get("name"):
                 continue
             params = block.get("input")
-            result = results.get(str(block.get("id", "")))
+            # Membership, not the value: a `tool_result` carrying empty content
+            # was still captured, and that is exactly the case the marker
+            # exists to separate from one whose result never reached the log.
+            call_id = str(block.get("id", ""))
+            captured = call_id in results
+            result = results.get(call_id)
             calls.append(
                 RetrievalCall(
                     tool=_tool_name(block["name"]),
@@ -173,6 +186,7 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
                     # A date the `\d{4}-\d{2}-\d{2}` capture produced; it has no
                     # room to carry anything else, so it needs no redaction.
                     retrieved_doc_date=_doc_date(result) if result is not None else None,
+                    result_capture="captured" if captured else "unobserved",
                 )
             )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -239,7 +253,12 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         # `local_shell_call` also describes itself in `action`, so it records
         # its command here for the same reason a shell `function_call` does.
         params = _maybe_json(payload.get("arguments", payload.get("input", payload.get("action"))))
-        result = outputs.get(str(payload.get("call_id", "")))
+        # Membership, not the value — an empty output item is still a captured
+        # result. A hosted `web_search_call` carries no `call_id` at all, so it
+        # can never match and lands as `unobserved`, which is the truth about it.
+        call_id = str(payload.get("call_id", ""))
+        captured = call_id in outputs
+        result = outputs.get(call_id)
         calls.append(
             RetrievalCall(
                 tool=_tool_name(payload.get("name") or payload.get("tool") or payload["type"]),
@@ -248,6 +267,7 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
                 timestamp=_text(record.get("timestamp")),
                 result_digest=_digest(result),
                 retrieved_doc_date=_doc_date(result) if result is not None else None,
+                result_capture="captured" if captured else "unobserved",
             )
         )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -309,6 +329,10 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
                     query=_query_slice(params),
                     params_digest=_digest(params),
                     timestamp=_text(timestamp),
+                    # The local exporter logs the invocation and nothing of what
+                    # came back, so every Gemini row is unobserved by
+                    # construction — a whole engine's capture rate is 0.0.
+                    result_capture="unobserved",
                 )
             )
             continue

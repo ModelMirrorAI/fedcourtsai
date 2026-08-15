@@ -41,6 +41,23 @@
           "description": "The human-legible query/params slice, where extractable \u2014 credential-redacted at capture, then truncated",
           "title": "Query"
         },
+        "result_capture": {
+          "anyOf": [
+            {
+              "enum": [
+                "captured",
+                "unobserved"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the paired result item; it does NOT mean the result had content \u2014 an empty result is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), or the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`). The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
+          "title": "Result Capture"
+        },
         "result_digest": {
           "anyOf": [
             {
@@ -154,6 +171,21 @@
       "default": null,
       "description": "The cell's provisioned mode: forward | replay; None on records written before the mode field existed",
       "title": "Mode"
+    },
+    "result_capture_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Share of this log's marker-carrying calls whose `result_capture` is `captured` \u2014 the log-level reading of what the grader could see. Derived from `calls`, never asserted independently, so the rate and the rows cannot disagree. Null when no call carries the marker: an empty log, or one written before the marker existed. A 0.0 is a real and different fact \u2014 every call ran with its result unobserved, which is the standing shape of a Gemini cell.",
+      "title": "Result Capture Coverage"
     },
     "role": {
       "$ref": "#/$defs/UsageRole",

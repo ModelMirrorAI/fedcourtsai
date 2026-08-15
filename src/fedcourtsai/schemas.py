@@ -1717,6 +1717,32 @@ class RetrievalCall(_Strict):
         description="A document/decision date parsed from the result, where one is legible "
         "— the leakage grading's timing signal",
     )
+    result_capture: Literal["captured", "unobserved"] | None = Field(
+        default=None,
+        description="Whether capture saw this call's result at all. `captured` means the "
+        "engine log carried the paired result item; it does NOT mean the result had "
+        "content — an empty result is still captured. `unobserved` means no result "
+        "reached the log: the engine logs none (Gemini's telemetry), or the call ran "
+        "provider-side and echoed nothing back (a Codex hosted `web_search_call`). "
+        "The digests cannot make that distinction on their own — `result_digest` is "
+        "null both for a captured-empty result and for one never captured, and so is "
+        "`retrieved_doc_date` — which is why a reader who treats a null digest as "
+        "`returned nothing` silently mis-grades every unobserved call. Null on "
+        "records written before the field existed: capture-unknown, not unobserved.",
+    )
+
+
+def _result_capture_coverage(calls: Sequence[RetrievalCall]) -> float | None:
+    """The share of marker-carrying calls whose result capture saw a result.
+
+    ``None`` when no call carries ``result_capture`` — an empty log, or one
+    written before the marker existed — because zero-of-zero is not a rate and
+    ``0.0`` would read as "captured nothing", which is a different claim.
+    """
+    marked = [call for call in calls if call.result_capture is not None]
+    if not marked:
+        return None
+    return sum(1 for call in marked if call.result_capture == "captured") / len(marked)
 
 
 class RetrievalLog(_Strict):
@@ -1757,6 +1783,29 @@ class RetrievalLog(_Strict):
         max_length=500,
         description="Tool invocations in transcript order (500 caps a runaway cell)",
     )
+    result_capture_coverage: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Share of this log's marker-carrying calls whose `result_capture` is "
+        "`captured` — the log-level reading of what the grader could see. Derived from "
+        "`calls`, never asserted independently, so the rate and the rows cannot "
+        "disagree. Null when no call carries the marker: an empty log, or one written "
+        "before the marker existed. A 0.0 is a real and different fact — every call ran "
+        "with its result unobserved, which is the standing shape of a Gemini cell.",
+    )
+
+    @model_validator(mode="after")
+    def _coverage_follows_the_calls(self) -> RetrievalLog:
+        """Derive the capture rate from the rows rather than trusting a writer's copy.
+
+        Any value supplied is replaced. Recomputing on load reproduces exactly
+        what a committed record holds — a log whose calls carry no marker
+        derives null, which is what such a record already stores — so this
+        reads the ledger without ever rewriting it.
+        """
+        self.result_capture_coverage = _result_capture_coverage(self.calls)
+        return self
 
 
 class LeaderboardStratum(_Strict):

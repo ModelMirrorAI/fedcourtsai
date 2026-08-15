@@ -190,6 +190,7 @@ def _seed_prediction(
                     # a field-only mask would sail straight past.
                     query=f'{{"file_path": "…/predictions/{predictor_id}/{run_id}/"}}',
                     params_digest="7b04ede542faba4e",
+                    result_capture="captured",
                 ),
             ],
         ),
@@ -411,6 +412,11 @@ def test_retrieval_log_keeps_what_the_leakage_grading_reads(ledger: Path) -> Non
     # The fixture's engine-flavored "read_file" is respelled: raw vocabularies
     # are disjoint per engine, so a raw name would name the candidate.
     assert payload["calls"][0]["tool"] == "file-read"
+    # The capture marker survives the mask. Stripping it would hand the grader
+    # a log in which a call whose result was never captured is indistinguishable
+    # from one that returned nothing — the mis-grade the marker exists to end.
+    assert payload["calls"][0]["result_capture"] == "captured"
+    assert payload["result_capture_coverage"] == 1.0
 
 
 def test_staged_tool_names_are_engine_neutral() -> None:
