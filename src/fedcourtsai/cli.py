@@ -321,7 +321,8 @@ def validate_corpus_cmd(
     today: Annotated[
         str,
         typer.Option(
-            help="ISO as-of date for the future-dated-snapshot check; defaults to today (UTC)."
+            help="ISO as-of date for the date-keyed checks — future-dated "
+            "snapshots and dates, and the stale-grant cutoff; defaults to today (UTC)."
         ),
     ] = "",
 ) -> None:
@@ -727,14 +728,20 @@ def backfill_merits_judgments_cmd(
 ) -> None:
     """Parse each granted SCOTUS case's stored snapshot for its merits judgment.
 
-    Over the rows with `date_cert_granted` set, read the latest stored snapshot
+    Over the rows whose cert grant opens a merits proceeding
+    (`corpus.opens_merits_proceeding` — a GVR or summary reversal decides in the
+    cert order and is excluded), read the latest stored snapshot
     (SQLite, or the per-case content store under the corpus-split mode — the
     same offline path the salience replay reads), parse the last
     judgment-shaped terminal entry (`pipeline/judgment.py`), and stamp
     `merits_judgment` / `merits_decided` — the offline reconciler behind the
     columns the live poll also latches at ingest, feeding the statpack's merits
     stage section, the merits base rate pooled from it, and merits outcome
-    detection. Idempotent; a row
+    detection. Where no judgment shape matches anywhere, a second, smaller
+    vocabulary runs as fallback — the terminations, for a proceeding that ended
+    without a disposition (a post-grant Rule 46 dismissal, a bare mandate
+    notation) — and stamps `merits_terminated` instead, which closes the row's
+    pendency without entering the parsed slice. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -760,6 +767,8 @@ def backfill_merits_judgments_cmd(
         f"{result.eligible} granted case(s) — {result.parsed} parsed "
         f"({result.unchanged} already stored, {verb} {result.updated}), "
         f"{result.no_snapshot} without a reachable snapshot, "
+        f"{result.terminated} terminated without a disposition "
+        f"({verb} {result.terminations_written}), "
         f"{result.no_match} with no judgment-shaped entry"
     )
     if result.stale:
@@ -768,6 +777,10 @@ def backfill_merits_judgments_cmd(
             "re-derive (never cleared automatically — triage them)"
         )
     typer.echo(f"  judgments: {distribution}")
+    terminations = (
+        ", ".join(f"{value}: {count}" for value, count in result.terminations.items()) or "none"
+    )
+    typer.echo(f"  terminations: {terminations}")
     typer.echo(result.model_dump_json())
 
 

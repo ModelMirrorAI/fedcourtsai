@@ -423,7 +423,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it. Parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it, and so does a row carrying `merits_terminated` \u2014 either a post-grant Rule 46 dismissal, where nobody reached the merits, or a bare mandate notation, where the disposition entry was never captured. Parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"
@@ -531,7 +531,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it. Parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it, and so does a row carrying `merits_terminated` \u2014 either a post-grant Rule 46 dismissal, where nobody reached the merits, or a bare mandate notation, where the disposition entry was never captured. Parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"

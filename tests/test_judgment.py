@@ -17,10 +17,12 @@ from fedcourtsai.pipeline.judgment import (
     judgment_disturbed,
     judgment_rode_the_grant_order,
     last_judgment_entry,
+    last_merits_termination,
     match_judgment,
+    match_merits_termination,
     opinion_author,
 )
-from fedcourtsai.schemas import Disposition, Judgment
+from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
 
 runner = CliRunner()
 
@@ -91,6 +93,56 @@ def test_match_judgment_truth_table(text: str, expected: Judgment | None) -> Non
     assert match_judgment(text) == expected
 
 
+# The termination vocabulary: entries that end a granted case's merits
+# proceeding while saying nothing about the judgment below, plus the near
+# misses — the motion that asks for the dismissal, the petition-stage twin, and
+# a recital that names the shape mid-sentence.
+_TERMINATION_TABLE: tuple[tuple[str, MeritsTermination | None], ...] = (
+    ("Case Dismissed - Rule 46.", MeritsTermination.voluntary_dismissal),
+    ("Case dismissed pursuant to Rule 46.1.", MeritsTermination.voluntary_dismissal),
+    ("The case is dismissed under Rule 46.", MeritsTermination.voluntary_dismissal),
+    # A PARTIAL Rule 46 dismissal leaves the case live as to the remaining
+    # parties, so its merits question is still owed a forecast: closing
+    # pendency here would lose one.
+    ("Case dismissed as to petitioner Smith only under Rule 46.1.", None),
+    ("Case Dismissed - Rule 46 as to respondent Jones.", None),
+    ("JUDGMENT ISSUED.", MeritsTermination.judgment_issued),
+    ("Judgment issued.", MeritsTermination.judgment_issued),
+    # A petition-stage Rule 46 dismissal is a CERT event; the merits parser
+    # must leave it to the cert seam, which is what anchoring on "case" buys.
+    ("Petition Dismissed - Rule 46.", None),
+    # The motion and the stipulation ask for the dismissal; neither is it.
+    ("Motion to dismiss the case pursuant to Rule 46 filed by petitioner.", None),
+    ("Stipulation of dismissal under Rule 46.1 filed.", None),
+    ("Notice of appeal filed from the judgment issued on March 3, 2023.", None),
+    # A real disposition is not a termination — the two vocabularies are disjoint.
+    ("Judgment REVERSED and case REMANDED.", None),
+    ("Writ of certiorari DISMISSED as improvidently granted.", None),
+    ("DISTRIBUTED for Conference of 1/10/2025.", None),
+    ("", None),
+)
+
+
+@pytest.mark.parametrize(("text", "expected"), _TERMINATION_TABLE)
+def test_match_merits_termination_truth_table(
+    text: str, expected: MeritsTermination | None
+) -> None:
+    assert match_merits_termination(text) == expected
+
+
+@pytest.mark.parametrize(("text", "_expected"), _TERMINATION_TABLE)
+def test_a_termination_is_never_a_disposition(text: str, _expected: object) -> None:
+    """The two vocabularies never overlap on a termination shape.
+
+    A termination states that the case ended, never how the judgment below
+    fared, so admitting one to `Judgment` would fabricate merits ground truth —
+    the truth table above pins "Judgment issued." to `None` for exactly that
+    reason, and this holds the line for every shape the new vocabulary adds.
+    """
+    if match_merits_termination(text) is not None:
+        assert match_judgment(text) is None
+
+
 def test_judgment_disturbed_projection() -> None:
     # Reversal, vacatur, and the mixed outcome disturb the judgment below; an
     # affirmance does not, and neither non-merits exit does — a DIG dissolves
@@ -156,6 +208,18 @@ def test_last_judgment_entry_rest_shape_and_undated_entry() -> None:
 def test_last_judgment_entry_none_without_a_match() -> None:
     assert last_judgment_entry(_live_payload(("Jan 12 2024", "Petition DENIED."))) is None
     assert last_judgment_entry({}) is None
+
+
+def test_last_merits_termination_takes_the_last_match() -> None:
+    payload = _live_payload(
+        ("Jan 12 2024", "Petition GRANTED."),
+        ("Jul 09 2025", "Motion to dispense with printing the joint appendix filed."),
+        ("Aug 08 2025", "Stipulation of dismissal under Rule 46.1 filed."),
+        ("Aug 11 2025", "Case Dismissed - Rule 46."),
+    )
+    assert last_merits_termination(payload) == MeritsTermination.voluntary_dismissal
+    assert last_merits_termination(_live_payload(("Jan 12 2024", "Petition GRANTED."))) is None
+    assert last_merits_termination({}) is None
 
 
 # --- the backfill pass ------------------------------------------------------------
@@ -272,6 +336,145 @@ def test_backfill_counts_stored_judgments_it_cannot_rederive_as_stale(tmp_path: 
     assert result.no_match == 1 and result.no_snapshot == 1
     assert three is not None and three.merits_judgment == Judgment.affirmed.value
     assert four is not None and four.merits_judgment == Judgment.reversed.value
+
+
+def _seed_termination_corpus(corpus_root: Path) -> Path:
+    """Two granted rows the disposition parser cannot read, one terminated.
+
+    - scotus/10: merits briefing, then a post-grant Rule 46 dismissal.
+    - scotus/11: a decided docket whose only terminal notation is the mandate.
+    - scotus/12: pending-shaped, so still genuine `no_match` residue.
+    """
+    db = corpus.corpus_db_path(corpus_root)
+    dismissed = _live_payload(
+        ("Jan 10 2025", "Petition GRANTED."),
+        ("Aug 08 2025", "Stipulation of dismissal under Rule 46.1 filed."),
+        ("Aug 11 2025", "Case Dismissed - Rule 46."),
+    )
+    mandate_only = _live_payload(
+        ("Jan 12 2024", "Petition GRANTED."),
+        ("Jul 30 2024", "JUDGMENT ISSUED."),
+    )
+    pending = _live_payload(
+        ("Jan 12 2024", "Petition GRANTED."),
+        ("Apr 22 2024", "Argued. For petitioner: X."),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _granted_row("scotus/10", "24-413", date(2025, 1, 10)),
+                _granted_row("scotus/11", "18-710", date(2024, 1, 12)),
+                _granted_row("scotus/12", "23-103", date(2024, 1, 12)),
+            ],
+        )
+        corpus.upsert_snapshot(conn, "scotus/10", date(2026, 7, 1), dismissed)
+        corpus.upsert_snapshot(conn, "scotus/11", date(2026, 7, 1), mandate_only)
+        corpus.upsert_snapshot(conn, "scotus/12", date(2026, 7, 1), pending)
+    return db
+
+
+def test_backfill_records_terminations_without_a_judgment(tmp_path: Path) -> None:
+    db = _seed_termination_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        dry = backfill_merits_judgments(conn, apply=False)
+        untouched = corpus.get_row(conn, "scotus/10")
+        applied = backfill_merits_judgments(conn, apply=True)
+        dismissal = corpus.get_row(conn, "scotus/10")
+        mandate = corpus.get_row(conn, "scotus/11")
+        residue = corpus.get_row(conn, "scotus/12")
+        again = backfill_merits_judgments(conn, apply=True)
+    assert dry.terminated == 2 and dry.terminations_written == 2
+    assert untouched is not None and untouched.merits_terminated is None
+    # A termination resolves pendency and nothing else: no judgment is invented,
+    # so the parsed slice and the disturbed rate never see these rows.
+    assert applied.terminated == 2 and applied.parsed == 0 and applied.no_match == 1
+    assert dismissal is not None
+    assert dismissal.merits_terminated == MeritsTermination.voluntary_dismissal.value
+    assert dismissal.merits_judgment is None and dismissal.merits_decided is None
+    assert mandate is not None
+    assert mandate.merits_terminated == MeritsTermination.judgment_issued.value
+    assert mandate.merits_judgment is None
+    assert residue is not None and residue.merits_terminated is None
+    # Idempotent: a second pass still counts them but writes nothing new.
+    assert again.terminated == 2 and again.terminations_written == 0
+    # Published per class: the two shapes carry different evidence, so a climb
+    # in the mandate-notation count is a parser gap rather than a docket trend.
+    assert applied.terminations == {
+        MeritsTermination.judgment_issued.value: 1,
+        MeritsTermination.voluntary_dismissal.value: 1,
+    }
+    # A terminated row is never also a `no_match`: the residue is the genuine
+    # remainder, so the two counts partition the unparsed rows.
+    assert applied.no_match == 1 and applied.eligible == 3
+
+
+def test_a_termination_never_displaces_a_parsed_disposition(tmp_path: Path) -> None:
+    # "JUDGMENT ISSUED." trails the real disposition on an ordinary decided
+    # docket. The fallback runs only when no judgment shape matched anywhere,
+    # so the mandate notation can never overwrite the reversal.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    payload = _live_payload(
+        ("Jan 12 2024", "Petition GRANTED."),
+        ("Jun 27 2024", "Judgment REVERSED and case REMANDED."),
+        ("Jul 30 2024", "JUDGMENT ISSUED."),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted_row("scotus/20", "23-120", date(2024, 1, 12))])
+        corpus.upsert_snapshot(conn, "scotus/20", date(2024, 8, 1), payload)
+        result = backfill_merits_judgments(conn, apply=True)
+        row = corpus.get_row(conn, "scotus/20")
+    assert result.parsed == 1 and result.terminated == 0
+    assert row is not None
+    assert row.merits_judgment == Judgment.reversed.value
+    assert row.merits_decided == date(2024, 6, 27)
+    assert row.merits_terminated is None
+
+
+def test_a_retracted_parse_stays_stale_and_never_becomes_a_termination(tmp_path: Path) -> None:
+    """A stored judgment the pass cannot re-derive is a retraction, not a termination.
+
+    The trap the fallback ordering has to avoid: "Judgment issued." is the
+    ordinary trailing mandate notation on a decided merits docket, so a
+    disposition-parser tightening that retracts a reading would land every
+    affected row in `terminated` — silencing the `stale` counter that exists to
+    make the retraction visible, and leaving one row carrying a stored
+    disposition *and* a termination, the pair the two columns are defined never
+    to share.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    payload = _live_payload(
+        ("Jan 12 2024", "Petition GRANTED."),
+        # A disposition shape the parser does not know, so `last_judgment_entry`
+        # finds nothing — followed by the mandate notation.
+        ("Jun 27 2024", "Decree of the court below set aside on the merits."),
+        ("Jul 30 2024", "JUDGMENT ISSUED."),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted_row("scotus/30", "23-130", date(2024, 1, 12))])
+        corpus.upsert_snapshot(conn, "scotus/30", date(2024, 8, 1), payload)
+        corpus.set_merits_judgment(conn, "scotus/30", Judgment.reversed, date(2024, 6, 27))
+        result = backfill_merits_judgments(conn, apply=True)
+        row = corpus.get_row(conn, "scotus/30")
+    assert result.stale == 1 and result.no_match == 1
+    assert result.terminated == 0 and result.terminations_written == 0
+    assert row is not None
+    # Neither column moved: the stored parse is kept (never cleared) and no
+    # termination was invented beside it.
+    assert row.merits_judgment == Judgment.reversed.value
+    assert row.merits_terminated is None
+
+
+def test_ingestion_upsert_keeps_a_recorded_termination(tmp_path: Path) -> None:
+    # The sweep owns the column; no ingestion channel ever has one to assert, so
+    # a re-ingest must not carry its NULL through and clear the finding.
+    db = _seed_termination_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        backfill_merits_judgments(conn, apply=True)
+        corpus.upsert_rows(conn, [_granted_row("scotus/10", "24-413", date(2025, 1, 10))])
+        row = corpus.get_row(conn, "scotus/10")
+    assert row is not None
+    assert row.merits_terminated == MeritsTermination.voluntary_dismissal.value
 
 
 def test_backfill_ingestion_upsert_keeps_the_stamped_columns(tmp_path: Path) -> None:

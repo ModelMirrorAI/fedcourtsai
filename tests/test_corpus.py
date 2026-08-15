@@ -7,7 +7,14 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai import corpus, corpus_ranged
-from fedcourtsai.schemas import Disposition, EventKind, Judgment, Moment, Stage
+from fedcourtsai.schemas import (
+    Disposition,
+    EventKind,
+    Judgment,
+    MeritsTermination,
+    Moment,
+    Stage,
+)
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -923,6 +930,44 @@ def test_retrieve_priors_decided_before_strips_post_clock_merits(tmp_path: Path)
     assert unmasked["scotus/3"].merits_judgment == "vacated"
 
 
+def test_retrieve_priors_decided_before_always_strips_a_termination(tmp_path: Path) -> None:
+    # `merits_terminated` carries no date, so nothing in it can prove it came
+    # before the clock — and what it records (the proceeding ended) is exactly
+    # the post-clock fact the mask exists to hide. Fail closed: strip it
+    # whenever the mask is active, keep it on unmasked retrieval.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(  # a pre-clock judgment beside it: the pair still survives
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="93-7515",
+                    merits_judgment="reversed",
+                    merits_decided=date(1994, 6, 1),
+                ),
+                _row(case_id="scotus/2", court="scotus", docket_number="93-7516"),
+            ],
+        )
+        for case_id in ("scotus/1", "scotus/2"):
+            corpus.set_merits_termination(conn, case_id, MeritsTermination.judgment_issued)
+        masked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(
+                conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
+            )
+        }
+        unmasked = {
+            r.case_id: r
+            for r in corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+        }
+    assert masked["scotus/1"].merits_terminated is None
+    assert masked["scotus/1"].merits_judgment == "reversed"  # dated, provably pre-clock
+    assert masked["scotus/2"].merits_terminated is None
+    assert unmasked["scotus/2"].merits_terminated == MeritsTermination.judgment_issued.value
+
+
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
     """A bulk-import shell: SCOTUS with every predicate-keyed row field empty."""
     return corpus.CorpusRow.model_validate({"case_id": case_id, "court": "scotus", **kw})
@@ -1701,9 +1746,41 @@ def test_from_record_tolerates_record_without_merits_columns() -> None:
     record = corpus._to_record(_row())
     del record["merits_judgment"]
     del record["merits_decided"]
+    del record["merits_terminated"]
     row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
     assert row.merits_judgment is None and row.merits_decided is None
+    assert row.merits_terminated is None
     assert row == _row()
+
+
+def test_merits_terminated_migrates_and_survives_ingestion(tmp_path: Path) -> None:
+    # A DB written before the column gains it on connect, and the sweep's
+    # finding is not a channel fact — no ingestion writer ever has one to
+    # assert, so a re-ingest must keep the stored value rather than clear it.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    columns = ",\n".join(
+        f"{name} {ddl}"
+        for name, ddl in corpus._CASES_COLUMN_DDL.items()
+        if name != "merits_terminated"
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert "merits_terminated" in cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+        assert migrated is not None and migrated.merits_terminated is None
+        corpus.set_merits_termination(conn, "scotus/24001", MeritsTermination.voluntary_dismissal)
+        corpus.upsert_rows(conn, [_row(case_id="scotus/24001", court="scotus")])
+        kept = corpus.get_row(conn, "scotus/24001")
+    assert kept is not None
+    assert kept.merits_terminated == MeritsTermination.voluntary_dismissal.value
 
 
 def test_set_merits_judgment_stamps_and_overwrites_forward(tmp_path: Path) -> None:

@@ -96,6 +96,7 @@ source.
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
+| `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -170,6 +171,24 @@ a degraded payload) keeps both stored values, while a fresh parse takes both,
 its null `merits_decided` included, since a date kept from a different entry's
 parse would fabricate a mismatched pair. Merits outcome detection reads these
 columns, so the pair is a scoring input, not only a statistic.
+`merits_terminated` sits beside the pair and deliberately outside it: a granted
+case can end with no disposition at all — voluntarily dismissed under Rule 46
+after the grant, or carrying a bare mandate notation and nothing else — and
+recording that as a seventh `Judgment` would put a non-disposition into the
+parsed slice the merits base rate is pooled from, scored as though the judgment
+below had survived. So the sweep stamps its own column instead, only where no
+judgment shape matched anywhere in the snapshot. The effect is on *pendency*,
+not on scoring: the forecast admission and the provisioning gate refuse a
+terminated row exactly as they refuse a latched one, while the statpack sees a
+row with no parsed judgment, which is what it is. No ingestion channel has one
+to assert, so the upsert keeps the stored value rather than clearing it.
+One consequence is accepted rather than fixed: a terminated case that already
+carries a minted merits event keeps that event **open forever**, because
+resolution keys on `merits_judgment` and there is no judgment to record. The
+event stops earning cells (the forecast admission refuses it) and provisioning
+refuses any that slip through, so this is rotation cost and open-event noise,
+never leakage — but it is why the open-event census counts more merits events
+than the forecast stream contains.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so

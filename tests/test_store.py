@@ -16,6 +16,7 @@ from fedcourtsai.schemas import (
     EventKind,
     FlagCategory,
     Judgment,
+    MeritsTermination,
     Moment,
     Outcome,
     Stage,
@@ -402,6 +403,7 @@ def _granted_case(
     stage: Stage | None = Stage.merits,
     docket_number: str = "24-1234",
     merits_judgment: Judgment | None = None,
+    merits_terminated: MeritsTermination | None = None,
 ) -> None:
     """A granted SCOTUS docket with its resolved cert baseline and merits event."""
     case_id = f"scotus/{docket_id}"
@@ -439,6 +441,9 @@ def _granted_case(
                 ),
             ],
         )
+        if merits_terminated is not None:
+            # Owned by the judgment sweep, not by an ingestion upsert.
+            corpus.set_merits_termination(conn, case_id, merits_terminated)
 
 
 def test_forecastable_events_fans_out_the_merits_event(tmp_path: Path) -> None:
@@ -500,6 +505,23 @@ def test_forecastable_events_refuses_a_merits_event_whose_judgment_is_latched(
 
     assert forecastable_events(db, "scotus", 15) == []
     assert open_events(db, "scotus", 15) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_refuses_a_terminated_merits_proceeding(tmp_path: Path) -> None:
+    # A post-grant Rule 46 dismissal ends the case with no disposition, so no
+    # judgment will ever latch. Without the terminated arm the event stays
+    # forecastable forever, and on a long-decided docket that is a forward cell
+    # on a case whose answer is already public.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(
+        db,
+        16,
+        disposition=Disposition.granted,
+        merits_terminated=MeritsTermination.voluntary_dismissal,
+    )
+
+    assert forecastable_events(db, "scotus", 16) == []
+    assert open_events(db, "scotus", 16) == ["evt-order-judgment"]
 
 
 def test_forecastable_events_requires_the_merits_stage_on_an_order(tmp_path: Path) -> None:
@@ -1154,6 +1176,26 @@ def test_forward_refusal_reason_keys_a_merits_event_on_the_judgment(tmp_path: Pa
     reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 25, "evt-order-judgment")
 
     assert reason is not None and "judgment" in reason
+
+
+def test_forward_refusal_reason_refuses_a_terminated_merits_proceeding(tmp_path: Path) -> None:
+    # The record gate's own arm for the no-disposition exit: nothing will latch
+    # a judgment, so provisioning must read the termination instead of trusting
+    # an unlatched column — otherwise the predict-scope latch is the only guard.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _granted_case(db, 28, disposition=Disposition.granted)
+
+    assert forward_refusal_reason(db, tmp_path / "data", "scotus", 28, "evt-order-judgment") is None
+
+    _granted_case(
+        db,
+        28,
+        disposition=Disposition.granted,
+        merits_terminated=MeritsTermination.voluntary_dismissal,
+    )
+    reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 28, "evt-order-judgment")
+
+    assert reason is not None and "terminated" in reason
 
 
 def test_event_recorded_closed_checks_nothing_without_an_event_id(tmp_path: Path) -> None:

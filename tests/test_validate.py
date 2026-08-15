@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -26,6 +26,7 @@ from fedcourtsai.schemas import (
     FlagCategory,
     Judgment,
     JusticeVote,
+    MeritsTermination,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -36,6 +37,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
+    _STALE_GRANT_DAYS,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_DOMAIN_VALUES,
@@ -49,6 +51,7 @@ from fedcourtsai.validate import (
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
     CHECK_SNAPSHOT_NOT_FUTURE,
+    CHECK_STALE_UNPARSED_GRANTS,
     check_ledger_events_in_git,
     check_no_duplicates,
     check_prediction_claims,
@@ -382,6 +385,102 @@ def test_future_dated_snapshot_fails(tmp_path: Path) -> None:
     verdict = _run(db, tmp_path / "data")
     assert not verdict.ok
     assert _verdict_by_check(verdict)[CHECK_SNAPSHOT_NOT_FUTURE] is False
+
+
+# --- B: stale unparsed grants -------------------------------------------------
+
+
+def _grant(db: Path, case_id: str, granted: date, **kw: object) -> None:
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow.model_validate(
+                    {
+                        "case_id": case_id,
+                        "court": "scotus",
+                        "docket_number": "24-100",
+                        "disposition": Disposition.granted,
+                        "date_cert_granted": granted,
+                        **kw,
+                    }
+                )
+            ],
+        )
+
+
+def test_a_long_past_grant_with_no_merits_outcome_fails(tmp_path: Path) -> None:
+    # The residue the check exists for: a grant years old whose row still reads
+    # unresolved, so every merits gate keyed on those columns keeps its event
+    # forecastable — a forward cell on a case decided long ago.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9001", date(2019, 2, 4))
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_STALE_UNPARSED_GRANTS)
+    assert not check.passed
+    assert any("scotus/9001" in p for p in check.problems)
+
+
+def test_a_recent_grant_is_simply_pending(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9002", TODAY - timedelta(days=200))
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
+def test_the_stale_grant_bound_is_two_terms(tmp_path: Path) -> None:
+    """Pin 730 days, so the threshold is a claim rather than a comment.
+
+    The bound is deliberately generous against the six-to-eighteen-month
+    grant-to-judgment window `docs/decision-model.md` states, because the
+    pending cohort is right-censored by construction — no pending case can be
+    older than the Terms elapsed since its grant — so the observed spread is no
+    evidence about the upper tail, and an abeyance stretches it.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9010", TODAY - timedelta(days=_STALE_GRANT_DAYS - 1))
+    assert _verdict_by_check(_run(db, tmp_path / "data"))[CHECK_STALE_UNPARSED_GRANTS] is True
+
+    _grant(db, "scotus/9011", TODAY - timedelta(days=_STALE_GRANT_DAYS + 1))
+    check = next(
+        c for c in _run(db, tmp_path / "data").checks if c.name == CHECK_STALE_UNPARSED_GRANTS
+    )
+    assert not check.passed
+    assert any("scotus/9011" in p for p in check.problems)
+    assert not any("scotus/9010" in p for p in check.problems)
+
+
+def test_a_resolved_old_grant_passes_either_way(tmp_path: Path) -> None:
+    # Both resolutions clear the row: the parsed judgment, and the termination
+    # that records a proceeding which ended with no disposition at all.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(
+        db,
+        "scotus/9003",
+        date(2019, 2, 4),
+        merits_judgment=Judgment.reversed.value,
+        merits_decided=date(2019, 6, 20),
+    )
+    _grant(db, "scotus/9004", date(2019, 2, 4))
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(conn, "scotus/9004", MeritsTermination.judgment_issued)
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
+def test_a_gvr_is_outside_the_stale_grant_population(tmp_path: Path) -> None:
+    # The population is the grants that open a merits proceeding: a GVR decides
+    # in the cert order, so it never owes a merits outcome.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9005", date(2019, 2, 4), disposition=Disposition.gvr)
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
 
 
 # --- B: required columns ------------------------------------------------------
