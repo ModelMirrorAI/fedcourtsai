@@ -3,11 +3,16 @@ name: codeql
 # CodeQL code scanning for the Python package. The Actions workflows
 # themselves are covered separately by zizmor + actionlint in lint-actions.yml,
 # so only `python` is analyzed here. Results land in the repo's Security tab.
+# Both integration branches are scanned: feature work merges into `staging`,
+# so a finding must surface on the PR that introduces it, not at the
+# staging→main promotion where the diff is a whole batch. The `push` half
+# keeps each base branch's alert baseline current, so PR scans dedupe
+# against what the branch already carries instead of re-reporting it.
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   schedule:
     # Weekly, off-peak; a scheduled scan catches advisories published after a
     # change merges, not just code as it lands.
