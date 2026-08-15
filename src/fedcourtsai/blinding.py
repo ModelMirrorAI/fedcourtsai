@@ -346,9 +346,11 @@ def mask_prediction(
     document.
 
     Every other field is carried through with only the identity scrub applied:
-    the probability, the disposition, the votes, the claims, and the frozen
+    the probability, the disposition, the votes, the claims, the
+    ``semantic_claims`` propositions a merits cell carries, and the frozen
     ``context`` the base-rate lookup needs. The scrub reaches strings anywhere in
-    the document, so a rationale string inside ``claims`` can carry a
+    the document, so a rationale string inside ``claims`` — or a semantic
+    proposition, which is free text the predictor wrote — can carry a
     ``[redacted:identity]`` marker; the numeric fields a grade is computed from
     cannot be touched by it.
 

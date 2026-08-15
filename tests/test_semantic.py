@@ -1,8 +1,9 @@
 """Tests for the semantic claim family's declaration and descriptive roll-up.
 
-`pipeline.semantic` declares `semantic-v1` on the merits moments and produces
-nothing: no prompt asks a grader for a block, and no opinion body is ingested to
-grade against, so no committed artifact carries a grade. The invariants worth
+`pipeline.semantic` declares `semantic-v1` on the merits moments and still
+produces nothing: the prompts now ask a merits cell for the propositions and a
+grader for the grades, but no opinion body is ingested to grade against, so
+every declared claim masks and no census publishes. The invariants worth
 pinning are therefore of two kinds.
 
 The **declaration**: that `semantic-v1` is exactly two claims, each naming the
@@ -545,6 +546,29 @@ def declared(monkeypatch: pytest.MonkeyPatch) -> tuple[str, tuple[SemanticClaimS
     return entry
 
 
+def _prediction(*, semantic_claims: list[str] | None = None) -> Prediction:
+    return Prediction(
+        case_id="scotus/1",
+        event_id=_EVENT_ID,
+        predictor_id="p",
+        engine=Engine.claude_code,
+        run_id="r",
+        created_at=datetime(2025, 3, 1),
+        input_snapshot="x",
+        granted=0,
+        probability=0.2,
+        predicted_disposition=Disposition.denied,
+        semantic_claims=(
+            None
+            if semantic_claims is None
+            else [
+                SemanticClaim(claim_id=claim_id, proposition=f"proposition for {claim_id}")
+                for claim_id in semantic_claims
+            ]
+        ),
+    )
+
+
 def _block(
     *grades: tuple[str, SemanticSupport], version: str = SEMANTIC_SET_V1
 ) -> SemanticGradeBlock:
@@ -666,6 +690,99 @@ def test_the_payload_survives_a_round_trip_through_the_committed_artifact(
     census = {c.claim_id: c for c in summary.claims}
     assert census["majority-ground"].partial == 1
     assert census["dissent-ground"].unsupported == 1
+
+
+# --- the refusals, said out loud: what `validate` surfaces ---------------------
+#
+# `graded_units` refuses silently and nothing reads `semantic_claims` at all, so
+# a non-conforming block on either side commits green and simply drops out of
+# the census later. These pin the two enumerators to those refusals: a new
+# refusal arm in `graded_units` needs a matching arm in `semantic_grade_problems`.
+
+
+def test_an_absent_semantic_block_is_not_a_problem() -> None:
+    """Absence is a legitimate state on both sides — every cell written before the
+    prompts asked carries none — so it is skipped, never flagged."""
+    assert semantic.semantic_grade_problems(_evaluation()) == []
+    assert semantic.semantic_claim_problems(_prediction()) == []
+
+
+def test_a_block_on_an_undeclaring_event_is_not_a_problem() -> None:
+    block = _block(("majority-ground", _SUPPORTED))
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+    assert semantic.semantic_claim_problems(_prediction(semantic_claims=["majority-ground"])) == []
+
+
+def test_every_grade_block_refusal_is_named_by_the_enumerator(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """Each shape `graded_units` drops the block on, said in words."""
+    twice = _block(
+        ("majority-ground", _SUPPORTED),
+        ("majority-ground", _UNSUPPORTED),
+        ("dissent-ground", _SUPPORTED),
+    )
+    assert any(
+        "graded twice" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=twice))
+    )
+    skipped = _block(("majority-ground", _SUPPORTED))
+    assert any(
+        "'dissent-ground'" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=skipped))
+    )
+    other = _block(
+        ("majority-ground", _SUPPORTED), ("dissent-ground", _SUPPORTED), version="semantic-v2"
+    )
+    assert any(
+        "another declaration" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=other))
+    )
+
+
+def test_a_conforming_grade_block_has_no_problems(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    block = _block(("majority-ground", _SUPPORTED), ("dissent-ground", _MASKED))
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+
+
+def test_a_row_outside_the_declared_set_is_not_a_grade_block_problem(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """The enumerator reports refusals, not opinions: `graded_units` ignores such a
+    row rather than dropping the block, so flagging it would be stricter than the
+    consumer it exists to speak for."""
+    block = _block(
+        ("majority-ground", _SUPPORTED),
+        ("dissent-ground", _SUPPORTED),
+        ("invented-claim", _SUPPORTED),
+    )
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+
+
+def test_the_predictor_side_is_held_to_the_declaration_too(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """The half that had no enforcement: nothing consumes `semantic_claims`, so a
+    skipped or invented claim leaves no trace anywhere downstream."""
+    assert semantic.semantic_claim_problems(_prediction(semantic_claims=["majority-ground"])) == [
+        f"declared semantic claim 'dissent-ground' ({SEMANTIC_SET_V1}) is not stated"
+    ]
+    invented = semantic.semantic_claim_problems(
+        _prediction(semantic_claims=["majority-ground", "dissent-ground", "invented-claim"])
+    )
+    assert any("is not declared by" in p for p in invented)
+    twice = semantic.semantic_claim_problems(
+        _prediction(semantic_claims=["majority-ground", "majority-ground", "dissent-ground"])
+    )
+    assert any("stated twice" in p for p in twice)
+    assert (
+        semantic.semantic_claim_problems(
+            _prediction(semantic_claims=["majority-ground", "dissent-ground"])
+        )
+        == []
+    )
 
 
 def test_more_than_one_declaration_version_is_visible_in_the_summary() -> None:

@@ -401,9 +401,9 @@ class SemanticSupport(StrEnum):
 
     ``semantic-v1`` is **alpha** — provisional, unproven against opinion text,
     and explicitly not a pre-registered commitment in the sense ``cert-v1`` and
-    ``merits-v1`` are. Nothing produces a grade today, so nothing published
-    depends on this vocabulary; see ``docs/outcome-decomposition.md``, *The
-    semantic family, alpha*.
+    ``merits-v1`` are. No opinion body is ingested, so every grade a cell writes
+    today is the mask and nothing published depends on this vocabulary; see
+    ``docs/outcome-decomposition.md``, *The semantic family, alpha*.
     """
 
     supported = "supported"
@@ -646,10 +646,18 @@ class PredictionContext(_Strict):
         description="The active scorer's salience band as at prediction, derived from the "
         "signals above. None when they were unobservable, which is the honest "
         "answer for a cell whose snapshot carried no proceedings — the evaluator "
-        "then falls back to the terminal band rather than guessing",
+        "then scores against the terminal band it can derive rather than guessing "
+        "a frozen one. A band is readable only beside the `salience_version` "
+        "below, which is what the risk-set basis keys on: a band with no version "
+        "names a population nothing pins down",
     )
     salience_version: str | None = Field(
-        default=None, description="Version of the scorer that produced band"
+        default=None,
+        description="Version of the scorer that produced band, and the key the "
+        "evaluator's `risk_set` base-rate basis is chosen on: a band name means "
+        "something only under the version that assigned it, so a frozen band "
+        "whose version is absent — or does not match the statpack's — yields no "
+        "baseline rather than a terminal relabel",
     )
     response_requested: bool | None = Field(
         default=None,
@@ -725,11 +733,10 @@ class SemanticClaim(_Strict):
 
     The set is the harness's exactly as the mechanical set is
     (``fedcourtsai.pipeline.semantic``): the merits moments declare
-    ``semantic-v1``. **No prompt asks a cell for one**, so no committed
-    prediction carries this block. One piece is still owed on this side and
-    named in ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike
-    ``Prediction.claims``, nothing yet holds this list to the declared set, so
-    the mandatory-set discipline binds graders and not predictors.
+    ``semantic-v1``, and the predict prompt asks a merits cell for one
+    proposition per declared claim. ``validate`` holds a committed block to that
+    declaration, so a block naming an undeclared claim, skipping a declared one,
+    or stating one twice fails the cell rather than reaching a grader.
     """
 
     claim_id: str = Field(
@@ -852,10 +859,12 @@ class Prediction(_Strict):
         "against the opinion text by a reader, never scored by "
         "`claim_score` — a semantic claim has no harness-computable prior, so "
         "the mechanical rule's baseline requirement cannot be met and the family "
-        "reports grades descriptively instead. Null on every committed "
-        "prediction: the merits moments declare `semantic-v1`, but it is alpha "
-        "and no opinion body is ingested to ground a claim against, so no "
-        "prompt asks a cell for one.",
+        "reports grades descriptively instead. The merits moments declare "
+        "`semantic-v1` and the predict prompt asks a merits cell for it; every "
+        "other stage declares no semantic set, so the field stays null there. "
+        "Null too on predictions written before the elicitation existed. The "
+        "set is mandatory as the mechanical one is, and `validate` holds a "
+        "committed block to the declaration.",
     )
 
     @model_validator(mode="after")
@@ -1266,13 +1275,13 @@ class SemanticGradeBlock(_Strict):
     *is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,
     alpha*.
 
-    **Alpha, and producing nothing.** ``semantic-v1`` is provisional and
+    **Alpha, and still producing nothing.** ``semantic-v1`` is provisional and
     unproven against opinion text — not a pre-registered commitment in the sense
-    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it, but no
-    prompt asks a grader for it and no opinion body is ingested to grade
-    against, so no committed evaluation carries this block and no published
-    number depends on it. Supersession by a set formed with text in hand is the
-    expected path, not an exception.
+    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it and the
+    evaluate prompt asks a grader for it, but no opinion body is ingested to
+    grade against, so every declared claim masks (``not-addressed``) and no
+    published number depends on it. Supersession by a set formed with text in
+    hand is the expected path, not an exception.
     """
 
     declared_set_version: str = Field(
@@ -1396,9 +1405,12 @@ class Evaluation(_Strict):
         "a rule an evaluator has to honour. 'risk_set' "
         "pools across every petition that had REACHED the prediction's frozen band — "
         "the population a live cell was actually in, and the right basis wherever the "
-        "prediction carries a frozen band. 'terminal' pools across petitions that "
+        "prediction carries a frozen band under a resolvable salience version. "
+        "'terminal' pools across petitions that "
         "ENDED in the band derived from the row now, the fallback where no frozen "
-        "band exists (an older cell, or one whose snapshot disclosed no proceedings). "
+        "band exists (an older cell, or one whose snapshot disclosed no proceedings) "
+        "— never a relabel of a frozen band whose version fails to resolve, which "
+        "yields no baseline at all. "
         "The two differ several-fold in the weak bands, so a skill score is only "
         "comparable within one basis; absent on evaluations written before the "
         "distinction existed.",
@@ -1450,9 +1462,11 @@ class Evaluation(_Strict):
         "with mechanical claim scores, and is never a rank key. Unlike "
         "`claim_scores` it is the grader's word by construction — a semantic "
         "claim needs a reader — which is why inter-grader agreement travels "
-        "beside any published grade. Null on every committed evaluation: the "
-        "merits moments declare `semantic-v1`, but no prompt asks a grader for "
-        "it and no opinion body is ingested to grade against.",
+        "beside any published grade. Written on merits cells, whose moments "
+        "declare `semantic-v1`; null on every other stage, which declares no "
+        "semantic set, and on evaluations written before the grading existed. "
+        "No opinion body is ingested yet, so a written block grades every claim "
+        "as `not-addressed` — the availability mask, a property of the record.",
     )
     notes_doc: str = "evaluation.md"
     process_version: ProcessVersion | None = Field(

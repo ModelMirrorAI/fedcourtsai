@@ -27,15 +27,16 @@ split, and writing claims remain pre-registered only —
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
-commitment of the kind the rest of this document makes. It produces nothing
-yet: no opinion body is ingested to grade against, and no prompt asks a cell or
-a grader for one.
+commitment of the kind the rest of this document makes. It is elicited and
+graded — the predict prompt asks a merits cell for the two propositions and the
+evaluate prompt asks a grader for the grades — and it still produces nothing:
+no opinion body is ingested to grade against, so every declared claim masks.
 
 Everything else — the whole document up to *The semantic family, alpha* — is
 pre-registration: the decomposition and the rule are settled before there is
 data to fit them to, which is the only order in which the choice of rule is
-credible. That last section is the exception, and says so at its own head; it
-fixes nothing and nothing frozen depends on it.
+credible. That last section is the exception, and says so at its own head; no published
+number depends on it, and it is superseded rather than edited.
 
 ## Naming
 
@@ -779,10 +780,11 @@ resolved from the event, **a moment's version bump does not re-score old cells
 under the old set — it strands them.** A prediction that states only cert-v1's
 three claims against a moment declaring `cert-v2` yields *no block at all*
 (the set is mandatory, so a partial answer scores nothing), and `validate` names
-the two unstated claims. Nothing is stranded today, because no committed
-prediction carries a `claims` block; the elicitation surface has to move before
-any `cert-v2` cell runs, and until it does the version bump is a declaration
-without an answer.
+the two unstated claims. Nothing is stranded, because no committed
+prediction carries a `claims` block and the elicitation surface moved before any
+`cert-v2` cell ran: the predict prompt asks for all five claims from the same
+promotion that carries the declaration, which is what keeps the version bump
+from being a declaration without an answer.
 
 A claim total is likewise not comparable across the boundary: a `cert-v2` block
 sums over a different set, so the two are pooled no more freely than a total
@@ -860,12 +862,12 @@ different channels: the resolution end is a latched corpus column frozen at
 resolution, the prediction end a re-parse of the provisioned snapshot's own
 entries. Neither is a function of the other.
 
-Two seams the set does not reach today. No published surface reads an
+One seam the set does not reach today. No published surface reads an
 `interim-v1` block: the claim board filters to the cert stage's first moment, so
-the block is computed and banked rather than reported. And the predict and
-evaluate prompts do not yet ask for the set — that half moves on its own
-re-bless, since a prompt edit moves the pre-registered process digest — so the
-declaration is exercised offline by the stub cascade until it does.
+the block is computed and banked rather than reported. The elicitation is not a
+seam any more — the predict prompt asks an interim cell for all four claims from
+the same promotion that carries the declaration, since a prompt edit moves the
+pre-registered process digest and the two had to travel together.
 
 Two properties of the record are worth stating rather than discovering. The
 response-filed moment is the one at which `response_requested` is usually
@@ -900,6 +902,59 @@ candidate's own `retrieval.md` prose can name a tool the scrub's identity
 terms do not cover (the blinding module's residual list states these). The alpha
 that will meet them when they land — and what it deliberately
 does not yet decide — is *The semantic family, alpha*.
+
+### Where each forecast content class goes
+
+`predicted_reasoning.md` is a forecast document, and the whole point of keeping
+it apart from `reasoning.md` is that a forecast can be scored while a rationale
+cannot. Nothing scores the document itself, and nothing ever will: prose is not
+a resolvable object. What is scored are the **structured** claims that carry the
+same content — the mechanical `claims` block, and on a merits cell the graded
+`semantic_claims` block. This register is the join between the two. Every
+content class the predict prompt asks a cell to commit to appears here with its
+route, so that *unscored* is a stated position rather than an oversight. A class
+the prompt elicits and this table does not name is a defect in one of them.
+
+**Context-only** is a real route, not a euphemism. It means: elicited because it
+disciplines the forecast and because a reader of the cell needs it, resolved
+against nothing, and never counted anywhere. Each context-only row names what it
+would take to move — a field, a channel, a widened framing — or names the
+pre-registered rule that keeps it there permanently.
+
+| Stage | Content class the prompt elicits | Route | State |
+| --- | --- | --- | --- |
+| cert | Whether the petition is relisted further | `relist-increment` (`cert-v2`) | Declared and resolved; baseline pending a per-Term relist-bucket cut, so the probability is banked |
+| cert | Whether a CVSG issues | `cvsg-increment` (`cert-v2`) | Declared and resolved; baseline pending a censoring-corrected per-Term cut |
+| cert | *When* a CVSG would issue | Context-only | No timing claim is declared at any stage; a horizon claim needs a resolution-clock design the register does not have |
+| cert | Whether a summary disposition is the likelier route | `summary-disposition-route` (`cert-v2`) | **Scored**, conditional on a grant, against the prior Terms' cert-order share of paid grants |
+| cert | Whether any dissent from denial is noted | `dissent-from-denial` (`cert-v2`) | Declared and resolved as aggregated existence; baseline pending a cut over the denied population, so the probability is banked |
+| cert | *From whom* the dissent comes | Context-only, permanently | The per-Justice form is a pre-registered prohibition (`docs/decision-model.md`): a cert vote is observed only when a Justice chooses to note it, and `moments.scores_votes` denies vote scoring off the merits stage by default |
+| cert | Which question presented the Court would take | Context-only; named `semantic-v2` candidate | It resolves against the **grant order and the QP text**, not an opinion body, so declaring it needs `requires` widened past an opinion class; and pinned at the cert stage it is ~96% masked over the paid modern-cert census, since a QP is never taken in a denied case |
+| interim | Whether a response will be called for | `response-requested-increment` (`interim-v1`) | Declared and resolved; baseline pending an arrival-conditioned hazard the pack does not publish |
+| interim | Whether the application is referred to the full Court | `referral-increment` (`interim-v1`) | Declared and resolved; same gap |
+| interim | How many further amicus briefs arrive | `amicus-increment` (`interim-v1`) | Declared and resolved; same gap, sharpened — the published column collapses the count to a flag |
+| interim | How the application is disposed of | `interim-disposition` (`interim-v1`) | **Scored** above the pool's registered floor, against the strictly-prior substantive grant rate |
+| interim | *When* it is disposed of | Context-only | The timing row above, on the interim docket |
+| merits | Which of the six judgment labels the Court enters | `judgment-disturbed` (`merits-v1`) on the binary; the multi-class form is context-only | The binary is **scored**; the six-way form waits on a schema field carrying a per-label distribution, exactly as the cert disposition claim's does |
+| merits | Whether a procedural exit (a DIG, an equally divided Court) is live | Folded into `judgment-disturbed` | Both resolve *undisturbed*, so the binary prices them; the label-level call rides the multi-class row above |
+| merits | The ground the majority rests on | `majority-ground` (`semantic-v1`) | **Graded**, not scored. The machinery is live end to end; every unit masks until opinion bodies accrue, and the vantage caveat travels as prose |
+| merits | How broad that ground is | `ground-breadth` (`semantic-v1`) | The same, on a separate axis — never a conjunct of the row above |
+| merits | The ground stated coarsely (statutory vs constitutional, which provision) | **Rejected** | Fails test 2: the question presented already discloses it, so it is a level the snapshot hands the predictor rather than a forecast |
+| merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a real vote source: `Outcome.votes` is empty on every committed outcome because docket text discloses no provenance denominator. Merits votes are banked and scored the day a channel exists; cert votes never are |
+| merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
+| merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
+| merits | Authorship and the writing roles | Context-only | No artifact records either; the prompt says so and tells the cell not to present them as the scoreable part |
+| any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
+
+Three properties of the table are worth reading off it. **Every scored route is
+mechanical or graded, never prose** — the document is the human-readable form of
+a structured claim, and the two must agree, but only the structure resolves.
+**Banked is not scored**: five declared claims carry no baseline yet, and their
+probabilities accumulate against cuts that do not exist rather than counting
+toward anything. And **two rows are permanent**: the per-Justice cert vote and
+the coarse doctrinal ground are not waiting on data — they are ruled out by a
+pre-registered prohibition and by test 2 respectively, and a later version would
+have to answer those reasons rather than rediscover them.
 
 ### Why a cert-stage claim resolves against the outcome, not the corpus
 
@@ -1053,21 +1108,37 @@ with the first claim set declared under it — laid out and wired now so that
 iteration is fast when opinion text reaches coverage, provisional, unproven
 against a single real opinion, and expected to change once one is seen.
 
-Four facts are what make that an honest label rather than a loophole.
+**What "alpha" means here, and what it does not.** Both prompts ask
+for it — a merits cell for the two propositions, a grader for the grades — so
+the elicitation and the grading protocol are **inside the frozen process
+digest**: the digest is the prompt bytes plus the resolved actor config, and
+both prompts carry this section's contract in theirs. The label is not a claim
+about whether anything asks. It is a claim about whether the design has been
+tested against the thing it grades, and it has not: no opinion body is ingested,
+both declared claims require a majority opinion, so every unit masks and the
+methodology has never met a single real opinion.
 
-- **Nothing frozen depends on it.** The freeze governs the **process digest** —
-  the prompt bytes plus the resolved actor config (`docs/process-version.md`).
-  Nothing in this section is asked for by a prompt, so no digest moves, no cell
-  produces a semantic grade, and no published number depends on any rule
-  written here. A declaration is a table, and a table is neither prompt bytes
-  nor actor config. That is precisely what lets it change freely: there is
-  nothing downstream to break.
-- **A declaration is not yet a commitment a predictor is held to.** Where the
-  three mechanical sets are ones a predictor answers because a prompt asks,
-  `semantic-v1` names two claims (*The declared set*) that nothing asks for —
-  and nothing reads `Prediction.semantic_claims` even if one were written
-  (*What remains unbuilt*, the predictor-side mandatory set). The declaration
-  binds what a *grader* may be counted on, the moment a grader exists.
+**The set id and the process label answer different questions, and turning the
+elicitation on is the second one's business.** A *set* version names what was
+asked; the *process* version names who asked it and how. Eliciting a declared
+set changes nothing about which claims it carries, so it takes a coordinated
+re-bless of the process label and its reviews (`docs/process-version.md`; the
+freeze record in [milestones.md](milestones.md) names it among the changes
+riding that promotion) and **not** a new set id — which would fragment a census
+across two identical declarations and spend the version vocabulary on a change
+that is not one.
+
+Three facts keep the label honest rather than a loophole.
+
+- **No published number depends on it.** Every unit masks, so the census is
+  empty and conditionally withheld; nothing in the leaderboard, the ops
+  dashboard, or any committed metrics artifact reads a semantic grade. But note
+  exactly what that rests on — the **absence of opinion text**, not the absence
+  of an elicitation. Cells produce blocks now, so the day coverage lands they
+  produce grades under this methodology with no further edit. That is the
+  standing obligation the label carries: the first real grades will arrive under
+  a design nobody has validated, and the inter-grader agreement number beside
+  them is what says whether it held.
 - **It takes nothing back.** Nothing here relaxes, restates, or reinterprets
   the mechanical family's contract — not the scoring rule, not the mandatory
   set, not the floor, not the availability mask, not the publishing rules a
@@ -1076,11 +1147,11 @@ Four facts are what make that an honest label rather than a loophole.
 - **Supersession is the plan, not the exception.** The set that has actually
   met opinion text arrives as a new version with its own review; `semantic-v1`
   is never edited into it, and a claim added, dropped, or re-axed is a version
-  bump.
-
-The moment a prompt asks a cell for a semantic claim is the moment this stops
-being alpha, because that is the moment it moves a digest and produces data.
-That is a version bump and its own review — not an edit to this section.
+  bump. That bump now moves both prompts and therefore the process digest, so a
+  semantic supersession is a coordinated re-bless rather than a free edit. The
+  cost is real and it is the price of eliciting at all: the family bought the
+  ability to accumulate blocks before opinion text exists, and paid for it in
+  how expensive its next revision is.
 
 ### What a semantic claim is, and how it differs
 
@@ -1100,8 +1171,9 @@ differently and two do not hold at all:
 
 So the unit is a **declared proposition, graded** — not a declared probability,
 scored. `Prediction.semantic_claims` carries the propositions and
-`Evaluation.semantic_grades` one grader's grades of them; both are null on
-every committed artifact, because no prompt asks for either.
+`Evaluation.semantic_grades` one grader's grades of them, on merits cells and
+nowhere else; both are null on every artifact written before the prompts asked
+for them, and on every stage that declares no semantic set.
 
 One difference is worth stating on its own, because it inverts a rule the
 mechanical family relies on. `Evaluation.claim_scores` is the **harness's**
@@ -1547,8 +1619,9 @@ semantic sides is not one series.
 
 ### What remains unbuilt
 
-The declared set is built, and it is one of the three things a grade needs. In
-dependency order, most binding first, what is still owed:
+The declaration and the prompts that ask for it are built — two of the three
+things a grade needs. In dependency order, most binding first, what is still
+owed:
 
 1. **Opinion coverage.** Fewer than ten corpus rows carry an opinion body,
    against a cert-granted slice of ≈1,250. The channel that fills them —
@@ -1559,25 +1632,24 @@ dependency order, most binding first, what is still owed:
    coverage is a slice rather than a rounding error, nothing can be graded
    against text that is not there, and no amount of methodology substitutes:
    every declared claim requires a majority opinion, so every unit masks.
-2. **A grader prompt, and a predictor prompt that asks for the propositions.**
-   Neither exists, deliberately: writing one moves a digest and makes cells
-   produce data under a methodology that has never met an opinion. This is why
-   a declared set still produces nothing, and why no published number depends
-   on the declaration.
-3. **Any baseline.** Left open as an empirical question above.
-4. **The predictor-side mandatory set.** The grader side is enforced —
-   `graded_units` reads the declaration first, refuses a block stamped with a
-   different declaration, drops one that skips a declared claim, and ignores
-   rows outside the set. The *predictor* side has no equivalent refusal:
-   nothing reads `Prediction.semantic_claims` at all, where a non-conforming
-   mechanical claims block at least costs the cell its `claim_scores`
-   (`score_claims` returns no block rather than scoring the half the predictor
-   chose). Until something does, *Why the set is mandatory* holds for graders
-   and not for predictors — and differential coverage across predictors would
-   reweight a pooled census with no visible change in any denominator.
-5. **An argument date.** `majority-ground`'s forecastability decays across the
+2. **Any baseline.** Left open as an empirical question above.
+3. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
+
+The prompts are built: the predict prompt asks a merits cell for one
+proposition per declared claim on its declared axis, and the evaluate prompt
+carries the grading protocol above — the axis discipline, the two mask grounds
+and the requirement to say which one applied, and the five refusals. So is the
+**mandatory-set discipline on both sides**, which the mechanical family has and
+this one long lacked on the predictor's:
+`graded_units` refuses a non-conforming grader block whole, and
+`validate` holds a committed block on either side to its declaration
+(`prediction_semantic_claims_conform`, `evaluation_semantic_grades_gradeable`),
+so a skipped, duplicated, invented, or misversioned claim fails the cell instead
+of vanishing into a census nobody can audit. That closes the hole differential
+coverage across predictors would otherwise open — a pooled census reweighted
+with no visible change in any denominator.
 
 What *is* built is the whole path a grade would travel: the schema blocks, the
 declaration with its axes and its lookup treating it as authoritative over any
@@ -1593,5 +1665,5 @@ blind-grading bracket itself
 (`fedcourtsai.blinding`, wired around every evaluate cell), whose alias staging
 and engine-neutral tool classes remove identity from the staged bytes — with the
 residuals its module docstring names, the call-class profile among them. So what
-separates a declared set from a produced grade is opinion text and a prompt, not
-a shape.
+separates a declared set from a produced grade is opinion text alone — not a
+shape, and no longer an elicitation.

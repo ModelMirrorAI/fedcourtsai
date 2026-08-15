@@ -79,12 +79,17 @@ fields that mean the same thing at every stage:
   `probability` scores nothing at all — a partial answer is malformed, not a
   choice. Where an event declares no set the cell writes no `claims` field, and
   the stamped record carries it as null; never an empty list.
-- **`semantic_claims`** — the *semantic* claim set's propositions, and **null on
-  every cell**: the merits moments declare `semantic-v1`, but no prompt asks a
-  cell for it, so none writes one. The field is the predictor side of the alpha
-  `semantic-v1` methodology ([outcome-decomposition.md](outcome-decomposition.md),
-  *The semantic family, alpha*); a cell that invents a block for it is writing
-  a claim the harness never asked for.
+- **`semantic_claims`** — the *semantic* claim set's propositions, written on a
+  **merits** cell and null everywhere else: the merits moments declare
+  `semantic-v1` and no other event declares a semantic set. Two propositions,
+  `majority-ground` and `ground-breadth`, each carrying no probability — a
+  semantic claim is graded by a reader, never scored
+  ([outcome-decomposition.md](outcome-decomposition.md), *The semantic family,
+  alpha*). The set is mandatory as the mechanical one is, and `validate` holds
+  the block to the declaration, so a claim the harness never asked for fails
+  the cell rather than travelling unread. Every grade the block earns today is
+  the availability mask: both claims require a majority opinion body and none
+  is ingested.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -196,7 +201,7 @@ grant or denial of the requested relief.
   the interim pool's floor; the three increments bank their probabilities against
   a cut the statpack does not yet carry
   ([outcome-decomposition.md](outcome-decomposition.md)). Cells run under a
-  process whose prompt does not ask for the set write no block, and a missing
+  process whose prompt predates the set write no block, and such a missing
   block stays a legitimate state.
 - `votes` is optional and `judgment` is null. None of the cert signals exists
   here either: an application is not distributed for conference and a CVSG is a
@@ -262,6 +267,11 @@ and a summary reversal, which terminate at the cert order, mint nothing.
 - The declared set is **`merits-v1`**, one claim: `judgment-disturbed`, which
   restates `probability` exactly, under the same rule as the cert `disposition`
   claim.
+- A merits cell is also the only one carrying **`semantic_claims`**: the
+  `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
+  each on its declared axis and each carrying no probability. They are graded
+  by a reader against the majority opinion, never scored, and mask on every
+  case the opinion coverage has not reached — which is every case today.
 
 ```json
 {
@@ -294,6 +304,16 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   "predicted_reasoning_doc": "predicted_reasoning.md",
   "claims": [
     {"claim_id": "judgment-disturbed", "probability": 0.68}
+  ],
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reverses on the statutory-text ground, holding that the detention provision reaches only post-order custody, and confines the governing precedent to its indefinite-detention facts rather than overruling it."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The ground is narrow: a rule limited to the detention authority of the provision at issue, expressly reserving the constitutional question and the parallel provision the government pressed."
+    }
   ]
 }
 ```
@@ -466,11 +486,11 @@ in prose.
   and `process_version` are the harness's, never the evaluator's word — as are
   `segment_base_rate` and `brier_skill_score` on the two stages whose pool the
   harness computes (below).
-  `semantic_grades` is null on every cell — the counterpart of the prediction's
-  `semantic_claims` above, and empty for the same reason: no prompt asks a
-  grader for a block, and no opinion body is ingested to grade against, so the
-  merits moments' `semantic-v1` declaration has nothing to bind. It is the one
-  *claim-family* block that
+  `semantic_grades` is the counterpart of the prediction's `semantic_claims`
+  above: written on a **merits** cell, one ordinal grade per declared claim, and
+  null on every other stage. No opinion body is ingested, so every grade it
+  carries today is `not-addressed` — the availability mask, a property of the
+  record — and no census publishes. It is the one *claim-family* block that
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.
@@ -487,10 +507,12 @@ who writes the baseline on each:
   which population it was taken over — `risk_set` for every petition that ever
   *reached* the frozen band, which is the population a live cell was in, or
   `terminal` for those that *ended* in a band re-derived now, the fallback
-  where no band was frozen. The two run several-fold apart in the weak bands,
-  so a skill number means something only within one basis, and both it and
+  where **no band was frozen at all**. The two run several-fold apart in the weak
+  bands, so a skill number means something only within one basis, and both it and
   `brier_skill_score` are omitted where no band, no prior-Term rate, or no
-  matching salience version exists. A recorded `risk_set` basis must therefore
+  matching salience version exists — the last of those is an omission and never
+  a relabel to `terminal`, which would pair a risk-set population with a
+  terminal rate. A recorded `risk_set` basis must therefore
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
   `base_rate_basis_carries_version` holds the same rule over the ledger.
@@ -514,12 +536,9 @@ who writes the baseline on each:
   too, which is what makes their null structural rather than a rule an
   evaluator has to honour. Only the cert rate is the evaluator's, because only
   there is a judgment involved: which band population the rate is taken over.
-  One seam to read around while the evaluate prompt still carries its pre-stamp
-  rules for these stages: a cell's `evaluation.md` may describe a rate the
-  agent pooled itself — a window, an `n`, a censoring caveat — beside an
-  `evaluation.json` the harness stamped. The JSON is the record; the prose
-  stops describing a second number at the next coordinated re-bless
-  ([process-version.md](process-version.md)).
+  The evaluate prompt says the same thing from the agent's side: on those two
+  stages it writes neither field and reads the stamped pair, so the prose in
+  `evaluation.md` describes the harness's number rather than one of its own.
 
 An evaluation of the cert prediction above, had that petition been denied
 without a further relist. Its `process_version` stamp is omitted for brevity,

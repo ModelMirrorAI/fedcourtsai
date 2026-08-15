@@ -16,15 +16,18 @@ plumbing:
 - :func:`summarize_semantic_grades`, the roll-up that turns graded units into a
   descriptive census plus leave-one-out inter-grader agreement.
 
-**Declared, and still producing nothing.** A declaration is one of the three
-things a grade needs, and it is the only one built: no opinion body is ingested
-to grade a claim against, and no prompt asks a cell for a semantic claim or a
-grader for a semantic grade (``docs/outcome-decomposition.md``, *What remains
-unbuilt*). So :func:`graded_units` returns ``()`` on every committed
-evaluation, nothing reads ``Prediction.semantic_claims`` at all — the
-predictor-side mandatory set has no enforcement to match the grader-side
-refusals below — and no process digest moves: the freeze governs the prompt
-bytes plus the resolved actor config, and a table is neither.
+**Elicited and graded, and still producing nothing.** A declaration is one of
+the three things a grade needs; the second — the prompts that ask a merits cell
+for the propositions and a grader for the grades — landed with the process
+re-bless that carries it, so both digests now hash a semantic contract. The
+third has not: **no opinion body is ingested** to grade a claim against, and
+both declared claims require a majority opinion, so every unit masks
+(``not-addressed``), :func:`summarize_semantic_grades` publishes nothing, and no
+published number depends on any of it (``docs/outcome-decomposition.md``, *What
+remains unbuilt*). The mandatory-set discipline now binds both sides:
+:func:`graded_units` refuses a non-conforming grader block, and
+:func:`semantic_claim_problems` / :func:`semantic_grade_problems` surface either
+side's non-conformance in ``validate`` while the cell can still be fixed.
 
 **What is deliberately absent, and why.** There is no scoring function here and
 no baseline. The mechanical rule
@@ -47,7 +50,7 @@ set carries is a new version, never an edit to this one.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -58,6 +61,7 @@ from ..leaderboard import kendall_tau_b
 from ..schemas import (
     Evaluation,
     EventKind,
+    Prediction,
     SemanticClaimSummary,
     SemanticGradeBlock,
     SemanticGraderAgreement,
@@ -275,8 +279,8 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
     one but an answer to another question. Rows outside the declared set are
     ignored.
 
-    Returns ``()`` on every committed evaluation, on the first ground: no prompt
-    asks a grader for a semantic block, so none carries one.
+    Returns ``()`` on every evaluation committed before the grading prompt
+    existed, on the first ground: none carries a block.
 
     A declaration carries an axis per claim (:class:`SemanticClaimSpec`), and
     this bridge does not read it. Matching is by ``claim_id``, as it is
@@ -311,6 +315,96 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
         )
         for claim_id in claim_ids
     )
+
+
+def semantic_grade_problems(evaluation: Evaluation) -> list[str]:
+    """Why this evaluation's semantic block would be refused whole, in words.
+
+    The grader-side twin of
+    :func:`fedcourtsai.pipeline.claims.claim_block_problems`, and it exists for
+    the same reason: :func:`graded_units` refuses **silently** (``()``, never a
+    crash), so a non-conforming block would commit green and the census would
+    simply lack the cell later. ``validate`` surfaces it while the cell can
+    still be fixed.
+
+    Empty when there is nothing to say. Two absences are legitimate states and
+    are never reported: an evaluation carrying no block at all — every cell
+    written before a prompt asked for one — and an event that declares no
+    semantic set, which is every non-merits event. What *is* reported is the
+    three ways a **present** block against a **declared** set is refused: a
+    ``declared_set_version`` answering another declaration (relabelling it would
+    pool grades formed under two declarations), the same claim graded twice (two
+    grades for one proposition), and a declared claim skipped (the set is
+    mandatory, so a partial answer grades nothing rather than the half the
+    grader chose). Rows outside the declared set are **not** reported, because
+    :func:`graded_units` ignores them rather than refusing over them, and this
+    function reports refusals rather than opinions.
+    """
+    block = evaluation.semantic_grades
+    declared = declared_semantic_claim_set(evaluation.event_id)
+    if block is None or declared is None:
+        return []
+    set_version, specs = declared
+    problems: list[str] = []
+    if block.declared_set_version != set_version:
+        problems.append(
+            f"semantic block is stamped {block.declared_set_version!r} but the event "
+            f"declares {set_version!r} — an answer to another declaration, never relabelled"
+        )
+        return problems
+    counts = Counter(row.claim_id for row in block.grades)
+    problems.extend(
+        f"semantic claim {claim_id!r} is graded twice — two grades for one proposition"
+        for claim_id, n in sorted(counts.items())
+        if n > 1
+    )
+    problems.extend(
+        f"declared semantic claim {spec.claim_id!r} ({set_version}) is not graded — "
+        "the set is mandatory, so use `not-addressed` rather than skipping the row"
+        for spec in specs
+        if spec.claim_id not in counts
+    )
+    return problems
+
+
+def semantic_claim_problems(prediction: Prediction) -> list[str]:
+    """Why this prediction's semantic block does not answer its declaration.
+
+    The predictor-side counterpart, and the enforcement the family previously
+    had only on the grader side: the declaration is authoritative over what a
+    predictor states, exactly as it is over what a grader grades, or a predictor
+    would select the population its forecast is measured over.
+
+    Empty when there is nothing to say — no block (a legitimate state: every
+    prediction written before the elicitation existed), or an event with no
+    declared semantic set. With a block present against a declared set, three
+    shapes are reported: the same claim stated twice, a declared claim left
+    unstated, and a row naming a claim the declaration does not carry. The third
+    is reported here although the grader-side join ignores it: an id nothing
+    declared is a proposition no grader will ever be asked about, so it is a
+    forecast committed into a void rather than a harmless extra.
+    """
+    declared = declared_semantic_claim_set(prediction.event_id)
+    if prediction.semantic_claims is None or declared is None:
+        return []
+    set_version, specs = declared
+    declared_ids = {spec.claim_id for spec in specs}
+    counts = Counter(claim.claim_id for claim in prediction.semantic_claims)
+    problems = [
+        f"semantic claim {claim_id!r} is stated twice — two propositions for one claim"
+        for claim_id, n in sorted(counts.items())
+        if n > 1
+    ]
+    problems.extend(
+        f"declared semantic claim {claim_id!r} ({set_version}) is not stated"
+        for claim_id in sorted(declared_ids - set(counts))
+    )
+    problems.extend(
+        f"semantic claim {claim_id!r} is not declared by {set_version} — "
+        "the harness declares the set and a predictor adds none"
+        for claim_id in sorted(set(counts) - declared_ids)
+    )
+    return problems
 
 
 @dataclass

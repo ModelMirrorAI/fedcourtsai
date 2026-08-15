@@ -23,7 +23,10 @@ Two layers of checks:
   evaluation recording a ``risk_set`` base-rate basis carries the salience
   version that population was banded under; every
   prose document a ``prediction.json`` names resolves to a file beside it; every
-  committed claims block is one the claim scorer will not silently void; and
+  committed claims block is one the claim scorer will not silently void; every
+  committed semantic block — the predictor's propositions and the grader's
+  grades alike — answers the declaration its event carries, since both sides are
+  read past silently rather than refused loudly; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
   its ``judgment`` — the stage-aware half of the merits prediction contract —
   and no evaluation carries a ``vote_accuracy`` off a merits event, since an
@@ -55,6 +58,7 @@ from . import corpus
 from .integrity import cell_clock
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
+from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -101,6 +105,8 @@ CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
+CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
+CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
@@ -769,6 +775,65 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
     return _check(CHECK_PREDICTION_CLAIMS, problems, checked=checked)
 
 
+def check_prediction_semantic_claims(data_root: Path) -> CorpusCheck:
+    """A committed semantic block must answer the declaration it was asked for.
+
+    The semantic sibling of :func:`check_prediction_claims`, and it exists
+    because the failure is quieter: a mechanical block that voids at least costs
+    the cell its ``claim_scores``, whereas a non-conforming ``semantic_claims``
+    block is simply read past — the declaration fixes what a grader grades, so a
+    claim the predictor invented is never asked about and a declared claim it
+    skipped is graded against nothing it wrote. Neither shows up anywhere later.
+    Surfaced here instead, while the cell can still be fixed. Absence stays
+    legitimate: a prediction without a block, or on an event declaring no
+    semantic set, is skipped rather than flagged.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/predictions/*/*/prediction.json"):
+        # Parsed through the model; a file that does not parse is
+        # `validate_ledger`'s concern (schema law), not double-reported here.
+        try:
+            prediction = Prediction.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if prediction.semantic_claims is None:
+            continue
+        checked += 1
+        problems.extend(
+            f"prediction {path}: {reason}" for reason in semantic_claim_problems(prediction)
+        )
+    return _check(CHECK_PREDICTION_SEMANTIC, problems, checked=checked)
+
+
+def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
+    """A committed semantic grade block must be one the roll-up will not refuse.
+
+    ``pipeline.semantic.graded_units`` refuses a non-conforming block **whole**
+    and silently — the same deliberate quiet as the claim scorer's — so a block
+    that skips a declared claim, grades one twice, or answers another
+    declaration would commit green and drop out of the census weeks later, with
+    nothing recording that a grader graded this cell at all. The refusal is
+    right; the silence is what this check replaces. Absence stays legitimate: an
+    evaluation without a block, or on an event declaring no semantic set, is
+    skipped rather than flagged.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        try:
+            evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if evaluation.semantic_grades is None:
+            continue
+        checked += 1
+        problems.extend(
+            f"evaluation {path}: {reason}" for reason in semantic_grade_problems(evaluation)
+        )
+    return _check(CHECK_EVALUATION_SEMANTIC, problems, checked=checked)
+
+
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
     """A merits-stage event's latest prediction per predictor must carry a judgment.
 
@@ -931,7 +996,9 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     a prediction that exists, every recorded ``risk_set`` base-rate basis carries
     the salience version it was banded under, every prose document a prediction
     names is there, every committed claims block is one the claim scorer will not
-    void, and every merits-stage event's scored prediction carries its judgment.
+    void, every committed semantic block on either side answers the declaration
+    it was asked for, and every merits-stage event's scored prediction carries
+    its judgment.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -941,6 +1008,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
+        check_prediction_semantic_claims(data_root),
+        check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
     ]
@@ -972,6 +1041,8 @@ def _run_checks(
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
+        check_prediction_semantic_claims(data_root),
+        check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
     ]

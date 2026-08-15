@@ -26,12 +26,11 @@ the same block byte for byte. Like the baselines it wires
 (:mod:`fedcourtsai.pipeline.base_rates`), this module reads no config: the
 baseline lookback arrives as an argument and resolves at the caller.
 
-The semantic family is out of scope here: its claims need a reader, they have
-no harness-computable prior for :func:`claim_score` to consume, and the
-blinding precondition ``docs/outcome-decomposition.md`` states is not met.
-Nothing in this module touches it, and no semantic grade is ever run through
-the rule wired here. Its own (wired but inert, alpha) seam is
-:mod:`fedcourtsai.pipeline.semantic`.
+The semantic family is out of scope here: its claims need a reader and have no
+harness-computable prior for :func:`claim_score` to consume, so they earn an
+ordinal grade rather than a score. Nothing in this module touches it, and no
+semantic grade is ever run through the rule wired here. Its own (declared,
+graded, and alpha) home is :mod:`fedcourtsai.pipeline.semantic`.
 """
 
 from __future__ import annotations
@@ -68,8 +67,10 @@ CLAIM_DISPOSITION = "disposition"
 CLAIM_RELIST_INCREMENT = "relist-increment"
 CLAIM_CVSG_INCREMENT = "cvsg-increment"
 
-# The two cert-stage claims `cert-v2` adds, both routing forecast content the
-# predict prompt already elicits in prose and nothing scored. Each is an
+# The two cert-stage claims `cert-v2` adds, each carrying forecast content the
+# predict prompt elicits in prose beside the number, so the document and the
+# claim say one thing (`docs/outcome-decomposition.md`, *Where each forecast
+# content class goes*). Each is an
 # **aggregate**: the route claim asks whether the grant disposed in the cert
 # order at all, not by which of the two spellings, and the dissent claim asks
 # whether any Justice noted a dissent, never which — the eight tests' volume

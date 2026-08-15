@@ -1710,9 +1710,10 @@ def semantic_summary_command(
     null coefficient is not an agreement figure. Below either, nothing is
     written and the state is printed, naming which precondition failed.
 
-    So today it writes nothing and says so. No prompt asks a grader for a
-    semantic block, so no committed evaluation carries one, and no opinion body
-    is ingested to grade against.
+    So today it writes nothing and says so. The evaluate prompt asks a merits
+    grader for a block, but no opinion body is ingested to grade against and
+    both declared claims require a majority opinion, so every unit is the
+    availability mask and the census carries no ordinal grades to publish.
     """
     if stratum not in get_args(Stratum):
         raise typer.BadParameter(
