@@ -1,12 +1,14 @@
 import json
 import threading
+from datetime import date
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus_service
+from fedcourtsai import corpus, corpus_service
 from fedcourtsai.cli import app
+from fedcourtsai.schemas import Disposition
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -56,6 +58,37 @@ def test_query_include_open(fixture_corpus: FixtureCorpus) -> None:
     assert result.exit_code == 0, result.output
     # berzon sits on ca9/101 (resolved) and ca9/103 (open); --include-open keeps both.
     assert {r["case_id"] for r in _rows(result.stdout)} == {"ca9/101", "ca9/103"}
+
+
+def test_query_screens_non_cert_applications(fixture_corpus: FixtureCorpus) -> None:
+    # A time-extension application beside the fixture's substantive stay: the
+    # cert surface is the default, so only the stay (and the petitions) come
+    # back; --include-applications returns the extension too.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/350",
+                    court="scotus",
+                    docket_number="26A40",
+                    case_name="Ellison v. Marbury Power Cooperative",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    date_filed=date(2026, 7, 20),
+                    date_decided=date(2026, 7, 22),
+                )
+            ],
+        )
+    default = runner.invoke(app, ["query", "--court", "scotus"])
+    opted_in = runner.invoke(app, ["query", "--court", "scotus", "--include-applications"])
+    assert default.exit_code == 0, default.output
+    assert opted_in.exit_code == 0, opted_in.output
+    screened = {r["case_id"] for r in _rows(default.stdout)}
+    included = {r["case_id"] for r in _rows(opted_in.stdout)}
+    assert "scotus/350" not in screened
+    assert "scotus/306" in screened  # the substantive stay: interim predict scope
+    assert included == screened | {"scotus/350"}
 
 
 def test_query_unknown_disposition_errors(fixture_corpus: FixtureCorpus) -> None:

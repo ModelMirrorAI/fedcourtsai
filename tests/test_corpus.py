@@ -968,6 +968,85 @@ def test_retrieve_priors_decided_before_always_strips_a_termination(tmp_path: Pa
     assert unmasked["scotus/2"].merits_terminated == MeritsTermination.judgment_issued.value
 
 
+def _application_slice() -> list[corpus.CorpusRow]:
+    """The pollution in miniature: two non-cert applications above two cert-surface rows.
+
+    The extension and the unread-ask application resolve within days of filing,
+    so the recency ranking puts them first — which is exactly why they have to
+    be screened rather than merely deprioritized.
+    """
+    return [
+        _row(  # a time extension: `granted` by one Justice, not a cert vote
+            case_id="scotus/1",
+            court="scotus",
+            docket_number="25A123",
+            application_kind="extension",
+            date_decided=date(2026, 7, 1),
+        ),
+        _row(  # ask never read: a coverage gap, never a prior
+            case_id="scotus/2",
+            court="scotus",
+            docket_number="25A150",
+            application_kind=None,
+            date_decided=date(2026, 6, 15),
+        ),
+        _row(  # a stay: the interim predict scope, a real prior for a real event
+            case_id="scotus/3",
+            court="scotus",
+            docket_number="25A99",
+            application_kind="substantive",
+            date_decided=date(2026, 6, 1),
+        ),
+        _row(case_id="scotus/4", court="scotus", docket_number="24-451"),
+    ]
+
+
+def test_retrieve_priors_screens_non_cert_applications(tmp_path: Path) -> None:
+    # The cert surface is the default population: an extension grant and an
+    # unread-ask application are dropped, the substantive stay and the cert
+    # petition stay. `exclude_non_cert=False` retrieves the whole letter-form
+    # docket back. Asserted on both retrieval paths — the overlap-free fast path
+    # and (via a judge filter) the scored path — since each screens separately.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, _application_slice())
+        screened = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+        overlap = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", judges=["smith"]), limit=10
+        )
+        included = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", exclude_non_cert=False), limit=10
+        )
+    assert [r.case_id for r in screened] == ["scotus/3", "scotus/4"]
+    assert [r.case_id for r in overlap] == ["scotus/3", "scotus/4"]
+    assert [r.case_id for r in included] == ["scotus/1", "scotus/2", "scotus/3", "scotus/4"]
+
+
+def test_retrieve_priors_screen_does_not_spend_result_slots(tmp_path: Path) -> None:
+    # The screen runs after the SQL, so the LIMIT applies to what survives it: a
+    # page of 2 comes back full even though the two highest-ranked rows are
+    # screened out. (A pushed-down LIMIT would have returned nothing.)
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, _application_slice())
+        page = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=2)
+        # Court-less too: that shape has no index-served ordering, so it ranks in
+        # Python — the other place the limit is applied.
+        anywhere = corpus.retrieve_priors(conn, corpus.PriorQuery(), limit=2)
+    assert [r.case_id for r in page] == ["scotus/3", "scotus/4"]
+    assert [r.case_id for r in anywhere] == ["scotus/3", "scotus/4"]
+
+
+def test_retrieve_priors_screen_is_scotus_only(tmp_path: Path) -> None:
+    # The letter forms are a SCOTUS spelling; a circuit docket that happens to
+    # look like one is never screened.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="ca9/1", docket_number="25A123")])
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(court="ca9"), limit=10)
+    assert [r.case_id for r in priors] == ["ca9/1"]
+
+
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
     """A bulk-import shell: SCOTUS with every predicate-keyed row field empty."""
     return corpus.CorpusRow.model_validate({"case_id": case_id, "court": "scotus", **kw})
@@ -1103,7 +1182,9 @@ def test_retrieve_priors_sql_ranking_matches_the_python_ranking(tmp_path: Path) 
                 corpus.PriorQuery(court="scotus"),
                 ["scotus/a-deny", "scotus/b-grant", "scotus/c-tie", "scotus/d-undated"],
             ),
-            (corpus.PriorQuery(), None),
+            # Court-less: the fast path serves this shape only unscreened, so
+            # the cert-surface screen comes off to keep it pinned here.
+            (corpus.PriorQuery(exclude_non_cert=False), None),
             # The screened shapes take the fast path only beside a court
             # filter (the index serves the ordering there), and decided_before
             # exercises the masking branch on the stream.
@@ -1136,7 +1217,8 @@ def test_retrieve_priors_sql_ranking_matches_the_python_ranking(tmp_path: Path) 
         )
         by_id = {r.case_id: r for r in clocked}
         assert "scotus/c-tie" in by_id and by_id["scotus/c-tie"].merits_judgment is None
-        # The pushed-down LIMIT truncates the same ranking, not a different one.
+        # The limit truncates the same ranking, not a different one — applied
+        # as the screened stream is consumed rather than pushed into the SQL.
         top_two = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=2)
         assert [r.case_id for r in top_two] == ["scotus/a-deny", "scotus/b-grant"]
 

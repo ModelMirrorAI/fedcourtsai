@@ -192,15 +192,22 @@ def test_retrieve_priors_filters_are_index_served(tmp_path: Path) -> None:
         # recency order — scattered pages instead of sequential ones.
         "idx_cases_court": corpus.PriorQuery(court="ca9", judges=["smith"]),
     }
-    screened = corpus.PriorQuery(court="ca9", era="2020s")
+    # Both screened shapes drop the SQL LIMIT — an era filter, and the
+    # cert-surface screen every SCOTUS retrieval now carries — so their
+    # ORDER BY runs unbounded and has only the index to lean on.
+    screened = (
+        corpus.PriorQuery(court="ca9", era="2020s"),
+        corpus.PriorQuery(court="scotus"),
+    )
     with corpus.connect(db) as conn:
         for index_name, query in queries.items():
             plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, query))
             _assert_index_served(plans, expect=index_name)
-        plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, screened))
-        _assert_index_served(plans, expect="idx_cases_priors_recency")
-        for stmt, detail in plans:
-            assert "TEMP B-TREE" not in detail.upper(), f"sorter spill: {stmt} => {detail}"
+        for query in screened:
+            plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, query))
+            _assert_index_served(plans, expect="idx_cases_priors_recency")
+            for stmt, detail in plans:
+                assert "TEMP B-TREE" not in detail.upper(), f"sorter spill: {stmt} => {detail}"
 
 
 def test_events_for_case_is_index_served(tmp_path: Path) -> None:

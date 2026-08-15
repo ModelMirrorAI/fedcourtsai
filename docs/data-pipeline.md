@@ -578,8 +578,10 @@ shared with the ledger models.
 - **Retrieval** — a handful of *relevant* priors at prediction time:
   `fedcourts query` (and `corpus.retrieve_priors`) — exact-match filters on
   court / topic / disposition plus overlap filters on judges and citations,
-  ranked, defaulting to resolved cases. Semantic / embedding similarity lands
-  on the same query seam once embeddings are stored.
+  ranked, defaulting to resolved cases and screening out the non-cert SCOTUS
+  letter forms (`--include-applications` returns them).
+  Semantic / embedding similarity lands on the same query seam once embeddings
+  are stored.
 
 How much a back-test score is allowed to mean is fixed by the
 **backtest-as-iteration doctrine** — forward predictions are the test set, the

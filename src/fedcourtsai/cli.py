@@ -4004,6 +4004,17 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
+    include_applications: Annotated[
+        bool,
+        typer.Option(
+            help="Include the non-cert SCOTUS letter forms — time-extension and "
+            "unread-ask applications, original-jurisdiction and miscellaneous "
+            "matters. Excluded by default because their 'granted' records an "
+            "extension or a procedural leave rather than a cert vote, and "
+            "resolving in days floats them to the head of the recency ranking; "
+            "substantive applications (stays, injunctions) return either way."
+        ),
+    ] = False,
     limit: Annotated[
         int, typer.Option(help="Maximum priors to return.")
     ] = corpus.DEFAULT_PRIOR_LIMIT,
@@ -4017,9 +4028,16 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     Precedent retrieval for predictors: pull a handful of similar resolved cases
     by structured filter instead of loading the bulk set. ``--court`` / ``--topic``
     / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
-    match on overlap and rank the results by how much they share. Prints one
-    compact JSON row per line, ranked, with ``opinion_text`` omitted unless
-    ``--full``. Reads the pulled file, the blob in place on the remote with
+    match on overlap and rank the results by how much they share. The SCOTUS
+    letter forms that are not cert petitions — time-extension applications,
+    original-jurisdiction and miscellaneous dockets — are screened out unless
+    ``--include-applications``: their disposition is not a cert vote, and an
+    extension resolves so fast that recency would put them ahead of the
+    petitions a cert cell asked for. A substantive application — a stay, an
+    injunction — is kept either way, being the interim predict scope.
+    Prints one compact JSON row per line, ranked, with
+    ``opinion_text`` omitted unless ``--full``.
+    Reads the pulled file, the blob in place on the remote with
     ``--corpus-backend ranged``, or forwards to a corpus query sidecar with
     ``--corpus-backend service`` (same rows, same read-stats line — a
     transport change, not a different surface).
@@ -4053,6 +4071,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         era=era or None,
         decided_before=decided_before or None,
         resolved_only=not include_open,
+        exclude_non_cert=not include_applications,
     )
     if backend == "service":
         try:

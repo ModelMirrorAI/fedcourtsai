@@ -205,6 +205,11 @@ class PriorIndex:
     such prediction is wrong by construction. Keeping the pool and the scored
     set on one bar is what makes the vote answerable. Parity against that
     subset is pinned by tests.
+
+    Parity is over the filters this index carries — court, judge/citation
+    overlap, the ``decided_before`` clock. ``PriorQuery``'s ``exclude_non_cert``
+    screen has no counterpart here, so the candidate pool still holds the
+    SCOTUS letter forms that a ``retrieve_priors`` retrieval drops.
     """
 
     def __init__(self) -> None:
