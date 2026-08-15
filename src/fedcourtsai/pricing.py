@@ -35,21 +35,31 @@ class ModelRate:
 # Keyed by the model id the engine actually ran. The production models are
 # claude-fable-5 (predict/evaluate), claude-opus-4-8 (earlier ledger records),
 # gpt-5.6-sol, and gemini-3.1-pro-preview (the Pro tier is the like-for-like
-# comparator against the other engines' frontier defaults); the cheaper Claude
-# tiers are listed because the budget doc names them as competitor-model
-# levers. Superseded production models (gpt-5.5, gemini-3.5-flash) keep their
-# rates so a re-recorded old cell (record-usage with an explicit --model)
-# still prices; the Gemini Pro rate is the standard <=200k-context tier (it
-# steps up beyond that).
+# comparator against the other engines' frontier defaults); the Gemini Pro rate
+# is the standard <=200k-context tier (it steps up beyond that). The table is
+# deliberately wider than what the registries route: the cheaper tier of each
+# engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
+# and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
+# gemini-3.6-flash it succeeds — because those are the plausible routes for a
+# task that does not need a frontier model, and record-usage refuses a model it
+# cannot price rather than recording a zero. Both Flash rates are promotional;
+# re-check them after 2026-12-31, when the promotion is scheduled to end.
+# Superseded production models (gpt-5.5, gemini-3.5-flash) keep their rates for
+# the same reason: a re-recorded old cell (record-usage with an explicit
+# --model) must still price.
 MODEL_RATES: Final[dict[str, ModelRate]] = {
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
     "gpt-5.6-sol": ModelRate(5.0, 30.0),
+    "gpt-5.6-terra": ModelRate(2.0, 12.0),
+    "gpt-5.6-luna": ModelRate(0.20, 1.20),
     "gpt-5.5": ModelRate(5.0, 30.0),
-    "gemini-3.5-flash": ModelRate(1.5, 9.0),
     "gemini-3.1-pro-preview": ModelRate(2.0, 12.0),
+    "gemini-3.7-flash": ModelRate(0.75, 3.75),
+    "gemini-3.6-flash": ModelRate(0.75, 3.75),
+    "gemini-3.5-flash": ModelRate(1.5, 9.0),
 }
 
 # The model each engine runs when a predictor/evaluator pins no explicit override

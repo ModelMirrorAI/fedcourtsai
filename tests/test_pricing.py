@@ -7,6 +7,7 @@ from fedcourtsai.pricing import (
     CACHE_READ_MULTIPLIER,
     DEFAULT_MODELS,
     MODEL_RATES,
+    ModelRate,
     TokenCounts,
     estimate_cost_usd,
 )
@@ -38,6 +39,19 @@ def test_superseded_production_models_stay_priceable() -> None:
     # models to keep their entries.
     assert "gpt-5.5" in MODEL_RATES
     assert "gemini-3.5-flash" in MODEL_RATES
+
+
+def test_cheaper_tiers_are_priceable_at_their_published_rates() -> None:
+    # record-usage exits non-zero on a model absent from MODEL_RATES, so a cell
+    # routed to a sub-frontier tier needs an entry or it drops off the ledger
+    # entirely. The rates are asserted, not just the keys: the two Flash tiers
+    # price identically, which is also what a duplicated line looks like.
+    assert MODEL_RATES["claude-sonnet-4-6"] == ModelRate(3.0, 15.0)
+    assert MODEL_RATES["claude-haiku-4-5"] == ModelRate(1.0, 5.0)
+    assert MODEL_RATES["gpt-5.6-terra"] == ModelRate(2.0, 12.0)
+    assert MODEL_RATES["gpt-5.6-luna"] == ModelRate(0.20, 1.20)
+    assert MODEL_RATES["gemini-3.7-flash"] == ModelRate(0.75, 3.75)
+    assert MODEL_RATES["gemini-3.6-flash"] == ModelRate(0.75, 3.75)
 
 
 def test_claude_default_model_and_rate() -> None:
