@@ -58,7 +58,7 @@ REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwn
 # freshness failure, and with the `all` scenario's matrix in
 # integration-test.yml — a `scenario=all` dispatch must fan out exactly this
 # set (a workflow-shape test pins both couplings).
-REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
+REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
 
 fail=0
 
