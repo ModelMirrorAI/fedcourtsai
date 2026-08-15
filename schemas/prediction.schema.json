@@ -122,7 +122,7 @@
             }
           ],
           "default": null,
-          "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
+          "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then scores against the terminal band it can derive rather than guessing a frozen one. A band is readable only beside the `salience_version` below, which is what the risk-set basis keys on: a band with no version names a population nothing pins down",
           "title": "Band"
         },
         "cutoff": {
@@ -221,7 +221,7 @@
             }
           ],
           "default": null,
-          "description": "Version of the scorer that produced band",
+          "description": "Version of the scorer that produced band, and the key the evaluator's `risk_set` base-rate basis is chosen on: a band name means something only under the version that assigned it, so a frozen band whose version is absent \u2014 or does not match the statpack's \u2014 yields no baseline rather than a terminal relabel",
           "title": "Salience Version"
         },
         "schema_version": {
@@ -325,7 +325,7 @@
     },
     "SemanticClaim": {
       "additionalProperties": false,
-      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``): the merits moments declare\n``semantic-v1``. **No prompt asks a cell for one**, so no committed\nprediction carries this block. One piece is still owed on this side and\nnamed in ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike\n``Prediction.claims``, nothing yet holds this list to the declared set, so\nthe mandatory-set discipline binds graders and not predictors.",
+      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``): the merits moments declare\n``semantic-v1``, and the predict prompt asks a merits cell for one\nproposition per declared claim. ``validate`` holds a committed block to that\ndeclaration, so a block naming an undeclared claim, skipping a declared one,\nor stating one twice fails the cell rather than reaching a grader.",
       "properties": {
         "claim_id": {
           "description": "The declared semantic claim this proposition answers, e.g. 'majority-ground' \u2014 the id the harness declared, never one the predictor invented",
@@ -572,7 +572,7 @@
         }
       ],
       "default": null,
-      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. Null on every committed prediction: the merits moments declare `semantic-v1`, but it is alpha and no opinion body is ingested to ground a claim against, so no prompt asks a cell for one.",
+      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. The merits moments declare `semantic-v1` and the predict prompt asks a merits cell for it; every other stage declares no semantic set, so the field stays null there. Null too on predictions written before the elicitation existed. The set is mandatory as the mechanical one is, and `validate` holds a committed block to the declaration.",
       "title": "Semantic Claims"
     },
     "votes": {

@@ -337,6 +337,19 @@ stays outside the gate:
   describes that claim, not the predictor, and a declared claim that never
   scored still appears with `scored: 0` so the coverage gap stays visible.
 
+  **A `cert-v2` mean total is a mixture, and its second addend is selected on
+  the outcome.** Under `cert-v1` every cert cell scored exactly one claim, so a
+  mean total pooled a single quantity. `cert-v2` adds
+  `summary-disposition-route`, which is grant-conditional: a cell scores two
+  claims where the petition was granted *and* its outcome retained a route
+  marker, and one otherwise. `declared_set_versions` catches a cert-v1/cert-v2
+  mixture but not this one, because it is a single declaration with a
+  per-event denominator that varies with the realized disposition. So the
+  per-claim rows with their own `scored` counts are the readable cut, and
+  `mean_total` is not comparable across predictors whose scored cells differ
+  in grant rate. The floor is identically zero and `lift` is a sum too, so
+  both inherit the same property.
+
   **Counts and comparability.** The population is the **cert-stage** cells:
   the board never blends stages, so although the other two stages declare
   their own sets (`interim-v1` on every interim moment, `merits-v1` on the
@@ -409,9 +422,11 @@ stays outside the gate:
 
 **Semantic grades publish nothing today, and this is the contract for when they
 do.** No artifact here carries a semantic claim grade. The merits moments
-declare `semantic-v1`, but no prompt asks a cell or a grader for it and no
-opinion body is ingested to grade against, so the schema blocks that would carry
-one are null on every committed prediction and evaluation. `fedcourts
+declare `semantic-v1` and both prompts ask for it — a merits cell for the
+propositions, a grader for the grades — but **no opinion body is ingested to
+grade against**, and both declared claims require a majority opinion, so every
+grade a cell writes is `not-addressed`: the availability mask, a property of the
+record. Blocks accumulate; ordinal grades do not. `fedcourts
 semantic-summary` is the surface that publishes them, and it writes
 `semantic-grades-<stratum>-<scope>.json` only where **both** preconditions below
 are met — the floor *and* a non-null agreement coefficient. Below either it
@@ -429,15 +444,17 @@ under test, not evidence about a predictor.
 Not to be confused with the judge validation above, which calls
 `reasoning_quality` "the semantic side" of its pair. That is a **different
 number**: one judge-graded score of a prediction's reasoning as a whole,
-standing in for a claim family that produces nothing yet. A `semantic-v1` grade
-is per declared claim and graded against opinion text. The pre-registered
+standing in for a claim family whose own grades are all mask. A `semantic-v1`
+grade is per declared claim and graded against opinion text. The pre-registered
 pairing keeps `reasoning_quality`; whether it ever changes hands is a later
 version's question, not this contract's.
 
 **Descriptive only, and never a rank key** — under the alpha caveat above,
 which travels with each rule below rather than being spent on the lead. A
-semantic grade is an ordinal reading of a predicted rationale against the
-opinion — `supported` / `partially-supported` / `unsupported`, plus a distinct
+semantic grade is an ordinal reading of a **declared proposition** — the
+prediction's `semantic_claims` entry for that claim, never its
+`predicted_reasoning.md`, which is graded by nothing — against the opinion:
+`supported` / `partially-supported` / `unsupported`, plus a distinct
 `not-addressed`. What may be published is the **census**: counts per level, per
 declared claim, with the graded count beside them, and a pooled
 `overall` census that is a coverage figure rather than a headline (different
@@ -813,9 +830,12 @@ the rendered table) and
   per-salience-band **segment base rate** in two forms — over the petitions that
   *ended* in a band, and over every petition that ever *reached* it (the risk
   set). A prediction carrying a frozen prediction-time band is scored against the
-  second, since that is the population it was in when it ran; one without a frozen
-  band falls back to the first, which matches the terminal band it has to be
-  grouped by. Under a scorer whose order interleaves a fixed-at-filing class
+  second, since that is the population it was in when it ran; one that froze **no
+  band at all** falls back to the first, which matches the terminal band it has
+  to be grouped by. The fallback keys on the absence of a frozen band, never on a
+  version mismatch: a frozen band whose salience version does not resolve against
+  the pack yields no baseline at all, since relabelling it terminal would pair a
+  risk-set population with a terminal rate. Under a scorer whose order interleaves a fixed-at-filing class
   among the trajectory tiers (the caption-banded versions' `federal`/`state`), a weaker band's risk
   set also contains the stronger classes' petitions — populations a private
   petitioner was never in — so the "population it was in" reading is

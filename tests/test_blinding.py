@@ -51,6 +51,7 @@ from fedcourtsai.schemas import (
     PredictorConfig,
     RetrievalCall,
     RetrievalLog,
+    SemanticClaim,
     Stage,
 )
 from fedcourtsai.serialize import write_json, write_text, write_yaml
@@ -145,6 +146,15 @@ def _seed_prediction(
                 salience_version="sal-v1",
                 term=2025,
             ),
+            # Free text a merits cell writes and a grader is handed to grade.
+            # Seeded on every cell (not only a merits one) because what is under
+            # test is the mask, which is stage-blind.
+            semantic_claims=[
+                SemanticClaim(
+                    claim_id="majority-ground",
+                    proposition=f"{model} expects the textualist reading to carry the holding",
+                )
+            ],
         ),
     )
     write_text(
@@ -363,6 +373,27 @@ def test_prediction_identity_fields_are_masked(ledger: Path) -> None:
         # What the grade actually reads is carried through untouched.
         assert payload["probability"] == pytest.approx(0.04)
         assert payload["context"]["band"] == "baseline"
+
+
+def test_semantic_propositions_are_carried_through_the_scrub(ledger: Path) -> None:
+    """The block is agent-written free text the grader reads, so it must be staged
+    *and* scrubbed: dropping it would leave a merits grader nothing to grade, and
+    passing it raw would carry a model name straight past the mask. The property
+    is a consequence of `mask_prediction` carrying every non-special field, which
+    a refactor to an explicit field list would silently lose."""
+    result = _blind(ledger)
+    for candidate in result.candidates:
+        path = (
+            CasePaths(ledger, COURT, DOCKET).blinded_prediction_dir(candidate.alias)
+            / "prediction.json"
+        )
+        payload = json.loads(path.read_text())
+        claims = payload["semantic_claims"]
+        assert [c["claim_id"] for c in claims] == ["majority-ground"]
+        assert blinding.IDENTITY_REDACTION in claims[0]["proposition"]
+        assert "textualist reading" in claims[0]["proposition"], (
+            "the scrub replaces identity, not the proposition"
+        )
 
 
 def test_retrieval_log_keeps_what_the_leakage_grading_reads(ledger: Path) -> None:

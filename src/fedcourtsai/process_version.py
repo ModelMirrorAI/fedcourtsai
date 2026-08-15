@@ -38,28 +38,33 @@ from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, Proc
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v2"
+CURRENT_PROCESS_LABEL = "proc-v3"
 
-# The blessed process digests — the frozen-headline set: the six proc-v2
+# The blessed process digests — the frozen-headline set: the six proc-v3
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. proc-v2 supersedes proc-v1 with zero cells ever stamped
-# under it. Keyed on the digest, never the label, so a process that
-# drifted under an unchanged label is not silently blessed. The predictor
-# digests are the enforced membership filter (`is_frozen`); the evaluator
-# entries are the freeze *record* of the blessed grading process — an
+# which a test pins. proc-v3 **supersedes** proc-v2 — the set holds one blessed
+# process per actor and `is_frozen` is a membership filter, so the retired
+# label's digests are replaced rather than kept beside these. No cell was ever
+# *counted* under proc-v2: 27 evaluations carry its stamp, every one of them
+# stamped before the freeze instant below and therefore mechanically excluded,
+# and no prediction carries it at all — the freeze record in
+# `docs/milestones.md` lists them. Keyed on the digest, never the label, so a
+# process that drifted under an unchanged label is not silently blessed. The
+# predictor digests are the enforced membership filter (`is_frozen`); the
+# evaluator entries are the freeze *record* of the blessed grading process — an
 # evaluation's digest is recorded but only its timing is enforced, via
 # `graded_post_freeze`.
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
     {
         # predictors: claude-baseline, codex-baseline, gemini-baseline
-        "sha256:1b5c8a972f0200cec3e32df9a376b380752ad38cc5bba2681a009edecc234495",
-        "sha256:1d06f0fe3729954516e51f1f4d543d87738e9b170152c874c90dddfec0ae9b81",
-        "sha256:80e343afbb36cee1512f5ffd90bf7aa353dfe1e19ca240eb005eb2f2f8a847fe",
+        "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+        "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+        "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
         # evaluators: claude-judge, codex-judge, gemini-judge
-        "sha256:e8a0fed172adc447698a622bd69b318d4c0189be622f8d0d3085042f12760be7",
-        "sha256:8b0572242f80c87ab6de3040585f993f64efc4e8bc8a63de5bc40a6111762ce2",
-        "sha256:86e7df61bc9224e44f54d9fbb840979fae575d2e6832dac198a0bc15841c6a33",
+        "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
+        "sha256:8771a0c856344c81fa79716a5caa55ecd4ff04e080f7a35607095d66fda680d6",
+        "sha256:b2ed9c208fc5576eb7346b8b22a0f01b54991faa13e7b35b7c6bbfe06a718fb7",
     }
 )
 

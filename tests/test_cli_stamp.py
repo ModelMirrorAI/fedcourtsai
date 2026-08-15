@@ -18,6 +18,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
+from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
 from fedcourtsai.schemas import (
     BaseRateBucket,
     ClaimProbability,
@@ -123,7 +124,10 @@ def test_stamp_injects_the_process_version_into_the_agents_prediction(_data_root
     assert result.exit_code == 0, result.output
 
     pv = json.loads(path.read_text())["process_version"]
-    assert pv["label"] == "proc-v2"
+    # Read from the constant, not a literal: the assertion is that the stamp
+    # carries the label in force, which is what a label bump must not silently
+    # break — the value itself is `test_process_version`'s to pin.
+    assert pv["label"] == CURRENT_PROCESS_LABEL
     assert pv["digest"].startswith("sha256:")
     assert pv["pipeline_sha"] == "sha-abc"
 
@@ -169,7 +173,7 @@ def test_stamp_evaluator_covers_every_predictors_evaluation(_data_root: Path) ->
             .event("evt-y")
             .evaluation("claude-judge", predictor, "RID")
         )
-        assert json.loads(path.read_text())["process_version"]["label"] == "proc-v2"
+        assert json.loads(path.read_text())["process_version"]["label"] == CURRENT_PROCESS_LABEL
 
 
 def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
@@ -315,7 +319,7 @@ def test_process_digest_all_lists_every_enabled_actor() -> None:
     lines = [line for line in result.output.splitlines() if line.strip()]
     # Three predictors + three evaluators in the shipped registry.
     assert len(lines) == 6
-    assert all("sha256:" in line and "proc-v2" in line for line in lines)
+    assert all("sha256:" in line and CURRENT_PROCESS_LABEL in line for line in lines)
 
 
 def test_stamp_evaluator_derives_the_base_rate_salience_version(_data_root: Path) -> None:

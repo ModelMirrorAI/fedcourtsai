@@ -660,10 +660,14 @@ and a CVSG date, once set, stays set — so a band re-derived at evaluation is t
 band a petition *ended* at, while the band frozen on the prediction is the one
 the cell faced. The statpack publishes both rates against each band: the terminal
 one over petitions that ended there, and the **risk-set** one over every petition
-that ever reached it. A cell carrying a frozen band is scored against the
-risk-set rate, because that is the population it belonged to; a cell without one
+that ever reached it. A cell carrying a frozen band **under a resolvable
+salience version** is scored against the risk-set rate, because that is the
+population it belonged to; a cell that froze no band at all
 falls back to the terminal band and the terminal rate, which at least agree with
-each other. Reading either rate against the other kind of band is the error the
+each other. The version is the operative key rather than the band, because a
+band name means something only under the version that assigned it — a frozen
+band whose version is absent or unmatched yields **no** baseline, never a
+terminal relabel (see the version pin below). Reading either rate against the other kind of band is the error the
 pairing exists to prevent — the risk-set rate against a terminal band overstates
 the baseline for exactly the petitions whose band moved, and the terminal rate
 against a frozen band understates it several-fold in the weak bands. The top band
@@ -685,14 +689,27 @@ live scorer's version on the terminal path), and when no Term matches, the
 baseline is `None` — the same contracted no-baseline answer as a case with no
 prior-Term data. On a statpack that lags the band's version both paths are
 version-starved, so `brier_skill_score` is omitted rather than computed
-against a number no version ever defined; in the mirror case — a pack already
-re-rendered under a newer version while an old frozen-band cell is scored —
-the risk-set path yields `None` and the evaluator falls back to the terminal
-band under the live scorer, on the `terminal` basis it records. The evaluator
-prompt carries the agent-side half of the same rule: the rendered band table's
-heading names its salience version, and on a mismatch with the prediction's
-frozen version the agent omits the baseline and flags it rather than pooling
-from a table another version rendered. The
+against a number no version ever defined; and in the mirror case — a pack
+already re-rendered under a newer version while an old frozen-band cell is
+scored — the risk-set path yields `None` and **that is the whole answer**. The
+cell records no `segment_base_rate` and no skill, and flags the mismatch. It
+does **not** fall back to the terminal band: `terminal` is the basis for a
+prediction that froze no band at all, and relabelling a frozen band's cell as
+terminal would pair a risk-set population with a terminal rate — the several-fold
+mispairing the two bases exist to keep apart — while stamping the *live*
+scorer's version onto a cell banded under an older one. The evaluator
+prompt carries the agent-side half of the same rule, in the same terms: the
+rendered band table's heading names its salience version, and where that does
+not match the prediction's frozen `context.salience_version` — or the
+prediction froze a band with no version beside it — the agent omits the baseline
+and flags it rather than pooling from a table another version rendered. The
+harness holds part of the same line from the other side, and it is worth being
+exact about which part: a recorded `risk_set` basis whose version resolves to
+**nothing** fails the cell at the stamp, so a versionless frozen band cannot
+pass as a scored cell. A version that resolves but does not *match* the pack's
+rendered one passes the stamp cleanly — there the omission is prompt discipline
+rather than an enforced rule, and the discipline is what this paragraph
+registers. The
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered
@@ -946,23 +963,17 @@ it contains the case's own Term. The leaderboard still segments an interim cell
 into its unranked `interim` stage block rather than the cert board: the two
 stages resolve on different standards over different populations, and a shared
 ranking would compare them. The predict and evaluate prompts carry the
-agent-side half of the claim set, and it moves on its
+agent-side half of the claim set, and it moved on its
 own re-bless (`docs/process-version.md`), because a prompt edit moves the
-pre-registered process digest. Until that re-bless their interim rules read the
-statpack's interim section as descriptive counts and ask for no `claims` block,
-so no interim cell answers the declared `interim-v1` set whatever the
-declaration says; the set is exercised only by the offline stub cascade. The
-**baseline** does not wait on that re-bless, because it is not the evaluator's
+pre-registered process digest: from that re-bless forward an interim cell
+answers all four `interim-v1` claims and anchors on this estimator by name. The
+**baseline** never depended on that re-bless, because it is not the evaluator's
 to record: `stamp-cell` writes an interim cell's `segment_base_rate` from the
 estimator above — keyed on the application Term the scored prediction froze —
 together with the `brier_skill_score` derived from it, overwriting whatever the
 cell carried — and clearing `base_rate_basis` with them, so the null the
 interim pool (no band product) requires is structural rather than a rule an
-evaluator has to honour. One
-seam to know while the prompts still carry their pre-stamp interim rules: an
-evaluator told to omit the skill fields will *say* in `evaluation.md` that it
-did, beside an `evaluation.json` the harness has stamped — read the JSON, and
-expect the prose to stop saying it at the re-bless.
+evaluator has to honour.
 **Pre-registered claimability rule:** the stage stopped being descriptive-only
 once the statpack's substantive **resolved count reached 25** — a condition on
 the *stage*, long since satisfied, and not on any individual cell. Whether a
@@ -1018,7 +1029,11 @@ merits floor does. Below it there is **no baseline and no substitute**: not the
 pack-level rate (it contains the case's own Term), not a single Term's, and not
 the cert band table (a different population on a different standard) — the cell
 carries a null skill, visibly, rather than a borrowed number. Its effect today
-is that no single-Term pool qualifies, and that effect is **accepted rather
+is that no single-Term pool qualifies, which on the committed pack is the whole
+of the live docket: an OT2025 application's only strictly-prior contributor is
+OT2024's 44 resolutions, so **no currently predictable application carries a
+baseline at all** until OT2026 opens and OT2025's own resolutions join the
+pool. That effect is **accepted rather
 than incidental**: 50 was chosen with the committed pack visible, and the
 criterion's own value at `p = 0.5` (36) would have admitted the one single-Term
 pool that exists. What is *not* registered is a companion "at least two Terms"

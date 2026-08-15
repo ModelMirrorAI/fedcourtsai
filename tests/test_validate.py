@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -31,6 +32,10 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     PredictionContext,
+    SemanticClaim,
+    SemanticGrade,
+    SemanticGradeBlock,
+    SemanticSupport,
     Stage,
     UsageRole,
     VoteValue,
@@ -41,6 +46,7 @@ from fedcourtsai.validate import (
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_DOMAIN_VALUES,
+    CHECK_EVALUATION_SEMANTIC,
     CHECK_EVALUATION_TARGETS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
@@ -48,6 +54,7 @@ from fedcourtsai.validate import (
     CHECK_NO_DUPLICATES,
     CHECK_PREDICTION_CLAIMS,
     CHECK_PREDICTION_DOCS,
+    CHECK_PREDICTION_SEMANTIC,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
     CHECK_SCORED_VOTES,
@@ -761,6 +768,8 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_BASE_RATE_VERSION,
         CHECK_PREDICTION_DOCS,
         CHECK_PREDICTION_CLAIMS,
+        CHECK_PREDICTION_SEMANTIC,
+        CHECK_EVALUATION_SEMANTIC,
         CHECK_MERITS_PREDICTIONS,
         CHECK_SCORED_VOTES,
     }
@@ -921,6 +930,90 @@ def test_a_claims_block_the_scorer_would_void_fails_validation(tmp_path: Path) -
 
     write_json(ep.prediction("p1", run), _cell(disposition=0.2))
     check = check_prediction_claims(data_root)
+    assert check.passed and check.checked == 1
+
+
+def _semantic_check(data_root: Path, name: str) -> CorpusCheck:
+    return next(c for c in run_ledger_referential_checks(data_root) if c.name == name)
+
+
+def test_a_semantic_block_that_misses_the_declaration_fails_validation(tmp_path: Path) -> None:
+    """Quieter than the mechanical case, which is why it is checked. The declaration
+    fixes what a grader is asked about, so a predictor's invented claim is never
+    graded and a skipped one is graded against nothing it wrote — neither leaves a
+    trace anywhere downstream, and the grader-side roll-up refuses its block whole
+    and silently. Surfaced here while the cell can still be fixed."""
+    data_root = tmp_path / "data"
+    event = MERITS_EVENT_ID
+    ep = CasePaths(data_root, "scotus", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+
+    def _cell(*claim_ids: str) -> Prediction:
+        return Prediction(
+            case_id="scotus/1",
+            event_id=event,
+            predictor_id="p1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 1),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.other,
+            semantic_claims=[
+                SemanticClaim(claim_id=claim_id, proposition=f"the Court will {claim_id}")
+                for claim_id in claim_ids
+            ],
+        )
+
+    write_json(ep.prediction("p1", run), _cell("majority-ground"))
+    check = _semantic_check(data_root, CHECK_PREDICTION_SEMANTIC)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("'ground-breadth'" in p for p in check.problems)
+
+    write_json(ep.prediction("p1", run), _cell("majority-ground", "ground-breadth"))
+    check = _semantic_check(data_root, CHECK_PREDICTION_SEMANTIC)
+    assert check.passed and check.checked == 1
+
+
+def test_a_semantic_grade_block_the_rollup_would_refuse_fails_validation(
+    tmp_path: Path,
+) -> None:
+    """`graded_units` drops a block answering another declaration whole and without
+    a word, so the cell would commit green and vanish from the census weeks later."""
+    data_root = tmp_path / "data"
+    event = MERITS_EVENT_ID
+    ep = CasePaths(data_root, "scotus", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+
+    def _cell(version: str) -> Evaluation:
+        return Evaluation(
+            case_id="scotus/1",
+            event_id=event,
+            predictor_id="p1",
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 2),
+            correct=1,
+            semantic_grades=SemanticGradeBlock(
+                declared_set_version=version,
+                grades=[
+                    SemanticGrade(claim_id="majority-ground", grade=SemanticSupport.not_addressed),
+                    SemanticGrade(claim_id="ground-breadth", grade=SemanticSupport.not_addressed),
+                ],
+            ),
+        )
+
+    write_json(ep.evaluation("e1", "p1", run), _cell("semantic-v0"))
+    check = _semantic_check(data_root, CHECK_EVALUATION_SEMANTIC)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("another declaration" in p for p in check.problems)
+
+    write_json(ep.evaluation("e1", "p1", run), _cell("semantic-v1"))
+    check = _semantic_check(data_root, CHECK_EVALUATION_SEMANTIC)
     assert check.passed and check.checked == 1
 
 

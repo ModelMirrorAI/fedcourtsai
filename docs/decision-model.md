@@ -523,7 +523,10 @@ first two cannot: `vote_accuracy` is the evaluator's own field to write, so
 be *committed* off a merits event, rather than only refusing to aggregate it.
 The tests that fail when any of the three is removed sit beside the scorer, the
 board, and the gate (`tests/test_evaluate.py`, `tests/test_leaderboard.py`,
-`tests/test_replay.py`, `tests/test_validate.py`).
+`tests/test_replay.py`, `tests/test_validate.py`). The evaluate prompt carries
+the agent-side half in the same terms — `vote_accuracy` is a merits-stage field
+and a cert or interim cell omits it whatever votes the prediction holds — so
+the three seams catch a mistake rather than routinely undoing an instruction.
 
 **`judgment_correct` is descriptive, not a score.** The exact-match bit on the
 full vocabulary (`Evaluation.judgment_correct`) reports

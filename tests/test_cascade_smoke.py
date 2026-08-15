@@ -37,7 +37,20 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SUMMARY_ROUTE,
 )
-from fedcourtsai.schemas import Disposition, Evaluation, Judgment, Outcome, Prediction
+from fedcourtsai.pipeline.semantic import (
+    SEMANTIC_MERITS_V1,
+    SEMANTIC_SET_V1,
+    graded_units,
+    ordinal,
+)
+from fedcourtsai.schemas import (
+    Disposition,
+    Evaluation,
+    Judgment,
+    Outcome,
+    Prediction,
+    SemanticSupport,
+)
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
 
@@ -205,6 +218,10 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
 
+    # No semantic set is declared off the merits moments, so the grader writes
+    # no block — the counterpart of the prediction carrying no `semantic_claims`.
+    assert evaluation.semantic_grades is None
+
     # The leaderboard build puts the cell in the unranked `interim@arrival`
     # stages block — the event's moment stamp survives resolution, so the cell
     # aggregates under its moment rather than falling to the bare stage-known-
@@ -281,6 +298,13 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert [c.claim_id for c in prediction.claims] == [CLAIM_JUDGMENT_DISTURBED]
     assert prediction.claims[0].probability == prediction.probability
 
+    # It also answers the declared *semantic* set — the one stage that carries
+    # one — with a proposition per claim and no probability anywhere in it.
+    assert prediction.semantic_claims is not None
+    assert [c.claim_id for c in prediction.semantic_claims] == [
+        spec.claim_id for spec in SEMANTIC_MERITS_V1
+    ]
+
     # Scored on the merits axes: the stub's affirmed/0.0 floor against a
     # reversed outcome is a judgment mismatch and a full Brier miss, and
     # `correct` is the judgment comparison rather than the disposition one.
@@ -294,6 +318,17 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert evaluation.vote_accuracy is None
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
+
+    # The grader answers the same declared set, and every grade is the
+    # availability mask: both claims require a majority opinion and the fixture
+    # corpus holds none, so the block accumulates while the census stays empty.
+    assert evaluation.semantic_grades is not None
+    assert evaluation.semantic_grades.declared_set_version == SEMANTIC_SET_V1
+    assert [g.grade for g in evaluation.semantic_grades.grades] == [
+        SemanticSupport.not_addressed
+    ] * len(SEMANTIC_MERITS_V1)
+    units = graded_units(evaluation)
+    assert units and all(ordinal(u.grade) is None for u in units)
 
     # The leaderboard build puts the cell in the unranked `merits@grant`
     # stages block — the event's moment stamp survives resolution, so the cell

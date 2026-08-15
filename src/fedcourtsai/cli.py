@@ -1710,9 +1710,10 @@ def semantic_summary_command(
     null coefficient is not an agreement figure. Below either, nothing is
     written and the state is printed, naming which precondition failed.
 
-    So today it writes nothing and says so. No prompt asks a grader for a
-    semantic block, so no committed evaluation carries one, and no opinion body
-    is ingested to grade against.
+    So today it writes nothing and says so. The evaluate prompt asks a merits
+    grader for a block, but no opinion body is ingested to grade against and
+    both declared claims require a majority opinion, so every unit is the
+    availability mask and the census carries no ordinal grades to publish.
     """
     if stratum not in get_args(Stratum):
         raise typer.BadParameter(
@@ -2554,8 +2555,10 @@ def _fail_on_unversioned_risk_set(
             + "frozen context on its latest one, or no `salience_version` in that "
             + "context. A risk-set base rate is banded under the scored prediction's "
             + "frozen `context.salience_version`, so a basis recorded without one names "
-            + "a population nothing pins down: the cell needed the terminal basis (the "
-            + "documented fallback) or no segment base rate at all.",
+            + "a population nothing pins down. Where the join simply missed, the cell "
+            + "needed the terminal basis; where the scored prediction froze a band with "
+            + "no version beside it, the terminal basis is wrong too and the cell needed "
+            + "no segment base rate at all.",
             err=True,
         )
     raise typer.Exit(code=1)
