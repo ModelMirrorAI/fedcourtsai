@@ -250,8 +250,9 @@ def _sal_v1_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
 #   Terms (OT2017-OT2024, lift 8.1x-16.4x; OT2025 is right-censored and
 #   counted as supportive, never as held-out). The frozen thing is the
 #   PREDICATE (classify_petitioner == "federal" under caption-v1), not the
-#   concept "government petitioner" — the rule's known ~10% recall gap is a
-#   caption-v2 question with its own census.
+#   concept "government petitioner" — which is why that rule's federal recall
+#   gap is answered by a new caption rule under a new salience version
+#   (sal-v3, below) rather than by widening anything here.
 # - the arrival random slice (`arrival_draw`), applied at the selection
 #   seam rather than here: the draw is selection policy over undistributed
 #   arrivals, not a property of a row's strength.
@@ -272,6 +273,38 @@ def _sal_v2_band(row: corpus.CorpusRow) -> str:
 def _sal_v2_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
     """sal-v1's rule, plus the federal arrival carve-in."""
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class(row) == "federal"
+
+
+# sal-v3: sal-v2 with the caption predicate at `caption-v2`. Everything else is
+# sal-v2's byte for byte — the same sal-v1 ranking score, the same band
+# vocabulary and order (`_SAL_V2_BAND_ORDER`, shared deliberately: the two
+# versions' band labels mean the same tier, so a band name is comparable across
+# them and only the class predicate moves), and the same carve-in shape. What
+# changes is recall of the frozen thing: sal-v2's carve-in predicate is
+# `classify_petitioner == "federal"` under caption-v1, whose measured federal
+# recall gap classifies genuinely federal petitioners `private`; sal-v3's is the
+# same predicate under caption-v2, which reads those shapes. caption-v2 keeps
+# every non-`private` caption-v1 read by construction, so a row's band under
+# sal-v3 is its sal-v2 band or stronger and its carve status only ever gains —
+# what the widened captions do is migrate from their trajectory tier into the
+# `federal` band and the carve-in, which is a census question with its own
+# statistical review (docs/salience.md).
+
+
+def _sal_v3_band(row: corpus.CorpusRow) -> str:
+    """sal-v2's band rule, read through ``caption-v2``."""
+    trajectory = _sal_v1_band(row)
+    cls = caption.petitioner_class_v2(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v3_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v2``."""
+    return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v2(row) == "federal"
 
 
 @dataclass(frozen=True)
@@ -321,11 +354,20 @@ _SAL_V2 = SalienceScorer(
     selects_arrivals=True,
 )
 
+_SAL_V3 = SalienceScorer(
+    version="sal-v3",
+    score=_sal_v1_score,  # still sal-v1's ranking; the caption never weights it
+    band=_sal_v3_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v3_carve_out,
+    selects_arrivals=True,
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
 SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
-    {_SAL_V1.version: _SAL_V1, _SAL_V2.version: _SAL_V2}
+    {_SAL_V1.version: _SAL_V1, _SAL_V2.version: _SAL_V2, _SAL_V3.version: _SAL_V3}
 )
 
 

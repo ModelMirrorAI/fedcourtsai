@@ -134,7 +134,8 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
     the statpack a base rate conditioned on a population its own carve status
     splits) and the fully-carved bands must be the *exact expected prefix*
     per version — sal-v1's is (high,), the original carved-iff-strongest
-    identity; sal-v2's is (federal, high). Pinning the expected prefix keeps
+    identity; the caption-banded versions' is (federal, high), whichever
+    caption rule reads the class. Pinning the expected prefix keeps
     the check as strong as the original: a refit that silently carved an
     extra tier fails here. The enumeration
     drives the scorer over every relist state x circuit x CVSG x petitioner
@@ -146,7 +147,15 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
     banding = scorer(version)
     floor = load_salience_config(Path("config")).floor
     circuits = [*_CIRCUIT_GRANT_RATE, "xx-unknown", None]
-    titles = ("United States", "State of Texas", "John Doe", None)
+    titles = (
+        "United States",
+        "State of Texas",
+        "John Doe",
+        # federal under caption-v2 only, so the lattice spans the class axis of
+        # every registered caption rule and not just the one sal-v2 reads.
+        "Office of the United States Trustee",
+        None,
+    )
     carved_by_band: dict[str, set[bool]] = {band: set() for band in banding.bands}
     for distribution_count in (1, 2, 3, None):
         for circuit in circuits:
@@ -166,11 +175,44 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
     for band, outcomes in carved_by_band.items():
         assert len(outcomes) <= 1, f"{version}: band {band!r} mixes carved and uncarved members"
     fully_carved = tuple(b for b in banding.bands if carved_by_band[b] == {True})
-    expected = {"sal-v1": ("high",), "sal-v2": ("federal", "high")}.get(
-        version, banding.bands[: len(fully_carved)] if fully_carved else None
-    )
+    expected = {
+        "sal-v1": ("high",),
+        "sal-v2": ("federal", "high"),
+        "sal-v3": ("federal", "high"),
+    }.get(version, banding.bands[: len(fully_carved)] if fully_carved else None)
     assert fully_carved == expected, f"{version}: carved bands {fully_carved}, expected {expected}"
     assert fully_carved, f"{version}: no band is carved — the always-include rule reaches nothing"
+
+
+def test_sal_v3_is_sal_v2_read_through_the_wider_caption_rule() -> None:
+    """The only thing sal-v3 moves is which captions read `federal`.
+
+    Same ranking score, same band vocabulary, same carve-in shape — so on a
+    caption both rules agree about, the two versions are indistinguishable, and
+    on a caption only caption-v2 reads as federal, sal-v3 bands and carves it
+    while sal-v2 leaves it on its trajectory tier. Pinning both halves is what
+    keeps the delta attributable to the caption rule rather than to a quiet
+    refit riding along with it."""
+    v2, v3 = scorer("sal-v2"), scorer("sal-v3")
+    assert v3.bands == v2.bands
+    assert v3.selects_arrivals is v2.selects_arrivals
+    floor = load_salience_config(Path("config")).floor
+
+    for title in ("United States", "State of Texas", "John Doe", None):
+        row = _petition("scotus/agreed", distribution_count=1, petitioner_title=title)
+        assert v3.score(row) == v2.score(row), title
+        assert v3.band(row) == v2.band(row), title
+        assert v3.carve_out(row, v3.score(row), floor) == v2.carve_out(row, v2.score(row), floor)
+
+    widened = _petition(
+        "scotus/widened",
+        distribution_count=1,  # relist-0: nothing but the caption can carve it in
+        petitioner_title="Office of the United States Trustee",
+    )
+    assert v2.band(widened) == "baseline"
+    assert v2.carve_out(widened, v2.score(widened), floor) is False
+    assert v3.band(widened) == "federal"
+    assert v3.carve_out(widened, v3.score(widened), floor) is True
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -888,7 +930,8 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
 def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1")  # active first
+    # active first, then the rest sorted
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v3")
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer

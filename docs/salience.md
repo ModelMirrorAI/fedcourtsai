@@ -157,17 +157,17 @@ coverage — with **two cohorts, never pooled**:
   against its own risk-set baselines and never against — or blended with —
   the arrival cohort's.
 
-**The caption class (`caption-v1`) is the arrival feature's committed form.**
-The petitioner's caption is the one party signal fixed at filing, and
-`pipeline.caption` holds the committed rule: federal / state / private, read
+**The caption class is the arrival feature's committed form.** The
+petitioner's caption is the one party signal fixed at filing, and
+`pipeline.caption` holds the registered rules: federal / state / private, read
 from the structured `petitioner_title` column (else the caption's pre-` v. `
-half), with the fixtures as the specification. Its census
+half), with the fixtures as the specification. Their census
 (`fedcourts caption-census`) is the artifact any caption-keyed **selection**
 constant must be frozen from — and only from a statistically reviewed run of
 it under the rule version it names. That review of record has run for
 `caption-v1`: the **federal carve-in predicate** (`classify_petitioner ==
 "federal"` — the predicate, deliberately not the concept "government
-petitioner", whose known recall gap is a `caption-v2` question) is frozen
+petitioner", whose recall gap `caption-v2` below is what answers) is frozen
 into `sal-v2` on a verified census replicating in all eight complete Terms
 (OT2017–OT2024, lift 8.1–16.4×, intervals fully separated; OT2025 is
 right-censored and counted as supportive, never held-out). The **state**
@@ -181,8 +181,31 @@ cannot validate any caption feature, because the replay's reconstruction
 carries the terminal caption: a declared gap, never papered over with a
 replay number.
 
-Activation sequences deliberately: the promotion carrying the flip, then a
-metrics refresh, then prediction. A `sal-v2` cell minted before the refreshed
+**`caption-v2` is the widened read, registered beside `caption-v1`, never over
+it.** `caption-v1`'s census verification measured a federal recall gap:
+genuinely federal petitioners its patterns classify `private`, in five shapes —
+the `Office of the United States <office>` word order and the United States
+Trustee; agencies and offices whose caption name leads with neither `United
+States` nor `Federal`; the spelled-out form of an agency v1 carries only as an
+initialism; the military departments as an officer's qualifier and the
+deputy / under / assistant ranks of a federal office; and the sovereign behind
+an `In re` caption. `caption-v2` reads those shapes, keeping v1's three
+classes, its role-suffix stripping, and qui tam's precedence over every federal
+read — the `In re` prefix reaching the relator pattern as well as the
+sovereign's. Both rules are registered predicates in
+`pipeline.caption.CAPTION_RULES`, and `fedcourts caption-census
+--rule-version` cuts the same frame under either, so a widening is reviewable
+as a per-class, per-Term delta rather than as an unlabeled re-run. It is
+one-directional **by construction**, because `caption-v2` runs `caption-v1`
+first and keeps any non-`private` answer: no caption can lose a `federal` or
+`state` read it had under v1, so the delta is drawn from the `private` cell
+only, which is what makes the two censuses comparable cell by cell. A caption
+rule reaches **selection** only through a salience version that names it,
+because a frozen constant names the predicate it was frozen from: `caption-v1`
+through `sal-v2`, `caption-v2` through `sal-v3`.
+
+`sal-v2`'s activation sequences deliberately: the promotion carrying the flip,
+then a metrics refresh, then prediction. A `sal-v2` cell minted before the refreshed
 statpack has **no published baseline** — the version-pinned pool's designed
 `None`, never a blend — so its skill column is legitimately empty and supports
 no claim; the refresh, not the flip, is what opens the scored window.
@@ -200,11 +223,53 @@ not quoted from the census. And the
 carve-out/band alignment is pinned by test: the always-include floor and the
 carved bands' cutpoints are separate constants in separate files, and the
 identity between "carved in" and "the expected strongest-band prefix" —
-`(high,)` for `sal-v1`, `(federal, high)` for `sal-v2` — is checked
-exhaustively over the achievable score lattice (relist count x CVSG x
-originating circuit x petitioner class), so a refit cannot open a silent gap
+`(high,)` for `sal-v1`, `(federal, high)` for both caption-banded versions — is
+checked exhaustively over the achievable score lattice (relist count x CVSG x
+originating circuit x petitioner class, the class axis carrying a caption each
+registered rule reads differently), so a refit cannot open a silent gap
 between carve and band, and a version keying on a feature outside that
 enumeration must extend it or say here that its coverage is partial.
+
+### `sal-v3`: the same scorer, reading `caption-v2`
+
+`sal-v3` is `sal-v2` with the caption predicate swapped to `caption-v2` — the
+same `sal-v1` ranking score, the same five bands in the same order, the same
+carve-in shape, the same arrival selection. Only recall of the frozen thing
+moves: `sal-v2` carves in `classify_petitioner == "federal"` under
+`caption-v1`, `sal-v3` the same predicate under `caption-v2`, so `sal-v3`
+carves in every petition `sal-v2` does plus the federal captions v1's patterns
+miss. Those captions move in the **band** dimension too, from their trajectory
+tier into `federal`, which is what makes `sal-v3`'s per-band base rates a
+different published pool from `sal-v2`'s rather than a relabeling of one. That
+is why it is a **new registered version and not an edit**: the
+`sal-v2` carve-in is frozen on a reviewed `caption-v1` census, and a rule
+widening under the old label would re-point a published constant at a
+population it was never measured on.
+
+Registration and activation are separate steps, and the gap between them is
+where the review sits. `sal-v3` is registered while `SALIENCE_VERSION` still
+names `sal-v2`, so nothing the live pass selects, latches, or stamps changes —
+and registering *first* is what keeps the flip from opening an unscored
+window: the next metrics refresh publishes `sal-v3`'s bands in
+`statpack.json`'s `alt_segments`, so a cell minted under the flipped version
+finds its version-pinned pool already there rather than the designed `None`.
+Activating means flipping that one constant, and the bar is the same one
+`sal-v2` cleared: a statistically reviewed `caption-v2` census, per Term and
+pooled on the same frame as `caption-v1`'s, showing the widened class
+replicating rather than diluting — then the promotion carrying the flip, then a
+metrics refresh, then prediction.
+
+Two things the extra registered version does **not** license. The gate replay
+scores `sal-v3` as it scores every registered version, but `sal-v2` and
+`sal-v3` differ in nothing except a caption feature, and the replay's
+reconstruction carries the terminal caption — so a `sal-v2` / `sal-v3` replay
+comparison is exactly the measurement this artifact declares it cannot make,
+and no precision or recall delta between them may be read from it (the two are
+not run at a matched operating point either, and `sal-v3` carves in strictly
+more, so its raw precision reads lower mechanically). And the two carve-in
+subcohorts are **different arrival populations**, one selected by each rule's
+predicate, so their outcomes never pool — the same rule that keeps the random
+slice and the carve-in apart.
 
 ### The scorer registry
 
@@ -240,9 +305,9 @@ could otherwise leak:
   scorer that assigned the band it quotes, so a prediction frozen at a retired
   version would lose its baseline the day the live pass moved on. Each Term
   carries the active version's `segments` plus an `alt_segments` block per other
-  registered version; the block is absent from the payload while only one
-  version is registered. The **Markdown** pack renders the active version only,
-  so a reader of `statpack.md` under two versions is reading one of them.
+  registered version, so every registered scorer's bands are published whether
+  or not it is the live one. The **Markdown** pack renders the active version
+  only, so a reader of `statpack.md` is reading one version of several.
 - **The gate replay is a three-axis report.** Cells span Term x policy x
   version, and each (Term, policy) is projected once and scored by every
   registered version, so two versions cannot differ in the dockets they saw.

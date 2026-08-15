@@ -1489,14 +1489,13 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for non-active registered versions — today, sal-v1
-    beside the active sal-v2 — and never repeats the active one. (While only
-    one version existed the key was absent entirely; a second registered
-    version is what makes the committed pack gain the block at a refresh.)"""
+    """The block exists for every non-active registered version — today, sal-v1
+    and sal-v3 beside the active sal-v2 — and never repeats the active one, so
+    a prediction frozen at any registered version keeps a published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1"}, versions
+        assert versions == {"sal-v1", "sal-v3"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -1512,14 +1511,15 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v1"}
+        assert set(alts) == {"sal-toy", "sal-v1", "sal-v3"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
         assert [s.band for s in alts["sal-v1"].segments] == ["high", "elevated", "baseline"]
+        assert [s.band for s in alts["sal-v3"].segments] == list(_BANDS)  # sal-v2's vocabulary
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 2 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 3 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(
