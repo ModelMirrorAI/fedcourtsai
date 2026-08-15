@@ -482,11 +482,14 @@ in prose.
   stage whose votes are scored at all and an individual cert vote never is
   (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
-  independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
-  and `process_version` are the harness's, never the evaluator's word — as is
-  the whole skill record of `brier_score`, `segment_base_rate`, and
-  `brier_skill_score` on the two stages whose pool the harness computes
-  (below), which leaves `brier_score` the evaluator's on a cert cell only.
+  independent `big_case` read. `correct`, `claim_scores`,
+  `base_rate_salience_version`, and `process_version` are the harness's, never
+  the evaluator's word — as is the whole skill record of `brier_score`,
+  `segment_base_rate`, and `brier_skill_score` on the two stages whose pool the
+  harness computes (below), which leaves `brier_score` the evaluator's on a cert
+  cell only. `correct` takes no such exemption: a label comparison needs no
+  pooled baseline and so no band judgment, so it is stamped on every stage, and
+  null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
   above: written on a **merits** cell, one ordinal grade per declared claim, and
   null on every other stage. No opinion body is ingested, so every grade it

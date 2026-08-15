@@ -139,7 +139,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.evaluate import brier_score, brier_skill
+from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -2463,6 +2463,14 @@ def stamp_cell(
     frozen context (:func:`_base_rate_salience_version_for`), so both are the
     harness's word and an evaluator-authored value never survives the stamp.
 
+    ``correct`` is stamped on **every** stage, cert included
+    (:func:`_harness_correct_for`): it is a label comparison between the scored
+    prediction and the outcome with no baseline and so no band to choose, which
+    is the only thing the cert exemption below is about — and it is the
+    leaderboard's first rank key, so the ranked cert board's lead column would
+    otherwise rest on the evaluator's word alone. Cleared where either committed
+    artifact is unreadable, like the Brier.
+
     **Who owns the skill record.** The harness stamps it wherever the baseline
     pool is a Term-keyed ratio of published integer counts with no band to
     choose — every **merits** and every **interim** cell — because there the
@@ -2559,8 +2567,9 @@ def stamp_cell(
             # evaluator-authored one is replaced — with the computed block where
             # the committed inputs support one, with nothing otherwise.
             cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
-            # The skill record — Brier, base rate, and the ratio over them —
-            # same discipline: derived deterministically from the stage and the
+            # `correct` on every stage, and the skill record — Brier, base
+            # rate, and the ratio over them — on the stages that own it: same
+            # discipline, derived deterministically from the stage and the
             # committed inputs, overwritten unconditionally so what it says is
             # the harness's word. The basis pair it returns is what the risk-set
             # guard below judges — the record as stamped, never as the evaluator
@@ -2709,16 +2718,33 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
 #: judgment for an evaluator to exercise. The cert stage is absent by design —
-#: see :func:`stamp_cell`.
+#: see :func:`stamp_cell`. It governs the *skill record* only: ``correct`` needs
+#: no pooled rate and so no band, and is stamped on every stage including cert.
 _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 
 def _skill_record_for(
     event_paths: EventPaths, evaluation: Evaluation, settings: Settings
 ) -> tuple[dict[str, object], tuple[str | None, str | None]]:
-    """This cell's whole skill record as a stamp update, plus its basis pair.
+    """This cell's ``correct`` and skill record as a stamp update, plus its basis pair.
 
-    Two shapes, keyed on the stage. On a **cert** cell the Brier, the rate, and
+    ``correct`` is stamped on **every** stage, cert included, and is the one
+    field here that does not split by stage. The exemption the cert stage holds
+    is about the *baseline*: which band population a pooled rate is taken over
+    is a judgment about the scored prediction's frozen band, and that judgment
+    reaches the Brier skill through ``segment_base_rate``. ``correct`` has no
+    baseline and no band — it is a label comparison between the scored
+    prediction and the outcome (:func:`fedcourtsai.pipeline.evaluate.is_correct`,
+    routed on the outcome's own axis) — so there is nothing on a cert cell for
+    an evaluator to exercise judgment over, and no reason for the exemption to
+    carry across. It is also the leaderboard's first rank key, so leaving it as
+    the evaluator's word on the one stage the ranked board is built from would
+    leave the board's lead column unverifiable exactly where it is load-bearing.
+    Like the Brier it is ``None`` where either committed artifact — the scored
+    predictor's latest prediction, or the outcome — is unreadable.
+
+    The **skill record** beside it takes two shapes, keyed on the stage. On a
+    **cert** cell the Brier, the rate, and
     the skill are the evaluator's — which band population the rate was taken
     over is a judgment about the scored prediction's frozen band, and the
     leaderboard's coherence check is what stands between that arithmetic and the
@@ -2745,16 +2771,28 @@ def _skill_record_for(
     The returned ``(basis, version)`` pair is the record **as stamped**, so the
     guard judges what was written rather than what the evaluator proposed.
     """
+    outcome = _outcome_for(event_paths)
+    correct = _harness_correct_for(event_paths, evaluation, outcome)
+    # The one field the evaluate prompt requires of every cell, so a null is a
+    # contract miss rather than a stage's silence — and it costs the stamped
+    # bit its only independent read, which is worth as much noise as a
+    # disagreement.
+    _warn_on_discarded_number(
+        evaluation, "correct", evaluation.correct, correct, warn_on_omission=True
+    )
     if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
         version = _base_rate_salience_version_for(event_paths, evaluation)
-        return ({"base_rate_salience_version": version}, (evaluation.base_rate_basis, version))
-    outcome = _outcome_for(event_paths)
+        return (
+            {"correct": correct, "base_rate_salience_version": version},
+            (evaluation.base_rate_basis, version),
+        )
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
     brier = _harness_brier_for(event_paths, evaluation, outcome)
     _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
     _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
     return (
         {
+            "correct": correct,
             "brier_score": brier,
             "segment_base_rate": rate,
             "brier_skill_score": _harness_skill_for(brier, outcome, rate),
@@ -2772,12 +2810,19 @@ def _skill_record_for(
 #: different pool window or Term axis for the rate, a different probability or
 #: binary for the Brier. Absolute rather than relative, so it is a floor on what
 #: gets *said*, not on what gets written: a disagreeing Brier under it — which a
-#: squared quantity reaches near ``p == y`` — is still replaced, silently.
+#: squared quantity reaches near ``p == y`` — is still replaced, silently. A
+#: 0/1 field like ``correct`` can only disagree by a whole unit, so every
+#: disagreement there is said.
 _STAMP_ECHO_TOLERANCE = 1e-3
 
 
 def _warn_on_discarded_number(
-    evaluation: Evaluation, field: str, recorded: float | None, stamped: float | None
+    evaluation: Evaluation,
+    field: str,
+    recorded: float | None,
+    stamped: float | None,
+    *,
+    warn_on_omission: bool = False,
 ) -> None:
     """Say when a stamped number replaces a *different* one the evaluator wrote.
 
@@ -2794,17 +2839,56 @@ def _warn_on_discarded_number(
     systematic disagreement — an evaluator scoring the wrong binary, or reading
     a stale probability — surfaces here and nowhere else. A field the prompt
     stopped asking for would leave that check with nothing to compare.
+
+    ``warn_on_omission`` extends that to the other direction: an evaluator that
+    simply *omits* the elicited value kills the independent read as effectively
+    as a wrong one, and silently, since there is then no disagreement to
+    report. It is off by default because on an optional field an omission is
+    the normal shape — most cells legitimately record no Brier or no rate — and
+    on by exception for a field the prompt requires of every cell, where a null
+    is a prompt-contract miss rather than a stage's silence.
+
+    "Harness-stamped" in the note is said of the **field**, not the stage: on a
+    cert cell ``correct`` is stamped while the skill record beside it is not, so
+    naming the stage would misdescribe exactly the cell this most often fires on.
     """
-    if recorded is None or (
-        stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE
-    ):
+    if recorded is None:
+        if not (warn_on_omission and stamped is not None):
+            return
+    elif stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE:
         return
+    said = f"recorded no {field}" if recorded is None else f"recorded {field} {recorded}"
     typer.echo(
-        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
-        + f"{field} {recorded} on a harness-stamped stage; the stamp wrote "
-        + f"{stamped} instead.",
+        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} {said} "
+        + f"for a harness-stamped field; the stamp wrote {stamped}.",
         err=True,
     )
+
+
+def _harness_correct_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> int | None:
+    """The harness's own correctness bit for one evaluation, or ``None``.
+
+    The stage's own label comparison between the two committed artifacts,
+    through the shared numeric core
+    (:func:`fedcourtsai.pipeline.evaluate.is_correct`, which routes on the
+    outcome: judgment on a merits cell, disposition elsewhere), so the stamped
+    bit is the definition rather than a restatement of it. The scored prediction
+    is the predictor's **latest** for this event, the same join the Brier and
+    the claim block take.
+
+    Stamped on every stage, cert included — it needs no pooled baseline and so
+    no band judgment, which is the whole of the cert stage's skill-record
+    exemption. ``None`` only where an artifact is absent outright, exactly
+    :func:`_harness_brier_for`'s tolerance: this is a post-agent step, so a
+    missing input suppresses the bit rather than failing a cell that already
+    produced its output.
+    """
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or outcome is None:
+        return None
+    return is_correct(latest, outcome)
 
 
 def _harness_brier_for(

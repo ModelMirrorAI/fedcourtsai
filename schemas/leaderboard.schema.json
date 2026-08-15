@@ -342,11 +342,26 @@
       "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\nharness clock (`integrity.cell_clock` \u2014 the process stamp, else the\nunstamped cell's `created_at`) and *retrospective* when it had already\nresolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns sit here, and they are never blended either. ``population_brier_skill_score``\nscores against the strictly-prior pooled band rate \u2014 the leakage-safe\nbaseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nBoth are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
       "properties": {
         "accuracy": {
-          "description": "Mean correctness across evaluations",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Accuracy",
-          "type": "number"
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean `Evaluation.correct` over the evaluations that report one. A cell whose `correct` the stamp could not compute \u2014 no readable prediction, or no committed outcome \u2014 leaves both halves of this fraction rather than entering as a wrong call, so `accuracy_scored` beside it is the true denominator. Null when no cell in the stratum reports one, in which case the entry sorts last on this key",
+          "title": "Accuracy"
+        },
+        "accuracy_scored": {
+          "default": 0,
+          "description": "Evaluations contributing to accuracy \u2014 the cells carrying a non-null `correct`. Below `evaluations` wherever a cell's committed prediction or outcome was unreadable at stamp time",
+          "minimum": 0,
+          "title": "Accuracy Scored",
+          "type": "integer"
         },
         "evaluations": {
           "description": "Evaluations counted in this stratum",
@@ -450,8 +465,7 @@
       },
       "required": [
         "events_scored",
-        "evaluations",
-        "accuracy"
+        "evaluations"
       ],
       "title": "LeaderboardStratum",
       "type": "object"

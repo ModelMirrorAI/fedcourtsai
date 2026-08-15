@@ -99,7 +99,22 @@ stays outside the gate:
   sit on the entry rather than the stratum, because they describe the whole
   entry: `evaluators`, the distinct judges that scored it, and `events_scored`
   pooled across its strata, which the coverage contract below reads against the
-  board's own. Each
+  board's own. The **accuracy** column is the mean of each cell's `correct`,
+  which the harness stamps on **every** stage — cert included, unlike the skill
+  record beside it — from the scored prediction's committed label and the
+  outcome's, so the board's first rank key is recomputed from committed
+  artifacts rather than taken on the evaluator's word. A cell whose `correct`
+  the stamp could not compute (no readable prediction, or no committed outcome)
+  leaves both halves of the fraction rather than entering as a wrong call, which
+  is what `accuracy_scored` beside the column records; read accuracy against
+  that count. Harness authorship makes the number **verifiable, not
+  meaningful**: it certifies that the bit reproduces from committed artifacts,
+  and says nothing about whether the accuracy it sums to is skill. Read it
+  against `population_brier_skill_score` and that column's own `skill_scored`,
+  never alone — on the cert board a predictor that denies everything scores the
+  denial rate, so an accuracy near it is the **floor**, not performance, exactly
+  as the back-test section below states the rule for a constant-`denied`
+  predictor. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the
   skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
@@ -140,7 +155,15 @@ stays outside the gate:
   survivor is indistinguishable from a cell graded once, and every figure
   around it is already post-collapse, so re-grading — a maintainer-reachable
   operation — could otherwise move a standing with nothing on any published
-  artifact recording that it happened. Read it as an audit line, never as a
+  artifact recording that it happened. It does **not** cover a **re-stamp**:
+  running `stamp-cell` again over an existing `evaluation.json` rewrites
+  `correct` — the first rank key — *in place*, on the same file, so no second
+  grading exists, nothing is collapsed away, and `superseded_gradings` stays
+  where it was. Against a corrected outcome that moves a published standing
+  with a trace only in `data/`'s git history. The honest route to moving a
+  standing after an outcome correction is therefore a **re-grade** — a second
+  `evaluation.json`, which the collapse counts — never a bare re-stamp of the
+  existing one. Read it as an audit line, never as a
   term: it is **not** subtracted from any count on the board, and a count
   plus it is not a ledger total. Its population is the **scope gate's**, which
   is the board's process scope but a slightly wider set of cells. The scope

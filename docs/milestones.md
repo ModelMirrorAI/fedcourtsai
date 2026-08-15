@@ -184,6 +184,18 @@ each freeze commit is recorded here.
     `segment_base_rate`, and `brier_skill_score` off the evaluator and onto
     `stamp-cell` on the merits and interim stages — a change to *who computes a
     scored number*, which the scoring-baseline rule puts in this list;
+  - the **harness `correct` stamp**, which moves the accuracy column's per-cell
+    bit off the evaluator and onto `stamp-cell` on **every** stage, cert
+    included: the comparison needs no pooled baseline and so no salience band,
+    which is the whole of the skill stamp's cert exemption. No digest moves —
+    no prompt byte changed, and `stamp-cell` calls `pipeline.evaluate.is_correct`,
+    the same function the evaluate prompt already names as the definition — so
+    the quantity is unchanged and only its author moves, which is precisely what
+    puts it in this list. The leaderboard's **first rank key** is the affected
+    figure. Zero frozen-scope cells were ever stamped under the prior
+    ownership: the committed board reads `evaluations_total: 0` at
+    `process_scope: frozen`, so no published standing rests on an
+    evaluator-authored `correct`;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.
