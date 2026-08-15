@@ -128,6 +128,64 @@ each freeze commit is recorded here.
   out-of-sample re-census once frozen-window Terms accrue. The scored window
   opens at the first post-promotion metrics refresh, as it did for `sal-v2`.
 
+- Freeze commit: `8d256a32f`, to be tagged **`prereg/proc-v3`**. Carried to
+  `main` by the promotion tagged `promotion/<FILL: YYYY-MM-DD>` (merge commit
+  `<FILL: sha>`, merged `<FILL: instant>`) — the auditor's comparison of the
+  cutover procedure is that date against the freeze instant, and it is a **hard
+  gate before the tag is minted**, not a note: the `prereg/` namespace blocks
+  update and deletion, so a tag over a bad instant burns the label. It blesses
+  the six proc-v3 digests (three predictors, three evaluators) and keeps the
+  freeze instant at `2026-08-16T00:00:00Z`, deliberately unmoved from proc-v2's.
+  Holding it is safe in the direction that matters — proc-v2 has zero stamped
+  *predictions* and the enforced filter is prediction-side, so re-using the
+  instant blesses nothing retroactively — but it is the **tight** direction
+  rather than the generous one the procedure asks for, which is why the gate
+  above is stated as a gate. If the promotion merges after the instant, bump the
+  constant in a follow-up promotion before tagging, and confirm no stamped cell
+  carries a `stamped_at` in the gap.
+
+  **Step 0's stamped-cell grep against `origin/main`: 27, all
+  pre-registration-excluded.** Every one is an **evaluation** — no prediction
+  carries a stamp at all — over three cert events
+  (`scotus/73129750`, `scotus/73275185`, `scotus/73275187`, each
+  `evt-petition-disposition`), three evaluators (`claude-judge`, `codex-judge`,
+  `gemini-judge`) × three predictors, all labelled `proc-v2` and all stamped
+  between `2026-08-14T03:41:05Z` and `2026-08-14T03:47:47Z`. Every stamp
+  precedes the freeze instant, so `is_frozen`'s time cutoff excludes them
+  mechanically, and **zero cells were ever counted under proc-v2**: its headline
+  is legitimately empty forever, and its tag stays as the record that the label
+  was registered and then superseded. The grep must be **re-run at promotion
+  time** — cells land on `main` continuously, so the count can move.
+
+  What moved every digest is the prompt pair: `.github/prompts/predict.md`
+  elicits `cert-v2`'s five claims (the two additions in the conditional forms
+  their resolvers score), `interim-v1`'s four, and `semantic-v1`'s two
+  propositions on a merits cell, and anchors an interim cell on the registered
+  scored base rate; `.github/prompts/evaluate.md` keys the base-rate basis on
+  the frozen `salience_version`, reads the merits and interim rate/skill pair as
+  harness-stamped, scopes `vote_accuracy` to merits cells, and carries the
+  semantic grading protocol.
+
+  Riding the same promotion, and named here because each changes what is
+  measured **without moving a digest** — the discipline
+  [process-version.md](process-version.md) prescribes for exactly this class:
+
+  - the **vote-scoring stage gate** (`pipeline.moments.scores_votes`), which
+    changes what is scored under an unchanged digest by denying vote scoring off
+    the merits stage by default;
+  - the **blinding masking surface**, widened by the new `MODEL_RATES` keys that
+    `blinding.identity_terms` reads — a change to every evaluator's information
+    set with no digest of its own;
+  - the **claim-set declarations** `cert-v2`, `interim-v1` and `semantic-v1`,
+    which are tables rather than prompt bytes or actor config;
+  - the **harness base-rate stamp**, which moves `segment_base_rate` and
+    `brier_skill_score` off the evaluator and onto `stamp-cell` on the merits
+    and interim stages — a change to *who computes a scored number*, which the
+    scoring-baseline rule puts in this list;
+  - the **`sal-v3` activation**, whose own entry is above; it carries a
+    data-visible boundary of its own (`context.salience_version`), so it is
+    listed here for completeness rather than because it is invisible.
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
