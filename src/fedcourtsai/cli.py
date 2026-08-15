@@ -3641,12 +3641,16 @@ def refresh_historical_cmd(
     older, thinner rows, and their cursors sit at the frontier so no ordinary run
     will ever revisit them. This is the way back.
 
-    Re-walking **adds**: each re-served docket upserts onto its existing row
-    through the corpus latches, so nothing is deleted, `case_id` never moves, and
-    a refreshed row keeps every fact the first pass captured. Re-running is
-    therefore idempotent, not destructive — the real cost is upstream traffic
-    (~1 req/s over each Term's full serial range), which is why it is dry-run by
-    default.
+    Re-walking **adds rows**: each re-served docket upserts onto its existing row
+    through the corpus latches, so no row is deleted, `case_id` never moves, and
+    every latched fact the first pass captured survives. An *unlatched* column is
+    different — it takes the fresh parse, and the cert-stage disposition and its
+    dates are unlatched — so a tightened pattern also retracts a stale reading.
+    That is the way back from a false positive on a docket no rotation revisits,
+    and it works only while the corrected parse still reads *some* disposition: a
+    record that now reads undecided is counted `skipped_undecided` and never
+    ingested. The real cost is upstream traffic (~1 req/s over each Term's full
+    serial range), which is why this is dry-run by default.
 
     Deliberately separate from the walk rather than a flag on it: a walk that
     could rewind its own cursor could also do so on a degraded run and silently
