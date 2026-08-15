@@ -153,7 +153,7 @@
     },
     "StatPackInterim": {
       "additionalProperties": false,
-      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the accumulating cohort that\nwill eventually ground an interim segment base rate, published descriptively\nuntil then. A stage section exists only once its corpus feed does: the pack\nomits it entirely while the corpus holds no application rows \u2014 the same\njoining rule the merits sibling (:class:`StatPackMerits`) follows on the\n``merits_judgment`` column.",
+      "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the per-Term entries are what\nthe interim segment base rate pools strictly-prior, while the pack-level\nfigures beside them stay descriptive. A stage section exists only once its\ncorpus feed does: the pack\nomits it entirely while the corpus holds no application rows \u2014 the same\njoining rule the merits sibling (:class:`StatPackMerits`) follows on the\n``merits_judgment`` column.",
       "properties": {
         "applications": {
           "default": 0,
@@ -423,7 +423,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it. Parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it, and so does a row carrying `merits_terminated` \u2014 either a post-grant Rule 46 dismissal, where nobody reached the merits, or a bare mandate notation, where the disposition entry was never captured. Parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"
@@ -531,7 +531,7 @@
         },
         "granted": {
           "default": 0,
-          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it. Parsed or not",
+          "description": "SCOTUS cases in this slice whose grant opens a merits proceeding (a plain or partial grant with `date_cert_granted` set; a GVR or summary reversal decides in the cert order and is excluded, as is \u2014 label-independently \u2014 any row whose parsed judgment carries its grant's own date, whatever its label says: see cert_order_excluded). A parsed judgment with no date stays here as a visible coverage gap, outside the parsed slice, since the gap test cannot run on it, and so does a row carrying `merits_terminated` \u2014 either a post-grant Rule 46 dismissal, where nobody reached the merits, or a bare mandate notation, where the disposition entry was never captured. Parsed or not",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"

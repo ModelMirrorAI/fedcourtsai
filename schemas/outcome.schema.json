@@ -15,6 +15,35 @@
       "title": "Disposition",
       "type": "string"
     },
+    "InterimResolutionSignals": {
+      "additionalProperties": false,
+      "description": "The interim docket's escalation signals as at resolution, frozen into the outcome.\n\nThe interim twin of :class:`ResolutionSignals`, and a *different* block\nrather than an extension of it: the cert signals (a distribution count, a\nCVSG) are observations nobody makes on an application, and these three are\nobservations nobody makes on a petition. Sharing one block would have every\nconsumer branch on which half is populated.\n\nIt carries the same two properties that make the cert block scoreable. All\nthree signals are **monotone** over an application's life \u2014 the Court does\nnot un-request a response, un-refer an application, or un-file an amicus\nbrief \u2014 so a forecast about them is a forecast about an increment, which\nneeds the value as at prediction as well: that end is\n``Prediction.context`` (:class:`PredictionContext`), which carries the same\nthree fields. And the corpus columns behind them hold the *current* value,\nnot the value at any fixed moment, so copying them onto the outcome at\nresolution is what makes a re-score of the same cell reproduce the same\nnumber.\n\n**Deliberately no dates.** The corpus's ``*_at`` columns are moment-minting\ndates read from entry text, and an undated entry is skipped there by rule \u2014\nso they carry a known undercount that the max-latched booleans do not. The\nresolution *value* is the flag; the date's job is opening an event, and it\nkeeps it.",
+      "properties": {
+        "amicus_briefs": {
+          "description": "How many amicus briefs the application's docket recorded as at resolution \u2014 a stakes proxy, counted per entry naming amicus curiae (a multi-filer entry counts once)",
+          "minimum": 0,
+          "title": "Amicus Briefs",
+          "type": "integer"
+        },
+        "referred_to_court": {
+          "description": "Whether the application had been referred to the full Court rather than decided by a Circuit Justice alone \u2014 the signal the interim aggregation rule turns on",
+          "title": "Referred To Court",
+          "type": "boolean"
+        },
+        "response_requested": {
+          "description": "Whether the Court (or a Circuit Justice) had requested a response by resolution \u2014 the interim analogue of a CVSG, and an affirmative act of attention rather than a rescheduling",
+          "title": "Response Requested",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "response_requested",
+        "referred_to_court",
+        "amicus_briefs"
+      ],
+      "title": "InterimResolutionSignals",
+      "type": "object"
+    },
     "Judgment": {
       "description": "What the Court did to the judgment below \u2014 the **merits** axis.\n\nDeliberately not members of :class:`Disposition`. A dismissal as improvidently\ngranted has no coherent value on the cert binary: certiorari *was* granted, and\nthe merits event resolved to nothing. Forcing it onto that axis would corrupt\nthe comparability anchor every grant-rate figure in this project rests on.\n\nOn the merits **binary** \u2014 P(disturbed), the axis a merits cell's Brier is\nscored on \u2014 ``dig`` and ``equally_divided`` count as *undisturbed*, because\nboth leave the judgment below standing (a DIG dissolves the writ, an\nequally divided Court affirms by operation of law). They stay in the scored\npool rather than being routed out, because the pooled baseline's\ndenominator (the statpack merits section's ``parsed``) includes them, and a\nscored population that dropped them would face a baseline computed over a\ndifferent one. ``judgment_correct`` keeps them as their own labels, so the\nexact-match axis never confuses a DIG with an affirmance.",
       "enum": [
@@ -179,9 +208,39 @@
       "title": "Disposition Basis",
       "type": "string"
     },
+    "disposition_route": {
+      "anyOf": [
+        {
+          "enum": [
+            "plenary",
+            "gvr",
+            "summary-merits"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How a granted petition's review was routed \u2014 whether the grant resolved the case in the cert order itself rather than by plenary review. 'gvr' where the order granted, vacated and remanded without reaching the merits; 'summary-merits' where the judgment rode the grant order (granted and decided together, so no merits proceeding followed); 'plenary' where review was set for briefing and argument. Null means not assessed \u2014 a denial, an interim outcome, a record disclosing no order text, or no cert-grant date to measure the gap against \u2014 so a committed outcome never asserts a route nobody read. Deliberately a separate marker rather than a relabel: `actual_disposition` stays as recorded, which is what keeps the merits population and every disposition figure fixed across the field's introduction",
+      "title": "Disposition Route"
+    },
     "event_id": {
       "title": "Event Id",
       "type": "string"
+    },
+    "interim_signals": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InterimResolutionSignals"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The interim docket's escalation signals frozen as at resolution \u2014 the interim twin of `signals`, and never populated beside it: the two blocks describe different dockets. Present iff the application was application-parsed (`CorpusRow.application_kind` non-null is the coverage sentinel for the whole interim signal family, exactly as `distribution_count` is for the cert one) and every latched value was observed. Absent means not observed, never observed-as-false"
     },
     "judgment": {
       "anyOf": [
@@ -194,6 +253,19 @@
       ],
       "default": null,
       "description": "What the Court did to the judgment below \u2014 the merits axis, kept off the cert disposition vocabulary because a DIG has no coherent value on the grant binary. Null on a cert-stage outcome, which has no judgment to record"
+    },
+    "noted_dissent_from_denial": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Whether the denied petition's order text records any noted dissent from, or statement respecting, the denial \u2014 aggregated existence only, never which Justice. Null means no retained order text was assessed, which false has to stay distinguishable from: most of the ledger carries no payload, and reading absence as 'nobody dissented' would invent an observation, exactly as an absent `signals` block does",
+      "title": "Noted Dissent From Denial"
     },
     "resolved_at": {
       "format": "date",

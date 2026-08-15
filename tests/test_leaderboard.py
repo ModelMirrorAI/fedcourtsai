@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai import process_version
@@ -26,9 +27,10 @@ from fedcourtsai.leaderboard import (
     evaluator_agreement,
     kendall_tau_b,
     skill_components,
+    stage_moment_key,
 )
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.moments import first_moment
+from fedcourtsai.pipeline.moments import first_moment, moments_for
 from fedcourtsai.schemas import (
     BaseRateBucket,
     BigCaseAssessment,
@@ -40,6 +42,7 @@ from fedcourtsai.schemas import (
     Evaluation,
     EventKind,
     Leaderboard,
+    LeaderboardEntry,
     Moment,
     Outcome,
     PredictableEvent,
@@ -66,6 +69,12 @@ Cell = tuple[Evaluation, Stratum, Stage | None, Moment | None]
 #: fixture that names a stage cannot accidentally pair it with another stage's
 #: moment.
 _DERIVE: Any = object()
+
+#: The declared first moment of each stage that the vote gate turns on, read off
+#: the register: `vote_accuracy` aggregates only where the *event* is a merits
+#: moment, so a fixture asserting either side of that has to name a real id.
+_MERITS_EVENT_ID = moments_for(Stage.merits)[0].event_id
+_CERT_EVENT_ID = moments_for(Stage.cert)[0].event_id
 
 
 def _moment_for(stage: Stage | None, moment: Moment | None) -> Moment | None:
@@ -256,14 +265,78 @@ def test_ranking_orders_by_forward_then_retrospective() -> None:
 
 def test_missing_optionals_average_only_over_present() -> None:
     cells = [
-        _forward(_evaluation("alpha", brier_score=0.2, vote_accuracy=None, reasoning_quality=None)),
-        _forward(_evaluation("alpha", brier_score=None, vote_accuracy=0.5, reasoning_quality=0.6)),
+        _forward(_evaluation("alpha", brier_score=0.2, reasoning_quality=None)),
+        _forward(_evaluation("alpha", brier_score=None, reasoning_quality=0.6)),
     ]
     stratum = build_leaderboard(cells).entries[0].forward
     assert stratum is not None
     assert stratum.mean_brier_score == 0.2
-    assert stratum.mean_vote_accuracy == 0.5
     assert stratum.mean_reasoning_quality == 0.6
+
+
+def test_vote_accuracy_averages_only_over_present_on_the_merits_moment() -> None:
+    """The same missing-optional rule for the one column that carries a stage gate.
+
+    `vote_accuracy` aggregates like every other optional — over the cells that
+    report it, never zero-filled — but only where the moment scores votes, so
+    the population it averages over is pinned on the merits block rather than
+    the ranked cert board.
+    """
+    cells = [
+        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=None), Stage.merits),
+        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5), Stage.merits),
+    ]
+    block = build_leaderboard(cells).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    stratum = block.entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 2
+    assert stratum.mean_vote_accuracy == 0.5
+
+
+def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
+    """The stage gate at the aggregate, where the prohibition actually bites.
+
+    An individual cert vote is never scored (`docs/decision-model.md`), and the
+    board reads committed `Evaluation` records — so the per-cell gate cannot
+    speak for a record written before it existed or by an evaluator that
+    computed the field itself. A cert-moment evaluation carrying a populated
+    `vote_accuracy` still leaves the ranked board's `mean_vote_accuracy` null,
+    while the identical figure on the merits moment aggregates. Remove the gate
+    in `pipeline.moments.scores_votes` and the first assertion reads 0.5.
+    """
+    cert = _evaluation("alpha", event_id=_CERT_EVENT_ID, vote_accuracy=0.5)
+    ranked = build_leaderboard([_forward(cert)]).entries[0].forward
+    assert ranked is not None
+    assert ranked.evaluations == 1  # the cell still counts; only its votes do not
+    assert ranked.mean_vote_accuracy is None
+
+    merits = _evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5)
+    block = build_leaderboard([_forward(merits, Stage.merits)]).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    scored = block.entries[0].forward
+    assert scored is not None
+    assert scored.mean_vote_accuracy == 0.5
+
+
+def test_the_vote_gate_reads_the_cell_not_the_block_it_landed_in() -> None:
+    """The gate keys on the cell's own event, never on its block's stage.
+
+    An undeclared event stratified into the merits block is still denied: the
+    register is the authority on stage, and the join that placed the cell is
+    not. Without this the aggregate could be rewritten to trust the block —
+    cheaper, and wrong in exactly the direction the prohibition guards.
+    """
+    stray = _evaluation("alpha", event_id="evt-motion-stay", vote_accuracy=0.5)
+    block = build_leaderboard([_forward(stray, Stage.merits)]).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    stratum = block.entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 1  # the cell aggregates; only its votes do not
+    assert stratum.mean_vote_accuracy is None
 
 
 def test_all_optionals_absent_stay_none() -> None:
@@ -758,58 +831,17 @@ def _disturbed_block(baseline: float | None) -> ClaimScoreBlock:
     )
 
 
-def test_a_merits_cell_is_dropped_when_its_baseline_disagrees_with_the_harness(
-    tmp_path: Path,
-) -> None:
-    """A merits cell's hand-pooled `segment_base_rate` is cross-checked, not trusted.
+def test_no_cell_is_cross_checked_against_its_claim_baseline(tmp_path: Path) -> None:
+    """A claim baseline that disagrees with `segment_base_rate` drops no cell.
 
-    The evaluator pools the merits baseline by hand while the harness pools the
-    identical quantity for the `judgment-disturbed` claim. A cell whose
-    `segment_base_rate` matches the harness block is kept; one that diverges is
-    dropped — visibly, in `skill_scored` — rather than ranked on a baseline the
-    harness never sanctioned. Both cells reproduce their own recorded skill, so
-    only the cross-check separates them.
-    """
-    # Outcome granted -> baseline Brier (0.4 - 1)**2 = 0.36, implied skill
-    # 1 - 0.25/0.36 = 0.3056; both cells record a self-consistent skill.
-    agrees = _evaluation(
-        "alpha",
-        event_id="evt-agree",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=_disturbed_block(0.4),
-    )
-    diverges = _evaluation(
-        "alpha",
-        event_id="evt-diverge",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        # A wrong-pool-magnitude divergence (~0.02, a lookback-window mistake),
-        # not a several-fold one, so the fixture bites at the merits tolerance
-        # rather than passing under a loose one.
-        claim_scores=_disturbed_block(0.42),
-    )
-    _write_cell(tmp_path, agrees, stage=Stage.merits)
-    _write_cell(tmp_path, diverges, stage=Stage.merits)
-    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
-    scored = {
-        key[1]: cell.prior_term_baseline
-        for key, cell in skill_components(cells, tmp_path, None).items()
-        if cell.prior_term_baseline is not None
-    }
-    assert scored == {"evt-agree": pytest.approx(0.36)}
-
-
-def test_a_cert_cell_is_never_cross_checked_against_its_claim_baseline(tmp_path: Path) -> None:
-    """The merits cross-check is merits-only, keyed on the judgment-disturbed row.
-
-    A cert cell's `disposition` claim baseline is a genuinely different pool
-    from its `segment_base_rate` (risk-set band rate vs the terminal-basis rate
-    the prompt sanctions), so cross-checking it would false-drop legitimately
-    graded cells. A cert cell whose claim block carries no judgment-disturbed
-    row is never cross-checked — it survives on internal coherence alone.
+    On a **cert** cell the two are genuinely different pools — the disposition
+    claim's against the terminal-basis rate the prompt sanctions — so checking
+    one against the other would false-drop legitimately graded cells. On a
+    **merits** cell they are one quantity that `stamp-cell` writes from one
+    pooler, so a divergence between two committed records is a stale artifact
+    rather than evidence about the rate. Internal coherence is the only gate
+    either stage passes through, and both cells here reproduce their own
+    recorded skill.
     """
     cert = _evaluation(
         "alpha",
@@ -824,64 +856,29 @@ def test_a_cert_cell_is_never_cross_checked_against_its_claim_baseline(tmp_path:
             claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
         ),
     )
+    # A merits cell whose judgment-disturbed baseline diverges by a wrong-pool
+    # magnitude (~0.02, the size a different lookback window moves it). It stays
+    # scored: the rate is the harness's own, not arithmetic to second-guess.
+    merits = _evaluation(
+        "alpha",
+        event_id="evt-merits",
+        brier_score=0.25,
+        segment_base_rate=0.4,
+        brier_skill_score=1 - 0.25 / 0.36,
+        claim_scores=_disturbed_block(0.42),
+    )
     _write_cell(tmp_path, cert, stage=Stage.cert)
+    _write_cell(tmp_path, merits, stage=Stage.merits)
     cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
     scored = {
-        key[1]
+        key[1]: cell.prior_term_baseline
         for key, cell in skill_components(cells, tmp_path, None).items()
         if cell.prior_term_baseline is not None
     }
-    assert scored == {"evt-cert"}
-
-
-def test_a_merits_cell_without_a_harness_block_rests_on_internal_coherence(
-    tmp_path: Path,
-) -> None:
-    """No harness baseline to check against -> the cross-check is a no-op, not a drop.
-
-    A merits cell whose claim block is absent (or whose judgment-disturbed row
-    carries no baseline) keeps the same treatment a cert cell gets: the
-    internal-coherence check alone. The cross-check only ever removes cells the
-    harness actively contradicts.
-    """
-    no_block = _evaluation(
-        "alpha",
-        event_id="evt-no-block",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-    )
-    null_baseline = _evaluation(
-        "alpha",
-        event_id="evt-null-baseline",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=_disturbed_block(None),
-    )
-    # A block present but carrying no judgment-disturbed row (the lookup's
-    # trailing None path) — also nothing to check against.
-    other_claim = _evaluation(
-        "alpha",
-        event_id="evt-other-claim",
-        brier_score=0.25,
-        segment_base_rate=0.4,
-        brier_skill_score=1 - 0.25 / 0.36,
-        claim_scores=ClaimScoreBlock(
-            declared_set_version="cert-v1",
-            claims=[ClaimScore(claim_id="disposition", probability=0.7, baseline=0.9)],
-        ),
-    )
-    _write_cell(tmp_path, no_block, stage=Stage.merits)
-    _write_cell(tmp_path, null_baseline, stage=Stage.merits)
-    _write_cell(tmp_path, other_claim, stage=Stage.merits)
-    cells = iter_stratified_evaluations(tmp_path, frozen_only=False)
-    scored = {
-        key[1]
-        for key, cell in skill_components(cells, tmp_path, None).items()
-        if cell.prior_term_baseline is not None
+    assert scored == {
+        "evt-cert": pytest.approx(0.36),
+        "evt-merits": pytest.approx(0.36),
     }
-    assert scored == {"evt-no-block", "evt-null-baseline", "evt-other-claim"}
 
 
 def test_skill_components_omits_a_band_under_the_minimum(tmp_path: Path) -> None:
@@ -1576,3 +1573,467 @@ def test_latest_prediction_keys_on_the_harness_stamp(tmp_path: Path) -> None:
     latest = _latest_prediction(data_root / "cases", ev.case_id, ev.event_id, ev.predictor_id)
 
     assert latest is not None and latest.run_id == "p0"
+
+
+# --- run collapse: one grading per cell per judge ---------------------------------
+
+
+def _graded_at(day: int) -> ProcessVersion:
+    """A harness stamp on the given June day — the clock a collapse orders on."""
+    return ProcessVersion(
+        label="proc-v2", digest="sha256:any", stamped_at=datetime(2026, 6, day, tzinfo=UTC)
+    )
+
+
+def test_a_regraded_cell_counts_once_in_the_aggregates(tmp_path: Path) -> None:
+    """A re-graded cell is one observation, not two.
+
+    Both gradings stay committed, so counting both would reweight the
+    predictor's standing with no trace: accuracy and Brier drawn as a two-cell
+    mean over one cell, and `evaluations` running ahead of `events_scored`
+    without a second judge to explain it.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha", run_id="r1", correct=1, brier_score=0.1, process_version=_graded_at(1)
+        ),
+    )
+    _write(
+        data_root,
+        _evaluation(
+            "alpha", run_id="r2", correct=0, brier_score=0.4, process_version=_graded_at(2)
+        ),
+    )
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.evaluations_total == 1
+    (entry,) = board.entries
+    assert entry.evaluators == 1
+    forward = entry.forward
+    assert forward is not None
+    assert (forward.evaluations, forward.events_scored) == (1, 1)
+    # The newest grading alone, not a blend of the two.
+    assert forward.accuracy == 0.0
+    assert forward.mean_brier_score == pytest.approx(0.4)
+
+
+def test_the_surviving_grading_keys_on_the_harness_clock(tmp_path: Path) -> None:
+    # The later *agent-written* created_at sits on the earlier-stamped run, so a
+    # collapse that trusted the agent clock would keep the superseded grading —
+    # and the clock the agent controls would pick which grading counts.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha",
+            run_id="r1",
+            created_at=datetime(2026, 6, 30, tzinfo=UTC),
+            process_version=_graded_at(1),
+        ),
+    )
+    _write(
+        data_root,
+        _evaluation(
+            "alpha",
+            run_id="r2",
+            created_at=datetime(2026, 6, 2, tzinfo=UTC),
+            process_version=_graded_at(20),
+        ),
+    )
+
+    cells = iter_stratified_evaluations(data_root, frozen_only=False)
+
+    assert [ev.run_id for ev, *_ in cells] == ["r2"]
+
+
+def test_a_naive_and_aware_created_at_mix_cannot_raise(tmp_path: Path) -> None:
+    # Agent-written created_at carries no offset guarantee, so two unstamped
+    # gradings of one cell can mix naive and aware clocks. They must still
+    # order (naive reads as UTC) rather than raising out of the compare.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", run_id="r1", created_at=datetime(2026, 6, 1)))
+    _write(
+        data_root, _evaluation("alpha", run_id="r2", created_at=datetime(2026, 6, 2, tzinfo=UTC))
+    )
+
+    cells = iter_stratified_evaluations(data_root, frozen_only=False)
+
+    assert [ev.run_id for ev, *_ in cells] == ["r2"]
+
+
+def test_the_collapse_never_crosses_evaluators(tmp_path: Path) -> None:
+    # Evaluator multiplicity is the panel, not a duplicate: two judges reading
+    # one prediction are two observations and both must count, or the panel
+    # means and the `evaluators` column stop measuring anything.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    (entry,) = board.entries
+    assert entry.evaluators == 2
+    forward = entry.forward
+    assert forward is not None
+    assert (forward.evaluations, forward.events_scored) == (2, 1)
+
+
+def test_the_collapse_runs_inside_the_scope_it_is_read_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A re-grade the scope excludes cannot take the in-scope grading with it.
+
+    Collapsing before the scope gate would drop the cell from the frozen board
+    outright — the newer shakedown run wins the collapse, then fails the gate —
+    so an unblessed re-grade would delete a frozen observation.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_frozen_stamp()),
+        process_version=_frozen_stamp(),
+    )
+    # Unstamped: newer on the clock, but outside the frozen scope.
+    _write(data_root, _evaluation("alpha", run_id="r2"))
+
+    assert [ev.run_id for ev, *_ in iter_stratified_evaluations(data_root)] == ["r1"]
+    # Pooled, the re-grade is in scope and supersedes.
+    pooled = iter_stratified_evaluations(data_root, frozen_only=False)
+    assert [ev.run_id for ev, *_ in pooled] == ["r2"]
+
+
+def test_the_board_publishes_how_many_gradings_the_collapse_dropped(tmp_path: Path) -> None:
+    """A re-grade leaves no other mark, so the count is the whole audit trail.
+
+    Every figure on the board is taken after the collapse, and the survivor
+    carries nothing saying it superseded anything — so without this count a
+    maintainer-reachable re-grade could move a standing with no published
+    trace that it happened.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", correct=1, process_version=_graded_at(1)),
+    )
+    _write(data_root, _evaluation("alpha", run_id="r2", correct=0, process_version=_graded_at(2)))
+
+    run = stratify(data_root, frozen_only=False)
+    board = build_leaderboard(run.cells, superseded_gradings=run.superseded)
+
+    assert run.superseded == 1
+    assert board.superseded_gradings == 1
+    # And it is an audit line beside the counts, never a term inside them.
+    assert board.evaluations_total == 1
+
+
+def test_a_second_judge_is_not_a_superseded_grading(tmp_path: Path) -> None:
+    # The collapse never crosses evaluators, so neither may its count: a panel
+    # reading one cell is several observations, not a re-grade.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    assert stratify(data_root, frozen_only=False).superseded == 0
+
+
+def test_the_superseded_count_is_scoped_like_the_board_it_sits_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Counted after the scope gate, exactly where the collapse runs.
+
+    A re-grade the frozen scope excludes never displaces the frozen grading,
+    so it superseded nothing *on that board* and must not appear in its audit
+    line — while the pooled board, which the re-grade is in scope for, counts
+    it. One ledger, two honest numbers.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_frozen_stamp()),
+        process_version=_frozen_stamp(),
+    )
+    # Unstamped: newer on the clock, but outside the frozen scope.
+    _write(data_root, _evaluation("alpha", run_id="r2"))
+
+    assert stratify(data_root).superseded == 0
+    assert stratify(data_root, frozen_only=False).superseded == 1
+
+
+def test_the_superseded_count_is_taken_before_the_forward_claim_exclusion(
+    tmp_path: Path,
+) -> None:
+    """Its population is the scope gate's, which is wider than the board's.
+
+    The count is taken where the collapse runs, and the forward-claim exclusion
+    runs after — so a supersession of a cell the exclusion then drops is
+    counted while the cell itself reaches no block. That is a live population
+    statement the published contract makes, and it must fail here if the count
+    ever moves behind the exclusion.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_graded_at(1)),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+    _write(data_root, _evaluation("alpha", run_id="r2", process_version=_graded_at(2)))
+
+    run = stratify(data_root, frozen_only=False)
+    board = build_leaderboard(run.cells, process_scope="all", superseded_gradings=run.superseded)
+
+    assert len(run.excluded) == 1
+    assert run.cells == []
+    assert (board.predictors_ranked, board.evaluations_total) == (0, 0)
+    assert board.superseded_gradings == 1
+
+
+def test_unequal_scored_set_coverage_is_readable_off_the_board(tmp_path: Path) -> None:
+    """The per-predictor coverage row: a differential scored set is visible.
+
+    Grading is gated per event, so a predictor whose cells landed after its
+    events were graded is ranked over a subset of the board's scored events.
+    The board's own count is the union — never the sum — so an entry below it
+    was ranked over a different population than one at it.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-b"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.events_scored == 2
+    coverage = {entry.predictor_id: entry.events_scored for entry in board.entries}
+    assert coverage == {"alpha": 2, "beta": 1}
+
+
+def test_coverage_counts_events_not_gradings(tmp_path: Path) -> None:
+    """A second judge deepens the panel; it does not widen the scored set.
+
+    Counting gradings here would make panel depth read as coverage, and a
+    predictor that drew two judges on one event would appear to cover twice the
+    ground of one that drew a single judge on the same event.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    (entry,) = board.entries
+    assert (board.events_scored, entry.events_scored) == (1, 1)
+    forward = entry.forward
+    assert forward is not None
+    # Equal coverage over unequal panel depth is exactly the residual the
+    # coverage check does not certify, so the two counts must stay distinct.
+    assert forward.evaluations == 2
+
+
+def test_a_coverage_denominator_below_its_entries_is_refused() -> None:
+    """The comparability check must not be able to fail open.
+
+    It reads `entry.events_scored < covered`, so a denominator left below its
+    entries reports every entry as fully covered — silence that looks exactly
+    like even coverage. An entry's events are a subset of the union, so the
+    shape is unreachable from real cells and the model refuses it outright.
+    """
+    entry = LeaderboardEntry(predictor_id="alpha", rank=1, evaluators=1, events_scored=3)
+    with pytest.raises(ValidationError, match="events_scored 1 is below alpha's 3"):
+        Leaderboard(predictors_ranked=1, evaluations_total=3, events_scored=1, entries=[entry])
+
+
+def test_a_stage_block_denominates_its_own_coverage(tmp_path: Path) -> None:
+    # A non-cert population is scored on its own events, so pooling it into the
+    # cert denominator would make every stage entry read as short coverage.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id=_MERITS_EVENT_ID), stage=Stage.merits)
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.events_scored == 1
+    merits = board.stages[stage_moment_key(Stage.merits, first_moment(Stage.merits))]
+    assert merits.events_scored == 1
+    assert [entry.events_scored for entry in merits.entries] == [1]
+
+
+def test_cli_warns_when_the_scored_sets_are_unequal(tmp_path: Path) -> None:
+    # The hazard has to be loud at build time: a reader comparing two engines
+    # off this board must not have to subtract the coverage counts to find out
+    # that the comparison is over different populations.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-b"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "leaderboard [cert]: unequal scored-set coverage" in result.output
+    assert "beta 1/2" in result.output
+
+
+def test_cli_warns_per_population_not_against_the_cert_union(tmp_path: Path) -> None:
+    """A stage block is warned on against its own denominator.
+
+    Measuring a merits entry against the cert union would report short coverage
+    for every non-cert entry there is — the populations are scored on different
+    events, so only a within-population comparison means anything.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id=_MERITS_EVENT_ID), stage=Stage.merits)
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    # Both cert entries cover the cert set; the merits block holds one predictor
+    # covering its one event. Neither population is short, and `beta`'s absence
+    # from the merits block is not a coverage shortfall in it.
+    assert "unequal scored-set coverage" not in result.output
+
+
+def test_cli_stays_quiet_when_every_predictor_covers_the_scored_set(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "unequal scored-set coverage" not in result.output
+
+
+def _write_big_case_read(
+    data_root: Path,
+    predictor_id: str,
+    case_id: str,
+    evaluator_id: str,
+    run_id: str,
+    score: float,
+) -> None:
+    """One judge's big-case read on an existing cell, under its own run id."""
+    court, _, docket = case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event("evt-petition-disposition")
+    write_json(
+        event.evaluation(evaluator_id, predictor_id, run_id),
+        Evaluation(
+            case_id=case_id,
+            event_id="evt-petition-disposition",
+            predictor_id=predictor_id,
+            evaluator_id=evaluator_id,
+            engine=Engine.claude_code,
+            run_id=run_id,
+            # Later than `_write_big_case_cell`'s reads, which is what makes
+            # this the re-grade rather than the superseded read.
+            created_at=datetime(2026, 6, 25, tzinfo=UTC),
+            correct=1,
+            big_case=BigCaseAssessment(evaluator_score=score),
+        ),
+    )
+
+
+def test_big_case_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
+    """A judge that re-graded a cell contributes one read to the panel mean.
+
+    Weighted twice, its superseded read drags the case's panel mean and can
+    invert the predictor's ordering against the panel — here from +1 to -1.
+    """
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.0, 1.0])
+    _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 1.0)
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.8, 0.8])
+
+    result = big_case_agreement(data_root, frozen_only=False)
+
+    # Panel mean 1.0 on case 1 (not 0.667 over three reads) keeps it above
+    # case 2's 0.8, so the predictor's ordering is concordant with the panel's.
+    assert result["p"].cases == 2
+    assert result["p"].rank_agreement == 1.0
+
+
+def test_evaluator_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
+    """The leave-one-out comparison sees each judge's current read, once.
+
+    A superseded read sits inside the judge's own mean *and* every peer's
+    peer-mean. Here it would tie eval-0 across both cases on its own axis,
+    which is tau-b's undefined case — a coefficient lost to a re-grade.
+    """
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[1.0, 0.0])
+    _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 0.0)
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.5, eval_scores=[0.5, 0.5])
+
+    result = evaluator_agreement(data_root, frozen_only=False)
+
+    assert result["eval-0"].events == 2
+    assert result["eval-0"].rank_agreement == 1.0
+
+
+def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shakedown re-grade must not delete a frozen big-case read.
+
+    The reachable shape is a local re-run: the re-grade is unstamped, so its
+    `created_at` fallback clocks newer than the frozen grading's harness stamp
+    while failing `graded_post_freeze`. Collapsing before the scope gate would
+    hand the collapse to the shakedown run and then drop it at the gate, taking
+    the frozen read out of the frozen board with it — so the frozen view keeps
+    the frozen reads, and only the pooled view sees the re-grade.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    for case_id, score in (("ca9/1", 0.9), ("ca9/2", 0.1)):
+        _write_cell(
+            data_root,
+            _evaluation(
+                "alpha",
+                case_id=case_id,
+                run_id="r1",
+                process_version=_frozen_stamp(),
+                big_case=BigCaseAssessment(evaluator_score=score),
+            ),
+            process_version=_frozen_stamp(),
+            big_case_score=score,
+        )
+    # Unstamped re-grade of the first case, inverting that judge's read.
+    _write(
+        data_root,
+        _evaluation(
+            "alpha",
+            case_id="ca9/1",
+            run_id="r2",
+            big_case=BigCaseAssessment(evaluator_score=0.0),
+        ),
+    )
+
+    frozen = big_case_agreement(data_root)
+    pooled = big_case_agreement(data_root, frozen_only=False)
+
+    # Frozen: the r1 reads order with the predictor's own scores.
+    assert frozen["alpha"].cases == 2
+    assert frozen["alpha"].rank_agreement == 1.0
+    # Pooled: the re-grade is in scope, supersedes, and inverts the ordering.
+    assert pooled["alpha"].cases == 2
+    assert pooled["alpha"].rank_agreement == -1.0

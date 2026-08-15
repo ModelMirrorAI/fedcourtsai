@@ -30,9 +30,33 @@ unranked ``<stage>@<moment>`` block. Never pooled: ``granted`` answers a
 different question at each stage, and a later moment answers the same question
 with strictly more evidence.
 
+Every figure counts one grading per cell per judge. A re-graded cell commits a
+second ``evaluation.json`` beside the first, so the ledger reads collapse on
+``(case, event, predictor, evaluator)`` — newest by harness clock
+(:func:`fedcourtsai.integrity.latest_evaluation_runs`) — before any count, mean,
+or correlation: the stratified join does it for the score aggregates, and
+:func:`_scoped_evaluations` for the two agreement views, which read the ledger
+directly. Never across evaluators, whose multiplicity is the panel the
+``evaluators`` count and both agreement views measure. The board then publishes
+how many gradings that collapse dropped (``superseded_gradings``), because a
+survivor looks exactly like a cell that was only ever graded once: without the
+count, a maintainer-reachable re-grade could move a standing and leave no mark
+on any artifact.
+
+Coverage is published beside the ranking for the same reason. Grading is gated
+at ``(evaluator, event)`` grain, so the scored set is selected rather than
+sampled: a prediction committed after a judge graded its event is never scored
+by that judge, and an engine whose cells backfill late is ranked over fewer
+events than one that ran on time. Each entry carries its ``events_scored`` and
+its population carries the union across entries, so unequal coverage is readable
+off the artifact before any cross-engine comparison rests on it — nothing here
+adjusts a rank or a mean for it. Equality is necessary and not sufficient: it
+certifies the same event *set*, never the same stratum mix or panel depth, so
+the check refuses a comparison rather than blessing one.
+
 Skill is reported twice, against two baselines that answer different questions
-and are never combined. The evaluator's recorded ``brier_skill_score`` scores
-against the **strictly-prior** pooled band rate: leakage-safe, the primary
+and are never combined. The cell's recorded ``brier_skill_score`` scores
+against the **strictly-prior** pooled rate: leakage-safe, the primary
 outcome measure, and the only one that may rank.
 :func:`skill_components` adds the ex-post complement — the same band scored
 against the rate the case's own Term realized — computed at render rather than
@@ -45,7 +69,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -56,10 +80,10 @@ from .integrity import (
     RETROSPECTIVE,
     StratifiedCell,
     cell_clock,
+    latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
-from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
-from .pipeline.moments import first_moment
+from .pipeline.moments import first_moment, scores_votes
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
@@ -183,6 +207,17 @@ def _aggregate(
     column's population is left out of that column entirely rather than entered
     as a zero, and each column publishes its own ``*_scored`` denominator. The
     two are never combined — different baselines, different questions.
+
+    ``mean_vote_accuracy`` takes the same stage gate the per-cell figure does
+    (:func:`fedcourtsai.pipeline.moments.scores_votes`), applied here to the
+    cell's own event rather than inherited from the block it landed in. The
+    aggregate is what the prohibition on scoring a cert vote actually bites on —
+    a ranked total is the thing an unscored quantity must not reach — and this
+    board reads committed ``Evaluation`` records, including any written before
+    the per-cell gate existed or by an evaluator that computed the field itself.
+    So the ranked cert board cannot publish a vote mean whatever its cells
+    carry, and the recomputation is not a duplicate of the per-cell check but
+    the only one that holds over records this module did not produce.
     """
     if not evals:
         return None
@@ -210,7 +245,11 @@ def _aggregate(
         population_realized_term_skill_score=_skill_of_means(realized),
         realized_term_skill_scored=len(realized),
         mean_vote_accuracy=_mean(
-            [ev.vote_accuracy for ev in evals if ev.vote_accuracy is not None]
+            [
+                ev.vote_accuracy
+                for ev in evals
+                if ev.vote_accuracy is not None and scores_votes(ev.event_id)
+            ]
         ),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
@@ -283,6 +322,36 @@ def kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
     return (concordant - discordant) / denominator
 
 
+def _scoped_evaluations(
+    cases_dir: Path, *, in_scope: Callable[[Evaluation], bool]
+) -> list[Evaluation]:
+    """The committed evaluations a scope admits, one run per cell per judge.
+
+    The agreement views read the ledger directly rather than through the
+    stratified join (they need every big-case read, scored cell or not), so the
+    run collapse the join applies is applied here too: a re-graded cell commits
+    a second ``evaluation.json`` describing one observation, and counting both
+    would enter one judge's read of a case twice into a panel mean and a
+    leave-one-out comparison.
+
+    ``in_scope`` runs **first**, so the survivor of the collapse is the newest
+    grading the scope admits rather than the newest grading that exists — the
+    same ordering ``store.stratify`` uses, which is what keeps the frozen board
+    and the frozen agreement views over one set of cells.
+
+    The caller's big-case filter runs **after**, which is the deliberate
+    reading of what a re-grade means: a judge that re-graded a cell without
+    recording a stakes read has no current read of it, so the cell leaves the
+    panel rather than falling back to the read the re-grade superseded.
+    """
+    scoped: list[Evaluation] = []
+    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        evaluation = read_model(path, Evaluation)
+        if in_scope(evaluation):
+            scoped.append(evaluation)
+    return latest_evaluations(scoped)
+
+
 def big_case_agreement(
     data_root: Path, *, frozen_only: bool = True
 ) -> dict[str, BigCaseLeaderboard]:
@@ -304,17 +373,22 @@ def big_case_agreement(
     produced by a frozen process, and only reads whose evaluation carries a harness stamp at or
     after the freeze instant, so this section defaults to the frozen headline exactly like the
     score aggregates — a shakedown big-case read never rides alongside a
-    frozen-only board, even where its event was later re-run frozen.
+    frozen-only board, even where its event was later re-run frozen. Within
+    that scope each judge contributes one read per cell
+    (:func:`_scoped_evaluations`), so a re-graded cell cannot weight its own
+    judge twice inside the panel mean.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return {}
     reads: dict[tuple[str, str, str], list[float]] = defaultdict(list)
-    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
+    for evaluation in _scoped_evaluations(
+        cases_dir,
+        in_scope=lambda evaluation: (
+            not frozen_only or graded_post_freeze(evaluation.process_version)
+        ),
+    ):
         if evaluation.big_case is None:
-            continue
-        if frozen_only and not graded_post_freeze(evaluation.process_version):
             continue
         key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
         reads[key].append(evaluation.big_case.evaluator_score)
@@ -398,7 +472,10 @@ def evaluator_agreement(
     Shares :func:`big_case_agreement`'s ``frozen_only`` semantics, keyed on the
     *prediction's* stamp, **and its collapse to the case**, so both agreement
     views cover the same cells and can be read side by side. Collapsing only one
-    of them would silently break that.
+    of them would silently break that. It shares the run collapse for the same
+    reason and one of its own: a re-graded cell would otherwise enter one
+    judge's read twice into its own mean *and* into every peer's leave-one-out
+    comparison.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -411,16 +488,19 @@ def evaluator_agreement(
     # `big_case_agreement` collapses: stakes are a property of the case, so two
     # moments would put two non-independent points into one correlation.
     reads: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
-        if evaluation.big_case is None:
-            continue
-        if frozen_only and not (
-            graded_post_freeze(evaluation.process_version)
-            and _latest_prediction_is_frozen(
-                cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+    for evaluation in _scoped_evaluations(
+        cases_dir,
+        in_scope=lambda evaluation: (
+            not frozen_only
+            or (
+                graded_post_freeze(evaluation.process_version)
+                and _latest_prediction_is_frozen(
+                    cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+                )
             )
-        ):
+        ),
+    ):
+        if evaluation.big_case is None:
             continue
         reads[evaluation.case_id][evaluation.evaluator_id].append(
             evaluation.big_case.evaluator_score
@@ -456,14 +536,13 @@ def skill_components(
     ``actual_granted`` nor can the ratio recover it. See :class:`CellSkill` for
     why the terms travel rather than the ratios.
 
-    **The prior-Term column** takes the baseline the evaluator recorded
+    **The prior-Term column** takes the baseline the cell records
     (``segment_base_rate``) over the population it already had: cells whose
     ``brier_skill_score`` is non-null, which the schema ties to a recorded rate
-    and Brier. Only where its aggregation happens changes — plus the two drops
+    and Brier. Only where its aggregation happens changes — plus the one drop
     :func:`_prior_baseline` adds: a cell whose recorded skill and recorded
-    inputs disagree, and a merits cell whose recorded rate contradicts the
-    harness's own pooled merits baseline. Both are omissions from
-    ``skill_scored``, never a substituted value.
+    inputs disagree. An omission from ``skill_scored``, never a substituted
+    value.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)
@@ -550,41 +629,13 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #: carry three decimals), tight enough that a skill taken against a different
 #: band cannot pass — band rates differ several-fold, so a mismatch moves the
 #: score far further than this.
+#:
+#: On the stages where ``stamp-cell`` writes the whole skill record (merits and
+#: interim: the Brier, the base rate, and the ratio over them) the check passes
+#: by construction — all three come from one set of inputs — so what it guards
+#: in practice is the **cert** cell, whose three are the evaluator's own
+#: arithmetic.
 _SKILL_COHERENCE_TOLERANCE = 1e-2
-
-#: How far the evaluator's recorded merits ``segment_base_rate`` may sit from the
-#: harness's own pooled merits baseline before :func:`_prior_baseline` drops the
-#: cell. Tighter than the coherence tolerance above because both sides pool the
-#: *same* integer counts, so they agree to the record's 3-decimal precision — a
-#: gap this small is a rounding artifact, a larger one a genuinely different
-#: pool (a wrong lookback window, say). It cannot, at any tolerance the 3-decimal
-#: record supports, catch a one-Term axis shift, whose effect on a pooled rate is
-#: ~5e-4; that error class is the durable fix's to remove (harness-stamp the
-#: rate), not this sampling check's to detect.
-_MERITS_BASELINE_TOLERANCE = 1e-3
-
-
-def _harness_merits_baseline(evaluation: Evaluation) -> float | None:
-    """The harness's own merits baseline for this cell, off its claim block.
-
-    A merits cell's ``segment_base_rate`` is the **evaluator's** hand-pooled
-    read of the statpack merits section, while the harness independently pools
-    the identical quantity for the ``judgment-disturbed`` claim
-    (:func:`fedcourtsai.pipeline.base_rates.merits_base_rate`, the public seam the
-    claim baseline uses) and
-    records it on the ``claim_scores`` block. A ``judgment-disturbed`` row is
-    itself the merits marker — the claim set keys on the minted merits event —
-    so this doubles as "is this a merits cell to cross-check". ``None`` when the
-    block or the row is absent, or the row carries no baseline — nothing to
-    check against.
-    """
-    block = evaluation.claim_scores
-    if block is None:
-        return None
-    for row in block.claims:
-        if row.claim_id == CLAIM_JUDGMENT_DISTURBED:
-            return row.baseline
-    return None
 
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
@@ -603,19 +654,14 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     rather than published on a baseline it was never graded against. Harness
     output always agrees; a stale or hand-written record need not.
 
-    A **merits** cell carries a second, stronger check, keyed on the presence of
-    a harness ``judgment-disturbed`` baseline (the merits marker — a null stage
-    on a merits event would slip a stage test, but the claim row cannot). Its
-    ``segment_base_rate`` is the evaluator's hand-pooled read of the statpack
-    merits section, and nothing in the record ties it to the truth — but the
-    harness pools the identical quantity for that claim. The two must agree
-    within :data:`_MERITS_BASELINE_TOLERANCE`; a cell whose hand-arithmetic
-    contradicts the harness is dropped rather than ranked on a baseline the
-    harness never sanctioned. This catches a wrong pool (a different lookback),
-    not a one-Term axis shift, which is below the check's resolution — see the
-    tolerance. Where the harness recorded no baseline (no block, an unscored
-    claim, or a refusal it made and the evaluator did not) there is nothing to
-    check against and the cell rests on the internal-coherence check alone.
+    That check is the only one, and it is enough because the numbers are the
+    evaluator's word only where a judgment had to be made: on merits and interim
+    cells ``stamp-cell`` writes all three together — the Brier from the scored
+    prediction and the outcome, the rate from the statpack
+    (:func:`fedcourtsai.cli._skill_record_for`) — so no hand-computed number can
+    reach the board to be caught, and the check passes trivially. On a **cert**
+    cell all three are the evaluator's arithmetic against its own frozen band,
+    and this is what stands between that arithmetic and the published column.
     """
     recorded_rate = evaluation.segment_base_rate
     if (
@@ -633,14 +679,6 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
         evaluation.brier_skill_score,
         rel_tol=_SKILL_COHERENCE_TOLERANCE,
         abs_tol=_SKILL_COHERENCE_TOLERANCE,
-    ):
-        return None
-    harness = _harness_merits_baseline(evaluation)
-    if harness is not None and not math.isclose(
-        harness,
-        recorded_rate,
-        rel_tol=_MERITS_BASELINE_TOLERANCE,
-        abs_tol=_MERITS_BASELINE_TOLERANCE,
     ):
         return None
     return baseline
@@ -695,6 +733,19 @@ def _stratum_total(
     return sum(len(strata[stratum]) for strata in by_predictor.values())
 
 
+def _events_scored(evals: Iterable[Evaluation]) -> int:
+    """Distinct ``(case, event)`` pairs a set of evaluations covers.
+
+    A **union**, which is why a board-level coverage figure can never be summed
+    out of its entries: two predictors scored on one event are one event. That
+    union is exactly the denominator the per-predictor count has to be read
+    against — the grading gate works at ``(evaluator, event)`` grain, so a
+    predictor whose cells landed after its events were graded is ranked over a
+    subset of the board's scored set, and nothing else on the board shows it.
+    """
+    return len({(ev.case_id, ev.event_id) for ev in evals})
+
+
 def _stage_board(
     cells: Sequence[tuple[Evaluation, Stratum]], skills: Mapping[EvaluationKey, CellSkill]
 ) -> LeaderboardStage:
@@ -704,9 +755,11 @@ def _stage_board(
     ``predictor_id`` and never ranked — a stage resolves on its own decision
     standard, so nothing here is comparable to the cert board or another stage.
     Only cert cells ever carry a realized-Term baseline, so a stage block's
-    realized-Term figure is null and its count zero — the same shape the interim
-    block's prior-Term skill already has, and for the same reason: no other
-    stage publishes a band rate.
+    realized-Term figure is null and its count zero: the realized-Term rate is a
+    *band* rate, and no other stage is a salience-band product. Their
+    prior-Term skill is a separate question — the interim and merits stages both
+    have a registered strictly-prior baseline of their own, each with its own
+    floor.
     """
     by_predictor = _group_by_predictor(cells)
     entries: list[LeaderboardStageEntry] = []
@@ -717,6 +770,7 @@ def _stage_board(
             LeaderboardStageEntry(
                 predictor_id=predictor_id,
                 evaluators=len({ev.evaluator_id for ev in evals}),
+                events_scored=_events_scored(evals),
                 forward=_aggregate(strata[FORWARD], skills),
                 retrospective=_aggregate(strata[RETROSPECTIVE], skills),
                 procedural=_aggregate(strata[PROCEDURAL], skills),
@@ -727,6 +781,7 @@ def _stage_board(
             _stratum_total(by_predictor, stratum)
             for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
         ),
+        events_scored=_events_scored(ev for ev, _ in cells),
         forward_evaluations=_stratum_total(by_predictor, FORWARD),
         retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
@@ -742,6 +797,7 @@ def build_leaderboard(
     process_scope: Literal["frozen", "all"] = "frozen",
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
     forward_claim: ForwardClaimRecord | None = None,
+    superseded_gradings: int = 0,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -776,6 +832,16 @@ def build_leaderboard(
         ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
         seam). Recording it makes the empty frozen headline self-explaining rather
         than reading as a regression.
+
+    ``superseded_gradings`` is likewise the caller's to supply
+        (``store.StratifiedRun.superseded``): ``cells`` holds only survivors of the
+        run collapse, so by the time the board sees them a re-graded cell is
+        indistinguishable from a once-graded one. Publishing the count beside the
+        standings is what keeps a maintainer-reachable re-grade from moving a rank
+        with nothing on any artifact recording that it happened. It must be the
+        count from the same scoped pass that produced ``cells``; the default
+        states "no collapse information supplied", which is also the truth for a
+        board built from hand-made cells.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -796,6 +862,7 @@ def build_leaderboard(
                 predictor_id=predictor_id,
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
+                events_scored=_events_scored(evals),
                 forward=_aggregate(strata[FORWARD], cell_skills),
                 retrospective=_aggregate(strata[RETROSPECTIVE], cell_skills),
                 procedural=_aggregate(strata[PROCEDURAL], cell_skills),
@@ -815,6 +882,9 @@ def build_leaderboard(
         # The forward-claim rule and count the caller's stratify pass applied
         # (null only on a board constructed without the ledger in hand).
         forward_claim=forward_claim,
+        # The same pass's run-collapse count. The cells below are survivors, so
+        # this is the only surface on which a re-grade is visible at all.
+        superseded_gradings=superseded_gradings,
         # The gate versions the ranked cells' baselines were read under. Taken
         # from the harness-stamped `base_rate_salience_version` rather than
         # re-derived, so the board reports the version each cell was actually
@@ -824,6 +894,7 @@ def build_leaderboard(
             {ev.base_rate_salience_version for ev, _ in cert_cells if ev.base_rate_salience_version}
         ),
         predictors_ranked=len(entries),
+        events_scored=_events_scored(ev for ev, _ in cert_cells),
         evaluations_total=sum(
             _stratum_total(by_predictor, stratum)
             for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)

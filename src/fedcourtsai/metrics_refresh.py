@@ -109,14 +109,45 @@ _SPECIAL_HEADLINES: dict[str, Callable[[Path], str]] = {
 def _leaderboard_headline(path: Path) -> str:
     """The board's line. Naming the scope keeps a refresh PR that drops the
     board to 0 during the shakedown reading as the frozen headline, not a
-    regression."""
+    regression.
+
+    The two audit figures append only where they have something to say, because
+    the refresh PR body is the surface a maintainer actually reads: a
+    supersession count means a standing may have moved on a re-grade, and
+    unequal coverage means two entries were compared over different event sets.
+    Neither is recoverable from the counts above them, and a build-time warning
+    lands in the run log rather than here. The coverage clause carries the worst
+    shortfall rather than a bare flag — this is the line most likely to be
+    quoted out of the body, and a flag without a magnitude cannot be read — and
+    it checks every population, ranked board and ``stage@moment`` block alike,
+    since a stage-only gap is as much a comparability hazard as a cert one.
+    """
     board = read_model(path, Leaderboard)
+    notes = ""
+    if board.superseded_gradings:
+        notes += f"; {board.superseded_gradings} superseded grading(s) collapsed away"
+    populations = [(board.events_scored, board.entries)] + [
+        (block.events_scored, block.entries) for block in board.stages.values()
+    ]
+    shortfalls = [
+        (entry.events_scored - covered, entry.predictor_id, entry.events_scored, covered)
+        for covered, entries in populations
+        for entry in entries
+        if entry.events_scored < covered
+    ]
+    if shortfalls:
+        _gap, predictor_id, scored, covered = min(shortfalls)
+        notes += (
+            f"; unequal scored-set coverage ({predictor_id} {scored}/{covered}) "
+            "— not a cross-engine comparison"
+        )
     return (
         f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural)"
+        f"{notes}"
     )
 
 

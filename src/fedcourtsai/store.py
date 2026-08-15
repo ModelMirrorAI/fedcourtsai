@@ -25,6 +25,7 @@ from .integrity import (
     cell_clock,
     classify_stratum,
     forward_claim_breach,
+    latest_evaluation_runs,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -255,7 +256,8 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
 
     The merits admission: an **order-kind** event carrying the **merits
     stage**, on a row whose cert grant actually opened a merits proceeding, whose
-    judgment is not already latched, and which the row-only scope rules keep in
+    judgment is not already latched and whose proceeding is not recorded
+    terminated, and which the row-only scope rules keep in
     scope. The stage carries the event test — an order event of any other sort
     carries no stage at all — with the kind checked defensively beside it, since
     only the merits mint produces an order-kind event today and a second one
@@ -266,6 +268,15 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     rather than resolving the event, so the row knows the case is decided while
     the event stays open. Without the check that docket mints a cell per
     predictor, per day, that provisioning then refuses.
+
+    The terminated check is the same guard for the case that ends with no
+    disposition at all — a post-grant Rule 46 dismissal, a docket whose only
+    terminal notation is the mandate. Nothing will ever latch a judgment there,
+    so an unlatched column alone would keep the event forecastable forever, and
+    on a long-decided docket that is a forward cell on a case whose answer is
+    already public. The column
+    (``merits_terminated``, :mod:`fedcourtsai.pipeline.judgment`) is what makes
+    the record refuse it rather than the scope latch.
 
     The row predicate is :func:`fedcourtsai.corpus.opens_merits_proceeding` —
     the same rule that mints the event, that the judgment backfill parses, and
@@ -304,6 +315,7 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
         _declares_forecastable(event, Stage.merits)
         and row is not None
         and row.merits_judgment is None
+        and row.merits_terminated is None
         and corpus.opens_merits_proceeding(row)
         and corpus.out_of_scope_reason(row) is None
     )
@@ -473,6 +485,14 @@ def forward_refusal_reason_from_parts(
     if spec is not None and spec.stage is Stage.merits:
         if row.merits_judgment is not None:
             return "the corpus already latched the merits judgment"
+        if row.merits_terminated is not None:
+            # No disposition was ever entered, so no judgment can latch — but
+            # the proceeding is over, and a forward cell on it would be
+            # forecasting a question the docket already closed.
+            return (
+                "the corpus records the merits proceeding terminated without a "
+                f"disposition ({row.merits_terminated})"
+            )
     elif row.disposition is not None or corpus.resolution_date(row) is not None:
         return "the corpus records the case decided"
     return None
@@ -508,8 +528,13 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
 
     Walks ``data/cases/<court>/<docket>/events/<event>/evaluations/<evaluator>/
     <predictor>/<run>/evaluation.json`` and validates each against the schema, so
-    the leaderboard aggregates only well-formed rows. Returns nothing if the
-    ledger does not exist yet (reading must not create it).
+    a reader sees only well-formed rows. Returns nothing if the ledger does not
+    exist yet (reading must not create it).
+
+    Deliberately **uncollapsed**, unlike :func:`stratify`: its caller is the ops
+    report's leakage digest, an all-versions diagnostic whose subject is what
+    each grading recorded, so a superseded run is evidence rather than a
+    duplicate. Nothing that scores a predictor reads the ledger this way.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -556,17 +581,40 @@ class ExcludedCell(NamedTuple):
     reason: str
 
 
+class _ScopedCell(NamedTuple):
+    """One in-scope ``evaluation.json`` with the siblings its stratum needs.
+
+    :func:`stratify`'s first pass: the record, the event directory its path
+    identifies, and the latest prediction the frozen gate already resolved —
+    carried so the run collapse can drop a superseded grading before the
+    outcome join, and so the survivor's prediction is not read twice.
+    """
+
+    evaluation: Evaluation
+    event_dir: Path
+    latest_prediction: Prediction
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
     ``claimed_forward`` is the breach check's denominator: in-scope cells whose
     harness record carried a forward-claiming context at all — what tells "no
     claim breached" apart from "nothing recorded a claim to check".
+
+    ``superseded`` is how many in-scope gradings the run collapse dropped —
+    the only place a re-grade is still countable. Every cell in ``cells`` is a
+    survivor, so without this the operation leaves no trace on anything built
+    downstream; the leaderboard publishes it so a standing that moved because a
+    cell was re-graded says so. Counted **after** the scope gate, exactly where the
+    collapse runs, so it is always "superseded within this scope" and never
+    mixes a re-grade the scope excludes into a scoped board's audit line.
     """
 
     cells: list[StratifiedCell]
     excluded: list[ExcludedCell]
     claimed_forward: int = 0
+    superseded: int = 0
 
 
 def stratify(
@@ -593,6 +641,21 @@ def stratify(
     evaluation can only exist for a resolved event with a real prediction (the
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
+
+    **One grading per cell per judge.** A re-graded cell commits a second
+    ``evaluation.json`` beside the first, and both describe one observation, so
+    the scoped records are collapsed on ``(case, event, predictor, evaluator)``
+    — newest by harness clock
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`) — before anything is
+    joined or counted. Every surface built on this stream inherits the collapse,
+    so no board, claim aggregate, or exclusion count can double-count a
+    re-grade. The collapse never reaches across evaluators: a panel of judges on
+    one prediction is several observations, which is what the ``evaluators``
+    counts and the agreement views measure. It runs **after** the scope gate
+    below, so a re-grade outside the scope cannot displace the in-scope grading
+    it superseded — and how many gradings it dropped comes back as
+    ``superseded``, since a survivor carries no mark of having superseded
+    anything and the boards have nothing else to audit a re-grade from.
 
     A cell whose harness record **contradicts its own forward claim**
     (:func:`fedcourtsai.integrity.forward_claim_breach` — ``context.mode``
@@ -630,10 +693,11 @@ def stratify(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return StratifiedRun([], [], 0)
+        return StratifiedRun([], [], 0, 0)
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
     claimed_forward = 0
+    scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -647,6 +711,19 @@ def stratify(
             is_frozen(latest.process_version) and graded_post_freeze(evaluation.process_version)
         ):
             continue
+        scoped.append(_ScopedCell(evaluation, event_dir, latest))
+
+    # The run collapse runs *after* the scope gate, never before: a cell graded
+    # under the frozen process and re-graded outside it must keep the frozen
+    # grading on the frozen board rather than lose the cell to a newer run the
+    # board does not admit. Every counter below therefore sees one grading per
+    # (case, event, predictor, evaluator).
+    survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
+    # The one place a re-grade is still countable: every survivor below is
+    # indistinguishable from a cell that was graded once, so the boards take
+    # their audit line from this difference rather than re-scanning the ledger.
+    superseded = len(scoped) - len(survivors)
+    for evaluation, event_dir, latest in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome never enters the forward/retrospective
         # skill aggregates — the label tracks vacatur practice, not
@@ -677,7 +754,7 @@ def stratify(
         if stage is None and event.kind in _FORECASTABLE_KINDS:
             stage = Stage.cert
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded, claimed_forward)
+    return StratifiedRun(cells, excluded, claimed_forward, superseded)
 
 
 def iter_stratified_evaluations(

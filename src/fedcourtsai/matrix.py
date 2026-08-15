@@ -6,7 +6,8 @@ evaluator against every resolved event **that holds a committed prediction and
 that the evaluator has not already graded** (each evaluator scores all predictors
 for that event internally, so predictors are not part of the matrix dimension; a
 predictionless event mints no cells, and neither does an already-graded one —
-that second gate is what keeps a re-queue from double-counting).
+that second gate is what keeps a re-queue from spending tokens on gradings the
+ledger already holds).
 
 A single trigger can carry **many** cases: the issue body holds either one
 ``{court, docket, events}`` object or a JSON array of them. ``parse_cases``
@@ -312,13 +313,19 @@ def event_has_evaluations(
     a prediction that lands *after* a judge graded the event (the engine-backfill
     path in :class:`CaseRequest`) is never scored by that judge.
 
-    Gating per predictor instead would be worse, not better: re-minting the cell
-    to pick up the late prediction re-grades the ones already scored, and the
-    leaderboard has no run dedup, so that double-counts. Between a visible
-    coverage gap (a prediction with no evaluation, findable by a ledger scan) and
-    a silent miscount (standings reweighted with no trace), the gap is the safer
-    failure. The real fix is dedup at the leaderboard, which would make
-    re-grading safe and let this gate move to the per-predictor grain.
+    Gating per predictor instead would re-mint the cell to pick up the late
+    prediction, re-grading every prediction the judge already scored. That
+    costs tokens rather than accuracy: the scoring surfaces count one grading
+    per (case, event, predictor, evaluator), newest by harness clock
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`), so a re-grade
+    supersedes rather than double-counts. What the coarse grain buys is the
+    spend, and what it costs is a coverage gap that falls *differentially* — an
+    engine whose cells backfill late accumulates fewer scored events than one
+    that ran on time. The leaderboard publishes the relative half of that gap
+    (each entry's ``events_scored`` against its population's union, warned on
+    at build time), leaving the absolute half — a prediction with no evaluation
+    at all — to a ledger scan. So moving to the per-predictor grain is a
+    decision about run cost, taken on its own.
     """
     root = CasePaths(data_root, court, docket).event(event_id).base / "evaluations"
     return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))
@@ -375,11 +382,12 @@ def evaluate_matrix(
       either's PR merges both see an ungraded event and both mint, and
       ``gh run rerun --failed`` reuses the cached matrix without re-planning at
       all, so neither is protected by this.
-      Without it a re-queue would double-count, because the leaderboard reads
-      every committed ``evaluation.json`` into a per-(predictor, case, event)
-      list with no run dedup — a second grading of the same cell silently
-      reweights the standings. See :func:`event_has_evaluations` for the grain
-      this gate works at, and the coverage gap that follows from it.
+      What it saves is model spend, not accuracy: the boards count one grading
+      per (case, event, predictor, evaluator)
+      (:func:`fedcourtsai.integrity.latest_evaluation_runs`), so a second
+      grading supersedes rather than reweighting the standings. See
+      :func:`event_has_evaluations` for the grain this gate works at, and the
+      coverage gap that follows from it.
 
     ``data_root=None`` skips both (callers that assemble their own ledger).
     ``skip_evaluated=False`` keeps the second gate off for a deliberate

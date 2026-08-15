@@ -14,8 +14,9 @@ per predictor per pre-registration stratum — the same stratification the
 leaderboard uses, via the same ``store.iter_stratified_evaluations`` join and
 the same frozen-scope default — and are never pooled across strata or across
 process-version scope. The population is the **cert-stage** cells, because the
-surface never blends stages: the minted merits event declares its own set
-(``merits-v1``) and its cells do carry blocks, but a total pooled across two
+surface never blends stages: the interim moments and the minted merits event
+declare sets of their own (``interim-v1``, ``merits-v1``) and their cells do
+carry blocks, but a total pooled across two
 stages' claim sets is not one quantity, so a non-cert cell belongs outside
 this surface rather than inside its absence counts until a per-stage surface
 exists.
@@ -32,8 +33,8 @@ block whose every claim is masked or baseline-less) are a property of the
 record and are counted separately. No inter-grader agreement is derived here:
 ``Leaderboard.evaluator_agreement`` publishes the panel's agreement on its
 **big-case reads**, and the semantic claim family has its own per-grader number
-in :mod:`fedcourtsai.pipeline.semantic` (wired but inert — no cell produces a
-semantic grade). Both correlate through the one
+in :mod:`fedcourtsai.pipeline.semantic` (declared and graded, but every grade
+is the availability mask until opinion bodies accrue). Both correlate through the one
 :func:`fedcourtsai.leaderboard.kendall_tau_b`, which is the part that must not
 be duplicated.
 """
@@ -84,8 +85,10 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
     evaluation's block wins, deterministically, on the harness clock
     (:func:`fedcourtsai.integrity.evaluation_clock` — never the agent-written
     ``created_at``, and aware-normalized so a naive/aware mix cannot raise) —
-    and ``cells`` is published beside ``events`` as the raw census of the
-    collapsed multiplicity.
+    and ``cells`` is published beside ``events`` as the census of the collapsed
+    multiplicity — one grading per judge, the join having already dropped a
+    re-graded cell's superseded runs
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`).
     """
     cells = 0
     latest: dict[tuple[str, str], tuple[tuple[datetime, str, str], ClaimScoreBlock]] = {}
@@ -156,6 +159,13 @@ def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
     counts cover **committed** cells only: an evaluator cell that failed
     outright commits nothing and is invisible here, so differential cell
     failure still selects the pair set upstream of these counts.
+
+    A cell is one grading per judge: the join that feeds this surface collapses
+    a re-graded cell's runs before yielding it
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`), which matters most
+    here of anywhere on the surface — duplicate pairs inflate ``pairs`` against
+    :data:`AGREEMENT_MIN_PAIRS`, so without the collapse a re-grade could
+    publish a coefficient the suppression rule is holding back.
     """
     if not evals:
         return None
@@ -208,7 +218,8 @@ def build_claim_scores(
     ``process_scope`` by the caller — recording the scope makes the empty
     frozen headline self-explaining rather than reading as a regression. The
     surface's population is the **cert-stage** cells only: stages are never
-    blended, so a merits cell's block (the ``merits-v1`` set) sits outside
+    blended, so an interim or merits cell's block (the ``interim-v1`` and
+    ``merits-v1`` sets) sits outside
     this surface until a per-stage claim surface exists, and counting a
     non-cert cell here as an
     "absence" would dilute the operational-absence counts with cells drawn
@@ -226,7 +237,7 @@ def build_claim_scores(
     with_claims = 0
     for ev, stratum, stage, moment in cells:
         # Cert's FIRST moment only. A later cert moment carries the same
-        # `cert-v1` block, so filtering on the stage alone would pool two
+        # `cert-v2` block, so filtering on the stage alone would pool two
         # information sets into one claim mean — the thing this surface's own
         # per-stage rule exists to prevent, one axis further in.
         if (stage, moment) != (Stage.cert, first_moment(Stage.cert)):

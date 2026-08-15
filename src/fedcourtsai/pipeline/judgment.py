@@ -34,6 +34,22 @@ SCOTUS case's latest stored snapshot through :func:`fedcourtsai.corpus.latest_sn
 corpus-split mode transparently serves from the per-case content store — as
 the offline reconciler over rows the poller has not touched. Both feed the
 statpack's merits stage section.
+
+Beside the disposition vocabulary sits a second, smaller one: the
+**terminations** (:class:`fedcourtsai.schemas.MeritsTermination`), for entries
+that end a granted case's merits proceeding while saying nothing about the
+judgment below — the post-grant Rule 46 voluntary dismissal, and the bare
+mandate notation on a docket whose disposition entry the corpus never captured.
+They are read only as a *fallback*, once no disposition shape matched anywhere
+in the payload, and the batch pass stamps them onto their own column
+(``merits_terminated``) rather than ``merits_judgment``. That split is the
+point: the row stops reading pending, so the forward-forecast gates that key on
+an unlatched judgment close over it, while nothing enters the parsed slice the
+merits base rate is pooled from — there is no disposition to enter. The batch
+pass is the sole writer; the live poll latches dispositions only, and until a
+sweep reaches a freshly terminated docket the high-recall snapshot scan
+(:func:`fedcourtsai.pipeline.outcome.snapshot_shows_judgment`, which reads the
+same termination shapes) holds the line.
 """
 
 from __future__ import annotations
@@ -48,7 +64,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
-from ..schemas import Judgment
+from ..schemas import Judgment, MeritsTermination
 from .cert_signals import entry_date, proceedings_entries
 
 # A judgment shape may open the entry or any later sentence of it: the
@@ -110,6 +126,61 @@ _DIG_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# The terminations: a granted case whose merits proceeding ended with no
+# disposition of the judgment below. Both anchor on the entry's own subject for
+# the reason the disposition shapes do — the *motion* that precedes a Rule 46
+# dismissal ("Motion to dismiss the case pursuant to Rule 46 filed by
+# petitioner.", "Stipulation of dismissal under Rule 46.1 filed.") and a
+# lower-court recital ("Notice of appeal filed from the judgment issued on ...")
+# both name the shape mid-sentence and must stay unmatched.
+#
+# They anchor at the ENTRY start rather than any sentence start, which is
+# stricter than the disposition shapes' `_SENTENCE_START`. That is deliberate
+# and costs nothing the disposition anchor buys: the GVR class the sentence
+# anchor exists for is a disposition riding after a cert recital, and no
+# termination has a counterpart — the Clerk enters a termination as its own
+# one-sentence entry. A second-sentence spelling would read as a false
+# negative, which is the cheap direction here too.
+#
+# The subject noun is what separates the two stages, the same cut `_DIG_RE`
+# makes: the Clerk writes "Case Dismissed - Rule 46." once certiorari has been
+# granted and "Petition Dismissed - Rule 46." while the petition is still
+# pending, so anchoring on "case" admits exactly the post-grant exit and leaves
+# the petition-stage dismissal to the cert seam, where it belongs.
+#
+_VOLUNTARY_DISMISSAL_RE = re.compile(
+    r"^(?:the\s+)?cases?\b.{0,40}?\bdismissed\b.{0,40}?\brule\s*46\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# "as to" is how the Clerk marks a **partial** Rule 46 dismissal ("Case
+# dismissed as to petitioner Smith only under Rule 46.1.", "Case Dismissed -
+# Rule 46 as to respondent Jones."). Such a case continues as to the remaining
+# parties, so its merits question is still live and closing pendency would lose
+# a forecast the docket still owes — the one shape here whose false positive
+# costs something, and the same partial/whole line the disposition parser draws
+# with its own mixed member. A veto over the **whole entry** rather than a
+# tempered gap, because the phrase lands on either side of the Rule 46 citation.
+_PARTIAL_SCOPE_RE = re.compile(r"\bas\s+to\b", re.IGNORECASE)
+
+# "Judgment issued." — the mandate analog. On a docket whose disposition entry
+# the corpus captured, this notation follows it and never decides anything (the
+# disposition scan wins, because terminations are only consulted when no
+# judgment shape matched anywhere). Standing alone it is all the record says:
+# the case is over, and the entry states no verb for what happened to the
+# judgment below.
+_JUDGMENT_ISSUED_RE = re.compile(r"^judgments?\s+issued\b", re.IGNORECASE)
+
+#: Each shape with the veto that disqualifies it, or ``None`` where the shape
+#: stands alone. A veto is checked over the whole entry, so it can disqualify a
+#: match on text the shape's own bounded gaps never see.
+_TerminationShape = tuple[re.Pattern[str], re.Pattern[str] | None, MeritsTermination]
+
+_TERMINATION_SHAPES: tuple[_TerminationShape, ...] = (
+    (_VOLUNTARY_DISMISSAL_RE, _PARTIAL_SCOPE_RE, MeritsTermination.voluntary_dismissal),
+    (_JUDGMENT_ISSUED_RE, None, MeritsTermination.judgment_issued),
+)
+
 #: The sentinel :func:`opinion_author` returns for a per curiam opinion —
 #: distinguishable from any parsed Justice name, which is a single
 #: space-free token.
@@ -158,6 +229,23 @@ def match_judgment(text: str) -> Judgment | None:
         return Judgment(match.group(1).lower())
     if _DIG_RE.search(entry):
         return Judgment.dig
+    return None
+
+
+def match_merits_termination(text: str) -> MeritsTermination | None:
+    """Parse one docket-entry description onto the merits-*termination* vocabulary.
+
+    The complement of :func:`match_judgment`, for the entries that end a merits
+    proceeding without stating what happened to the judgment below. Same
+    conservatism, opposite failure cost: a false positive here does not
+    fabricate a disposition (there is none to fabricate) but it does close a
+    row's merits state, so the shapes stay start-anchored on the entry's own
+    subject and the motion that *asks* for the dismissal never matches.
+    """
+    entry = text.strip()
+    for pattern, veto, termination in _TERMINATION_SHAPES:
+        if pattern.search(entry) and not (veto is not None and veto.search(entry)):
+            return termination
     return None
 
 
@@ -248,6 +336,25 @@ def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | No
     return found
 
 
+def last_merits_termination(payload: Mapping[str, Any]) -> MeritsTermination | None:
+    """The last termination-shaped entry in a stored docket payload, or ``None``.
+
+    The :func:`last_judgment_entry` twin, and strictly its **fallback**: callers
+    consult it only when no entry anywhere in the payload matched a judgment
+    shape, so the mandate-analog notation that trails a real disposition can
+    never displace it. The **last** match wins for the same reason it does
+    there — the docket's final word is the realized one. No date is read: a
+    termination records no outcome, so it has nothing to stamp a ``resolved_at``
+    from.
+    """
+    found: MeritsTermination | None = None
+    for text, _ in proceedings_entries(payload):
+        termination = match_merits_termination(text)
+        if termination is not None:
+            found = termination
+    return found
+
+
 class MeritsBackfillResult(BaseModel):
     """What one merits backfill pass over the merits-bound SCOTUS rows did (or would do)."""
 
@@ -263,7 +370,23 @@ class MeritsBackfillResult(BaseModel):
         ge=0, description="Eligible rows with no stored snapshot reachable — skipped"
     )
     no_match: int = Field(
-        ge=0, description="Snapshotted rows whose entries matched no judgment shape"
+        ge=0,
+        description="Snapshotted rows whose entries matched no judgment shape "
+        "**and** no termination shape — the genuine residue",
+    )
+    terminated: int = Field(
+        default=0,
+        ge=0,
+        description="Snapshotted rows with no judgment shape whose entries show "
+        "the merits proceeding ended anyway (`MeritsTermination`) — resolved as "
+        "to pendency, deliberately never as to disposition, so they stay out of "
+        "the statpack's parsed slice and the disturbed rate",
+    )
+    terminations_written: int = Field(
+        default=0,
+        ge=0,
+        description="Terminated rows whose `merits_terminated` column the pass "
+        "wrote (apply) or would write (dry-run); the rest already carry it",
     )
     stale: int = Field(
         ge=0,
@@ -281,6 +404,16 @@ class MeritsBackfillResult(BaseModel):
         default_factory=dict,
         description="Parsed-judgment distribution, Judgment value -> row count",
     )
+    terminations: dict[str, int] = Field(
+        default_factory=dict,
+        description="Termination distribution, MeritsTermination value -> row "
+        "count. Published per class rather than only as the `terminated` total "
+        "because the two carry different evidence: a voluntary dismissal is a "
+        "proceeding that demonstrably ended with nothing decided, while the "
+        "mandate notation is all a docket says about a case that *was* decided "
+        "— so a climb in the latter is a disposition-parser gap to triage, not "
+        "a docket trend",
+    )
 
 
 def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> MeritsBackfillResult:
@@ -297,14 +430,21 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     re-run over an unchanged corpus reports everything ``unchanged`` and writes
     nothing new — and degradation is counted, never fatal: a row whose snapshot
     is unreachable (none stored, or the content store not configured) lands in
-    ``no_snapshot`` and keeps whatever the columns already carry. A stored
+    ``no_snapshot`` and keeps whatever the columns already carry. A row with no
+    judgment shape anywhere gets the termination fallback
+    (:func:`last_merits_termination`) before it is written off as ``no_match``:
+    a match stamps ``merits_terminated`` through
+    :func:`fedcourtsai.corpus.set_merits_termination`, resolving the row's
+    pendency without asserting a disposition it does not have. A stored
     judgment the pass can no longer re-derive is never cleared but is counted
     (``stale``), so a parser tightening that retracts a reading stays visible
     instead of silently persisting in the statpack. Dry-run unless ``apply``.
     """
-    eligible = no_snapshot = no_match = parsed = unchanged = stale = 0
+    eligible = no_snapshot = no_match = parsed = unchanged = stale = terminated = 0
     judgments: Counter[str] = Counter()
+    terminations_found: Counter[str] = Counter()
     updates: list[tuple[str, Judgment, date | None]] = []
+    terminations: list[tuple[str, MeritsTermination]] = []
     for row in corpus.iter_rows(conn, court="scotus"):
         if not corpus.opens_merits_proceeding(row):
             continue
@@ -317,9 +457,29 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
             continue
         entry = last_judgment_entry(found[1])
         if entry is None:
-            no_match += 1
             if row.merits_judgment is not None:
+                # A row that already carries a judgment this pass can no longer
+                # re-derive is a **retracted parse**, not a terminated
+                # proceeding, so the fallback does not run here. The mandate
+                # notation trails an ordinary decided docket, so absorbing
+                # these into `terminated` would silence the very retraction
+                # `stale` exists to surface — and would pair a stored
+                # disposition with a termination on one row, the one state the
+                # two columns are defined never to share.
+                no_match += 1
                 stale += 1
+                continue
+            # Only now — no disposition anywhere in the payload, and none
+            # stored — does the termination fallback run, so a termination can
+            # never displace a judgment or sit beside one.
+            termination = last_merits_termination(found[1])
+            if termination is None:
+                no_match += 1
+                continue
+            terminated += 1
+            terminations_found[termination.value] += 1
+            if row.merits_terminated != termination.value:
+                terminations.append((row.case_id, termination))
             continue
         judgment, decided = entry
         parsed += 1
@@ -331,14 +491,19 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     if apply:
         for case_id, judgment, decided in updates:
             corpus.set_merits_judgment(conn, case_id, judgment, decided)
+        for case_id, termination in terminations:
+            corpus.set_merits_termination(conn, case_id, termination)
     return MeritsBackfillResult(
         applied=apply,
         eligible=eligible,
         no_snapshot=no_snapshot,
         no_match=no_match,
+        terminated=terminated,
+        terminations_written=len(terminations),
         stale=stale,
         parsed=parsed,
         unchanged=unchanged,
         updated=len(updates),
         judgments=dict(sorted(judgments.items())),
+        terminations=dict(sorted(terminations_found.items())),
     )

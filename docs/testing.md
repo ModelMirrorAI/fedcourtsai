@@ -22,10 +22,12 @@ The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade
 it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
 network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
 predicted stage — a cert petition, and the opt-in CVSG docket whose later-moment cert
-cell answers the same `cert-v1` claim set; the fixture's substantive stay application,
-whose interim cell carries a Brier score but no segment baseline; and its granted docket,
-whose merits cell carries a judgment with its mandatory vote block and the one declared
-`merits-v1` claim. Each non-cert cell lands in the leaderboard's own unranked stage block
+cell answers the same `cert-v2` claim set; the fixture's substantive stay application,
+whose interim cell answers the four `interim-v1` claims and carries a Brier score but no
+segment baseline; and its granted docket,
+whose merits cell carries a judgment with its mandatory vote block, the one declared
+`merits-v1` claim, and the two declared `semantic-v1` propositions its grader answers
+entirely with the availability mask (the fixture corpus holds no opinion body). Each non-cert cell lands in the leaderboard's own unranked stage block
 rather than the ranked cert board, and the later-moment cert cell likewise aggregates
 into its own `cert@cvsg` block. Run just it with `uv run pytest -k cascade_smoke`.
 
@@ -99,16 +101,15 @@ matrix spend. It is the one scenario whose job binds no deployment
 environment at all — it needs no role variables and no secret — so it is the
 one scenario no deployment-branch policy can ever refuse, and a dispatch from
 any branch runs it to completion.
-`qp-topic` (outside the required suite) drives the shared `qp-topic-measure`
-composite — the post-label half of the paid labeling run: the no-output
-guard, the `fedcourts qp-topics` publication gate, and the
-publish-and-validate path — over canned inputs built from the committed
-reference set: a labeler that wrote nothing and one that drifted below the
-agreement gate must both fail without publishing, and a faithful one must
-publish an artifact covering the whole reference set. Token-free and
-credential-free; the extract and the model call stay uncovered here by
-design (the extract needs QP document rows no fixture corpus writes, and the
-model call is exactly what `run-analytics` pays for).
+`qp-topic` drives the shared `qp-topic-measure` composite — the post-label
+half of the paid labeling run: the no-output guard, the `fedcourts qp-topics`
+publication gate, and the publish-and-validate path — over canned inputs built
+from the committed reference set: a labeler that wrote nothing and one that
+drifted below the agreement gate must both fail without publishing, and a
+faithful one must publish an artifact covering the whole reference set.
+Token-free and credential-free; the extract and the model call stay uncovered
+here by design (the extract needs QP document rows no fixture corpus writes,
+and the model call is exactly what `run-analytics` pays for).
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -140,14 +141,12 @@ That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide. Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
-regardless: the gate needs the seven required integration runs — five of the
-six real scenarios, with engine-smoke counted once per engine, or one green
-`scenario=all` run, which covers all seven because it succeeds only when every
-matrix leg does — green at exactly that
-staging head, and `promotion-gate` is a required check on `main`, so it is
-branch-protection-enforced rather than advisory. The collect scenario is outside
-the gate, and — binding no environment at all — is the one scenario no
-deployment-branch policy can refuse from any branch.
+regardless: the gate needs the nine required integration runs — all seven real
+scenarios, with engine-smoke counted once per engine, or one green
+`scenario=all` run, which covers all nine because it succeeds only when each of
+its eight matrix legs and its collect job does — green at exactly that staging
+head, and `promotion-gate` is a required check on `main`, so it is
+branch-protection-enforced rather than advisory.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that

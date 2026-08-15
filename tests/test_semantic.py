@@ -1,16 +1,18 @@
-"""Tests for the semantic claim family's declaration seam and descriptive roll-up.
+"""Tests for the semantic claim family's declaration and descriptive roll-up.
 
-`pipeline.semantic` is wired but inert: no stage declares a `semantic-v0` set,
-no prompt asks for one, and no committed artifact carries a grade. The
-invariants worth pinning are therefore of two kinds.
+`pipeline.semantic` declares `semantic-v1` on the merits moments and still
+produces nothing: the prompts now ask a merits cell for the propositions and a
+grader for the grades, but no opinion body is ingested to grade against, so
+every declared claim masks and no census publishes. The invariants worth
+pinning are therefore of two kinds.
 
-The **seam**: that "no semantic set is declared for any stage" is an asserted
-state rather than an accident, so turning the family on later is a declaration
-plus a prompt rather than a new shape; that the declaration — never the
-grader's block — fixes what is graded and which set version the units carry;
-that a grade is never run through the mechanical scoring rule (there is no
-baseline and no score field to run it through); and that the optional schema
-blocks leave every committed artifact valid.
+The **declaration**: that `semantic-v1` is exactly two claims, each naming the
+axis its mask is checked against and the document class it needs, on exactly the
+merits moments and no other event; that the declaration — never the grader's
+block — fixes what is graded and which set version the units carry; that a grade
+is never run through the mechanical scoring rule (there is no baseline and no
+score field to run it through); and that the optional schema blocks leave every
+committed artifact valid.
 
 The **plumbing**, proven against synthetic graded units before any opinion text
 exists: the census counts each unit once at the panel's grade, the availability
@@ -23,22 +25,27 @@ uses, over a different population.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import get_args
 
 import pytest
 from pydantic import ValidationError
+from typer.testing import CliRunner, Result
 
-from fedcourtsai.pipeline import semantic
+from fedcourtsai.cli import app
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import moments, semantic
 from fedcourtsai.pipeline.claims import declared_claim_set
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.semantic import (
     DECLARED_SEMANTIC_CLAIM_SETS,
     DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID,
+    SEMANTIC_MERITS_V1,
     SEMANTIC_MIN_GRADED,
-    SEMANTIC_SET_V0,
+    SEMANTIC_SET_V1,
     GradedUnit,
+    SemanticClaimSpec,
     declared_semantic_claim_set,
     graded_units,
     ordinal,
@@ -49,15 +56,21 @@ from fedcourtsai.schemas import (
     Engine,
     Evaluation,
     EventKind,
+    Moment,
+    Outcome,
+    PredictableEvent,
     Prediction,
     SemanticClaim,
     SemanticGrade,
     SemanticGradeBlock,
     SemanticGradeSummary,
     SemanticSupport,
+    Stage,
     Stratum,
 )
-from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.serialize import read_model, write_json, write_yaml
+
+runner = CliRunner()
 
 _EVENT_ID = "evt-petition-writ-of-certiorari"
 _SUPPORTED = SemanticSupport.supported
@@ -104,34 +117,59 @@ def _evaluation(*, semantic_grades: SemanticGradeBlock | None = None) -> Evaluat
     )
 
 
-# --- the declaration seam: empty, on purpose, and asserted ---
+# --- the declaration: semantic-v1, on the merits moments and nowhere else ---
 
 
-def test_no_stage_declares_a_semantic_set_today() -> None:
-    """The state the wiring exists to make explicit: nothing is declared."""
+def test_the_declared_set_is_exactly_two_claims_with_their_axes() -> None:
+    """The declaration itself, pinned: a claim added or renamed is a new version."""
+    assert SEMANTIC_SET_V1 == "semantic-v1"
+    assert [spec.claim_id for spec in SEMANTIC_MERITS_V1] == [
+        "majority-ground",
+        "ground-breadth",
+    ]
+    # The axis is what makes "silent on the claim's axis" checkable rather than
+    # conventional, and `requires` is the mask's first ground — neither may be
+    # declared blank.
+    assert all(spec.axis.strip() for spec in SEMANTIC_MERITS_V1)
+    assert {spec.requires for spec in SEMANTIC_MERITS_V1} == {"majority-opinion"}
+
+
+def test_the_ground_and_its_breadth_are_two_claims_not_one() -> None:
+    """Bundling them would reintroduce the compound-claim failure v1 rejects."""
+    assert len({spec.claim_id for spec in SEMANTIC_MERITS_V1}) == 2
+    assert len({spec.axis for spec in SEMANTIC_MERITS_V1}) == 2
+
+
+def test_every_merits_moment_declares_the_set() -> None:
+    """Keyed off the moment table, so an inserted merits moment cannot declare nothing."""
+    merits = moments.moments_for(Stage.merits)
+    assert len(merits) >= 2
+    for spec in merits:
+        declared = declared_semantic_claim_set(spec.event_id)
+        assert declared == (SEMANTIC_SET_V1, SEMANTIC_MERITS_V1)
+    assert set(DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID) == {s.event_id for s in merits}
+    assert declared_semantic_claim_set(MERITS_EVENT_ID) is not None
+    assert declared_claim_set(MERITS_EVENT_ID) is not None
+
+
+def test_no_event_outside_the_merits_moments_declares_a_semantic_set() -> None:
+    """A claim about a merits opinion belongs to the moments that forecast one."""
     assert DECLARED_SEMANTIC_CLAIM_SETS == {}
-    assert DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID == {}
+    merits = {spec.event_id for spec in moments.moments_for(Stage.merits)}
+    for spec in moments.DECLARED_MOMENTS:
+        if spec.event_id not in merits:
+            assert declared_semantic_claim_set(spec.event_id) is None
 
 
 @pytest.mark.parametrize("kind", list(EventKind))
 def test_no_event_kind_declares_a_semantic_set(kind: EventKind) -> None:
+    """The kind table is the fallback the mechanical family keeps, and it is empty."""
     assert declared_semantic_claim_set(f"evt-{kind.value}-anything") is None
-
-
-def test_the_minted_merits_event_declares_no_semantic_set() -> None:
-    """The one event id keyed by exact id on the mechanical side declares none here."""
-    assert declared_claim_set(MERITS_EVENT_ID) is not None
-    assert declared_semantic_claim_set(MERITS_EVENT_ID) is None
 
 
 def test_a_malformed_event_id_yields_no_set_rather_than_a_crash() -> None:
     assert declared_semantic_claim_set("not-an-event-id") is None
     assert declared_semantic_claim_set("evt-nonsense-thing") is None
-
-
-def test_the_alpha_set_version_is_v0() -> None:
-    """Pinned so a rename is a deliberate act: the first working set is v1."""
-    assert SEMANTIC_SET_V0 == "semantic-v0"
 
 
 # --- the grade vocabulary: three ordinal levels and a mask that is not one ---
@@ -480,24 +518,59 @@ def test_one_grader_grading_one_unit_twice_is_an_error_not_an_average() -> None:
 
 # --- the bridge from a committed evaluation: the declaration is authoritative ---
 
-_SKETCH_SET = ("majority-ground", "dissent-ground")
+_SKETCH_SET = (
+    SemanticClaimSpec(
+        claim_id="majority-ground",
+        axis="the majority's doctrinal basis",
+        requires="majority-opinion",
+    ),
+    SemanticClaimSpec(
+        claim_id="dissent-ground",
+        axis="the ground the dissent rests on",
+        requires="dissent",
+    ),
+)
+_SKETCH_IDS = [spec.claim_id for spec in _SKETCH_SET]
 
 
 @pytest.fixture
-def declared(monkeypatch: pytest.MonkeyPatch) -> tuple[str, tuple[str, ...]]:
-    """A synthetic declaration, so the bridge is exercised without declaring one.
+def declared(monkeypatch: pytest.MonkeyPatch) -> tuple[str, tuple[SemanticClaimSpec, ...]]:
+    """A synthetic declaration on the petition kind, where the real tables declare none.
 
-    The tables ship empty and stay empty; this only proves the seam behaves
-    when an entry lands in it, which is what makes turning the family on a
-    declaration plus a prompt rather than a new shape.
+    Exercised on the *kind* table so the bridge's refusals are pinned against a
+    set the real declaration does not carry — including `dissent-ground`, a
+    candidate `semantic-v1` deliberately leaves out.
     """
-    entry = (SEMANTIC_SET_V0, _SKETCH_SET)
+    entry = (SEMANTIC_SET_V1, _SKETCH_SET)
     monkeypatch.setattr(semantic, "DECLARED_SEMANTIC_CLAIM_SETS", {EventKind.petition: entry})
     return entry
 
 
+def _prediction(*, semantic_claims: list[str] | None = None) -> Prediction:
+    return Prediction(
+        case_id="scotus/1",
+        event_id=_EVENT_ID,
+        predictor_id="p",
+        engine=Engine.claude_code,
+        run_id="r",
+        created_at=datetime(2025, 3, 1),
+        input_snapshot="x",
+        granted=0,
+        probability=0.2,
+        predicted_disposition=Disposition.denied,
+        semantic_claims=(
+            None
+            if semantic_claims is None
+            else [
+                SemanticClaim(claim_id=claim_id, proposition=f"proposition for {claim_id}")
+                for claim_id in semantic_claims
+            ]
+        ),
+    )
+
+
 def _block(
-    *grades: tuple[str, SemanticSupport], version: str = SEMANTIC_SET_V0
+    *grades: tuple[str, SemanticSupport], version: str = SEMANTIC_SET_V1
 ) -> SemanticGradeBlock:
     return SemanticGradeBlock(
         declared_set_version=version,
@@ -516,7 +589,7 @@ def test_a_block_on_an_event_with_no_declared_set_yields_no_units() -> None:
 
 
 def test_a_block_grading_one_claim_twice_yields_no_units(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """Two grades for one proposition: take none rather than pick silently."""
     block = _block(
@@ -528,7 +601,7 @@ def test_a_block_grading_one_claim_twice_yields_no_units(
 
 
 def test_a_block_skipping_a_declared_claim_yields_no_units(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """The set is mandatory: a partial answer grades nothing, not the graded half."""
     block = _block(("majority-ground", _SUPPORTED))
@@ -536,7 +609,7 @@ def test_a_block_skipping_a_declared_claim_yields_no_units(
 
 
 def test_a_claim_outside_the_declared_set_is_ignored(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """The declaration, not the census, fixes what is graded."""
     block = _block(
@@ -545,48 +618,43 @@ def test_a_claim_outside_the_declared_set_is_ignored(
         ("invented-claim", _SUPPORTED),
     )
     units = graded_units(_evaluation(semantic_grades=block))
-    assert [u.claim_id for u in units] == list(_SKETCH_SET)
+    assert [u.claim_id for u in units] == _SKETCH_IDS
 
 
 def test_a_block_answering_a_different_declaration_yields_no_units(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """Refused, never relabelled: silently restamping would pool two declarations."""
     block = _block(
         ("majority-ground", _SUPPORTED),
         ("dissent-ground", _SUPPORTED),
-        version="semantic-v1",
+        version="semantic-v2",
     )
     assert graded_units(_evaluation(semantic_grades=block)) == ()
 
 
-def test_a_stale_v0_block_under_a_v1_declaration_yields_no_units(
-    monkeypatch: pytest.MonkeyPatch,
+def test_a_superseded_block_under_the_current_declaration_yields_no_units(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """The supersession case: grades formed under the old set answer another question."""
-    monkeypatch.setattr(
-        semantic,
-        "DECLARED_SEMANTIC_CLAIM_SETS",
-        {EventKind.petition: ("semantic-v1", _SKETCH_SET)},
-    )
     block = _block(
         ("majority-ground", _SUPPORTED),
         ("dissent-ground", _SUPPORTED),
-        version=SEMANTIC_SET_V0,
+        version="semantic-v0",
     )
     assert graded_units(_evaluation(semantic_grades=block)) == ()
 
 
 def test_a_matching_block_carries_the_declarations_version(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     block = _block(("majority-ground", _SUPPORTED), ("dissent-ground", _SUPPORTED))
     units = graded_units(_evaluation(semantic_grades=block))
-    assert {u.declared_set_version for u in units} == {SEMANTIC_SET_V0}
+    assert {u.declared_set_version for u in units} == {SEMANTIC_SET_V1}
 
 
 def test_a_block_becomes_units_carrying_the_grades_the_grader_gave(
-    declared: tuple[str, tuple[str, ...]],
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:
     """The payload itself, end to end: model → units → census."""
     block = _block(("majority-ground", _SUPPORTED), ("dissent-ground", _MASKED))
@@ -600,7 +668,7 @@ def test_a_block_becomes_units_carrying_the_grades_the_grader_gave(
     assert {u.grader_id for u in units} == {"e"}
     assert units[0].unit_key == ("scotus/1", _EVENT_ID, "p", "majority-ground")
     summary = summarize_semantic_grades(units)
-    assert summary.declared_set_versions == [SEMANTIC_SET_V0]
+    assert summary.declared_set_versions == [SEMANTIC_SET_V1]
     assert summary.cells == 1
     census = {c.claim_id: c for c in summary.claims}
     assert census["majority-ground"].supported == 1
@@ -624,6 +692,141 @@ def test_the_payload_survives_a_round_trip_through_the_committed_artifact(
     assert census["dissent-ground"].unsupported == 1
 
 
+# --- the refusals, said out loud: what `validate` surfaces ---------------------
+#
+# `graded_units` refuses silently and nothing reads `semantic_claims` at all, so
+# a non-conforming block on either side commits green and simply drops out of
+# the census later. These pin the two enumerators to those refusals: a new
+# refusal arm in `graded_units` needs a matching arm in `semantic_grade_problems`.
+
+
+def test_an_absent_semantic_block_is_not_a_problem() -> None:
+    """Absence is a legitimate state on both sides — every cell written before the
+    prompts asked carries none — so it is skipped, never flagged."""
+    assert semantic.semantic_grade_problems(_evaluation()) == []
+    assert semantic.semantic_claim_problems(_prediction()) == []
+
+
+def test_a_block_on_an_undeclaring_event_is_not_a_problem() -> None:
+    block = _block(("majority-ground", _SUPPORTED))
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+    assert semantic.semantic_claim_problems(_prediction(semantic_claims=["majority-ground"])) == []
+
+
+def test_every_grade_block_refusal_is_named_by_the_enumerator(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """Each shape `graded_units` drops the block on, said in words."""
+    twice = _block(
+        ("majority-ground", _SUPPORTED),
+        ("majority-ground", _UNSUPPORTED),
+        ("dissent-ground", _SUPPORTED),
+    )
+    assert any(
+        "graded twice" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=twice))
+    )
+    skipped = _block(("majority-ground", _SUPPORTED))
+    assert any(
+        "'dissent-ground'" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=skipped))
+    )
+    other = _block(
+        ("majority-ground", _SUPPORTED), ("dissent-ground", _SUPPORTED), version="semantic-v2"
+    )
+    assert any(
+        "another declaration" in p
+        for p in semantic.semantic_grade_problems(_evaluation(semantic_grades=other))
+    )
+
+
+def test_a_conforming_grade_block_has_no_problems(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    block = _block(("majority-ground", _SUPPORTED), ("dissent-ground", _MASKED))
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+
+
+def test_a_row_outside_the_declared_set_is_not_a_grade_block_problem(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """The enumerator reports refusals, not opinions: `graded_units` ignores such a
+    row rather than dropping the block, so flagging it would be stricter than the
+    consumer it exists to speak for."""
+    block = _block(
+        ("majority-ground", _SUPPORTED),
+        ("dissent-ground", _SUPPORTED),
+        ("invented-claim", _SUPPORTED),
+    )
+    assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # Conforming.
+        (("majority-ground", _SUPPORTED), ("dissent-ground", _PARTIAL)),
+        # Skipped declared claim.
+        (("majority-ground", _SUPPORTED),),
+        # Same claim graded twice.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("majority-ground", _UNSUPPORTED),
+            ("dissent-ground", _PARTIAL),
+        ),
+        # An out-of-set row, ignored by both.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("dissent-ground", _PARTIAL),
+            ("invented-claim", _SUPPORTED),
+        ),
+        # An out-of-set row duplicated: `graded_units` refuses on the duplicate
+        # wherever it sits, so the enumerator must speak even though a single
+        # out-of-set row is silent.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("dissent-ground", _PARTIAL),
+            ("invented-claim", _SUPPORTED),
+            ("invented-claim", _UNSUPPORTED),
+        ),
+    ],
+)
+def test_the_enumerator_speaks_exactly_when_the_rollup_refuses(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+    rows: tuple[tuple[str, SemanticSupport], ...],
+) -> None:
+    """The invariant the shape assertions above only sample: for a block present
+    against a declared set, the enumerator is non-empty **iff** `graded_units`
+    yields nothing. A new refusal arm on either side breaks this rather than
+    quietly diverging."""
+    evaluation = _evaluation(semantic_grades=_block(*rows))
+    assert bool(semantic.semantic_grade_problems(evaluation)) == (graded_units(evaluation) == ())
+
+
+def test_the_predictor_side_is_held_to_the_declaration_too(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """The half that had no enforcement: nothing consumes `semantic_claims`, so a
+    skipped or invented claim leaves no trace anywhere downstream."""
+    assert semantic.semantic_claim_problems(_prediction(semantic_claims=["majority-ground"])) == [
+        f"declared semantic claim 'dissent-ground' ({SEMANTIC_SET_V1}) is not stated"
+    ]
+    invented = semantic.semantic_claim_problems(
+        _prediction(semantic_claims=["majority-ground", "dissent-ground", "invented-claim"])
+    )
+    assert any("is not declared by" in p for p in invented)
+    twice = semantic.semantic_claim_problems(
+        _prediction(semantic_claims=["majority-ground", "majority-ground", "dissent-ground"])
+    )
+    assert any("stated twice" in p for p in twice)
+    assert (
+        semantic.semantic_claim_problems(
+            _prediction(semantic_claims=["majority-ground", "dissent-ground"])
+        )
+        == []
+    )
+
+
 def test_more_than_one_declaration_version_is_visible_in_the_summary() -> None:
     """A defensive disclosure only: `graded_units` cannot produce a mixed set.
 
@@ -641,11 +844,11 @@ def test_more_than_one_declaration_version_is_visible_in_the_summary() -> None:
             grader_id="g0",
             claim_id="majority-ground",
             grade=_SUPPORTED,
-            declared_set_version="semantic-v1",
+            declared_set_version="semantic-v2",
         ),
     ]
     summary = summarize_semantic_grades(units)
-    assert summary.declared_set_versions == ["semantic-v0", "semantic-v1"]
+    assert summary.declared_set_versions == ["semantic-v1", "semantic-v2"]
 
 
 # --- the schema surface: optional everywhere, so every committed artifact validates ---
@@ -673,7 +876,7 @@ def test_a_prediction_without_semantic_claims_is_valid_and_round_trips(tmp_path)
 def test_an_evaluation_carrying_a_semantic_block_round_trips(tmp_path) -> None:  # type: ignore[no-untyped-def]
     evaluation = _evaluation(
         semantic_grades=SemanticGradeBlock(
-            declared_set_version=SEMANTIC_SET_V0,
+            declared_set_version=SEMANTIC_SET_V1,
             grades=[
                 SemanticGrade(
                     claim_id="majority-ground",
@@ -686,3 +889,258 @@ def test_an_evaluation_carrying_a_semantic_block_round_trips(tmp_path) -> None: 
     path = tmp_path / "evaluation.json"
     write_json(path, evaluation)
     assert read_model(path, Evaluation) == evaluation
+
+
+# --- the published surface: two preconditions, both of which withhold today ---
+
+
+def _write_merits_event(data_root: Path, *, case_id: str, event_id: str, moment: Moment) -> None:
+    court, _, docket = case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event(event_id)
+    write_yaml(
+        event.event_file,
+        PredictableEvent(
+            event_id=event_id,
+            case_id=case_id,
+            kind=EventKind.order,
+            stage=Stage.merits,
+            moment=moment,
+            title="Judgment",
+            resolved=True,
+        ),
+    )
+    write_json(
+        event.prediction("p", "p1"),
+        Prediction(
+            case_id=case_id,
+            event_id=event_id,
+            predictor_id="p",
+            engine=Engine.claude_code,
+            run_id="p1",
+            created_at=datetime(2026, 6, 20, tzinfo=UTC),
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.granted,
+        ),
+    )
+    write_json(
+        event.outcome,
+        Outcome(
+            case_id=case_id,
+            event_id=event_id,
+            resolved_at=date(2026, 6, 23),
+            actual_disposition=Disposition.granted,
+            actual_granted=1,
+        ),
+    )
+
+
+def _write_grade(
+    data_root: Path,
+    *,
+    case_id: str,
+    grader: str,
+    grades: tuple[SemanticSupport, SemanticSupport] = (_SUPPORTED, _PARTIAL),
+    event_id: str = MERITS_EVENT_ID,
+    run_id: str = "r",
+    graded_at: datetime = datetime(2026, 6, 25, tzinfo=UTC),
+    block: SemanticGradeBlock | None = None,
+) -> None:
+    court, _, docket = case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event(event_id)
+    write_json(
+        event.evaluation(grader, "p", run_id),
+        Evaluation(
+            case_id=case_id,
+            event_id=event_id,
+            predictor_id="p",
+            evaluator_id=grader,
+            engine=Engine.claude_code,
+            run_id=run_id,
+            created_at=graded_at,
+            correct=True,
+            semantic_grades=block
+            if block is not None
+            else _block(("majority-ground", grades[0]), ("ground-breadth", grades[1])),
+        ),
+    )
+
+
+def _write_merits_cell(data_root: Path, *, case_id: str, grader: str) -> None:
+    """A full merits cell on disk at the first moment, graded under the declaration."""
+    _write_merits_event(data_root, case_id=case_id, event_id=MERITS_EVENT_ID, moment=Moment.grant)
+    _write_grade(data_root, case_id=case_id, grader=grader)
+
+
+def _panel_ledger(data_root: Path, cases: int) -> None:
+    """Enough cases, graded by two graders whose reads vary, to clear both preconditions."""
+    varying = [(_SUPPORTED, _PARTIAL), (_UNSUPPORTED, _SUPPORTED), (_PARTIAL, _UNSUPPORTED)]
+    for i in range(cases):
+        case_id = f"scotus/{i + 1}"
+        _write_merits_event(
+            data_root, case_id=case_id, event_id=MERITS_EVENT_ID, moment=Moment.grant
+        )
+        _write_grade(data_root, case_id=case_id, grader="e1", grades=varying[i % 3])
+        _write_grade(data_root, case_id=case_id, grader="e2", grades=varying[i % 3])
+
+
+def _invoke(data_root: Path, *args: str) -> Result:
+    return runner.invoke(
+        app, ["semantic-summary", *args], env={"FEDCOURTS_DATA_ROOT": str(data_root)}
+    )
+
+
+def test_the_summary_command_withholds_below_the_floor_and_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A census under the floor is a handful of readings, not a description."""
+    data_root = tmp_path / "data"
+    _write_merits_cell(data_root, case_id="scotus/1", grader="e1")
+    _write_merits_cell(data_root, case_id="scotus/2", grader="e1")
+    out = tmp_path / "semantic-grades.json"
+    result = _invoke(data_root, "--out", str(out), "--all-versions")
+    assert result.exit_code == 0, result.output
+    # The declaration matched and produced units — two claims over two cells —
+    # and the floor is what withholds them, not an empty ledger.
+    assert "4 graded / 0 masked / 0 mask-disputed unit(s) over 2 cell(s)" in result.output
+    assert "on 2 case(s)" in result.output
+    assert f"below the {SEMANTIC_MIN_GRADED}-unit floor" in result.output
+    assert not out.exists()
+
+
+def test_the_summary_command_withholds_a_census_no_grader_agrees_over(
+    tmp_path: Path,
+) -> None:
+    """The floor is not the whole predicate: a share with no agreement figure is barred."""
+    data_root = tmp_path / "data"
+    # Ten cases, one grader each: 20 graded units, well clear of the floor, and
+    # no unit carries two graders — so `agreement` is empty.
+    for i in range(10):
+        _write_merits_cell(data_root, case_id=f"scotus/{i + 1}", grader="e1")
+    out = tmp_path / "semantic-grades.json"
+    result = _invoke(data_root, "--out", str(out), "--all-versions")
+    assert result.exit_code == 0, result.output
+    assert "20 graded" in result.output
+    assert "no grader carries an agreement coefficient" in result.output
+    assert not out.exists()
+
+
+def test_the_summary_command_publishes_once_both_preconditions_clear(tmp_path: Path) -> None:
+    """The moment the census becomes claimable, and what the artifact then carries."""
+    data_root = tmp_path / "data"
+    _panel_ledger(data_root, cases=6)
+    out = tmp_path / "semantic-grades.json"
+    result = _invoke(data_root, "--out", str(out), "--all-versions")
+    assert result.exit_code == 0, result.output
+    summary = read_model(out, SemanticGradeSummary)
+    # The population is stated, never inferred — the roll-up cannot check either.
+    assert (summary.stratum, summary.process_scope) == ("forward", "all")
+    assert summary.declared_set_versions == [SEMANTIC_SET_V1]
+    assert [c.claim_id for c in summary.claims] == ["ground-breadth", "majority-ground"]
+    assert summary.overall is not None
+    assert summary.overall.graded == 12
+    # The bound that travels with the counts: 12 units rest on 6 opinions.
+    assert (summary.cells, summary.cases) == (6, 6)
+    assert any(record.rank_agreement is not None for record in summary.agreement.values())
+    # Deterministic: a second run reproduces the file byte for byte.
+    first = out.read_text()
+    _invoke(data_root, "--out", str(out), "--all-versions")
+    assert out.read_text() == first
+
+
+def test_the_summary_command_takes_one_grade_per_grader_per_cell(tmp_path: Path) -> None:
+    """Two runs are two grades from one grader on one unit, which the roll-up refuses."""
+    data_root = tmp_path / "data"
+    _panel_ledger(data_root, cases=6)
+    # An ordinary re-grade: same grader, same cell, a later run. Without the
+    # collapse this raises out of `summarize_semantic_grades`.
+    _write_grade(
+        data_root,
+        case_id="scotus/1",
+        grader="e1",
+        grades=(_UNSUPPORTED, _UNSUPPORTED),
+        run_id="r2",
+        graded_at=datetime(2026, 7, 1, tzinfo=UTC),
+    )
+    out = tmp_path / "semantic-grades.json"
+    result = _invoke(data_root, "--out", str(out), "--all-versions")
+    assert result.exit_code == 0, result.output
+    summary = read_model(out, SemanticGradeSummary)
+    assert summary.overall is not None
+    assert summary.overall.graded == 12  # not 14: the re-run replaced, never added
+    assert "12 block(s)" in result.output
+    # And it is the *newest* run that survived: e1's re-grade of scotus/1 flips
+    # that unit's panel from `supported` to `unsupported` (the lower median of
+    # the re-grade against e2's unchanged read).
+    census = {c.claim_id: c for c in summary.claims}
+    assert (census["majority-ground"].supported, census["majority-ground"].unsupported) == (1, 3)
+
+
+def test_a_grader_whose_newest_run_carries_no_block_has_withdrawn_the_grade(
+    tmp_path: Path,
+) -> None:
+    """A re-run that grades nothing is a withdrawal, not a reason to resurrect the old one."""
+    data_root = tmp_path / "data"
+    _write_merits_cell(data_root, case_id="scotus/1", grader="e1")
+    # The same grader's later run, carrying no semantic block at all.
+    event = CasePaths(data_root, "scotus", 1).event(MERITS_EVENT_ID)
+    write_json(
+        event.evaluation("e1", "p", "r2"),
+        Evaluation(
+            case_id="scotus/1",
+            event_id=MERITS_EVENT_ID,
+            predictor_id="p",
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id="r2",
+            created_at=datetime(2026, 7, 1, tzinfo=UTC),
+            correct=True,
+        ),
+    )
+    result = _invoke(data_root, "--all-versions")
+    assert result.exit_code == 0, result.output
+    assert "0 block(s), 0 refused; 0 graded" in result.output
+
+
+def test_a_refused_block_is_counted_rather_than_read_as_a_missing_grade(
+    tmp_path: Path,
+) -> None:
+    """A systematic refusal must not render as 'few grades'."""
+    data_root = tmp_path / "data"
+    _write_merits_event(
+        data_root, case_id="scotus/1", event_id=MERITS_EVENT_ID, moment=Moment.grant
+    )
+    _write_grade(
+        data_root,
+        case_id="scotus/1",
+        grader="e1",
+        block=_block(("majority-ground", _SUPPORTED), version="semantic-v2"),
+    )
+    result = _invoke(data_root, "--all-versions")
+    assert result.exit_code == 0, result.output
+    assert "1 block(s), 1 refused; 0 graded" in result.output
+
+
+def test_the_later_merits_moment_is_not_pooled_with_the_first(tmp_path: Path) -> None:
+    """A set is declared on every moment of its stage; a census covers one vantage."""
+    data_root = tmp_path / "data"
+    _write_merits_cell(data_root, case_id="scotus/1", grader="e1")
+    briefed = next(
+        spec.event_id for spec in moments.moments_for(Stage.merits) if spec.moment == Moment.briefed
+    )
+    _write_merits_event(data_root, case_id="scotus/1", event_id=briefed, moment=Moment.briefed)
+    _write_grade(data_root, case_id="scotus/1", grader="e1", event_id=briefed)
+    result = _invoke(data_root, "--all-versions")
+    assert result.exit_code == 0, result.output
+    # Both events declare `semantic-v1` and both are graded; only the stage's
+    # first moment enters, so the briefed forecast never averages with the grant.
+    assert declared_semantic_claim_set(briefed) is not None
+    assert "1 block(s), 0 refused; 2 graded" in result.output
+
+
+def test_the_summary_command_rejects_an_unknown_stratum(tmp_path: Path) -> None:
+    """A census must state a population the reading contract recognizes."""
+    result = _invoke(tmp_path / "data", "--stratum", "Forward")
+    assert result.exit_code != 0
+    assert "unknown stratum" in result.output

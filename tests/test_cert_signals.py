@@ -11,7 +11,11 @@ never read as a disposition.
 from datetime import date
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline.cert_signals import match_disposition_signal, mootness_disposition
+from fedcourtsai.pipeline.cert_signals import (
+    dissent_from_denial,
+    match_disposition_signal,
+    mootness_disposition,
+)
 from fedcourtsai.pipeline.ingest import _live_resolution
 from fedcourtsai.schemas import Disposition
 
@@ -99,6 +103,61 @@ def test_expedite_motion_orders_are_not_the_cert_disposition() -> None:
         + "for a writ of certiorari denied.",
     ):
         assert match_disposition_signal(text) is None, text
+
+
+def test_qualified_motion_orders_about_the_petition_are_not_the_cert_disposition() -> None:
+    # Same shape as the expedite order — the petition is the object of
+    # "consideration of", so the verb decides the motion — but the motion word
+    # carries a qualifier, so the subject anchor has to see past it. The
+    # deferral form is the live one: it precedes the petition's own disposition
+    # in docket order, so a match stamps a grant on a case that was never
+    # granted, dated to the motion order.
+    for text in (
+        "Joint motion to defer consideration of the petition for a writ of certiorari GRANTED.",
+        "Joint motion to defer consideration of the petition for a writ of certiorari DENIED.",
+        "Consent motion to defer consideration of the petition for a writ of "
+        + "certiorari is granted.",
+        "The joint motions to defer consideration of the petitions for writs "
+        + "of certiorari are granted.",
+        "Petitioner's motion to defer consideration of the petition for a "
+        + "writ of certiorari granted.",
+        # The typographic apostrophe, which the clerk types as often as the
+        # ASCII one: a possessive qualifier must count as one word either way,
+        # or the anchor loses the bound and the sentence reads as an order.
+        "Petitioner\u2019s motion to defer consideration of the petition for a "
+        + "writ of certiorari granted.",
+        "The unopposed joint motion to defer consideration of the petition for "
+        + "a writ of certiorari is granted.",
+    ):
+        assert match_disposition_signal(text) is None, text
+
+
+def test_qualified_motion_compounds_that_do_grant_the_petition_still_read() -> None:
+    # The widening's own risk direction: shapes the subject anchor newly
+    # reaches, which must still resolve because they say nothing about
+    # "consideration of" — the petition is a conjunctive subject, not an
+    # object. Without these the precision fixtures above could be satisfied by
+    # a guard that ate every qualified-motion order outright.
+    for text in (
+        "Motions to proceed in forma pauperis and petitions for writs of certiorari GRANTED.",
+        "Petitioner's motion for leave to proceed in forma pauperis and the "
+        + "petition for a writ of certiorari are granted.",
+        "The unopposed joint motion to expedite and the petition for a writ of "
+        + "certiorari are GRANTED.",
+    ):
+        matched = match_disposition_signal(text)
+        assert matched is not None and matched[0] == Disposition.granted, text
+
+
+def test_a_qualified_motion_order_beside_a_real_grant_leaves_the_grant_readable() -> None:
+    # The guard is sentence-scoped, so suppressing the motion sentence must not
+    # cost the petition sentence next to it — the entry still resolves as a
+    # grant, off the petition's own order.
+    matched = match_disposition_signal(
+        "Joint motion to defer consideration of the petition for a writ of "
+        "certiorari DENIED.  Petition for a writ of certiorari GRANTED."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
 
 
 def test_filing_recital_with_a_conditional_disposition_is_not_an_order() -> None:
@@ -473,3 +532,114 @@ def test_a_prose_cbj_gvr_resolves_gvr_and_opens_no_merits_proceeding() -> None:
         date_cert_granted=cert_granted,
     )
     assert corpus.opens_merits_proceeding(row) is False
+
+
+def test_a_deferral_motion_grant_does_not_pre_empt_the_petitions_own_dismissal() -> None:
+    # The whole seam, in docket order: the deferral order lands first, so a
+    # match there wins ingest's first-entry rule and records a grant — with the
+    # motion's date — on a petition that was in fact dismissed under Rule 46 a
+    # month later. Suppressing the motion sentence lets the real terminal entry
+    # resolve the row, and it leaves the merits population.
+    entries = [
+        {
+            "description": "Petition for a writ of certiorari filed.",
+            "date_filed": "2023-11-09",
+        },
+        {
+            "description": (
+                "Joint motion to defer consideration of the petition for a writ "
+                "of certiorari GRANTED."
+            ),
+            "date_filed": "2024-03-18",
+        },
+        {"description": "Petition Dismissed - Rule 46.", "date_filed": "2024-04-22"},
+    ]
+
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+
+    assert disposition == "dismissed"
+    assert cert_granted is None and cert_denied is None
+    assert terminated == date(2024, 4, 22)
+    row = corpus.CorpusRow(
+        case_id="scotus/72480144",
+        court="scotus",
+        docket_number="23-506",
+        disposition=disposition,
+        date_cert_granted=cert_granted,
+    )
+    assert corpus.opens_merits_proceeding(row) is False
+
+
+# --- the noted dissent from a denial ---------------------------------------------
+
+#: Real-shaped order-list text carrying each of the four notations. Aggregated
+#: existence is all that is read: no fixture asserts *which* Justice.
+_DISSENT_SHAPES = (
+    "Petition DENIED. Justice Sotomayor, with whom Justice Jackson joins, "
+    + "dissenting from the denial of certiorari.",
+    "Petition DENIED. Justice Thomas would grant the petition for a writ of certiorari.",
+    "Statement of Justice Alito respecting the denial of certiorari.",
+    "Petition DENIED. JUSTICE GORSUCH, dissenting.",
+    # The bare notation as the clerk usually files it — a recital ending in
+    # "filed", which the disposition guard would reject and this one must not.
+    "Petition DENIED. Statement of Justice Alito, dissenting, filed.",
+)
+
+#: Shapes the parser must stay silent on: a plain denial, every grant-side
+#: disposition (a dissent from a GVR is not a dissent from a denial), and the
+#: pending-docket near-misses the disposition table's own guards exist for.
+_NOT_A_NOTED_DISSENT = (
+    "Petition DENIED.",
+    "Petition DENIED. Justice Barrett took no part in the consideration or "
+    + "decision of this petition.",
+    "DISTRIBUTED for Conference of 9/29/2025.",
+    "Judgment VACATED and case REMANDED for further consideration in light of "
+    + "Louisiana v. Callais. Justice Alito, dissenting.",
+    "Petition for a writ of certiorari granted; statement of Justice Alito filed.",
+    "The petition for a writ of certiorari before judgment is granted. The "
+    + "judgment of the United States Court of Appeals for the Ninth Circuit is "
+    + "vacated, and the case is remanded with instructions to dismiss the case as moot.",
+    "Motion of petitioner to expedite consideration of the petition for a writ "
+    + "of certiorari in the event the petition is granted filed.",
+    "Brief of respondent suggesting that the judgment be vacated and the case " + "remanded filed.",
+)
+
+
+def test_dissent_from_denial_reads_the_four_order_list_notations() -> None:
+    for text in _DISSENT_SHAPES:
+        assert dissent_from_denial(text) is True, text
+
+
+def test_a_motion_denial_anchors_no_bare_dissent_notation() -> None:
+    # The bare notation counts only where *this entry's own order* is a denial,
+    # and a denied motion about the petition is not one — so the guard that
+    # suppresses the disposition takes the anchor with it, and the entry reads
+    # False. That is the safe direction: naming a Justice is not itself the
+    # observable, and a false positive would commit a fact to the record.
+    motion_denial = (
+        "Joint motion to defer consideration of the petition for a writ of "
+        "certiorari DENIED. Justice Sotomayor, dissenting."
+    )
+    assert dissent_from_denial(motion_denial) is False
+    # A self-anchored notation names the denial itself, so it still reads
+    # through the same text — the suppression costs only the bare shape.
+    assert (
+        dissent_from_denial(
+            "Joint motion to defer consideration of the petition for a writ of "
+            "certiorari DENIED. Justice Sotomayor, dissenting from the denial of certiorari."
+        )
+        is True
+    )
+
+
+def test_dissent_from_denial_stays_silent_on_quiet_denials_and_grants() -> None:
+    for text in _NOT_A_NOTED_DISSENT:
+        assert dissent_from_denial(text) is False, text
+
+
+def test_the_bare_notation_needs_its_own_entry_to_be_the_denial() -> None:
+    # "Justice X, dissenting" names no denial, so alone it is as likely to be a
+    # merits dissent; the three denial-worded notations do name one and read on
+    # an entry of their own, as an order list files them.
+    assert dissent_from_denial("Justice Gorsuch, dissenting.") is False
+    assert dissent_from_denial("Justice Thomas would grant the petition.") is True

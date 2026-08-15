@@ -34,7 +34,13 @@ from ..registry import enabled_evaluators
 from ..store import forecastable_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
-from .outcome import UnrecordedOutcome, disposition_basis, resolve_case, termination_signal
+from .outcome import (
+    UnrecordedOutcome,
+    disposition_basis,
+    read_order_markers,
+    resolve_case,
+    termination_signal,
+)
 
 
 @dataclass
@@ -98,6 +104,9 @@ def pull_case(
         court_id,
         docket_id,
         disposition_basis=disposition_basis(fresh),
+        order=read_order_markers(
+            fresh, disposition=row.disposition, date_cert_granted=row.date_cert_granted
+        ),
     )
 
     # Re-extract predictable events from the refreshed docket, not just at

@@ -23,9 +23,15 @@ Two layers of checks:
   evaluation recording a ``risk_set`` base-rate basis carries the salience
   version that population was banded under; every
   prose document a ``prediction.json`` names resolves to a file beside it; every
-  committed claims block is one the claim scorer will not silently void; and
+  committed claims block is one the claim scorer will not silently void; every
+  committed semantic block — the predictor's propositions and the grader's
+  grades alike — answers the declaration its event carries, since both sides are
+  read past silently rather than refused loudly; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
-  its ``judgment`` — the stage-aware half of the merits prediction contract.
+  its ``judgment`` — the stage-aware half of the merits prediction contract —
+  and no evaluation carries a ``vote_accuracy`` off a merits event, since an
+  individual cert vote is never scored and that field is the evaluator's own to
+  write.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -42,7 +48,7 @@ import sqlite3
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import yaml
@@ -52,12 +58,15 @@ from . import corpus
 from .integrity import cell_clock
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
+from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .schemas import (
     FILENAME_MODELS,
+    MERITS_PROCEEDING_DISPOSITIONS,
     CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
+    Evaluation,
     EventKind,
     LedgerValidation,
     PredictableEvent,
@@ -96,7 +105,24 @@ CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
+CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
+CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
+CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
+CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
+
+# How long after its cert grant a merits proceeding may sit with neither a
+# parsed judgment nor a recorded termination before the row reads as stale
+# rather than pending. Two October Terms, against the six-to-eighteen-month
+# grant-to-judgment window `docs/decision-model.md` states: 730 days clears the
+# far end of that window by half a Term, which covers the outliers the window
+# does not name — a case held in abeyance, or one restored for reargument.
+# The bound wants headroom rather than precision, because what it separates is
+# not a slow case from a fast one but a pending case from a decided docket the
+# record never resolved: such a row keeps a merits event forecastable forever,
+# and a forward cell on it is a mislabeled backtest with unrestricted
+# retrieval. The residue this check exists for is years old, not months.
+_STALE_GRANT_DAYS = 730
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -249,6 +275,79 @@ def check_snapshot_not_future(conn: sqlite3.Connection, today: date) -> CorpusCh
         )
     ]
     return _check(CHECK_SNAPSHOT_NOT_FUTURE, problems, checked=total, detail=f"as of {cutoff}")
+
+
+def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> CorpusCheck:
+    """A long-past cert grant must have resolved into a merits outcome by now.
+
+    The population is :func:`fedcourtsai.corpus.opens_merits_proceeding` — the
+    grants that open a merits proceeding — and the defect is a row that carries
+    neither a parsed ``merits_judgment`` nor a recorded ``merits_terminated``
+    ``_STALE_GRANT_DAYS`` after its own grant. Such a row is not a pending case;
+    it is a decided docket whose outcome the record never captured, because the
+    judgment sweep could not read its terminal entry or never reached a
+    snapshot of it.
+
+    The point is that the residue stops being latent. The row-keyed gates read
+    exactly those two columns, so on this class every one of them reads
+    *pending* and the event stays forecastable indefinitely — and a *forward*
+    cell on a case decided years ago is a mislabeled backtest with unrestricted
+    retrieval. What actually holds the line is the pair of snapshot-reading
+    guards either side of it — the mint's pendency check
+    (:func:`fedcourtsai.merits_event_migration._pendency_conflict`) and
+    provisioning's leakage scan — which re-derive from the stored payload what
+    the row failed to record. That is a guard over bad data; a failing check
+    names the cases whose record needs mending, which is the durable fix.
+
+    Corpus-side, so it runs on the scheduled verdict rather than the offline
+    gate. Dates are stored ISO ``YYYY-MM-DD``, so a lexicographic ``<`` is a
+    correct comparison. Unlike the row-shaped checks this one takes no SQL
+    ``LIMIT``: the count *is* the signal, the population is the few hundred
+    SCOTUS grants rather than the whole corpus, and ``_check`` truncates the
+    published sample anyway.
+    """
+    cutoff = (today - timedelta(days=_STALE_GRANT_DAYS)).isoformat()
+    dispositions = sorted(d.value for d in MERITS_PROCEEDING_DISPOSITIONS)
+    placeholders = ", ".join("?" for _ in dispositions)
+    population = (
+        "FROM cases WHERE court = 'scotus' AND date_cert_granted IS NOT NULL "
+        f"AND disposition IN ({placeholders})"
+    )
+    checked = int(conn.execute(f"SELECT count(*) {population}", dispositions).fetchone()[0])
+    # The message opens with the grant date because `_check` re-sorts the
+    # sample lexicographically: leading with the date makes the published
+    # twenty the *oldest* grants rather than the lowest case ids.
+    problems = [
+        f"granted {record['date_cert_granted']}: {record['case_id']} still carries "
+        "no merits judgment or termination"
+        for record in conn.execute(
+            f"SELECT case_id, date_cert_granted {population} "
+            "AND date_cert_granted < ? AND merits_judgment IS NULL "
+            "AND merits_terminated IS NULL",
+            (*dispositions, cutoff),
+        )
+    ]
+    # Rows this old that a termination *did* resolve are carried in the detail
+    # rather than left implicit. A `judgment-issued` stamp closes pendency
+    # without recovering a disposition, so it clears this check permanently;
+    # publishing the count keeps that trade visible on the durable surface
+    # instead of only in the sweep's stdout.
+    terminated = int(
+        conn.execute(
+            f"SELECT count(*) {population} AND date_cert_granted < ? "
+            "AND merits_judgment IS NULL AND merits_terminated IS NOT NULL",
+            (*dispositions, cutoff),
+        ).fetchone()[0]
+    )
+    return _check(
+        CHECK_STALE_UNPARSED_GRANTS,
+        problems,
+        checked=checked,
+        detail=(
+            f"granted before {cutoff} ({_STALE_GRANT_DAYS} days); "
+            f"{terminated} resolved by termination"
+        ),
+    )
 
 
 def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
@@ -676,6 +775,65 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
     return _check(CHECK_PREDICTION_CLAIMS, problems, checked=checked)
 
 
+def check_prediction_semantic_claims(data_root: Path) -> CorpusCheck:
+    """A committed semantic block must answer the declaration it was asked for.
+
+    The semantic sibling of :func:`check_prediction_claims`, and it exists
+    because the failure is quieter: a mechanical block that voids at least costs
+    the cell its ``claim_scores``, whereas a non-conforming ``semantic_claims``
+    block is simply read past — the declaration fixes what a grader grades, so a
+    claim the predictor invented is never asked about and a declared claim it
+    skipped is graded against nothing it wrote. Neither shows up anywhere later.
+    Surfaced here instead, while the cell can still be fixed. Absence stays
+    legitimate: a prediction without a block, or on an event declaring no
+    semantic set, is skipped rather than flagged.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/predictions/*/*/prediction.json"):
+        # Parsed through the model; a file that does not parse is
+        # `validate_ledger`'s concern (schema law), not double-reported here.
+        try:
+            prediction = Prediction.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if prediction.semantic_claims is None:
+            continue
+        checked += 1
+        problems.extend(
+            f"prediction {path}: {reason}" for reason in semantic_claim_problems(prediction)
+        )
+    return _check(CHECK_PREDICTION_SEMANTIC, problems, checked=checked)
+
+
+def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
+    """A committed semantic grade block must be one the roll-up will not refuse.
+
+    ``pipeline.semantic.graded_units`` refuses a non-conforming block **whole**
+    and silently — the same deliberate quiet as the claim scorer's — so a block
+    that skips a declared claim, grades one twice, or answers another
+    declaration would commit green and drop out of the census weeks later, with
+    nothing recording that a grader graded this cell at all. The refusal is
+    right; the silence is what this check replaces. Absence stays legitimate: an
+    evaluation without a block, or on an event declaring no semantic set, is
+    skipped rather than flagged.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        try:
+            evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if evaluation.semantic_grades is None:
+            continue
+        checked += 1
+        problems.extend(
+            f"evaluation {path}: {reason}" for reason in semantic_grade_problems(evaluation)
+        )
+    return _check(CHECK_EVALUATION_SEMANTIC, problems, checked=checked)
+
+
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
     """A merits-stage event's latest prediction per predictor must carry a judgment.
 
@@ -724,6 +882,60 @@ def check_merits_predictions(data_root: Path) -> CorpusCheck:
                     f"event {event.event_id!r} carries no judgment"
                 )
     return _check(CHECK_MERITS_PREDICTIONS, problems, checked=checked)
+
+
+def check_scored_votes(data_root: Path) -> CorpusCheck:
+    """No committed evaluation may carry ``vote_accuracy`` off a merits event.
+
+    An individual cert vote is never scored (``docs/decision-model.md``), and
+    ``pipeline.moments.scores_votes`` enforces that wherever the harness computes
+    the figure. But on a real cell ``vote_accuracy`` is the *evaluator's* field to
+    write on every stage — the harness stamps ``claim_scores``, the base-rate
+    basis record, and (on the merits and interim stages only) the whole skill
+    record of ``brier_score`` / ``segment_base_rate`` / ``brier_skill_score``,
+    but never this field anywhere — so the computed gate cannot speak for an
+    agent that wrote the number itself. The leaderboard refuses to aggregate
+    such a value, which keeps it out of every published total; this check
+    refuses to let it be committed at all, so the prohibition holds on the
+    artifact and not merely on the figures derived from it.
+
+    Read against the committed ``event.yaml`` rather than the moments register:
+    an ``evaluation.json`` does not carry its event's stage, and the ledger's
+    stage stamp is what a reader of the artifact sees. That makes this the same
+    shape as :func:`check_merits_predictions` — the schema holds what it can
+    self-contained, and the half needing the event definition lives here. A file
+    that does not parse is ``validate_ledger``'s concern (schema law) and is
+    skipped.
+
+    The directory test precedes the parse for the reason
+    :func:`check_merits_predictions` gives: most events carry no evaluations, and
+    ``validate data`` runs once per cell in both fan-outs.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        evaluations_root = event_file.parent / "evaluations"
+        if not evaluations_root.is_dir():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if event.stage == Stage.merits:
+            continue
+        for path in sorted(evaluations_root.glob("*/*/*/evaluation.json")):
+            try:
+                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+            except (OSError, ValueError, ValidationError):
+                continue
+            checked += 1
+            if evaluation.vote_accuracy is not None:
+                problems.append(
+                    f"evaluation {path}: carries vote_accuracy on "
+                    f"{event.stage or 'stage-less'}-stage event {event.event_id!r} — "
+                    f"a vote is scored only on a merits event"
+                )
+    return _check(CHECK_SCORED_VOTES, problems, checked=checked)
 
 
 # --- referential integrity (git-only subset, for the PR gate) ------------------
@@ -786,7 +998,9 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     a prediction that exists, every recorded ``risk_set`` base-rate basis carries
     the salience version it was banded under, every prose document a prediction
     names is there, every committed claims block is one the claim scorer will not
-    void, and every merits-stage event's scored prediction carries its judgment.
+    void, every committed semantic block on either side answers the declaration
+    it was asked for, and every merits-stage event's scored prediction carries
+    its judgment.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -796,7 +1010,10 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
+        check_prediction_semantic_claims(data_root),
+        check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
+        check_scored_votes(data_root),
     ]
 
 
@@ -817,6 +1034,7 @@ def _run_checks(
         check_row_count_monotonic(conn, baseline_count),
         check_required_columns(conn),
         check_snapshot_not_future(conn, today),
+        check_stale_unparsed_grants(conn, today),
         check_case_dates(conn, today),
         check_domain_values(conn, tracked_courts),
         check_no_duplicates(conn),
@@ -825,7 +1043,10 @@ def _run_checks(
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
+        check_prediction_semantic_claims(data_root),
+        check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
+        check_scored_votes(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

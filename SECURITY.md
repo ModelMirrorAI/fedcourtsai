@@ -71,9 +71,43 @@ runbook, [docs/security.md](docs/security.md).
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
   branch is likewise withheld, with a misconfiguration note on the trigger
-  issue in place of a findings report. One surface is handled a layer earlier
-  instead: the harness-captured tool-call transcript (`retrieval_log.json`)
-  records whatever a tool call carried, which is not the agent's choice, so
+  issue in place of a findings report. The same command gates one surface
+  outside a run branch on its own terms: the `qp-topic-label` run's
+  turn-by-turn engine transcript is scanned (`--transcript-file`) before it is
+  uploaded as a run artifact, with every detector *except* the generic entropy
+  heuristic — a transcript's server-generated tool and request ids are
+  high-entropy by format, so that rule convicts every real file and the
+  artifact could only ever publish empty. Containment of the one credential
+  the scan is given there — the engine's own API key — and the
+  credential-shape patterns are that surface's whole gate, which is why it
+  fails closed the same way: a hit, or a scan that could not run at all,
+  withholds the artifact, and with no trigger issue on a dispatch run the
+  run's warning and step summary are the record. Holding that key makes the
+  scan's own **import path** part of the gate, and it follows an agent that
+  writes freely in the tree the editable install resolves through — so the
+  scanner is built from a checkout taken *after* the agent exits and fetched
+  from GitHub, into a venv inside that fresh tree, with the package cache and
+  the interpreter it is built on inside that tree too, and with the levers
+  that put a caller's code inside a process it starts (`PYTHONPATH`,
+  `LD_PRELOAD`, an executable `core.hooksPath` in global git config) closed
+  alongside. The same job's tree-pristine assertion is a
+  separate control for a separate threat, a rigged measurement rather than a
+  stolen key, and it gates the measure step rather than the capture: a
+  tampered run keeps the transcript that is its evidence. The toolchain that
+  builds the scanner is held the same way: `uv` is checked against a digest
+  recorded before the agent ran, since it sits where the runner user can
+  rewrite it, and PATH is pinned to the root-owned directories so `git` is the
+  image's. What that isolation still trusts, named rather than implied: the
+  action bundles the runner unpacks before a job's first step, which sit in a
+  runner-user-writable path and are pinned by identity and not by bytes; the
+  runner image's own files, behind the passwordless sudo the runner user
+  holds; and anything a process the agent left behind does between steps. What
+  it removes is the drop-a-file class on the scanner's **Python import path**
+  and on the toolchain that builds it — the class an editable install hands
+  over for free. A different surface is
+  handled a layer earlier instead: the tool-call log the harness harvests from
+  an engine transcript into `retrieval_log.json` records whatever a tool call
+  carried, which is not the agent's choice, so
   credential-shaped runs there are **redacted at capture** — rewritten to a
   `[redacted:…]` marker and the run allowed through, rather than costing a
   whole fan-out's model spend to a withheld branch. Redaction is not a gate:

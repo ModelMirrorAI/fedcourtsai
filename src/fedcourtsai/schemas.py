@@ -9,6 +9,7 @@ agents and Codex ``--output-schema`` can target them directly.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Final, Literal, get_args
@@ -113,6 +114,19 @@ MERITS_PROCEEDING_DISPOSITIONS: frozenset[Disposition] = frozenset(
     {Disposition.granted, Disposition.granted_in_part}
 )
 
+#: The granted dispositions whose **label alone** names the route the case took
+#: out of the cert order: :data:`GRANTED_DISPOSITIONS` less the ones that open a
+#: merits proceeding. Named rather than recomputed at each reader because two
+#: readers need it — `pipeline.outcome.disposition_route`, which writes the
+#: route marker (a GVR and a summary reversal both dispose in the order that
+#: grants, while a plain `granted` needs the order text to separate a plenary
+#: grant from a summary merits reversal recorded before the `summary-reversal`
+#: label existed), and `pipeline.base_rates.summary_route_base_rate`, whose
+#: numerator is this set's published count.
+CERT_ORDER_DISPOSITIONS: frozenset[Disposition] = (
+    GRANTED_DISPOSITIONS - MERITS_PROCEEDING_DISPOSITIONS
+)
+
 
 #: The Court's composition and the quorum it can act with — 28 U.S.C. § 1. The
 #: only statutory numbers in the decision model; every vote threshold is Court
@@ -192,6 +206,32 @@ class Judgment(StrEnum):
     affirmed_in_part = "affirmed-in-part-reversed-in-part"
     dig = "dismissed-as-improvidently-granted"
     equally_divided = "affirmed-by-an-equally-divided-court"
+
+
+class MeritsTermination(StrEnum):
+    """How a merits proceeding *ended without a disposition* of the judgment below.
+
+    Deliberately not members of :class:`Judgment`, and the distinction is the
+    whole point of the vocabulary: these entries say **that** the case is over,
+    never **how** the judgment below fared. A voluntary Rule 46 dismissal after
+    the grant leaves nothing decided, and the mandate-analog "Judgment issued."
+    is a clerk's notation on a docket whose disposition entry the corpus never
+    captured. Folding either into ``Judgment`` would fabricate merits ground
+    truth twice over: ``judgment_disturbed`` would read it as *undisturbed*
+    (a substantive claim about the lower court's judgment that nobody made),
+    and the value would enter the predictor-emittable outcome vocabulary as
+    something a cell could forecast.
+
+    So a termination resolves the corpus row's merits *state* — the case is not
+    pending, and the forward-forecast gates must refuse it — while leaving
+    ``merits_judgment`` null, which keeps the row out of the statpack's
+    ``parsed`` slice and out of the disturbed rate the merits baseline is
+    pooled from. Stored in the ``merits_terminated`` column
+    (``pipeline/judgment.py`` is the parser).
+    """
+
+    voluntary_dismissal = "voluntary-dismissal"
+    judgment_issued = "judgment-issued"
 
 
 class EventKind(StrEnum):
@@ -342,7 +382,7 @@ class FlagSeverity(StrEnum):
 
 
 class SemanticSupport(StrEnum):
-    """How far the opinion supports one declared semantic claim — the ``semantic-v0`` grade.
+    """How far the opinion supports one declared semantic claim — the ``semantic-v1`` grade.
 
     A small closed vocabulary on purpose: the grade is read by a human-or-model
     grader rather than resolved in code, so every level the vocabulary adds is a
@@ -360,11 +400,11 @@ class SemanticSupport(StrEnum):
     counted, never ranked and never scored, exactly as a masked mechanical claim
     is (``ClaimScore.outcome`` null).
 
-    ``semantic-v0`` is **alpha** — provisional, unproven against opinion text,
+    ``semantic-v1`` is **alpha** — provisional, unproven against opinion text,
     and explicitly not a pre-registered commitment in the sense ``cert-v1`` and
-    ``merits-v1`` are. Nothing produces a grade today, so nothing published
-    depends on this vocabulary; see ``docs/outcome-decomposition.md``, *The
-    semantic family, alpha*.
+    ``merits-v1`` are. No opinion body is ingested, so every grade a cell writes
+    today is the mask and nothing published depends on this vocabulary; see
+    ``docs/outcome-decomposition.md``, *The semantic family, alpha*.
     """
 
     supported = "supported"
@@ -607,13 +647,51 @@ class PredictionContext(_Strict):
         description="The active scorer's salience band as at prediction, derived from the "
         "signals above. None when they were unobservable, which is the honest "
         "answer for a cell whose snapshot carried no proceedings — the evaluator "
-        "then falls back to the terminal band rather than guessing",
+        "then scores against the terminal band it can derive rather than guessing "
+        "a frozen one. A band is readable only beside the `salience_version` "
+        "below, which is what the risk-set basis keys on: a band with no version "
+        "names a population nothing pins down",
     )
     salience_version: str | None = Field(
-        default=None, description="Version of the scorer that produced band"
+        default=None,
+        description="Version of the scorer that produced band, and the key the "
+        "evaluator's `risk_set` base-rate basis is chosen on: a band name means "
+        "something only under the version that assigned it, so a frozen band "
+        "whose version is absent — or does not match the statpack's — yields no "
+        "baseline rather than a terminal relabel",
+    )
+    response_requested: bool | None = Field(
+        default=None,
+        description="Whether the snapshot showed the Court (or a Circuit Justice) "
+        "had already requested a response to this application, as at "
+        "provisioning — the prediction end of the interim increment pair, whose "
+        "resolution end is `Outcome.interim_signals`. Masked by "
+        "`signals_observable` exactly as the cert signals above are: one mask "
+        "covers both signal families, because a snapshot disclosing no "
+        "proceedings discloses neither. Frozen only on an application docket — "
+        "null on every cert cell, which declares no claim that reads it, and "
+        "whose information set this block is part of",
+    )
+    referred_to_court: bool | None = Field(
+        default=None,
+        description="Whether the snapshot showed this application already "
+        "referred to the full Court rather than left with a Circuit Justice, as "
+        "at provisioning; masked by `signals_observable` like the rest",
+    )
+    amicus_briefs: int | None = Field(
+        default=None,
+        ge=0,
+        description="Amicus briefs the snapshot's entries recorded as at "
+        "provisioning; masked by `signals_observable` like the rest. Unbounded "
+        "above, so the increment claim over it is a strict rise with no vacuous "
+        "arm — unlike the two flags, which can only rise once",
     )
     term: int | None = Field(
-        default=None, description="The case's October Term, the leakage guard's key"
+        default=None,
+        description="The case's October Term, the leakage guard's key — the cert "
+        "Term parsed from a `YY-NNNN` petition number, or the application Term "
+        "parsed from a `YYAnnn` application number. Both baselines pool Terms "
+        "strictly before it; which pool is keyed on the stage, not on this field",
     )
 
 
@@ -655,13 +733,11 @@ class SemanticClaim(_Strict):
     family, alpha*, is the design authority.
 
     The set is the harness's exactly as the mechanical set is
-    (``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no
-    committed prediction carries this block; the field exists so that turning
-    the family on is a declaration plus a prompt that asks for it, rather than
-    a new shape. One piece is still owed on this side and named in
-    ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike
-    ``Prediction.claims``, nothing yet holds this list to the declared set, so
-    the mandatory-set discipline binds graders and not predictors.
+    (``fedcourtsai.pipeline.semantic``): the merits moments declare
+    ``semantic-v1``, and the predict prompt asks a merits cell for one
+    proposition per declared claim. ``validate`` holds a committed block to that
+    declaration, so a block naming an undeclared claim, skipping a declared one,
+    or stating one twice fails the cell rather than reaching a grader.
     """
 
     claim_id: str = Field(
@@ -784,10 +860,12 @@ class Prediction(_Strict):
         "against the opinion text by a reader, never scored by "
         "`claim_score` — a semantic claim has no harness-computable prior, so "
         "the mechanical rule's baseline requirement cannot be met and the family "
-        "reports grades descriptively instead. Null on every committed "
-        "prediction: the declaration tables are empty (`semantic-v0` is alpha, "
-        "and no opinion body is ingested to ground a claim against), so no cell "
-        "is asked for one.",
+        "reports grades descriptively instead. The merits moments declare "
+        "`semantic-v1` and the predict prompt asks a merits cell for it; every "
+        "other stage declares no semantic set, so the field stays null there. "
+        "Null too on predictions written before the elicitation existed. The "
+        "set is mandatory as the mechanical one is, and `validate` holds a "
+        "committed block to the declaration.",
     )
 
     @model_validator(mode="after")
@@ -848,6 +926,51 @@ class ResolutionSignals(_Strict):
     )
 
 
+class InterimResolutionSignals(_Strict):
+    """The interim docket's escalation signals as at resolution, frozen into the outcome.
+
+    The interim twin of :class:`ResolutionSignals`, and a *different* block
+    rather than an extension of it: the cert signals (a distribution count, a
+    CVSG) are observations nobody makes on an application, and these three are
+    observations nobody makes on a petition. Sharing one block would have every
+    consumer branch on which half is populated.
+
+    It carries the same two properties that make the cert block scoreable. All
+    three signals are **monotone** over an application's life — the Court does
+    not un-request a response, un-refer an application, or un-file an amicus
+    brief — so a forecast about them is a forecast about an increment, which
+    needs the value as at prediction as well: that end is
+    ``Prediction.context`` (:class:`PredictionContext`), which carries the same
+    three fields. And the corpus columns behind them hold the *current* value,
+    not the value at any fixed moment, so copying them onto the outcome at
+    resolution is what makes a re-score of the same cell reproduce the same
+    number.
+
+    **Deliberately no dates.** The corpus's ``*_at`` columns are moment-minting
+    dates read from entry text, and an undated entry is skipped there by rule —
+    so they carry a known undercount that the max-latched booleans do not. The
+    resolution *value* is the flag; the date's job is opening an event, and it
+    keeps it.
+    """
+
+    response_requested: bool = Field(
+        description="Whether the Court (or a Circuit Justice) had requested a "
+        "response by resolution — the interim analogue of a CVSG, and an "
+        "affirmative act of attention rather than a rescheduling",
+    )
+    referred_to_court: bool = Field(
+        description="Whether the application had been referred to the full Court "
+        "rather than decided by a Circuit Justice alone — the signal the interim "
+        "aggregation rule turns on",
+    )
+    amicus_briefs: int = Field(
+        ge=0,
+        description="How many amicus briefs the application's docket recorded as "
+        "at resolution — a stakes proxy, counted per entry naming amicus curiae "
+        "(a multi-filer entry counts once)",
+    )
+
+
 class Outcome(_Strict):
     """``outcome.json`` — realized ground truth, written once an event resolves."""
 
@@ -882,6 +1005,16 @@ class Outcome(_Strict):
         "written before the block existed, "
         "and on events whose proceedings were never live-parsed",
     )
+    interim_signals: InterimResolutionSignals | None = Field(
+        default=None,
+        description="The interim docket's escalation signals frozen as at "
+        "resolution — the interim twin of `signals`, and never populated "
+        "beside it: the two blocks describe different dockets. Present iff the "
+        "application was application-parsed (`CorpusRow.application_kind` "
+        "non-null is the coverage sentinel for the whole interim signal family, "
+        "exactly as `distribution_count` is for the cert one) and every latched "
+        "value was observed. Absent means not observed, never observed-as-false",
+    )
     vote_provenance: VoteProvenance | None = Field(
         default=None,
         description="Where `votes` came from and how much of it is there. Absent "
@@ -904,6 +1037,30 @@ class Outcome(_Strict):
         "moot) — the label then tracks vacatur practice rather than "
         "cert-worthiness, so scoring segments the cell into the leaderboard's "
         "procedural stratum instead of the headline strata",
+    )
+    disposition_route: Literal["plenary", "gvr", "summary-merits"] | None = Field(
+        default=None,
+        description="How a granted petition's review was routed — whether the "
+        "grant resolved the case in the cert order itself rather than by plenary "
+        "review. 'gvr' where the order granted, vacated and remanded without "
+        "reaching the merits; 'summary-merits' where the judgment rode the grant "
+        "order (granted and decided together, so no merits proceeding followed); "
+        "'plenary' where review was set for briefing and argument. Null means not "
+        "assessed — a denial, an interim outcome, a record disclosing no order "
+        "text, or no cert-grant date to measure the gap against — so a committed "
+        "outcome never asserts a route nobody read. Deliberately a separate "
+        "marker rather than a relabel: `actual_disposition` stays as recorded, "
+        "which is what keeps the merits population and every disposition figure "
+        "fixed across the field's introduction",
+    )
+    noted_dissent_from_denial: bool | None = Field(
+        default=None,
+        description="Whether the denied petition's order text records any noted "
+        "dissent from, or statement respecting, the denial — aggregated existence "
+        "only, never which Justice. Null means no retained order text was "
+        "assessed, which false has to stay distinguishable from: most of the "
+        "ledger carries no payload, and reading absence as 'nobody dissented' "
+        "would invent an observation, exactly as an absent `signals` block does",
     )
 
 
@@ -1029,7 +1186,11 @@ class ClaimScoreBlock(_Strict):
 
     declared_set_version: str = Field(
         description="The claim-set declaration that produced this block's rows, "
-        "e.g. 'cert-v1' — the versioned constant in `fedcourtsai.pipeline.claims`"
+        "e.g. 'cert-v2' — the versioned constant in `fedcourtsai.pipeline.claims`, "
+        "resolved from the event at stamp time. Two totals are comparable only "
+        "under the same version, a different one summing over a different set; "
+        "nothing enforces that, so an aggregate reports the versions it pooled "
+        "(`declared_set_versions`) and metrics/README.md governs the reading"
     )
     claims: list[ClaimScore] = Field(
         default_factory=list,
@@ -1115,17 +1276,20 @@ class SemanticGradeBlock(_Strict):
     *is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,
     alpha*.
 
-    **Alpha, and inert.** ``semantic-v0`` is provisional and unproven against
-    opinion text — not a pre-registered commitment in the sense ``cert-v1`` and
-    ``merits-v1`` are. No stage declares a semantic set, no prompt asks for one,
-    and so no committed evaluation carries this block and no published number
-    depends on it. The first set actually put to work arrives as ``semantic-v1``
-    with its own review; supersession is the expected path, not an exception.
+    **Alpha, and still producing nothing.** ``semantic-v1`` is provisional and
+    unproven against opinion text — not a pre-registered commitment in the sense
+    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it and the
+    evaluate prompt asks a grader for it, but no opinion body is ingested to
+    grade against, so every declared claim masks (``not-addressed``) and no
+    published number depends on it. Supersession by a set formed with text in
+    hand is the expected path, not an exception.
     """
 
     declared_set_version: str = Field(
         description="The semantic claim-set declaration these rows answer, e.g. "
-        "'semantic-v0' — the versioned constant in `fedcourtsai.pipeline.semantic`"
+        "'semantic-v1' — the versioned constant in `fedcourtsai.pipeline.semantic`. "
+        "Checked against the declaration and never overwritten: a block "
+        "answering another declaration is refused rather than relabelled"
     )
     grades: list[SemanticGrade] = Field(
         default_factory=list,
@@ -1164,7 +1328,26 @@ class Evaluation(_Strict):
         "`pipeline.evaluate.is_correct`; the leaderboard's accuracy column is "
         "its mean.",
     )
-    brier_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`(probability - actual_granted)**2` over the stage's declared "
+        "binary — granted on a cert or interim cell, judgment-disturbed on a merits "
+        "one — computed identically in code by `pipeline.evaluate.brier_score`. Who "
+        "owns it splits by stage. On a **merits** or **interim** cell whose "
+        "`event.yaml` names that stage it is harness-stamped **at stamp time** by "
+        "`stamp-cell --role evaluator` from the scored prediction's committed "
+        "`probability` and the outcome's `actual_granted`, never the evaluator's "
+        "word, and cleared where either artifact is missing — so the "
+        "`segment_base_rate` and `brier_skill_score` stamped beside it share "
+        "one source and the skill ratio is verifiable rather than merely "
+        "self-consistent. An unstamped cell keeps whatever it was written with. "
+        "On a **cert** cell it is the evaluator's, and the "
+        "leaderboard's coherence check holds it to the skill recorded against it. "
+        "Null where the cell scored no probability and on records written before the "
+        "field existed.",
+    )
     judgment_correct: int | None = Field(
         default=None,
         ge=0,
@@ -1174,10 +1357,11 @@ class Evaluation(_Strict):
         "vocabulary (a `reversed` call against a `vacated` outcome is 0). Null "
         "wherever either side records no judgment: every non-merits cell, and "
         "records written before the field existed. The evaluator's field, like "
-        "`correct` and `brier_score` — the harness stamps only `claim_scores` "
-        "and the base-rate basis record — but computed identically in code by "
-        "`pipeline.evaluate.judgment_correct`, which the offline engines use. "
-        "Descriptive accuracy, never a "
+        "`correct` — on a merits cell the harness stamps the claim block, the "
+        "base-rate basis record, and the whole skill record (`brier_score`, "
+        "`segment_base_rate`, `brier_skill_score`), but never this — computed "
+        "identically in code by `pipeline.evaluate.judgment_correct`, which the "
+        "offline engines use. Descriptive accuracy, never a "
         "proper score: `brier_score` on the disturbed binary is the scored axis, "
         "and `correct` already carries this same comparison on a merits cell.",
     )
@@ -1211,26 +1395,42 @@ class Evaluation(_Strict):
         description="The leakage-safe segment base rate for this case, on the stage's "
         "own axis. On a cert cell that is its salience band's grant rate pooled over "
         "statpack Terms strictly before the case's Term, and which band — therefore "
-        "which of the two published rates — is recorded in base_rate_basis below. On "
-        "a merits cell it is instead the statpack merits section's disturbed rate "
-        "pooled over grant Terms strictly before the case's "
-        "(`pipeline.base_rates.merits_base_rate`), which is not a salience-band product, "
-        "so base_rate_basis and base_rate_salience_version stay null there. An interim "
-        "cell has no published rate and omits the field. The naive "
-        "baseline the prediction's skill is scored against; null on offline evaluator "
-        "outputs, when no prior-Term data exists for the stage's rate, and on records "
-        "written before the field existed.",
+        "which of the two published rates — is recorded in base_rate_basis below; "
+        "that choice is a judgment about the scored prediction's frozen band, so the "
+        "cert rate is the evaluator's to record. On a merits cell it is instead the "
+        "statpack merits section's disturbed rate pooled over grant Terms strictly "
+        "before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the "
+        "Term certiorari was granted in and harness-stamped by `stamp-cell --role "
+        "evaluator` — never the evaluator's word, and cleared where the harness "
+        "cannot compute one, so a hand-pooled number never survives the stamp. On an "
+        "interim cell it is the statpack interim section's substantive grant rate "
+        "pooled over application Terms strictly before the case's own, read off the "
+        "scored prediction's frozen context (`pipeline.base_rates.interim_base_rate`) "
+        "and harness-stamped the same way, null below that pool's own "
+        "pre-registered floor. Neither pooled rate is a salience-band product, so the "
+        "stamp clears base_rate_basis and base_rate_salience_version on both. The naive "
+        "baseline the prediction's skill is scored against; null on a cert cell from an "
+        "offline evaluator, when no prior-Term data exists for the stage's rate, and on "
+        "records written before the field existed.",
     )
     base_rate_basis: Literal["risk_set", "terminal"] | None = Field(
         default=None,
         description="Which salience-band population segment_base_rate was taken over. "
         "Null wherever the rate is not a band product — a merits cell's Term-pooled "
-        "disturbed rate, and an interim cell, which takes no rate at all. 'risk_set' "
+        "disturbed rate, and an interim cell's application-Term-pooled grant rate: "
+        "an application freezes no band by rule, so there is no band population for "
+        "this field to name, and the event's stage axis carries the disambiguation "
+        "instead. The stamp clears it on both of those stages, where the rate beside "
+        "it is the harness's own pooled number, so the null is structural rather than "
+        "a rule an evaluator has to honour. 'risk_set' "
         "pools across every petition that had REACHED the prediction's frozen band — "
         "the population a live cell was actually in, and the right basis wherever the "
-        "prediction carries a frozen band. 'terminal' pools across petitions that "
+        "prediction carries a frozen band under a resolvable salience version. "
+        "'terminal' pools across petitions that "
         "ENDED in the band derived from the row now, the fallback where no frozen "
-        "band exists (an older cell, or one whose snapshot disclosed no proceedings). "
+        "band exists (an older cell, or one whose snapshot disclosed no proceedings) "
+        "— never a relabel of a frozen band whose version fails to resolve, which "
+        "yields no baseline at all. "
         "The two differ several-fold in the weak bands, so a skill score is only "
         "comparable within one basis; absent on evaluations written before the "
         "distinction existed.",
@@ -1245,16 +1445,22 @@ class Evaluation(_Strict):
         "value does not survive the stamp): on the `risk_set` path it is the "
         "scored prediction's frozen `context.salience_version`, on the "
         "`terminal` path the live scorer's version. Null when no basis is "
-        "recorded — which includes every merits cell, whose baseline is not a "
-        "salience-band product and so has no scorer version to pin — and on "
-        "records written before the field existed.",
+        "recorded, and cleared outright on every merits and every interim cell, "
+        "whose harness-stamped baseline is not a salience-band product and so has "
+        "no scorer version to pin; null too on records written before the field "
+        "existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,
         le=1.0,
         description="Brier skill score vs `segment_base_rate` "
         "(1 - brier / baseline_brier): ~0 when the prediction merely parrots the "
-        "segment base rate, positive when it beats it, negative when worse. Null "
+        "segment base rate, positive when it beats it, negative when worse. On a "
+        "merits or interim cell it is harness-derived at stamp time from the "
+        "*stamped* brier_score, the outcome, and the stamped `segment_base_rate` — "
+        "all three off one set of committed artifacts, so the ratio is correct by "
+        "construction rather than merely reproducible from the record; on a cert "
+        "cell it is the evaluator's, computed against the band rate it recorded. Null "
         "when `segment_base_rate` is null, when the baseline is already exact (the "
         "base rate matched the outcome), and on records written before the field "
         "existed.",
@@ -1277,8 +1483,11 @@ class Evaluation(_Strict):
         "with mechanical claim scores, and is never a rank key. Unlike "
         "`claim_scores` it is the grader's word by construction — a semantic "
         "claim needs a reader — which is why inter-grader agreement travels "
-        "beside any published grade. Null on every committed evaluation: no "
-        "stage declares a semantic set and no prompt asks for one.",
+        "beside any published grade. Written on merits cells, whose moments "
+        "declare `semantic-v1`; null on every other stage, which declares no "
+        "semantic set, and on evaluations written before the grading existed. "
+        "No opinion body is ingested yet, so a written block grades every claim "
+        "as `not-addressed` — the availability mask, a property of the record.",
     )
     notes_doc: str = "evaluation.md"
     process_version: ProcessVersion | None = Field(
@@ -1725,6 +1934,24 @@ class LeaderboardEntry(_Strict):
     predictor_id: str
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
+    events_scored: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs this predictor was scored on, "
+        "pooled across its strata — the numerator of the coverage check the "
+        "board-level `events_scored` denominates. Carried on the entry so the "
+        "comparison against that denominator is one column read rather than a "
+        "sum over three nullable stratum blocks (the sum does reproduce it: a "
+        "predictor's strata partition its events). The check is needed because "
+        "the scored set is *selected*, not sampled: grading is gated at "
+        "`(evaluator, event)` grain, so a prediction committed after a judge "
+        "graded its event is never scored by that judge, and an engine whose "
+        "cells backfill late accumulates systematically fewer scored events. "
+        "Two entries at unequal coverage rank over different populations, and "
+        "no figure on this board adjusts for that. Equal coverage is necessary "
+        "and not sufficient: it certifies the same event set, never the same "
+        "stratum mix or panel depth — read each stratum's `evaluations` and "
+        "this entry's `evaluators` beside it (metrics/README.md)",
+    )
     forward: LeaderboardStratum | None = Field(
         default=None,
         description="True forward forecasts — the event was unresolved when the "
@@ -1766,6 +1993,12 @@ class LeaderboardStageEntry(_Strict):
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
     )
+    events_scored: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs this predictor was scored on in "
+        "this stage — read against the block's own `events_scored`, exactly as a "
+        "ranked entry's is read against the board's",
+    )
     forward: LeaderboardStratum | None = Field(
         default=None,
         description="This stage's true forward forecasts; null when this "
@@ -1781,6 +2014,27 @@ class LeaderboardStageEntry(_Strict):
         description="This stage's mootness-basis cells; null when this predictor "
         "has none in the stage.",
     )
+
+
+def _check_coverage_denominator(
+    covered: int, entries: Sequence[LeaderboardEntry | LeaderboardStageEntry]
+) -> None:
+    """Reject a coverage denominator smaller than an entry it denominates.
+
+    The comparability check reads ``entry.events_scored < covered``, so a
+    denominator left below its entries makes every entry look fully covered and
+    the check reports "coverage even" — failing **open**, which is the one shape
+    a comparability gate must not have. Each entry's events are a subset of the
+    population's union, so ``covered`` is at least the largest entry by
+    construction; a board that says otherwise was not built from its own cells.
+    """
+    for entry in entries:
+        if entry.events_scored > covered:
+            raise ValueError(
+                f"events_scored {covered} is below {entry.predictor_id}'s "
+                f"{entry.events_scored}: the population's figure is the union "
+                "over its entries and cannot be smaller than one of them"
+            )
 
 
 class LeaderboardStage(_Strict):
@@ -1800,6 +2054,14 @@ class LeaderboardStage(_Strict):
     """
 
     evaluations_total: int = Field(ge=0, description="Evaluations aggregated in this stage")
+    events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs any predictor was scored on in "
+        "this block — the coverage denominator its entries' own `events_scored` "
+        "are read against. A union, never a sum: two predictors scored on the "
+        "same event contribute one",
+    )
     forward_evaluations: int = Field(
         default=0, ge=0, description="This stage's forward-forecast evaluations"
     )
@@ -1814,6 +2076,11 @@ class LeaderboardStage(_Strict):
         description="Per-predictor aggregates, ordered by predictor_id — an "
         "ordering, not a ranking",
     )
+
+    @model_validator(mode="after")
+    def _coverage_denominates_its_entries(self) -> LeaderboardStage:
+        _check_coverage_denominator(self.events_scored, self.entries)
+        return self
 
 
 class FrozenProcessRecord(_Strict):
@@ -1891,7 +2158,9 @@ class ForwardClaimRecord(_Strict):
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
-    A deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:
+    A deterministic, offline roll-up of the ``evaluation.json`` files under
+    ``data/`` — the newest per (case, event, predictor, evaluator), since a
+    re-graded cell commits a second file describing one observation:
     one entry per predictor, ranked best-first on the **forward** stratum (see
     :class:`LeaderboardStratum` — the strata are never blended into one number,
     and ``evaluations_total`` includes the procedural cells the ranking
@@ -1951,6 +2220,45 @@ class Leaderboard(_Strict):
         description="Total cert-stage evaluations aggregated; each `stages` block "
         "carries its own counts, never pooled into these",
     )
+    events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cert-stage (case, event) pairs any ranked predictor "
+        "was scored on — the coverage denominator each entry's own "
+        "`events_scored` is read against. A union, never a sum: two predictors "
+        "scored on the same event contribute one, so an entry at the board's "
+        "figure covers the whole scored set and one below it was ranked over a "
+        "subset. Equal coverage certifies the same event set and nothing more — "
+        "not stratum mix, not panel depth — so it can refuse a cross-engine "
+        "comparison but never bless one (metrics/README.md). Cert-stage like "
+        "the counts beside it; a `stages` block denominates its own",
+    )
+    superseded_gradings: int = Field(
+        default=0,
+        ge=0,
+        description="How many committed `evaluation.json` files the run collapse "
+        "dropped while building this board: gradings that passed the scope gate "
+        "but lost to a newer grading of the same (case, event, predictor, "
+        "evaluator). Re-grading is a maintainer-reachable operation, and with "
+        "the collapse in place it leaves no other mark — every count, mean and "
+        "correlation here is already post-collapse — so the number is published "
+        "beside the standings it could have moved rather than inferred from a "
+        "ledger scan. Never subtract it from any count on this board. Its "
+        "population is the **scope gate's**, which is this board's process "
+        "scope over a slightly wider set of cells: a `frozen` board counts only "
+        "supersessions among frozen-scope cells and an `all` board counts them "
+        "over every version, but the count is stage-blind (like "
+        "`forward_claim` — a superseded grading shares its survivor's stage, so "
+        "it spans the ranked board and every `stages` block at once, and must "
+        "never be netted against a stage-scoped total) and is taken *before* "
+        "the forward-claim exclusion, so a supersession of a cell the exclusion "
+        "then drops is counted while the cell reaches no block. The two "
+        "agreement views collapse separately, over their own scope, and are not "
+        "in this figure. `0` is a measured zero on any board `fedcourts "
+        "leaderboard` writes — the command always supplies the count — but a "
+        "board built before this field existed also reads `0`, so read it "
+        "beside `process_scope` and `evaluations_total`",
+    )
     procedural_evaluations: int = Field(
         default=0,
         ge=0,
@@ -1989,6 +2297,11 @@ class Leaderboard(_Strict):
         "into the cert board, and the key is omitted entirely while no such "
         "cell exists.",
     )
+
+    @model_validator(mode="after")
+    def _coverage_denominates_its_entries(self) -> Leaderboard:
+        _check_coverage_denominator(self.events_scored, self.entries)
+        return self
 
     @model_serializer(mode="wrap")
     def _omit_empty_optional_axes(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -2426,19 +2739,19 @@ class SemanticGraderAgreement(_Strict):
 class SemanticGradeSummary(_Strict):
     """The descriptive roll-up of a set of semantic grades, with agreement beside it.
 
-    What the ``semantic-v0`` seam produces:
     :func:`fedcourtsai.pipeline.semantic.summarize_semantic_grades` builds it
-    from graded units and nothing else — no baseline, no score, no total. There
-    is no such artifact under ``metrics/`` and no cell produces a grade to feed
-    one; this is the shape a future surface would publish, exercised now
-    against synthetic grades so the plumbing is proven before real ones exist.
+    from graded units and nothing else — no baseline, no score, no total, and
+    ``fedcourts semantic-summary`` is what publishes it. It publishes
+    **conditionally**: an artifact is written under ``metrics/`` only where the
+    pooled census clears the floor, so no committed artifact carries one today
+    and none is required to.
 
     Two of the rules it publishes under it cannot enforce for itself, because a
     graded unit carries neither label: ``stratum`` and ``process_scope`` are
     the caller's word. Nothing marks a census unpublishable — a null is the
     only signal there is — and an undeclared census is not publishable.
 
-    **Alpha.** ``semantic-v0`` is provisional and unproven against opinion text,
+    **Alpha.** ``semantic-v1`` is provisional and unproven against opinion text,
     explicitly not a pre-registered commitment in the sense ``cert-v1`` and
     ``merits-v1`` are (``docs/outcome-decomposition.md``, *The semantic family,
     alpha*). What may and may not be read off a grade is ``metrics/README.md``'s.
@@ -2474,6 +2787,16 @@ class SemanticGradeSummary(_Strict):
         "other way",
     )
     cells: int = Field(default=0, ge=0, description="Distinct graded cells behind these counts")
+    cases: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cases behind these counts — the **opinions** the "
+        "census actually rests on, and the denominator that bounds it. One "
+        "opinion backs a cell per predictor per moment, and every claim in the "
+        "set is read off that same opinion in one pass, so `units` and even "
+        "`cells` can clear a threshold on a single opinion. A reader who wants "
+        "to know how much independent reading is behind a share reads this",
+    )
     units: int = Field(
         default=0,
         ge=0,
@@ -3899,15 +4222,25 @@ class _StatPackInterimCounts(_Strict):
 
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. Descriptive only — the substantive grant rate describes the
-    accumulated cohort, and is **not** a segment base rate: the interim stage's
-    scored base rate publishes only at the pre-registered resolved-count floor
-    (``docs/salience.md``, *The interim docket*), so until then no skill or
-    calibration claim rests on these figures. Extensions are counted so the
+    reweighted. This slice's own ``substantive_grant_rate`` stays **descriptive**
+    — it describes the accumulated cohort and, at the pack level, contains every
+    Term including a scored case's own. The *scored* interim baseline is built
+    from the per-Term entries instead
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`): pooled over
+    Terms strictly before the case's, and only where the pooled sample clears the
+    pre-registered floor (``docs/salience.md``, *The interim docket*).
+    Extensions are counted so the
     docket's administrative dominance is visible, but they never pool into any
     rate — an extension is granted as a matter of course, and admitting it would
     hand the rate the Court's calendar rather than its judgment
     (``docs/salience.md``, *The interim docket*).
+
+    Two denominators, so read each figure against its own. The resolved/granted
+    counts cover the machine-matched-resolved subset; the three escalation
+    counters below cover **every** substantive application in the slice, pending
+    ones included, which makes them right-censored rather than terminal — an
+    application still open when the pack was built contributes a "no" it may yet
+    reverse. That is one of the reasons no claim baseline is derived from them.
     """
 
     applications: int = Field(
@@ -4008,9 +4341,10 @@ class StatPackInterim(_StatPackInterimCounts):
     different population resolving on a different standard, so they get their own
     section rather than a salience band — this section deliberately carries no
     ``salience_version``, because it is not a salience-band product. Pack-level
-    counts with a per-application-Term breakdown; the accumulating cohort that
-    will eventually ground an interim segment base rate, published descriptively
-    until then. A stage section exists only once its corpus feed does: the pack
+    counts with a per-application-Term breakdown; the per-Term entries are what
+    the interim segment base rate pools strictly-prior, while the pack-level
+    figures beside them stay descriptive. A stage section exists only once its
+    corpus feed does: the pack
     omits it entirely while the corpus holds no application rows — the same
     joining rule the merits sibling (:class:`StatPackMerits`) follows on the
     ``merits_judgment`` column.
@@ -4038,7 +4372,8 @@ class _StatPackMeritsCounts(_Strict):
     claimed. ``parsed`` against ``granted`` is the
     backfill's own coverage statement, so a thin parse never masquerades as a
     thin docket — read the gap as an upper bound that blends still-pending
-    cases (granted, not yet decided) with genuine parse gaps.
+    cases (granted, not yet decided), genuine parse gaps, and the proceedings
+    that ended with no disposition to parse (``merits_terminated``).
     """
 
     granted: int = Field(
@@ -4051,7 +4386,10 @@ class _StatPackMeritsCounts(_Strict):
         "its grant's own date, whatever its label says: see "
         "cert_order_excluded). A parsed judgment with no date stays here as "
         "a visible coverage gap, outside the parsed slice, since the gap "
-        "test cannot run on it. Parsed or not",
+        "test cannot run on it, and so does a row carrying `merits_terminated` "
+        "— either a post-grant Rule 46 dismissal, where nobody reached the "
+        "merits, or a bare mandate notation, where the disposition entry was "
+        "never captured. Parsed or not",
     )
     cert_order_excluded: int | None = Field(
         default=None,

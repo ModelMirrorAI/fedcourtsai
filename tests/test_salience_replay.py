@@ -104,6 +104,75 @@ def test_projection_without_proceedings_is_unobservable_not_zero() -> None:
     )
     assert projected.observable is False
     assert projected.row.distribution_count is None  # unknown, never asserted as 0
+    # The interim trio goes null with it: one observability flag, both signal
+    # families, because both come off the same proceedings list.
+    assert projected.row.response_requested is None
+    assert projected.row.referred_to_court is None
+    assert projected.row.amicus_briefs is None
+
+
+def _application_row() -> corpus.CorpusRow:
+    """An application row carrying the latched *ending* escalation state."""
+    return corpus.CorpusRow(
+        case_id="scotus/2",
+        court="scotus",
+        docket_number="26A11",
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=True,
+        amicus_briefs=4,
+        disposition=Disposition.granted,
+    )
+
+
+def test_projection_rederives_the_interim_signals_rather_than_reading_the_latches() -> None:
+    """The interim trio is re-derived from the payload, like the cert pair.
+
+    The latched columns hold the *ending* state — the trio is monotone, exactly
+    as the distribution count is — so a cell conditioned on them would be
+    conditioned on its own future. Here the payload discloses only the
+    application's arrival, so the projection reports the arrival state and not
+    the row's latched `True / True / 4`.
+    """
+    payload = {
+        "CaseNumber": "26A11",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jan 5 2026",
+                "Text": "Application (26A11) for a stay, submitted to The Chief Justice.",
+            },
+        ],
+    }
+    projected = asof.project_row(
+        _application_row(), payload, cutoff=date(2026, 1, 6), provenance="truncated"
+    )
+    assert projected.observable is True
+    assert projected.row.response_requested is False
+    assert projected.row.referred_to_court is False
+    assert projected.row.amicus_briefs == 0
+
+
+def test_projection_reads_the_interim_signals_the_payload_does_disclose() -> None:
+    payload = {
+        "CaseNumber": "26A11",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jan 5 2026",
+                "Text": "Application (26A11) for a stay, submitted to The Chief Justice.",
+            },
+            {
+                "Date": "Jan 8 2026",
+                "Text": "Response to application (26A11) requested by The Chief Justice.",
+            },
+            {"Date": "Jan 9 2026", "Text": "Brief amicus curiae of the State of X filed."},
+        ],
+    }
+    projected = asof.project_row(
+        _application_row(), payload, cutoff=date(2026, 1, 10), provenance="truncated"
+    )
+    assert projected.row.response_requested is True
+    assert projected.row.referred_to_court is False  # no referral entry yet
+    assert projected.row.amicus_briefs == 1
 
 
 # --- asof_conference: the latest-entry-wins rule, as-of ---------------------------
@@ -464,7 +533,9 @@ def test_an_empty_term_still_yields_its_cells(tmp_path: Path) -> None:
     report = replay_gate(
         db, terms=[2019], policies=[CutoffPolicy.arrival, CutoffPolicy.resolution], config=_CONFIG
     )
-    assert report.cells_evaluated == 4  # 2 (term, policy) cells x 2 registered versions
+    # 2 (term, policy) cells x every registered version — the cell grid is the
+    # product, so registering a scorer widens it rather than replacing a cell.
+    assert report.cells_evaluated == 2 * len(registered_versions())
     assert all(cell.eligible == 0 and cell.selected == 0 for cell in report.cells)
 
 
@@ -513,9 +584,10 @@ def test_cli_writes_a_valid_report(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     report = read_model(out, SalienceReplay)  # validates against the schema model
     assert report.terms == [2023]
     assert report.policies == ["arrival", "distribution-1", "resolution"]
-    assert report.cells_evaluated == 6  # 3 policies x 2 registered versions
+    cells = 3 * len(registered_versions())  # 3 policies x every registered version
+    assert report.cells_evaluated == cells
     assert report.salience_version == SALIENCE_VERSION
-    assert "salience-replay: 6 cell(s)" in result.output
+    assert f"salience-replay: {cells} cell(s)" in result.output
 
 
 def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:
@@ -553,32 +625,39 @@ def test_cli_rejects_non_year_terms(tmp_path: Path) -> None:
 def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     tmp_path: Path, two_versions: SalienceScorer
 ) -> None:
-    """The version axis, exercised — the single shipped version cannot show it.
+    """The version axis, exercised — a foreign band vocabulary shows it plainly.
 
-    Two scorers, one reconstruction each (Term, policy). What must be identical
-    across a moment's cells is everything the projection decided: how many rows
-    were eligible, how many had no snapshot, and where each reconstruction came
-    from. What must differ is the banding, because that is the only thing the
-    comparison is entitled to attribute to the scorer."""
+    Every registered scorer, one shared reconstruction per (Term, policy). What
+    must be identical across a moment's cells is everything the projection
+    decided: how many rows were eligible, how many had no snapshot, and where
+    each reconstruction came from. What must differ is the banding, because that
+    is the only thing the comparison is entitled to attribute to the scorer."""
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 3  # one (term, policy) cell x 3 registered versions
+    assert report.cells_evaluated == 4  # one (term, policy) cell x 4 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1"}
-    active, toy, v1 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1"))
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"}
+    active, toy, v1, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"))
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1):
+    for other in (toy, v1, v2):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
 
     # The banding is not: each cell reports its own scorer's vocabulary, and
     # no version's band names appear under another's.
-    assert set(active.bands) <= {"federal", "high", "state", "elevated", "baseline", "unobservable"}
+    caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
+    assert set(active.bands) <= caption_bands
+    assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
-    assert sum(active.bands.values()) == sum(toy.bands.values()) == sum(v1.bands.values())
+    assert (
+        sum(active.bands.values())
+        == sum(toy.bands.values())
+        == sum(v1.bands.values())
+        == sum(v2.bands.values())
+    )

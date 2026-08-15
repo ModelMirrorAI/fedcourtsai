@@ -157,6 +157,12 @@
           "title": "Evaluators",
           "type": "integer"
         },
+        "events_scored": {
+          "description": "Distinct (case, event) pairs this predictor was scored on, pooled across its strata \u2014 the numerator of the coverage check the board-level `events_scored` denominates. Carried on the entry so the comparison against that denominator is one column read rather than a sum over three nullable stratum blocks (the sum does reproduce it: a predictor's strata partition its events). The check is needed because the scored set is *selected*, not sampled: grading is gated at `(evaluator, event)` grain, so a prediction committed after a judge graded its event is never scored by that judge, and an engine whose cells backfill late accumulates systematically fewer scored events. Two entries at unequal coverage rank over different populations, and no figure on this board adjusts for that. Equal coverage is necessary and not sufficient: it certifies the same event set, never the same stratum mix or panel depth \u2014 read each stratum's `evaluations` and this entry's `evaluators` beside it (metrics/README.md)",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
         "forward": {
           "anyOf": [
             {
@@ -207,7 +213,8 @@
       "required": [
         "predictor_id",
         "rank",
-        "evaluators"
+        "evaluators",
+        "events_scored"
       ],
       "title": "LeaderboardEntry",
       "type": "object"
@@ -228,6 +235,13 @@
           "description": "Evaluations aggregated in this stage",
           "minimum": 0,
           "title": "Evaluations Total",
+          "type": "integer"
+        },
+        "events_scored": {
+          "default": 0,
+          "description": "Distinct (case, event) pairs any predictor was scored on in this block \u2014 the coverage denominator its entries' own `events_scored` are read against. A union, never a sum: two predictors scored on the same event contribute one",
+          "minimum": 0,
+          "title": "Events Scored",
           "type": "integer"
         },
         "forward_evaluations": {
@@ -266,6 +280,12 @@
           "description": "Distinct evaluators that scored this predictor in this stage",
           "minimum": 0,
           "title": "Evaluators",
+          "type": "integer"
+        },
+        "events_scored": {
+          "description": "Distinct (case, event) pairs this predictor was scored on in this stage \u2014 read against the block's own `events_scored`, exactly as a ranked entry's is read against the board's",
+          "minimum": 0,
+          "title": "Events Scored",
           "type": "integer"
         },
         "forward": {
@@ -311,7 +331,8 @@
       },
       "required": [
         "predictor_id",
-        "evaluators"
+        "evaluators",
+        "events_scored"
       ],
       "title": "LeaderboardStageEntry",
       "type": "object"
@@ -437,7 +458,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). The ranked board is the **cert stage**: the entries and the\nevaluation counts cover cert-stage cells only (the big-case and\nevaluator-agreement blocks are stage-blind \u2014 they describe stakes reads,\nnot stage-scoped skill), while any non-cert stage reports its own\nunranked block under ``stages`` (omitted entirely while none exist \u2014 see the\nserializer). Computed by ``fedcourts leaderboard`` from the ledger and the\ncommitted ``metrics/statpack.json`` (the vintage the realized-Term skill\ncolumn is scored on); carries no timestamp, so the same two inputs always\nserialize identically.",
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of the ``evaluation.json`` files under\n``data/`` \u2014 the newest per (case, event, predictor, evaluator), since a\nre-graded cell commits a second file describing one observation:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). The ranked board is the **cert stage**: the entries and the\nevaluation counts cover cert-stage cells only (the big-case and\nevaluator-agreement blocks are stage-blind \u2014 they describe stakes reads,\nnot stage-scoped skill), while any non-cert stage reports its own\nunranked block under ``stages`` (omitted entirely while none exist \u2014 see the\nserializer). Computed by ``fedcourts leaderboard`` from the ledger and the\ncommitted ``metrics/statpack.json`` (the vintage the realized-Term skill\ncolumn is scored on); carries no timestamp, so the same two inputs always\nserialize identically.",
   "properties": {
     "entries": {
       "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation",
@@ -460,6 +481,13 @@
       "description": "Per evaluator, how far its big-case reads track the rest of the panel's \u2014 the check on grader latitude, keyed by evaluator_id. Orthogonal to the ranking and never part of it: it describes the judges, not the competitors",
       "title": "Evaluator Agreement",
       "type": "object"
+    },
+    "events_scored": {
+      "default": 0,
+      "description": "Distinct cert-stage (case, event) pairs any ranked predictor was scored on \u2014 the coverage denominator each entry's own `events_scored` is read against. A union, never a sum: two predictors scored on the same event contribute one, so an entry at the board's figure covers the whole scored set and one below it was ranked over a subset. Equal coverage certifies the same event set and nothing more \u2014 not stratum mix, not panel depth \u2014 so it can refuse a cross-engine comparison but never bless one (metrics/README.md). Cert-stage like the counts beside it; a `stages` block denominates its own",
+      "minimum": 0,
+      "title": "Events Scored",
+      "type": "integer"
     },
     "forward_claim": {
       "anyOf": [
@@ -543,6 +571,13 @@
       "description": "Unranked blocks for every population outside the ranked board, keyed `<stage>@<moment>` (`interim@arrival`, `merits@briefed`) \u2014 a later forecast moment of a stage answers the same question with more evidence, so it is a separate population and never shares a mean with an earlier one. A stage with no recorded moment keys bare (`interim`), and a cell with no stage at all shares one `(none)` bucket, so coverage stays visible rather than guessed. Nothing here pools across blocks or into the cert board, and the key is omitted entirely while no such cell exists.",
       "title": "Stages",
       "type": "object"
+    },
+    "superseded_gradings": {
+      "default": 0,
+      "description": "How many committed `evaluation.json` files the run collapse dropped while building this board: gradings that passed the scope gate but lost to a newer grading of the same (case, event, predictor, evaluator). Re-grading is a maintainer-reachable operation, and with the collapse in place it leaves no other mark \u2014 every count, mean and correlation here is already post-collapse \u2014 so the number is published beside the standings it could have moved rather than inferred from a ledger scan. Never subtract it from any count on this board. Its population is the **scope gate's**, which is this board's process scope over a slightly wider set of cells: a `frozen` board counts only supersessions among frozen-scope cells and an `all` board counts them over every version, but the count is stage-blind (like `forward_claim` \u2014 a superseded grading shares its survivor's stage, so it spans the ranked board and every `stages` block at once, and must never be netted against a stage-scoped total) and is taken *before* the forward-claim exclusion, so a supersession of a cell the exclusion then drops is counted while the cell reaches no block. The two agreement views collapse separately, over their own scope, and are not in this figure. `0` is a measured zero on any board `fedcourts leaderboard` writes \u2014 the command always supplies the count \u2014 but a board built before this field existed also reads `0`, so read it beside `process_scope` and `evaluations_total`",
+      "minimum": 0,
+      "title": "Superseded Gradings",
+      "type": "integer"
     }
   },
   "required": [

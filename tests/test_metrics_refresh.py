@@ -27,7 +27,7 @@ from fedcourtsai.schemas import (
     StatPackCoverage,
     StatPackSection,
 )
-from fedcourtsai.serialize import write_json, write_text
+from fedcourtsai.serialize import read_model, write_json, write_text
 
 runner = CliRunner()
 
@@ -44,6 +44,7 @@ def _metrics_dir(tmp_path: Path) -> Path:
         Leaderboard(
             predictors_ranked=2,
             evaluations_total=12,
+            events_scored=6,
             forward_evaluations=4,
             retrospective_evaluations=8,
             entries=[
@@ -51,6 +52,7 @@ def _metrics_dir(tmp_path: Path) -> Path:
                     predictor_id="claude-baseline",
                     rank=1,
                     evaluators=2,
+                    events_scored=6,
                     forward=LeaderboardStratum(events_scored=2, evaluations=2, accuracy=0.8),
                     retrospective=LeaderboardStratum(events_scored=4, evaluations=4, accuracy=0.9),
                 ),
@@ -58,6 +60,7 @@ def _metrics_dir(tmp_path: Path) -> Path:
                     predictor_id="codex-baseline",
                     rank=2,
                     evaluators=2,
+                    events_scored=6,
                     forward=LeaderboardStratum(events_scored=2, evaluations=2, accuracy=0.7),
                     retrospective=LeaderboardStratum(events_scored=4, evaluations=4, accuracy=0.8),
                 ),
@@ -150,6 +153,33 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
     assert "80998 corpus case(s): 60000 resolved / 20998 open" in pr.body
     assert "RID" in pr.body
+    # Both entries cover the whole scored set and nothing was re-graded, so the
+    # audit clauses stay off the line rather than reporting a computed nothing.
+    assert "superseded" not in pr.body
+    assert "unequal scored-set coverage" not in pr.body
+
+
+def test_the_leaderboard_headline_flags_a_regrade_and_uneven_coverage(tmp_path: Path) -> None:
+    """The refresh PR body is the surface a maintainer reads.
+
+    A supersession means a standing may have moved on a re-grade, and unequal
+    coverage means two entries were compared over different event sets. Neither
+    is recoverable from the counts on the line, and the build-time warning lands
+    in the run log rather than in the PR.
+    """
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.superseded_gradings = 2
+    board.entries[1].events_scored = 4
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+
+    assert pr is not None
+    assert "2 superseded grading(s) collapsed away" in pr.body
+    # The magnitude travels with the flag: this is the line most likely to be
+    # quoted out of the body, and a flag without an `n` cannot be read.
+    assert "unequal scored-set coverage (codex-baseline 4/6)" in pr.body
 
 
 def test_pr_carries_the_claim_score_surface_with_a_sensible_suppressed_headline(

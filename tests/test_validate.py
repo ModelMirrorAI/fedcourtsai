@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -26,19 +27,26 @@ from fedcourtsai.schemas import (
     FlagCategory,
     Judgment,
     JusticeVote,
+    MeritsTermination,
     Outcome,
     PredictableEvent,
     Prediction,
     PredictionContext,
+    SemanticClaim,
+    SemanticGrade,
+    SemanticGradeBlock,
+    SemanticSupport,
     Stage,
     UsageRole,
     VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
+    _STALE_GRANT_DAYS,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_DOMAIN_VALUES,
+    CHECK_EVALUATION_SEMANTIC,
     CHECK_EVALUATION_TARGETS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
@@ -46,9 +54,12 @@ from fedcourtsai.validate import (
     CHECK_NO_DUPLICATES,
     CHECK_PREDICTION_CLAIMS,
     CHECK_PREDICTION_DOCS,
+    CHECK_PREDICTION_SEMANTIC,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
+    CHECK_SCORED_VOTES,
     CHECK_SNAPSHOT_NOT_FUTURE,
+    CHECK_STALE_UNPARSED_GRANTS,
     check_ledger_events_in_git,
     check_no_duplicates,
     check_prediction_claims,
@@ -384,6 +395,102 @@ def test_future_dated_snapshot_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_SNAPSHOT_NOT_FUTURE] is False
 
 
+# --- B: stale unparsed grants -------------------------------------------------
+
+
+def _grant(db: Path, case_id: str, granted: date, **kw: object) -> None:
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow.model_validate(
+                    {
+                        "case_id": case_id,
+                        "court": "scotus",
+                        "docket_number": "24-100",
+                        "disposition": Disposition.granted,
+                        "date_cert_granted": granted,
+                        **kw,
+                    }
+                )
+            ],
+        )
+
+
+def test_a_long_past_grant_with_no_merits_outcome_fails(tmp_path: Path) -> None:
+    # The residue the check exists for: a grant years old whose row still reads
+    # unresolved, so every merits gate keyed on those columns keeps its event
+    # forecastable — a forward cell on a case decided long ago.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9001", date(2019, 2, 4))
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_STALE_UNPARSED_GRANTS)
+    assert not check.passed
+    assert any("scotus/9001" in p for p in check.problems)
+
+
+def test_a_recent_grant_is_simply_pending(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9002", TODAY - timedelta(days=200))
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
+def test_the_stale_grant_bound_is_two_terms(tmp_path: Path) -> None:
+    """Pin 730 days, so the threshold is a claim rather than a comment.
+
+    The bound is deliberately generous against the six-to-eighteen-month
+    grant-to-judgment window `docs/decision-model.md` states, because the
+    pending cohort is right-censored by construction — no pending case can be
+    older than the Terms elapsed since its grant — so the observed spread is no
+    evidence about the upper tail, and an abeyance stretches it.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9010", TODAY - timedelta(days=_STALE_GRANT_DAYS - 1))
+    assert _verdict_by_check(_run(db, tmp_path / "data"))[CHECK_STALE_UNPARSED_GRANTS] is True
+
+    _grant(db, "scotus/9011", TODAY - timedelta(days=_STALE_GRANT_DAYS + 1))
+    check = next(
+        c for c in _run(db, tmp_path / "data").checks if c.name == CHECK_STALE_UNPARSED_GRANTS
+    )
+    assert not check.passed
+    assert any("scotus/9011" in p for p in check.problems)
+    assert not any("scotus/9010" in p for p in check.problems)
+
+
+def test_a_resolved_old_grant_passes_either_way(tmp_path: Path) -> None:
+    # Both resolutions clear the row: the parsed judgment, and the termination
+    # that records a proceeding which ended with no disposition at all.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(
+        db,
+        "scotus/9003",
+        date(2019, 2, 4),
+        merits_judgment=Judgment.reversed.value,
+        merits_decided=date(2019, 6, 20),
+    )
+    _grant(db, "scotus/9004", date(2019, 2, 4))
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(conn, "scotus/9004", MeritsTermination.judgment_issued)
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
+def test_a_gvr_is_outside_the_stale_grant_population(tmp_path: Path) -> None:
+    # The population is the grants that open a merits proceeding: a GVR decides
+    # in the cert order, so it never owes a merits outcome.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9005", date(2019, 2, 4), disposition=Disposition.gvr)
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
 # --- B: required columns ------------------------------------------------------
 
 
@@ -661,7 +768,10 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_BASE_RATE_VERSION,
         CHECK_PREDICTION_DOCS,
         CHECK_PREDICTION_CLAIMS,
+        CHECK_PREDICTION_SEMANTIC,
+        CHECK_EVALUATION_SEMANTIC,
         CHECK_MERITS_PREDICTIONS,
+        CHECK_SCORED_VOTES,
     }
     assert all(c.passed for c in checks)
 
@@ -820,6 +930,90 @@ def test_a_claims_block_the_scorer_would_void_fails_validation(tmp_path: Path) -
 
     write_json(ep.prediction("p1", run), _cell(disposition=0.2))
     check = check_prediction_claims(data_root)
+    assert check.passed and check.checked == 1
+
+
+def _semantic_check(data_root: Path, name: str) -> CorpusCheck:
+    return next(c for c in run_ledger_referential_checks(data_root) if c.name == name)
+
+
+def test_a_semantic_block_that_misses_the_declaration_fails_validation(tmp_path: Path) -> None:
+    """Quieter than the mechanical case, which is why it is checked. The declaration
+    fixes what a grader is asked about, so a predictor's invented claim is never
+    graded and a skipped one is graded against nothing it wrote — neither leaves a
+    trace anywhere downstream, and the grader-side roll-up refuses its block whole
+    and silently. Surfaced here while the cell can still be fixed."""
+    data_root = tmp_path / "data"
+    event = MERITS_EVENT_ID
+    ep = CasePaths(data_root, "scotus", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+
+    def _cell(*claim_ids: str) -> Prediction:
+        return Prediction(
+            case_id="scotus/1",
+            event_id=event,
+            predictor_id="p1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 1),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.other,
+            semantic_claims=[
+                SemanticClaim(claim_id=claim_id, proposition=f"the Court will {claim_id}")
+                for claim_id in claim_ids
+            ],
+        )
+
+    write_json(ep.prediction("p1", run), _cell("majority-ground"))
+    check = _semantic_check(data_root, CHECK_PREDICTION_SEMANTIC)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("'ground-breadth'" in p for p in check.problems)
+
+    write_json(ep.prediction("p1", run), _cell("majority-ground", "ground-breadth"))
+    check = _semantic_check(data_root, CHECK_PREDICTION_SEMANTIC)
+    assert check.passed and check.checked == 1
+
+
+def test_a_semantic_grade_block_the_rollup_would_refuse_fails_validation(
+    tmp_path: Path,
+) -> None:
+    """`graded_units` drops a block answering another declaration whole and without
+    a word, so the cell would commit green and vanish from the census weeks later."""
+    data_root = tmp_path / "data"
+    event = MERITS_EVENT_ID
+    ep = CasePaths(data_root, "scotus", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+
+    def _cell(version: str) -> Evaluation:
+        return Evaluation(
+            case_id="scotus/1",
+            event_id=event,
+            predictor_id="p1",
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 2),
+            correct=1,
+            semantic_grades=SemanticGradeBlock(
+                declared_set_version=version,
+                grades=[
+                    SemanticGrade(claim_id="majority-ground", grade=SemanticSupport.not_addressed),
+                    SemanticGrade(claim_id="ground-breadth", grade=SemanticSupport.not_addressed),
+                ],
+            ),
+        )
+
+    write_json(ep.evaluation("e1", "p1", run), _cell("semantic-v0"))
+    check = _semantic_check(data_root, CHECK_EVALUATION_SEMANTIC)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("another declaration" in p for p in check.problems)
+
+    write_json(ep.evaluation("e1", "p1", run), _cell("semantic-v1"))
+    check = _semantic_check(data_root, CHECK_EVALUATION_SEMANTIC)
     assert check.passed and check.checked == 1
 
 
@@ -1261,4 +1455,64 @@ def test_non_merits_events_are_outside_the_contract(tmp_path: Path) -> None:
     _write_event(data_root, "ca9", 1, "evt-motion-stay")
     _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
     check = _merits_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+# --- vote_accuracy_only_on_merits_events ---------------------------------------
+
+
+def _write_evaluation_with_votes(
+    data_root: Path, court: str, docket: int, event: str, *, vote_accuracy: float | None
+) -> None:
+    ep = CasePaths(data_root, court, docket).event(event)
+    evaluation = Evaluation(
+        case_id=f"{court}/{docket}",
+        event_id=event,
+        predictor_id="p1",
+        evaluator_id="e1",
+        engine=Engine.claude_code,
+        run_id="r1",
+        created_at=datetime(2026, 1, 3),
+        correct=1,
+        vote_accuracy=vote_accuracy,
+    )
+    write_json(ep.evaluation("e1", "p1", "r1"), evaluation)
+
+
+def _votes_check(data_root: Path) -> CorpusCheck:
+    return next(c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_SCORED_VOTES)
+
+
+def test_a_cert_stage_evaluation_scoring_votes_fails(tmp_path: Path) -> None:
+    """The guard the computed gate cannot supply: the evaluator writes this field.
+
+    `vote_accuracy` is the evaluator's own to write on a real cell, so an agent
+    can commit a scored cert vote that `pipeline.evaluate` never computed. The
+    leaderboard refuses to aggregate it; this refuses to let it be committed.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_evaluation_with_votes(data_root, "ca9", 1, "evt-motion-stay", vote_accuracy=0.5)
+    check = _votes_check(data_root)
+    assert not check.passed
+    assert any("a vote is scored only on a merits event" in p for p in check.problems)
+
+
+def test_a_non_merits_evaluation_without_a_vote_score_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_evaluation_with_votes(data_root, "ca9", 1, "evt-motion-stay", vote_accuracy=None)
+    check = _votes_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_merits_evaluation_may_score_votes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_evaluation_with_votes(
+        data_root, "scotus", 22451, "evt-order-judgment", vote_accuracy=0.5
+    )
+    check = _votes_check(data_root)
+    # The merits event is skipped before its evaluations are read, so it is
+    # outside this check's population rather than a passing member of it.
     assert check.passed and check.checked == 0

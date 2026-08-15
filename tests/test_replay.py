@@ -11,7 +11,6 @@ the stub would produce.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -20,14 +19,15 @@ from fedcourtsai import ids
 from fedcourtsai.leaderboard import build_leaderboard
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import run_cascade
+from fedcourtsai.pipeline.moments import moments_for
 from fedcourtsai.pipeline.runner import (
     ReplayRunner,
     ReplayUnavailable,
     RunRequest,
     get_runner,
 )
-from fedcourtsai.schemas import Disposition, Evaluation, Prediction, UsageRole
-from fedcourtsai.serialize import read_model
+from fedcourtsai.schemas import Disposition, Evaluation, Outcome, Prediction, Stage, UsageRole
+from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_stratified_evaluations
 from tests.conftest import FixtureCorpus
 
@@ -40,12 +40,29 @@ _REALISTIC_BRIER = pytest.approx((_RECORDED_PROBABILITY - 1) ** 2)
 _STUB_BRIER = 1.0
 
 
-def _request(role: UsageRole, actor: str, data_root: Path) -> RunRequest:
+def _declared(stage: Stage) -> str:
+    """The stage's first declared moment, read off the register.
+
+    Derived rather than spelled out: per-Justice votes are scored at exactly one
+    stage (`pipeline.moments.scores_votes`), so renaming a moment should move the
+    tests below rather than silently turn a vote assertion into a check of the
+    gate — or the reverse.
+    """
+    return moments_for(stage)[0].event_id
+
+
+_MERITS_EVENT_ID = _declared(Stage.merits)
+_CERT_EVENT_ID = _declared(Stage.cert)
+
+
+def _request(
+    role: UsageRole, actor: str, data_root: Path, event_id: str = "evt-appeal-disposition"
+) -> RunRequest:
     return RunRequest(
         role=role,
         court_id="ca9",
         docket_id=101,
-        event_id="evt-appeal-disposition",
+        event_id=event_id,
         actor_id=actor,
         run_id="20230918T120000Z",
         prompt=Path(".github/prompts/predict.md"),
@@ -120,18 +137,50 @@ def test_evaluate_over_recorded_prediction_scores_vote_accuracy(tmp_path: Path) 
     accuracy is null there. Scoring the recorded prediction against the recorded
     outcome — which *does* carry votes — exercises that branch: berzon matches,
     smith does not, so accuracy is 0.5.
+
+    The cell is placed on the declared merits moment because that is the only
+    stage whose votes are scored; the recorded outcome is rebound to the same
+    event rather than copied, so the pair the evaluator reads is one cell's.
     """
     runner = ReplayRunner(cassette_root=CASSETTE)
-    runner.run(_request(UsageRole.predictor, "claude-baseline", tmp_path))
+    runner.run(_request(UsageRole.predictor, "claude-baseline", tmp_path, _MERITS_EVENT_ID))
 
-    events = CasePaths(tmp_path, "ca9", 101).event("evt-appeal-disposition")
-    shutil.copyfile(CASSETTE / "outcome.json", events.outcome)
+    events = CasePaths(tmp_path, "ca9", 101).event(_MERITS_EVENT_ID)
+    recorded = read_model(CASSETTE / "outcome.json", Outcome)
+    write_json(events.outcome, recorded.model_copy(update={"event_id": _MERITS_EVENT_ID}))
 
-    runner.run(_request(UsageRole.evaluator, "claude-judge", tmp_path))
+    runner.run(_request(UsageRole.evaluator, "claude-judge", tmp_path, _MERITS_EVENT_ID))
     evaluation = read_model(
         events.evaluation("claude-judge", "claude-baseline", "20230918T120000Z"), Evaluation
     )
     assert evaluation.vote_accuracy == pytest.approx(0.5)
+    assert evaluation.brier_score == _REALISTIC_BRIER
+    assert evaluation.correct == 1
+
+
+def test_evaluate_never_scores_votes_on_a_cert_stage_cell(tmp_path: Path) -> None:
+    """The stage gate, end to end: the same pair scores no votes at cert.
+
+    Identical inputs to the merits test above — the recorded prediction with its
+    two panel votes, the recorded outcome that names both — moved onto the
+    declared cert moment. An individual cert vote is never scored, however
+    visible it is (`docs/decision-model.md`), so `vote_accuracy` is null while
+    every stage-blind figure beside it is unchanged. Delete the gate in
+    `pipeline.moments.scores_votes` and this asserts 0.5 instead.
+    """
+    runner = ReplayRunner(cassette_root=CASSETTE)
+    runner.run(_request(UsageRole.predictor, "claude-baseline", tmp_path, _CERT_EVENT_ID))
+
+    events = CasePaths(tmp_path, "ca9", 101).event(_CERT_EVENT_ID)
+    recorded = read_model(CASSETTE / "outcome.json", Outcome)
+    assert recorded.votes, "the cassette outcome must name votes for this to test anything"
+    write_json(events.outcome, recorded.model_copy(update={"event_id": _CERT_EVENT_ID}))
+
+    runner.run(_request(UsageRole.evaluator, "claude-judge", tmp_path, _CERT_EVENT_ID))
+    evaluation = read_model(
+        events.evaluation("claude-judge", "claude-baseline", "20230918T120000Z"), Evaluation
+    )
+    assert evaluation.vote_accuracy is None
     assert evaluation.brier_score == _REALISTIC_BRIER
     assert evaluation.correct == 1
 

@@ -336,9 +336,9 @@ def test_evaluate_matrix_mints_only_the_judges_that_have_not_graded(tmp_path: Pa
 
 
 def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Path) -> None:
-    """Without this, re-queueing double-counts: the leaderboard reads every
-    committed evaluation.json into a per-(predictor, case, event) list with no
-    run dedup, so a second grading silently reweights the standings."""
+    """Without this, re-queueing pays a full evaluate cell per judge for
+    gradings the ledger already holds — the boards collapse the re-runs, so the
+    duplicate spend buys nothing the standings would show."""
     data_root = tmp_path / "data"
     evaluators = enabled_evaluators(EVALUATORS)
     seed_prediction(data_root, "scotus", 1, "evt-x")

@@ -71,10 +71,12 @@ from typing import Any, Literal, Protocol
 from .. import corpus, ids
 from ..paths import CasePaths
 from ..schemas import (
+    CERT_ORDER_DISPOSITIONS,
     GRANTED_DISPOSITIONS,
     MERITS_PROCEEDING_DISPOSITIONS,
     Disposition,
     EventKind,
+    InterimResolutionSignals,
     Judgment,
     Moment,
     Outcome,
@@ -85,9 +87,20 @@ from ..schemas import (
 from ..serialize import write_json, write_yaml
 from ..store import open_events
 from . import moments
-from .cert_signals import match_disposition_signal, mootness_disposition
+from .cert_signals import (
+    dissent_from_denial,
+    match_disposition_signal,
+    mootness_disposition,
+    proceedings_entries,
+    snapshot_carries_proceedings,
+)
 from .ingest import CorpusRow
-from .judgment import judgment_disturbed
+from .judgment import (
+    judgment_disturbed,
+    judgment_rode_the_grant_order,
+    last_judgment_entry,
+    match_merits_termination,
+)
 
 # Which grants open a merits proceeding is one definition, shared with the
 # judgment backfill and the statpack's merits section so the population that is
@@ -365,11 +378,20 @@ def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
     The plain cert grant needs no exclusion because it matches no branch of the
     regex at all — only the resolver sees it, and the merits scan does not run
     the resolver.
+
+    One vocabulary is added: the merits **terminations**
+    (:func:`fedcourtsai.pipeline.judgment.match_merits_termination`), which end
+    a granted case with no disposition and so are invisible to a regex written
+    around dispositions. The post-grant Rule 46 dismissal is the shape that
+    matters — the cert-stage scan has no branch for it, because on a *petition*
+    it is a cert-stage exit its own "petition ... dismissed" branch already
+    reads — and a merits cell whose snapshot carries it can see the case ended.
+    Sourced from the parser so the two seams cannot drift.
     """
     for description in entry_descriptions(docket):
         if _CBJ_GRANT_RE.search(description):
             continue
-        if _TERMINAL_ENTRY_RE.search(description):
+        if _TERMINAL_ENTRY_RE.search(description) or match_merits_termination(description):
             return f"snapshot entry reads as terminal: {description!r}"
     return None
 
@@ -466,6 +488,166 @@ def disposition_basis(docket: Mapping[str, Any]) -> Literal["standard", "mootnes
     return "standard"
 
 
+def disposition_route(
+    docket: Mapping[str, Any],
+    *,
+    disposition: Disposition | None,
+    date_cert_granted: date | None,
+) -> Literal["plenary", "gvr", "summary-merits"] | None:
+    """How a granted petition's review was routed — the ``Outcome`` route marker.
+
+    Pure over the payload the refresh channels already hold, threaded into
+    :func:`resolve_case` exactly as :func:`disposition_basis` is, and taking the
+    row's own ``disposition`` / ``date_cert_granted`` rather than the row,
+    because the ingest-stage and persisted rows are different models and both
+    reach this.
+
+    **Assessability is a property of coverage, never of the route.** *Every*
+    grant-family row takes the same two admission tests — a payload that
+    discloses proceedings, and a cert-grant date — before any route is written,
+    including the two whose label alone would settle it. That symmetry is
+    load-bearing rather than tidy: gating only the plain-``granted`` path would
+    make the case that resolves 1 always assessable and the case that resolves 0
+    assessable only where a payload happened to be retained, so the assessed
+    subpopulation's realized rate would run above the baseline's by an amount a
+    predictor could learn and bank. A mask correlated with the outcome it masks
+    is leakage wearing a coverage sentinel's clothes
+    (``docs/outcome-decomposition.md``, the eight tests' third condition).
+
+    Three routes and a mask:
+
+    - ``"gvr"`` / ``"summary-merits"`` from the label, wherever it is one
+      of :data:`~fedcourtsai.schemas.CERT_ORDER_DISPOSITIONS` — the case ended in
+      the order that granted it, and the label's own name says which.
+    - ``"summary-merits"`` for a plain ``granted`` whose parsed judgment carries
+      the grant's own date, read through the label-independent guard the merits
+      pool already applies (:func:`~fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order`
+      over :func:`~fedcourtsai.pipeline.judgment.last_judgment_entry`). This is
+      the class the `summary-reversal` label was introduced for and never
+      applied to: a summary reversal resolved into the corpus before the label
+      existed reads "Petition GRANTED. Judgment REVERSED. ... Opinion per
+      curiam." and stays recorded as ``granted``. Marking it here rather than
+      relabelling it is deliberate — a relabel would move the case out of the
+      merits population and shift every committed disposition figure, so the
+      route travels beside the label instead of replacing it.
+    - ``"plenary"`` for every other resolved grant: review was set for briefing
+      and argument. A grant with no judgment-shaped entry at all reads here —
+      nothing rode the order, whether the case is still being briefed or its
+      judgment is not yet on the docket.
+    - ``None`` — **not assessed** — on a denial or an unresolved docket (no
+      route exists to read), and on any grant whose record cannot carry the
+      test: a payload disclosing no proceedings at all, no cert-grant date to
+      measure the judgment's gap against, or a judgment entry the strict date
+      parse refuses, which leaves the gap unmeasurable rather than zero. Never a
+      guessed ``"plenary"``: the claim's coverage mask is what keeps "argued"
+      and "nobody looked" apart.
+
+    The judgment read is the docket's **last** judgment-shaped entry against a
+    ``<=`` gap, so in principle any judgment dated at or before the grant reads
+    as riding the order. On the refresh paths that cannot arise — at cert
+    resolution no merits judgment exists yet — and on the cascade's replay over a
+    later snapshot the noun-anchored parser makes a pre-grant judgment shape
+    vanishingly unlikely; the assumption is stated rather than guarded, on the
+    same footing as the merits pool's own use of that guard.
+    """
+    if disposition is None or not granted_flag(disposition):
+        return None
+    # The symmetric admission test, applied before the label is read at all.
+    if date_cert_granted is None or not snapshot_carries_proceedings(docket):
+        return None
+    if disposition in CERT_ORDER_DISPOSITIONS:
+        return "gvr" if disposition == Disposition.gvr else "summary-merits"
+    found = last_judgment_entry(docket)
+    if found is None:
+        return "plenary"
+    _judgment, decided = found
+    if decided is None:
+        # A judgment is on the docket but undated under the strict parse, so
+        # the grant→judgment gap the guard rests on cannot be measured. That is
+        # unknown, not plenary: an undated summary reversal would otherwise
+        # record the one answer its own text contradicts.
+        return None
+    return (
+        "summary-merits" if judgment_rode_the_grant_order(decided, date_cert_granted) else "plenary"
+    )
+
+
+@dataclass(frozen=True)
+class OrderMarkers:
+    """What a disposing order's own **text** disclosed, beyond its label.
+
+    Carried as one value rather than as a widening argument list on
+    :func:`detect_resolution` and :func:`resolve_case`: the two travel together
+    from the same payload to the same outcome, and a marker read from order text
+    is a different kind of input from the row-level facts detection otherwise
+    works on.
+
+    Both default to ``None`` — **not assessed** — so a caller holding no payload
+    records no observation rather than a silent negative.
+    """
+
+    route: Literal["plenary", "gvr", "summary-merits"] | None = None
+    dissent: bool | None = None
+
+
+#: The no-observation state, named so every seam that defaults to it says so in
+#: the signature rather than constructing an empty value inline. Safe as a
+#: shared default because the dataclass is frozen.
+NO_ORDER_MARKERS = OrderMarkers()
+
+
+def noted_dissent_from_denial(
+    docket: Mapping[str, Any], *, disposition: Disposition | None
+) -> bool | None:
+    """Whether any retained order entry records a noted dissent from the denial.
+
+    Pure over the payload, threaded into :func:`resolve_case` beside
+    :func:`disposition_basis`. Aggregated existence only — the per-entry read is
+    :func:`fedcourtsai.pipeline.cert_signals.dissent_from_denial`, which never
+    names a Justice, and nothing here counts them either.
+
+    Written **only on a denied petition**, the population the field's name and
+    description describe. The gate is not redundant with the per-entry read: the
+    would-grant notation is self-anchored, so it reads on an entry carrying no
+    disposition of its own — and "Justice Alito would grant the petition and set
+    the case for argument" is a real notation on a *grant-side* order list.
+    Without the gate a granted docket could commit a true dissent-from-denial
+    marker, an assertion the field does not cover; the resolver masks it either
+    way, but committed ground truth should not need the resolver to be right.
+
+    ``None`` means **nobody looked**: this is not a denial to read, or the
+    payload discloses no proceedings list, so its silence is not evidence of a
+    quiet denial. That is the same line
+    :func:`resolution_signals` draws for the docket-progress family and the same
+    reason — false and unobserved are different facts, and most of the ledger
+    carries no retained order text at all.
+    """
+    if disposition != Disposition.denied or not snapshot_carries_proceedings(docket):
+        return None
+    return any(dissent_from_denial(text) for text, _raw in proceedings_entries(docket))
+
+
+def read_order_markers(
+    docket: Mapping[str, Any],
+    *,
+    disposition: Disposition | None,
+    date_cert_granted: date | None,
+) -> OrderMarkers:
+    """Both order-text markers from one payload — the refresh channels' one call.
+
+    Each half is its own pure function (:func:`disposition_route`,
+    :func:`noted_dissent_from_denial`) and separately testable; this is the seam
+    the channels use, so a marker added later reaches every channel at once
+    rather than one call site at a time.
+    """
+    return OrderMarkers(
+        route=disposition_route(
+            docket, disposition=disposition, date_cert_granted=date_cert_granted
+        ),
+        dissent=noted_dissent_from_denial(docket, disposition=disposition),
+    )
+
+
 def resolution_signals(
     distribution_count: int | None, cvsg_date: date | None
 ) -> ResolutionSignals | None:
@@ -485,12 +667,49 @@ def resolution_signals(
     return ResolutionSignals(distribution_count=distribution_count, cvsg_date=cvsg_date)
 
 
+def interim_resolution_signals(
+    application_kind: str | None,
+    response_requested: bool | None,
+    referred_to_court: bool | None,
+    amicus_briefs: int | None,
+) -> InterimResolutionSignals | None:
+    """The interim escalation signals to freeze onto a resolving application's outcome.
+
+    Takes the four values rather than a row for the same reason
+    :func:`resolution_signals` does: the ingest-stage and the persisted row are
+    different models and both reach this, so passing the fields keeps one rule in
+    one place without coupling it to either.
+
+    ``None`` when the proceedings were never application-parsed — an absent
+    ``application_kind`` is the coverage sentinel for the whole interim signal
+    family, the twin of ``distribution_count``'s role on the cert side — and
+    also when any single latched value is absent. An unobserved signal is never
+    coerced to ``False`` or ``0``: the block's whole value is that a ``False``
+    inside it means the Court did not act, and one manufactured from a missing
+    column would resolve an increment claim against a fact nobody recorded.
+    """
+    if (
+        application_kind is None
+        or response_requested is None
+        or referred_to_court is None
+        or amicus_briefs is None
+    ):
+        return None
+    return InterimResolutionSignals(
+        response_requested=response_requested,
+        referred_to_court=referred_to_court,
+        amicus_briefs=amicus_briefs,
+    )
+
+
 def _build_outcome(
     row: CorpusRow,
     event_id: str,
     basis: Literal["standard", "mootness"],
     *,
     interim: bool = False,
+    route: Literal["plenary", "gvr", "summary-merits"] | None = None,
+    dissent: bool | None = None,
 ) -> Outcome:
     """Construct the ground-truth ``Outcome`` from a decided, machine-readable row.
 
@@ -499,9 +718,20 @@ def _build_outcome(
     cert was granted, not at the merits termination; for an application docket
     the cert dates are empty by construction, so it is the disposing entry's
     date the interim resolver latched at ingest. ``interim`` marks an
-    interim-stage recording, whose outcome never carries the ``signals`` block:
-    those are the cert docket's resolution signals (distribution count, CVSG),
-    observations nobody makes on an application.
+    interim-stage recording, and it selects **which** signals block the outcome
+    carries — never both, because the two describe different dockets. A cert
+    outcome carries ``signals`` (distribution count, CVSG), observations nobody
+    makes on an application; an interim outcome carries ``interim_signals``
+    (response requested, referral, amicus count), observations nobody makes on a
+    petition.
+
+    ``route`` and ``dissent`` are the cert-order markers the caller computed
+    from the payload in hand (:func:`disposition_route`,
+    :func:`noted_dissent_from_denial`). They are gated off an interim recording
+    on the same reasoning as ``signals``: both read the *cert* order — a
+    plenary/summary route and a dissent from the denial of certiorari are not
+    observations anyone makes on an application docket, whose ``granted`` means
+    a stay was granted.
     """
     resolved_at = corpus.resolution_date(row)
     assert row.disposition is not None and resolved_at is not None
@@ -512,8 +742,20 @@ def _build_outcome(
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         signals=None if interim else resolution_signals(row.distribution_count, row.cvsg_date),
+        interim_signals=(
+            interim_resolution_signals(
+                row.application_kind,
+                row.response_requested,
+                row.referred_to_court,
+                row.amicus_briefs,
+            )
+            if interim
+            else None
+        ),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
+        disposition_route=None if interim else route,
+        noted_dissent_from_denial=None if interim else dissent,
     )
 
 
@@ -683,6 +925,7 @@ def detect_resolution(
     *,
     stages: Mapping[str, Stage | None] | None = None,
     resolved_event_ids: list[str] | None = None,
+    order: OrderMarkers = NO_ORDER_MARKERS,
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
@@ -745,7 +988,14 @@ def detect_resolution(
         # what lets each be scored against the information set it actually had.
         return Resolution(
             outcomes={
-                target: _build_outcome(row, target, disposition_basis, interim=application)
+                target: _build_outcome(
+                    row,
+                    target,
+                    disposition_basis,
+                    interim=application,
+                    route=order.route,
+                    dissent=order.dissent,
+                )
                 for target in targets
             }
         )
@@ -1219,7 +1469,45 @@ def mint_moment_events(
     if not minted:
         return []
     with corpus.connect(corpus_db_path) as conn:
+        minted = _without_terminated_merits(conn, row.case_id, minted)
+        if not minted:
+            return []
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def _without_terminated_merits(
+    conn: sqlite3.Connection, case_id: str, minted: list[corpus.CorpusEvent]
+) -> list[corpus.CorpusEvent]:
+    """Drop merits-stage mints on a docket recorded as terminated, if any.
+
+    The mint seams read the **ingestion** row, which by design carries no
+    ``merits_terminated``: no channel asserts one, so the column belongs to the
+    offline judgment sweep alone and the row this poll just built cannot show
+    it. Left unchecked that is a phantom-event source — a merits brief latching
+    on a docket whose proceeding ended with no disposition would mint
+    ``evt-brief-judgment``, and nothing resolves a merits event on a terminated
+    row (detection keys on ``merits_judgment``), so it would stay open forever
+    while provisioning refused every cell it earned. The stored row settles it,
+    read on the connection this seam already opens and only when a merits mint
+    is actually on the table; the interim and CVSG mints never consult it.
+
+    A row the corpus has not stored yet reads as *no finding*, not as a refusal:
+    the column is a sweep product, so its absence is the ordinary state of a
+    docket the sweep has never walked, and failing closed there would stop the
+    merits event minting on the very grant order that opens it.
+
+    The offline twin of this guard is the merits-event backfill's own
+    forward-only population (:mod:`fedcourtsai.merits_event_migration`), so both
+    ends of the pipeline refuse the same docket.
+    """
+    # `==`, not `is`: the event model stores the stage by value, so a member
+    # read back off one is a plain string that no enum member is identical to.
+    if not any(event.stage == Stage.merits for event in minted):
+        return minted
+    stored = corpus.get_row(conn, case_id)
+    if stored is None or stored.merits_terminated is None:
+        return minted
+    return [event for event in minted if event.stage != Stage.merits]
 
 
 def persist_moment_events(
@@ -1275,6 +1563,8 @@ def resolve_case(
     court_id: str,
     docket_id: int,
     disposition_basis: Literal["standard", "mootness"] = "standard",
+    *,
+    order: OrderMarkers = NO_ORDER_MARKERS,
 ) -> Resolution:
     """Detect and record resolution for one freshly-refreshed case.
 
@@ -1291,6 +1581,14 @@ def resolve_case(
     the detection pass that resolves the petition never sees the merits event
     among the open set (the single-open-event and stage-routing logic judge the
     docket as it stood when the grant was detected).
+
+    ``disposition_basis`` and ``order`` are the order-text markers the refresh
+    channel computed from the payload it already holds
+    (:func:`disposition_basis`, :func:`read_order_markers`) — passed in rather
+    than re-read here, so this seam stays payload-free and every channel marks an
+    outcome the same way. ``order`` defaults to
+    :data:`NO_ORDER_MARKERS`, which is "not assessed" and not "no": a caller with
+    no payload records no observation.
     """
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
     stages: dict[str, Stage | None] = {}
@@ -1309,6 +1607,7 @@ def resolve_case(
         disposition_basis,
         stages=stages,
         resolved_event_ids=resolved_event_ids,
+        order=order,
     )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     # After the attribution, so the detection pass that resolves the petition

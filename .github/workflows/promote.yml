@@ -125,7 +125,7 @@ jobs:
               echo "A red \`all\` run earns no partial credit (the gate matches whole runs); \`gh run rerun <run-id> --failed\` turns it green in place. Or dispatch the scenarios individually:"
               echo
               echo '```'
-              for s in ranged-reads corpus-service stub-cascade mcp-sidecar collect; do
+              for s in ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic; do
                 echo "gh workflow run integration-test.yml --ref staging -f scenario=${s}"
               done
               for e in claude-code codex gemini; do

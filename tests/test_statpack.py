@@ -22,7 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.base_rates import merits_base_rate
+from fedcourtsai.pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED, merits_base_rate
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
@@ -383,7 +383,7 @@ def test_per_term_segments_carry_the_salience_band_base_rate(
     # Every Term emits all three bands in the fixed strongest-first order, tagged
     # with the frozen scorer version — a stable JSON shape even for empty bands.
     resolved_term = _term(pack, 2022)
-    assert resolved_term.salience_version == "sal-v2"
+    assert resolved_term.salience_version == "sal-v3"
     assert [s.band for s in resolved_term.segments] == list(_BANDS)
     by_band = {s.band: s for s in resolved_term.segments}
     # scotus/304 is one relist -> elevated; its sampled denial weights the rate 5x.
@@ -671,7 +671,7 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     # The pack-wide band section (blended) and the leakage-safe per-Term table.
     assert "## Cert petitions by salience band" in md
-    assert "### Segment base rate by salience band (sal-v2)" in md
+    assert "### Segment base rate by salience band (sal-v3)" in md
     assert "| Term | federal | high | state | elevated | baseline |" in md
     # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
     # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
@@ -1141,8 +1141,20 @@ def test_render_statpack_markdown_interim_section(tmp_path: Path) -> None:
     assert "## The interim docket (applications)" in md
     # The caption carries the interpretation contract with the figures.
     interim_section = md.split("## The interim docket (applications)")[1]
-    assert "resolved substantive" in interim_section
-    assert "not a segment base rate" in interim_section
+    assert "resolved substantive slice" in interim_section
+    # The caption names the estimator the rows ground, its strictly-prior rule,
+    # and the floor below which there is no baseline and no substitute.
+    assert "ground the interim stage's scored base rate" in interim_section
+    assert "strictly" in interim_section
+    assert f"= {INTERIM_BASE_RATE_MIN_RESOLVED}" in interim_section
+    assert "no baseline and no substitute" in interim_section
+    # The two selections that make the pooled rate narrower than it looks ride
+    # the caption, as do the escalation columns' own denominator and censoring.
+    assert "scored population is narrower than the pooled one" in interim_section
+    assert "escalation-ladder order" in interim_section
+    assert "parse coverage is uneven across" in interim_section
+    assert "right-censored rather than terminal" in interim_section
+    assert "No rate here conditions on them" in interim_section
     assert "**7** application(s): 1 extension, 4 substantive" in interim_section
     # Rates print raw-count denominators beside them; per-Term rows carry the
     # kind counts, the substantive-only rate, and the escalation signals.
@@ -1489,14 +1501,13 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for non-active registered versions — today, sal-v1
-    beside the active sal-v2 — and never repeats the active one. (While only
-    one version existed the key was absent entirely; a second registered
-    version is what makes the committed pack gain the block at a refresh.)"""
+    """The block exists for every non-active registered version — today, sal-v1
+    and sal-v2 beside the active sal-v3 — and never repeats the active one, so
+    a prediction frozen at any registered version keeps a published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1"}, versions
+        assert versions == {"sal-v1", "sal-v2"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -1512,14 +1523,17 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v1"}
+        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
         assert [s.band for s in alts["sal-v1"].segments] == ["high", "elevated", "baseline"]
+        assert [s.band for s in alts["sal-v2"].segments] == list(
+            _BANDS
+        )  # one caption-banded vocabulary
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 2 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 3 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(

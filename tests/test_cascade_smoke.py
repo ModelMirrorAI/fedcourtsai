@@ -26,14 +26,42 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cascade
 from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 from fedcourtsai.pipeline.claims import (
+    CLAIM_AMICUS_INCREMENT,
     CLAIM_CVSG_INCREMENT,
     CLAIM_DISPOSITION,
+    CLAIM_DISSENT_FROM_DENIAL,
+    CLAIM_INTERIM_DISPOSITION,
     CLAIM_JUDGMENT_DISTURBED,
+    CLAIM_REFERRAL_INCREMENT,
     CLAIM_RELIST_INCREMENT,
+    CLAIM_RESPONSE_REQUESTED_INCREMENT,
+    CLAIM_SUMMARY_ROUTE,
 )
-from fedcourtsai.schemas import Disposition, Evaluation, Judgment, Outcome, Prediction
+from fedcourtsai.pipeline.semantic import (
+    SEMANTIC_MERITS_V1,
+    SEMANTIC_SET_V1,
+    graded_units,
+    ordinal,
+)
+from fedcourtsai.schemas import (
+    Disposition,
+    Evaluation,
+    Judgment,
+    Outcome,
+    Prediction,
+    SemanticSupport,
+)
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
+
+#: The declared cert set, in reporting order — every cert moment carries it.
+_CERT_CLAIM_IDS = [
+    CLAIM_DISPOSITION,
+    CLAIM_RELIST_INCREMENT,
+    CLAIM_CVSG_INCREMENT,
+    CLAIM_SUMMARY_ROUTE,
+    CLAIM_DISSENT_FROM_DENIAL,
+]
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
@@ -125,20 +153,21 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     """The fixture's application docket runs the interim cell end to end offline.
 
     scotus/306 (`26A11`) is a resolved substantive stay application, so its
-    motion-baseline event carries `Stage.interim`: provision → stub predict →
-    interim outcome (a granted stay, no cert `signals` block) → evaluate →
+    motion-baseline event carries `Stage.interim`: provision → stub predict (the
+    whole declared `interim-v1` set) → interim outcome (a granted stay, the
+    interim escalation block and no cert `signals` block) → evaluate →
     validate, then the leaderboard build segments the cell into the unranked
     `interim` stages block, never the cert board.
 
     What this proves is the *composition* — an interim cell reaches every stage
     and lands in the right block. The rules it composes are pinned at their own
     seams, because the stub writes no skill fields and the cascade runs no
-    stamp step, so the null skill/claim fields here would read null for any
-    cell: the band suppression in
+    stamp step, so the null skill/claim-score fields here would read null for
+    any cell: the band suppression in
     ``tests/test_cli_provision.py::test_an_application_snapshot_freezes_no_band``,
-    the absent cert baseline in ``tests/test_evaluate.py``'s
-    ``segment_base_rate`` cases, the interim ``signals`` guard in
-    ``tests/test_cascade.py``, and the claim block in ``tests/test_claims.py`` /
+    the interim baseline in ``tests/test_evaluate.py``'s ``segment_base_rate``
+    cases, the interim ``signals`` guard in ``tests/test_cascade.py``, and the
+    claim resolvers and baselines in ``tests/test_claims.py`` /
     ``tests/test_cli_stamp.py``.
     """
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -160,14 +189,24 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
 
     # The interim outcome: relief granted, dated, and no cert signals block —
     # distribution count and CVSG are observations nobody makes on an application.
+    # The interim block is there instead, the resolution end of the three
+    # escalation increments (the fixture row carries all four latched columns).
     outcome = read_model(report.outcomes[0], Outcome)
     assert outcome.actual_granted == 1
     assert outcome.signals is None
+    assert outcome.interim_signals is not None
 
-    # A motion-kind event declares no claim set, so the stub prediction carries
-    # no claims field — the prompt's declared-set rule, exercised offline.
+    # The interim baseline moment declares `interim-v1`, so the stub prediction
+    # answers all four claims — the prompt's declared-set rule, exercised offline.
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
-    assert read_model(prediction_path, Prediction).claims is None
+    claims = read_model(prediction_path, Prediction).claims
+    assert claims is not None
+    assert [claim.claim_id for claim in claims] == [
+        CLAIM_INTERIM_DISPOSITION,
+        CLAIM_RESPONSE_REQUESTED_INCREMENT,
+        CLAIM_REFERRAL_INCREMENT,
+        CLAIM_AMICUS_INCREMENT,
+    ]
 
     # The cell is scored on the probability: stub P=0.0 against a granted stay.
     # The skill and claim fields are null, which the stub would write for any
@@ -178,6 +217,10 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
     assert evaluation.correct == 0
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
+
+    # No semantic set is declared off the merits moments, so the grader writes
+    # no block — the counterpart of the prediction carrying no `semantic_claims`.
+    assert evaluation.semantic_grades is None
 
     # The leaderboard build puts the cell in the unranked `interim@arrival`
     # stages block — the event's moment stamp survives resolution, so the cell
@@ -255,6 +298,13 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert [c.claim_id for c in prediction.claims] == [CLAIM_JUDGMENT_DISTURBED]
     assert prediction.claims[0].probability == prediction.probability
 
+    # It also answers the declared *semantic* set — the one stage that carries
+    # one — with a proposition per claim and no probability anywhere in it.
+    assert prediction.semantic_claims is not None
+    assert [c.claim_id for c in prediction.semantic_claims] == [
+        spec.claim_id for spec in SEMANTIC_MERITS_V1
+    ]
+
     # Scored on the merits axes: the stub's affirmed/0.0 floor against a
     # reversed outcome is a judgment mismatch and a full Brier miss, and
     # `correct` is the judgment comparison rather than the disposition one.
@@ -268,6 +318,17 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     assert evaluation.vote_accuracy is None
     assert evaluation.segment_base_rate is None
     assert evaluation.claim_scores is None
+
+    # The grader answers the same declared set, and every grade is the
+    # availability mask: both claims require a majority opinion and the fixture
+    # corpus holds none, so the block accumulates while the census stays empty.
+    assert evaluation.semantic_grades is not None
+    assert evaluation.semantic_grades.declared_set_version == SEMANTIC_SET_V1
+    assert [g.grade for g in evaluation.semantic_grades.grades] == [
+        SemanticSupport.not_addressed
+    ] * len(SEMANTIC_MERITS_V1)
+    units = graded_units(evaluation)
+    assert units and all(ordinal(u.grade) is None for u in units)
 
     # The leaderboard build puts the cell in the unranked `merits@grant`
     # stages block — the event's moment stamp survives resolution, so the cell
@@ -286,7 +347,7 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
     General, so beside its resolved cert baseline it carries the resolved
     `evt-order-cvsg-disposition` event the CVSG mints (kind `order`,
     `Stage.cert`, opened at the CVSG date): provision → stub predict (the whole
-    declared `cert-v1` set, since both cert moments declare the same claims) →
+    declared `cert-v2` set, since both cert moments declare the same claims) →
     a cert-vocabulary outcome off the row's disposition → evaluate → validate.
 
     What this proves is the *composition* — a later-moment cert cell reaches
@@ -325,17 +386,13 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
     assert outcome.signals is not None
     assert outcome.signals.cvsg_date == cvsg_case.cvsg_date
 
-    # The prediction answers the whole declared cert-v1 set — the same set the
+    # The prediction answers the whole declared cert-v2 set — the same set the
     # baseline declares, because the claims do not change with the moment —
     # with the disposition claim restating the headline probability exactly.
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
     prediction = read_model(prediction_path, Prediction)
     assert prediction.claims is not None
-    assert [c.claim_id for c in prediction.claims] == [
-        CLAIM_DISPOSITION,
-        CLAIM_RELIST_INCREMENT,
-        CLAIM_CVSG_INCREMENT,
-    ]
+    assert [c.claim_id for c in prediction.claims] == _CERT_CLAIM_IDS
     assert prediction.claims[0].probability == prediction.probability
     assert prediction.judgment is None  # the cert contract, not the merits one
 
@@ -348,7 +405,7 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
 
 
 def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> None:
-    """A cert cell's stub prediction answers the whole declared cert-v1 set.
+    """A cert cell's stub prediction answers the whole declared cert-v2 set.
 
     The claim_scores block itself is stamped by the workflow's post-agent
     `stamp-cell` step, which the cascade deliberately does not run — production
@@ -375,11 +432,7 @@ def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> Non
     prediction_path = next(p for p in report.predictions if p.name == "prediction.json")
     prediction = read_model(prediction_path, Prediction)
     assert prediction.claims is not None
-    assert [c.claim_id for c in prediction.claims] == [
-        CLAIM_DISPOSITION,
-        CLAIM_RELIST_INCREMENT,
-        CLAIM_CVSG_INCREMENT,
-    ]
+    assert [c.claim_id for c in prediction.claims] == _CERT_CLAIM_IDS
     disposition = next(c for c in prediction.claims if c.claim_id == CLAIM_DISPOSITION)
     assert disposition.probability == prediction.probability
 

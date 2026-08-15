@@ -11,8 +11,9 @@ how much of a vote record is there.
 
 What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
-scores it against `Outcome.votes` wherever both name the same Justice, feeding
-the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
+scores it against `Outcome.votes` wherever both name the same Justice — on a
+declared **merits** moment only, the stage gate below — feeding the
+leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
 application docket's motion baseline and on SCOTUS entry-pinned
 stay/injunction motions, `merits` on the minted merits event, absent
@@ -217,11 +218,13 @@ withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **no
 clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
 it would have to be weighted for the corpus's legacy denial-subsampled rows, writings
-respecting denial are censored in an open Term, and no corpus row carries an
-opinion body yet (the channel that fills them, `fedcourts enrich-opinions`,
-exists but has not been run) — so a naive implementation would resolve "did not
-write" for all nine on every case and manufacture a base rate of zero out of an
-unpopulated column. Two more bite specifically because the claim is per-Justice:
+respecting denial are censored in an open Term, and opinion bodies reach fewer
+than ten corpus rows (the operator-run channel that fills them, `fedcourts
+enrich-opinions`, is scoped to the cert-granted slice and converges only the
+grants whose docket links a published cluster upstream, so the denial side
+stays empty by construction) — so a naive implementation would resolve "did
+not write" for all nine on all but a few cases and manufacture a base rate of
+zero out of an all-but-unpopulated column. Two more bite specifically because the claim is per-Justice:
 nine claims per event are not nine independent bets — writing is strongly
 correlated across Justices within a case, so summing them weights the writing
 dimension nine to one against the disposition and reports an event count nine
@@ -403,7 +406,14 @@ same artifact. A pack parsed from a build the guard never ran on publishes
 `null` there, never a zero, for the same reason. A parsed judgment carrying
 **no** date cannot be gap-tested:
 its membership is unknown, so it stays in `granted` as a visible coverage
-gap while its judgment stays out of the parsed slice and the rate. The
+gap while its judgment stays out of the parsed slice and the rate. A granted
+case recorded as `merits_terminated` sits in `granted` on the same footing,
+whichever of the two shapes it carries: a post-grant Rule 46 dismissal has no
+judgment to place, because nobody reached the merits; a bare mandate notation
+has one the corpus never captured. Folding either into the vocabulary as a
+seventh value would score it as undisturbed — asserting for the first that the
+decision below survived a merits ruling no one made, and for the second that it
+survived a ruling whose direction the record does not state. The
 invariant the pool publishes under is therefore exact: **every judgment in
 the parsed slice provably postdates its grant**, and `brier_skill_score` is
 computed on merits cells against that guarded pool — the prohibition is
@@ -420,11 +430,11 @@ cleans every consumer at once (the merits base rate and the harness's
 `judgment-disturbed` claim baseline pool the same per-Term counts). `segment_base_rate` is
 recorded on a merits cell as the baseline its skill is scored against; the
 harness's `judgment-disturbed` claim baseline reads the same guarded pool, so
-both carry the guard by construction — and because they are one quantity
-computed twice, the leaderboard cross-checks the evaluator's recorded rate
-against the harness's and drops a merits cell whose two disagree
-(`metrics/README.md`, the merits skill column), rather than ranking it on a
-rate only the evaluator pooled.
+both carry the guard by construction — and they are one quantity taken from one
+pooler over one set of inputs: `stamp-cell` stamps the recorded
+`segment_base_rate` from that pooler too, so the guard reaches the skill column
+by the same route it reaches the claim block, with no evaluator arithmetic in
+between.
 
 **Three guards on the pool, all stated rather than implicit.** The window is
 the same Term-year band and the same knob the cert baseline uses —
@@ -477,8 +487,9 @@ gate enforces "merits-stage event ⇒ the scored prediction carries a judgment"
 from the committed `event.yaml`, the two halves meeting because a prediction
 does not carry its event's stage. The block is scored by `vote_accuracy`
 alone: over the Justices the outcome record actually names, under
-`vote_provenance` — never over what the predictor attempted, and never
-entering any total beyond that per-cell fraction. Today the merits outcome
+`vote_provenance` — never over what the predictor attempted. Beyond that
+per-cell fraction it enters one aggregate only, the merits block's
+`mean_vote_accuracy`, and no ranked total anywhere. Today the merits outcome
 writer records **no** votes, deliberately: the terminal docket entry's
 authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
@@ -490,19 +501,32 @@ That is the permitted side of the second constraint's line, and the
 constraint's own prohibition stands untouched: a *cert*-stage vote is never
 scored.
 
-**What holds that prohibition today is an absent data source, not a check, and
-that is worth stating rather than implying.** `vote_accuracy` is stage-blind —
-it scores the intersection of whatever two vote lists it is handed — and
-`mean_vote_accuracy` is a cert-board aggregate. Nothing scores a cert vote
-now only because no writer puts votes on a cert outcome. So the first
-ingestion channel that populates `Outcome.votes` at the cert stage — noted
-dissents from denial are published on the order list and are the obvious
-candidate — would begin scoring a cert vote forecast into a ranked total
-silently, which this constraint exists to forbid. Whoever lands that channel
-owes the guard with it: gate `vote_accuracy` on the event's stage, and ship
-the test that fails when the gate is removed. The prohibition is
-pre-registered; the enforcement is not yet written, and no reader should infer
-otherwise from the constraint's presence here.
+**A check holds that prohibition, not the absence of a data source.**
+`pipeline.moments.scores_votes` is the gate, and it lives on the moments
+register because that table is the authority on an event's stage. It admits
+only the declared **merits** moments: `vote_accuracy` returns null on
+everything else before it reads either vote list, and `mean_vote_accuracy`
+re-applies the same predicate to each cell's own event as it aggregates, so a
+committed `Evaluation` that carries the figure anyway — written by an evaluator
+that computed the field itself — is dropped from the mean rather than averaged
+into it. Both seams key on the **event's declared moment**, not on the stage the
+board's join assigned the cell, so the two cannot disagree about which cells are
+scorable. Denial is the default rather than the cert stage being named: an id the
+register does not declare has no stage this code can state, so it is one that
+cannot be shown *not* to be cert. The consequence is that an ingestion channel
+populating `Outcome.votes` at the cert stage — noted dissents from denial are
+published on the order list and are the obvious candidate — changes nothing
+about what is scored. That is what makes the rule structural rather than a
+property of what a particular record contains. A third seam covers the one the
+first two cannot: `vote_accuracy` is the evaluator's own field to write, so
+`validate`'s `vote_accuracy_only_on_merits_events` refuses to let a scored vote
+be *committed* off a merits event, rather than only refusing to aggregate it.
+The tests that fail when any of the three is removed sit beside the scorer, the
+board, and the gate (`tests/test_evaluate.py`, `tests/test_leaderboard.py`,
+`tests/test_replay.py`, `tests/test_validate.py`). The evaluate prompt carries
+the agent-side half in the same terms — `vote_accuracy` is a merits-stage field
+and a cert or interim cell omits it whatever votes the prediction holds — so
+the three seams catch a mistake rather than routinely undoing an instruction.
 
 **`judgment_correct` is descriptive, not a score.** The exact-match bit on the
 full vocabulary (`Evaluation.judgment_correct`) reports
@@ -515,8 +539,10 @@ outright: `correct` on a merits cell *is* this comparison
 `actual_disposition` is always the off-vocabulary `other` and comparing
 dispositions there would score every cell against a constant the merits
 contract never defines. Both are computed by the shared helpers, but on a real
-cell they are the evaluator's field to write, like `brier_score` — the harness
-stamps only `claim_scores` and the base-rate basis record.
+cell they are the evaluator's field to write — the harness stamps
+`claim_scores`, the base-rate basis record, and, on a merits or interim cell,
+the whole skill record of `brier_score` / `segment_base_rate` /
+`brier_skill_score`.
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole
 domain, with no consistency term between submitted numbers anywhere (the

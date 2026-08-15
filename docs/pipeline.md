@@ -128,21 +128,20 @@ sidecar under the tested `mcp-integration-check` client, a stub
 `local-cascade` cell, the `collect-run` composite over synthetic cell
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
-built from the committed reference set (token-free and credential-free;
-outside the required suite), or (the one token-spending scenario) a single
-real-engine cell over the service sidecar — dispatched around changes to
-corpus access, the sidecars, engine CLIs, the collect contract, or the
-corpus-consuming workflows and before releases — from main, or via the
-`staging` deployment environment (the collect scenario needs
-none) from the `staging` branch, which is the only branch that environment
-accepts (those runs are the promotion gate's freshness evidence; see
-*Promotion: staging → main* below). The deployment environment resolves from
+built from the committed reference set (token-free and credential-free), or
+(the one token-spending scenario) a single real-engine cell over the service
+sidecar — dispatched around changes to corpus access, the sidecars, engine
+CLIs, the collect contract, or the corpus-consuming workflows and before
+releases — from main, or via the `staging` deployment environment (collect
+binds none; qp-topic binds one it never reads) from the `staging` branch, which
+is the only branch that environment accepts (those runs are the promotion
+gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every scenario — collect rides the run
-as its own environment-free job — with engine-smoke once per engine, so three
-cells' token spend) out of one run.
+fans the gate's whole required suite (every real scenario — collect rides the
+run as its own environment-free job — with engine-smoke once per engine, so
+three cells' token spend) out of one run.
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
@@ -429,10 +428,10 @@ The mechanics:
   flight — no open trigger issue, no unfinished run) and *freshness* (every
   required integration scenario green at exactly the staging head being
   promoted — one green `scenario=all` run, which succeeds only when every
-  matrix leg does, satisfies all seven required runs at once, engine-smoke
-  counted once per engine). The `promote` dispatch runs it as pre-flight;
-  ci.yml's
-  `promotion-gate` job runs it as a required check on the promotion PR.
+  matrix leg and its collect job does, satisfies all nine required runs at
+  once, engine-smoke counted once per engine). The `promote` dispatch runs
+  it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
+  check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
@@ -598,7 +597,9 @@ artifact and never reaches the ledger.
 on the `predictor_id` field; under an alias the join misses and the cell's
 `claim_scores` block is *silently* absent rather than wrong (so is
 `base_rate_salience_version`, unless the evaluation records a `risk_set` basis,
-which fails the stamp instead). `validate`'s
+which fails the stamp instead, and so is an interim cell's harness-stamped
+`segment_base_rate`, which reads the application Term off that same
+prediction). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
 backstop rather than the detector. The cell's order is therefore: blind →
 agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
@@ -840,13 +841,19 @@ failure that opens no PR commits no facts (that tail is left to the loud stall
 comment) — losing a would-be fact costs at most a duplicate trigger, never a
 grading.
 
-Re-queueing is safe because the `evaluate-matrix` plan gate drops a cell whose
-judge has already graded the event (per evaluator), so a re-derivation mints only
-the *missing* judges and cannot double-count. The gate works at (evaluator,
+Re-queueing costs nothing but latency: the scoring surfaces count one grading per
+(case, event, predictor, evaluator) — newest by harness clock — so a re-grade
+supersedes rather than double-counts, and the `evaluate-matrix` plan gate drops a
+cell whose judge has already graded the event (per evaluator) so a re-derivation
+spends model tokens only on the *missing* judges. The gate works at (evaluator,
 event) grain, which carries one accepted limitation: a prediction committed
-*after* a judge graded the event is not re-scored. That coverage gap is findable
-by a ledger scan (a resolved event whose prediction has no matching evaluation),
-which is the safer failure than the silent miscount a re-grade would cause.
+*after* a judge graded the event is not re-scored by that judge. What the coarse
+grain buys is the spend, and what it costs is a coverage gap that falls
+differentially — an engine whose cells backfill late accumulates fewer scored
+events than one that ran on time. The leaderboard publishes that gap rather than
+leaving it to a ledger scan: every entry carries its own `events_scored` against
+the board's union, and `fedcourts leaderboard` warns when they are unequal
+(`metrics/README.md`).
 
 An `EVALUATE_HANDOFF_ENABLED` pause switch mirrors `PREDICT_HANDOFF_ENABLED`:
 holding it costs latency alone — a held window re-derives on resume rather than

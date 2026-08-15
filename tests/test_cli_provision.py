@@ -5,7 +5,6 @@ from typing import Any
 
 from typer.testing import CliRunner
 
-import fedcourtsai.cli as cli_module
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
@@ -452,8 +451,15 @@ def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
     assert context["distribution_count"] == 2
     assert context["cvsg_date"] == "2025-03-03"
     assert context["band"] == "high"
-    assert context["salience_version"] == "sal-v2"
+    assert context["salience_version"] == "sal-v3"
     assert context["term"] == 2024  # docket 24-12
+    # The interim trio is NOT frozen on a cert cell. The block is part of the
+    # cell's information set, so widening it for a stage that declares no claim
+    # reading it would move what every cert cell sees with no prompt edit to
+    # bound the change.
+    assert context["response_requested"] is None
+    assert context["referred_to_court"] is None
+    assert context["amicus_briefs"] is None
 
 
 def test_the_cell_context_reads_the_caption_band_from_the_payload(
@@ -475,7 +481,7 @@ def test_the_cell_context_reads_the_caption_band_from_the_payload(
     assert context["signals_observable"] is True
     assert context["distribution_count"] == 0  # arrival posture: nothing distributed
     assert context["band"] == "federal"
-    assert context["salience_version"] == "sal-v2"
+    assert context["salience_version"] == "sal-v3"
 
 
 def test_a_repeated_conference_does_not_inflate_the_frozen_count(
@@ -636,14 +642,48 @@ def test_an_application_snapshot_freezes_no_band() -> None:
     accident: sal-v1's features are cert observations that do not exist on the
     interim docket, and a band frozen from their absence would hand the
     evaluator a cert-population base rate for a cell that resolves on the
-    interim standard."""
+    interim standard.
+
+    What it *does* freeze is the interim conditioning: the escalation trio as at
+    provisioning — the prediction end of the three increment claims — and the
+    application Term the interim base rate pools strictly before."""
     context = cell_context.build(
         "scotus/9525000001", date(2026, 7, 9), _APPLICATION_PENDING, "forward"
     )
     assert context.signals_observable is True  # proceedings are present
     assert context.band is None
     assert context.salience_version is None
-    assert context.term is None  # the A-form carries no cert Term
+    # No cert Term on an A-form number; the application Term is what is frozen,
+    # and the two never fill the field at once.
+    assert context.term == 2025
+    # The arrival snapshot discloses only the application itself: no response
+    # called for, no referral, no amicus. Observed as false, not unknown.
+    assert context.response_requested is False
+    assert context.referred_to_court is False
+    assert context.amicus_briefs == 0
+
+
+def test_an_application_snapshot_freezes_the_escalation_state_it_discloses() -> None:
+    escalated: dict[str, Any] = {
+        "CaseNumber": "25A1 ",
+        "ProceedingsandOrder": [
+            *_APPLICATION_PENDING["ProceedingsandOrder"],
+            {
+                "Date": "Jul 05 2026",
+                "Text": "Response to application (25A1) requested by The Chief Justice.",
+            },
+            {
+                "Date": "Jul 06 2026",
+                "Text": "Application (25A1) referred to the Court by The Chief Justice.",
+            },
+            {"Date": "Jul 07 2026", "Text": "Brief amicus curiae of the State of X filed."},
+        ],
+    }
+    context = cell_context.build("scotus/9525000001", date(2026, 7, 9), escalated, "forward")
+    assert context.response_requested is True
+    assert context.referred_to_court is True
+    assert context.amicus_briefs == 1
+    assert context.band is None  # still no band: the rule is the docket form
 
 
 def test_provision_snapshot_refuses_an_application_disposal_the_vocabulary_missed(
@@ -813,7 +853,7 @@ def test_the_staleness_bound_is_inclusive_at_the_boundary(
         def today(cls) -> "_FrozenToday":
             return cls(2025, 4, 2)  # 30 days after the snapshot
 
-    monkeypatch.setattr(cli_module, "date", _FrozenToday)
+    monkeypatch.setattr("fedcourtsai.cli.date", _FrozenToday)
     base = [
         "provision-snapshot",
         "--court",

@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
+from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.judgment import (
     grant_term_year,
@@ -1808,19 +1809,33 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         (
             "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
             + "time-extension requests that dominate the docket), split by application-Term "
-            + "year; raw counts, never reweighted. Descriptive only: the grant rate is "
-            + "computed over **resolved substantive** applications alone — extensions are "
-            + "counted so their dominance stays visible, but they never pool into any rate — "
-            + "and it is not a segment base rate: the interim stage's scored base rate "
-            + "publishes only at the pre-registered resolved-count floor (docs/salience.md), "
-            + "so until then no skill or calibration claim rests on these "
-            + "figures. Resolved means a machine-matched interim disposition — an unmatched "
-            + "resolution stays visibly unresolved rather than entering any denominator — "
-            + "and withdrawn/dismissed resolutions count as ungranted. This is not a "
-            + "salience-band product and carries no salience version. "
-            + "The escalation-signal columns count substantive applications only, and carry "
-            + "max-latched ending states rather than as-at-prediction values — no rate here "
-            + "conditions on them. "
+            + "year; raw counts, never reweighted. The rows below **ground the interim "
+            + "stage's scored base rate**: an application cell is scored against the grant "
+            + "rate pooled over the resolved substantive slice of application-Terms strictly "
+            + "before its own, unweighted, and only where that pooled sample clears the "
+            + "pre-registered per-pool floor "
+            + f"(`INTERIM_BASE_RATE_MIN_RESOLVED` = {INTERIM_BASE_RATE_MIN_RESOLVED}); below "
+            + "it there is no baseline and no substitute — not this table's pack-level rate, "
+            + "which contains the case's own Term, and not one Term's alone "
+            + "(docs/salience.md). Extensions are counted so their dominance stays visible, "
+            + "but they never pool into any rate. Five caveats travel with the number "
+            + "wherever it is quoted: resolved means a machine-matched interim disposition, "
+            + "so the resolved slice is selected for machine-matchable resolution text and "
+            + "an unmatched resolution stays visibly unresolved rather than entering any "
+            + "denominator; withdrawn/dismissed resolutions count as ungranted; a mixed "
+            + "partial disposition reads denial-first; **parse coverage is uneven across "
+            + "Terms** (`unparsed` below), so a pooled rate blends a Term the poller "
+            + "covered fully with one it reached only in part; and the **scored population "
+            + "is narrower than the pooled one** — the interim reserve fills its slots in "
+            + "escalation-ladder order, so a predicted application sits systematically "
+            + "higher on those rungs than this cohort, and interim skill against this rate "
+            + "is not by itself evidence of forecast skill (docs/salience.md). This is not "
+            + "a salience-band product and carries no salience version. "
+            + "The escalation-signal columns count over **all** substantive applications in "
+            + "the slice, pending ones included — so their denominator is not the resolved "
+            + "count beside them, and they are right-censored rather than terminal. No rate "
+            + "here conditions on them; the as-at-prediction values a conditioned rate would "
+            + "need live on the cells' own frozen contexts. "
             + "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
             + "too — anchor only on Term rows strictly preceding your clock._"
         ),

@@ -112,7 +112,7 @@
           "type": "array"
         },
         "declared_set_version": {
-          "description": "The claim-set declaration that produced this block's rows, e.g. 'cert-v1' \u2014 the versioned constant in `fedcourtsai.pipeline.claims`",
+          "description": "The claim-set declaration that produced this block's rows, e.g. 'cert-v2' \u2014 the versioned constant in `fedcourtsai.pipeline.claims`, resolved from the event at stamp time. Two totals are comparable only under the same version, a different one summing over a different set; nothing enforces that, so an aggregate reports the versions it pooled (`declared_set_versions`) and metrics/README.md governs the reading",
           "title": "Declared Set Version",
           "type": "string"
         },
@@ -312,10 +312,10 @@
     },
     "SemanticGradeBlock": {
       "additionalProperties": false,
-      "description": "One evaluator's grades over a prediction's declared semantic claim set.\n\nAdvisory and segmented like :class:`ClaimScoreBlock`, and further out still:\nit carries no total, is never pooled with mechanical claim scores (the two\nare not in the same units and one is not a score at all), and is never a\nrank key. What may be read off it is fixed by ``metrics/README.md``; what it\n*is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,\nalpha*.\n\n**Alpha, and inert.** ``semantic-v0`` is provisional and unproven against\nopinion text \u2014 not a pre-registered commitment in the sense ``cert-v1`` and\n``merits-v1`` are. No stage declares a semantic set, no prompt asks for one,\nand so no committed evaluation carries this block and no published number\ndepends on it. The first set actually put to work arrives as ``semantic-v1``\nwith its own review; supersession is the expected path, not an exception.",
+      "description": "One evaluator's grades over a prediction's declared semantic claim set.\n\nAdvisory and segmented like :class:`ClaimScoreBlock`, and further out still:\nit carries no total, is never pooled with mechanical claim scores (the two\nare not in the same units and one is not a score at all), and is never a\nrank key. What may be read off it is fixed by ``metrics/README.md``; what it\n*is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,\nalpha*.\n\n**Alpha, and still producing nothing.** ``semantic-v1`` is provisional and\nunproven against opinion text \u2014 not a pre-registered commitment in the sense\n``cert-v1`` and ``merits-v1`` are. The merits moments declare it and the\nevaluate prompt asks a grader for it, but no opinion body is ingested to\ngrade against, so every declared claim masks (``not-addressed``) and no\npublished number depends on it. Supersession by a set formed with text in\nhand is the expected path, not an exception.",
       "properties": {
         "declared_set_version": {
-          "description": "The semantic claim-set declaration these rows answer, e.g. 'semantic-v0' \u2014 the versioned constant in `fedcourtsai.pipeline.semantic`",
+          "description": "The semantic claim-set declaration these rows answer, e.g. 'semantic-v1' \u2014 the versioned constant in `fedcourtsai.pipeline.semantic`. Checked against the declaration and never overwritten: a block answering another declaration is refused rather than relabelled",
           "title": "Declared Set Version",
           "type": "string"
         },
@@ -335,7 +335,7 @@
       "type": "object"
     },
     "SemanticSupport": {
-      "description": "How far the opinion supports one declared semantic claim \u2014 the ``semantic-v0`` grade.\n\nA small closed vocabulary on purpose: the grade is read by a human-or-model\ngrader rather than resolved in code, so every level the vocabulary adds is a\nlevel graders can disagree on, and inter-grader agreement is the number this\nfamily is judged by. Contradiction folds into ``unsupported`` for that\nreason \u2014 separating \"the opinion is silent on the point the claim makes\" from\n\"the opinion says the opposite\" costs agreement to buy a distinction nothing\nscores today.\n\nThree of the four levels are **ordinal** (``unsupported`` <\n``partial`` < ``supported``) and one is not: ``not_addressed`` is the\n**availability mask**, a property of the *record* and never of the\npredictor \u2014 the opinion body that would settle the claim does not exist, was\nnever ingested, or says nothing on the claim's axis. It is reported and\ncounted, never ranked and never scored, exactly as a masked mechanical claim\nis (``ClaimScore.outcome`` null).\n\n``semantic-v0`` is **alpha** \u2014 provisional, unproven against opinion text,\nand explicitly not a pre-registered commitment in the sense ``cert-v1`` and\n``merits-v1`` are. Nothing produces a grade today, so nothing published\ndepends on this vocabulary; see ``docs/outcome-decomposition.md``, *The\nsemantic family, alpha*.",
+      "description": "How far the opinion supports one declared semantic claim \u2014 the ``semantic-v1`` grade.\n\nA small closed vocabulary on purpose: the grade is read by a human-or-model\ngrader rather than resolved in code, so every level the vocabulary adds is a\nlevel graders can disagree on, and inter-grader agreement is the number this\nfamily is judged by. Contradiction folds into ``unsupported`` for that\nreason \u2014 separating \"the opinion is silent on the point the claim makes\" from\n\"the opinion says the opposite\" costs agreement to buy a distinction nothing\nscores today.\n\nThree of the four levels are **ordinal** (``unsupported`` <\n``partial`` < ``supported``) and one is not: ``not_addressed`` is the\n**availability mask**, a property of the *record* and never of the\npredictor \u2014 the opinion body that would settle the claim does not exist, was\nnever ingested, or says nothing on the claim's axis. It is reported and\ncounted, never ranked and never scored, exactly as a masked mechanical claim\nis (``ClaimScore.outcome`` null).\n\n``semantic-v1`` is **alpha** \u2014 provisional, unproven against opinion text,\nand explicitly not a pre-registered commitment in the sense ``cert-v1`` and\n``merits-v1`` are. No opinion body is ingested, so every grade a cell writes\ntoday is the mask and nothing published depends on this vocabulary; see\n``docs/outcome-decomposition.md``, *The semantic family, alpha*.",
       "enum": [
         "supported",
         "partially-supported",
@@ -363,7 +363,7 @@
         }
       ],
       "default": null,
-      "description": "Which salience-band population segment_base_rate was taken over. Null wherever the rate is not a band product \u2014 a merits cell's Term-pooled disturbed rate, and an interim cell, which takes no rate at all. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings). The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
+      "description": "Which salience-band population segment_base_rate was taken over. Null wherever the rate is not a band product \u2014 a merits cell's Term-pooled disturbed rate, and an interim cell's application-Term-pooled grant rate: an application freezes no band by rule, so there is no band population for this field to name, and the event's stage axis carries the disambiguation instead. The stamp clears it on both of those stages, where the rate beside it is the harness's own pooled number, so the null is structural rather than a rule an evaluator has to honour. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band under a resolvable salience version. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings) \u2014 never a relabel of a frozen band whose version fails to resolve, which yields no baseline at all. The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed.",
       "title": "Base Rate Basis"
     },
     "base_rate_salience_version": {
@@ -376,7 +376,7 @@
         }
       ],
       "default": null,
-      "description": "Harness-stamped record of which salience version the segment_base_rate's band was read under \u2014 the version half of the basis record, the parallel of `base_rate_basis`. Stamped by `stamp-cell --role evaluator` deterministically from the same inputs the basis names (never the evaluator's word, and an evaluator-written value does not survive the stamp): on the `risk_set` path it is the scored prediction's frozen `context.salience_version`, on the `terminal` path the live scorer's version. Null when no basis is recorded \u2014 which includes every merits cell, whose baseline is not a salience-band product and so has no scorer version to pin \u2014 and on records written before the field existed.",
+      "description": "Harness-stamped record of which salience version the segment_base_rate's band was read under \u2014 the version half of the basis record, the parallel of `base_rate_basis`. Stamped by `stamp-cell --role evaluator` deterministically from the same inputs the basis names (never the evaluator's word, and an evaluator-written value does not survive the stamp): on the `risk_set` path it is the scored prediction's frozen `context.salience_version`, on the `terminal` path the live scorer's version. Null when no basis is recorded, and cleared outright on every merits and every interim cell, whose harness-stamped baseline is not a salience-band product and so has no scorer version to pin; null too on records written before the field existed.",
       "title": "Base Rate Salience Version"
     },
     "big_case": {
@@ -403,6 +403,7 @@
         }
       ],
       "default": null,
+      "description": "`(probability - actual_granted)**2` over the stage's declared binary \u2014 granted on a cert or interim cell, judgment-disturbed on a merits one \u2014 computed identically in code by `pipeline.evaluate.brier_score`. Who owns it splits by stage. On a **merits** or **interim** cell whose `event.yaml` names that stage it is harness-stamped **at stamp time** by `stamp-cell --role evaluator` from the scored prediction's committed `probability` and the outcome's `actual_granted`, never the evaluator's word, and cleared where either artifact is missing \u2014 so the `segment_base_rate` and `brier_skill_score` stamped beside it share one source and the skill ratio is verifiable rather than merely self-consistent. An unstamped cell keeps whatever it was written with. On a **cert** cell it is the evaluator's, and the leaderboard's coherence check holds it to the skill recorded against it. Null where the cell scored no probability and on records written before the field existed.",
       "title": "Brier Score"
     },
     "brier_skill_score": {
@@ -416,7 +417,7 @@
         }
       ],
       "default": null,
-      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
+      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. On a merits or interim cell it is harness-derived at stamp time from the *stamped* brier_score, the outcome, and the stamped `segment_base_rate` \u2014 all three off one set of committed artifacts, so the ratio is correct by construction rather than merely reproducible from the record; on a cert cell it is the evaluator's, computed against the band rate it recorded. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
       "title": "Brier Skill Score"
     },
     "case_id": {
@@ -470,7 +471,7 @@
         }
       ],
       "default": null,
-      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. The evaluator's field, like `correct` and `brier_score` \u2014 the harness stamps only `claim_scores` and the base-rate basis record \u2014 but computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
+      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. The evaluator's field, like `correct` \u2014 on a merits cell the harness stamps the claim block, the base-rate basis record, and the whole skill record (`brier_score`, `segment_base_rate`, `brier_skill_score`), but never this \u2014 computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
       "title": "Judgment Correct"
     },
     "leakage": {
@@ -568,7 +569,7 @@
         }
       ],
       "default": null,
-      "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its salience band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.base_rates.merits_base_rate`), which is not a salience-band product, so base_rate_basis and base_rate_salience_version stay null there. An interim cell has no published rate and omits the field. The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
+      "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its salience band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below; that choice is a judgment about the scored prediction's frozen band, so the cert rate is the evaluator's to record. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the Term certiorari was granted in and harness-stamped by `stamp-cell --role evaluator` \u2014 never the evaluator's word, and cleared where the harness cannot compute one, so a hand-pooled number never survives the stamp. On an interim cell it is the statpack interim section's substantive grant rate pooled over application Terms strictly before the case's own, read off the scored prediction's frozen context (`pipeline.base_rates.interim_base_rate`) and harness-stamped the same way, null below that pool's own pre-registered floor. Neither pooled rate is a salience-band product, so the stamp clears base_rate_basis and base_rate_salience_version on both. The naive baseline the prediction's skill is scored against; null on a cert cell from an offline evaluator, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
       "title": "Segment Base Rate"
     },
     "semantic_grades": {
@@ -581,7 +582,7 @@
         }
       ],
       "default": null,
-      "description": "This evaluator's grades over the prediction's declared **semantic** claim set (`fedcourtsai.pipeline.semantic`). Advisory like `claim_scores`, and further out: it carries no total, is never pooled with mechanical claim scores, and is never a rank key. Unlike `claim_scores` it is the grader's word by construction \u2014 a semantic claim needs a reader \u2014 which is why inter-grader agreement travels beside any published grade. Null on every committed evaluation: no stage declares a semantic set and no prompt asks for one."
+      "description": "This evaluator's grades over the prediction's declared **semantic** claim set (`fedcourtsai.pipeline.semantic`). Advisory like `claim_scores`, and further out: it carries no total, is never pooled with mechanical claim scores, and is never a rank key. Unlike `claim_scores` it is the grader's word by construction \u2014 a semantic claim needs a reader \u2014 which is why inter-grader agreement travels beside any published grade. Written on merits cells, whose moments declare `semantic-v1`; null on every other stage, which declares no semantic set, and on evaluations written before the grading existed. No opinion body is ingested yet, so a written block grades every claim as `not-addressed` \u2014 the availability mask, a property of the record."
     },
     "vote_accuracy": {
       "anyOf": [

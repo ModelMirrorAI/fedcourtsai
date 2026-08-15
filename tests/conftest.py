@@ -112,8 +112,8 @@ def seed_evaluation(
     """Commit one minimal evaluation into the ledger under ``data_root``.
 
     The counterpart of :func:`seed_prediction`, for the already-evaluated gate.
-    A schema-true body, not a stub: a test proving the leaderboard double-counts
-    without the gate has to *read* these files.
+    A schema-true body, not a stub: the gate tests, and the roll-ups that
+    collapse a cell's re-runs, both have to *read* these files.
     """
     write_json(
         CasePaths(data_root, court, docket)

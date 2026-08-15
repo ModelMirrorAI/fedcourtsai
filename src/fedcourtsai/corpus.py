@@ -51,6 +51,7 @@ from .schemas import (
     Disposition,
     EventKind,
     Judgment,
+    MeritsTermination,
     Moment,
     Stage,
 )
@@ -480,6 +481,20 @@ class CorpusRow(BaseModel):
         "beside a non-None `merits_judgment`, and latched as a pair with it; "
         "the merits event's `resolved_at` when detection records the outcome.",
     )
+    merits_terminated: str | None = Field(
+        default=None,
+        description="Why this granted case's merits proceeding ended **without** "
+        "a disposition of the judgment below — a `MeritsTermination` value "
+        "stored as text (blob-tolerant like `merits_judgment`). Written only by "
+        "the offline backfill pass, and only where no judgment shape matched "
+        "anywhere in the snapshot, so it never competes with a parsed "
+        "disposition. Deliberately a separate column rather than a seventh "
+        "`Judgment`: it resolves the row's *pendency* — the forward-forecast "
+        "and provisioning gates refuse a terminated row exactly as they refuse "
+        "a latched one — while asserting nothing about the judgment below, so "
+        "the row stays outside the statpack's parsed slice and the disturbed "
+        "rate pooled from it. None = not known to have terminated.",
+    )
     response_requested_at: date | None = Field(
         default=None,
         description="When the Court or a Circuit Justice asked for a response to "
@@ -669,7 +684,14 @@ CREATE TABLE IF NOT EXISTS cases (
     -- values). NULL = no parsed judgment (pending, no snapshot, or no
     -- matching entry). Merits outcome detection reads these columns.
     merits_judgment     TEXT,
-    merits_decided      TEXT
+    merits_decided      TEXT,
+    -- Why a granted case's merits proceeding ended with no disposition (see
+    -- CorpusRow and pipeline/judgment.py): a `MeritsTermination` value, written
+    -- by the backfill pass alone and only where no judgment shape matched.
+    -- Closes the row's pendency for the forecast and provisioning gates without
+    -- asserting anything about the judgment below, so it stays out of the
+    -- statpack's parsed slice. NULL = not known to have terminated.
+    merits_terminated   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -817,6 +839,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_brief_filed": "TEXT",
     "response_requested_at": "TEXT",
     "response_filed_at": "TEXT",
+    "merits_terminated": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1105,6 +1128,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.response_requested_at.isoformat() if row.response_requested_at else None
         ),
         "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
+        "merits_terminated": row.merits_terminated,
     }
 
 
@@ -1211,6 +1235,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_brief_filed=_optional_date(record, "merits_brief_filed"),
         response_requested_at=_optional_date(record, "response_requested_at"),
         response_filed_at=_optional_date(record, "response_filed_at"),
+        merits_terminated=_optional_str(record, "merits_terminated"),
     )
 
 
@@ -1317,6 +1342,7 @@ def _update_clause(column: str) -> str:
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
+        "merits_terminated",
     ):
         # Owned elsewhere, so an ingestion upsert keeps the stored value: the
         # scope reconcile owns `predict_excluded` (not an ingestion fact, not
@@ -1325,7 +1351,10 @@ def _update_clause(column: str) -> str:
         # `salience_selected` latch), and the queue routing owns the
         # `*_queued_at` stamps — clearing one on re-ingest would let a
         # deriver's daily-retry debounce re-queue a case every cycle its
-        # rotation poll touches it.
+        # rotation poll touches it. `merits_terminated` joins them because it is
+        # a snapshot-sweep reading rather than a channel fact: no ingestion
+        # writer ever has one to assert, so letting the upsert carry its NULL
+        # through would clear the sweep's finding on the next poll.
         return f"{column}=cases.{column}"
     if column in ("merits_judgment", "merits_decided"):
         # The merits pair moves as a PAIR, keyed on the incoming judgment: two
@@ -2356,6 +2385,26 @@ def set_merits_judgment(
         )
 
 
+def set_merits_termination(
+    conn: sqlite3.Connection, case_id: str, termination: MeritsTermination
+) -> None:
+    """Record that one granted case's merits proceeding ended with no disposition.
+
+    The :func:`set_merits_judgment` sibling, owned here for the same reason —
+    the finding comes from a stored snapshot's entries, not from a channel, and
+    :func:`_update_clause` keeps an ingestion upsert from clearing it. Note what
+    it does **not** touch: ``merits_judgment`` stays null, because a termination
+    is the record saying the case is over, not what happened to the judgment
+    below. Overwrites forward and never clears, exactly as the judgment writer
+    does.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET merits_terminated = ? WHERE case_id = ?",
+            (termination.value, case_id),
+        )
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
 
@@ -2446,7 +2495,9 @@ class PriorQuery(BaseModel):
         "merits columns on a qualifying row are held to the same bar "
         "separately: a merits judgment is a later fact than the row's own year, "
         "so the pair is stripped unless `merits_decided` also provably precedes "
-        "the cutoff. This is "
+        "the cutoff, and `merits_terminated` is stripped unconditionally, since "
+        "it carries no date to test and records the very fact — the proceeding "
+        "ended — that the clock exists to hide. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -2519,7 +2570,14 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
     present and its year strictly precedes the cutoff — an undated judgment
     cannot prove precedence, so it is stripped (mirroring the snapshot
     truncation's fail-closed treatment of undated entries).
+
+    ``merits_terminated`` is stripped **unconditionally** whenever it is set,
+    because it carries no date to test: the column records that the merits
+    proceeding ended, which is exactly the post-clock fact the mask exists to
+    hide, and nothing in it can prove it came first.
     """
+    if row.merits_terminated is not None:
+        row = row.model_copy(update={"merits_terminated": None})
     if row.merits_judgment is None and row.merits_decided is None:
         return row
     if row.merits_decided is not None and row.merits_decided.year < decided_before:

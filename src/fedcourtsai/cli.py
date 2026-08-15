@@ -19,7 +19,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 from urllib.parse import quote
 
 import typer
@@ -100,7 +100,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .integrity import cell_clock, forward_claim_record
+from .integrity import cell_clock, evaluation_clock, forward_claim_record
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -130,14 +130,16 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
+from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
 from .pipeline.asof import CutoffPolicy
+from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
-from .pipeline.caption import caption_census
+from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
+from .pipeline.evaluate import brier_score, brier_skill
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -180,6 +182,9 @@ from .schemas import (
     Engine,
     Evaluation,
     ForwardClaimRecord,
+    Leaderboard,
+    LeaderboardEntry,
+    LeaderboardStageEntry,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -194,6 +199,7 @@ from .schemas import (
     SalienceReplay,
     Stage,
     StatPack,
+    Stratum,
     UsageRole,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
@@ -321,7 +327,8 @@ def validate_corpus_cmd(
     today: Annotated[
         str,
         typer.Option(
-            help="ISO as-of date for the future-dated-snapshot check; defaults to today (UTC)."
+            help="ISO as-of date for the date-keyed checks — future-dated "
+            "snapshots and dates, and the stale-grant cutoff; defaults to today (UTC)."
         ),
     ] = "",
 ) -> None:
@@ -556,16 +563,30 @@ def reconcile_salience_selection_cmd(
 
 
 @app.command("caption-census")
-def caption_census_cmd() -> None:
+def caption_census_cmd(
+    rule_version: str = typer.Option(
+        CAPTION_RULE_VERSION,
+        "--rule-version",
+        help="Which registered caption rule cuts the frame (caption-v1, caption-v2).",
+    ),
+) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
 
     A deterministic, read-only cut of the salience gate's scored segment
-    (live-slice, paid, modern-cert, resolved) under the committed caption rule
-    (`pipeline.caption`, `caption-v1`) — the artifact any caption-keyed
-    selection constant must be frozen from, after a statistical review of the
-    run (`docs/salience.md`). Prints a `CaptionCensus`. Fails loud if the
-    corpus is absent.
+    (live-slice, paid, modern-cert, resolved) under one registered caption rule
+    (`pipeline.caption`) — the artifact any caption-keyed selection constant
+    must be frozen from, after a statistical review of the run
+    (`docs/salience.md`), and the run names the rule version it was cut under.
+    Prints a `CaptionCensus`. Fails loud if the corpus is absent or the rule
+    version is unregistered.
     """
+    if rule_version not in CAPTION_RULES:
+        typer.echo(
+            f"unregistered caption rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(CAPTION_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -585,7 +606,8 @@ def caption_census_cmd() -> None:
         pointer = corpus_remote.pointer_path_for(db_path)
         corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        census = caption_census(conn, corpus_sha256=corpus_sha)
+        census = caption_census(conn, corpus_sha256=corpus_sha, rule_version=rule_version)
+    typer.echo(f"caption census ({census.rule_version}), pooled:", err=True)
     for cell in census.pooled:
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(
@@ -712,14 +734,20 @@ def backfill_merits_judgments_cmd(
 ) -> None:
     """Parse each granted SCOTUS case's stored snapshot for its merits judgment.
 
-    Over the rows with `date_cert_granted` set, read the latest stored snapshot
+    Over the rows whose cert grant opens a merits proceeding
+    (`corpus.opens_merits_proceeding` — a GVR or summary reversal decides in the
+    cert order and is excluded), read the latest stored snapshot
     (SQLite, or the per-case content store under the corpus-split mode — the
     same offline path the salience replay reads), parse the last
     judgment-shaped terminal entry (`pipeline/judgment.py`), and stamp
     `merits_judgment` / `merits_decided` — the offline reconciler behind the
     columns the live poll also latches at ingest, feeding the statpack's merits
     stage section, the merits base rate pooled from it, and merits outcome
-    detection. Idempotent; a row
+    detection. Where no judgment shape matches anywhere, a second, smaller
+    vocabulary runs as fallback — the terminations, for a proceeding that ended
+    without a disposition (a post-grant Rule 46 dismissal, a bare mandate
+    notation) — and stamps `merits_terminated` instead, which closes the row's
+    pendency without entering the parsed slice. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -745,6 +773,8 @@ def backfill_merits_judgments_cmd(
         f"{result.eligible} granted case(s) — {result.parsed} parsed "
         f"({result.unchanged} already stored, {verb} {result.updated}), "
         f"{result.no_snapshot} without a reachable snapshot, "
+        f"{result.terminated} terminated without a disposition "
+        f"({verb} {result.terminations_written}), "
         f"{result.no_match} with no judgment-shaped entry"
     )
     if result.stale:
@@ -753,6 +783,10 @@ def backfill_merits_judgments_cmd(
             "re-derive (never cleared automatically — triage them)"
         )
     typer.echo(f"  judgments: {distribution}")
+    terminations = (
+        ", ".join(f"{value}: {count}" for value, count in result.terminations.items()) or "none"
+    )
+    typer.echo(f"  terminations: {terminations}")
     typer.echo(result.model_dump_json())
 
 
@@ -1491,9 +1525,12 @@ def leaderboard(
 ) -> None:
     """Rank predictors from the evaluations ledger into ``metrics/leaderboard.json``.
 
-    Deterministic and offline: aggregates every committed ``evaluation.json``
-    under ``data/`` into one best-first standing per predictor — accuracy, mean
-    Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
+    Deterministic and offline: aggregates the newest committed
+    ``evaluation.json`` per (case, event, predictor, evaluator) under ``data/``
+    into one best-first standing per predictor — accuracy, mean
+    Brier score, mean vote accuracy (declared merits moments only — an
+    individual cert vote is never scored, so the ranked board carries no vote
+    mean), a reasoning-quality summary, and counts,
     each reported **per stratum** (forward forecasts vs retrospective cells vs
     procedural mootness-basis cells, never blended and with only the timing
     strata ranked; see the ``Leaderboard`` schema). The ranked board is the
@@ -1510,6 +1547,18 @@ def leaderboard(
     read as "no cell qualified". The result
     writes through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger and pack reproduce the file byte for byte.
+
+    Two audit figures ride beside the standings, because neither is recoverable
+    from the ranked numbers themselves. ``superseded_gradings`` counts the
+    gradings the run collapse dropped: every figure on the board is taken after
+    it, so a re-graded cell is otherwise indistinguishable from a once-graded
+    one. Each entry's ``events_scored``, against its population's own, is the
+    scored set's coverage: grading is gated at ``(evaluator, event)`` grain, so
+    a predictor whose cells landed after its events were graded is compared
+    over a subset — the command warns when that inequality exists, per
+    population, and the ranks adjust for none of it. Silence is not a licence:
+    equal coverage certifies the same event set, never the same stratum mix or
+    panel depth (``metrics/README.md``).
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
     blessed frozen process. Until a stamped cell postdates the freeze instant
@@ -1532,12 +1581,22 @@ def leaderboard(
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
+        superseded_gradings=run.superseded,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     empty_note = (
         "  (frozen headline empty — no frozen-process evaluations yet)"
         if scope == "frozen" and board.predictors_ranked == 0
+        else ""
+    )
+    # A re-grade is invisible on the board's own figures — every one of them is
+    # taken after the collapse — so the count says so in the log too, where a
+    # maintainer who ran `evaluate-matrix --force`, or re-ran a cached matrix,
+    # is watching.
+    regrade_note = (
+        f"  ({board.superseded_gradings} superseded grading(s) collapsed away)"
+        if board.superseded_gradings
         else ""
     )
     # An unreadable pack and a board where no cell qualified both render the
@@ -1549,12 +1608,15 @@ def leaderboard(
             "realized-Term skill omitted from every stratum.",
             err=True,
         )
+    _report_uneven_coverage(board)
     typer.echo(
         f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
-        f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
+        f"{board.procedural_evaluations} procedural) over "
+        f"{board.events_scored} scored event(s) "
+        f"-> {destination}{empty_note}{regrade_note}"
     )
 
 
@@ -1575,8 +1637,9 @@ def claim_scores_command(
 ) -> None:
     """Roll the ledger's claim-score blocks into ``metrics/claim-scores.json``.
 
-    Deterministic and offline: aggregates every committed ``evaluation.json``
-    carrying a harness-computed ``claim_scores`` block into per-predictor,
+    Deterministic and offline: aggregates the newest committed
+    ``evaluation.json`` per (case, event, predictor, evaluator) carrying a
+    harness-computed ``claim_scores`` block into per-predictor,
     per-stratum claim-total means (floor and lift beside them, per-claim means,
     the largest single-claim contribution) plus the pre-registered **judge
     validation** — Kendall tau-b between mechanical claim totals and
@@ -1604,6 +1667,152 @@ def claim_scores_command(
         f"claim-scores [{scope}]: {board.cells_with_claims} of {board.evaluations_total} "
         f"evaluation(s) carry a claim block; forward judge agreement: "
         f"{agreement_summary(board.forward_agreement)} -> {destination}"
+    )
+
+
+@app.command("semantic-summary")
+def semantic_summary_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Output path (default: <metrics_root>/semantic-grades-<stratum>-<scope>.json)."
+        ),
+    ] = None,
+    stratum: Annotated[
+        str,
+        typer.Option(
+            help="Which stratum to summarize (" + ", ".join(get_args(Stratum)) + "). One "
+            "call is one segment: grades are never pooled across strata, and a graded "
+            "unit carries no stratum of its own, so this states the population rather "
+            "than describing it."
+        ),
+    ] = "forward",
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline "
+            "(the shakedown pooled view).",
+        ),
+    ] = False,
+) -> None:
+    """Roll the ledger's semantic grade blocks into a census, published only above the floor.
+
+    Deterministic and offline: collects every committed ``evaluation.json``
+    carrying a ``semantic_grades`` block for one stratum, bridges each through
+    the **declaration** (``fedcourtsai.pipeline.semantic`` — the declared set,
+    never the grader's block, fixes what is graded), and rolls the units into
+    per-claim counts, a pooled coverage census, and leave-one-out inter-grader
+    agreement. Descriptive only: no score, no total, never a rank key, and never
+    pooled with a mechanical claim score. The reading contract is
+    ``metrics/README.md``; the methodology is ``docs/outcome-decomposition.md``,
+    *The semantic family, alpha*, and it is alpha.
+
+    Three things this command owes the roll-up, which sees only the units it is
+    handed.
+
+    It **segments**, on every axis the roll-up says is never pooled — stratum,
+    process scope, and *vantage*. The last one is why the cells are filtered to
+    each stage's **first declared moment** (``pipeline.moments.first_moment``),
+    the rule ``claim_metrics`` keeps for the same reason: a set is declared on
+    every moment of its stage, so a later moment carries the same block off a
+    larger information set, and pooling the two would average a forecast taken
+    at the grant with one taken after briefing. Stratum and scope are recorded
+    on the artifact; a census that does not state them is not readable at all.
+
+    It **deduplicates re-runs** to one grade per grader per cell, newest first
+    on the harness clock (``integrity.evaluation_clock``) rather than the
+    agent-written ``created_at``. The *ordering* is the one ``claim-scores``
+    uses; the *key* is not, and must not be — that surface collapses across
+    evaluators because their blocks are identical harness output, while here
+    graders genuinely differ and collapsing them would destroy the very
+    population the agreement figure is computed over. A grader's newest run
+    decides, including when it carries no block: that is a withdrawn grade, not
+    a reason to resurrect an older one.
+
+    And it **withholds** on two independent preconditions, because
+    ``metrics/README.md`` bars publication on either. The pooled census must
+    clear the ``SEMANTIC_MIN_GRADED`` floor, and at least one grader must carry
+    a non-null agreement coefficient — a count or share with no agreement
+    figure beside it is one reader's opinion presented as a measurement, and a
+    null coefficient is not an agreement figure. Below either, nothing is
+    written and the state is printed, naming which precondition failed.
+
+    So today it writes nothing and says so. The evaluate prompt asks a merits
+    grader for a block, but no opinion body is ingested to grade against and
+    both declared claims require a majority opinion, so every unit is the
+    availability mask and the census carries no ordinal grades to publish.
+    """
+    if stratum not in get_args(Stratum):
+        raise typer.BadParameter(
+            f"unknown stratum {stratum!r}; expected one of {', '.join(get_args(Stratum))}"
+        )
+    segment = cast(Stratum, stratum)
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(run.excluded)
+    latest: dict[tuple[str, str, str, str], tuple[tuple[datetime, str, str], Evaluation]] = {}
+    for evaluation, cell_stratum, stage, moment in run.cells:
+        if cell_stratum != segment or stage is None:
+            continue
+        if moment != moments.first_moment(stage):
+            continue
+        key = (
+            evaluation.case_id,
+            evaluation.event_id,
+            evaluation.predictor_id,
+            evaluation.evaluator_id,
+        )
+        order = (evaluation_clock(evaluation), evaluation.evaluator_id, evaluation.run_id)
+        current = latest.get(key)
+        if current is None or order > current[0]:
+            latest[key] = (order, evaluation)
+    units: list[semantic.GradedUnit] = []
+    blocks = 0
+    refused = 0
+    for key in sorted(latest):
+        evaluation = latest[key][1]
+        if evaluation.semantic_grades is None:
+            continue
+        blocks += 1
+        produced = semantic.graded_units(evaluation)
+        if not produced:
+            # `graded_units` refuses silently, five ways. A systematic refusal —
+            # every grader stamping a superseded declaration, say — would
+            # otherwise render as "few grades" rather than "many grades refused".
+            refused += 1
+        units.extend(produced)
+    summary = semantic.summarize_semantic_grades(units, stratum=segment, process_scope=scope)
+    graded = summary.overall.graded if summary.overall is not None else 0
+    masked = summary.overall.not_addressed if summary.overall is not None else 0
+    disputed = summary.overall.mask_disputed if summary.overall is not None else 0
+    agreed = any(record.rank_agreement is not None for record in summary.agreement.values())
+    census = (
+        f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
+        f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
+        f"on {summary.cases} case(s)"
+    )
+    if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
+        reason = (
+            f"below the {semantic.SEMANTIC_MIN_GRADED}-unit floor"
+            if graded < semantic.SEMANTIC_MIN_GRADED
+            else "no grader carries an agreement coefficient"
+        )
+        typer.echo(
+            f"semantic-summary [{segment}/{scope}]: withheld — {reason}. {census}. Nothing written."
+        )
+        return
+    destination = (
+        out
+        if out is not None
+        else settings.metrics_root / f"semantic-grades-{segment}-{scope}.json"
+    )
+    write_json(destination, summary)
+    typer.echo(
+        f"semantic-summary [{segment}/{scope}]: {census}, "
+        f"{summary.graders} grader(s), set(s) "
+        f"{', '.join(summary.declared_set_versions)} -> {destination}"
     )
 
 
@@ -2234,6 +2443,26 @@ def stamp_cell(
     frozen context (:func:`_base_rate_salience_version_for`), so both are the
     harness's word and an evaluator-authored value never survives the stamp.
 
+    **Who owns the skill record.** The harness stamps it wherever the baseline
+    pool is a Term-keyed ratio of published integer counts with no band to
+    choose — every **merits** and every **interim** cell — because there the
+    evaluator exercises no judgment and hand-computing only adds arithmetic the
+    record cannot check. On those two stages the whole record is written
+    unconditionally (:func:`_skill_record_for`): the ``brier_score`` recomputed
+    from the scored prediction's committed ``probability`` and the outcome's
+    ``actual_granted``, the ``segment_base_rate`` pooled from the statpack, and
+    the ``brier_skill_score`` derived from those two — each cleared where an
+    input is missing so a hand-written number never survives a refusal, and both
+    halves of the basis record cleared with them, since neither pooled rate is a
+    salience-band product. All three come off one set of committed artifacts, so
+    the skill ratio is verifiable rather than merely self-consistent: stamping
+    the denominator over an agent-written numerator would reproduce from the
+    record and still be wrong. The **cert** path stays the evaluator's and none
+    of the three is touched there: which band population the rate is taken over
+    — ``risk_set`` against ``terminal`` — is a judgment about the scored
+    prediction's frozen band, recorded in ``base_rate_basis``, and the
+    leaderboard's coherence check is what holds that arithmetic to its record.
+
     A recorded ``risk_set`` basis whose version does not resolve exits non-zero
     after every cell is stamped. The null is still written — it is the
     deterministic record of what resolution produced — but a basis without its
@@ -2310,13 +2539,14 @@ def stamp_cell(
             # evaluator-authored one is replaced — with the computed block where
             # the committed inputs support one, with nothing otherwise.
             cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
-            # The version half of the base-rate basis record, same discipline:
-            # derived deterministically from the basis the evaluation names and
-            # the same committed inputs, overwritten unconditionally so it is
-            # the harness's word and never the evaluator's.
-            version = _base_rate_salience_version_for(event_paths, record)
-            cell_update["base_rate_salience_version"] = version
-            basis_records[path] = (record.base_rate_basis, version)
+            # The skill record — Brier, base rate, and the ratio over them —
+            # same discipline: derived deterministically from the stage and the
+            # committed inputs, overwritten unconditionally so what it says is
+            # the harness's word. The basis pair it returns is what the risk-set
+            # guard below judges — the record as stamped, never as the evaluator
+            # wrote it.
+            skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
+            cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         stamped += 1
 
@@ -2358,8 +2588,10 @@ def _fail_on_unversioned_risk_set(
             + "frozen context on its latest one, or no `salience_version` in that "
             + "context. A risk-set base rate is banded under the scored prediction's "
             + "frozen `context.salience_version`, so a basis recorded without one names "
-            + "a population nothing pins down: the cell needed the terminal basis (the "
-            + "documented fallback) or no segment base rate at all.",
+            + "a population nothing pins down. Where the join simply missed, the cell "
+            + "needed the terminal basis; where the scored prediction froze a band with "
+            + "no version beside it, the terminal basis is wrong too and the cell needed "
+            + "no segment base rate at all.",
             err=True,
         )
     raise typer.Exit(code=1)
@@ -2383,12 +2615,10 @@ def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluat
         return SALIENCE_VERSION
     if evaluation.base_rate_basis != "risk_set":
         return None
-    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
-    predictions = [read_model(p, Prediction) for p in files]
-    if not predictions:
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or latest.context is None:
         return None
-    latest = max(predictions, key=cell_clock)
-    return latest.context.salience_version if latest.context is not None else None
+    return latest.context.salience_version
 
 
 def _claim_scores_for(
@@ -2412,21 +2642,248 @@ def _claim_scores_for(
     equal. Absent or unreadable, it stays ``None`` and the merits claim goes
     unscored rather than anchoring to the wrong Term.
     """
-    outcome_path = event_paths.outcome
-    statpack_path = settings.metrics_root / "statpack.json"
-    if not outcome_path.is_file() or not statpack_path.is_file():
-        return None
-    files = sorted(event_paths.predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json"))
-    predictions = [read_model(p, Prediction) for p in files]
-    if not predictions:
+    outcome = _outcome_for(event_paths)
+    statpack = _statpack_for(settings)
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if outcome is None or statpack is None or latest is None:
         return None
     return score_claims(
-        max(predictions, key=cell_clock),
-        read_model(outcome_path, Outcome),
-        read_model(statpack_path, StatPack),
+        latest,
+        outcome,
+        statpack,
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         grant_term=_grant_term_for(event_paths),
     )
+
+
+def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Prediction | None:
+    """The scored prediction for one predictor on this event, or ``None``.
+
+    The join every scoring surface uses — an evaluation records its predictor,
+    not a prediction run id, so the scored prediction is that predictor's
+    **latest** for the event by :func:`fedcourtsai.integrity.cell_clock`.
+    ``None`` where the predictor wrote none.
+    """
+    files = sorted(event_paths.predictions_dir.glob(f"{predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    return max(predictions, key=cell_clock) if predictions else None
+
+
+def _outcome_for(event_paths: EventPaths) -> Outcome | None:
+    """The event's committed ``outcome.json``, or ``None`` where none exists yet."""
+    return read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
+
+
+def _statpack_for(settings: Settings) -> StatPack | None:
+    """The committed statpack, or ``None`` where none is readable.
+
+    Tolerant like the rest of the stamp's inputs: this runs as a post-agent
+    step, so an absent or unreadable pack is a recorded gap in whatever it
+    feeds — never a failed cell whose output already exists.
+    """
+    return _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+
+
+#: The stages whose whole skill record — ``brier_score``, ``segment_base_rate``,
+#: and the ``brier_skill_score`` over them — the harness stamps rather than the
+#: evaluator recording it: both pool a Term-keyed ratio of the statpack's
+#: published integer counts, with no salience band to choose between and so no
+#: judgment for an evaluator to exercise. The cert stage is absent by design —
+#: see :func:`stamp_cell`.
+_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
+
+
+def _skill_record_for(
+    event_paths: EventPaths, evaluation: Evaluation, settings: Settings
+) -> tuple[dict[str, object], tuple[str | None, str | None]]:
+    """This cell's whole skill record as a stamp update, plus its basis pair.
+
+    Two shapes, keyed on the stage. On a **cert** cell the Brier, the rate, and
+    the skill are the evaluator's — which band population the rate was taken
+    over is a judgment about the scored prediction's frozen band, and the
+    leaderboard's coherence check is what stands between that arithmetic and the
+    published column — so only the version half of the basis record is derived
+    here (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores``
+    is: deterministically, and overwriting whatever the evaluator wrote.
+
+    On a stage of :data:`_HARNESS_SKILL_STAGES` the **whole** record is the
+    harness's, and all five fields are assigned unconditionally. The Brier, the
+    rate, and the skill over them are computed (:func:`_harness_brier_for`,
+    :func:`_harness_base_rate_for`, :func:`_harness_skill_for`) and are ``None``
+    where an input is missing — an evaluator-authored number surviving that
+    refusal is the one thing stamping them exists to prevent. All three come off
+    one set of committed inputs, which is what makes the ratio verifiable rather
+    than merely internally consistent: a stamped skill whose numerator was the
+    evaluator's word would reproduce from the record and still be wrong.
+
+    Both halves of the **basis record** are cleared, because neither pooled rate
+    is a salience-band product: there is no band population for a basis to name,
+    and a recorded one would otherwise pull a salience version onto a rate no
+    band ever produced — or fail the cell on the risk-set guard, whose remedy
+    (the terminal basis) means nothing on a stage the harness pools itself.
+
+    The returned ``(basis, version)`` pair is the record **as stamped**, so the
+    guard judges what was written rather than what the evaluator proposed.
+    """
+    if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
+        version = _base_rate_salience_version_for(event_paths, evaluation)
+        return ({"base_rate_salience_version": version}, (evaluation.base_rate_basis, version))
+    outcome = _outcome_for(event_paths)
+    rate = _harness_base_rate_for(event_paths, evaluation, settings)
+    brier = _harness_brier_for(event_paths, evaluation, outcome)
+    _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
+    _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
+    return (
+        {
+            "brier_score": brier,
+            "segment_base_rate": rate,
+            "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+            "base_rate_basis": None,
+            "base_rate_salience_version": None,
+        },
+        (None, None),
+    )
+
+
+#: How far a recorded number may sit from the stamped one before
+#: :func:`_warn_on_discarded_number` says so. Committed records carry three
+#: decimals and both sides compute from the same committed inputs, so an
+#: agreeing pair lands inside this; a wider gap is a different computation — a
+#: different pool window or Term axis for the rate, a different probability or
+#: binary for the Brier. Absolute rather than relative, so it is a floor on what
+#: gets *said*, not on what gets written: a disagreeing Brier under it — which a
+#: squared quantity reaches near ``p == y`` — is still replaced, silently.
+_STAMP_ECHO_TOLERANCE = 1e-3
+
+
+def _warn_on_discarded_number(
+    evaluation: Evaluation, field: str, recorded: float | None, stamped: float | None
+) -> None:
+    """Say when a stamped number replaces a *different* one the evaluator wrote.
+
+    The stamp overwrites either way — that is the point — but an overwrite that
+    changes the number is the one thing a maintainer would want to see, and a
+    silent one leaves no trace that the evaluator's own arithmetic disagreed
+    (or that the harness declined a number the evaluator was willing to state).
+    One ``::warning::``, never a failure: the harness's number is not in doubt,
+    and a cell that produced its output must not fail on a note about it.
+
+    It is also why the evaluate prompt goes on eliciting a number the stamp
+    discards. An elicited value the harness overwrites is not waste: it is the
+    only independent read of the same quantity anywhere in the run, so a
+    systematic disagreement — an evaluator scoring the wrong binary, or reading
+    a stale probability — surfaces here and nowhere else. A field the prompt
+    stopped asking for would leave that check with nothing to compare.
+    """
+    if recorded is None or (
+        stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE
+    ):
+        return
+    typer.echo(
+        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
+        + f"{field} {recorded} on a harness-stamped stage; the stamp wrote "
+        + f"{stamped} instead.",
+        err=True,
+    )
+
+
+def _harness_brier_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> float | None:
+    """The harness's own Brier score for one evaluation, or ``None``.
+
+    ``(probability - actual_granted)**2`` over the two committed artifacts,
+    through the same numeric core every scoring surface uses
+    (:func:`fedcourtsai.pipeline.evaluate.brier_score`), so the stamped
+    numerator is the definition rather than a restatement of it. The scored
+    prediction is the predictor's **latest** for this event — the join
+    ``claim_scores`` and the base rate already use, since an evaluation records
+    its predictor and not a prediction run id.
+
+    Neither input can be partly there: ``Prediction.probability`` and
+    ``Outcome.actual_granted`` are both schema-required, so a readable artifact
+    always carries its half of the formula. ``None`` only where an artifact is
+    absent outright — no prediction from this predictor, or no committed
+    outcome — which is the same tolerant clearing the rate takes: this runs as
+    a post-agent step, so a missing input suppresses the number rather than
+    failing a cell that already produced its output.
+    """
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or outcome is None:
+        return None
+    return brier_score(latest, outcome)
+
+
+def _harness_base_rate_for(
+    event_paths: EventPaths, evaluation: Evaluation, settings: Settings
+) -> float | None:
+    """The harness's own segment base rate for one evaluation, or ``None``.
+
+    Computed on the two stages of :data:`_HARNESS_SKILL_STAGES`, from the
+    committed statpack under the same ``salience.base_rate_lookback_terms``
+    window every other pooled baseline answers to. **Merits**: the disturbed
+    rate over grant Terms strictly before the cell's, keyed on the Term
+    :func:`_grant_term_for` resolves — the first merits moment's ``opened_at``,
+    which is the cert grant, so a later moment cannot pool a Term the grant did
+    not fall in. **Interim**: the substantive grant rate over application Terms
+    strictly before the cell's, read off the scored prediction's **frozen**
+    ``context.term`` (the application Term the cell was conditioned on) rather
+    than re-derived at stamp time. A **cert** cell returns ``None``: there the
+    rate is a band product, and which population it is taken over — the
+    risk-set table against the terminal one — is a judgment about the scored
+    prediction's frozen band, which the evaluator makes and records.
+
+    ``None`` too wherever an input is missing: no readable statpack, no Term to
+    key on, no prediction to read a frozen one off, or a pool below its own
+    registered floor. The stamp then clears the field rather than leaving a
+    number the harness cannot stand behind.
+    """
+    stage = _event_stage_and_opened(event_paths)[0]
+    if stage not in _HARNESS_SKILL_STAGES:
+        return None
+    statpack = _statpack_for(settings)
+    if statpack is None:
+        # Said out loud, for the reason the leaderboard says it: a suppressed
+        # baseline and a cell that never had one look identical in the record,
+        # and this one is an input failure a maintainer can fix.
+        typer.echo(
+            "::warning::stamp: no readable metrics/statpack.json — this cell's "
+            "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    if stage == Stage.merits:
+        grant_term = _grant_term_for(event_paths)
+        if grant_term is None:
+            return None
+        return merits_base_rate(grant_term, statpack, lookback_terms=lookback)
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or latest.context is None or latest.context.term is None:
+        return None
+    return interim_base_rate(latest.context.term, statpack, lookback_terms=lookback)
+
+
+def _harness_skill_for(
+    brier: float | None, outcome: Outcome | None, base_rate: float | None
+) -> float | None:
+    """The Brier skill of a stamped base rate against the *stamped* Brier.
+
+    Written wherever the harness stamps the pair, through the same numeric core
+    the evaluate path and the cert back-test share
+    (:func:`fedcourtsai.pipeline.evaluate.brier_skill`). Both arguments are the
+    harness's own numbers rather than the record's, so the ratio is correct by
+    construction end to end: nothing the evaluator wrote reaches the numerator
+    or the denominator. ``None`` when any input is missing — no stamped Brier,
+    no stamped rate, no committed outcome to score against — and where the
+    baseline is already exact, the ratio's undefined case. (The outcome guard is
+    redundant against the Brier's, which is ``None`` whenever the outcome is;
+    it is kept because it is what makes ``actual_granted`` reachable, and
+    because the two would have to be un-coupled by hand to make it wrong.)
+    """
+    if brier is None or base_rate is None or outcome is None:
+        return None
+    return brier_skill(brier, outcome.actual_granted, base_rate)
 
 
 def _grant_term_for(event_paths: EventPaths) -> int | None:
@@ -2445,25 +2902,38 @@ def _grant_term_for(event_paths: EventPaths) -> int | None:
     moment whose sibling is missing — suppressing the baseline rather than
     guessing a Term.
     """
-
-    def _opened(paths: EventPaths) -> tuple[Stage | None, date | None]:
-        event_file = paths.event_file
-        if not event_file.is_file():
-            return (None, None)
-        try:
-            event = read_model(event_file, PredictableEvent)
-        except (OSError, ValueError, ValidationError):
-            return (None, None)
-        return (event.stage, event.opened_at)
-
-    stage, opened_at = _opened(event_paths)
+    stage, opened_at = _event_stage_and_opened(event_paths)
     if stage != Stage.merits:
         return None
     spec = moments.spec_for(event_paths.base.name)
     if spec is not None and spec.ordinal > 0:
         first = moments.moments_for(Stage.merits)[0]
-        _, opened_at = _opened(event_paths.sibling(first.event_id))
+        _, opened_at = _event_stage_and_opened(event_paths.sibling(first.event_id))
     return grant_term_year(opened_at) if opened_at is not None else None
+
+
+def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date | None]:
+    """The committed event definition's stage and opening date, best-effort.
+
+    ``(None, None)`` where no ``event.yaml`` exists or it does not parse: the
+    stamp runs after an agent has already produced output, so an unreadable
+    definition suppresses whatever it keys — the merits grant Term, and the
+    harness-stamped skill record, which is not merely emptied but not stamped
+    at all, since an unnamed stage takes the cert branch and leaves what the
+    evaluator wrote — rather than failing the cell.
+
+    The stage comes back as the enum's **value** (the schema models are built
+    with ``use_enum_values``), so compare it with ``==`` or ``in`` and never
+    with ``is``: the string equals its member but is not it.
+    """
+    event_file = event_paths.event_file
+    if not event_file.is_file():
+        return (None, None)
+    try:
+        event = read_model(event_file, PredictableEvent)
+    except (OSError, ValueError, ValidationError):
+        return (None, None)
+    return (event.stage, event.opened_at)
 
 
 @app.command("process-digest")
@@ -3256,12 +3726,16 @@ def refresh_historical_cmd(
     older, thinner rows, and their cursors sit at the frontier so no ordinary run
     will ever revisit them. This is the way back.
 
-    Re-walking **adds**: each re-served docket upserts onto its existing row
-    through the corpus latches, so nothing is deleted, `case_id` never moves, and
-    a refreshed row keeps every fact the first pass captured. Re-running is
-    therefore idempotent, not destructive — the real cost is upstream traffic
-    (~1 req/s over each Term's full serial range), which is why it is dry-run by
-    default.
+    Re-walking **adds rows**: each re-served docket upserts onto its existing row
+    through the corpus latches, so no row is deleted, `case_id` never moves, and
+    every latched fact the first pass captured survives. An *unlatched* column is
+    different — it takes the fresh parse, and the cert-stage disposition and its
+    dates are unlatched — so a tightened pattern also retracts a stale reading.
+    That is the way back from a false positive on a docket no rotation revisits,
+    and it works only while the corrected parse still reads *some* disposition: a
+    record that now reads undecided is counted `skipped_undecided` and never
+    ingested. The real cost is upstream traffic (~1 req/s over each Term's full
+    serial range), which is why this is dry-run by default.
 
     Deliberately separate from the walk rather than a flag on it: a walk that
     could rewind its own cursor could also do so on a degraded run and silently
@@ -4286,9 +4760,10 @@ def unblind_evaluations_cmd(
     **This must run before ``stamp-cell --role evaluator``.** The stamp joins an
     evaluation to the prediction it scored on the ``predictor_id`` field and
     returns nothing on no match, so an alias reaching the stamp costs the cell
-    its ``claim_scores`` block *and* its ``base_rate_salience_version`` — both
-    *silently*, since the stamp assigns whatever the join produced rather than
-    failing. The self-check is
+    its ``claim_scores`` block *silently* — the stamp assigns whatever the join
+    produced rather than failing — while a ``risk_set`` base rate left with no
+    ``base_rate_salience_version`` fails the stamp outright. The self-check for
+    the silent half is
     ``validate data``'s ``check_evaluation_targets``, which resolves the same
     join and reports an orphan loudly — so the cell's order is: un-alias, stamp,
     validate.
@@ -5359,6 +5834,50 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
     )
 
 
+def _report_uneven_coverage(board: Leaderboard) -> None:
+    """Warn where a population's predictors were not scored on the same events.
+
+    Grading is gated at ``(evaluator, event)`` grain, so the scored set is
+    *selected*: a prediction committed after a judge graded its event is never
+    scored by that judge, and an engine whose cells backfill late is compared
+    over a subset of the population's events. The ranks and means make no
+    adjustment for that, so two entries at unequal coverage are not a
+    cross-engine comparison at all. The board carries the counts; this makes the
+    inequality itself loud at build time, so a comparability hazard does not
+    wait for a reader to do the subtraction. It stays silent on equal coverage,
+    which is not the same as endorsing the comparison: equality certifies the
+    same event set and neither the stratum mix nor the panel depth, both of
+    which the board publishes for the reader to check.
+
+    Every population is checked against **its own** denominator — the ranked
+    cert board and each ``stage@moment`` block — because a stage is scored on
+    its own events, and measuring a merits entry against the cert union would
+    report short coverage for every one of them.
+    """
+    populations: list[tuple[str, int, Sequence[LeaderboardStageEntry | LeaderboardEntry]]] = [
+        ("cert", board.events_scored, board.entries)
+    ]
+    populations += [
+        (key, board.stages[key].events_scored, board.stages[key].entries)
+        for key in sorted(board.stages)
+    ]
+    for population, covered, entries in populations:
+        short = [
+            f"{entry.predictor_id} {entry.events_scored}/{covered}"
+            for entry in entries
+            if entry.events_scored < covered
+        ]
+        if not short:
+            continue
+        typer.echo(
+            f"::warning::leaderboard [{population}]: unequal scored-set coverage — "
+            + ", ".join(short)
+            + ". Ranks and means make no adjustment for this; a cross-engine "
+            "comparison over unequal coverage is over different populations.",
+            err=True,
+        )
+
+
 def _report_forward_claim_exclusions(excluded: Sequence[ExcludedCell]) -> None:
     """One line per dropped cell, so the boards' count is never the only record."""
     for cell in excluded:
@@ -5700,6 +6219,27 @@ def assert_paths_cmd(
     typer.echo(f"path jail OK ({len(changes)} change(s))")
 
 
+def _scan_listed_files(
+    files: list[Path] | None, secrets: list[str], *, entropy: bool, noun: str
+) -> tuple[list[secretscan.Finding], bool]:
+    """Scan caller-named files beside the change set; a missing one fails closed.
+
+    The caller writes each file immediately before scanning, so absence is a
+    misconfigured gate, never an empty surface. ``entropy`` passes through to
+    the scanner — off for a transcript, whose format guarantees high-entropy
+    ids as ordinary content.
+    """
+    findings: list[secretscan.Finding] = []
+    misconfigured = False
+    for path in files or []:
+        if path.is_file():
+            findings.extend(secretscan.scan_file(path, str(path), secrets, entropy=entropy))
+        else:
+            misconfigured = True
+            typer.echo(f"::error::secret-scan: {noun} {path} is missing", err=True)
+    return findings, misconfigured
+
+
 @app.command("scan-diff-for-secrets")
 def scan_diff_for_secrets_cmd(
     name_status_file: Annotated[
@@ -5719,6 +6259,19 @@ def scan_diff_for_secrets_cmd(
             help="Rendered text about to be posted (a PR body, a flag roll-up) to "
             "scan alongside the change set (repeatable). Must exist: the caller "
             "writes it immediately before scanning."
+        ),
+    ] = None,
+    transcript_file: Annotated[
+        list[Path] | None,
+        typer.Option(
+            help="An engine transcript to scan with every detector except the "
+            "generic high-entropy heuristic (repeatable; must exist, like "
+            "--extra-file). A transcript's server-generated tool and request "
+            "ids are high-entropy by format, so the generic heuristic convicts "
+            "every real file and the artifact it gates never publishes with "
+            "content; literal containment of each --known-secret-env credential "
+            "and the structured credential shapes still run and are the "
+            "detectors that can name a secret there."
         ),
     ] = None,
     issue_comment_file: Annotated[
@@ -5741,8 +6294,10 @@ def scan_diff_for_secrets_cmd(
     text) live in ``secretscan``. On a hit the collect job withholds the
     branch — nothing pushed, no PR — because the push itself would publish
     the secret; a scan misconfiguration (a named env var that is unset or
-    too short, a missing ``--extra-file``) fails the same way rather than
-    silently dropping a detector or a surface.
+    too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
+    same way rather than silently dropping a detector or a surface. A
+    ``--transcript-file`` is scanned without the generic high-entropy
+    heuristic only — see the option's help for why that surface needs it.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -5759,12 +6314,13 @@ def scan_diff_for_secrets_cmd(
             )
     changes = parse_name_status(name_status_file.read_text())
     findings = secretscan.scan_changes(changes, Path(), secrets)
-    for extra in extra_file or []:
-        if extra.is_file():
-            findings.extend(secretscan.scan_file(extra, str(extra), secrets))
-        else:
-            misconfigured = True
-            typer.echo(f"::error::secret-scan: extra file {extra} is missing", err=True)
+    for files, entropy, noun in (
+        (extra_file, True, "extra file"),
+        (transcript_file, False, "transcript file"),
+    ):
+        listed_findings, missing = _scan_listed_files(files, secrets, entropy=entropy, noun=noun)
+        findings.extend(listed_findings)
+        misconfigured = misconfigured or missing
     if findings:
         for line in secretscan.render_warnings(findings):
             typer.echo(line, err=True)

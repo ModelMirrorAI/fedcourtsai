@@ -652,3 +652,130 @@ def test_redaction_terminates_on_a_hostile_payload() -> None:
     redact_credentials("-eyJ" * 50_000)
     redact_credentials("gAAAAA" * 50_000)
     assert time.monotonic() - started < 10
+
+
+def _transcript_line() -> str:
+    """One execution-log line shaped like real engine output: prose plus the
+    server-generated ids whose entropy the generic heuristic convicts."""
+    rng = random.Random(20260814)
+    ident = "".join(
+        rng.choice("ABCDEFGHJKMNPQRSTVWXYZabcdefghjkmnpqrstvwxyz0123456789") for _ in range(40)
+    )
+    return (
+        '{"type":"assistant","message":{"id":"msg_' + ident + '",'
+        '"content":[{"type":"tool_use","id":"toolu_01' + ident[:22] + '",'
+        '"name":"Write","input":{"file_path":"/tmp/qp-labels.jsonl"}}]}}'
+    )
+
+
+def test_cli_transcript_file_skips_only_the_entropy_heuristic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # As an --extra-file the transcript's own ids convict it; as a
+    # --transcript-file the same bytes pass, because the generic entropy
+    # heuristic is the one detector its format guarantees to trip.
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    transcript = tmp_path / "claude-execution-output.json"
+    transcript.write_text(_transcript_line() + "\n")
+    monkeypatch.chdir(tmp_path)
+    as_extra = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--extra-file",
+            str(transcript),
+        ],
+    )
+    assert as_extra.exit_code == 1
+    assert "high-entropy" in as_extra.output
+    as_transcript = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--transcript-file",
+            str(transcript),
+        ],
+    )
+    assert as_transcript.exit_code == 0
+
+
+def test_cli_transcript_file_still_catches_a_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The detectors that can actually name a secret in a transcript all still
+    # run: the known-token containment and the structured credential shapes.
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    secret = "sk-ant-" + "x1Yz" * 12
+    transcript = tmp_path / "claude-execution-output.json"
+    transcript.write_text(_transcript_line() + "\n" + f'{{"leak":"{secret}"}}\n')
+    monkeypatch.setenv("LIVE_SECRET_SOURCE", secret)
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--known-secret-env",
+            "LIVE_SECRET_SOURCE",
+            "--transcript-file",
+            str(transcript),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "known-token" in result.output
+
+
+def test_cli_missing_transcript_file_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--transcript-file",
+            str(tmp_path / "never-written.json"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "transcript file" in result.output
+
+
+def test_transcript_surface_catches_prefixed_keys_without_the_known_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The structured shapes are what carry the transcript surface when no
+    # known-secret env var is named: a provider key and a JWT must both
+    # convict without containment.
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    rng = random.Random(20260814)
+    tail = "".join(rng.choice("ABCDEFabcdef0123456789") for _ in range(60))
+    transcript = tmp_path / "claude-execution-output.json"
+    transcript.write_text(
+        f'{{"leak":"sk-ant-api03-{tail}"}}\n'
+        + '{"env":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJydW5uZXIifQ.'
+        + tail[:20]
+        + '"}\n'
+    )
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--transcript-file",
+            str(transcript),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "model-provider-key" in result.output
+    assert "jwt" in result.output

@@ -98,6 +98,20 @@
       "additionalProperties": false,
       "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written four\ndifferent ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
       "properties": {
+        "amicus_briefs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Amicus briefs the snapshot's entries recorded as at provisioning; masked by `signals_observable` like the rest. Unbounded above, so the increment claim over it is a strict rise with no vacuous arm \u2014 unlike the two flags, which can only rise once",
+          "title": "Amicus Briefs"
+        },
         "band": {
           "anyOf": [
             {
@@ -108,7 +122,7 @@
             }
           ],
           "default": null,
-          "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
+          "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then scores against the terminal band it can derive rather than guessing a frozen one. A band is readable only beside the `salience_version` below, which is what the risk-set basis keys on: a band with no version names a population nothing pins down",
           "title": "Band"
         },
         "cutoff": {
@@ -171,6 +185,32 @@
           "title": "Mode",
           "type": "string"
         },
+        "referred_to_court": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the snapshot showed this application already referred to the full Court rather than left with a Circuit Justice, as at provisioning; masked by `signals_observable` like the rest",
+          "title": "Referred To Court"
+        },
+        "response_requested": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the snapshot showed the Court (or a Circuit Justice) had already requested a response to this application, as at provisioning \u2014 the prediction end of the interim increment pair, whose resolution end is `Outcome.interim_signals`. Masked by `signals_observable` exactly as the cert signals above are: one mask covers both signal families, because a snapshot disclosing no proceedings discloses neither. Frozen only on an application docket \u2014 null on every cert cell, which declares no claim that reads it, and whose information set this block is part of",
+          "title": "Response Requested"
+        },
         "salience_version": {
           "anyOf": [
             {
@@ -181,7 +221,7 @@
             }
           ],
           "default": null,
-          "description": "Version of the scorer that produced band",
+          "description": "Version of the scorer that produced band, and the key the evaluator's `risk_set` base-rate basis is chosen on: a band name means something only under the version that assigned it, so a frozen band whose version is absent \u2014 or does not match the statpack's \u2014 yields no baseline rather than a terminal relabel",
           "title": "Salience Version"
         },
         "schema_version": {
@@ -223,7 +263,7 @@
             }
           ],
           "default": null,
-          "description": "The case's October Term, the leakage guard's key",
+          "description": "The case's October Term, the leakage guard's key \u2014 the cert Term parsed from a `YY-NNNN` petition number, or the application Term parsed from a `YYAnnn` application number. Both baselines pool Terms strictly before it; which pool is keyed on the stage, not on this field",
           "title": "Term"
         }
       },
@@ -285,7 +325,7 @@
     },
     "SemanticClaim": {
       "additionalProperties": false,
-      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no\ncommitted prediction carries this block; the field exists so that turning\nthe family on is a declaration plus a prompt that asks for it, rather than\na new shape. One piece is still owed on this side and named in\n``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike\n``Prediction.claims``, nothing yet holds this list to the declared set, so\nthe mandatory-set discipline binds graders and not predictors.",
+      "description": "One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.\n\nThe semantic counterpart of :class:`ClaimProbability`, and deliberately not\nits twin: it carries **no probability**. A semantic claim resolves by a\nreader matching a predicted proposition against what the Court actually\nwrote, and no harness-computed prior exists for a proposition like \"the\nmajority rests on textualist grounds\" \u2014 so there is no ``b`` for\n``(b - y)^2 - (p - y)^2`` to consume, and a number attached here would only\ninvite the rule to be applied where its baseline requirement cannot be met.\nA grade, not a score, is what this claim earns\n(:class:`SemanticSupport`); ``docs/outcome-decomposition.md``, *The semantic\nfamily, alpha*, is the design authority.\n\nThe set is the harness's exactly as the mechanical set is\n(``fedcourtsai.pipeline.semantic``): the merits moments declare\n``semantic-v1``, and the predict prompt asks a merits cell for one\nproposition per declared claim. ``validate`` holds a committed block to that\ndeclaration, so a block naming an undeclared claim, skipping a declared one,\nor stating one twice fails the cell rather than reaching a grader.",
       "properties": {
         "claim_id": {
           "description": "The declared semantic claim this proposition answers, e.g. 'majority-ground' \u2014 the id the harness declared, never one the predictor invented",
@@ -532,7 +572,7 @@
         }
       ],
       "default": null,
-      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. Null on every committed prediction: the declaration tables are empty (`semantic-v0` is alpha, and no opinion body is ingested to ground a claim against), so no cell is asked for one.",
+      "description": "Per-claim propositions over the harness-declared **semantic** claim set for this event (`fedcourtsai.pipeline.semantic`). Graded against the opinion text by a reader, never scored by `claim_score` \u2014 a semantic claim has no harness-computable prior, so the mechanical rule's baseline requirement cannot be met and the family reports grades descriptively instead. The merits moments declare `semantic-v1` and the predict prompt asks a merits cell for it; every other stage declares no semantic set, so the field stays null there. Null too on predictions written before the elicitation existed. The set is mandatory as the mechanical one is, and `validate` holds a committed block to the declaration.",
       "title": "Semantic Claims"
     },
     "votes": {

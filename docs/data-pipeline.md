@@ -440,10 +440,12 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,250 all-time and ≈120–130 a Term — at three REST requests a case
-(docket, cluster, opinion), dropping to two on the rare row whose newest
-snapshot is REST-shaped rather than the live channel's. That is ≈3,750 requests
-to converge the standing backlog and ≈400 a Term to hold it, against the held
+together: ≈1,250 all-time and ≈120–130 a Term — at up to three REST requests a
+case (docket, cluster, opinion), dropping to two on the rare row whose newest
+snapshot is REST-shaped rather than the live channel's, and to one on a case
+that stops at the docket. So ≈3,750 requests bounds a sweep of the standing
+backlog in which every case reaches its opinion, and ≈400 a Term bounds a
+Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
 (30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
 and [budget.md](budget.md)). `--max-cases`
@@ -452,8 +454,14 @@ run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and
 because the governor is per-process, not shared across runs, the pass is run
 outside a pull window rather than beside one. Convergence is not monotone: a
-grant that never publishes an opinion (a GVR, a DIG) is retried every run, so
-that residue has to be raised past, not waited out. The
+grant that never publishes an opinion (a GVR, a DIG) is retried every run, and
+so is a decided grant whose docket links no cluster upstream — the walk's
+dominant refusal, since the id a granted row carries is its petition-stage
+docket and the published cluster hangs off it only sometimes. Both residues
+head a `case_id`-ordered walk, so they have to be raised past, not waited out —
+and because a refused case stops at its first request, a sweep's spend sits
+nearer the row count than the bound above while the coverage it buys is only
+the rows that reach a cluster. The
 same arithmetic is why the pass is *not* pointed at the whole corpus: opinion
 coverage at bulk scale is the replication channel's problem
 ([data-sources.md](data-sources.md)), not more REST.
@@ -462,7 +470,7 @@ Filling the bit for this slice is what makes the `--full` read path live, and it
 lands bodies for exactly the population the merits forecast stream is about — so
 a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
-keep that honest; they stop being latent hygiene the moment this pass runs.
+keep that honest, and they bind wherever the bit is filled.
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
@@ -616,8 +624,10 @@ or network.
   on every scheduled window): it runs `fedcourts refresh-historical --apply`
   after the pull and before the loop, clearing the named Terms' cursors so the
   reset and the re-walk it implies are one serialized operation under the
-  `corpus-write` lock. Re-walking **adds** — every re-served docket upserts
-  through the same latches, so nothing is deleted and `case_id` never moves.
+  `corpus-write` lock. Re-walking **adds rows** — every re-served docket upserts
+  through the same latches, so no row is deleted and `case_id` never moves — but
+  an unlatched column takes the fresh parse, so a tightened parser retracts a
+  stale reading as well as adding a missed one (`docs/cli.md`).
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
@@ -693,10 +703,16 @@ or network.
      event from those columns (`Outcome.judgment` plus the disturbed binary
      as `actual_granted`; an undated parse surfaces for triage instead of
      guessing a `resolved_at`), and the docket exits the rotation with its
-     last open event. The merits event is forecastable while it stays open:
-     `store.forecastable_events` admits it on a row whose grant opened a merits
-     proceeding, so the granted docket queues a merits predict cell the way an
-     application docket queues its interim one.
+     last open event. An open merits event is *usually* forecastable, but open
+     is not the test: `store.forecastable_events` admits it on a row whose grant
+     opened a merits proceeding, whose judgment is unlatched **and** whose
+     proceeding is not recorded terminated, so the granted docket queues a
+     merits predict cell the way an application docket queues its interim one.
+     The terminated arm is what separates the two: a case that ended with no
+     disposition (a post-grant Rule 46 dismissal, a docket whose only terminal
+     notation is the mandate) keeps its merits event open, because nothing
+     resolves an event on a row carrying no judgment — but there is no longer a
+     judgment to forecast, so the event stops earning cells and simply sits.
 
 ## Event definition — deterministic, corpus-driven
 
@@ -767,6 +783,13 @@ give the data **invariants** worth asserting on their own, distinct from
   exist in the corpus, every evaluation targets a real prediction, and every
   prose document a prediction names exists beside it (so a pointer to a document
   the cell never wrote fails rather than passing as a valid record).
+- **Record completeness** — a row that should have resolved by now has. A cert
+  grant that opens a merits proceeding and is more than two Terms old, carrying
+  neither a parsed judgment nor a recorded termination, is a decided docket the
+  record never captured rather than a pending case, and every row-keyed merits
+  gate reads it as forecastable. Unlike the two layers above this one cannot
+  fail on a well-formed corpus alone — it measures the sweeps' coverage — so it
+  names the cases whose record needs mending.
 
 The corpus-dependent layers run as `fedcourts validate-corpus`, **produced
 where the corpus is already pulled** (a non-blocking trailing step on the

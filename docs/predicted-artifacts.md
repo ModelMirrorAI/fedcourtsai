@@ -79,12 +79,17 @@ fields that mean the same thing at every stage:
   `probability` scores nothing at all — a partial answer is malformed, not a
   choice. Where an event declares no set the cell writes no `claims` field, and
   the stamped record carries it as null; never an empty list.
-- **`semantic_claims`** — the *semantic* claim set's propositions, and **null on
-  every cell**: no event declares a semantic set, so no prompt asks for one and
-  no cell writes one. The field is the wired-but-inert seam of the alpha
-  `semantic-v0` methodology ([outcome-decomposition.md](outcome-decomposition.md),
-  *The semantic family, alpha*); a cell that invents a block for it is writing
-  a claim the harness never declared.
+- **`semantic_claims`** — the *semantic* claim set's propositions, written on a
+  **merits** cell and null everywhere else: the merits moments declare
+  `semantic-v1` and no other event declares a semantic set. Two propositions,
+  `majority-ground` and `ground-breadth`, each carrying no probability — a
+  semantic claim is graded by a reader, never scored
+  ([outcome-decomposition.md](outcome-decomposition.md), *The semantic family,
+  alpha*). The set is mandatory as the mechanical one is, and `validate` holds
+  the block to the declaration, so a claim the harness never asked for fails
+  the cell rather than travelling unread. Every grade the block earns today is
+  the availability mask: both claims require a majority opinion body and none
+  is ingested.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -98,12 +103,20 @@ kinds resolve on the cert standard by construction.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
   axis, so they travel with `granted: 1`.
-- The declared set is **`cert-v1`**, three claims: `disposition` — which must
+- The declared set is **`cert-v2`**, five claims: `disposition` — which must
   equal the top-level `probability` exactly, being the same belief restated so
-  the set is self-describing — plus `relist-increment` and `cvsg-increment`.
+  the set is self-describing — plus `relist-increment` and `cvsg-increment`,
+  plus `summary-disposition-route` and `dissent-from-denial`.
   Both increments are forecasts *from* the state the snapshot showed, never
   levels: they resolve the count and CVSG date at resolution against the ones
-  frozen in the cell's `context`.
+  frozen in the cell's `context`. The two additions are conditional levels
+  rather than increments — P(the grant disposes in the cert order | granted)
+  and P(some Justice notes a dissent | denied) — each masked on the branch it
+  does not apply to, and the dissent claim is aggregated existence only, never
+  a named Justice. `cert-v1`'s three-claim form survives only as the fallback
+  for a petition event that is not a declared moment — an entry-pinned filing,
+  a legacy id — since the set is resolved from the event
+  ([outcome-decomposition.md](outcome-decomposition.md)).
 - `votes` is optional and `judgment` is null: no majority opinion accompanies a
   denial, so there is usually no vote to forecast.
 
@@ -135,7 +148,9 @@ absent optional field as null.
   "claims": [
     {"claim_id": "disposition", "probability": 0.05},
     {"claim_id": "relist-increment", "probability": 0.35},
-    {"claim_id": "cvsg-increment", "probability": 0.08}
+    {"claim_id": "cvsg-increment", "probability": 0.08},
+    {"claim_id": "summary-disposition-route", "probability": 0.30},
+    {"claim_id": "dissent-from-denial", "probability": 0.04}
   ],
   "context": {
     "schema_version": "1.0",
@@ -148,7 +163,10 @@ absent optional field as null.
     "distribution_count": 1,
     "cvsg_date": null,
     "band": "baseline",
-    "salience_version": "sal-v2",
+    "salience_version": "sal-v3",
+    "response_requested": null,
+    "referred_to_court": null,
+    "amicus_briefs": null,
     "term": 2025
   },
   "process_version": {
@@ -176,8 +194,15 @@ grant or denial of the requested relief.
 - `predicted_disposition` draws from four labels only — `granted`, `denied`,
   `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
   are cert-stage routes the interim vocabulary never records.
-- **No `claims` field.** No interim moment declares a set, whatever the
-  event's kind, so the cell writes none and the stamped record carries a null.
+- **A `claims` field over `interim-v1`** — `interim-disposition` (restating the
+  headline `probability`), `response-requested-increment`, `referral-increment`,
+  `amicus-increment`, in that order. Every interim moment declares the same four,
+  whatever the event's kind. Only the first has a baseline today, and only above
+  the interim pool's floor; the three increments bank their probabilities against
+  a cut the statpack does not yet carry
+  ([outcome-decomposition.md](outcome-decomposition.md)). Cells run under a
+  process whose prompt predates the set write no block, and such a missing
+  block stays a legitimate state.
 - `votes` is optional and `judgment` is null. None of the cert signals exists
   here either: an application is not distributed for conference and a CVSG is a
   cert-stage act, so the cell reads the escalation ladder — response requested,
@@ -206,7 +231,13 @@ every committed prediction carries them.
   "big_case_score": 0.7,
   "big_case_rationale": "A statewide election rule, weeks before the ballot deadline.",
   "reasoning_doc": "reasoning.md",
-  "predicted_reasoning_doc": "predicted_reasoning.md"
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "claims": [
+    {"claim_id": "interim-disposition", "probability": 0.28},
+    {"claim_id": "response-requested-increment", "probability": 0.45},
+    {"claim_id": "referral-increment", "probability": 0.30},
+    {"claim_id": "amicus-increment", "probability": 0.55}
+  ]
 }
 ```
 
@@ -236,6 +267,11 @@ and a summary reversal, which terminate at the cert order, mint nothing.
 - The declared set is **`merits-v1`**, one claim: `judgment-disturbed`, which
   restates `probability` exactly, under the same rule as the cert `disposition`
   claim.
+- A merits cell is also the only one carrying **`semantic_claims`**: the
+  `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
+  each on its declared axis and each carrying no probability. They are graded
+  by a reader against the majority opinion, never scored, and mask on every
+  case the opinion coverage has not reached — which is every case today.
 
 ```json
 {
@@ -268,6 +304,16 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   "predicted_reasoning_doc": "predicted_reasoning.md",
   "claims": [
     {"claim_id": "judgment-disturbed", "probability": 0.68}
+  ],
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reverses on the statutory-text ground, holding that the detention provision reaches only post-order custody, and confines the governing precedent to its indefinite-detention facts rather than overruling it."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The ground is narrow: a rule limited to the detention authority of the provision at issue, expressly reserving the constitutional question and the parallel provision the government pressed."
+    }
   ]
 }
 ```
@@ -396,8 +442,9 @@ directory without knowing which part is which invites trusting the wrong half.
   [process-version.md](process-version.md).
 - **`context`** on `prediction.json` — the `PredictionContext` block: the
   cell's mode and replay cutoff, and the conditioning state frozen at
-  provisioning (the salience band, the distribution count and CVSG date as at
-  prediction, the Term). Written by provisioning and copied on by the stamp. It
+  provisioning: the salience band, the distribution count and CVSG date as at
+  prediction, the Term, and — on an application cell only — the interim
+  escalation trio as at prediction. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a
@@ -431,20 +478,28 @@ in prose.
   prediction name the right label on the stage's own axis: the disposition at
   cert and interim, the judgment at merits), `brier_score` on the stage's
   binary, `judgment_correct` on a merits cell only, `vote_accuracy` over the
-  Justices both sides name, `reasoning_quality`, a structured `leakage`
+  Justices both sides name — also on a merits cell only, since that is the one
+  stage whose votes are scored at all and an individual cert vote never is
+  (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
-  and `process_version` are the harness's, never the evaluator's word.
-  `semantic_grades` is null on every cell — the counterpart of the prediction's
-  `semantic_claims` above, and inert for the same reason: nothing declares a
-  semantic set, so nothing is graded. It is the one *claim-family* block that
+  and `process_version` are the harness's, never the evaluator's word — as is
+  the whole skill record of `brier_score`, `segment_base_rate`, and
+  `brier_skill_score` on the two stages whose pool the harness computes
+  (below), which leaves `brier_score` the evaluator's on a cert cell only.
+  `semantic_grades` is the counterpart of the prediction's `semantic_claims`
+  above: written on a **merits** cell, one ordinal grade per declared claim, and
+  null on every other stage. No opinion body is ingested, so every grade it
+  carries today is `not-addressed` — the availability mask, a property of the
+  record — and no census publishes. It is the one *claim-family* block that
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, and what drove the `reasoning_quality` score.
 
-Three per-stage differences are worth knowing when reading a scored cell:
+Four things are worth knowing when reading a scored cell — one per stage, plus
+who writes the baseline on each:
 
 - **A cert cell** carries `segment_base_rate` where one is derivable: its
   frozen salience band's grant rate, pooled over Terms strictly before the
@@ -453,22 +508,49 @@ Three per-stage differences are worth knowing when reading a scored cell:
   which population it was taken over — `risk_set` for every petition that ever
   *reached* the frozen band, which is the population a live cell was in, or
   `terminal` for those that *ended* in a band re-derived now, the fallback
-  where no band was frozen. The two run several-fold apart in the weak bands,
-  so a skill number means something only within one basis, and both it and
+  where **no band was frozen at all**. The two run several-fold apart in the weak
+  bands, so a skill number means something only within one basis, and both it and
   `brier_skill_score` are omitted where no band, no prior-Term rate, or no
-  matching salience version exists. A recorded `risk_set` basis must therefore
+  matching salience version exists — the last of those is an omission and never
+  a relabel to `terminal`, which would pair a risk-set population with a
+  terminal rate. A recorded `risk_set` basis must therefore
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
   `base_rate_basis_carries_version` holds the same rule over the ledger.
-- **An interim cell omits both**, by rule and not by accident: no interim
-  segment base rate is published, so there is nothing to score skill against.
-  The omission is keyed on the stage, not on whether a band happens to be
-  frozen.
+- **An interim cell's baseline is registered and wired** — the statpack interim
+  section's substantive grant rate pooled over application Terms strictly before
+  the case's own — but it is no band product either, so `base_rate_basis` and
+  `base_rate_salience_version` stay null there exactly as they do on a merits
+  cell, keyed on the stage rather than on whether a band happens to be frozen.
+  `segment_base_rate` and `brier_skill_score` are both cleared below the pool's
+  own floor (`INTERIM_BASE_RATE_MIN_RESOLVED`).
 - **A merits cell's baseline is registered and scored** — the statpack's
   pooled strictly-prior disturbed rate (its cohort guarded label-independently
   against cert-order-dated judgments), keyed on the grant Term and returning
-  nothing below a stated minimum of parsed judgments — feeding both the
-  evaluator's `brier_skill_score` and the claim block's difference form.
+  nothing below a stated minimum of parsed judgments — feeding both the cell's
+  `brier_skill_score` and the claim block's difference form.
+- **On both pooled stages the whole skill record is the harness's, not the
+  evaluator's.** `stamp-cell --role evaluator` writes `brier_score` —
+  recomputed as `(probability - actual_granted)**2` from the scored
+  prediction's committed probability and the committed outcome —
+  `segment_base_rate`, and the `brier_skill_score` derived from those two,
+  exactly as it writes `claim_scores`, and clears each where it cannot compute
+  it, so a hand-written number never survives. All three off one set of
+  committed artifacts is what makes the ratio *verifiable*: stamping the
+  denominator over an agent-written numerator would reproduce from the record
+  and still be wrong. It clears `base_rate_basis` and
+  `base_rate_salience_version` there too, which is what makes their null
+  structural rather than a rule an evaluator has to honour. Only the cert
+  numbers are the evaluator's, because only there is a judgment involved: which
+  band population the rate is taken over. The evaluate prompt says the same
+  thing from the agent's side for the pooled **pair**: on those two stages it
+  writes neither field and reads the stamped values, so `evaluation.md`'s prose
+  about the rate and the skill describes the harness's numbers. The prompt still
+  has the agent compute the **Brier** itself, so a merits or interim
+  `evaluation.md` may narrate a number its own `evaluation.json` does not carry
+  — the stamp overwrites the field either way, and says so with a `::warning::`
+  in the run log where the two disagree. Reading a pooled-stage cell, the JSON
+  is the record.
 
 An evaluation of the cert prediction above, had that petition been denied
 without a further relist. Its `process_version` stamp is omitted for brevity,
@@ -501,16 +583,20 @@ as on the predictions above:
   },
   "segment_base_rate": 0.067,
   "base_rate_basis": "risk_set",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "brier_skill_score": 0.443,
   "claim_scores": {
-    "declared_set_version": "cert-v1",
+    "declared_set_version": "cert-v2",
     "claims": [
       {"claim_id": "disposition", "probability": 0.05, "baseline": 0.067,
        "outcome": 0, "score": 0.001989},
       {"claim_id": "relist-increment", "probability": 0.35, "baseline": null,
        "outcome": 0, "score": null},
       {"claim_id": "cvsg-increment", "probability": 0.08, "baseline": null,
+       "outcome": 0, "score": null},
+      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.348,
+       "outcome": null, "score": null},
+      {"claim_id": "dissent-from-denial", "probability": 0.04, "baseline": null,
        "outcome": 0, "score": null}
     ],
     "total": 0.001989,
@@ -531,13 +617,15 @@ single cell's skill figure is illustrative only — never a rank signal, and
 never comparable across bases. The `floor` of 0.0 beside the total prices
 *baseline-restating and nothing else*: base-rate drift and
 baseline estimation error stay unpriced, so a positive total is not by itself
-skill. The total covers **one of the three declared claims**; the other two
-carry a null baseline, because the committed statpack publishes no cut that
-supports a strictly-prior, properly-conditioned rate for them, and they go
-unscored rather than scored against an invented number — which makes this total
-incomparable with a block where all three scored. And a claim's `outcome` can
-itself be null, masked because the *record* discloses nothing: a property of
-the record, never of the predictor.
+skill. The total covers **one of the five declared claims**, and the other four
+go unscored for two different reasons. Three carry a null baseline, because the
+committed statpack publishes no cut that supports a strictly-prior,
+properly-conditioned rate for them, and an absent baseline is preferred to an
+invented one — which makes this total incomparable with a block where more of
+them scored. The fourth, the route claim, carries a baseline but a null
+`outcome`: the petition was denied, so the claim is vacuously masked. That
+asymmetry is the point — a baseline is a property of the frozen conditioning,
+an outcome a property of the record, and either can be missing on its own.
 
 Nothing about a single cell is a performance claim. What may be said from a set
 of these numbers, and over which strata, is `metrics/README.md`'s subject; how

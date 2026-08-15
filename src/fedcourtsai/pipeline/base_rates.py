@@ -29,6 +29,9 @@ resolves one level out, at the caller.
 from __future__ import annotations
 
 from ..schemas import (
+    CERT_ORDER_DISPOSITIONS,
+    GRANTED_DISPOSITIONS,
+    FeeClass,
     PredictionContext,
     StatPack,
     StatPackTerm,
@@ -130,13 +133,19 @@ def prediction_base_rate(
     and reading the terminal rate against a frozen band would understate it
     several-fold in the weak bands. Neither half is correct alone.
 
-    ``None`` when there is no frozen context, when the snapshot disclosed no
-    proceedings so no band could be derived, or when no prior Term carries the
-    band **under the version that assigned it** (the harness stamps
-    ``salience_version`` whenever it derives a band, so a versionless band never
-    arrives from a cell) — the caller then falls back to
-    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`, which is honest
-    rather than invented.
+    ``None`` three ways, and the caller's answer is **not** the same in all
+    three. Where there is no frozen context, or the snapshot disclosed no
+    proceedings so no band could be derived, nothing is being conditioned on and
+    the caller legitimately falls back to
+    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate` — the terminal band
+    and the terminal rate, which at least agree with each other. Where a band
+    *is* frozen but no prior Term carries it **under the version that assigned
+    it**, there is no fallback: the answer is no baseline at all. Relabelling
+    that cell terminal would pair a risk-set population with a terminal rate and
+    stamp the live scorer's version onto a band an older one assigned, which is
+    the mispairing this pairing exists to prevent (``docs/salience.md``). (The
+    harness stamps ``salience_version`` whenever it derives a band, so a
+    versionless band never arrives from a cell in the first place.)
     """
     if (
         context is None
@@ -357,9 +366,10 @@ def merits_base_rate(
     :func:`fedcourtsai.pipeline.judgment.judgment_rode_the_grant_order` never
     ran on, whose parsed counts may still contain the cert-order class the
     rate must exclude (``metrics/README.md`` rules such a section unquotable;
-    this makes the rule structural for the harness-pooled baseline, while the
-    evaluator-recorded ``segment_base_rate`` stays governed by the prompt's
-    omit rule) — or
+    this makes the rule structural for every consumer, the recorded
+    ``segment_base_rate`` included — ``stamp-cell`` stamps a merits cell's from
+    this function, so a section the guard refuses leaves the field null rather
+    than resting on an evaluator honouring an omit rule) — or
     when the pooled sample is below :data:`MERITS_BASE_RATE_MIN_PARSED` — the
     already-contracted no-baseline answer, never an invented or degenerate rate.
     """
@@ -383,6 +393,246 @@ def merits_base_rate(
     if parsed < MERITS_BASE_RATE_MIN_PARSED:
         return None
     return disturbed / parsed
+
+
+#: The smallest strictly-prior grant sample the summary-route baseline may rest
+#: on, and the same figure — and the same reasoning — as
+#: :data:`MERITS_BASE_RATE_MIN_PARSED`: a rate near 0.35 over thirty grants
+#: carries a standard error of about 0.09, and a degenerate rate off one or two
+#: prior grants would dominate a claim total in ``claim_score``'s difference
+#: form. It clears on a single prior Term of paid live-slice grants (the paid
+#: grant family runs some ninety a Term), so it binds only at the very start of
+#: a corpus's history. Like the merits floor it states the count and **defers
+#: the smoothing rule**, which is the standing debt on it: at the floor the
+#: unpriced baseline-estimation expectation is ``p(1-p)/n ~ 0.008`` per claim,
+#: the same order as the drift term ``docs/outcome-decomposition.md`` already
+#: calls dominant. A stated pre-registration choice, not a knob.
+SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS = 30
+
+#: The fee class the salience gate actually predicts on. IFP petitions are
+#: Tier-0-excluded (``docs/salience.md``), so they are never a scored cell — and
+#: they are 28% of the pack's pooled grant family at roughly three-quarters GVR,
+#: so pooling them would price a population no cell belongs to.
+_SCORED_FEE_CLASS = FeeClass.paid
+
+
+def summary_route_base_rate(
+    term: int, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The rate at which a grant disposed in the cert order, over prior Terms.
+
+    The baseline for the declared cert-stage summary-route claim: pooled
+    ``CERT_ORDER_DISPOSITIONS`` count over pooled ``GRANTED_DISPOSITIONS`` count,
+    taken over Terms **strictly before** ``term`` — the same leakage rule
+    :func:`_pooled_band_rate` and :func:`merits_base_rate` apply, with the same
+    ``lookback_terms`` Term-year band (``0`` = unbounded).
+
+    **The population is the scored population**, which is why the counts come
+    from each Term's **paid** :class:`~fedcourtsai.schemas.StatPackTermClass`
+    rather than from the Term-level ``base_rates.dispositions``. IFP petitions
+    are Tier-0-excluded by the salience gate, so no cell is ever an IFP row —
+    yet they supply nearly a third of the pack's pooled grant family at
+    roughly three-quarters GVR, so the all-class rate runs about eleven points
+    above the paid one. Against a difference-form rule that is not a rounding
+    error: a predictor knowing only the paid segment's own rate would bank
+    ``(b_all - b_paid)^2 ~ 0.012`` per scored claim, which the identically-zero
+    floor cannot price. The band cut is *not* needed for the same reason it
+    would be harmless — the cert-order share is flat across the salience bands —
+    so the fee class is the whole of the population gap.
+
+    Reading the class blocks is also a **coverage** cut, not only a population
+    one: the two classes do not sum to the Term-level total (1,125 against 1,158
+    on the committed pack), so a row the census places in neither stream is
+    dropped rather than pooled. Dropping it is the conservative direction — the
+    scored population is exactly the paid stream — but it means this denominator
+    is a subset of the Term's published grant family, and the floor below is
+    measured against the subset.
+
+    Reading the fee-class cut also sidesteps the ``gvr`` label's
+    forward-convention hazard, which the Term-level split carries and
+    :class:`~fedcourtsai.schemas.StatPackTerm` warns is "meaningless between"
+    Terms: the un-relabelled Terms sit entirely in the IFP class, whose
+    cert-order count drops to zero where its neighbours run near 0.9, while the
+    paid series stays inside a 0.29-0.46 band throughout.
+
+    **Conditioned on the grant, deliberately.** The unconditional summary rate
+    over all petitions is around one percent, close enough to the boundary that
+    a season's realized total would be one Bernoulli draw
+    (``docs/outcome-decomposition.md``, the eight tests' volume condition). The
+    claim's resolver masks every denial, so its population is the grant family
+    and its baseline has to be the same population — a denominator of all
+    resolved petitions would be a baseline conditioned differently from the
+    claim.
+
+    **The published counts are denial-reweighted, and here that is harmless.**
+    Only denials were ever subsampled, so every row inside the grant family
+    carries weight 1 and this ratio is an unweighted count of grants either way.
+
+    **One residual bias remains, and it is not a safety margin.** A summary
+    reversal is a cert-order disposition that no resolver mints — the
+    ``summary-reversal`` label has none — so such an order sits in the
+    ``granted`` bucket and counts in the denominator but not the numerator,
+    pushing the rate down by an amount nothing the pack publishes bounds. Note
+    what that does and does not buy: under this project's difference-form rule a
+    baseline that is wrong in *either* direction hands a predictor reporting the
+    true rate ``(pi - b)^2`` for free, and the floor prices none of it. A
+    downward-biased baseline is therefore not "conservative"; it is unearned
+    score, and the cut that would retire it is exactly the one
+    ``Outcome.disposition_route`` exists to build.
+
+    ``None`` when no strictly-prior Term carries a paid class, or when the
+    pooled grant sample is below :data:`SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS` —
+    the already-contracted no-baseline answer, never an invented or degenerate
+    rate.
+    """
+    oldest = term - lookback_terms if lookback_terms > 0 else None
+    cert_order = 0
+    grants = 0
+    for entry in statpack.terms:
+        if entry.term >= term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the configured lookback window
+        for klass in entry.classes:
+            if klass.fee_class != _SCORED_FEE_CLASS:
+                continue
+            for share in klass.dispositions:
+                if share.disposition not in GRANTED_DISPOSITIONS:
+                    continue
+                grants += share.count
+                if share.disposition in CERT_ORDER_DISPOSITIONS:
+                    cert_order += share.count
+    if grants < SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS:
+        return None
+    return cert_order / grants
+
+
+#: The smallest pooled resolved sample an **interim** baseline may rest on.
+#: Below it :func:`interim_base_rate` is ``None`` — no baseline, and no
+#: substitute: not the pack-level rate (it contains the case's own Term), not a
+#: single Term's, not the cert band table (a different population on a different
+#: standard).
+#:
+#: Fifty rather than the thirty its cert and merits siblings use. Thirty rests
+#: on an absolute
+#: standard-error argument, which is tolerable where the baseline enters as a
+#: *difference* (``claim_score``'s ``(b - y)^2 - (p - y)^2``) or as the
+#: denominator of a ratio at a rate near one half. Neither holds here. This
+#: baseline's principal consumer is
+#: :func:`fedcourtsai.pipeline.evaluate.brier_skill`, whose denominator is
+#: ``(b - y)^2``; the modal interim outcome is a denial, so on most cells that
+#: denominator is ``b^2``. Squaring **doubles** the relative error transmitted
+#: from the rate, and — unlike per-cell noise — it lands on every cell's
+#: denominator at once, so it biases the published mean rather than averaging
+#: out of it.
+#:
+#: Holding the transmitted relative error at or under one third therefore needs
+#: ``n >= 36(1 - p) / p``: 36 at ``p = 0.5``, 84 at ``p = 0.3``, and unbounded as
+#: ``p`` falls. **The criterion cannot pin a number**, and 50 is not claimed to
+#: satisfy it: it is monotone decreasing in ``p`` and unbounded, so at the rates
+#: this docket has actually shown it asks for roughly 231 resolutions at the
+#: pooled 13.5% and roughly 364 at a single Term's 9%. 50 clears it only for
+#: ``p`` above about 0.42. What the criterion does establish is that **thirty is
+#: too low here**, and what 50 buys is stated exactly: an absolute standard
+#: error of at most 0.071, inside the bound the siblings accept at thirty
+#: (0.091). So the figure is chosen on the siblings' own absolute-SE standard at
+#: a tighter tolerance, with the relative-error argument as the reason for
+#: tightening rather than as a bound it meets.
+#:
+#: The floor binds on the **pooled** strictly-prior sample, so it clears by
+#: accumulation exactly as :data:`MERITS_BASE_RATE_MIN_PARSED` does. Its effect
+#: today is that no single-Term pool qualifies, and that effect is accepted
+#: rather than incidental: 50 was chosen with the committed pack visible, and
+#: the criterion's own value at ``p = 0.5`` (36) would have admitted the one
+#: single-Term pool that exists. What is *not* registered is an "at least two
+#: Terms" companion condition — considered and rejected, because a second
+#: parameter with no derivation behind it, chosen in knowledge of which cells it
+#: would exclude, is a forking path however reasonable it sounds. A stated
+#: pre-registration choice, not a knob (``docs/salience.md``, *The interim
+#: docket*).
+INTERIM_BASE_RATE_MIN_RESOLVED = 50
+
+
+def interim_base_rate(
+    application_term: int, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The historical grant rate an interim cell's skill is scored against.
+
+    Pools the statpack interim section's per-application-Term counts —
+    ``substantive_resolved`` and ``substantive_granted`` — over Terms **strictly
+    before** ``application_term``, as aggregate granted over aggregate resolved.
+    The interim sibling of :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`
+    and of :func:`merits_base_rate`, under the identical leakage rule, and
+    deliberately **version-free** for the same reason the merits rate is: the
+    interim section is not a salience-band product (an application freezes no
+    band by rule), so there is no scorer version to pin.
+
+    **The baseline's population is wider than the scored population, and the gap
+    is registered rather than corrected.** The section pools the *substantive*
+    slice alone — a stay, an injunction, a vacatur — and the administrative
+    extension majority is counted in the section but never in a rate, because an
+    extension is granted as a matter of course and would hand the baseline the
+    Court's calendar rather than its judgment. But the substantive slice is not
+    the *scored* set: the interim reserve fills its bounded slots in escalation
+    ladder order (a requested response first, then the amicus count —
+    ``pipeline.salience``), so a predicted application sits systematically higher
+    on those rungs than the pooled cohort behind this rate. The rate is
+    unconditioned on the ladder while the scored cells are selected on it, which
+    is the register's own test 3 answered in the negative
+    (``docs/outcome-decomposition.md``). Two consequences travel with the number:
+    a positive interim skill against it is *not* by itself evidence of forecast
+    skill, and the conditioned rate the claim would need is not derivable from
+    any committed cut, because the pack publishes no ladder-by-grant cross-tab.
+    Conditioning the pool on the frozen rung is the registered next step, and it
+    is a new estimator applied forward, never a silent re-reading of this one.
+
+    Two further selections are properties of the pooled counts themselves.
+    Resolution is machine-matched, so the denominator is selected for
+    machine-matchable resolution text. And parse coverage is not uniform across
+    application-Terms — the live poller reaches recently-active applications, so
+    a Term it reached late contributes a subsample rather than a census, and a
+    pooled rate blends Terms of different coverage. Both belong beside any quoted
+    figure.
+
+    ``application_term`` is the October Term the application was docketed in
+    (:func:`fedcourtsai.corpus.scotus_application_term_year` over the ``YYAnnn``
+    docket number), which is the axis the interim section is keyed on. It is
+    read from the docket number rather than from a date, so it needs no
+    resolution clock and cohort-mates are scored against the same pool.
+
+    ``lookback_terms`` bounds the pool as a Term-year band exactly as the two
+    siblings do (``0`` = unbounded). The window is the caller's — the shipped
+    value is the cert baseline's ``salience.base_rate_lookback_terms``, applied
+    here unchanged, which is a stated choice and not a separate registration.
+    ``None`` when the pack carries no interim
+    section, when no prior Term resolved anything substantive, or when the pooled
+    sample is below :data:`INTERIM_BASE_RATE_MIN_RESOLVED` — the already-contracted
+    no-baseline answer, never an invented or degenerate rate. Two label collapses
+    ride the number wherever it is quoted, both pre-registered in
+    ``docs/salience.md``: withdrawn and dismissed resolutions count as ungranted,
+    and a mixed partial disposition reads denial-first.
+
+    No pool-integrity guard corresponds to :func:`merits_base_rate`'s
+    ``cert_order_excluded`` refusal, and none is missing: that guard exists
+    because a merits Term's parsed counts can silently contain a class the rate
+    must exclude, whereas the interim section carries no column whose absence
+    could contaminate a Term's counts the same way.
+    """
+    if statpack.interim is None:
+        return None
+    oldest = application_term - lookback_terms if lookback_terms > 0 else None
+    granted = 0
+    resolved = 0
+    for entry in statpack.interim.terms:
+        if entry.term >= application_term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the configured lookback window
+        granted += entry.substantive_granted
+        resolved += entry.substantive_resolved
+    if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
+        return None
+    return granted / resolved
 
 
 def claim_score(p: float, y: int, b: float) -> float:

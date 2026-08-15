@@ -149,15 +149,28 @@ _SNIPPET_PAD = 40
 #     petitioner to expedite consideration of the petition ... in the event the
 #     petition is granted filed."); this shape fabricated a real corpus row's
 #     grant, with the motion's filing date as the "decision" date;
-#   - the order *on an expedite motion* — the sentence opens with a motion word
-#     and recites the petition as the object of "consideration of", so the
-#     trailing verb grants/denies expedition, not the petition. The guard needs
-#     both conditions: a legitimate compound order also opens with a motion
-#     word ("The motion to expedite and the petition ... are GRANTED." — a real
-#     grant, conjunctive subject) and the Rule 39.8 compound opens with "The
-#     motion for leave ..." — neither contains "consideration of".
+#   - the order *on a motion about the petition* — the sentence's subject is a
+#     motion and it recites the petition as the object of "consideration of", so
+#     the trailing verb grants/denies the motion, not the petition ("Joint motion
+#     to defer consideration of the petition for a writ of certiorari GRANTED.",
+#     "Motion ... to expedite consideration of the petition ... granted"). The
+#     guard needs both conditions: a legitimate compound order also opens with a
+#     motion word ("The motion to expedite and the petition ... are GRANTED." —
+#     a real grant, conjunctive subject), the Rule 39.8 compound opens with "The
+#     motion for leave ...", and the stay-treated-as-cert grant opens with "The
+#     application ..." — none of the three contains "consideration of".
+# The motion word carries an optional short qualifier ("Joint motion", "Consent
+# motion", "Petitioner's motion") — up to two qualifier words after an optional
+# leading article, so "The unopposed joint motion ..." still anchors. The bound
+# is what keeps the anchor meaning *the sentence's subject is a motion* rather
+# than "a motion is mentioned somewhere ahead of the disposition word". The
+# qualifier class admits both apostrophes the clerk types — ASCII and the
+# typographic U+2019 — so a possessive qualifier counts as one word rather than
+# splitting the bound.
 _FILED_RECITAL_RE = re.compile(r"\bfiled\s*\.?\s*$", re.IGNORECASE)
-_MOTION_OPEN_RE = re.compile(r"^\s*(?:the\s+)?(?:motion|application)\b", re.IGNORECASE)
+_MOTION_OPEN_RE = re.compile(
+    r"^\s*(?:the\s+)?(?:[\w'\u2019-]+\s+){0,2}?(?:motions?|applications?)\b", re.IGNORECASE
+)
 _CONSIDERATION_RE = re.compile(r"\bconsideration of\b", re.IGNORECASE)
 # Candidate sentence boundaries; a semicolon counts so a trailing "...filed"
 # clause never swallows the genuine order before it ("Petition GRANTED;
@@ -276,7 +289,7 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
 
     ``None`` when no order language matches — the caller's cue that the text
     carries no machine-readable cert disposition. A match inside a non-order
-    sentence (a filing recital, an expedite-motion order) is skipped and the
+    sentence (a filing recital, an order on a motion about the petition) is skipped and the
     scan continues, so a later genuine order in the same entry still reads.
     """
     for pattern, disposition, label in _ENTRY_SIGNALS:
@@ -298,6 +311,87 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
                 return Disposition.gvr, "GVR", snippet
             return disposition, label, snippet
     return None
+
+
+# The order-list notations that record a noted dissent from — or a statement
+# respecting — a denial of certiorari. Four templates, because the clerk spells
+# one fact four ways and no single phrase covers them:
+#   - the explicit dissent ("... dissenting from the denial of certiorari");
+#   - the would-grant vote, which is a dissent recorded as a vote rather than a
+#     writing ("Justice Thomas would grant the petition ...");
+#   - the statement respecting the denial, which is not a dissent but is the
+#     same observable — a Justice wrote separately about this denial;
+#   - the bare notation ("Justice Sotomayor, dissenting."), which names no
+#     denial of its own and therefore only counts inside a denial order (see
+#     :func:`dissent_from_denial`).
+# Each gap is bounded by `[^.;]` rather than by the sentence walker: order-list
+# notations run to a period or a semicolon, so the bound keeps a notation and its
+# scope in one place. It is close to the walker's split but not identical —
+# stricter on an abbreviation period, which the walker merges through, and looser
+# on `!`/`?`, which no order list uses — and the difference is immaterial to
+# these four shapes.
+_DISSENT_FROM_DENIAL_RE = re.compile(r"\bdissenting\s+from\s+the\s+denial\b", re.IGNORECASE)
+_WOULD_GRANT_RE = re.compile(r"\bwould\s+grant\s+the\s+petitions?\b", re.IGNORECASE)
+_RESPECTING_DENIAL_RE = re.compile(
+    r"\bjustices?\b[^.;]{0,160}?\brespecting\s+the\s+denial\b", re.IGNORECASE
+)
+_BARE_DISSENT_RE = re.compile(
+    r"\b(?:chief\s+)?justices?\s+[A-Za-z][A-Za-z'.-]*\b[^.;]{0,160}?,\s*dissenting\b",
+    re.IGNORECASE,
+)
+
+#: The three notations that name the denial themselves, so they read on their
+#: own entry — an order list files a statement respecting a denial as its own
+#: line, with no disposition words beside it.
+_SELF_ANCHORED_DISSENT_RES = (
+    _DISSENT_FROM_DENIAL_RE,
+    _WOULD_GRANT_RE,
+    _RESPECTING_DENIAL_RE,
+)
+
+
+def dissent_from_denial(text: str) -> bool:
+    """Whether this entry's order text records a noted dissent from a denial.
+
+    **Aggregated existence only**: *that* some Justice dissented from, or wrote
+    respecting, the denial — never which Justice, and never how many. The
+    per-Justice form is deliberately not readable from here
+    (``docs/outcome-decomposition.md``, the eight tests' volume condition): such
+    notings sit near one percent of petitions and concentrate in two Justices,
+    so the fine claim collapses to a Bernoulli draw while the aggregate does
+    not.
+
+    The entry's **own disposition** is the guard, read through
+    :func:`match_disposition_signal` so the module's non-order-sentence rejects
+    (a filing recital, an order on a motion about the petition) apply here unchanged: an entry
+    whose order is a grant, a GVR or a dismissal records no dissent *from a
+    denial*, whatever separate writings it also notes, so it reads False. An
+    entry carrying no disposition at all — the statement filed on its own line —
+    still reads, on the self-anchored notations only.
+
+    The filing-recital rejection is deliberately **not** applied to the
+    notations themselves. A dissent is routinely docketed as a filing
+    ("Statement of Justice Alito, dissenting, filed."), so suppressing recitals
+    here would drop exactly the shape the claim is about — the opposite of what
+    the guard does for a disposition, where a recital would fabricate ground
+    truth.
+
+    One accepted residual, and it runs the safe way: a bare "Statement of Justice
+    Alito filed." on an entry of its own spells none of the four notations and
+    carries no disposition to anchor the bare-dissent shape, so it reads False.
+    Naming a Justice is not itself the observable — the claim is about a
+    *dissent or a statement respecting the denial*, and an entry that says
+    neither is a miss rather than a signal. A false negative costs one unread
+    denial; a false positive would commit a fact to the ground-truth record.
+    """
+    signal = match_disposition_signal(text)
+    if signal is not None and signal[0] is not Disposition.denied:
+        return False
+    if any(pattern.search(text) for pattern in _SELF_ANCHORED_DISSENT_RES):
+        return True
+    # The bare notation names no denial, so it counts only where this entry's
+    # own order is one; alone it is as likely to be a merits dissent.
+    return signal is not None and _BARE_DISSENT_RE.search(text) is not None
 
 
 # The two docket-progress signals the salience score reads. Defined here, beside

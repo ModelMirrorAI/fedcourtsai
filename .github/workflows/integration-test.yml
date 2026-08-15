@@ -183,6 +183,7 @@ jobs:
               {"scenario": "corpus-service", "engine": "claude-code"},
               {"scenario": "stub-cascade", "engine": "claude-code"},
               {"scenario": "mcp-sidecar", "engine": "claude-code"},
+              {"scenario": "qp-topic", "engine": "claude-code"},
               {"scenario": "engine-smoke", "engine": "claude-code"},
               {"scenario": "engine-smoke", "engine": "codex"},
               {"scenario": "engine-smoke", "engine": "gemini"}
@@ -393,11 +394,11 @@ jobs:
       # call stay uncovered here by design: the extract needs QP document
       # rows no fixture corpus writes, and the model call is exactly what
       # `run-analytics` pays for. The leg rides this matrix job — whose
-      # environment binding and id-token grant it never uses — deliberately:
-      # a second credential-free job header for one non-required scenario is
-      # not worth the surface, and the leg needs no variables, so it runs to
-      # completion from any branch anyway (an unconfigured branch environment
-      # resolves empty).
+      # environment binding and id-token grant it never reads — deliberately:
+      # that binding is what makes its run title's `@ staging` suffix a
+      # deployment-gated provenance claim, which is how the promotion gate
+      # reads every required matrix leg. A second credential-free job header
+      # would trade that evidence away for no gain.
       - name: Seed canned labeling inputs from the committed reference set
         if: ${{ matrix.scenario == 'qp-topic' }}
         run: |

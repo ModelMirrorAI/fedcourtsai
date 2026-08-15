@@ -4,7 +4,9 @@ Each evaluator scores each predictor's prediction against the realized
 ``outcome.json``. The qualitative judgment (reasoning quality) is produced by an
 agent; the quantitative pieces (correctness, Brier score, and the segment-baseline
 skill score) are deterministic and provided here so every evaluator computes them
-identically.
+identically — and, where the harness owns a number rather than the evaluator, so
+that it and the agents answer to one implementation: ``stamp-cell`` stamps the
+merits and interim skill through :func:`brier_skill` here.
 
 :func:`segment_base_rate` is the one baseline that lives here rather than in
 :mod:`fedcourtsai.pipeline.base_rates`: it bands a corpus row, so it needs the
@@ -22,12 +24,29 @@ inputs. Config resolves one level out, at the caller.
 
 from __future__ import annotations
 
-from ..corpus import CorpusRow, scotus_term_year
+from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
 from ..schemas import Outcome, Prediction, StatPack
 
-# `merits_base_rate` is re-exported, not used here — see the module docstring.
-from .base_rates import _pooled_band_rate, merits_base_rate  # noqa: F401
+# `merits_base_rate` is re-exported, not used here — see the module docstring
+# and `__all__`, which is what states the re-export to both linters.
+from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate
+from .moments import scores_votes
 from .salience import SALIENCE_VERSION, salience_band
+
+# The module's public surface — including `merits_base_rate`, re-exported from
+# `base_rates` so the whole set of names an evaluator is told to match resolves
+# under the one module the prompt gives it (see the module docstring).
+__all__ = [
+    "brier_score",
+    "brier_skill",
+    "brier_skill_score",
+    "interim_base_rate",
+    "is_correct",
+    "judgment_correct",
+    "merits_base_rate",
+    "segment_base_rate",
+    "vote_accuracy",
+]
 
 
 def is_correct(prediction: Prediction, outcome: Outcome) -> int:
@@ -65,9 +84,21 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
 def segment_base_rate(
     row: CorpusRow, statpack: StatPack, *, lookback_terms: int = 0
 ) -> float | None:
-    """The band rate for a case whose band is read from the row **now**.
+    """The stage-appropriate prior-Term rate for a case, banded from the row **now**.
 
-    For a resolved case that is its *terminal* band, so this pools
+    Three arms, keyed on what the docket number is. An **application** docket
+    (``YYAnnn``) takes the interim arm — the substantive slice's grant rate
+    pooled over application-Terms strictly before its own
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`) — and it is
+    tested first, because an A-form number carries no cert Term and would
+    otherwise fall straight through to ``None``. It takes no band: the interim
+    stage is not a salience-band product, so there is no band to read and none is
+    invented. A cert docket takes the band arm below. Anything else — a bare
+    sequential number, an original docket, a blank — carries no Term on either
+    axis and yields ``None``.
+
+    The cert arm: the band rate for a case whose band is read from the row
+    **now**. For a resolved case that is its *terminal* band, so this pools
     ``est_grant_rate`` — the rate over rows that ended in the band. Baseline and
     grouping match, which is what makes the number meaningful.
 
@@ -94,8 +125,12 @@ def segment_base_rate(
     present as a zero-row cursor entry, shortens the sample rather than pulling an
     older Term in to refill the slot. That keeps the window a claim about the
     recency of the Court's behaviour, and keeps it from shifting — silently, and in
-    every published skill number — as the walker's coverage changes.
+    every published skill number — as the walker's coverage changes. It bounds
+    the interim arm's pool identically.
     """
+    application_term = scotus_application_term_year(row.docket_number)
+    if application_term is not None:
+        return interim_base_rate(application_term, statpack, lookback_terms=lookback_terms)
     term = scotus_term_year(row.docket_number)
     if term is None:
         return None
@@ -156,12 +191,23 @@ def brier_skill_score(
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     """Fraction of predicted votes that matched, over the Justices both name.
 
-    Scored only where the outcome actually records a vote, so a Justice whose vote
-    was never observed costs a predictor nothing — the denominator is what the
-    record discloses, never what the predictor attempted. ``Outcome.vote_provenance``
-    is what says whether a short list means "only these are public" or "nobody
-    looked"; this function needs only the intersection either way.
+    ``None`` on every event the moments table does not declare a **merits**
+    moment — :func:`fedcourtsai.pipeline.moments.scores_votes` is the gate, and
+    it is checked before the vote lists are so much as read. A cert vote is
+    never scored however visible it is (``docs/decision-model.md``), and the
+    guard is structural rather than a property of the record: an ingestion
+    channel that starts writing ``Outcome.votes`` on a cert outcome changes
+    nothing here. The vote block a non-merits cell submits is banked, unscored.
+
+    Where the gate opens, scoring is intersection-only: over the Justices the
+    outcome actually records, so a Justice whose vote was never observed costs a
+    predictor nothing — the denominator is what the record discloses, never what
+    the predictor attempted. ``Outcome.vote_provenance`` is what says whether a
+    short list means "only these are public" or "nobody looked"; this function
+    needs only the intersection either way.
     """
+    if not scores_votes(prediction.event_id):
+        return None
     if not prediction.votes or not outcome.votes:
         return None
     actual = {v.justice: v.vote for v in outcome.votes}

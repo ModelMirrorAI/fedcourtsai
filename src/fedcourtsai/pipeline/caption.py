@@ -1,7 +1,7 @@
 """The arrival-time petitioner class: federal / state / private, off the caption.
 
-The one party signal fixed at filing (``docs/salience.md``, the ``sal-v2``
-intent): ``parties``/``counsel`` accrue over a docket's life and are
+The one party signal fixed at filing (``docs/salience.md``, the arrival-aware
+scorers' intent): ``parties``/``counsel`` accrue over a docket's life and are
 contaminated with amici, so the petitioner's *caption* — preferably the
 structured ``petitioner_title`` column, else the joined ``case_name``'s
 pre-`` v. `` half — is the only honest arrival-time reading of who is asking.
@@ -28,17 +28,33 @@ Association"``) is deliberately NOT a state marker — an entity named after a
 state is private, and that false-positive family is grant-enriched, which is
 exactly the direction a classifier must not lean.
 
+The rule is **versioned like a scorer**: each version is a separate predicate
+registered in :data:`CAPTION_RULES`, never an in-place widening, because a
+census a selection constant was frozen from must replay under the exact
+predicate that produced it. ``caption-v1`` is the predicate the ``sal-v2``
+carve-in is frozen on; ``caption-v2`` is the widened read — the same three
+classes, reading the federal shapes v1's patterns measurably miss (the
+``Office of the United States <office>`` word order, agencies and offices
+named without a ``United States`` / ``Federal`` lead, the military departments
+in the officer convention, and the sovereign behind an ``In re`` caption).
+Widening is one-directional by construction, because v2 *runs v1 first and
+keeps any non-``private`` answer*: no caption loses a ``federal`` or ``state``
+read it had under v1, so the delta between the two censuses is drawn from the
+``private`` cell only and the two are comparable cell by cell.
+
 This module is census-grade and selection-grade: the class feeds the salience
-band (a reporting dimension) everywhere, and the ``federal`` class feeds the
-``sal-v2`` arrival carve-in **only after** the census computed from this
-committed rule passes statistical review — no constant is frozen off any
-number this file did not produce (``docs/salience.md``).
+band (a reporting dimension) everywhere, and the ``federal`` class feeds an
+arrival carve-in **only after** the census computed from the carve-in's own
+rule version passes statistical review — no constant is frozen off any number
+this file did not produce (``docs/salience.md``).
 """
 
 from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Callable, Mapping
+from types import MappingProxyType
 from typing import Final, Literal
 
 from .. import corpus
@@ -52,10 +68,13 @@ from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 
 PetitionerClass = Literal["federal", "state", "private"]
 
-#: The committed rule's version, stamped on every census this module produces.
-#: A change to the rule (any fixture moving) is a NEW version and a new census
-#: — the constant a selection carve-in freezes names the census it came from.
+#: The baseline rule's version, and the census default. A change to a rule
+#: (any fixture moving) is a NEW version and a new census — the constant a
+#: selection carve-in freezes names the census it came from.
 CAPTION_RULE_VERSION = "caption-v1"
+
+#: The widened rule's version: v1's ordering and classes, more federal shapes.
+CAPTION_RULE_VERSION_V2 = "caption-v2"
 
 #: Class labels in reporting order (strongest measured grant rate first).
 PETITIONER_CLASSES: Final[tuple[PetitionerClass, ...]] = ("federal", "state", "private")
@@ -260,6 +279,130 @@ def classify_petitioner(title: str) -> PetitionerClass:
     return "private"
 
 
+# --- caption-v2: the widened federal read -------------------------------------
+#
+# v1's constants above are frozen and untouched — every pattern here is
+# additional, and v1's whole read runs first, so `caption-v1` replays byte for
+# byte and the two rules can be censused side by side. Five shapes, each one a
+# family the census frame measures v1 missing rather than a guess about what a
+# caption might say:
+#
+# - the "Office of the United States <office>" word order (v1's federal marker
+#   reads only the "United States Office" order), and the United States
+#   Trustee, whom v1's list of "United States <organ>" names omits;
+# - agencies and federal offices whose caption name leads with neither
+#   "United States" nor "Federal";
+# - the spelled-out form of an agency v1 carries only as an initialism;
+# - the military departments as an officer's qualifier, and the deputy /
+#   under / assistant ranks of the federal officer convention;
+# - the sovereign behind an "In re" caption, which v1's start-anchored
+#   sovereign pattern cannot see.
+#
+# The "In re" prefix is granted to the qui tam pattern in the same breath and
+# not only to the sovereign: the relator, not the United States, is the party
+# petitioning whatever prefix the caption carries, so qui tam keeps its
+# precedence over the widened federal patterns below.
+#
+# Inside each shape the agency vocabulary is deliberately wider than the frame
+# exercises — the carve-in these rules feed selects at ARRIVAL, where the
+# caption that matters has not been filed yet, so a name of the same shape is
+# listed whether or not a historical petition carries it. A pattern matching no
+# frame row moves no census cell, so the widening the census measures is
+# exactly the set of captions the fixtures record as measured.
+_IN_RE_PREFIX: Final[str] = r"(?:In\s+re:?\s+)?"
+
+_FEDERAL_SOVEREIGN_V2_RE: Final = re.compile(
+    rf"^{_IN_RE_PREFIX}(?:United States(?:\s+of\s+America)?|U\.?S\.?A?\.?)\s*(?:$|[,;])",
+    re.IGNORECASE,
+)
+_QUI_TAM_V2_RE: Final = re.compile(
+    rf"^{_IN_RE_PREFIX}United States,?(?:\s+et\s+al\.?,?)?\s+ex\.?\s*rel", re.IGNORECASE
+)
+_FEDERAL_MARKER_V2_RE: Final = re.compile(
+    r"\bOffice of the United States\b"
+    r"|\bUnited States Trustee\b"
+    r"|\bExecutive Office for Immigration Review\b"
+    r"|\bGeneral Services Administration\b"
+    r"|\bNuclear Regulatory Commission\b"
+    r"|\bAgency for International Development\b"
+    r"|\bImmigration and Customs Enforcement\b"
+    r"|\bCustoms and Border Protection\b"
+    r"|\bPatent and Trademark Office\b"
+    r"|\bFederal Aviation Administration\b"
+    r"|\bSurface Transportation Board\b"
+    r"|\bMerit Systems Protection Board\b"
+    r"|\bEqual Employment Opportunity Commission\b"
+    r"|\bDepartment of the (?:Air Force|Army|Navy)\b"
+    r"|\b(?:Secretary|Under Secretary|Deputy Secretary)\s+of\s+the\s+(?:Air Force|Army|Navy)\b",
+    re.IGNORECASE,
+)
+# The officer tails v1's pattern misses: a military department as the
+# qualifier, and the deputy / under / assistant ranks of the same offices. v1's
+# own officer pattern still runs beside this one — it carries the civilian
+# department qualifiers this supplement deliberately does not repeat.
+_FEDERAL_OFFICER_V2_RE: Final = re.compile(
+    rf",\s*(?:Acting\s+|Deputy\s+|Under\s+|Assistant\s+)*(?:{_FEDERAL_OFFICE_WORDS})"
+    r"(?:\s+of\s+(?:the\s+)?(?:Air Force|Army|Navy))?"
+    r"\s*(?:,\s*et\s+al\.?)?$",
+    re.IGNORECASE,
+)
+
+
+def classify_petitioner_v2(title: str) -> PetitionerClass:
+    """The ``caption-v2`` petitioner class of one caption string.
+
+    v1's read runs first and is **final wherever it is not** ``private``, which
+    is what makes the widening one-directional by construction rather than by
+    inspection: no caption can lose a ``federal`` or ``state`` read it had
+    under v1, so the delta between the two censuses is drawn from the
+    ``private`` cell and nowhere else, and the two are comparable cell by cell.
+    Only a v1 ``private`` caption reaches the widened patterns — where qui tam
+    still runs before them, an ``In re``-prefixed relator caption included,
+    because the prefix says nothing about who is petitioning. Pure and total,
+    like v1: an empty or unparseable caption is ``private``, never an error.
+
+    A v1 ``private`` caption cannot become ``state`` here, and does not need a
+    second state pass to prove it: v2 adds no state pattern, so anything the
+    state block would catch v1 already caught.
+    """
+    baseline = classify_petitioner(title)
+    if baseline != "private":
+        return baseline
+    text = _ROLE_SUFFIX_RE.sub("", title.strip()).strip()
+    if not text or _QUI_TAM_V2_RE.search(text):
+        return "private"
+    if (
+        _FEDERAL_SOVEREIGN_V2_RE.search(text)
+        or _FEDERAL_MARKER_V2_RE.search(text)
+        or _FEDERAL_OFFICER_V2_RE.search(text)
+    ):
+        return "federal"
+    return "private"
+
+
+#: Every registered caption rule, keyed by version label. A rule is only ever
+#: added here — never edited and never removed — because a frozen selection
+#: constant names the census it came from, and that census replays only against
+#: the predicate that produced it.
+CAPTION_RULES: Final[Mapping[str, Callable[[str], PetitionerClass]]] = MappingProxyType(
+    {
+        CAPTION_RULE_VERSION: classify_petitioner,
+        CAPTION_RULE_VERSION_V2: classify_petitioner_v2,
+    }
+)
+
+
+def caption_rule(rule_version: str) -> Callable[[str], PetitionerClass]:
+    """The registered predicate for ``rule_version``.
+
+    Raises :class:`KeyError` for an unregistered label rather than falling back
+    to the baseline rule: a caller asking for a rule this process cannot
+    produce wants an error, not a census silently cut under a version it did
+    not ask for.
+    """
+    return CAPTION_RULES[rule_version]
+
+
 def petitioner_caption(row: corpus.CorpusRow) -> str:
     """The row's best petitioner caption: the structured column, else the split.
 
@@ -274,8 +417,13 @@ def petitioner_caption(row: corpus.CorpusRow) -> str:
 
 
 def petitioner_class(row: corpus.CorpusRow) -> PetitionerClass:
-    """The row's petitioner class, off its best available caption."""
+    """The row's ``caption-v1`` petitioner class, off its best available caption."""
     return classify_petitioner(petitioner_caption(row))
+
+
+def petitioner_class_v2(row: corpus.CorpusRow) -> PetitionerClass:
+    """The row's ``caption-v2`` petitioner class, off its best available caption."""
+    return classify_petitioner_v2(petitioner_caption(row))
 
 
 def _scored_segment(row: corpus.CorpusRow) -> bool:
@@ -296,8 +444,18 @@ def _scored_segment(row: corpus.CorpusRow) -> bool:
     return parsed is not None and parsed[1] < IFP_SERIAL_BASE
 
 
-def caption_census(conn: corpus.ReadConnection, *, corpus_sha256: str = "") -> CaptionCensus:
+def caption_census(
+    conn: corpus.ReadConnection,
+    *,
+    corpus_sha256: str = "",
+    rule_version: str = CAPTION_RULE_VERSION,
+) -> CaptionCensus:
     """The per-Term, per-class grant-family census the carve-in freezes from.
+
+    ``rule_version`` names which registered predicate (:data:`CAPTION_RULES`)
+    cuts the frame, and is stamped on the result: two rule versions census the
+    same frame independently, so a widening is reviewable as a per-class,
+    per-Term delta rather than as an unlabelled re-run.
 
     The population frame is the statpack's predictor-facing cut — live-slice,
     paid, modern-cert petitions, resolved (disposition-labeled) rows, Term
@@ -315,6 +473,7 @@ def caption_census(conn: corpus.ReadConnection, *, corpus_sha256: str = "") -> C
     is what lets a statistical review of this artifact license a frozen
     constant (``docs/salience.md``).
     """
+    classify = caption_rule(rule_version)
     counts: dict[int, dict[str, list[int]]] = defaultdict(
         lambda: {c: [0, 0] for c in PETITIONER_CLASSES}
     )
@@ -333,7 +492,7 @@ def caption_census(conn: corpus.ReadConnection, *, corpus_sha256: str = "") -> C
                 f"{row.case_id}: sample_weight {row.sample_weight} — the census "
                 "counts raw and must not run over a subsampled frame"
             )
-        cell = counts[term][petitioner_class(row)]
+        cell = counts[term][classify(petitioner_caption(row))]
         cell[0] += 1
         if row.disposition in GRANT_FAMILY_DISPOSITIONS:
             cell[1] += 1
@@ -365,7 +524,7 @@ def caption_census(conn: corpus.ReadConnection, *, corpus_sha256: str = "") -> C
             )
         )
     return CaptionCensus(
-        rule_version=CAPTION_RULE_VERSION,
+        rule_version=rule_version,
         corpus_sha256=corpus_sha256,
         terms=terms,
         pooled=_classes(pooled),

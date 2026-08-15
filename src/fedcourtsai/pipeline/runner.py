@@ -70,6 +70,10 @@ from ..schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    SemanticClaim,
+    SemanticGrade,
+    SemanticGradeBlock,
+    SemanticSupport,
     Stage,
     UsageRole,
     VoteValue,
@@ -77,6 +81,7 @@ from ..schemas import (
 from ..serialize import read_model, write_json
 from .claims import declared_claim_set
 from .evaluate import brier_score, is_correct, judgment_correct, vote_accuracy
+from .semantic import declared_semantic_claim_set
 
 # Canned values the stub reports. Deterministic by construction — no clock, no
 # randomness — so the same request always produces byte-identical artifacts. The
@@ -250,6 +255,63 @@ class StubRunner:
             for claim_id in claim_ids
         ]
 
+    @staticmethod
+    def _semantic_claims(event_id: str) -> list[SemanticClaim] | None:
+        """The stub's propositions over the event's declared *semantic* set.
+
+        The semantic mirror of :meth:`_claims`, and mandatory in the same sense:
+        the merits moments declare ``semantic-v1``, so a merits cell states one
+        proposition per declared claim and every other cell states none. The
+        proposition names its claim's axis rather than forecasting anything —
+        the stub reads no facts, and a canned string that pretended to a
+        doctrinal call would read as a forecast in the fixture ledger. It exists
+        so the offline cascade exercises the block end to end, including
+        ``validate``'s conformance check.
+        """
+        declared = declared_semantic_claim_set(event_id)
+        if declared is None:
+            return None
+        _set_version, specs = declared
+        return [
+            SemanticClaim(
+                claim_id=spec.claim_id,
+                proposition=f"stub cell: no forecast on the {spec.claim_id} axis",
+            )
+            for spec in specs
+        ]
+
+    @staticmethod
+    def _semantic_grades(prediction: Prediction) -> SemanticGradeBlock | None:
+        """The stub's grades: the availability mask on every declared claim.
+
+        Not a canned convenience but the honest grade. Both ``semantic-v1``
+        claims require a majority opinion body, the fixture corpus holds none,
+        and the grading protocol says the mask's first ground is exactly that —
+        so a stub that graded on the ordinal scale would be inventing a reading
+        of a document that does not exist. The ``basis`` names which mask ground
+        applied, as the protocol requires.
+
+        ``None`` where the scored prediction carries **no** ``semantic_claims``
+        block, which is the prompt's own rule: such a cell most likely ran under
+        a process that never asked for the set, and grading absent propositions
+        would enter a negative against a predictor never asked the question.
+        """
+        declared = declared_semantic_claim_set(prediction.event_id)
+        if declared is None or prediction.semantic_claims is None:
+            return None
+        set_version, specs = declared
+        return SemanticGradeBlock(
+            declared_set_version=set_version,
+            grades=[
+                SemanticGrade(
+                    claim_id=spec.claim_id,
+                    grade=SemanticSupport.not_addressed,
+                    basis=f"no {spec.requires} in the record to grade against",
+                )
+                for spec in specs
+            ],
+        )
+
     def _predict(self, request: RunRequest) -> list[Path]:
         events = request.event_paths
         # A merits-stage cell (the event definition the workflow materialized
@@ -273,6 +335,7 @@ class StubRunner:
             votes=list(_STUB_MERITS_VOTES) if merits else [],
             big_case_score=_STUB_BIG_CASE_SCORE,
             claims=self._claims(request.event_id),
+            semantic_claims=self._semantic_claims(request.event_id),
             predicted_reasoning_doc=events.predicted_reasoning(
                 request.actor_id, request.run_id
             ).name,
@@ -307,6 +370,7 @@ class StubRunner:
                 judgment_correct=judgment_correct(prediction, outcome),
                 vote_accuracy=vote_accuracy(prediction, outcome),
                 reasoning_quality=_STUB_REASONING_QUALITY,
+                semantic_grades=self._semantic_grades(prediction),
             )
             dir_ = events.evaluation_dir(request.actor_id, predictor_id, request.run_id)
             json_path = events.evaluation(request.actor_id, predictor_id, request.run_id)

@@ -5,10 +5,11 @@ holds the scorers and `segment_base_rate`, while `pipeline.base_rates` holds
 the pooled baselines those scorers are measured against. The baselines live in
 a leaf so the leaderboard can read them without importing the corpus-bound
 half; neither half means much without the other, so one file pins both.
-`is_correct` / `brier_score` / `vote_accuracy` are
-exercised through the runner and leaderboard suites; here we pin the baseline
-helpers, whose whole point is a *leakage-safe* skill score keyed on the
-salience band.
+`is_correct` / `brier_score` are exercised through the runner and leaderboard
+suites; here we pin the baseline helpers, whose whole point is a *leakage-safe*
+skill score keyed on the salience band — and `vote_accuracy`'s stage gate, which
+belongs beside them for the same reason: it is a leakage-shaped rule about which
+quantities may be scored at all, not a detail of the arithmetic.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ from datetime import date, datetime
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, ids
 from fedcourtsai.pipeline.base_rates import (
+    INTERIM_BASE_RATE_MIN_RESOLVED,
     MERITS_BASE_RATE_MIN_PARSED,
     REALIZED_BAND_RATE_MIN_RESOLVED,
+    interim_base_rate,
     merits_base_rate,
     prediction_base_rate,
     realized_band_rate,
@@ -31,7 +34,9 @@ from fedcourtsai.pipeline.evaluate import (
     is_correct,
     judgment_correct,
     segment_base_rate,
+    vote_accuracy,
 )
+from fedcourtsai.pipeline.moments import moments_for, scores_votes
 from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
     GRANT_FAMILY_DISPOSITIONS,
@@ -39,12 +44,16 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
     Engine,
+    EventKind,
     Judgment,
     JusticeVote,
     Outcome,
     Prediction,
     PredictionContext,
+    Stage,
     StatPack,
+    StatPackInterim,
+    StatPackInterimTerm,
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackTerm,
@@ -71,7 +80,7 @@ def _term(
     year: int,
     band_rates: dict[str, tuple[float, int]],
     *,
-    version: str = "sal-v2",
+    version: str = "sal-v3",
     alt: dict[str, dict[str, tuple[float, int]]] | None = None,
 ) -> StatPackTerm:
     """A Term whose bands carry ``(rate, weighted_resolved)``.
@@ -162,16 +171,10 @@ def test_segment_base_rate_none_when_no_prior_term_data() -> None:
     # Only the case's own Term is present -> nothing precedes it -> no base rate.
     pack = _statpack(_term(2024, {"high": (0.90, 100)}))
     assert segment_base_rate(_row("24-100"), pack) is None
-    # And None for a docket with no derivable Term year.
+    # And None for a docket with no derivable Term year on either axis.
     assert (
         segment_base_rate(_row("bare-docket"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
     )
-    # An interim application docket is the same answer for a stage-level reason:
-    # an `A`-form number carries no cert Term, so the cert band pool it would
-    # have to be drawn from does not apply to it at all. The evaluate prompt's
-    # interim rule (omit `segment_base_rate` and `brier_skill_score`) is the
-    # agent-side half of this.
-    assert segment_base_rate(_row("26A11"), _statpack(_term(2023, {"high": (0.4, 5)}))) is None
 
 
 def test_segment_base_rate_skips_bands_with_nothing_resolved() -> None:
@@ -285,7 +288,7 @@ def test_the_baseline_matches_the_band_it_is_grouped_by() -> None:
     term = StatPackTerm(
         term=2024,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v2",
+        salience_version="sal-v3",
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -309,7 +312,7 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
         StatPackTerm(
             term=year,
             base_rates=BaseRateBucket(),
-            salience_version="sal-v2",
+            salience_version="sal-v3",
             segments=[
                 StatPackTermSegment(
                     band="baseline",
@@ -340,7 +343,7 @@ def _context(
     # The harness stamps `salience_version` whenever it derives a band
     # (cell_context.build), so the fixture mirrors that pairing by default.
     if salience_version is _DERIVE_FROM_BAND:
-        salience_version = "sal-v2" if band else None
+        salience_version = "sal-v3" if band else None
     assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
@@ -357,7 +360,7 @@ def _split_term(year: int, *, terminal: float, risk_set: float) -> StatPackTerm:
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v2",
+        salience_version="sal-v3",
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -411,14 +414,14 @@ def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
 
 
 def test_pooling_is_version_pinned_to_the_bands_scorer() -> None:
-    """A sal-v1 `high` and a sal-v2 `high` are different populations sharing a
-    label. A sal-v2 band must pool only the sal-v2 Terms — never a blend no
+    """A sal-v1 `high` and a sal-v3 `high` are different populations sharing a
+    label. A sal-v3 band must pool only the sal-v3 Terms — never a blend no
     version ever defined."""
     pack = _statpack(
         _term(2023, {"high": (0.30, 100)}),
         _term(2022, {"high": (0.60, 100)}, version="sal-v1"),
     )
-    # Row-derived band: the live scorer is sal-v2, so only the sal-v2 Term pools.
+    # Row-derived band: the live scorer is sal-v3, so only the sal-v3 Term pools.
     assert segment_base_rate(_row("24-100"), pack) == pytest.approx(0.30)
     # Frozen band: pinned to the version the cell actually froze.
     assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)
@@ -671,6 +674,100 @@ def test_prior_term_and_realized_term_skill_can_disagree_in_sign() -> None:
     assert prior_skill > 0 > realized_skill
 
 
+# --- interim_base_rate: the strictly-prior pooled substantive grant rate ---------
+
+
+def _interim_term(year: int, *, granted: int, resolved: int) -> StatPackInterimTerm:
+    """One application-Term row of the interim section — the counters it pools."""
+    return StatPackInterimTerm(
+        term=year,
+        applications=resolved,
+        substantive=resolved,
+        substantive_resolved=resolved,
+        substantive_granted=granted,
+    )
+
+
+def _interim_pack(*terms: StatPackInterimTerm) -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        interim=StatPackInterim(
+            substantive_resolved=sum(t.substantive_resolved for t in terms),
+            substantive_granted=sum(t.substantive_granted for t in terms),
+            terms=list(terms),
+        ),
+    )
+
+
+def _application_row(docket: str) -> corpus.CorpusRow:
+    return corpus.CorpusRow(case_id=f"scotus/{docket}", court="scotus", docket_number=docket)
+
+
+def test_interim_base_rate_pools_only_terms_before_the_applications() -> None:
+    # OT2026 application: its own Term never contributes, on the application-Term
+    # axis — the same leakage guard the two sibling baselines apply.
+    pack = _interim_pack(
+        _interim_term(2026, granted=60, resolved=60),
+        _interim_term(2025, granted=4, resolved=40),
+        _interim_term(2024, granted=2, resolved=40),
+    )
+    assert interim_base_rate(2026, pack) == pytest.approx(6 / 80)
+
+
+def test_interim_base_rate_lookback_bounds_the_pool_as_a_term_year_band() -> None:
+    pack = _interim_pack(
+        _interim_term(2025, granted=6, resolved=60),
+        _interim_term(2022, granted=60, resolved=60),  # outside a 2-Term window
+    )
+    assert interim_base_rate(2026, pack, lookback_terms=2) == pytest.approx(0.10)
+
+
+def test_interim_base_rate_none_without_a_section_or_prior_terms() -> None:
+    assert interim_base_rate(2026, StatPack()) is None
+    pack = _interim_pack(_interim_term(2026, granted=6, resolved=60))
+    assert interim_base_rate(2026, pack) is None  # only the application's own Term
+
+
+def test_the_interim_floor_binds_on_the_pooled_count_not_the_per_term_one() -> None:
+    # Two thin Terms that each fall short still clear the floor together: the
+    # floor is a statement about the pooled sample, so it clears by
+    # accumulation exactly as the merits one does.
+    halves = _interim_pack(
+        _interim_term(2025, granted=3, resolved=25),
+        _interim_term(2024, granted=2, resolved=25),
+    )
+    assert interim_base_rate(2026, halves) == pytest.approx(5 / 50)
+    # One short of the floor is no baseline, never a degenerate rate.
+    short = _interim_pack(
+        _interim_term(2025, granted=3, resolved=25),
+        _interim_term(2024, granted=2, resolved=24),
+    )
+    assert interim_base_rate(2026, short) is None
+    assert INTERIM_BASE_RATE_MIN_RESOLVED == 50
+
+
+def test_segment_base_rate_takes_the_interim_arm_on_an_application_docket() -> None:
+    """An `A`-form docket is scored against the interim pool, not the cert bands.
+
+    The cert band table is a different population resolving on a different
+    standard, so the arm is chosen by the docket form rather than fallen through
+    to: a pack carrying only cert Terms yields nothing for an application.
+    """
+    cert_only = _statpack(_term(2025, {"high": (0.4, 100)}))
+    assert segment_base_rate(_application_row("26A11"), cert_only) is None
+
+    cleared = _interim_pack(
+        _interim_term(2025, granted=6, resolved=60),
+        _interim_term(2026, granted=60, resolved=60),  # own Term: never pooled
+    )
+    assert segment_base_rate(_application_row("26A11"), cleared) == pytest.approx(0.10)
+
+    # One resolution short of the floor: no baseline, and no fallback to the
+    # pack-level rate or to the cert band table.
+    thin = _interim_pack(_interim_term(2025, granted=6, resolved=49))
+    assert segment_base_rate(_application_row("26A11"), thin) is None
+
+
 # --- merits_base_rate: the strictly-prior pooled disturbed rate ------------------
 
 
@@ -886,6 +983,78 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
     # comparison is unchanged — the path every committed evaluation took.
     assert is_correct(_prediction(0.9), _outcome(1)) == 1
     assert is_correct(_prediction(0.1), _outcome(1)) == 0
+
+
+# --- vote_accuracy: the stage gate on the one quantity that has one --------------
+
+#: One vote list, reused on both sides of every gate case below, so the only
+#: thing that varies between a scored 1.0 and a null is the event's stage.
+_VOTES = [JusticeVote(justice="roberts", vote=VoteValue.majority)]
+
+
+def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
+    """A prediction and an outcome on ``event_id``, both naming the same vote.
+
+    Deliberately identical apart from the event: handed to `vote_accuracy` these
+    would score a perfect 1.0 on their intersection, so a null can only come
+    from the gate.
+    """
+    prediction = _merits_prediction(Judgment.reversed).model_copy(
+        update={"event_id": event_id, "votes": _VOTES}
+    )
+    outcome = _merits_outcome(Judgment.reversed).model_copy(
+        update={"event_id": event_id, "votes": _VOTES}
+    )
+    return prediction, outcome
+
+
+def test_vote_accuracy_scores_the_declared_merits_moments() -> None:
+    for spec in moments_for(Stage.merits):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert vote_accuracy(prediction, outcome) == 1.0, spec.event_id
+
+
+def test_vote_accuracy_is_never_scored_at_the_cert_stage() -> None:
+    """The pre-registered prohibition, made structural.
+
+    A cert vote becomes public only when a Justice chooses to note it, so
+    observation is very nearly a deterministic function of the value being
+    scored and the deny-and-silent stratum can never be reweighted into view
+    (`docs/decision-model.md`). The rule is therefore *never score*, whatever a
+    record happens to contain — so a cert-moment pair that names the very same
+    vote on both sides scores nothing at all. Remove the gate in
+    `pipeline.moments.scores_votes` and every assertion here reads 1.0.
+    """
+    for spec in moments_for(Stage.cert):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert prediction.votes and outcome.votes, spec.event_id
+        assert vote_accuracy(prediction, outcome) is None, spec.event_id
+
+
+def test_vote_accuracy_is_denied_by_default_off_the_register() -> None:
+    """An id the moments table cannot place scores no votes either.
+
+    Denial is the default rather than the cert stage being named: the register
+    is the only authority on an event's stage, so an id it does not declare —
+    an entry-pinned event, a record older than the table — is one that cannot be
+    shown *not* to be cert.
+    """
+    undeclared = ids.event_id(EventKind.appeal.value, "disposition")
+    assert not scores_votes(undeclared)
+    prediction, outcome = _voting_pair(undeclared)
+    assert vote_accuracy(prediction, outcome) is None
+
+
+def test_vote_accuracy_is_not_scored_at_the_interim_stage() -> None:
+    """Declared, and still unscored — for a plainer reason than the cert rule.
+
+    An interim moment is on the register, so this is not the deny-by-default
+    fallback: the stage simply forecasts no votes, and admitting only merits
+    moments is what makes that hold without a second rule.
+    """
+    for spec in moments_for(Stage.interim):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert vote_accuracy(prediction, outcome) is None, spec.event_id
 
 
 def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> None:

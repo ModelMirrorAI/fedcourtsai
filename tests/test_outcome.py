@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.merits_event_migration import BRIEFED_MERITS_EVENT_ID
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
@@ -11,24 +12,31 @@ from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.outcome import (
     CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
+    OrderMarkers,
     Resolution,
     appears_decided,
     detect_resolution,
     disposition_basis,
+    disposition_route,
     granted_flag,
     interim_disposal_signal,
+    interim_resolution_signals,
     is_machine_readable,
     merits_event_for,
     mint_moment_events,
+    noted_dissent_from_denial,
+    read_order_markers,
     record_outcomes,
     resolution_signals,
     resolve_case,
     snapshot_shows_disposition,
+    snapshot_shows_judgment,
     termination_signal,
 )
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    MeritsTermination,
     Moment,
     Outcome,
     PredictableEvent,
@@ -166,6 +174,34 @@ def test_decided_application_records_the_interim_outcome_on_the_interim_baseline
     assert outcome.actual_granted == 1
     assert outcome.resolved_at == date(2024, 8, 15)
     assert outcome.signals is None
+    # A REST-shaped row carries none of the application-parsed columns, so the
+    # coverage sentinel is null and no interim block is written either — the
+    # absence says "never parsed", which is exactly true of this channel.
+    assert outcome.interim_signals is None
+
+    # With the live channel's latched columns present, the block is written.
+    parsed = row.model_copy(
+        update={
+            "application_kind": "substantive",
+            "response_requested": True,
+            "referred_to_court": False,
+            "amicus_briefs": 2,
+        }
+    )
+    resolved = detect_resolution(
+        parsed,
+        "scotus",
+        9001,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    interim = resolved.outcomes["evt-motion-disposition"].interim_signals
+    assert interim is not None
+    assert (interim.response_requested, interim.referred_to_court, interim.amicus_briefs) == (
+        True,
+        False,
+        2,
+    )
 
 
 def test_interim_routing_never_touches_a_cert_docket() -> None:
@@ -670,6 +706,40 @@ def test_minting_never_reopens_a_resolved_merits_event(tmp_path: Path) -> None:
         PredictableEvent,
     )
     assert ledger.resolved is True
+
+
+def test_minting_refuses_a_terminated_merits_docket(tmp_path: Path) -> None:
+    """A terminated proceeding mints no merits event, on the live seam too.
+
+    The mint seams read the *ingestion* row, which by design never carries
+    `merits_terminated` — the column belongs to the offline sweep. So the live
+    poll has to consult the stored row, or a merits brief latching on a docket
+    whose proceeding ended with no disposition mints `evt-brief-judgment`
+    forever: nothing resolves a merits event on a row with no judgment, and
+    provisioning refuses every cell it earns.
+    """
+    _scotus_event(tmp_path)
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    # The respondent's merits brief is on the docket, so the briefed moment is
+    # owed too — the shape that would mint a phantom event on a closed
+    # proceeding once the grant event is open.
+    briefed = row.model_copy(update={"merits_brief_filed": date(2023, 2, 1)})
+    with corpus.connect(_db(tmp_path)) as conn:
+        # The stored row is what carries the finding — the live poll upserts it
+        # before minting, and `set_merits_termination` updates in place.
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/22451", court="scotus")])
+        termination = MeritsTermination.voluntary_dismissal
+        corpus.set_merits_termination(conn, "scotus/22451", termination)
+
+    minted = mint_moment_events(
+        _db(tmp_path), tmp_path, "scotus", 22451, briefed, resolution, [MERITS_EVENT_ID]
+    )
+
+    # Neither merits moment mints: not the grant event this resolution opens,
+    # and not the briefed moment the latched brief would otherwise owe.
+    assert minted == []
+    assert not CasePaths(tmp_path, "scotus", 22451).event(BRIEFED_MERITS_EVENT_ID).base.exists()
 
 
 def test_minting_is_scotus_only() -> None:
@@ -1252,6 +1322,42 @@ def test_snapshot_shows_disposition_none_for_a_pending_snapshot() -> None:
     assert snapshot_shows_disposition(docket) is None
 
 
+def test_snapshot_shows_judgment_reads_a_post_grant_rule_46_dismissal() -> None:
+    # A granted case voluntarily dismissed under Rule 46 ends with no
+    # disposition, so the disposition-shaped branches all miss it while the
+    # outcome — the case is over — is plainly legible to a merits cell. The
+    # merits scan takes the termination vocabulary for exactly this shape.
+    docket = {
+        "CaseNumber": "24-413 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jan 10 2025", "Text": "Petition GRANTED."},
+            {"Date": "Aug 08 2025", "Text": "Stipulation of dismissal under Rule 46.1 filed."},
+            {"Date": "Aug 11 2025", "Text": "Case Dismissed - Rule 46."},
+        ],
+    }
+    signal = snapshot_shows_judgment(docket)
+    assert signal is not None and "Case Dismissed" in signal
+    # The cert-stage scan is deliberately untouched: on a *petition* the shape
+    # is a cert exit its own "petition ... dismissed" branch already reads.
+    assert snapshot_shows_disposition(docket) is None
+
+
+def test_snapshot_shows_judgment_none_for_a_pending_merits_docket() -> None:
+    docket = {
+        "CaseNumber": "25-183 ",
+        "ProceedingsandOrder": [
+            {"Date": "May 18 2026", "Text": "Petition GRANTED."},
+            {
+                "Date": "Jul 09 2026",
+                "Text": "Motion to dismiss the case pursuant to Rule 46 filed by petitioner.",
+            },
+            {"Date": "Jul 12 2026", "Text": "Brief of Thomas Crowther, et al. submitted."},
+        ],
+    }
+    # The motion asking for a Rule 46 dismissal is not the order granting it.
+    assert snapshot_shows_judgment(docket) is None
+
+
 def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> None:
     munsingwear = {
         "CaseNumber": "25-100 ",
@@ -1285,6 +1391,195 @@ def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> N
     assert default.outcomes["evt-petition-review"].disposition_basis == "standard"
 
 
+def _granted_payload(*entries: tuple[str, str]) -> dict[str, object]:
+    """A live-shaped payload from (date, text) pairs, in docket order."""
+    return {
+        "CaseNumber": "25-100",
+        "ProceedingsandOrder": [{"Date": raw, "Text": text} for raw, text in entries],
+    }
+
+
+def test_disposition_route_separates_a_summary_merits_grant_from_a_plenary_one() -> None:
+    # The committed shape of a summary reversal recorded before the label
+    # existed: one order grants and decides, so the parsed judgment carries the
+    # grant's own date. The recorded disposition stays `granted` — the marker
+    # travels beside the label rather than relabelling it, which is what keeps
+    # the merits population and every disposition figure fixed.
+    summary = _granted_payload(
+        ("Jan 12 2026", "Petition for a writ of certiorari filed."),
+        (
+            "May 11 2026",
+            "Petition GRANTED. Judgment REVERSED and case REMANDED. Opinion per curiam.",
+        ),
+    )
+    assert (
+        disposition_route(
+            summary, disposition=Disposition.granted, date_cert_granted=date(2026, 5, 11)
+        )
+        == "summary-merits"
+    )
+    # An argued case's judgment lands months after its grant.
+    plenary = _granted_payload(
+        ("Jan 12 2026", "Petition GRANTED."),
+        ("Jun 25 2026", "Judgment REVERSED and case REMANDED."),
+    )
+    assert (
+        disposition_route(
+            plenary, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        == "plenary"
+    )
+    # A grant with no judgment on the docket yet is still plenary review.
+    pending = _granted_payload(("Jan 12 2026", "Petition GRANTED."))
+    assert (
+        disposition_route(
+            pending, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        == "plenary"
+    )
+
+
+def test_disposition_route_reads_the_label_where_the_label_is_the_route() -> None:
+    covered = _granted_payload(("May 11 2026", "Petition GRANTED. Judgment VACATED and REMANDED."))
+    for disposition, expected in (
+        (Disposition.gvr, "gvr"),
+        (Disposition.summary_reversal, "summary-merits"),
+    ):
+        route = disposition_route(
+            covered, disposition=disposition, date_cert_granted=date(2026, 5, 11)
+        )
+        assert route == expected
+
+
+def test_disposition_route_admits_every_grant_on_the_same_coverage_test() -> None:
+    """Assessability keys on coverage, never on the route the record shows.
+
+    Gating only the plain-`granted` path would make the case that resolves 1
+    always assessable and the case that resolves 0 assessable only where a
+    payload was retained, so the assessed subpopulation would run richer in
+    cert-order dispositions than the baseline's population — a mask correlated
+    with the outcome it masks. Every grant-family label takes the same two
+    admission tests.
+    """
+    no_proceedings = {"CaseNumber": "25-100"}
+    with_proceedings = _granted_payload(("May 11 2026", "Petition GRANTED."))
+    for disposition in (
+        Disposition.gvr,
+        Disposition.summary_reversal,
+        Disposition.granted,
+        Disposition.granted_in_part,
+    ):
+        assert (
+            disposition_route(
+                no_proceedings, disposition=disposition, date_cert_granted=date(2026, 5, 11)
+            )
+            is None
+        ), disposition
+        assert (
+            disposition_route(with_proceedings, disposition=disposition, date_cert_granted=None)
+            is None
+        ), disposition
+
+
+def test_disposition_route_masks_what_the_record_cannot_carry() -> None:
+    payload = _granted_payload(("Jan 12 2026", "Petition GRANTED."))
+    # A denial and an unresolved docket have no route to read.
+    assert (
+        disposition_route(payload, disposition=Disposition.denied, date_cert_granted=None) is None
+    )
+    assert disposition_route(payload, disposition=None, date_cert_granted=None) is None
+    # A grant with no cert-grant date cannot be tested against the judgment's
+    # gap, and a payload disclosing no proceedings discloses nothing at all —
+    # both are "not assessed", never a guessed plenary.
+    assert (
+        disposition_route(payload, disposition=Disposition.granted, date_cert_granted=None) is None
+    )
+    assert (
+        disposition_route(
+            {"CaseNumber": "25-100"},
+            disposition=Disposition.granted,
+            date_cert_granted=date(2026, 1, 12),
+        )
+        is None
+    )
+    # A judgment on the docket that the strict date parse refuses leaves the
+    # grant→judgment gap unmeasurable. Unknown, not plenary — recording plenary
+    # would be the one answer an undated summary reversal contradicts.
+    undated = _granted_payload(
+        ("Jan 12 2026", "Petition GRANTED."),
+        ("2026", "Judgment REVERSED and case REMANDED."),
+    )
+    assert (
+        disposition_route(
+            undated, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
+        )
+        is None
+    )
+
+
+def test_noted_dissent_from_denial_distinguishes_false_from_unobserved() -> None:
+    noted = _granted_payload(
+        ("Jan 12 2026", "DISTRIBUTED for Conference of 1/16/2026."),
+        (
+            "Jan 20 2026",
+            "Petition DENIED. Justice Sotomayor, with whom Justice Jackson joins, "
+            "dissenting from the denial of certiorari.",
+        ),
+    )
+    denied = Disposition.denied
+    assert noted_dissent_from_denial(noted, disposition=denied) is True
+    quiet = _granted_payload(("Jan 20 2026", "Petition DENIED."))
+    assert noted_dissent_from_denial(quiet, disposition=denied) is False
+    # A payload with the proceedings key removed wholesale — a redacted replay
+    # snapshot, or a channel that never retained order text — observed nothing.
+    assert noted_dissent_from_denial({"CaseNumber": "25-100"}, disposition=denied) is None
+
+
+def test_noted_dissent_from_denial_is_written_only_on_a_denial() -> None:
+    """The would-grant notation is self-anchored, so the gate is load-bearing.
+
+    "Justice Alito would grant the petition and set the case for argument" is a
+    real grant-side order-list notation carrying no disposition of its own, so
+    without the gate a granted docket would commit a true dissent-from-denial
+    marker — an assertion the field does not cover. The resolver masks it either
+    way; committed ground truth should not need the resolver to be right.
+    """
+    grant_side = _granted_payload(
+        (
+            "Jan 20 2026",
+            "Justice Alito would grant the petition and set the case for argument.",
+        ),
+    )
+    assert noted_dissent_from_denial(grant_side, disposition=Disposition.denied) is True
+    for disposition in (Disposition.granted, Disposition.gvr, Disposition.dismissed, None):
+        assert noted_dissent_from_denial(grant_side, disposition=disposition) is None, disposition
+
+
+def test_the_order_markers_thread_into_the_written_ground_truth() -> None:
+    row = from_api_docket(DECIDED_DOCKET)
+    markers = OrderMarkers(route="summary-merits", dissent=True)
+    resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"], order=markers)
+    written = resolution.outcomes["evt-petition-review"]
+    assert written.disposition_route == "summary-merits"
+    assert written.noted_dissent_from_denial is True
+    # Defaults are "not assessed", so a channel holding no payload records no
+    # observation rather than a silent negative.
+    default = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
+    assert default.outcomes["evt-petition-review"].disposition_route is None
+    assert default.outcomes["evt-petition-review"].noted_dissent_from_denial is None
+
+
+def test_read_order_markers_reads_both_halves_from_one_payload() -> None:
+    payload = _granted_payload(
+        (
+            "Jan 20 2026",
+            "Petition DENIED. Justice Thomas would grant the petition for a writ of certiorari.",
+        ),
+    )
+    markers = read_order_markers(payload, disposition=Disposition.denied, date_cert_granted=None)
+    assert markers == OrderMarkers(route=None, dissent=True)
+
+
 def test_resolution_signals_are_frozen_onto_the_outcome() -> None:
     """The signals a cert-stage forecast resolves against are copied out of the
     mutable corpus columns and into the immutable record, so re-scoring the same
@@ -1311,6 +1606,37 @@ def test_a_parsed_petition_with_no_cvsg_says_so_unambiguously() -> None:
     assert signals is not None
     assert signals.distribution_count == 1  # distributed once, never relisted
     assert signals.cvsg_date is None
+
+
+def test_interim_resolution_signals_are_frozen_onto_the_outcome() -> None:
+    """The interim twin: the escalation trio is copied out of the mutable corpus
+    columns into the immutable record, so an increment claim's resolution end
+    stops moving once the application is decided."""
+    signals = interim_resolution_signals("substantive", True, False, 3)
+    assert signals is not None
+    assert signals.response_requested is True
+    assert signals.referred_to_court is False
+    assert signals.amicus_briefs == 3
+
+
+def test_a_never_application_parsed_row_records_no_interim_signals() -> None:
+    """`application_kind` is the coverage sentinel for the whole interim signal
+    family, exactly as `distribution_count` is for the cert one."""
+    assert interim_resolution_signals(None, True, True, 1) is None
+
+
+def test_an_unobserved_interim_signal_is_never_coerced_to_false_or_zero() -> None:
+    """A missing latched column means nobody observed it, and the block's whole
+    value is that a `False` inside it means the Court did not act. Manufacturing
+    one would resolve an increment claim against a fact nobody recorded, so any
+    absent value suppresses the block outright."""
+    assert interim_resolution_signals("substantive", None, False, 0) is None
+    assert interim_resolution_signals("substantive", False, None, 0) is None
+    assert interim_resolution_signals("substantive", False, False, None) is None
+    # All four present, all falsy: a real observation, and the block exists.
+    signals = interim_resolution_signals("substantive", False, False, 0)
+    assert signals is not None
+    assert signals.amicus_briefs == 0
 
 
 def test_an_outcome_written_before_the_block_existed_still_parses() -> None:
@@ -1545,7 +1871,7 @@ def test_two_declared_moments_of_one_stage_both_resolve(monkeypatch: pytest.Monk
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_version=moments.CLAIM_SET_CERT_V1,
+        claim_set_version=moments.CLAIM_SET_CERT_V2,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(
@@ -1589,7 +1915,7 @@ def test_one_undeclared_event_takes_the_whole_stage_to_triage(
         ordinal=1,
         decision_target="disposition",
         description="test",
-        claim_set_version=moments.CLAIM_SET_CERT_V1,
+        claim_set_version=moments.CLAIM_SET_CERT_V2,
     )
     monkeypatch.setattr(moments, "DECLARED_MOMENTS", (*moments.DECLARED_MOMENTS, second))
     monkeypatch.setattr(

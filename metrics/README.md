@@ -40,7 +40,11 @@ and are committed. Others land here without being gate-checked:
 which is regenerated on demand by `fedcourts docket`, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
-`replay: salience-gate` mode, landing as a reviewed PR). The gate's presence check
+`replay: salience-gate` mode, landing as a reviewed PR), and
+`semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
+writes **only** when the semantic census clears both preconditions below — it
+is outside the gate precisely because its absence is a state the contract
+requires, not a missing artifact. The gate's presence check
 tracks the set the weekly refresh regenerates, so an artifact outside that set
 stays outside the gate:
 
@@ -85,11 +89,17 @@ stays outside the gate:
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`, with the committed `statpack.json` as a second input (the
   realized-Term skill column below is scored against it at build time): per
-  predictor, accuracy, mean Brier score, mean vote accuracy, a
-  mean reasoning-quality summary, and counts (events scored, evaluations,
-  evaluators), each reported **per stratum** — the `forward` and
+  predictor, accuracy, mean Brier score, mean vote accuracy — over the declared
+  **merits** moments and nothing else, because an individual cert vote is never
+  scored (`docs/decision-model.md`), so the ranked cert board carries no vote
+  mean — a mean reasoning-quality summary, and counts (events scored,
+  evaluations) reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
-  never blended into one number, with only the timing strata ranked. Each
+  never blended into one number, with only the timing strata ranked. Two counts
+  sit on the entry rather than the stratum, because they describe the whole
+  entry: `evaluators`, the distinct judges that scored it, and `events_scored`
+  pooled across its strata, which the coverage contract below reads against the
+  board's own. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the
   skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
@@ -99,15 +109,119 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against. A **merits** cell carries a second, stronger check: its
-  `segment_base_rate` is the evaluator's hand-pooled read of the statpack
-  merits section, but the harness independently pools the identical quantity
-  for the `judgment-disturbed` claim, so a merits cell whose hand-arithmetic
-  contradicts the harness block is dropped too — the merits skill column never
-  rests on a baseline the harness actively contradicts. Where the harness
-  recorded no such baseline (no block, an unscored claim, or a refusal it made
-  and the evaluator did not) there is nothing to check against and the
-  internal-coherence check stands alone.
+  against. That coherence check is the only one, and what it guards in
+  practice is the **cert** cell, because it is the only stage whose numbers are
+  the evaluator's arithmetic at all: on a **merits** or **interim** cell
+  whose `event.yaml` names its stage, `stamp-cell` writes all three together —
+  `brier_score` recomputed from the scored prediction's probability and the
+  committed outcome, `segment_base_rate` pooled from the statpack, and the
+  ratio over them — so they agree by construction and there is no hand-computed
+  number left to catch. Reproducing from the record is not the same as being
+  right, which is why the numerator is stamped too rather than checked: a skill
+  derived from an unverified Brier would satisfy the coherence check and still
+  publish the wrong number. The cert numbers stay the evaluator's
+  because they alone require a judgment — which band population the rate is
+  taken over, recorded in `base_rate_basis` — while both pooled rates are a
+  ratio of published integer counts with nothing to decide.
+
+  **One grading per cell per judge.** A re-graded cell commits a second
+  `evaluation.json` beside the first, and both describe one observation, so
+  every figure on the board — the counts, the means, both skill columns, and
+  both agreement views — is taken after the ledger read collapses to one
+  evaluation per (case, event, predictor, evaluator): the newest on the
+  harness clock (`fedcourtsai.integrity.evaluation_clock` — the process stamp,
+  with the agent-written `created_at` only where no stamp exists, which the
+  frozen scope excludes), ties broken deterministically, and the collapse
+  applied inside the scope so a re-grade outside the frozen partition cannot
+  displace the frozen grading it superseded. **`superseded_gradings` is what
+  the collapse dropped from the stratified pass that produced the ranked
+  cells** — the two agreement views collapse separately, over their own scope,
+  and are not in the figure. It is the board's only trace of a re-grade: a
+  survivor is indistinguishable from a cell graded once, and every figure
+  around it is already post-collapse, so re-grading — a maintainer-reachable
+  operation — could otherwise move a standing with nothing on any published
+  artifact recording that it happened. Read it as an audit line, never as a
+  term: it is **not** subtracted from any count on the board, and a count
+  plus it is not a ledger total. Its population is the **scope gate's**, which
+  is the board's process scope but a slightly wider set of cells. The scope
+  half is exact: the collapse runs after the gate, so a `frozen` board's figure
+  counts only supersessions among frozen-scope cells and a re-grade the freeze
+  excludes appears on the `--all-versions` board instead. The cell half is
+  wider in two ways. It is stage-blind like `forward_claim` (a superseded
+  grading shares its survivor's stage), so it spans the ranked board and every
+  `stages` block at once and must never be netted against a stage-scoped
+  total. And it is taken where the collapse runs, which is *before* the
+  forward-claim exclusion, exactly like `claimed_forward` — so a supersession
+  of a cell the exclusion then drops is counted while the cell itself reaches
+  no block, and a board reading `predictors_ranked: 0` can still carry a
+  nonzero count. Nonzero is not by itself a fault — a
+  re-grade is a legitimate operation — but it is the cue to ask **why** a cell
+  was graded twice before reading a standing that a re-grade could have moved.
+  Read it beside the scope, because a zero has two meanings: on an empty
+  frozen board — the committed state while `FROZEN_SINCE` is still ahead of
+  every stamped grading — nothing was in scope to supersede, so `0` is the
+  shakedown state rather than a clean audit, and re-grades in the shakedown
+  ledger are counted on no committed artifact at all. `--all-versions` is where
+  they show. The collapse stops at the
+  evaluator: a panel of judges reading one prediction is several observations,
+  which is what `evaluators`, the panel means, and the leave-one-out agreement
+  figures measure. (`claim-scores.json`'s *aggregates* collapse one step
+  further, to the event, for a reason that does not apply here — every
+  evaluator of one prediction carries an *identical* harness-computed block, so
+  there is no second observation to keep. Its judge validation stays per cell.
+  The dashboard's substance funnel reads the same collapsed pass and publishes
+  no count of its own; the board's is the audit line for all three, since one
+  collapse rule builds them.)
+
+  **Check coverage before comparing two engines.** Grading is gated at
+  `(evaluator, event)` grain: a run gives a judge the events it has not graded
+  yet, so a prediction committed after that judge graded its event is never
+  scored by that judge — only a judge still to reach the event can pick it up.
+  The scored set
+  is therefore **selected, not sampled**, and the selection can fall
+  differentially — an engine whose cells backfill late accumulates
+  systematically fewer scored events than one that ran on time, and nothing in
+  the ranking, the means, or either skill column adjusts for that. Each entry
+  publishes its own `events_scored` and its population publishes the
+  `events_scored` union across entries. An entry **at** its population's
+  figure was scored on the whole set — the entry's events are a subset of the
+  union, so equal cardinality is equal set — and an entry **below** it was
+  ranked over a subset. Never sum the **entries** to recover that union: two
+  predictors scored on one event are one event, so the sum overstates it.
+  (Summing an entry's *stratum* blocks is a different matter and does
+  reproduce its figure — a predictor's strata partition its events.) A
+  cross-engine claim over unequal coverage is a claim over two different
+  populations and is not licensed by this artifact; where the coverage is
+  unequal, the honest reading is per-predictor coverage figures, or a
+  comparison restricted by hand to the events both engines were scored on. The
+  denominator is the events *someone* was scored on: an event nobody was scored
+  on leaves numerator and denominator alike and is invisible here, so this
+  measures coverage **relative between entries**, never coverage of the
+  predicted population. The absolute gap — a prediction carrying no evaluation
+  at all — is still a ledger scan (`fedcourtsai.matrix.event_has_evaluations`
+  names the seam it comes from).
+
+  **Equal coverage is necessary, not sufficient.** It certifies the same event
+  *set* and nothing else, and two residuals survive it, so equality is never
+  on its own a licence to compare. **Stratum mix**: `events_scored` pools
+  forward, retrospective and procedural, while the rank key is the forward
+  stratum — two entries at equal coverage can carry a forward block against no
+  forward block at all, which is not a comparison. **Panel depth**: the gate is
+  per judge, so a late prediction can still be picked up by a judge that has
+  yet to run, on a thinner panel — equal coverage with unequal `evaluations`
+  or `evaluators` means the two means are taken over differently-weighted
+  cells. Read each stratum's own `evaluations` and the entry's `evaluators`
+  beside the coverage figure, and require both entries to carry a non-null
+  `forward` block over the same events before any forward comparison. The
+  pre-registered form of the condition is per-stratum, per-(predictor, event,
+  evaluator); this artifact publishes the pooled grain, which is why it can
+  refuse a comparison but never bless one. The build says so out loud — `fedcourts leaderboard` warns per
+  population, naming each short predictor and its coverage — so the hazard does
+  not depend on a reader doing the subtraction, and the refresh PR's headline
+  flags it too. Each `stages` block denominates its own coverage the same way,
+  against its own entries and never the cert board's, and is warned on
+  separately: a stage is scored on its own events, so measuring a merits entry
+  against the cert union would report short coverage for every one of them.
 
   **The board also names its partitions.** `frozen_process` records the freeze
   constants in force at build time — the blessed digest set and the freeze
@@ -263,6 +377,15 @@ stays outside the gate:
   disagreement rather than assigning blame. It never affects the ranking, and
   `events` beside it is small enough to matter — tau-b over a handful of shared
   events moves a long way on one disagreement.
+
+  Both agreement figures read a judge's **current** read of a case, under the
+  one-grading-per-cell-per-judge rule above: the collapse to the newest grading
+  runs before the stakes read is looked for, so a judge that re-graded a cell
+  without recording a `big_case` block has no current read of it and leaves the
+  panel rather than falling back to the read its re-grade superseded. That is
+  the honest reading of a re-grade — the newest grading is the observation, all
+  of it — but it means a withdrawn read moves `cases` / `events` as well as the
+  coefficient, so read the two together.
   `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
@@ -305,18 +428,34 @@ stays outside the gate:
   describes that claim, not the predictor, and a declared claim that never
   scored still appears with `scored: 0` so the coverage gap stays visible.
 
+  **A `cert-v2` mean total is a mixture, and its second addend is selected on
+  the outcome.** Under `cert-v1` every cert cell scored exactly one claim, so a
+  mean total pooled a single quantity. `cert-v2` adds
+  `summary-disposition-route`, which is grant-conditional: a cell scores two
+  claims where the petition was granted *and* its outcome retained a route
+  marker, and one otherwise. `declared_set_versions` catches a cert-v1/cert-v2
+  mixture but not this one, because it is a single declaration with a
+  per-event denominator that varies with the realized disposition. So the
+  per-claim rows with their own `scored` counts are the readable cut, and
+  `mean_total` is not comparable across predictors whose scored cells differ
+  in grant rate. The floor is identically zero and `lift` is a sum too, so
+  both inherit the same property.
+
   **Counts and comparability.** The population is the **cert-stage** cells:
-  the board never blends stages, so although the minted merits event
-  declares its own set (`merits-v1` — one claim, restating the merits
-  headline), a non-cert cell's block sits outside this surface (and outside
-  its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
+  the board never blends stages, so although the other two stages declare
+  their own sets (`interim-v1` on every interim moment, `merits-v1` on the
+  minted merits event), a non-cert cell's block sits outside this surface (and
+  outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
   evaluator of the same prediction carries an identical harness block, so
   blocks are deduplicated to one per event before averaging (the newest
   evaluation's block wins where a statpack revision between evaluator stamps
   ever made copies differ — newest on the harness stamp,
   `fedcourtsai.integrity.evaluation_clock`, never the agent-written
-  `created_at`), and `cells` beside `events` is the raw evaluation
-  census. Strata are never pooled, and a total or pair set is never
+  `created_at`), and `cells` beside `events` is the census of counted
+  gradings — one per judge, after the board-wide run collapse above, so a
+  superseded re-grade appears in neither; the leaderboard's
+  `superseded_gradings` is the audit line for both surfaces, since one collapse
+  rule builds them. Strata are never pooled, and a total or pair set is never
   comparable across process versions or across the frozen/all scope: the
   artifact publishes its scope, keyed on the prediction's stamp exactly like
   the leaderboard, and a scope that comes to hold more than one
@@ -375,13 +514,22 @@ stays outside the gate:
   predictor — counted separately.
 
 **Semantic grades publish nothing today, and this is the contract for when they
-do.** No artifact here carries a semantic claim grade: no stage declares a
-semantic claim set, no cell produces a grade, and the schema blocks that would
-carry one are null on every committed prediction and evaluation. The rules are
-written before the surface exists so that a first publication has a contract to
+do.** No artifact here carries a semantic claim grade. The merits moments
+declare `semantic-v1` and both prompts ask for it — a merits cell for the
+propositions, a grader for the grades — but **no opinion body is ingested to
+grade against**, and both declared claims require a majority opinion, so every
+grade a cell writes is `not-addressed`: the availability mask, a property of the
+record. Blocks accumulate; ordinal grades do not. `fedcourts
+semantic-summary` is the surface that publishes them, and it writes
+`semantic-grades-<stratum>-<scope>.json` only where **both** preconditions below
+are met — the floor *and* a non-null agreement coefficient. Below either it
+prints the withheld state and writes nothing, which is what it does today: for
+this artifact the file's **absence is the withheld state**, and the command's
+output is where the counts behind it are read. The rules are fixed before any
+artifact exists so that a first publication has a contract to
 meet rather than one written around it. The methodology behind them is
 [outcome-decomposition.md](../docs/outcome-decomposition.md)'s *The semantic
-family, alpha*, and it is **alpha** — `semantic-v0` is provisional, has never
+family, alpha*, and it is **alpha** — `semantic-v1` is provisional, has never
 met a real opinion, and is explicitly not a pre-registered commitment of the
 kind the mechanical claim sets are. A grade produced under it would be a design
 under test, not evidence about a predictor.
@@ -389,24 +537,39 @@ under test, not evidence about a predictor.
 Not to be confused with the judge validation above, which calls
 `reasoning_quality` "the semantic side" of its pair. That is a **different
 number**: one judge-graded score of a prediction's reasoning as a whole,
-standing in for a claim family that does not exist. A `semantic-v0` grade is
-per declared claim and graded against opinion text. The pre-registered pairing
-keeps `reasoning_quality`; whether it ever changes hands is `semantic-v1`'s
-question, not this contract's.
+standing in for a claim family whose own grades are all mask. A `semantic-v1`
+grade is per declared claim and graded against opinion text. The pre-registered
+pairing keeps `reasoning_quality`; whether it ever changes hands is a later
+version's question, not this contract's.
 
 **Descriptive only, and never a rank key** — under the alpha caveat above,
 which travels with each rule below rather than being spent on the lead. A
-semantic grade is an ordinal reading of a predicted rationale against the
-opinion — `supported` / `partially-supported` / `unsupported`, plus a distinct
+semantic grade is an ordinal reading of a **declared proposition** — the
+prediction's `semantic_claims` entry for that claim, never its
+`predicted_reasoning.md`, which is graded by nothing — against the opinion:
+`supported` / `partially-supported` / `unsupported`, plus a distinct
 `not-addressed`. What may be published is the **census**: counts per level, per
 declared claim, with the graded count beside them, and a pooled
 `overall` census that is a coverage figure rather than a headline (different
 claims are propositions of different difficulty, so a pooled share describes
 the claim mix as much as the predictor — and it reaches its minimum on units
-pooled across claims, so it publishes the distinct-cell count that actually
-bounds it). No standing, no ordering, and no entry
+pooled across claims, so it publishes the distinct-cell and distinct-**case**
+counts that actually bound it). The case count is the strictest of the three
+and the one to read: one opinion backs a cell per predictor, every claim in the
+set is read off that same opinion in a single pass, so units and cells both
+multiply against a case count that does not. No standing, no ordering, and no entry
 into the leaderboard or any headline. Nothing derived from a grade is a skill,
 calibration, or forecasting claim of any kind.
+
+**A `majority-ground` census is an upper bound on forecasting skill, not a
+measure of it.** Nothing pins a merits predict cell to the grant, and a forward
+cell may retrieve without restriction, so a cell running after oral argument can
+read a transcript in which the doctrinal ground is frequently telegraphed — the
+claim's forecastability decays across the Term. Discharging this would mean
+publishing each prediction's date relative to argument beside its grade, and no
+artifact in this project records an argument date, so the caveat travels as
+prose. `docs/outcome-decomposition.md`, *The declared set*, is where it is
+argued.
 
 **Never pooled with a mechanical claim score.** A semantic grade never enters
 a claim `total`, `floor`, or `lift`, is never summed with one, and never
@@ -541,19 +704,29 @@ standard by construction); a stage-less cell of any other kind shares one
 `(none)` bucket so coverage stays visible — that bucket's *counts* are the
 claimable part, while its means pool cells of unknown, possibly heterogeneous
 decision standards and support no cross-cell claim. Skill scores appear only
-where a scored base rate exists for the stage. The cert segment has one, and
-the **merits stage has a registered baseline** — the statpack merits section's
+where a scored base rate exists for the stage. All three now have one. The
+**interim stage's** is the statpack interim section's substantive grant rate,
+pooled over application Terms strictly before the case's own
+(`pipeline.base_rates.interim_base_rate`), subject to its own per-pool floor and
+carrying the selection caveats registered in
+[`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
+substantive slice while the scored cells are reserve-selected on the escalation
+ladder, so an interim skill number is not by itself evidence of forecast skill.
+The **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
 (`pipeline.base_rates.merits_base_rate`; `docs/decision-model.md` is the
 registered design) — so a merits cell's Brier is `(P(disturbed) −
 disturbed)²` and its skill is scored **only against that declared
-baseline** — and this the leaderboard now enforces where it can: a merits
-cell's evaluator-recorded `segment_base_rate` is cross-checked against the
-harness's own pooled merits baseline (the `judgment-disturbed` claim's), and a
-cell whose hand-arithmetic contradicts it is dropped from `skill_scored` rather
-than ranked on a rate only the evaluator computed (where the harness recorded
-no such baseline the cross-check is a no-op and the internal-coherence check
-stands alone). Skill is scored only
+baseline**, which holds by construction rather than by a check:
+`stamp-cell` writes a merits cell's
+`segment_base_rate` from that same pooler (and an interim cell's from its
+own), and writes the Brier beside it from the scored prediction's committed
+probability and the committed outcome, so no cell this harness stamps on a
+stage-resolving event can be ranked on a rate or a Brier the harness did not
+compute — the record itself does not distinguish a stamped number from a
+written one, so that is a property of how a cell is produced, not something the
+board can re-derive. Skill is
+scored only
 where the pooled prior-Term sample clears the baseline's
 stated minimum (`MERITS_BASE_RATE_MIN_PARSED`, 30 parsed judgments); below it
 there is no baseline,
@@ -586,19 +759,34 @@ nothing from a null-guard merits section. The merits baseline enforces this
 structurally at the granularity that matters: `merits_base_rate` returns no
 baseline when any Term **inside its pooled window** carries a null
 count (a null on a Term the leakage rule or the lookback window already
-excludes contributes nothing and so cannot contaminate the rate). Three residues
+excludes contributes nothing and so cannot contaminate the rate). Four residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
-figure can still carry it even though the rate cannot; and a parsed judgment
+figure can still carry it even though the rate cannot; a parsed judgment
 with no date stays in `granted` the same way, since the gap test cannot run
-on it. And the window is the same ten-Term
+on it; and a granted case recorded as `merits_terminated` stays in `granted`
+too. That last residue covers two unlike shapes, and the distinction matters
+for what may be said about it: a post-grant Rule 46 dismissal has **no
+disposition to record** — nobody reached the merits — while a bare mandate
+notation marks a case that *was* decided on a docket whose disposition entry
+the corpus never captured, which is a coverage failure of the same family as
+the two residues above. Neither is folded into the judgment vocabulary,
+because a seventh value would be scored as an undisturbed judgment, asserting
+in the first case that the decision below survived a merits ruling nobody
+made, and in the second that it survived a ruling whose direction is simply
+unread. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
 outcome's `actual_disposition` is always the off-vocabulary `other`. The
-interim stage has no registered base rate, so its block carries counts,
-accuracy, and Brier with its skill figure null and `skill_scored` zero. Every
+interim stage's base rate is registered and pooled from the pack's interim
+section — the substantive slice's grant rate over application-Terms strictly
+before the case's own, subject to its own pooled floor
+([`docs/salience.md`](../docs/salience.md)) — so its block reports skill on the
+same terms as the merits one: a figure where a cell's baseline exists, and null
+with `skill_scored` zero where the pooled sample is below the floor or the
+cell's own evaluation recorded no skill. Every
 non-cert block — both stages and the `(none)` bucket — reports the realized-Term
 skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
@@ -611,7 +799,8 @@ stated minimum, and every Term inside the pooled window must carry a
 non-null guard count (the null-provenance refusal under `statpack.json`
 above) — behind any of these there is no baseline, the declared claim goes
 unscored, and the merits stage block's skill figure is null with
-`skill_scored` zero, exactly as the interim block's are. A merits cell
+`skill_scored` zero. The interim block is null the same way and for the same
+class of reason, its own floor standing in for these. A merits cell
 records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
@@ -736,10 +925,13 @@ the rendered table) and
   per-salience-band **segment base rate** in two forms — over the petitions that
   *ended* in a band, and over every petition that ever *reached* it (the risk
   set). A prediction carrying a frozen prediction-time band is scored against the
-  second, since that is the population it was in when it ran; one without a frozen
-  band falls back to the first, which matches the terminal band it has to be
-  grouped by. Under a scorer whose order interleaves a fixed-at-filing class
-  among the trajectory tiers (sal-v2's `federal`/`state`), a weaker band's risk
+  second, since that is the population it was in when it ran; one that froze **no
+  band at all** falls back to the first, which matches the terminal band it has
+  to be grouped by. The fallback keys on the absence of a frozen band, never on a
+  version mismatch: a frozen band whose salience version does not resolve against
+  the pack yields no baseline at all, since relabelling it terminal would pair a
+  risk-set population with a terminal rate. Under a scorer whose order interleaves a fixed-at-filing class
+  among the trajectory tiers (the caption-banded versions' `federal`/`state`), a weaker band's risk
   set also contains the stronger classes' petitions — populations a private
   petitioner was never in — so the "population it was in" reading is
   approximate there (measured at roughly +1 point on `elevated`), a property of
@@ -772,14 +964,14 @@ the rendered table) and
   ungranted), and the escalation-signal counts (response requested, referred
   to the Court, amicus on file — max-latched ending states, not
   as-at-prediction values, and no rate here conditions on them). **What may be claimed
-  from it:** the counts and the substantive-application grant rate are
-  *descriptive* facts about the accumulated cohort, nothing more. The rate is
-  not a segment base rate — the interim stage is predicted (the substantive
-  slice, under the reserve quota) but its scored base rate publishes only at
-  the pre-registered resolved-count floor in
-  [`docs/salience.md`](../docs/salience.md) — so until then no skill,
-  calibration, or baseline claim may
-  rest on it, and it is comparable to nothing the cert sections publish (a
+  from it:** the pack-level counts and grant rate are *descriptive* facts about
+  the accumulated cohort, nothing more — the pack-level rate is **not** a base
+  rate for any cell, because it contains that cell's own Term. The scored
+  interim baseline is built from the **per-Term rows** instead: the substantive
+  slice pooled over application-Terms strictly before the case's own, and only
+  where that pooled sample clears the per-pool floor pre-registered in
+  [`docs/salience.md`](../docs/salience.md); below the floor a cell carries no
+  baseline and no substitute. Either way the rate is comparable to nothing the cert sections publish (a
   different population resolving on a different standard, unweighted where the
   cert cuts are denial-reweighted). Extensions are counted so the docket's
   administrative dominance stays visible, but they never pool into any rate.
@@ -787,7 +979,8 @@ the rendered table) and
   product; the per-Term rows share the cert tables' replay self-selection
   rule (anchor strictly before your clock).
 
-  **The arrival cohort's claim rule** (sal-v2's `cert@arrival` cells). The
+  **The arrival cohort's claim rule** (the caption-banded scorers'
+  `cert@arrival` cells — the active `sal-v3`, and `sal-v2` cells beside it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
   leaderboard's per-moment block pools them mechanically, so that block's
@@ -796,9 +989,9 @@ the rendered table) and
   `federal` vs the slice's mix). Only the random slice's skill transfers to
   live prospective use: it alone is selection-bias-free, and its baseline is
   exactly the unconditional paid-arrival grant rate. And no arrival cell
-  minted before the first sal-v2-rendered statpack carries any baseline at
-  all (the version-pinned pool's designed `None`) — its skill column is
-  empty, not zero, and supports no claim.
+  minted before the first statpack rendered after its salience version was
+  registered carries any baseline at all (the version-pinned pool's designed
+  `None`) — its skill column is empty, not zero, and supports no claim.
 
   The second stage section is the **merits section** (`merits`), present only
   once a corpus row carries a parsed `merits_judgment` (the
@@ -810,7 +1003,8 @@ the rendered table) and
   T is routinely granted in T+1; Terms with no parsed judgment are omitted
   from the rendered table): the granted-cohort count, the parsed count
   beside it (the backfill's own coverage — read `granted − parsed` as an upper
-  bound blending still-pending cases with genuine parse gaps, so a recent
+  bound blending still-pending cases, genuine parse gaps, and the proceedings
+  that ended with no disposition to parse, so a recent
   Term's thin parse is mostly pendency), the six-way judgment distribution
   (affirmed / reversed /
   vacated / affirmed-in-part / DIG / equally divided), and the **disturbed
@@ -889,8 +1083,11 @@ the rendered table) and
   rescales a QP-bearing stream rather than estimating a docket population. No
   labeler has run, so the document names the missing distribution among its gaps
   instead. The document names the other statistics it
-  cannot yet compute the same way (summary reversals, which have a disposition label
-  but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
+  cannot yet compute the same way (summary reversals, which have a disposition
+  label no resolver mints — `Outcome.disposition_route` marks the class on a
+  resolving grant, but that marker feeds no published cut, so the pack's
+  `summary-reversal` count stays zero while such orders sit inside `granted`;
+  justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
 These files are deterministic, offline roll-ups that start empty (zero counts)

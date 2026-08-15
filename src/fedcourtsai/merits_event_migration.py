@@ -15,7 +15,9 @@ event shape and one idempotency story however a grant reached the corpus.
 The population is **forward-only**: rows whose grant opens a merits proceeding
 (:func:`fedcourtsai.corpus.opens_merits_proceeding` — a GVR or summary reversal
 decides in the cert order and mints nothing, a granted application never enters
-the merits docket) and whose ``merits_judgment`` is not latched. A decided
+the merits docket) whose ``merits_judgment`` is not latched and whose
+``merits_terminated`` is unset — the sweep's record that the proceeding ended
+with no disposition, which closes the question just as a judgment does. A decided
 grant leaves nothing to forecast, so it gets no event — minting one would open
 a row the next detection pass immediately resolves, manufacturing a resolved
 event no forecast ever attached to. The grant-moment event opens at the row's
@@ -97,7 +99,7 @@ class MeritsEventBackfillResult:
     applied: bool = False
     minted: list[tuple[str, str]] = field(default_factory=list)  # (case_id, event_id) minted
     already_present: int = 0  # in-population cases already converged (nothing owed)
-    decided: int = 0  # grants with a latched judgment — forward-only, so left alone
+    decided: int = 0  # grants with a latched judgment or a recorded termination
     skipped: list[tuple[str, str]] = field(default_factory=list)  # (case_id, reason) for triage
 
 
@@ -132,7 +134,7 @@ def backfill_merits_events(
         row = corpus.get_row(conn, str(record["case_id"]))
         if row is None or not corpus.opens_merits_proceeding(row):
             continue
-        if row.merits_judgment is not None:
+        if row.merits_judgment is not None or row.merits_terminated is not None:
             result.decided += 1
             continue
         case_id = row.case_id
@@ -208,8 +210,8 @@ def _plan_case(
 def _pendency_conflict(conn: sqlite3.Connection, case_id: str) -> str | None:
     """The reason the docket cannot be shown still pending, or ``None``.
 
-    The forward-only population keys on ``merits_judgment is None``, which
-    means *unlatched*, not *pending*: the judgment sweep leaves the columns
+    The forward-only population keys on unlatched merits columns, which mean
+    *unlatched*, not *pending*: the judgment sweep leaves them
     null on really-decided dockets whose snapshot it could not parse
     (``no_match``) or never saw (``no_snapshot``). Minting on that residue
     would open an event provisioning refuses daily (the ``no_match`` shape) or

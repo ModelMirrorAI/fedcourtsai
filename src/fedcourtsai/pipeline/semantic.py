@@ -1,24 +1,33 @@
-"""The semantic claim family: its declaration seam and its descriptive roll-up.
+"""The semantic claim family: its declaration and its descriptive roll-up.
 
 ``docs/outcome-decomposition.md`` (*The semantic family, alpha*) is the design
 authority. This module is the semantic sibling of
 :mod:`fedcourtsai.pipeline.claims`, and it is deliberately shaped like it so
-that turning the family on is a declaration plus a prompt that asks for it,
-rather than a new shape. What stays unbuilt even then is named in
-``docs/outcome-decomposition.md``, *What remains unbuilt* — most of all the
-predictor-side mandatory set: :func:`graded_units` refuses a non-conforming
-*grader* block, and nothing reads ``Prediction.semantic_claims`` at all:
+that what separates the two families is their epistemics rather than their
+plumbing:
 
-- the **declaration table**, per event kind and per exact event id, under a
-  versioned set id, and authoritative over any grader's block. It is **empty**:
-  no stage declares a semantic set, so :func:`declared_semantic_claim_set`
-  returns ``None`` for every event, no prompt asks a cell for a semantic claim,
-  and no committed artifact carries one. That state is asserted in the tests
-  rather than left implicit;
+- the **declaration tables**, per exact event id and per event kind, under a
+  versioned set id, and authoritative over any grader's block.
+  ``semantic-v1`` declares two claims on the merits moments
+  (:data:`SEMANTIC_MERITS_V1`); every other event declares none, so
+  :func:`declared_semantic_claim_set` returns ``None`` for it;
 - the **grade vocabulary** (:class:`~fedcourtsai.schemas.SemanticSupport`) and
   the ordinal projection the summary and the agreement number read it through;
 - :func:`summarize_semantic_grades`, the roll-up that turns graded units into a
   descriptive census plus leave-one-out inter-grader agreement.
+
+**Elicited and graded, and producing nothing.** A grade needs three things.
+Two are built: this declaration, and the prompts that ask a merits cell for the
+propositions and a grader for the grades — so both process digests hash a
+semantic contract. The third is not: **no opinion body is ingested** to grade a
+claim against, and both declared claims require a majority opinion, so every
+unit masks (``not-addressed``), :func:`summarize_semantic_grades` publishes
+nothing, and no published number depends on any of it
+(``docs/outcome-decomposition.md``, *What remains unbuilt*). The mandatory-set
+discipline binds both sides: :func:`graded_units` refuses a non-conforming
+grader block, and :func:`semantic_claim_problems` /
+:func:`semantic_grade_problems` surface either side's non-conformance in
+``validate`` while the cell can still be fixed.
 
 **What is deliberately absent, and why.** There is no scoring function here and
 no baseline. The mechanical rule
@@ -31,26 +40,20 @@ any baseline is ever derivable is left as an empirical question for when
 opinion text exists. A semantic grade is never run through ``claim_score`` and
 never pooled with a mechanical claim total.
 
-The candidate claim vocabulary — what kinds of proposition may be claimed, and
-which of them survive that document's tests — is
-sketched in that document and deliberately **not** encoded here: an id in a
-module constant reads as a declaration, and nothing in this family is declared.
-
-**Alpha.** ``semantic-v0`` is provisional and unproven against opinion text. It
-is *not* a pre-registered commitment in the sense ``cert-v1`` and ``merits-v1``
-are, and it constrains none of them: the process freeze governs the digest —
-the prompt bytes plus the resolved actor config — and nothing here is asked for
-by a prompt, so no digest moves, no cell produces a grade, and no published number
-depends on any of it. That is precisely what lets it change freely. The first
-set actually put to work arrives as ``semantic-v1`` with its own review;
-supersession is the expected path, not an exception.
+**Alpha.** ``semantic-v1`` is a declaration under an alpha methodology:
+unproven against opinion text, and *not* a pre-registered commitment in the
+sense ``cert-v1`` and ``merits-v1`` are. It constrains neither of them, and
+nothing published depends on it. Supersession by a version formed with opinion
+text in hand is the expected path, not an exception; a change to which claims a
+set carries is a new version, never an edit to this one.
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Literal
 
 from ..ids import parse_event_kind
@@ -58,19 +61,21 @@ from ..leaderboard import kendall_tau_b
 from ..schemas import (
     Evaluation,
     EventKind,
+    Prediction,
     SemanticClaimSummary,
     SemanticGradeBlock,
     SemanticGraderAgreement,
     SemanticGradeSummary,
     SemanticSupport,
+    Stage,
     Stratum,
 )
+from . import moments
 
 # The versioned set id every semantic declaration and grade block is stamped
 # with. A change to which claims a set carries is a NEW version, never an
-# in-place edit — the same discipline `cert-v1` and `sal-v1` keep. `v0` is the
-# alpha: the first set put to work is `semantic-v1`, with its own review.
-SEMANTIC_SET_V0 = "semantic-v0"
+# in-place edit — the same discipline `cert-v1` and `sal-v1` keep.
+SEMANTIC_SET_V1 = "semantic-v1"
 
 # The minimum unit count below which a derived figure is withheld: the
 # per-claim `supported_share` and every grader's agreement coefficient. Set to
@@ -81,14 +86,92 @@ SEMANTIC_SET_V0 = "semantic-v0"
 # one must not silently move the other.
 SEMANTIC_MIN_GRADED = 10
 
-# Per event kind, and per exact event id: the set id and the declared semantic
-# claims, in reporting order. **Both are empty on purpose.** No opinion body is
-# ingested, so no semantic claim has anything to be graded against, and the
-# blinding precondition `docs/outcome-decomposition.md` states is a precondition
-# on grading rather than a detail of it. The tables are the seam: declaring a
-# set later is an entry here plus a prompt that asks for it, not a new shape.
-DECLARED_SEMANTIC_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[str, ...]]] = {}
-DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID: Mapping[str, tuple[str, tuple[str, ...]]] = {}
+
+@dataclass(frozen=True)
+class SemanticClaimSpec:
+    """One declared semantic claim: its id, the axis it occupies, and what it needs.
+
+    Modelled on :class:`fedcourtsai.pipeline.moments.MomentSpec` and kept a
+    plain module-level record for the same reason — this module stays a leaf,
+    and a declaration is read, never constructed at call time.
+
+    ``axis`` names the proposition-space the claim occupies. It is what makes
+    the availability mask *checkable* rather than conventional: ``not-addressed``
+    reads "the opinion is silent on the claim's axis", which presumes an axis
+    fixed by the **declaration** and not by whatever proposition a predictor
+    chose to write. That is the load-bearing reason nothing a predictor writes
+    can move its own claim into the mask.
+
+    ``requires`` names the document class that must exist for the claim to be
+    gradeable at all — the mask's first ground, "no opinion body of the required
+    kind exists". A claim requiring a majority opinion is masked on every case
+    that has not reached judgment; one requiring a *separate* writing would be
+    masked wherever none was filed, which is the outcome-conditioning
+    ``docs/outcome-decomposition.md`` rejects the compound candidates for.
+
+    Everything downstream keys on ``claim_id`` alone — a graded unit, a grader's
+    block, and the census carry the id and nothing else — so the axis is
+    additive: it constrains what a declaration *means* and what a grader may
+    mask, never what a grade is matched by.
+    """
+
+    claim_id: str
+    axis: str
+    requires: str
+
+
+#: The document class both `semantic-v1` claims are graded against. Named once
+#: because a claim's `requires` is the mask's first ground, and two claims
+#: masked on different grounds would need reading apart.
+MAJORITY_OPINION = "majority-opinion"
+
+#: The `semantic-v1` claim set, in reporting order. Two claims, and they are two
+#: on purpose: the ground and its breadth are separate propositions about the
+#: same opinion, and bundling them would reintroduce the compound-claim failure
+#: `docs/outcome-decomposition.md` rejects the concurrence and dissent
+#: candidates for — one conjunct borne out and the other not is a grade a reader
+#: cannot give.
+SEMANTIC_MERITS_V1: tuple[SemanticClaimSpec, ...] = (
+    SemanticClaimSpec(
+        claim_id="majority-ground",
+        axis=(
+            "the doctrinal basis the majority gives for the judgment: which of "
+            "the rival readings of the provision carries the holding, which "
+            "precedent is extended, confined, or overruled, and which canon the "
+            "holding turns on"
+        ),
+        requires=MAJORITY_OPINION,
+    ),
+    SemanticClaimSpec(
+        claim_id="ground-breadth",
+        axis=(
+            "the breadth of the majority's stated ground: narrow to the facts or "
+            "the party before the Court, against a categorical rule reaching "
+            "beyond them"
+        ),
+        requires=MAJORITY_OPINION,
+    ),
+)
+
+# Per exact event id, and per event kind: the set id and the declared semantic
+# claims, in reporting order. `semantic-v1` is declared on the merits moments —
+# every one of them, keyed by exact id off the moment table rather than written
+# out, so an inserted merits moment cannot silently declare nothing. The claims
+# are about a merits opinion, and only a merits moment forecasts one.
+DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID: Mapping[
+    str, tuple[str, tuple[SemanticClaimSpec, ...]]
+] = MappingProxyType(
+    {
+        spec.event_id: (SEMANTIC_SET_V1, SEMANTIC_MERITS_V1)
+        for spec in moments.moments_for(Stage.merits)
+    }
+)
+
+# No event *kind* declares a set. A kind is too coarse for a claim about an
+# opinion — the merits event's kind is `order`, and not every order event is
+# merits — so the kind table stays the fallback the mechanical family keeps for
+# entry-pinned and legacy ids, with nothing in it.
+DECLARED_SEMANTIC_CLAIM_SETS: Mapping[EventKind, tuple[str, tuple[SemanticClaimSpec, ...]]] = {}
 
 # The ordinal projection of the grade vocabulary, and the whole of what "ordinal"
 # means here: three ranked levels, and `not-addressed` deliberately absent. The
@@ -102,15 +185,19 @@ _ORDINAL: Mapping[SemanticSupport, int] = {
 }
 
 
-def declared_semantic_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
-    """The ``(set_version, claim_ids)`` an event declares semantically, or ``None``.
+def declared_semantic_claim_set(event_id: str) -> tuple[str, tuple[SemanticClaimSpec, ...]] | None:
+    """The ``(set_version, claim_specs)`` an event declares semantically, or ``None``.
 
-    ``None`` for **every** event today, because both declaration tables are
-    empty: no stage declares a semantic set. The lookup order mirrors
-    :func:`fedcourtsai.pipeline.claims.declared_claim_set` — exact event id
-    first (the shape the minted merits event needs, since its kind segment is
-    ``order`` and not every order event is merits), then event kind — so a
-    future declaration lands as a table entry and nothing else.
+    The merits moments declare ``semantic-v1``; every other event declares
+    nothing, which is ``None`` rather than an empty set — a set with no claims
+    and no set at all are different states, and only the second is "this event
+    is outside the family".
+
+    Exact event id first, then event kind. The order is the one
+    :func:`fedcourtsai.pipeline.claims.declared_claim_set` needs for the same
+    reason: a merits event's kind segment is ``order``, and not every order
+    event is merits, so the id is the only key fine enough to carry the
+    declaration.
     """
     by_id = DECLARED_SEMANTIC_CLAIM_SETS_BY_EVENT_ID.get(event_id)
     if by_id is not None:
@@ -152,7 +239,7 @@ class GradedUnit:
     grader_id: str
     claim_id: str
     grade: SemanticSupport
-    declared_set_version: str = SEMANTIC_SET_V0
+    declared_set_version: str = SEMANTIC_SET_V1
 
     @property
     def unit_key(self) -> tuple[str, str, str, str]:
@@ -192,14 +279,21 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
     one but an answer to another question. Rows outside the declared set are
     ignored.
 
-    Returns ``()`` on every committed evaluation, on the second ground: no
-    stage declares a semantic set.
+    Returns ``()`` on every evaluation committed before the grading prompt
+    existed, on the first ground: none carries a block.
+
+    A declaration carries an axis per claim (:class:`SemanticClaimSpec`), and
+    this bridge does not read it. Matching is by ``claim_id``, as it is
+    everywhere downstream; the axis fixes what a grader may mask and what the
+    id *means*, which is a constraint on the grading protocol rather than on the
+    row-to-declaration join.
     """
     block: SemanticGradeBlock | None = evaluation.semantic_grades
     declared = declared_semantic_claim_set(evaluation.event_id)
     if block is None or declared is None:
         return ()
-    set_version, claim_ids = declared
+    set_version, specs = declared
+    claim_ids = tuple(spec.claim_id for spec in specs)
     if block.declared_set_version != set_version:
         return ()
     graded: dict[str, SemanticSupport] = {}
@@ -221,6 +315,107 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
         )
         for claim_id in claim_ids
     )
+
+
+def semantic_grade_problems(evaluation: Evaluation) -> list[str]:
+    """Why this evaluation's semantic block would be refused whole, in words.
+
+    The grader-side twin of
+    :func:`fedcourtsai.pipeline.claims.claim_block_problems`, and it exists for
+    the same reason: :func:`graded_units` refuses **silently** (``()``, never a
+    crash), so a non-conforming block would commit green and the census would
+    simply lack the cell later. ``validate`` surfaces it while the cell can
+    still be fixed.
+
+    Empty when there is nothing to say. Two absences are legitimate states and
+    are never reported: an evaluation carrying no block at all — every cell
+    written before a prompt asked for one — and an event that declares no
+    semantic set, which is every non-merits event. What *is* reported is the
+    three ways a **present** block against a **declared** set is refused: a
+    ``declared_set_version`` answering another declaration (relabelling it would
+    pool grades formed under two declarations), the same claim graded twice (two
+    grades for one proposition), and a declared claim skipped (the set is
+    mandatory, so a partial answer grades nothing rather than the half the
+    grader chose). Rows outside the declared set are **not** reported, because
+    :func:`graded_units` ignores them rather than refusing over them, and this
+    function reports refusals rather than opinions.
+    """
+    block = evaluation.semantic_grades
+    declared = declared_semantic_claim_set(evaluation.event_id)
+    if block is None or declared is None:
+        return []
+    set_version, specs = declared
+    problems: list[str] = []
+    if block.declared_set_version != set_version:
+        problems.append(
+            f"semantic block is stamped {block.declared_set_version!r} but the event "
+            f"declares {set_version!r} — an answer to another declaration, never relabelled"
+        )
+        return problems
+    counts = Counter(row.claim_id for row in block.grades)
+    problems.extend(
+        f"semantic claim {claim_id!r} is graded twice — two grades for one proposition"
+        for claim_id, n in sorted(counts.items())
+        if n > 1
+    )
+    problems.extend(
+        f"declared semantic claim {spec.claim_id!r} ({set_version}) is not graded — "
+        "the set is mandatory, so use `not-addressed` rather than skipping the row"
+        for spec in specs
+        if spec.claim_id not in counts
+    )
+    return problems
+
+
+def semantic_claim_problems(prediction: Prediction) -> list[str]:
+    """Why this prediction's semantic block does not answer its declaration.
+
+    The predictor-side counterpart, and the enforcement the family previously
+    had only on the grader side: the declaration is authoritative over what a
+    predictor states, exactly as it is over what a grader grades, or a predictor
+    would select the population its forecast is measured over.
+
+    Empty when there is nothing to say — no block (a legitimate state: every
+    prediction written before the elicitation existed), or an event with no
+    declared semantic set. With a block present against a declared set, three
+    shapes are reported: the same claim stated twice, a declared claim left
+    unstated, and a row naming a claim the declaration does not carry. The third
+    is reported here although the grader-side join ignores it: an id nothing
+    declared is a proposition no grader will ever be asked about, so it is a
+    forecast committed into a void rather than a harmless extra.
+
+    Two states are deliberately **out of scope** rather than clean. A block on
+    an event that declares **no** set at all is not reported: the prompt tells a
+    non-merits cell to omit the field, but reporting a stray one would mean a
+    later *narrowing* of the declaration retroactively invalidated cells that
+    were correct when written, and an immutable artifact must not become
+    invalid. And this reads the declaration **as it stands**, not the one the
+    cell answered, so a set supersession reports every cell of the old set —
+    the property :func:`fedcourtsai.pipeline.claims.claim_block_problems` has
+    for the same reason, and why a set version and the prompt that elicits it
+    travel in one promotion batch (``docs/outcome-decomposition.md``).
+    """
+    declared = declared_semantic_claim_set(prediction.event_id)
+    if prediction.semantic_claims is None or declared is None:
+        return []
+    set_version, specs = declared
+    declared_ids = {spec.claim_id for spec in specs}
+    counts = Counter(claim.claim_id for claim in prediction.semantic_claims)
+    problems = [
+        f"semantic claim {claim_id!r} is stated twice — two propositions for one claim"
+        for claim_id, n in sorted(counts.items())
+        if n > 1
+    ]
+    problems.extend(
+        f"declared semantic claim {claim_id!r} ({set_version}) is not stated"
+        for claim_id in sorted(declared_ids - set(counts))
+    )
+    problems.extend(
+        f"semantic claim {claim_id!r} is not declared by {set_version} — "
+        "the harness declares the set and a predictor adds none"
+        for claim_id in sorted(set(counts) - declared_ids)
+    )
+    return problems
 
 
 @dataclass
@@ -353,6 +548,7 @@ def summarize_semantic_grades(
     """
     by_unit: dict[tuple[str, str, str, str], dict[str, SemanticSupport]] = defaultdict(dict)
     cells: set[tuple[str, str, str]] = set()
+    cases: set[str] = set()
     graders: set[str] = set()
     versions: set[str] = set()
     for unit in units:
@@ -363,6 +559,7 @@ def summarize_semantic_grades(
             )
         panel[unit.grader_id] = unit.grade
         cells.add(unit.cell_key)
+        cases.add(unit.case_id)
         graders.add(unit.grader_id)
         versions.add(unit.declared_set_version)
 
@@ -412,6 +609,7 @@ def summarize_semantic_grades(
         process_scope=process_scope,
         declared_set_versions=sorted(versions),
         cells=len(cells),
+        cases=len(cases),
         units=len(by_unit),
         graders=len(graders),
         min_graded=min_graded,
