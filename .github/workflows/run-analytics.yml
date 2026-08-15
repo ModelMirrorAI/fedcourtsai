@@ -571,6 +571,15 @@ jobs:
       # step's branch cut, leaving a reviewer a clean diff over a rigged number.
       - name: Restore the reference set and assert the tree is pristine
         id: pristine
+        # `!cancelled()` so this runs — and records a real success/failure
+        # outcome — even when the labeling step failed: the transcript scan
+        # below keys on that outcome, and a skipped assertion would read as
+        # not-success, silently forfeiting the transcript on exactly the
+        # failed runs it exists to diagnose. Idempotent on every early-exit
+        # path (the rm tolerates a missing dir; the checkout is a no-op when
+        # the move step never ran), and its success never revives the job —
+        # the measure and PR steps stay gated on overall status.
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/qp-topics-oracle"
@@ -592,8 +601,9 @@ jobs:
       # checkout's Python with the engine key in its env, so a tampered tree
       # forfeits its transcript artifact rather than handing unreviewed code
       # the credential — the pristine step's own log records the tampering,
-      # which is the diagnosis that run needs. `!cancelled()` still covers the
-      # labeler-failed runs, the ones the transcript exists for. Scan before
+      # which is the diagnosis that run needs. The assertion itself runs on
+      # `!cancelled()` so a labeler-failed run still records a real outcome
+      # and keeps its transcript — the runs the capture exists for. Scan before
       # publishing — the transcript is agent-authored bytes no other scan sees
       # — and withhold on a hit rather than fail the job, mirroring the
       # collect job's withhold-and-continue posture (minus its trigger-issue
@@ -641,7 +651,9 @@ jobs:
       - name: Upload the transcript
         # Gated on the scan, not on the labeling step's outcome: a
         # gate-refusing run (sub-80% agreement) is as diagnostic as a
-        # no-output one. `!cancelled()` covers every path the action survives;
+        # no-output one. `!cancelled()` covers every path the action survives
+        # and the scan gate carries the pristine condition transitively — a
+        # rejected tree forfeits its transcript;
         # the hard step-timeout kill is the one path with no execution file to
         # capture, and the step below says so.
         if: ${{ !cancelled() && steps.transcript_scan.outcome == 'success' }}

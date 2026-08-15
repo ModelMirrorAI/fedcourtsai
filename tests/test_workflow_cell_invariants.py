@@ -260,7 +260,7 @@ def test_the_predict_cell_records_retrieval_mode_from_its_context() -> None:
 
 
 def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
-    """The transcript artifact contract: captured always, scanned first, 1-day.
+    """The transcript artifact contract: captured on clean trees, scanned first, 1-day.
 
     The labeler's turn-by-turn transcript is the only record of *how* a
     no-output run failed, and it embeds the QP text the agent read — so it must
@@ -278,6 +278,11 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     # tampered checkout forfeits its transcript artifact.
     pristine = next(s for s in steps if s.get("id") == "pristine")
     assert "assert the tree is pristine" in pristine["name"]
+    # The assertion must record a real outcome even on a labeler failure — a
+    # skipped step's outcome reads as not-success, which would silently
+    # forfeit the transcript on the failed runs the capture exists for.
+    assert "!cancelled()" in pristine["if"]
+    assert steps.index(pristine) < steps.index(scan)
     assert "steps.pristine.outcome == 'success'" in scan["if"]
     assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
     assert "scan-diff-for-secrets" in scan["run"]
