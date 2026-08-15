@@ -149,15 +149,28 @@ _SNIPPET_PAD = 40
 #     petitioner to expedite consideration of the petition ... in the event the
 #     petition is granted filed."); this shape fabricated a real corpus row's
 #     grant, with the motion's filing date as the "decision" date;
-#   - the order *on an expedite motion* — the sentence opens with a motion word
-#     and recites the petition as the object of "consideration of", so the
-#     trailing verb grants/denies expedition, not the petition. The guard needs
-#     both conditions: a legitimate compound order also opens with a motion
-#     word ("The motion to expedite and the petition ... are GRANTED." — a real
-#     grant, conjunctive subject) and the Rule 39.8 compound opens with "The
-#     motion for leave ..." — neither contains "consideration of".
+#   - the order *on a motion about the petition* — the sentence's subject is a
+#     motion and it recites the petition as the object of "consideration of", so
+#     the trailing verb grants/denies the motion, not the petition ("Joint motion
+#     to defer consideration of the petition for a writ of certiorari GRANTED.",
+#     "Motion ... to expedite consideration of the petition ... granted"). The
+#     guard needs both conditions: a legitimate compound order also opens with a
+#     motion word ("The motion to expedite and the petition ... are GRANTED." —
+#     a real grant, conjunctive subject), the Rule 39.8 compound opens with "The
+#     motion for leave ...", and the stay-treated-as-cert grant opens with "The
+#     application ..." — none of the three contains "consideration of".
+# The motion word carries an optional short qualifier ("Joint motion", "Consent
+# motion", "Petitioner's motion") — up to two qualifier words after an optional
+# leading article, so "The unopposed joint motion ..." still anchors. The bound
+# is what keeps the anchor meaning *the sentence's subject is a motion* rather
+# than "a motion is mentioned somewhere ahead of the disposition word". The
+# qualifier class admits both apostrophes the clerk types — ASCII and the
+# typographic U+2019 — so a possessive qualifier counts as one word rather than
+# splitting the bound.
 _FILED_RECITAL_RE = re.compile(r"\bfiled\s*\.?\s*$", re.IGNORECASE)
-_MOTION_OPEN_RE = re.compile(r"^\s*(?:the\s+)?(?:motion|application)\b", re.IGNORECASE)
+_MOTION_OPEN_RE = re.compile(
+    r"^\s*(?:the\s+)?(?:[\w'\u2019-]+\s+){0,2}?(?:motions?|applications?)\b", re.IGNORECASE
+)
 _CONSIDERATION_RE = re.compile(r"\bconsideration of\b", re.IGNORECASE)
 # Candidate sentence boundaries; a semicolon counts so a trailing "...filed"
 # clause never swallows the genuine order before it ("Petition GRANTED;
@@ -276,7 +289,7 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
 
     ``None`` when no order language matches — the caller's cue that the text
     carries no machine-readable cert disposition. A match inside a non-order
-    sentence (a filing recital, an expedite-motion order) is skipped and the
+    sentence (a filing recital, an order on a motion about the petition) is skipped and the
     scan continues, so a later genuine order in the same entry still reads.
     """
     for pattern, disposition, label in _ENTRY_SIGNALS:
@@ -350,7 +363,7 @@ def dissent_from_denial(text: str) -> bool:
 
     The entry's **own disposition** is the guard, read through
     :func:`match_disposition_signal` so the module's non-order-sentence rejects
-    (a filing recital, an expedite-motion order) apply here unchanged: an entry
+    (a filing recital, an order on a motion about the petition) apply here unchanged: an entry
     whose order is a grant, a GVR or a dismissal records no dissent *from a
     denial*, whatever separate writings it also notes, so it reads False. An
     entry carrying no disposition at all — the statement filed on its own line —

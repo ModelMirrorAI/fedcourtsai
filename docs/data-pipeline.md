@@ -624,8 +624,10 @@ or network.
   on every scheduled window): it runs `fedcourts refresh-historical --apply`
   after the pull and before the loop, clearing the named Terms' cursors so the
   reset and the re-walk it implies are one serialized operation under the
-  `corpus-write` lock. Re-walking **adds** — every re-served docket upserts
-  through the same latches, so nothing is deleted and `case_id` never moves.
+  `corpus-write` lock. Re-walking **adds rows** — every re-served docket upserts
+  through the same latches, so no row is deleted and `case_id` never moves — but
+  an unlatched column takes the fresh parse, so a tightened parser retracts a
+  stale reading as well as adding a missed one (`docs/cli.md`).
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
