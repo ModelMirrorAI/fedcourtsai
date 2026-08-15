@@ -381,7 +381,7 @@ class FlagSeverity(StrEnum):
 
 
 class SemanticSupport(StrEnum):
-    """How far the opinion supports one declared semantic claim — the ``semantic-v0`` grade.
+    """How far the opinion supports one declared semantic claim — the ``semantic-v1`` grade.
 
     A small closed vocabulary on purpose: the grade is read by a human-or-model
     grader rather than resolved in code, so every level the vocabulary adds is a
@@ -399,7 +399,7 @@ class SemanticSupport(StrEnum):
     counted, never ranked and never scored, exactly as a masked mechanical claim
     is (``ClaimScore.outcome`` null).
 
-    ``semantic-v0`` is **alpha** — provisional, unproven against opinion text,
+    ``semantic-v1`` is **alpha** — provisional, unproven against opinion text,
     and explicitly not a pre-registered commitment in the sense ``cert-v1`` and
     ``merits-v1`` are. Nothing produces a grade today, so nothing published
     depends on this vocabulary; see ``docs/outcome-decomposition.md``, *The
@@ -724,11 +724,10 @@ class SemanticClaim(_Strict):
     family, alpha*, is the design authority.
 
     The set is the harness's exactly as the mechanical set is
-    (``fedcourtsai.pipeline.semantic``). **No stage declares one today**, so no
-    committed prediction carries this block; the field exists so that turning
-    the family on is a declaration plus a prompt that asks for it, rather than
-    a new shape. One piece is still owed on this side and named in
-    ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike
+    (``fedcourtsai.pipeline.semantic``): the merits moments declare
+    ``semantic-v1``. **No prompt asks a cell for one**, so no committed
+    prediction carries this block. One piece is still owed on this side and
+    named in ``docs/outcome-decomposition.md``, *What remains unbuilt*: unlike
     ``Prediction.claims``, nothing yet holds this list to the declared set, so
     the mandatory-set discipline binds graders and not predictors.
     """
@@ -854,9 +853,9 @@ class Prediction(_Strict):
         "`claim_score` — a semantic claim has no harness-computable prior, so "
         "the mechanical rule's baseline requirement cannot be met and the family "
         "reports grades descriptively instead. Null on every committed "
-        "prediction: the declaration tables are empty (`semantic-v0` is alpha, "
-        "and no opinion body is ingested to ground a claim against), so no cell "
-        "is asked for one.",
+        "prediction: the merits moments declare `semantic-v1`, but it is alpha "
+        "and no opinion body is ingested to ground a claim against, so no "
+        "prompt asks a cell for one.",
     )
 
     @model_validator(mode="after")
@@ -1267,17 +1266,20 @@ class SemanticGradeBlock(_Strict):
     *is* is fixed by ``docs/outcome-decomposition.md``, *The semantic family,
     alpha*.
 
-    **Alpha, and inert.** ``semantic-v0`` is provisional and unproven against
-    opinion text — not a pre-registered commitment in the sense ``cert-v1`` and
-    ``merits-v1`` are. No stage declares a semantic set, no prompt asks for one,
-    and so no committed evaluation carries this block and no published number
-    depends on it. The first set actually put to work arrives as ``semantic-v1``
-    with its own review; supersession is the expected path, not an exception.
+    **Alpha, and producing nothing.** ``semantic-v1`` is provisional and
+    unproven against opinion text — not a pre-registered commitment in the sense
+    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it, but no
+    prompt asks a grader for it and no opinion body is ingested to grade
+    against, so no committed evaluation carries this block and no published
+    number depends on it. Supersession by a set formed with text in hand is the
+    expected path, not an exception.
     """
 
     declared_set_version: str = Field(
         description="The semantic claim-set declaration these rows answer, e.g. "
-        "'semantic-v0' — the versioned constant in `fedcourtsai.pipeline.semantic`"
+        "'semantic-v1' — the versioned constant in `fedcourtsai.pipeline.semantic`. "
+        "Checked against the declaration and never overwritten: a block "
+        "answering another declaration is refused rather than relabelled"
     )
     grades: list[SemanticGrade] = Field(
         default_factory=list,
@@ -1436,8 +1438,9 @@ class Evaluation(_Strict):
         "with mechanical claim scores, and is never a rank key. Unlike "
         "`claim_scores` it is the grader's word by construction — a semantic "
         "claim needs a reader — which is why inter-grader agreement travels "
-        "beside any published grade. Null on every committed evaluation: no "
-        "stage declares a semantic set and no prompt asks for one.",
+        "beside any published grade. Null on every committed evaluation: the "
+        "merits moments declare `semantic-v1`, but no prompt asks a grader for "
+        "it and no opinion body is ingested to grade against.",
     )
     notes_doc: str = "evaluation.md"
     process_version: ProcessVersion | None = Field(
@@ -2587,19 +2590,19 @@ class SemanticGraderAgreement(_Strict):
 class SemanticGradeSummary(_Strict):
     """The descriptive roll-up of a set of semantic grades, with agreement beside it.
 
-    What the ``semantic-v0`` seam produces:
     :func:`fedcourtsai.pipeline.semantic.summarize_semantic_grades` builds it
-    from graded units and nothing else — no baseline, no score, no total. There
-    is no such artifact under ``metrics/`` and no cell produces a grade to feed
-    one; this is the shape a future surface would publish, exercised now
-    against synthetic grades so the plumbing is proven before real ones exist.
+    from graded units and nothing else — no baseline, no score, no total, and
+    ``fedcourts semantic-summary`` is what publishes it. It publishes
+    **conditionally**: an artifact is written under ``metrics/`` only where the
+    pooled census clears the floor, so no committed artifact carries one today
+    and none is required to.
 
     Two of the rules it publishes under it cannot enforce for itself, because a
     graded unit carries neither label: ``stratum`` and ``process_scope`` are
     the caller's word. Nothing marks a census unpublishable — a null is the
     only signal there is — and an undeclared census is not publishable.
 
-    **Alpha.** ``semantic-v0`` is provisional and unproven against opinion text,
+    **Alpha.** ``semantic-v1`` is provisional and unproven against opinion text,
     explicitly not a pre-registered commitment in the sense ``cert-v1`` and
     ``merits-v1`` are (``docs/outcome-decomposition.md``, *The semantic family,
     alpha*). What may and may not be read off a grade is ``metrics/README.md``'s.
@@ -2635,6 +2638,16 @@ class SemanticGradeSummary(_Strict):
         "other way",
     )
     cells: int = Field(default=0, ge=0, description="Distinct graded cells behind these counts")
+    cases: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cases behind these counts — the **opinions** the "
+        "census actually rests on, and the denominator that bounds it. One "
+        "opinion backs a cell per predictor per moment, and every claim in the "
+        "set is read off that same opinion in one pass, so `units` and even "
+        "`cells` can clear a threshold on a single opinion. A reader who wants "
+        "to know how much independent reading is behind a share reads this",
+    )
     units: int = Field(
         default=0,
         ge=0,
