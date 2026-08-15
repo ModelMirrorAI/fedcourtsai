@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai import process_version
@@ -41,6 +42,7 @@ from fedcourtsai.schemas import (
     Evaluation,
     EventKind,
     Leaderboard,
+    LeaderboardEntry,
     Moment,
     Outcome,
     PredictableEvent,
@@ -1702,6 +1704,224 @@ def test_the_collapse_runs_inside_the_scope_it_is_read_under(
     # Pooled, the re-grade is in scope and supersedes.
     pooled = iter_stratified_evaluations(data_root, frozen_only=False)
     assert [ev.run_id for ev, *_ in pooled] == ["r2"]
+
+
+def test_the_board_publishes_how_many_gradings_the_collapse_dropped(tmp_path: Path) -> None:
+    """A re-grade leaves no other mark, so the count is the whole audit trail.
+
+    Every figure on the board is taken after the collapse, and the survivor
+    carries nothing saying it superseded anything — so without this count a
+    maintainer-reachable re-grade could move a standing with no published
+    trace that it happened.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", correct=1, process_version=_graded_at(1)),
+    )
+    _write(data_root, _evaluation("alpha", run_id="r2", correct=0, process_version=_graded_at(2)))
+
+    run = stratify(data_root, frozen_only=False)
+    board = build_leaderboard(run.cells, superseded_gradings=run.superseded)
+
+    assert run.superseded == 1
+    assert board.superseded_gradings == 1
+    # And it is an audit line beside the counts, never a term inside them.
+    assert board.evaluations_total == 1
+
+
+def test_a_second_judge_is_not_a_superseded_grading(tmp_path: Path) -> None:
+    # The collapse never crosses evaluators, so neither may its count: a panel
+    # reading one cell is several observations, not a re-grade.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    assert stratify(data_root, frozen_only=False).superseded == 0
+
+
+def test_the_superseded_count_is_scoped_like_the_board_it_sits_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Counted after the scope gate, exactly where the collapse runs.
+
+    A re-grade the frozen scope excludes never displaces the frozen grading,
+    so it superseded nothing *on that board* and must not appear in its audit
+    line — while the pooled board, which the re-grade is in scope for, counts
+    it. One ledger, two honest numbers.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_frozen_stamp()),
+        process_version=_frozen_stamp(),
+    )
+    # Unstamped: newer on the clock, but outside the frozen scope.
+    _write(data_root, _evaluation("alpha", run_id="r2"))
+
+    assert stratify(data_root).superseded == 0
+    assert stratify(data_root, frozen_only=False).superseded == 1
+
+
+def test_the_superseded_count_is_taken_before_the_forward_claim_exclusion(
+    tmp_path: Path,
+) -> None:
+    """Its population is the scope gate's, which is wider than the board's.
+
+    The count is taken where the collapse runs, and the forward-claim exclusion
+    runs after — so a supersession of a cell the exclusion then drops is
+    counted while the cell itself reaches no block. That is a live population
+    statement the published contract makes, and it must fail here if the count
+    ever moves behind the exclusion.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_graded_at(1)),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+    _write(data_root, _evaluation("alpha", run_id="r2", process_version=_graded_at(2)))
+
+    run = stratify(data_root, frozen_only=False)
+    board = build_leaderboard(run.cells, process_scope="all", superseded_gradings=run.superseded)
+
+    assert len(run.excluded) == 1
+    assert run.cells == []
+    assert (board.predictors_ranked, board.evaluations_total) == (0, 0)
+    assert board.superseded_gradings == 1
+
+
+def test_unequal_scored_set_coverage_is_readable_off_the_board(tmp_path: Path) -> None:
+    """The per-predictor coverage row: a differential scored set is visible.
+
+    Grading is gated per event, so a predictor whose cells landed after its
+    events were graded is ranked over a subset of the board's scored events.
+    The board's own count is the union — never the sum — so an entry below it
+    was ranked over a different population than one at it.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-b"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.events_scored == 2
+    coverage = {entry.predictor_id: entry.events_scored for entry in board.entries}
+    assert coverage == {"alpha": 2, "beta": 1}
+
+
+def test_coverage_counts_events_not_gradings(tmp_path: Path) -> None:
+    """A second judge deepens the panel; it does not widen the scored set.
+
+    Counting gradings here would make panel depth read as coverage, and a
+    predictor that drew two judges on one event would appear to cover twice the
+    ground of one that drew a single judge on the same event.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    (entry,) = board.entries
+    assert (board.events_scored, entry.events_scored) == (1, 1)
+    forward = entry.forward
+    assert forward is not None
+    # Equal coverage over unequal panel depth is exactly the residual the
+    # coverage check does not certify, so the two counts must stay distinct.
+    assert forward.evaluations == 2
+
+
+def test_a_coverage_denominator_below_its_entries_is_refused() -> None:
+    """The comparability check must not be able to fail open.
+
+    It reads `entry.events_scored < covered`, so a denominator left below its
+    entries reports every entry as fully covered — silence that looks exactly
+    like even coverage. An entry's events are a subset of the union, so the
+    shape is unreachable from real cells and the model refuses it outright.
+    """
+    entry = LeaderboardEntry(predictor_id="alpha", rank=1, evaluators=1, events_scored=3)
+    with pytest.raises(ValidationError, match="events_scored 1 is below alpha's 3"):
+        Leaderboard(predictors_ranked=1, evaluations_total=3, events_scored=1, entries=[entry])
+
+
+def test_a_stage_block_denominates_its_own_coverage(tmp_path: Path) -> None:
+    # A non-cert population is scored on its own events, so pooling it into the
+    # cert denominator would make every stage entry read as short coverage.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id=_MERITS_EVENT_ID), stage=Stage.merits)
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.events_scored == 1
+    merits = board.stages[stage_moment_key(Stage.merits, first_moment(Stage.merits))]
+    assert merits.events_scored == 1
+    assert [entry.events_scored for entry in merits.entries] == [1]
+
+
+def test_cli_warns_when_the_scored_sets_are_unequal(tmp_path: Path) -> None:
+    # The hazard has to be loud at build time: a reader comparing two engines
+    # off this board must not have to subtract the coverage counts to find out
+    # that the comparison is over different populations.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-b"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "leaderboard [cert]: unequal scored-set coverage" in result.output
+    assert "beta 1/2" in result.output
+
+
+def test_cli_warns_per_population_not_against_the_cert_union(tmp_path: Path) -> None:
+    """A stage block is warned on against its own denominator.
+
+    Measuring a merits entry against the cert union would report short coverage
+    for every non-cert entry there is — the populations are scored on different
+    events, so only a within-population comparison means anything.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("alpha", event_id=_MERITS_EVENT_ID), stage=Stage.merits)
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    # Both cert entries cover the cert set; the merits block holds one predictor
+    # covering its one event. Neither population is short, and `beta`'s absence
+    # from the merits block is not a coverage shortfall in it.
+    assert "unequal scored-set coverage" not in result.output
+
+
+def test_cli_stays_quiet_when_every_predictor_covers_the_scored_set(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    _write_cell(data_root, _evaluation("beta", event_id="evt-a"))
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(tmp_path / "leaderboard.json"), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "unequal scored-set coverage" not in result.output
 
 
 def _write_big_case_read(

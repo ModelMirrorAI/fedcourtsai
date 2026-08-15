@@ -2,6 +2,7 @@
   "entries": [],
   "evaluations_total": 0,
   "evaluator_agreement": {},
+  "events_scored": 0,
   "forward_claim": {
     "by_predictor": {},
     "claimed_forward": 0,
@@ -24,5 +25,6 @@
   "procedural_evaluations": 0,
   "process_scope": "frozen",
   "retrospective_evaluations": 0,
-  "schema_version": "1.0"
+  "schema_version": "1.0",
+  "superseded_gradings": 0
 }

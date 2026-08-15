@@ -319,9 +319,13 @@ def event_has_evaluations(
     per (case, event, predictor, evaluator), newest by harness clock
     (:func:`fedcourtsai.integrity.latest_evaluation_runs`), so a re-grade
     supersedes rather than double-counts. What the coarse grain buys is the
-    spend, and what it costs is a visible coverage gap — a prediction with no
-    evaluation, findable by a ledger scan — so moving to the per-predictor
-    grain is a decision about run cost, taken on its own.
+    spend, and what it costs is a coverage gap that falls *differentially* — an
+    engine whose cells backfill late accumulates fewer scored events than one
+    that ran on time. The leaderboard publishes the relative half of that gap
+    (each entry's ``events_scored`` against its population's union, warned on
+    at build time), leaving the absolute half — a prediction with no evaluation
+    at all — to a ledger scan. So moving to the per-predictor grain is a
+    decision about run cost, taken on its own.
     """
     root = CasePaths(data_root, court, docket).event(event_id).base / "evaluations"
     return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))

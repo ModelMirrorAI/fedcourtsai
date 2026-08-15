@@ -9,6 +9,7 @@ agents and Codex ``--output-schema`` can target them directly.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Final, Literal, get_args
@@ -1913,6 +1914,24 @@ class LeaderboardEntry(_Strict):
     predictor_id: str
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
+    events_scored: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs this predictor was scored on, "
+        "pooled across its strata — the numerator of the coverage check the "
+        "board-level `events_scored` denominates. Carried on the entry so the "
+        "comparison against that denominator is one column read rather than a "
+        "sum over three nullable stratum blocks (the sum does reproduce it: a "
+        "predictor's strata partition its events). The check is needed because "
+        "the scored set is *selected*, not sampled: grading is gated at "
+        "`(evaluator, event)` grain, so a prediction committed after a judge "
+        "graded its event is never scored by that judge, and an engine whose "
+        "cells backfill late accumulates systematically fewer scored events. "
+        "Two entries at unequal coverage rank over different populations, and "
+        "no figure on this board adjusts for that. Equal coverage is necessary "
+        "and not sufficient: it certifies the same event set, never the same "
+        "stratum mix or panel depth — read each stratum's `evaluations` and "
+        "this entry's `evaluators` beside it (metrics/README.md)",
+    )
     forward: LeaderboardStratum | None = Field(
         default=None,
         description="True forward forecasts — the event was unresolved when the "
@@ -1954,6 +1973,12 @@ class LeaderboardStageEntry(_Strict):
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
     )
+    events_scored: int = Field(
+        ge=0,
+        description="Distinct (case, event) pairs this predictor was scored on in "
+        "this stage — read against the block's own `events_scored`, exactly as a "
+        "ranked entry's is read against the board's",
+    )
     forward: LeaderboardStratum | None = Field(
         default=None,
         description="This stage's true forward forecasts; null when this "
@@ -1969,6 +1994,27 @@ class LeaderboardStageEntry(_Strict):
         description="This stage's mootness-basis cells; null when this predictor "
         "has none in the stage.",
     )
+
+
+def _check_coverage_denominator(
+    covered: int, entries: Sequence[LeaderboardEntry | LeaderboardStageEntry]
+) -> None:
+    """Reject a coverage denominator smaller than an entry it denominates.
+
+    The comparability check reads ``entry.events_scored < covered``, so a
+    denominator left below its entries makes every entry look fully covered and
+    the check reports "coverage even" — failing **open**, which is the one shape
+    a comparability gate must not have. Each entry's events are a subset of the
+    population's union, so ``covered`` is at least the largest entry by
+    construction; a board that says otherwise was not built from its own cells.
+    """
+    for entry in entries:
+        if entry.events_scored > covered:
+            raise ValueError(
+                f"events_scored {covered} is below {entry.predictor_id}'s "
+                f"{entry.events_scored}: the population's figure is the union "
+                "over its entries and cannot be smaller than one of them"
+            )
 
 
 class LeaderboardStage(_Strict):
@@ -1988,6 +2034,14 @@ class LeaderboardStage(_Strict):
     """
 
     evaluations_total: int = Field(ge=0, description="Evaluations aggregated in this stage")
+    events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs any predictor was scored on in "
+        "this block — the coverage denominator its entries' own `events_scored` "
+        "are read against. A union, never a sum: two predictors scored on the "
+        "same event contribute one",
+    )
     forward_evaluations: int = Field(
         default=0, ge=0, description="This stage's forward-forecast evaluations"
     )
@@ -2002,6 +2056,11 @@ class LeaderboardStage(_Strict):
         description="Per-predictor aggregates, ordered by predictor_id — an "
         "ordering, not a ranking",
     )
+
+    @model_validator(mode="after")
+    def _coverage_denominates_its_entries(self) -> LeaderboardStage:
+        _check_coverage_denominator(self.events_scored, self.entries)
+        return self
 
 
 class FrozenProcessRecord(_Strict):
@@ -2141,6 +2200,45 @@ class Leaderboard(_Strict):
         description="Total cert-stage evaluations aggregated; each `stages` block "
         "carries its own counts, never pooled into these",
     )
+    events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct cert-stage (case, event) pairs any ranked predictor "
+        "was scored on — the coverage denominator each entry's own "
+        "`events_scored` is read against. A union, never a sum: two predictors "
+        "scored on the same event contribute one, so an entry at the board's "
+        "figure covers the whole scored set and one below it was ranked over a "
+        "subset. Equal coverage certifies the same event set and nothing more — "
+        "not stratum mix, not panel depth — so it can refuse a cross-engine "
+        "comparison but never bless one (metrics/README.md). Cert-stage like "
+        "the counts beside it; a `stages` block denominates its own",
+    )
+    superseded_gradings: int = Field(
+        default=0,
+        ge=0,
+        description="How many committed `evaluation.json` files the run collapse "
+        "dropped while building this board: gradings that passed the scope gate "
+        "but lost to a newer grading of the same (case, event, predictor, "
+        "evaluator). Re-grading is a maintainer-reachable operation, and with "
+        "the collapse in place it leaves no other mark — every count, mean and "
+        "correlation here is already post-collapse — so the number is published "
+        "beside the standings it could have moved rather than inferred from a "
+        "ledger scan. Never subtract it from any count on this board. Its "
+        "population is the **scope gate's**, which is this board's process "
+        "scope over a slightly wider set of cells: a `frozen` board counts only "
+        "supersessions among frozen-scope cells and an `all` board counts them "
+        "over every version, but the count is stage-blind (like "
+        "`forward_claim` — a superseded grading shares its survivor's stage, so "
+        "it spans the ranked board and every `stages` block at once, and must "
+        "never be netted against a stage-scoped total) and is taken *before* "
+        "the forward-claim exclusion, so a supersession of a cell the exclusion "
+        "then drops is counted while the cell reaches no block. The two "
+        "agreement views collapse separately, over their own scope, and are not "
+        "in this figure. `0` is a measured zero on any board `fedcourts "
+        "leaderboard` writes — the command always supplies the count — but a "
+        "board built before this field existed also reads `0`, so read it "
+        "beside `process_scope` and `evaluations_total`",
+    )
     procedural_evaluations: int = Field(
         default=0,
         ge=0,
@@ -2179,6 +2277,11 @@ class Leaderboard(_Strict):
         "into the cert board, and the key is omitted entirely while no such "
         "cell exists.",
     )
+
+    @model_validator(mode="after")
+    def _coverage_denominates_its_entries(self) -> Leaderboard:
+        _check_coverage_denominator(self.events_scored, self.entries)
+        return self
 
     @model_serializer(mode="wrap")
     def _omit_empty_optional_axes(self, handler: SerializerFunctionWrapHandler) -> Any:
