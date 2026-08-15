@@ -25,7 +25,10 @@ Two layers of checks:
   prose document a ``prediction.json`` names resolves to a file beside it; every
   committed claims block is one the claim scorer will not silently void; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
-  its ``judgment`` — the stage-aware half of the merits prediction contract.
+  its ``judgment`` — the stage-aware half of the merits prediction contract —
+  and no evaluation carries a ``vote_accuracy`` off a merits event, since an
+  individual cert vote is never scored and that field is the evaluator's own to
+  write.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -59,6 +62,7 @@ from .schemas import (
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
+    Evaluation,
     EventKind,
     LedgerValidation,
     PredictableEvent,
@@ -98,6 +102,7 @@ CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
+CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 
 # How long after its cert grant a merits proceeding may sit with neither a
@@ -814,6 +819,58 @@ def check_merits_predictions(data_root: Path) -> CorpusCheck:
     return _check(CHECK_MERITS_PREDICTIONS, problems, checked=checked)
 
 
+def check_scored_votes(data_root: Path) -> CorpusCheck:
+    """No committed evaluation may carry ``vote_accuracy`` off a merits event.
+
+    An individual cert vote is never scored (``docs/decision-model.md``), and
+    ``pipeline.moments.scores_votes`` enforces that wherever the harness computes
+    the figure. But on a real cell ``vote_accuracy`` is the *evaluator's* field to
+    write, like ``brier_score`` — the harness stamps only ``claim_scores`` and the
+    base-rate basis record — so the computed gate cannot speak for an agent that
+    wrote the number itself. The leaderboard refuses to aggregate such a value,
+    which keeps it out of every published total; this check refuses to let it be
+    committed at all, so the prohibition holds on the artifact and not merely on
+    the figures derived from it.
+
+    Read against the committed ``event.yaml`` rather than the moments register:
+    an ``evaluation.json`` does not carry its event's stage, and the ledger's
+    stage stamp is what a reader of the artifact sees. That makes this the same
+    shape as :func:`check_merits_predictions` — the schema holds what it can
+    self-contained, and the half needing the event definition lives here. A file
+    that does not parse is ``validate_ledger``'s concern (schema law) and is
+    skipped.
+
+    The directory test precedes the parse for the reason
+    :func:`check_merits_predictions` gives: most events carry no evaluations, and
+    ``validate data`` runs once per cell in both fan-outs.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        evaluations_root = event_file.parent / "evaluations"
+        if not evaluations_root.is_dir():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        if event.stage == Stage.merits:
+            continue
+        for path in sorted(evaluations_root.glob("*/*/*/evaluation.json")):
+            try:
+                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+            except (OSError, ValueError, ValidationError):
+                continue
+            checked += 1
+            if evaluation.vote_accuracy is not None:
+                problems.append(
+                    f"evaluation {path}: carries vote_accuracy on "
+                    f"{event.stage or 'stage-less'}-stage event {event.event_id!r} — "
+                    f"a vote is scored only on a merits event"
+                )
+    return _check(CHECK_SCORED_VOTES, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -885,6 +942,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
         check_merits_predictions(data_root),
+        check_scored_votes(data_root),
     ]
 
 
@@ -915,6 +973,7 @@ def _run_checks(
         check_prediction_docs(data_root),
         check_prediction_claims(data_root),
         check_merits_predictions(data_root),
+        check_scored_votes(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

@@ -33,6 +33,92 @@ CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
+A second such channel is planned and not yet adopted: the **Supreme Court
+Database** (SCDB) — the standing academic coding of every Supreme Court
+decision since the 1946 Term, and the only realistic route to per-Justice
+merits votes at scale. It is the channel [decision-model.md](decision-model.md)
+names as one that could populate `Outcome.votes` with the provenance block no
+docket text supports today. Its terms are why it is not adopted, and they are
+split across two hosts that do not agree:
+
+- **The current home states no license at all.**
+  [`scdb.la.psu.edu`](https://scdb.la.psu.edu/) is where the data is now
+  published, and none of its homepage, *About*, *Documentation*, *Data*,
+  current-release, or *Cite Us* pages carries a license, a terms-of-use
+  statement, or anything about redistribution. What they carry is a university
+  copyright footer — "Copyright ©2026 The Pennsylvania State University" — and
+  a citation request.
+- **The legacy host carries a badge and no sentence.** `scdb.wustl.edu` still
+  resolves and still serves the old site over plain HTTP (it refuses TLS, so it
+  is unreachable to any HTTPS-only client). That page carries a live
+  `rel="license"` badge linking
+  [CC BY-NC 3.0 US](https://creativecommons.org/licenses/by-nc/3.0/us/) —
+  Attribution-NonCommercial, with no ShareAlike and no NoDerivatives term. The
+  sentence that would have named the license in prose is **HTML-commented out**
+  and renders to nobody, so an image link is the whole of the declaration.
+- **Neither states terms for the release we would actually import.** A badge on
+  the superseded host is not a licence grant for the Penn State-published 2025
+  release, and the publishing host says nothing. **Treat the terms as unknown
+  rather than permissive**, and note that the more restrictive reading is the
+  safe one precisely because the permissive-looking evidence is the stale half.
+- **That is the blocker, and NC is why it matters.** Taking the badge at face
+  value, the question is not whether this pilot is commercial — unfunded
+  research over public records, publishing no paid product, is the easy case —
+  but that NC binds downstream reuse of everything derived under it, and this
+  pipeline is built as a durable evaluation harness rather than one paper. An
+  adoption decision has to answer that for the project's intended future. Since
+  the publishing host answers it neither way, adopting this channel means
+  **getting the terms in writing from the maintainers first**, not inferring
+  them from a commented-out caption on a host the project has moved off.
+- **Attribution is specific and versioned.** The project asks to be cited with
+  its full author list and the exact release, because the data is corrected and
+  extended in place: "Please be sure to include the specific Version Number;
+  e.g., 'Version 2024 Release 01' in your citation, as this will indicate the
+  particular version of the database being employed at the time of your
+  reference." The named authors are Harold J. Spaeth, Lee Epstein, Michael J.
+  Nelson, Andrew D. Martin, Jeffrey A. Segal, Theodore J. Ruger, and Sara C.
+  Benesh. The current release is **2025 Release 01** (1 September 2025, Terms
+  1946–2024), while the *Cite Us* page still prints the 2024 release — one more
+  reason adoption pins the release in the ingesting code and copies that exact
+  string into [`NOTICE`](../NOTICE) and the README credit rather than
+  paraphrasing it.
+- **Host and support.** Penn State: "a project of the Initiative on Legal
+  Institutions and Democracy in The McCourtney Institute for Democracy … made
+  possible with support from Washington University in St. Louis and the
+  National Science Foundation."
+
+**The redistribution question, answered rather than inferred.** SCDB-derived
+votes would *not* stay in the access-gated corpus the way CourtListener content
+does. They would resolve merits events, so they would land in **public git** as
+`data/cases/<court_id>/<docket_id>/events/<event_id>/outcome.json` — vote values
+plus a `vote_provenance` block naming the release, keyed to case ids and
+public-record docket numbers. That is a redistribution of SCDB's *coded values*,
+not merely a derived judgment over them, and it is a stronger claim on the
+upstream than anything in *What we redistribute* below, where the qp-topic
+artifacts republish no source text and prediction reasoning is original
+analysis. So this channel is the one place the public surface would carry
+another project's dataset, however thinly — which is precisely why the terms
+have to be settled before any value is written, and why an import that cannot
+cite a license should not run.
+
+**The join, decided.** **Docket number plus Term** is the primary join: the
+docket number is the one the Court itself assigned, the Term disambiguates its
+reuse across years, and the pair covers the corpus as it stands — SCDB
+publishes a docket-organized cut of both its case-centered and justice-centered
+files, so the join is against a shipped organization rather than a
+reconstruction. The U.S. Reporter citation (`usCite`) join is the more precise
+one and is deliberately **not** primary: it reaches only the corpus rows whose
+`citations` column is populated — a small minority, since the column fills only
+as the opinion-cluster enrichment backlog (*Pull cadence* below) works through
+the cert-granted slice, not from anything SCDB controls. It stays a confirmation
+path, not the key. Justice names normalize to the **entry-printed surnames** the
+authorship parser already reads — `pipeline.judgment.opinion_author`'s
+vocabulary — rather than to SCDB's justice-name or numeric justice-id variables,
+so a single spelling serves both the docket-derived authorship recital and any
+imported vote list. That parser is advisory today and takes one name token, so
+it would have to be hardened for multi-token surnames before it could be the
+normalization target in fact rather than in intent.
+
 Two layers of rights apply, and they are different:
 
 - **The underlying records are public.** Federal court opinions and docket data are
@@ -79,6 +165,12 @@ The automated consumer stays within CourtListener's published API limits by desi
 - **The supremecourt.gov channels spend no API budget** — the Court's
   site has no metered API; the client is simply polite (browser user-agent,
   ~1 request/second, backoff on errors).
+- **SCDB would spend none either.** It publishes no API — access is bulk file
+  download only, including CSV and Stata, offered as case-centered and
+  justice-centered cuts (each organized by citation, by docket, or by
+  issue/legal provision). So that channel's cost is a release pin and a
+  re-download when the release moves, not a request budget, and it competes
+  with nothing below.
 - **`pull` owns the CourtListener API budget**, throttled in-process
   (`courtlistener/ratelimit.py`) to the ceilings set in the prod environment
   (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
@@ -135,6 +227,10 @@ material**:
 - **Sealed, privileged, or otherwise sensitive material is never fed into the
   pipeline** — asserted in [SECURITY.md](../SECURITY.md) and restated here. The
   scope is public-record federal appellate and Supreme Court dockets only.
+- **A vote record raises no PII question.** The only people named in an SCDB
+  vote list are the Justices, acting as public officials in a published
+  decision; nothing about who they are is collected, and the values are their
+  official acts rather than personal data.
 
 This is a research project over public court records, not a people-search service;
 the design deliberately keeps the bulk personal data out of the public surface.

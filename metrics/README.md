@@ -85,9 +85,11 @@ stays outside the gate:
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`, with the committed `statpack.json` as a second input (the
   realized-Term skill column below is scored against it at build time): per
-  predictor, accuracy, mean Brier score, mean vote accuracy, a
-  mean reasoning-quality summary, and counts (events scored, evaluations,
-  evaluators), each reported **per stratum** — the `forward` and
+  predictor, accuracy, mean Brier score, mean vote accuracy — over the declared
+  **merits** moments and nothing else, because an individual cert vote is never
+  scored (`docs/decision-model.md`), so the ranked cert board carries no vote
+  mean — a mean reasoning-quality summary, and counts (events scored,
+  evaluations, evaluators), each reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
   never blended into one number, with only the timing strata ranked. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the

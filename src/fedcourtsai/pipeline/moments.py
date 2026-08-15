@@ -211,6 +211,35 @@ def declares(event_id: str, stage: Stage) -> bool:
     return spec is not None and spec.stage == stage
 
 
+def scores_votes(event_id: str) -> bool:
+    """Whether a per-Justice vote forecast for ``event_id`` may be scored at all.
+
+    True only where this table declares ``event_id`` a **merits** moment. Every
+    stage that declares a vote block elicits one; exactly one scores it. An
+    individual *cert* vote is never scored, however visible it happens to be: a
+    cert vote becomes public only when a Justice chooses to note it, so
+    observation is very nearly a deterministic function of the value being
+    scored and the deny-and-silent stratum has zero probability of observation —
+    no reweighting identifies it (`docs/decision-model.md`). The rule is
+    therefore structural, not a property of what a particular outcome record
+    contains, and it lives here because this table is the authority on an
+    event's stage.
+
+    Denial is the **default**, rather than the cert stage being named and the
+    rest allowed: an id the table does not declare — an entry-pinned event, a
+    record written before the table existed — has no stage this module can
+    state, so it cannot be shown not to be cert. The permissive fallback
+    :func:`spec_for` documents is the wrong one for a prohibition; a caller
+    reading a vocabulary loses nothing by falling back, while a guard that
+    falls back scores exactly the ids it cannot vouch for.
+
+    Expressed through :func:`declares` rather than re-reading the table, so the
+    equality-not-identity rule that function documents holds here by
+    construction instead of by inspection.
+    """
+    return declares(event_id, Stage.merits)
+
+
 def first_moment(stage: Stage) -> Moment | None:
     """``stage``'s ordinal-0 moment — what a null ``moment`` reads as.
 

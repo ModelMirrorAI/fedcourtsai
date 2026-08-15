@@ -26,9 +26,10 @@ from fedcourtsai.leaderboard import (
     evaluator_agreement,
     kendall_tau_b,
     skill_components,
+    stage_moment_key,
 )
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.moments import first_moment
+from fedcourtsai.pipeline.moments import first_moment, moments_for
 from fedcourtsai.schemas import (
     BaseRateBucket,
     BigCaseAssessment,
@@ -66,6 +67,12 @@ Cell = tuple[Evaluation, Stratum, Stage | None, Moment | None]
 #: fixture that names a stage cannot accidentally pair it with another stage's
 #: moment.
 _DERIVE: Any = object()
+
+#: The declared first moment of each stage that the vote gate turns on, read off
+#: the register: `vote_accuracy` aggregates only where the *event* is a merits
+#: moment, so a fixture asserting either side of that has to name a real id.
+_MERITS_EVENT_ID = moments_for(Stage.merits)[0].event_id
+_CERT_EVENT_ID = moments_for(Stage.cert)[0].event_id
 
 
 def _moment_for(stage: Stage | None, moment: Moment | None) -> Moment | None:
@@ -256,14 +263,78 @@ def test_ranking_orders_by_forward_then_retrospective() -> None:
 
 def test_missing_optionals_average_only_over_present() -> None:
     cells = [
-        _forward(_evaluation("alpha", brier_score=0.2, vote_accuracy=None, reasoning_quality=None)),
-        _forward(_evaluation("alpha", brier_score=None, vote_accuracy=0.5, reasoning_quality=0.6)),
+        _forward(_evaluation("alpha", brier_score=0.2, reasoning_quality=None)),
+        _forward(_evaluation("alpha", brier_score=None, reasoning_quality=0.6)),
     ]
     stratum = build_leaderboard(cells).entries[0].forward
     assert stratum is not None
     assert stratum.mean_brier_score == 0.2
-    assert stratum.mean_vote_accuracy == 0.5
     assert stratum.mean_reasoning_quality == 0.6
+
+
+def test_vote_accuracy_averages_only_over_present_on_the_merits_moment() -> None:
+    """The same missing-optional rule for the one column that carries a stage gate.
+
+    `vote_accuracy` aggregates like every other optional — over the cells that
+    report it, never zero-filled — but only where the moment scores votes, so
+    the population it averages over is pinned on the merits block rather than
+    the ranked cert board.
+    """
+    cells = [
+        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=None), Stage.merits),
+        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5), Stage.merits),
+    ]
+    block = build_leaderboard(cells).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    stratum = block.entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 2
+    assert stratum.mean_vote_accuracy == 0.5
+
+
+def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
+    """The stage gate at the aggregate, where the prohibition actually bites.
+
+    An individual cert vote is never scored (`docs/decision-model.md`), and the
+    board reads committed `Evaluation` records — so the per-cell gate cannot
+    speak for a record written before it existed or by an evaluator that
+    computed the field itself. A cert-moment evaluation carrying a populated
+    `vote_accuracy` still leaves the ranked board's `mean_vote_accuracy` null,
+    while the identical figure on the merits moment aggregates. Remove the gate
+    in `pipeline.moments.scores_votes` and the first assertion reads 0.5.
+    """
+    cert = _evaluation("alpha", event_id=_CERT_EVENT_ID, vote_accuracy=0.5)
+    ranked = build_leaderboard([_forward(cert)]).entries[0].forward
+    assert ranked is not None
+    assert ranked.evaluations == 1  # the cell still counts; only its votes do not
+    assert ranked.mean_vote_accuracy is None
+
+    merits = _evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5)
+    block = build_leaderboard([_forward(merits, Stage.merits)]).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    scored = block.entries[0].forward
+    assert scored is not None
+    assert scored.mean_vote_accuracy == 0.5
+
+
+def test_the_vote_gate_reads_the_cell_not_the_block_it_landed_in() -> None:
+    """The gate keys on the cell's own event, never on its block's stage.
+
+    An undeclared event stratified into the merits block is still denied: the
+    register is the authority on stage, and the join that placed the cell is
+    not. Without this the aggregate could be rewritten to trust the block —
+    cheaper, and wrong in exactly the direction the prohibition guards.
+    """
+    stray = _evaluation("alpha", event_id="evt-motion-stay", vote_accuracy=0.5)
+    block = build_leaderboard([_forward(stray, Stage.merits)]).stages[
+        stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    ]
+    stratum = block.entries[0].forward
+    assert stratum is not None
+    assert stratum.evaluations == 1  # the cell aggregates; only its votes do not
+    assert stratum.mean_vote_accuracy is None
 
 
 def test_all_optionals_absent_stay_none() -> None:

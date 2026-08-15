@@ -69,7 +69,7 @@ from .integrity import (
 )
 from .pipeline.base_rates import realized_band_rate
 from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
-from .pipeline.moments import first_moment
+from .pipeline.moments import first_moment, scores_votes
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
@@ -193,6 +193,17 @@ def _aggregate(
     column's population is left out of that column entirely rather than entered
     as a zero, and each column publishes its own ``*_scored`` denominator. The
     two are never combined — different baselines, different questions.
+
+    ``mean_vote_accuracy`` takes the same stage gate the per-cell figure does
+    (:func:`fedcourtsai.pipeline.moments.scores_votes`), applied here to the
+    cell's own event rather than inherited from the block it landed in. The
+    aggregate is what the prohibition on scoring a cert vote actually bites on —
+    a ranked total is the thing an unscored quantity must not reach — and this
+    board reads committed ``Evaluation`` records, including any written before
+    the per-cell gate existed or by an evaluator that computed the field itself.
+    So the ranked cert board cannot publish a vote mean whatever its cells
+    carry, and the recomputation is not a duplicate of the per-cell check but
+    the only one that holds over records this module did not produce.
     """
     if not evals:
         return None
@@ -220,7 +231,11 @@ def _aggregate(
         population_realized_term_skill_score=_skill_of_means(realized),
         realized_term_skill_scored=len(realized),
         mean_vote_accuracy=_mean(
-            [ev.vote_accuracy for ev in evals if ev.vote_accuracy is not None]
+            [
+                ev.vote_accuracy
+                for ev in evals
+                if ev.vote_accuracy is not None and scores_votes(ev.event_id)
+            ]
         ),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]

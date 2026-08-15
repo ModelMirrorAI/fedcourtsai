@@ -50,6 +50,7 @@ from fedcourtsai.validate import (
     CHECK_PREDICTION_DOCS,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
+    CHECK_SCORED_VOTES,
     CHECK_SNAPSHOT_NOT_FUTURE,
     CHECK_STALE_UNPARSED_GRANTS,
     check_ledger_events_in_git,
@@ -761,6 +762,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_PREDICTION_DOCS,
         CHECK_PREDICTION_CLAIMS,
         CHECK_MERITS_PREDICTIONS,
+        CHECK_SCORED_VOTES,
     }
     assert all(c.passed for c in checks)
 
@@ -1360,4 +1362,64 @@ def test_non_merits_events_are_outside_the_contract(tmp_path: Path) -> None:
     _write_event(data_root, "ca9", 1, "evt-motion-stay")
     _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
     check = _merits_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+# --- vote_accuracy_only_on_merits_events ---------------------------------------
+
+
+def _write_evaluation_with_votes(
+    data_root: Path, court: str, docket: int, event: str, *, vote_accuracy: float | None
+) -> None:
+    ep = CasePaths(data_root, court, docket).event(event)
+    evaluation = Evaluation(
+        case_id=f"{court}/{docket}",
+        event_id=event,
+        predictor_id="p1",
+        evaluator_id="e1",
+        engine=Engine.claude_code,
+        run_id="r1",
+        created_at=datetime(2026, 1, 3),
+        correct=1,
+        vote_accuracy=vote_accuracy,
+    )
+    write_json(ep.evaluation("e1", "p1", "r1"), evaluation)
+
+
+def _votes_check(data_root: Path) -> CorpusCheck:
+    return next(c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_SCORED_VOTES)
+
+
+def test_a_cert_stage_evaluation_scoring_votes_fails(tmp_path: Path) -> None:
+    """The guard the computed gate cannot supply: the evaluator writes this field.
+
+    `vote_accuracy` is the evaluator's own to write on a real cell, so an agent
+    can commit a scored cert vote that `pipeline.evaluate` never computed. The
+    leaderboard refuses to aggregate it; this refuses to let it be committed.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_evaluation_with_votes(data_root, "ca9", 1, "evt-motion-stay", vote_accuracy=0.5)
+    check = _votes_check(data_root)
+    assert not check.passed
+    assert any("a vote is scored only on a merits event" in p for p in check.problems)
+
+
+def test_a_non_merits_evaluation_without_a_vote_score_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_evaluation_with_votes(data_root, "ca9", 1, "evt-motion-stay", vote_accuracy=None)
+    check = _votes_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_merits_evaluation_may_score_votes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_merits_event(data_root)
+    _write_evaluation_with_votes(
+        data_root, "scotus", 22451, "evt-order-judgment", vote_accuracy=0.5
+    )
+    check = _votes_check(data_root)
+    # The merits event is skipped before its evaluations are read, so it is
+    # outside this check's population rather than a passing member of it.
     assert check.passed and check.checked == 0

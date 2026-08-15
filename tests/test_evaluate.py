@@ -5,10 +5,11 @@ holds the scorers and `segment_base_rate`, while `pipeline.base_rates` holds
 the pooled baselines those scorers are measured against. The baselines live in
 a leaf so the leaderboard can read them without importing the corpus-bound
 half; neither half means much without the other, so one file pins both.
-`is_correct` / `brier_score` / `vote_accuracy` are
-exercised through the runner and leaderboard suites; here we pin the baseline
-helpers, whose whole point is a *leakage-safe* skill score keyed on the
-salience band.
+`is_correct` / `brier_score` are exercised through the runner and leaderboard
+suites; here we pin the baseline helpers, whose whole point is a *leakage-safe*
+skill score keyed on the salience band — and `vote_accuracy`'s stage gate, which
+belongs beside them for the same reason: it is a leakage-shaped rule about which
+quantities may be scored at all, not a detail of the arithmetic.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from datetime import date, datetime
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, ids
 from fedcourtsai.pipeline.base_rates import (
     INTERIM_BASE_RATE_MIN_RESOLVED,
     MERITS_BASE_RATE_MIN_PARSED,
@@ -33,7 +34,9 @@ from fedcourtsai.pipeline.evaluate import (
     is_correct,
     judgment_correct,
     segment_base_rate,
+    vote_accuracy,
 )
+from fedcourtsai.pipeline.moments import moments_for, scores_votes
 from fedcourtsai.pipeline.salience import salience_band
 from fedcourtsai.schemas import (
     GRANT_FAMILY_DISPOSITIONS,
@@ -41,11 +44,13 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     Disposition,
     Engine,
+    EventKind,
     Judgment,
     JusticeVote,
     Outcome,
     Prediction,
     PredictionContext,
+    Stage,
     StatPack,
     StatPackInterim,
     StatPackInterimTerm,
@@ -978,6 +983,78 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
     # comparison is unchanged — the path every committed evaluation took.
     assert is_correct(_prediction(0.9), _outcome(1)) == 1
     assert is_correct(_prediction(0.1), _outcome(1)) == 0
+
+
+# --- vote_accuracy: the stage gate on the one quantity that has one --------------
+
+#: One vote list, reused on both sides of every gate case below, so the only
+#: thing that varies between a scored 1.0 and a null is the event's stage.
+_VOTES = [JusticeVote(justice="roberts", vote=VoteValue.majority)]
+
+
+def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
+    """A prediction and an outcome on ``event_id``, both naming the same vote.
+
+    Deliberately identical apart from the event: handed to `vote_accuracy` these
+    would score a perfect 1.0 on their intersection, so a null can only come
+    from the gate.
+    """
+    prediction = _merits_prediction(Judgment.reversed).model_copy(
+        update={"event_id": event_id, "votes": _VOTES}
+    )
+    outcome = _merits_outcome(Judgment.reversed).model_copy(
+        update={"event_id": event_id, "votes": _VOTES}
+    )
+    return prediction, outcome
+
+
+def test_vote_accuracy_scores_the_declared_merits_moments() -> None:
+    for spec in moments_for(Stage.merits):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert vote_accuracy(prediction, outcome) == 1.0, spec.event_id
+
+
+def test_vote_accuracy_is_never_scored_at_the_cert_stage() -> None:
+    """The pre-registered prohibition, made structural.
+
+    A cert vote becomes public only when a Justice chooses to note it, so
+    observation is very nearly a deterministic function of the value being
+    scored and the deny-and-silent stratum can never be reweighted into view
+    (`docs/decision-model.md`). The rule is therefore *never score*, whatever a
+    record happens to contain — so a cert-moment pair that names the very same
+    vote on both sides scores nothing at all. Remove the gate in
+    `pipeline.moments.scores_votes` and every assertion here reads 1.0.
+    """
+    for spec in moments_for(Stage.cert):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert prediction.votes and outcome.votes, spec.event_id
+        assert vote_accuracy(prediction, outcome) is None, spec.event_id
+
+
+def test_vote_accuracy_is_denied_by_default_off_the_register() -> None:
+    """An id the moments table cannot place scores no votes either.
+
+    Denial is the default rather than the cert stage being named: the register
+    is the only authority on an event's stage, so an id it does not declare —
+    an entry-pinned event, a record older than the table — is one that cannot be
+    shown *not* to be cert.
+    """
+    undeclared = ids.event_id(EventKind.appeal.value, "disposition")
+    assert not scores_votes(undeclared)
+    prediction, outcome = _voting_pair(undeclared)
+    assert vote_accuracy(prediction, outcome) is None
+
+
+def test_vote_accuracy_is_not_scored_at_the_interim_stage() -> None:
+    """Declared, and still unscored — for a plainer reason than the cert rule.
+
+    An interim moment is on the register, so this is not the deny-by-default
+    fallback: the stage simply forecasts no votes, and admitting only merits
+    moments is what makes that hold without a second rule.
+    """
+    for spec in moments_for(Stage.interim):
+        prediction, outcome = _voting_pair(spec.event_id)
+        assert vote_accuracy(prediction, outcome) is None, spec.event_id
 
 
 def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> None:

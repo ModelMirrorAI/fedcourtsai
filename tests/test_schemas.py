@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai.pipeline.evaluate import brier_score, is_correct, vote_accuracy
+from fedcourtsai.pipeline.evaluate import brier_score, is_correct
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -227,7 +227,6 @@ def test_scoring() -> None:
     )
     assert is_correct(pred, outcome) == 1
     assert brier_score(pred, outcome) == pytest.approx(0.0625)
-    assert vote_accuracy(pred, outcome) == 1.0
 
 
 def test_is_correct_treats_gvr_as_a_distinct_label_but_a_grant_for_brier() -> None:
