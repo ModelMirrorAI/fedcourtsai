@@ -133,13 +133,19 @@ def prediction_base_rate(
     and reading the terminal rate against a frozen band would understate it
     several-fold in the weak bands. Neither half is correct alone.
 
-    ``None`` when there is no frozen context, when the snapshot disclosed no
-    proceedings so no band could be derived, or when no prior Term carries the
-    band **under the version that assigned it** (the harness stamps
-    ``salience_version`` whenever it derives a band, so a versionless band never
-    arrives from a cell) — the caller then falls back to
-    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`, which is honest
-    rather than invented.
+    ``None`` three ways, and the caller's answer is **not** the same in all
+    three. Where there is no frozen context, or the snapshot disclosed no
+    proceedings so no band could be derived, nothing is being conditioned on and
+    the caller legitimately falls back to
+    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate` — the terminal band
+    and the terminal rate, which at least agree with each other. Where a band
+    *is* frozen but no prior Term carries it **under the version that assigned
+    it**, there is no fallback: the answer is no baseline at all. Relabelling
+    that cell terminal would pair a risk-set population with a terminal rate and
+    stamp the live scorer's version onto a band an older one assigned, which is
+    the mispairing this pairing exists to prevent (``docs/salience.md``). (The
+    harness stamps ``salience_version`` whenever it derives a band, so a
+    versionless band never arrives from a cell in the first place.)
     """
     if (
         context is None

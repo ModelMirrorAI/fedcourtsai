@@ -281,18 +281,23 @@ class StubRunner:
         ]
 
     @staticmethod
-    def _semantic_grades(event_id: str) -> SemanticGradeBlock | None:
+    def _semantic_grades(prediction: Prediction) -> SemanticGradeBlock | None:
         """The stub's grades: the availability mask on every declared claim.
 
         Not a canned convenience but the honest grade. Both ``semantic-v1``
         claims require a majority opinion body, the fixture corpus holds none,
         and the grading protocol says the mask's first ground is exactly that —
         so a stub that graded on the ordinal scale would be inventing a reading
-        of a document that does not exist. The ``basis`` names which of the two
-        mask grounds applied, as the protocol requires.
+        of a document that does not exist. The ``basis`` names which mask ground
+        applied, as the protocol requires.
+
+        ``None`` where the scored prediction carries **no** ``semantic_claims``
+        block, which is the prompt's own rule: such a cell most likely ran under
+        a process that never asked for the set, and grading absent propositions
+        would enter a negative against a predictor never asked the question.
         """
-        declared = declared_semantic_claim_set(event_id)
-        if declared is None:
+        declared = declared_semantic_claim_set(prediction.event_id)
+        if declared is None or prediction.semantic_claims is None:
             return None
         set_version, specs = declared
         return SemanticGradeBlock(
@@ -365,7 +370,7 @@ class StubRunner:
                 judgment_correct=judgment_correct(prediction, outcome),
                 vote_accuracy=vote_accuracy(prediction, outcome),
                 reasoning_quality=_STUB_REASONING_QUALITY,
-                semantic_grades=self._semantic_grades(request.event_id),
+                semantic_grades=self._semantic_grades(prediction),
             )
             dir_ = events.evaluation_dir(request.actor_id, predictor_id, request.run_id)
             json_path = events.evaluation(request.actor_id, predictor_id, request.run_id)

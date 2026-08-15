@@ -2555,8 +2555,10 @@ def _fail_on_unversioned_risk_set(
             + "frozen context on its latest one, or no `salience_version` in that "
             + "context. A risk-set base rate is banded under the scored prediction's "
             + "frozen `context.salience_version`, so a basis recorded without one names "
-            + "a population nothing pins down: the cell needed the terminal basis (the "
-            + "documented fallback) or no segment base rate at all.",
+            + "a population nothing pins down. Where the join simply missed, the cell "
+            + "needed the terminal basis; where the scored prediction froze a band with "
+            + "no version beside it, the terminal basis is wrong too and the cell needed "
+            + "no segment base rate at all.",
             err=True,
         )
     raise typer.Exit(code=1)

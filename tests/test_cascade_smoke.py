@@ -37,7 +37,12 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SUMMARY_ROUTE,
 )
-from fedcourtsai.pipeline.semantic import graded_units, ordinal
+from fedcourtsai.pipeline.semantic import (
+    SEMANTIC_MERITS_V1,
+    SEMANTIC_SET_V1,
+    graded_units,
+    ordinal,
+)
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -297,8 +302,7 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     # one — with a proposition per claim and no probability anywhere in it.
     assert prediction.semantic_claims is not None
     assert [c.claim_id for c in prediction.semantic_claims] == [
-        "majority-ground",
-        "ground-breadth",
+        spec.claim_id for spec in SEMANTIC_MERITS_V1
     ]
 
     # Scored on the merits axes: the stub's affirmed/0.0 floor against a
@@ -319,14 +323,12 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     # availability mask: both claims require a majority opinion and the fixture
     # corpus holds none, so the block accumulates while the census stays empty.
     assert evaluation.semantic_grades is not None
-    assert evaluation.semantic_grades.declared_set_version == "semantic-v1"
+    assert evaluation.semantic_grades.declared_set_version == SEMANTIC_SET_V1
     assert [g.grade for g in evaluation.semantic_grades.grades] == [
-        SemanticSupport.not_addressed,
-        SemanticSupport.not_addressed,
-    ]
-    assert graded_units(evaluation) and all(
-        ordinal(u.grade) is None for u in graded_units(evaluation)
-    )
+        SemanticSupport.not_addressed
+    ] * len(SEMANTIC_MERITS_V1)
+    units = graded_units(evaluation)
+    assert units and all(ordinal(u.grade) is None for u in units)
 
     # The leaderboard build puts the cell in the unranked `merits@grant`
     # stages block — the event's moment stamp survives resolution, so the cell

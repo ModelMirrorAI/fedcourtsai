@@ -82,8 +82,9 @@ the workflow places them for your run:
    band is a cert construct, so neither an **interim** nor a **merits** cell reaches for
    it whether or not a band happens to be frozen. Each of those stages has an
    anchor of its own, keyed on its own population: an interim cell's is the
-   pack's interim-docket base rate and a merits cell's is the pack's merits
-   section (*Stage: interim* and *Stage: merits* below).
+   pack's interim-docket base rate where its Term's pool clears that stage's
+   floor, and a merits cell's is the pack's merits section (*Stage: interim*
+   and *Stage: merits* below).
    A merits cell's context
    routinely *does* carry one, because its docket is a cert docket whose
    petition was banded before it was granted: that band scores the petition's
@@ -332,10 +333,16 @@ of the requested relief**:
   `docs/salience.md`, *The interim docket*). Below the floor there is **no
   baseline and no substitute**: not the pack-level rate, which contains your
   own Term, not a single Term's, and not the cert band table, which is a
-  different population on a different standard. On today's pack that is the
-  live case — an OT2025 application's strictly-prior pool is 44 — so no
-  currently predictable application has a baseline at all until OT2026 opens
-  and the OT2025 Term joins the pool. So where the pack carries a **"The
+  different population on a different standard. On the committed pack no
+  currently predictable application clears it — the only strictly-prior Term
+  carrying resolved substantive applications contributes 44 against an OT2025
+  cell, and the OT2025 Term itself joins the pool only for an OT2026 one — but
+  **compute the pool from the section you are reading** rather than taking that
+  figure: parse coverage accrues between builds, and the section is the
+  authority. Where the section's own caption still calls the rate
+  descriptive-only, the pack predates the estimator's caption rewrite; the pool
+  arithmetic above is unchanged, and say in `reasoning.md` which you read. So
+  where the pack carries a **"The
   interim docket (applications)"** section, read its counts by ask, its
   escalation-signal counts, and its per-Term substantive rates; anchor on the
   strictly-prior pooled rate where your Term clears the floor, and where it
@@ -343,10 +350,12 @@ of the requested relief**:
   baseline. Where the pack carries no interim section at all, say that instead
   and anchor on the record alone. Two cautions travel with the section
   wherever you read it, and they are why it is shape before it is an anchor.
-  Its signal counts are **terminal**: they
-  record where each application *ended* on the ladder, not where it stood when
-  a cell faced it, the same as-at-versus-terminal trap the cert band rules
-  spend their length on. And the published cohort is **not the predicted
+  Its escalation-signal counts are **not as-at-prediction**: they count over
+  every substantive application in the slice, pending ones included, so their
+  denominator is not the resolved count beside them and they are right-censored
+  — a still-open application contributes a "no" it may yet reverse. Read them
+  for the ladder's shape, never as the state a cell faced, which is the same
+  as-at-versus-terminal trap the cert band rules spend their length on. And the published cohort is **not the predicted
   population**: selection fills its slots by the pick order's signals — a
   requested response, then the amicus count — so a predicted application sits
   systematically higher on those rungs than the cohort behind that raw rate.
@@ -590,12 +599,22 @@ was worth.
   matches the opinion, because it was never at issue.
   `predicted_reasoning.md` stays the human-readable form of the same forecast
   and is not itself graded; the structured block is what a grader reads, so the
-  two must say the same thing.
+  two must say the same thing. Keep each proposition inside the schema's
+  **1000-character** bound — one assertion fits comfortably; a paragraph that
+  does not is a survey, and an over-length string fails the cell rather than
+  being truncated.
   Both claims require a **majority opinion** to grade against, so until opinion
   bodies accrue in the corpus every grade is the availability mask
   (`not-addressed`) — a fact about the record, never about you — and the block
   is banked ahead of its grading channel exactly as the vote block is. Write it
   as carefully as if it graded today.
+  **On a `replay` merits cell this is the claim the leakage rule bites
+  hardest.** The opinion exists and postdates your clock, so reading it would
+  answer both propositions perfectly and forecast nothing — and unlike a
+  mechanical claim there is no baseline to subtract, so the whole of the grade
+  would be retrieved rather than predicted. Forecast the ground and its breadth
+  from the pre-decision record; if the opinion or its reasoning surfaces anyway,
+  disclose it in `flags.json` rather than folding it in.
 
 ## Outputs (your three files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
 
@@ -668,9 +687,9 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
       — a GVR, or a judgment riding the grant order — as against setting the
       case down for briefing and argument. State that conditional probability,
       not its product with your grant number: the claim is masked as vacuous on
-      every denial and its baseline is the prior Terms' cert-order share **of
-      grants**, so an unconditional figure would be scored against a
-      conditional one. It resolves against the outcome's committed route
+      every non-grant — a denial, a dismissal, a withdrawal — and its baseline
+      is the prior Terms' cert-order share **of grants**, so an unconditional
+      figure would be scored against a conditional one. It resolves against the outcome's committed route
       marker; where no order text was retained the claim reads *not assessed*
       and goes unscored, which is the ordinary state rather than an edge.
     - `dissent-from-denial` — **conditional on a denial**: P(some Justice notes
@@ -684,9 +703,13 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
       reason to state it honestly, not a reason to state it carelessly.
 
     There is no strategic angle. The scoring rule is proper, so your expected
-    score is maximized by the probability you actually hold; and each claim is
-    scored against a harness-computed baseline, so restating that baseline is
-    worth exactly zero — a no-view answer costs nothing and conceals nothing.
+    score is maximized by the probability you actually hold; and a claim that
+    scores is scored against a harness-computed baseline, so restating that
+    baseline is worth exactly zero — a no-view answer costs nothing and conceals
+    nothing. Several declared claims carry no published baseline yet and are
+    banked rather than scored (each one above says so); state those exactly as
+    carefully, since they are scored the day their cut lands and your number is
+    already committed.
     Anchor the increments on the state your docket actually shows, and read
     the statpack's relist and CVSG cuts (below) for the population's shape
     rather than as the answer — they bucket by *terminal* count and status, so
@@ -698,8 +721,13 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     event) declares `cert-v2`, all three interim moments (arrival, the
     requested response, the filed response) declare `interim-v1`, and both
     merits moments (the judgment order and the respondent-brief re-predict)
-    declare `merits-v1`. Where your event declares no set at all — nothing a
-    predict cell reaches today — write no `claims` field.
+    declare `merits-v1`. A **petition-kind event that is not one of those
+    moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s
+    first three claims instead, because that is the contract its cohort was
+    elicited under: state the five, and the harness scores the three its own
+    declaration names. An event outside that register — an entry-pinned motion,
+    a legacy id — may declare no set at all, and then you write no `claims`
+    field: never an empty list.
   - `semantic_claims` — **merits cells only**: the harness-declared *semantic*
     set (`fedcourtsai.pipeline.semantic`), one `{claim_id, proposition}` entry
     per declared claim and **no probability** on any of them. The merits

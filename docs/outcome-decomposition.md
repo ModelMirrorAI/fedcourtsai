@@ -622,7 +622,7 @@ land.
 | `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a schema field carrying a per-label distribution | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
 | `relist-increment` | 1 iff `Outcome.signals.distribution_count` rose past `Prediction.context.distribution_count`; masked where either end is undisclosed | None yet. The honest baseline is the per-count risk-set hazard over strictly-prior Terms — and the hazard moves steeply in the count (≈26% at one distribution, 27% at two, 47% at three, 71% at four, denial-reweighted), so nothing coarser is properly conditioned. The pack's relist cut pools every Term, the case's own included, and its per-Term surface carries no relist cut — so the claim goes unscored until a per-Term relist-bucket cut over the scored segment lands |
 | `cvsg-increment` | 1 iff `Outcome.signals.cvsg_date` is non-null, given null — and observable — at prediction; masked as **vacuous** where a CVSG already sat on the docket, there being nothing left to forecast | None yet, for the same strictly-prior gap — and the future per-Term cut must correct for the CVSG censoring recorded above, since a resolved-only rate in an open Term runs at a fraction of the true one |
-| `summary-disposition-route` | 1 iff the grant disposed in the cert order — a GVR, or a judgment riding the grant order — 0 for a grant set down for briefing and argument, read **only** from `Outcome.disposition_route`. Masked as **vacuous** on every denial, and as **not assessed** on any grant carrying no marker: a record with no order text, no cert-grant date, or an undated judgment entry. Never read off the `gvr` label where the marker is absent, which would make assessability depend on the answer — see below | The prior Terms' cert-order share of grants (`summary_route_base_rate`): pooled `gvr` + `summary-reversal` over pooled grant-family counts from each Term's **paid** fee-class cut — the scored population — strictly prior, above a stated minimum. Conditioned on the grant family, matching the resolver's own conditioning, and carrying one residual downward bias — see below |
+| `summary-disposition-route` | 1 iff the grant disposed in the cert order — a GVR, or a judgment riding the grant order — 0 for a grant set down for briefing and argument, read **only** from `Outcome.disposition_route`. Masked as **vacuous** on every non-grant — a denial, a dismissal, a withdrawal — and as **not assessed** on any grant carrying no marker: a record with no order text, no cert-grant date, or an undated judgment entry. Never read off the `gvr` label where the marker is absent, which would make assessability depend on the answer — see below | The prior Terms' cert-order share of grants (`summary_route_base_rate`): pooled `gvr` + `summary-reversal` over pooled grant-family counts from each Term's **paid** fee-class cut — the scored population — strictly prior, above a stated minimum. Conditioned on the grant family, matching the resolver's own conditioning, and carrying one residual downward bias — see below |
 | `dissent-from-denial` | 1 iff the denial's order text records any noted dissent or separate statement, from `Outcome.noted_dissent_from_denial` — **aggregated existence only**, never which Justice. Masked as **vacuous** on every disposition that is not a `denied` (a grant, a dismissal, a withdrawal — none is the Court refusing review) and as **not assessed** wherever no retained order text was read | None yet. No published section counts order-list notations at all, and the outcome field that would feed one fills only as dockets refresh — so the claim banks its probabilities, exactly as the two increments do, until a cut carries it |
 
 **What the summary-route baseline is conditioned on, and what it still gets
@@ -923,11 +923,12 @@ pre-registered rule that keeps it there permanently.
 
 | Stage | Content class the prompt elicits | Route | State |
 | --- | --- | --- | --- |
+| cert | Whether the Court grants review | `disposition` (`cert-v2`), restating the headline `probability` | **Scored** against the frozen band's risk-set rate over strictly-prior Terms, subject to the version pin — the same baseline the headline skill score uses |
 | cert | Whether the petition is relisted further | `relist-increment` (`cert-v2`) | Declared and resolved; baseline pending a per-Term relist-bucket cut, so the probability is banked |
 | cert | Whether a CVSG issues | `cvsg-increment` (`cert-v2`) | Declared and resolved; baseline pending a censoring-corrected per-Term cut |
 | cert | *When* a CVSG would issue | Context-only | No timing claim is declared at any stage; a horizon claim needs a resolution-clock design the register does not have |
-| cert | Whether a summary disposition is the likelier route | `summary-disposition-route` (`cert-v2`) | **Scored**, conditional on a grant, against the prior Terms' cert-order share of paid grants |
-| cert | Whether any dissent from denial is noted | `dissent-from-denial` (`cert-v2`) | Declared and resolved as aggregated existence; baseline pending a cut over the denied population, so the probability is banked |
+| cert | Whether a summary disposition is the likelier route | `summary-disposition-route` (`cert-v2`) | **Scored**, conditional on a grant, against the prior Terms' cert-order share of paid grants — but *not assessed* wherever the outcome retained no route marker, which is the ordinary state of a committed outcome rather than an edge |
+| cert | Whether any dissent from denial is noted | `dissent-from-denial` (`cert-v2`) | Declared and resolved as aggregated existence, and *not assessed* wherever no order text was retained; baseline pending a cut over the denied population, so the probability is banked either way |
 | cert | *From whom* the dissent comes | Context-only, permanently | The per-Justice form is a pre-registered prohibition (`docs/decision-model.md`): a cert vote is observed only when a Justice chooses to note it, and `moments.scores_votes` denies vote scoring off the merits stage by default |
 | cert | Which question presented the Court would take | Context-only; named `semantic-v2` candidate | It resolves against the **grant order and the QP text**, not an opinion body, so declaring it needs `requires` widened past an opinion class; and pinned at the cert stage it is ~96% masked over the paid modern-cert census, since a QP is never taken in a denied case |
 | interim | Whether a response will be called for | `response-requested-increment` (`interim-v1`) | Declared and resolved; baseline pending an arrival-conditioned hazard the pack does not publish |
@@ -949,9 +950,10 @@ pre-registered rule that keeps it there permanently.
 Three properties of the table are worth reading off it. **Every scored route is
 mechanical or graded, never prose** — the document is the human-readable form of
 a structured claim, and the two must agree, but only the structure resolves.
-**Banked is not scored**: five declared claims carry no baseline yet, and their
-probabilities accumulate against cuts that do not exist rather than counting
-toward anything. And **two rows are permanent**: the per-Justice cert vote and
+**Banked is not scored**: six declared claims carry no baseline yet — the two
+cert increments, `dissent-from-denial`, and all three interim increments — and
+their probabilities accumulate against cuts that do not exist rather than
+counting toward anything. And **two rows are permanent**: the per-Justice cert vote and
 the coarse doctrinal ground are not waiting on data — they are ruled out by a
 pre-registered prohibition and by test 2 respectively, and a later version would
 have to answer those reasons rather than rediscover them.
@@ -1390,7 +1392,8 @@ the framing every claim here shares: `requires` names an opinion class, and a
 claim graded off an order needs that framing widened before it can be declared
 at all. And its natural moment is the **cert** stage, where it would sit on
 petition events that mostly deny, since a QP is never taken in a denied case.
-Over the paid modern-cert census that is roughly 96% masked; over the
+Over the paid modern-cert census that is roughly 96% masked (plenary grants
+only as the numerator — a GVR takes no question presented); over the
 salience-selected slice cells are actually minted on, whose per-Term grant rates
 run far higher (`docs/salience.md`), it is smaller but still the majority. Either
 denominator gives a census dominated by the mask rather than by grades. A version
@@ -1479,10 +1482,15 @@ unit, the census. The axis constrains what a declaration *means* and what a
 grader may mask, never what a grade is matched by, so it enters no join.
 
 The set is **mandatory** in the same sense the mechanical sets are, and enforced
-on the grader side only: `graded_units` reads the declaration first, refuses a
-block stamped with another declaration rather than relabelling it, drops a block
-that skips a declared claim, and ignores rows outside the set. The predictor
-side has no equivalent (*What remains unbuilt*).
+on both sides. `graded_units` reads the declaration first, refuses a block
+stamped with another declaration rather than relabelling it, drops a block that
+skips a declared claim, and ignores rows outside the set — silently, which is
+right for a consumer and wrong for a record, so `validate` says the same refusals
+out loud (`evaluation_semantic_grades_gradeable`) while the cell can still be
+fixed. The predictor side has no consumer to refuse it at all, so `validate` is
+the whole of its enforcement: `prediction_semantic_claims_conform` fails a block
+that states a claim twice, skips a declared one, or names an id the declaration
+does not carry.
 
 ### The grading protocol
 
@@ -1636,13 +1644,24 @@ owed:
 3. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
+4. **A counted split of the mask's grounds.** The grading protocol requires a
+   grader to say in `basis` which ground it masked on — no opinion body of the
+   required class, none ingested, or silence on the axis — because a missing
+   document is a coverage gap somebody can fix while in-document silence is a
+   fact about the Court. But `SemanticGrade.basis` is free text and
+   `SemanticClaimSummary` carries one undifferentiated `not_addressed` count, so
+   that distinction is readable by a person auditing a cell and by nothing else.
+   While every unit masks it is the *only* signal the family produces, and the
+   register's own standard — a coverage gap and a substantive finding must never
+   be tradeable — says it should be counted rather than merely written down.
 
 The prompts are built: the predict prompt asks a merits cell for one
 proposition per declared claim on its declared axis, and the evaluate prompt
-carries the grading protocol above — the axis discipline, the two mask grounds
+carries the grading protocol above — the axis discipline, the mask's grounds
 and the requirement to say which one applied, and the five refusals. So is the
-**mandatory-set discipline on both sides**, which the mechanical family has and
-this one long lacked on the predictor's:
+**mandatory-set discipline on both sides**, the discipline the mechanical family
+keeps and the one place this family's enforcement had to be built rather than
+inherited, since nothing consumes a predictor's block at all:
 `graded_units` refuses a non-conforming grader block whole, and
 `validate` holds a committed block on either side to its declaration
 (`prediction_semantic_claims_conform`, `evaluation_semantic_grades_gradeable`),

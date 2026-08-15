@@ -761,6 +761,48 @@ def test_a_row_outside_the_declared_set_is_not_a_grade_block_problem(
     assert semantic.semantic_grade_problems(_evaluation(semantic_grades=block)) == []
 
 
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # Conforming.
+        (("majority-ground", _SUPPORTED), ("dissent-ground", _PARTIAL)),
+        # Skipped declared claim.
+        (("majority-ground", _SUPPORTED),),
+        # Same claim graded twice.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("majority-ground", _UNSUPPORTED),
+            ("dissent-ground", _PARTIAL),
+        ),
+        # An out-of-set row, ignored by both.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("dissent-ground", _PARTIAL),
+            ("invented-claim", _SUPPORTED),
+        ),
+        # An out-of-set row duplicated: `graded_units` refuses on the duplicate
+        # wherever it sits, so the enumerator must speak even though a single
+        # out-of-set row is silent.
+        (
+            ("majority-ground", _SUPPORTED),
+            ("dissent-ground", _PARTIAL),
+            ("invented-claim", _SUPPORTED),
+            ("invented-claim", _UNSUPPORTED),
+        ),
+    ],
+)
+def test_the_enumerator_speaks_exactly_when_the_rollup_refuses(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+    rows: tuple[tuple[str, SemanticSupport], ...],
+) -> None:
+    """The invariant the shape assertions above only sample: for a block present
+    against a declared set, the enumerator is non-empty **iff** `graded_units`
+    yields nothing. A new refusal arm on either side breaks this rather than
+    quietly diverging."""
+    evaluation = _evaluation(semantic_grades=_block(*rows))
+    assert bool(semantic.semantic_grade_problems(evaluation)) == (graded_units(evaluation) == ())
+
+
 def test_the_predictor_side_is_held_to_the_declaration_too(
     declared: tuple[str, tuple[SemanticClaimSpec, ...]],
 ) -> None:

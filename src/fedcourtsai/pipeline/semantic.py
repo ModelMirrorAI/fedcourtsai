@@ -16,18 +16,18 @@ plumbing:
 - :func:`summarize_semantic_grades`, the roll-up that turns graded units into a
   descriptive census plus leave-one-out inter-grader agreement.
 
-**Elicited and graded, and still producing nothing.** A declaration is one of
-the three things a grade needs; the second — the prompts that ask a merits cell
-for the propositions and a grader for the grades — landed with the process
-re-bless that carries it, so both digests now hash a semantic contract. The
-third has not: **no opinion body is ingested** to grade a claim against, and
-both declared claims require a majority opinion, so every unit masks
-(``not-addressed``), :func:`summarize_semantic_grades` publishes nothing, and no
-published number depends on any of it (``docs/outcome-decomposition.md``, *What
-remains unbuilt*). The mandatory-set discipline now binds both sides:
-:func:`graded_units` refuses a non-conforming grader block, and
-:func:`semantic_claim_problems` / :func:`semantic_grade_problems` surface either
-side's non-conformance in ``validate`` while the cell can still be fixed.
+**Elicited and graded, and producing nothing.** A grade needs three things.
+Two are built: this declaration, and the prompts that ask a merits cell for the
+propositions and a grader for the grades — so both process digests hash a
+semantic contract. The third is not: **no opinion body is ingested** to grade a
+claim against, and both declared claims require a majority opinion, so every
+unit masks (``not-addressed``), :func:`summarize_semantic_grades` publishes
+nothing, and no published number depends on any of it
+(``docs/outcome-decomposition.md``, *What remains unbuilt*). The mandatory-set
+discipline binds both sides: :func:`graded_units` refuses a non-conforming
+grader block, and :func:`semantic_claim_problems` /
+:func:`semantic_grade_problems` surface either side's non-conformance in
+``validate`` while the cell can still be fixed.
 
 **What is deliberately absent, and why.** There is no scoring function here and
 no baseline. The mechanical rule
@@ -383,6 +383,17 @@ def semantic_claim_problems(prediction: Prediction) -> list[str]:
     is reported here although the grader-side join ignores it: an id nothing
     declared is a proposition no grader will ever be asked about, so it is a
     forecast committed into a void rather than a harmless extra.
+
+    Two states are deliberately **out of scope** rather than clean. A block on
+    an event that declares **no** set at all is not reported: the prompt tells a
+    non-merits cell to omit the field, but reporting a stray one would mean a
+    later *narrowing* of the declaration retroactively invalidated cells that
+    were correct when written, and an immutable artifact must not become
+    invalid. And this reads the declaration **as it stands**, not the one the
+    cell answered, so a set supersession reports every cell of the old set —
+    the property :func:`fedcourtsai.pipeline.claims.claim_block_problems` has
+    for the same reason, and why a set version and the prompt that elicits it
+    travel in one promotion batch (``docs/outcome-decomposition.md``).
     """
     declared = declared_semantic_claim_set(prediction.event_id)
     if prediction.semantic_claims is None or declared is None:
