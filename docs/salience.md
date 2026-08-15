@@ -946,15 +946,23 @@ it contains the case's own Term. The leaderboard still segments an interim cell
 into its unranked `interim` stage block rather than the cert board: the two
 stages resolve on different standards over different populations, and a shared
 ranking would compare them. The predict and evaluate prompts carry the
-agent-side half of **both** the baseline and the claim set, and it moves on its
+agent-side half of the claim set, and it moves on its
 own re-bless (`docs/process-version.md`), because a prompt edit moves the
 pre-registered process digest. Until that re-bless their interim rules read the
-statpack's interim section as descriptive counts, omit `segment_base_rate` /
-`brier_skill_score` (with `base_rate_basis` null), and ask for no `claims`
-block — so no interim cell records a skill number whatever the estimator
-computes, and none answers the declared `interim-v1` set whatever the
-declaration says. The harness half is wired and the prompt is what turns it on;
-until it does, the interim set is exercised only by the offline stub cascade.
+statpack's interim section as descriptive counts and ask for no `claims` block,
+so no interim cell answers the declared `interim-v1` set whatever the
+declaration says; the set is exercised only by the offline stub cascade. The
+**baseline** does not wait on that re-bless, because it is not the evaluator's
+to record: `stamp-cell` writes an interim cell's `segment_base_rate` from the
+estimator above — keyed on the application Term the scored prediction froze —
+together with the `brier_skill_score` derived from it, overwriting whatever the
+cell carried — and clearing `base_rate_basis` with them, so the null the
+interim pool (no band product) requires is structural rather than a rule an
+evaluator has to honour. One
+seam to know while the prompts still carry their pre-stamp interim rules: an
+evaluator told to omit the skill fields will *say* in `evaluation.md` that it
+did, beside an `evaluation.json` the harness has stamped — read the JSON, and
+expect the prose to stop saying it at the re-bless.
 **Pre-registered claimability rule:** the stage stopped being descriptive-only
 once the statpack's substantive **resolved count reached 25** — a condition on
 the *stage*, long since satisfied, and not on any individual cell. Whether a

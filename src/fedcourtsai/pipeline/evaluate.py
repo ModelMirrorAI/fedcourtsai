@@ -4,7 +4,9 @@ Each evaluator scores each predictor's prediction against the realized
 ``outcome.json``. The qualitative judgment (reasoning quality) is produced by an
 agent; the quantitative pieces (correctness, Brier score, and the segment-baseline
 skill score) are deterministic and provided here so every evaluator computes them
-identically.
+identically — and, where the harness owns a number rather than the evaluator, so
+that it and the agents answer to one implementation: ``stamp-cell`` stamps the
+merits and interim skill through :func:`brier_skill` here.
 
 :func:`segment_base_rate` is the one baseline that lives here rather than in
 :mod:`fedcourtsai.pipeline.base_rates`: it bands a corpus row, so it needs the
