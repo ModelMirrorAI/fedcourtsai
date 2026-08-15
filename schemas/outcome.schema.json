@@ -179,6 +179,24 @@
       "title": "Disposition Basis",
       "type": "string"
     },
+    "disposition_route": {
+      "anyOf": [
+        {
+          "enum": [
+            "plenary",
+            "gvr",
+            "summary-merits"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How a granted petition's review was routed \u2014 whether the grant resolved the case in the cert order itself rather than by plenary review. 'gvr' where the order granted, vacated and remanded without reaching the merits; 'summary-merits' where the judgment rode the grant order (granted and decided together, so no merits proceeding followed); 'plenary' where review was set for briefing and argument. Null means not assessed \u2014 a denial, an interim outcome, a record disclosing no order text, or no cert-grant date to measure the gap against \u2014 so a committed outcome never asserts a route nobody read. Deliberately a separate marker rather than a relabel: `actual_disposition` stays as recorded, which is what keeps the merits population and every disposition figure fixed across the field's introduction",
+      "title": "Disposition Route"
+    },
     "event_id": {
       "title": "Event Id",
       "type": "string"
@@ -194,6 +212,19 @@
       ],
       "default": null,
       "description": "What the Court did to the judgment below \u2014 the merits axis, kept off the cert disposition vocabulary because a DIG has no coherent value on the grant binary. Null on a cert-stage outcome, which has no judgment to record"
+    },
+    "noted_dissent_from_denial": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Whether the denied petition's order text records any noted dissent from, or statement respecting, the denial \u2014 aggregated existence only, never which Justice. Null means no retained order text was assessed, which false has to stay distinguishable from: most of the ledger carries no payload, and reading absence as 'nobody dissented' would invent an observation, exactly as an absent `signals` block does",
+      "title": "Noted Dissent From Denial"
     },
     "resolved_at": {
       "format": "date",

@@ -226,7 +226,7 @@ def build_claim_scores(
     with_claims = 0
     for ev, stratum, stage, moment in cells:
         # Cert's FIRST moment only. A later cert moment carries the same
-        # `cert-v1` block, so filtering on the stage alone would pool two
+        # `cert-v2` block, so filtering on the stage alone would pool two
         # information sets into one claim mean — the thing this surface's own
         # per-stage rule exists to prevent, one axis further in.
         if (stage, moment) != (Stage.cert, first_moment(Stage.cert)):

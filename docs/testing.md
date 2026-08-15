@@ -22,7 +22,7 @@ The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade
 it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
 network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
 predicted stage — a cert petition, and the opt-in CVSG docket whose later-moment cert
-cell answers the same `cert-v1` claim set; the fixture's substantive stay application,
+cell answers the same `cert-v2` claim set; the fixture's substantive stay application,
 whose interim cell carries a Brier score but no segment baseline; and its granted docket,
 whose merits cell carries a judgment with its mandatory vote block and the one declared
 `merits-v1` claim. Each non-cert cell lands in the leaderboard's own unranked stage block

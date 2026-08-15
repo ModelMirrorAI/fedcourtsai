@@ -10,7 +10,8 @@ scores them.
 **The mechanical cert-stage family and the merits judgment claim are
 implemented; everything else here is pre-registration — with one carve-out, the
 semantic family, which is neither.** The scoring rule is `pipeline.base_rates.claim_score`; the
-declared sets — three cert-stage claims under `cert-v1`, and the one merits
+declared sets — five cert-stage claims under `cert-v2`, carried by every
+declared cert moment, and the one merits
 claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
 event — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
@@ -84,12 +85,16 @@ signal it resolves against.
 | Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution no schema field carries |
 | The petition is distributed at least once more (`relist-increment`) | `Outcome.signals.distribution_count` past `Prediction.context.distribution_count` |
 | The Court calls for the Solicitor General's views (`cvsg-increment`) | `Outcome.signals.cvsg_date` becoming non-null, from null (and observable) at prediction |
+| The grant disposes in the cert order (`summary-disposition-route`) | `Outcome.disposition_route` — a GVR or a judgment riding the grant order, against a grant set down for plenary review; masked on every denial |
+| Some Justice notes a dissent from the denial (`dissent-from-denial`) | `Outcome.noted_dissent_from_denial` — aggregated existence read from the order text, never which Justice; masked on every grant |
 
-These are the ones worth attention, because their signals are already populated:
+The two increments are the ones whose signals are already populated:
 `distribution_count` is set on every live SCOTUS row and `cvsg_date` on the
 petitions that have one. A relist or a CVSG is also a genuine forward call — it
 happens days after a conference distribution, which is exactly when a prediction
-is committed.
+is committed. The two order-text markers are the opposite case: they are written
+only where a disposing order's text was retained, so most committed events carry
+the not-assessed null rather than a reading (*The availability mask*, below).
 
 **Merits** — the merits event is forecast and its outcome recorded
 (`Outcome.judgment`, resolved by judgment detection from the docket's
@@ -257,17 +262,20 @@ observation count and a smoothing rule, since the unpriced free expectation is
 largest exactly where the history is thinnest; and the baseline's lookback
 window has to be stated with the figure, because moving it re-bases every
 claim score at once and a comparison across the change is not a comparison.
-The cert set defers the count and the rule alike, tolerable only because its
-one live baseline pools band denominators in the weighted hundreds to
-thousands. The merits set is the thin-history case, and lands the count:
+The cert set lands the count on both its live baselines — the band rate pools
+denominators in the weighted hundreds to thousands, and the summary-route rate
+carries `SUMMARY_ROUTE_BASE_RATE_MIN_GRANTS` (30 grant-family rows pooled
+strictly-prior) — while deferring the smoothing rule. The merits set is the
+thin-history case and lands the same count:
 `MERITS_BASE_RATE_MIN_PARSED` (30 parsed judgments pooled strictly-prior),
-below which there is no baseline and the claim goes unscored. It **defers the
-smoothing rule**, which is the standing debt on it: at the floor the unpriced
-baseline-estimation expectation is `π(1−π)/n ≈ 0.007` per claim, the same
-order as the per-claim drift term this document already calls dominant — so a
-merits claim total is read exactly as the cert one is, never as case-level
-skill on its own, and a smoothing rule is owed before any merits claim total
-is published as evidence rather than as coverage.
+below which there is no baseline and the claim goes unscored. The **smoothing
+rule** is deferred on every one of them, and that is the standing debt: at a
+floor of 30 the unpriced baseline-estimation expectation is `π(1−π)/n ≈ 0.007`
+per claim, the same order as the per-claim drift term this document already
+calls dominant — so a merits claim total is read exactly as the cert one is,
+never as case-level skill on its own, and a smoothing rule is owed before any
+claim total resting on a floor-sized pool is published as evidence rather than
+as coverage.
 
 ### Why the set is mandatory
 
@@ -390,12 +398,17 @@ full Brier unit, so a contaminated replay total is the largest number this
 surface can produce — an impressive figure manufactured entirely by retrieval.
 
 Replay claim totals are iteration instruments only, and never claimable, on the
-same footing as every other back-test number. The leakage grading also has to
-reach claim level before an *increment* claim scores: it grades
-outcome-revealing retrieval for the disposition, which covers the one claim
-that scores today, and a scoring increment claim widens what "the outcome"
-means — that widening is due with the per-Term cuts that give the increments a
-baseline.
+same footing as every other back-test number. **The leakage grading has yet to
+reach claim level, and the gap is now live rather than pending.** It grades
+outcome-revealing retrieval for *the disposition*, and that no longer covers
+every claim that scores: whether a grant was a GVR or went to argument is a
+distinct facet of the outcome, legible in the same order text that mints its
+ground truth, so a replay cell that reads the grant order can earn a clean
+disposition-scoped grade on a claim it retrieved. A scoring increment claim
+widens "the outcome" the same way. Widening the grade is due with the per-Term
+cuts that give the increments a baseline, and until it lands the route claim's
+resolution on a replay cell is ungraded for retrieval — which is one more reason
+replay totals never leave the iteration lane.
 
 ## Advisory, and segmented
 
@@ -567,36 +580,87 @@ Drawn from the above, and cheaper to apply than to rediscover:
    writes" form rather than nine per-Justice forms) or leave it out. This is
    the stated exception to the fineness preference above — where the fine
    claim's base rate is within rounding of the boundary, the coarse claim is
-   the claim. Per-Justice dissent-from-denial notings are the live example
-   (from the public record, not a corpus field — nothing stored records one):
-   they appear on about one percent of petitions, concentrated in two
-   Justices, so the per-Justice form fails this test on volume while the
-   aggregated form may pass.
+   the claim. Dissent-from-denial notings are the worked example, and the
+   declared set below is the aggregation this test forces: per-Justice, they
+   appear on about one percent of petitions and concentrate in two Justices,
+   so that form fails on volume; the aggregated "some Justice noted a dissent"
+   form is what `cert-v2` declares. The summary-disposition route is the
+   second application, aggregated along a different axis — conditioning rather
+   than coarsening, since the unconditional class is what sits near the
+   boundary and the grant-conditional one does not.
 
 ## What is scoreable today
 
-**The declared cert-stage set: `cert-v1`.** A petition-kind event carries
-exactly three claims, declared in `pipeline.claims` and answered in full by
+**The declared cert set: `cert-v2`.** Every declared cert **moment** — the
+petition baseline, the CVSG moment, the arrival moment — carries
+exactly five claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
 beside the process version — never the evaluator's word, and an
 evaluator-authored block does not survive the stamp) from committed artifacts
-only: the prediction's frozen `context`, the outcome's `signals` block, and
-the committed statpack. The same committed inputs — statpack revision
-included — reproduce the same block. A claim scores only where its outcome is
-disclosed **and** a strictly-prior baseline exists; each gap is recorded on
-the claim's row rather than papered over, and the total sums the scored
-claims alone. Until the per-Term cuts below land, the one claim that scores
-is `disposition` — on this advisory surface, a re-expression of the headline
-Brier path — so the block's incremental content today is the committed
-increment probabilities themselves, banked from the first claiming cell so
-they are there to score once their baselines exist.
+only: the prediction's frozen `context`, the outcome's `signals` block and the
+two order-text markers beside it (`disposition_route`,
+`noted_dissent_from_denial`, read against `actual_granted` and
+`actual_disposition`), and the committed statpack. The same committed inputs —
+statpack revision included — reproduce the same block. A claim scores only where
+its outcome is disclosed **and** a strictly-prior baseline exists; each gap is
+recorded on the claim's row rather than papered over, and the total sums the
+scored claims alone. Two claims carry a baseline today — `disposition`, which on
+this advisory surface re-expresses the headline Brier path, and
+`summary-disposition-route`, which is grant-conditional and so scores on the
+grants while sitting vacuously masked on the denials that are most of the
+population. Everything else the block carries is committed probabilities,
+banked from the first claiming cell so they are there to score once their cuts
+land.
 
 | Claim | Resolver | Baseline |
 | --- | --- | --- |
 | `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a schema field carrying a per-label distribution | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
 | `relist-increment` | 1 iff `Outcome.signals.distribution_count` rose past `Prediction.context.distribution_count`; masked where either end is undisclosed | None yet. The honest baseline is the per-count risk-set hazard over strictly-prior Terms — and the hazard moves steeply in the count (≈26% at one distribution, 27% at two, 47% at three, 71% at four, denial-reweighted), so nothing coarser is properly conditioned. The pack's relist cut pools every Term, the case's own included, and its per-Term surface carries no relist cut — so the claim goes unscored until a per-Term relist-bucket cut over the scored segment lands |
 | `cvsg-increment` | 1 iff `Outcome.signals.cvsg_date` is non-null, given null — and observable — at prediction; masked as **vacuous** where a CVSG already sat on the docket, there being nothing left to forecast | None yet, for the same strictly-prior gap — and the future per-Term cut must correct for the CVSG censoring recorded above, since a resolved-only rate in an open Term runs at a fraction of the true one |
+| `summary-disposition-route` | 1 iff the grant disposed in the cert order — a GVR, or a judgment riding the grant order — 0 for a grant set down for briefing and argument, read **only** from `Outcome.disposition_route`. Masked as **vacuous** on every denial, and as **not assessed** on any grant carrying no marker: a record with no order text, no cert-grant date, or an undated judgment entry. Never read off the `gvr` label where the marker is absent, which would make assessability depend on the answer — see below | The prior Terms' cert-order share of grants (`summary_route_base_rate`): pooled `gvr` + `summary-reversal` over pooled grant-family counts from each Term's **paid** fee-class cut — the scored population — strictly prior, above a stated minimum. Conditioned on the grant family, matching the resolver's own conditioning, and carrying one residual downward bias — see below |
+| `dissent-from-denial` | 1 iff the denial's order text records any noted dissent or separate statement, from `Outcome.noted_dissent_from_denial` — **aggregated existence only**, never which Justice. Masked as **vacuous** on every disposition that is not a `denied` (a grant, a dismissal, a withdrawal — none is the Court refusing review) and as **not assessed** wherever no retained order text was read | None yet. No published section counts order-list notations at all, and the outcome field that would feed one fills only as dockets refresh — so the claim banks its probabilities, exactly as the two increments do, until a cut carries it |
+
+**What the summary-route baseline is conditioned on, and what it still gets
+wrong.** It is not unconditional: over all resolved petitions the summary class
+runs near one percent, which test 8 above rejects outright, and conditioning on
+the grant family is what moves it to a coin-flip-scale question. Over the
+committed pack, under the configured ten-Term window that the pack's nine Terms
+do not fill, the pooled prior-Term rate for a cell in OT2025 is **0.348** (278
+cert-order dispositions over 799 paid grant-family rows, OT2017–OT2024 — a raw
+`n`, not an estimate, because only denials were ever subsampled and every
+grant-family row carries weight 1).
+
+It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
+the paid class is the scored population: IFP petitions are Tier-0-excluded by
+the salience gate (`docs/salience.md`), so no cell is ever an IFP row. They are
+better than a quarter of the pooled grant family at roughly three-quarters GVR,
+so the pooled rate reads 0.459 against the paid 0.348. Eleven points is not a
+rounding error against a difference-form rule: a predictor knowing only its own
+segment's rate would bank `(0.459 − 0.348)² ≈ 0.012` per scored claim, larger
+than the drift term this document already calls dominant, and the
+identically-zero floor prices none of it. The salience *band* needs no such cut
+— the cert-order share runs 0.347 / 0.345 / 0.352 across baseline / elevated /
+high — so fee class is the whole of the population gap.
+
+Reading the fee-class cut also keeps the pooling inside what `StatPackTerm`
+permits. That field warns the `dispositions` split is "safe within a Term and
+meaningless between them", because the `gvr` label is a forward convention and
+an un-relabelled Term carries its GVRs as plain `granted`. On the committed pack
+that convention gap sits **entirely in the IFP class**, whose cert-order share
+drops to zero in OT2023 and OT2024 against 0.87–0.95 in its neighbours; the paid
+series stays inside 0.29–0.46 throughout.
+
+One residual bias remains. A summary reversal is a cert-order disposition no
+resolver mints — the `summary-reversal` label has none — so such an order sits
+in the `granted` bucket and counts in the denominator but not the numerator,
+pushing the rate down by an amount nothing the pack publishes bounds. Note what
+that does and does not buy, because the tempting reading is wrong: under the
+difference form a baseline that is off in *either* direction hands a predictor
+reporting the true rate `(π − b)²` for free, and the floor prices none of it. A
+downward-biased baseline is therefore **not** conservative and not a safety
+margin; it is unearned score. The cut that would retire it is exactly the one
+`Outcome.disposition_route` exists to build.
 
 **The availability mask is a property of the record, never of the predictor.**
 A claim is unresolvable — `outcome: null` on its row, excluded from the total —
@@ -604,7 +668,122 @@ only where the committed record does not disclose what it needs: an outcome
 without a `signals` block, a context whose signals were unobservable, a CVSG
 already on the docket making the increment vacuous. A predictor cannot decline
 its way into the mask, and every declared claim is answered regardless of
-whether it will resolve.
+whether it will resolve. `cert-v2`'s two additions widen the mask's vocabulary
+by one kind: a **not-assessed** null, where the outcome's marker is absent
+because no retained order text was read. A marker is written only from a payload
+the refresh channel actually held, and a case's payload lives in the content
+store rather than in git, so the null is the ordinary state of a committed
+outcome rather than an edge — and it is exactly the state a `false` would
+misreport. False and unobserved are
+different facts and the record keeps them apart, the same line
+`signals_observable` draws on the prediction side and `Outcome.signals`'s own
+absence draws on the resolution side.
+
+**The two additions, against the eight tests.** The same eight drawn from the
+withdrawn set above, in the list's order.
+
+*The summary-disposition route.* (1) Not determined at prediction time: the
+snapshot of a pending petition carries no grant order, so nothing in it says
+which route a future grant would take. (2) It is a level rather than an
+increment, and legitimately so — there is no prediction-time value to move away
+from, because the quantity does not exist until the grant does; the increment
+discipline binds a claim about a docket field that already has a value, which
+this is not. Leakage is handled structurally instead: a forward cell's docket
+is pending by the provisioning guards, and a replay cell's snapshot is
+truncated at its cutoff, so the claim is not keyed on `signals_observable` and
+needs no context freeze. (3) The baseline is conditioned twice over on the
+population that is actually scored — the grant family the resolver conditions
+on, and the paid fee class the salience gate selects — and pooled strictly
+prior, never on the case's own trajectory. The **sample** takes the same
+discipline as the baseline, which is the subtler half: assessability is keyed on
+coverage alone, so a GVR whose record carries no payload is masked exactly as an
+unassessed plenary grant is. Gating only the plain-`granted` path would have
+made the cases resolving 1 always assessable and the cases resolving 0
+assessable only where a payload happened to be retained, and a mask correlated
+with the outcome it masks is leakage wearing a coverage sentinel's clothes. What
+remains is a coverage-limited population — markers are written only as dockets
+refresh — which the claim's declared population states rather than corrects.
+(4) The floor is the block's own: a forecaster
+reporting the published prior-Term rate scores exactly 0, computed rather than
+asserted. (5) Not censored on the side that matters: the rate is a ratio
+*within* the resolved grant family, and a grant's route is fixed by the order
+that grants it, so an open Term's still-pending petitions are absent from
+numerator and denominator alike rather than from one of them. (6) Neither side
+derives from the other: the marker is parsed from order text at resolution, the
+baseline from prior Terms' published counts. (7) Weighting is a non-issue here
+for a stateable reason — only denials were ever subsampled, so every row inside
+the grant family carries weight 1 and the ratio is an unweighted count of
+grants; the fee-class cut is what makes the *frame* uniform, since the pooled
+cut mixes two populations of which only one is ever predicted. (8) **This is
+the test the conditioning exists for.** Unconditionally the class runs near one
+percent of resolved petitions, inside the band test 8 rejects; conditioned on
+the grant family it is roughly a third, which is the level at which a correct
+call is worth more than a season of quiet reporting. What the conditioning costs
+is denominator: the claim scores only on grants, a few percent of cells in the
+baseline band, so a season's realized route total rests on a handful of draws
+even though its *level* clears the test. A per-claim scored count beside the
+total is owed before any route total is read as evidence rather than coverage.
+
+*The dissent from denial.* (1) Not determined at prediction time: the denial
+order does not exist yet, and no pending-docket field anticipates it. (2) A
+level, on the same reasoning and with the same structural leakage control as
+the route claim. (3) No baseline exists yet, so test 3 is deferred rather than
+passed — the claim is declared and unscored, exactly as the two increments are,
+and the cut that carries it will have to condition on the denied population
+that the claim's resolver masks to. (4) Same deferral: no baseline, no floor to
+compute. (5) The censoring question is the reason the eventual cut cannot be a
+whole-corpus rate: a noted dissent is recorded in the denial order itself, so
+resolved-only is the right frame here, but the *coverage* gap is real and
+separate — the marker fills only as dockets refresh, so the first cuts will
+price a coverage-limited population and must say so. (6) Neither side derives
+from the other. (7) Denials are exactly the rows the walker subsampled, so any
+future baseline over them must be reweighted and print `est. n=`;
+`metrics/README.md` governs. (8) **Aggregated existence is the whole design, and
+the test is not yet passed — only survivable.** Per-Justice notings sit near one
+percent of petitions and concentrate in two Justices (from the public record;
+no committed cut counts them), so the fine claim fails on volume outright. The
+aggregate — "some Justice noted a dissent" — is the coarsening test 8 itself
+prescribes, and it *may* clear: the rate that matters is not the docket-wide one
+but the rate over the **gated** population, and noted dissents concentrate in
+exactly the relisted petitions the salience gate selects, so the two can differ
+by a lot. Test 8's own instruction is to measure before declaring, and nothing
+measures this yet — which is the second reason the claim ships with no baseline,
+beside the missing cut. The `dissent_from_denial` parser over retained payloads
+is what would retire the estimate, and the measurement is owed before the claim
+scores rather than before it is declared.
+
+The per-Justice prohibition is structural, not stylistic: nothing in the
+mechanical family records or
+resolves a per-Justice dissent, and nothing writes one into `Outcome.votes`,
+because `docs/decision-model.md` pre-registers that an individual cert vote is
+never scored and a vote-populating channel owes a stage gate this claim does
+not pass through.
+
+**`cert-v1` is superseded where it is declared, and kept where it is the
+fallback.** A version id names what a cell was *asked*, and the declaration is
+resolved from the **event**, not from the prediction: `score_claims` reads
+`declared_claim_set(event_id)` at stamp time and stamps the version it finds. So
+the two halves of the table behave differently, deliberately. The kind-keyed
+fallback in `pipeline.claims` — what an entry-pinned petition event or a legacy
+id resolves to — stays at `cert-v1`, because those cells were elicited under
+that contract and scoring them against a larger set would report claims they
+were never asked for as unstated. Every **declared moment** advances with the
+moment table.
+
+The consequence is worth naming rather than glossing: because the set is
+resolved from the event, **a moment's version bump does not re-score old cells
+under the old set — it strands them.** A prediction that states only cert-v1's
+three claims against a moment declaring `cert-v2` yields *no block at all*
+(the set is mandatory, so a partial answer scores nothing), and `validate` names
+the two unstated claims. Nothing is stranded today, because no committed
+prediction carries a `claims` block; the elicitation surface has to move before
+any `cert-v2` cell runs, and until it does the version bump is a declaration
+without an answer.
+
+A claim total is likewise not comparable across the boundary: a `cert-v2` block
+sums over a different set, so the two are pooled no more freely than a total
+from a cell run under a different process digest — `metrics/README.md`'s
+`declared_set_versions` rule is where that is enforced.
 
 **The declared merits set: `merits-v1`.** The minted merits event
 (`evt-order-judgment` — keyed by exact event id, since its kind is `order`
@@ -696,12 +875,14 @@ why that half of the taxonomy is pre-registered rather than implemented. The
 merits *judgment* half is not blocked: judgment detection resolves
 `Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
 
-The cert-stage half is declared: `Outcome.signals` freezes what a cert-stage
+The cert-stage half is declared: `Outcome.signals` and the two order-text
+markers beside it freeze what a cert-stage
 claim resolves *against*, `Prediction.context` freezes what it resolves *from*,
-and `cert-v1` and `merits-v1` above are the sets the eight tests were applied
+and `cert-v2` and `merits-v1` above are the sets the eight tests were applied
 to. A change to
 what a set carries is a new declaration version, never an in-place edit —
-the same discipline the salience function keeps.
+the same discipline the salience function keeps, which is why the id and the
+claim count move together and a reader can price a total from the id alone.
 
 Claim scoring still sits outside any earlier frozen process, by construction:
 both prompts carry the claim contract in their digest-hashed bytes, so the
@@ -710,14 +891,26 @@ not, and a cell run under an earlier digest carries no claims block and scores
 none. A claim total is never comparable across that boundary — the time-skewed
 coverage note above is the same fact seen from the data side.
 
+That coupling runs both ways, and it is the binding constraint on a set version
+rather than a footnote to it: a declaration is only answerable once the prompt
+asks for its claims, so **a set version and the prompt's statement of it move
+together or the set is unelicitable**. A cert moment declaring `cert-v2` while
+the predict prompt still names `cert-v1`'s three claims produces cells that
+score nothing and that `validate` reports as incomplete — the declaration
+standing ahead of the elicitation, which is a state to pass through in one
+promotion batch, never one to run cells in. The conditional forms matter as much
+as the count: `summary-disposition-route` is asked and priced **given a grant**
+and `dissent-from-denial` **given a denial**, so a prompt eliciting either
+unconditionally would collect a number its baseline does not answer.
+
 Two consequences worth stating plainly:
 
 - **Disposition alone is not worth a schema.** It would duplicate `brier_score`
   under a new name and report one claim as a "claim set". A cert-stage set of
-  three, or a merits per-justice vote set, is the unit that earns the block —
-  and the declared set keeps all three even while the increments await their
-  baselines, because what the block collects meanwhile is their probabilities,
-  which would otherwise be lost to the wait.
+  five, or a merits per-justice vote set, is the unit that earns the block —
+  and the declared set keeps every claim whose baseline is still missing,
+  because what the block collects meanwhile is their probabilities, which would
+  otherwise be lost to the wait.
 - **Nothing here may be published as a result** until the claims it scores
   resolve against fixed sources and the floor above is computed beside them.
   `metrics/README.md` governs what may be claimed from a number, and a claim
@@ -786,7 +979,7 @@ Four facts are what make that an honest label rather than a loophole.
   produces a semantic grade, and no published number depends on any rule
   written here. That is precisely what lets it change freely: there is nothing
   downstream to break.
-- **It commits a predictor to nothing.** Where `cert-v1` and `merits-v1` are
+- **It commits a predictor to nothing.** Where `cert-v2` and `merits-v1` are
   declarations a predictor is held to, `semantic-v0` declares nothing:
   `pipeline.semantic`'s declaration tables are empty and
   `declared_semantic_claim_set` returns `None` for every event, which the tests

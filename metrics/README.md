@@ -889,8 +889,11 @@ the rendered table) and
   rescales a QP-bearing stream rather than estimating a docket population. No
   labeler has run, so the document names the missing distribution among its gaps
   instead. The document names the other statistics it
-  cannot yet compute the same way (summary reversals, which have a disposition label
-  but no resolver rule that reads one off an order; justice-level statistics, which need a per-justice vote record) so a
+  cannot yet compute the same way (summary reversals, which have a disposition
+  label no resolver mints — `Outcome.disposition_route` marks the class on a
+  resolving grant, but that marker feeds no published cut, so the pack's
+  `summary-reversal` count stays zero while such orders sit inside `granted`;
+  justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
 These files are deterministic, offline roll-ups that start empty (zero counts)

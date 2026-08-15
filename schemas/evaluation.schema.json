@@ -112,7 +112,7 @@
           "type": "array"
         },
         "declared_set_version": {
-          "description": "The claim-set declaration that produced this block's rows, e.g. 'cert-v1' \u2014 the versioned constant in `fedcourtsai.pipeline.claims`",
+          "description": "The claim-set declaration that produced this block's rows, e.g. 'cert-v2' \u2014 the versioned constant in `fedcourtsai.pipeline.claims`, resolved from the event at stamp time. Two totals are comparable only under the same version, a different one summing over a different set; nothing enforces that, so an aggregate reports the versions it pooled (`declared_set_versions`) and metrics/README.md governs the reading",
           "title": "Declared Set Version",
           "type": "string"
         },

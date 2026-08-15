@@ -168,8 +168,8 @@ def test_non_cert_stage_cells_sit_outside_the_population() -> None:
 
 
 def test_a_later_cert_moment_sits_outside_the_population() -> None:
-    # The moment axis of the same rule: a CVSG cell carries the same `cert-v1`
-    # block as the distribution cell, so filtering on the stage alone would
+    # The moment axis of the same rule: a CVSG cell carries the same declared
+    # cert block as the distribution cell, so filtering on the stage alone would
     # pool two information sets into one claim mean. Only the cert stage's
     # FIRST moment is the population — the later moment neither inflates the
     # counts nor contributes its block.
