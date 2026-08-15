@@ -280,6 +280,15 @@ stays outside the gate:
   disagreement rather than assigning blame. It never affects the ranking, and
   `events` beside it is small enough to matter — tau-b over a handful of shared
   events moves a long way on one disagreement.
+
+  Both agreement figures read a judge's **current** read of a case, under the
+  one-grading-per-cell-per-judge rule above: the collapse to the newest grading
+  runs before the stakes read is looked for, so a judge that re-graded a cell
+  without recording a `big_case` block has no current read of it and leaves the
+  panel rather than falling back to the read its re-grade superseded. That is
+  the honest reading of a re-grade — the newest grading is the observation, all
+  of it — but it means a withdrawn read moves `cases` / `events` as well as the
+  coefficient, so read the two together.
   `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.

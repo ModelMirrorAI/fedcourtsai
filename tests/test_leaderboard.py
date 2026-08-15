@@ -1773,3 +1773,52 @@ def test_evaluator_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None
 
     assert result["eval-0"].events == 2
     assert result["eval-0"].rank_agreement == 1.0
+
+
+def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shakedown re-grade must not delete a frozen big-case read.
+
+    The reachable shape is a local re-run: the re-grade is unstamped, so its
+    `created_at` fallback clocks newer than the frozen grading's harness stamp
+    while failing `graded_post_freeze`. Collapsing before the scope gate would
+    hand the collapse to the shakedown run and then drop it at the gate, taking
+    the frozen read out of the frozen board with it — so the frozen view keeps
+    the frozen reads, and only the pooled view sees the re-grade.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    for case_id, score in (("ca9/1", 0.9), ("ca9/2", 0.1)):
+        _write_cell(
+            data_root,
+            _evaluation(
+                "alpha",
+                case_id=case_id,
+                run_id="r1",
+                process_version=_frozen_stamp(),
+                big_case=BigCaseAssessment(evaluator_score=score),
+            ),
+            process_version=_frozen_stamp(),
+            big_case_score=score,
+        )
+    # Unstamped re-grade of the first case, inverting that judge's read.
+    _write(
+        data_root,
+        _evaluation(
+            "alpha",
+            case_id="ca9/1",
+            run_id="r2",
+            big_case=BigCaseAssessment(evaluator_score=0.0),
+        ),
+    )
+
+    frozen = big_case_agreement(data_root)
+    pooled = big_case_agreement(data_root, frozen_only=False)
+
+    # Frozen: the r1 reads order with the predictor's own scores.
+    assert frozen["alpha"].cases == 2
+    assert frozen["alpha"].rank_agreement == 1.0
+    # Pooled: the re-grade is in scope, supersedes, and inverts the ordering.
+    assert pooled["alpha"].cases == 2
+    assert pooled["alpha"].rank_agreement == -1.0

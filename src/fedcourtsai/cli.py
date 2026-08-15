@@ -1506,8 +1506,9 @@ def leaderboard(
 ) -> None:
     """Rank predictors from the evaluations ledger into ``metrics/leaderboard.json``.
 
-    Deterministic and offline: aggregates every committed ``evaluation.json``
-    under ``data/`` into one best-first standing per predictor — accuracy, mean
+    Deterministic and offline: aggregates the newest committed
+    ``evaluation.json`` per (case, event, predictor, evaluator) under ``data/``
+    into one best-first standing per predictor — accuracy, mean
     Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
     each reported **per stratum** (forward forecasts vs retrospective cells vs
     procedural mootness-basis cells, never blended and with only the timing
@@ -1590,8 +1591,9 @@ def claim_scores_command(
 ) -> None:
     """Roll the ledger's claim-score blocks into ``metrics/claim-scores.json``.
 
-    Deterministic and offline: aggregates every committed ``evaluation.json``
-    carrying a harness-computed ``claim_scores`` block into per-predictor,
+    Deterministic and offline: aggregates the newest committed
+    ``evaluation.json`` per (case, event, predictor, evaluator) carrying a
+    harness-computed ``claim_scores`` block into per-predictor,
     per-stratum claim-total means (floor and lift beside them, per-claim means,
     the largest single-claim contribution) plus the pre-registered **judge
     validation** — Kendall tau-b between mechanical claim totals and
