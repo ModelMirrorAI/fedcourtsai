@@ -376,13 +376,15 @@ jobs:
     if: ${{ inputs.mode == 'qp-topic-label' }}
     runs-on: ubuntu-latest
     # The step caps have to fit inside this one or the run loses its artifact
-    # to the job clock: the 40-minute labeler, the 5-minute CLI install, and
-    # the three post-agent transcript steps at 5 each come to 60, leaving five
-    # minutes of headroom for the uncapped steps around them (setup, apt, the
-    # artifact download, measure, the PR). The transcript steps are diagnostics
-    # and must never be what costs a paid run its labels, so the budget is
-    # sized for all of them rather than raced.
-    timeout-minutes: 65
+    # to the job clock: the 40-minute labeler, the 5-minute CLI install and the
+    # three post-agent transcript steps at 5 each come to 60, and the steps
+    # around them carry no cap of their own — the `fetch-depth: 0` checkout,
+    # apt, the artifact download, the measure composite (which also revalidates
+    # the data root), the App token, and the PR step's fetch and push. Fifteen
+    # minutes for that set is headroom, not a race, and the race is the one
+    # that matters: the transcript steps deliberately run before measure, so
+    # their worst case is charged before the labels artifact exists.
+    timeout-minutes: 75
     environment: prod
     concurrency:
       group: run-analytics-qp-topic-label
@@ -692,7 +694,7 @@ jobs:
         timeout-minutes: 5
         env:
           GIT_CONFIG_GLOBAL: ${{ runner.temp }}/scanner-gitconfig
-          GIT_CONFIG_SYSTEM: /dev/null
+          GIT_CONFIG_NOSYSTEM: "1"
           # The action finds `git` on PATH, and `$GITHUB_PATH` prepends ahead
           # of everything — so a shim would be the thing doing this "fresh
           # clone". Pinning PATH puts `git` in the same class as the rest of
@@ -726,7 +728,7 @@ jobs:
           UV_BIN: ${{ steps.uv-bin.outputs.path }}
           UV_SHA256: ${{ steps.uv-bin.outputs.sha256 }}
           GIT_CONFIG_GLOBAL: ${{ runner.temp }}/scanner-gitconfig
-          GIT_CONFIG_SYSTEM: /dev/null
+          GIT_CONFIG_NOSYSTEM: "1"
           # Same reason as the checkout above: `git` and `sha256sum` are found
           # on PATH, and `$GITHUB_PATH` prepends ahead of everything.
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -826,6 +828,16 @@ jobs:
           # covers the loader's.
           unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
           unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
+          # Named here rather than left to the scanner's own exit 2, because
+          # the working directory above is not the workspace: a transcript path
+          # that is workspace-relative resolves to nothing from here, and a
+          # withheld artifact whose only record is "exit 2" is the diagnostic
+          # dying in the diagnostic.
+          if [ ! -r "$TRANSCRIPT" ]; then
+            echo "::warning::no readable transcript at ${TRANSCRIPT}; withholding the artifact"
+            echo "transcript withheld: execution file not readable" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           status=0
           # The transcript surface flag, not the generic extra-file suite: the
           # transcript's own tool and request ids are high-entropy by format,
@@ -894,9 +906,9 @@ jobs:
       # Minted only after the agent has finished and the gate has passed, as
       # run-backtest does: a write-capable installation token has no business
       # existing while an agent runs unattended on the same runner, and a token
-      # minted at the top of a 65-minute job would spend its whole 1-hour life
-      # waiting for a step that may never run — and could be dead by the time
-      # it does run. The dev App is not a
+      # minted at the top of a 75-minute job would spend its whole 1-hour life
+      # waiting for a step that may never run — and be dead by the time it
+      # does. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required
       # `gate` check and is never auto-merged.
       - name: Mint app token

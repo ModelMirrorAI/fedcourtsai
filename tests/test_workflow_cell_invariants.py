@@ -364,7 +364,7 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     assert "steps.scanner_clear.outcome == 'success'" in src["if"]
     # Global and system git config are executable (`core.hooksPath`,
     # `init.templateDir`) and fire during a checkout.
-    assert src["env"]["GIT_CONFIG_SYSTEM"] == "/dev/null"
+    assert src["env"]["GIT_CONFIG_NOSYSTEM"] == "1"
     assert "${{ runner.temp }}" in src["env"]["GIT_CONFIG_GLOBAL"]
 
     install = next(s for s in steps if s.get("id") == "scanner_install")
