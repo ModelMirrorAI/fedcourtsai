@@ -27,6 +27,7 @@ from ..schemas import Outcome, Prediction, StatPack
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring.
 from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate  # noqa: F401
+from .moments import scores_votes
 from .salience import SALIENCE_VERSION, salience_band
 
 
@@ -172,12 +173,23 @@ def brier_skill_score(
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     """Fraction of predicted votes that matched, over the Justices both name.
 
-    Scored only where the outcome actually records a vote, so a Justice whose vote
-    was never observed costs a predictor nothing — the denominator is what the
-    record discloses, never what the predictor attempted. ``Outcome.vote_provenance``
-    is what says whether a short list means "only these are public" or "nobody
-    looked"; this function needs only the intersection either way.
+    ``None`` on every event the moments table does not declare a **merits**
+    moment — :func:`fedcourtsai.pipeline.moments.scores_votes` is the gate, and
+    it is checked before the vote lists are so much as read. A cert vote is
+    never scored however visible it is (``docs/decision-model.md``), and the
+    guard is structural rather than a property of the record: an ingestion
+    channel that starts writing ``Outcome.votes`` on a cert outcome changes
+    nothing here. The vote block a non-merits cell submits is banked, unscored.
+
+    Where the gate opens, scoring is intersection-only: over the Justices the
+    outcome actually records, so a Justice whose vote was never observed costs a
+    predictor nothing — the denominator is what the record discloses, never what
+    the predictor attempted. ``Outcome.vote_provenance`` is what says whether a
+    short list means "only these are public" or "nobody looked"; this function
+    needs only the intersection either way.
     """
+    if not scores_votes(prediction.event_id):
+        return None
     if not prediction.votes or not outcome.votes:
         return None
     actual = {v.justice: v.vote for v in outcome.votes}

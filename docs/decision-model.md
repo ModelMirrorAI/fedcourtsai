@@ -11,8 +11,9 @@ how much of a vote record is there.
 
 What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
-scores it against `Outcome.votes` wherever both name the same Justice, feeding
-the leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
+scores it against `Outcome.votes` wherever both name the same Justice — on a
+declared **merits** moment only, the stage gate below — feeding the
+leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
 application docket's motion baseline and on SCOTUS entry-pinned
 stay/injunction motions, `merits` on the minted merits event, absent
@@ -499,19 +500,25 @@ That is the permitted side of the second constraint's line, and the
 constraint's own prohibition stands untouched: a *cert*-stage vote is never
 scored.
 
-**What holds that prohibition today is an absent data source, not a check, and
-that is worth stating rather than implying.** `vote_accuracy` is stage-blind —
-it scores the intersection of whatever two vote lists it is handed — and
-`mean_vote_accuracy` is a cert-board aggregate. Nothing scores a cert vote
-now only because no writer puts votes on a cert outcome. So the first
-ingestion channel that populates `Outcome.votes` at the cert stage — noted
-dissents from denial are published on the order list and are the obvious
-candidate — would begin scoring a cert vote forecast into a ranked total
-silently, which this constraint exists to forbid. Whoever lands that channel
-owes the guard with it: gate `vote_accuracy` on the event's stage, and ship
-the test that fails when the gate is removed. The prohibition is
-pre-registered; the enforcement is not yet written, and no reader should infer
-otherwise from the constraint's presence here.
+**A check holds that prohibition, not the absence of a data source.**
+`pipeline.moments.scores_votes` is the gate, and it lives on the moments
+register because that table is the authority on an event's stage. It admits
+only the declared **merits** moments: `vote_accuracy` returns null on
+everything else before it reads either vote list, and `mean_vote_accuracy`
+re-applies the same predicate to each cell's own event as it aggregates, so a
+committed `Evaluation` that carries the figure anyway — written by an evaluator
+that computed the field itself — is dropped from the mean rather than averaged
+into it. Both seams key on the **event's declared moment**, not on the stage the
+board's join assigned the cell, so the two cannot disagree about which cells are
+scorable. Denial is the default rather than the cert stage being named: an id the
+register does not declare has no stage this code can state, so it is one that
+cannot be shown *not* to be cert. The consequence is that an ingestion channel
+populating `Outcome.votes` at the cert stage — noted dissents from denial are
+published on the order list and are the obvious candidate — changes nothing
+about what is scored. That is what makes the rule structural rather than a
+property of what a particular record contains, and the tests that fail when the
+gate is removed sit beside the scorer and the board (`tests/test_evaluate.py`,
+`tests/test_leaderboard.py`).
 
 **`judgment_correct` is descriptive, not a score.** The exact-match bit on the
 full vocabulary (`Evaluation.judgment_correct`) reports
