@@ -30,6 +30,15 @@ unranked ``<stage>@<moment>`` block. Never pooled: ``granted`` answers a
 different question at each stage, and a later moment answers the same question
 with strictly more evidence.
 
+Every figure counts one grading per cell per judge. A re-graded cell commits a
+second ``evaluation.json`` beside the first, so the ledger reads collapse on
+``(case, event, predictor, evaluator)`` — newest by harness clock
+(:func:`fedcourtsai.integrity.latest_evaluation_runs`) — before any count, mean,
+or correlation: the stratified join does it for the score aggregates, and
+:func:`_scoped_evaluations` for the two agreement views, which read the ledger
+directly. Never across evaluators, whose multiplicity is the panel the
+``evaluators`` count and both agreement views measure.
+
 Skill is reported twice, against two baselines that answer different questions
 and are never combined. The evaluator's recorded ``brier_skill_score`` scores
 against the **strictly-prior** pooled band rate: leakage-safe, the primary
@@ -45,7 +54,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -56,6 +65,7 @@ from .integrity import (
     RETROSPECTIVE,
     StratifiedCell,
     cell_clock,
+    latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
 from .pipeline.claims import CLAIM_JUDGMENT_DISTURBED
@@ -283,6 +293,36 @@ def kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
     return (concordant - discordant) / denominator
 
 
+def _scoped_evaluations(
+    cases_dir: Path, *, in_scope: Callable[[Evaluation], bool]
+) -> list[Evaluation]:
+    """The committed evaluations a scope admits, one run per cell per judge.
+
+    The agreement views read the ledger directly rather than through the
+    stratified join (they need every big-case read, scored cell or not), so the
+    run collapse the join applies is applied here too: a re-graded cell commits
+    a second ``evaluation.json`` describing one observation, and counting both
+    would enter one judge's read of a case twice into a panel mean and a
+    leave-one-out comparison.
+
+    ``in_scope`` runs **first**, so the survivor of the collapse is the newest
+    grading the scope admits rather than the newest grading that exists — the
+    same ordering ``store.stratify`` uses, which is what keeps the frozen board
+    and the frozen agreement views over one set of cells.
+
+    The caller's big-case filter runs **after**, which is the deliberate
+    reading of what a re-grade means: a judge that re-graded a cell without
+    recording a stakes read has no current read of it, so the cell leaves the
+    panel rather than falling back to the read the re-grade superseded.
+    """
+    scoped: list[Evaluation] = []
+    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        evaluation = read_model(path, Evaluation)
+        if in_scope(evaluation):
+            scoped.append(evaluation)
+    return latest_evaluations(scoped)
+
+
 def big_case_agreement(
     data_root: Path, *, frozen_only: bool = True
 ) -> dict[str, BigCaseLeaderboard]:
@@ -304,17 +344,22 @@ def big_case_agreement(
     produced by a frozen process, and only reads whose evaluation carries a harness stamp at or
     after the freeze instant, so this section defaults to the frozen headline exactly like the
     score aggregates — a shakedown big-case read never rides alongside a
-    frozen-only board, even where its event was later re-run frozen.
+    frozen-only board, even where its event was later re-run frozen. Within
+    that scope each judge contributes one read per cell
+    (:func:`_scoped_evaluations`), so a re-graded cell cannot weight its own
+    judge twice inside the panel mean.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return {}
     reads: dict[tuple[str, str, str], list[float]] = defaultdict(list)
-    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
+    for evaluation in _scoped_evaluations(
+        cases_dir,
+        in_scope=lambda evaluation: (
+            not frozen_only or graded_post_freeze(evaluation.process_version)
+        ),
+    ):
         if evaluation.big_case is None:
-            continue
-        if frozen_only and not graded_post_freeze(evaluation.process_version):
             continue
         key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
         reads[key].append(evaluation.big_case.evaluator_score)
@@ -398,7 +443,10 @@ def evaluator_agreement(
     Shares :func:`big_case_agreement`'s ``frozen_only`` semantics, keyed on the
     *prediction's* stamp, **and its collapse to the case**, so both agreement
     views cover the same cells and can be read side by side. Collapsing only one
-    of them would silently break that.
+    of them would silently break that. It shares the run collapse for the same
+    reason and one of its own: a re-graded cell would otherwise enter one
+    judge's read twice into its own mean *and* into every peer's leave-one-out
+    comparison.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -411,16 +459,19 @@ def evaluator_agreement(
     # `big_case_agreement` collapses: stakes are a property of the case, so two
     # moments would put two non-independent points into one correlation.
     reads: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
-        if evaluation.big_case is None:
-            continue
-        if frozen_only and not (
-            graded_post_freeze(evaluation.process_version)
-            and _latest_prediction_is_frozen(
-                cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+    for evaluation in _scoped_evaluations(
+        cases_dir,
+        in_scope=lambda evaluation: (
+            not frozen_only
+            or (
+                graded_post_freeze(evaluation.process_version)
+                and _latest_prediction_is_frozen(
+                    cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
+                )
             )
-        ):
+        ),
+    ):
+        if evaluation.big_case is None:
             continue
         reads[evaluation.case_id][evaluation.evaluator_id].append(
             evaluation.big_case.evaluator_score

@@ -840,13 +840,15 @@ failure that opens no PR commits no facts (that tail is left to the loud stall
 comment) — losing a would-be fact costs at most a duplicate trigger, never a
 grading.
 
-Re-queueing is safe because the `evaluate-matrix` plan gate drops a cell whose
-judge has already graded the event (per evaluator), so a re-derivation mints only
-the *missing* judges and cannot double-count. The gate works at (evaluator,
+Re-queueing costs nothing but latency: the scoring surfaces count one grading per
+(case, event, predictor, evaluator) — newest by harness clock — so a re-grade
+supersedes rather than double-counts, and the `evaluate-matrix` plan gate drops a
+cell whose judge has already graded the event (per evaluator) so a re-derivation
+spends model tokens only on the *missing* judges. The gate works at (evaluator,
 event) grain, which carries one accepted limitation: a prediction committed
-*after* a judge graded the event is not re-scored. That coverage gap is findable
-by a ledger scan (a resolved event whose prediction has no matching evaluation),
-which is the safer failure than the silent miscount a re-grade would cause.
+*after* a judge graded the event is not re-scored. What the coarse grain buys is
+the spend, and what it costs is a coverage gap findable by a ledger scan (a
+resolved event whose prediction has no matching evaluation).
 
 An `EVALUATE_HANDOFF_ENABLED` pause switch mirrors `PREDICT_HANDOFF_ENABLED`:
 holding it costs latency alone — a held window re-derives on resume rather than

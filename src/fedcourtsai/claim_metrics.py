@@ -84,8 +84,10 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
     evaluation's block wins, deterministically, on the harness clock
     (:func:`fedcourtsai.integrity.evaluation_clock` — never the agent-written
     ``created_at``, and aware-normalized so a naive/aware mix cannot raise) —
-    and ``cells`` is published beside ``events`` as the raw census of the
-    collapsed multiplicity.
+    and ``cells`` is published beside ``events`` as the census of the collapsed
+    multiplicity — one grading per judge, the join having already dropped a
+    re-graded cell's superseded runs
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`).
     """
     cells = 0
     latest: dict[tuple[str, str], tuple[tuple[datetime, str, str], ClaimScoreBlock]] = {}
@@ -156,6 +158,13 @@ def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
     counts cover **committed** cells only: an evaluator cell that failed
     outright commits nothing and is invisible here, so differential cell
     failure still selects the pair set upstream of these counts.
+
+    A cell is one grading per judge: the join that feeds this surface collapses
+    a re-graded cell's runs before yielding it
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`), which matters most
+    here of anywhere on the surface — duplicate pairs inflate ``pairs`` against
+    :data:`AGREEMENT_MIN_PAIRS`, so without the collapse a re-grade could
+    publish a coefficient the suppression rule is holding back.
     """
     if not evals:
         return None

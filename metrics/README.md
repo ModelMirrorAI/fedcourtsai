@@ -109,6 +109,23 @@ stays outside the gate:
   and the evaluator did not) there is nothing to check against and the
   internal-coherence check stands alone.
 
+  **One grading per cell per judge.** A re-graded cell commits a second
+  `evaluation.json` beside the first, and both describe one observation, so
+  every figure on the board — the counts, the means, both skill columns, and
+  both agreement views — is taken after the ledger read collapses to one
+  evaluation per (case, event, predictor, evaluator): the newest on the
+  harness clock (`fedcourtsai.integrity.evaluation_clock` — the process stamp,
+  with the agent-written `created_at` only where no stamp exists, which the
+  frozen scope excludes), ties broken deterministically, and the collapse
+  applied inside the scope so a re-grade outside the frozen partition cannot
+  displace the frozen grading it superseded. The collapse stops at the
+  evaluator: a panel of judges reading one prediction is several observations,
+  which is what `evaluators`, the panel means, and the leave-one-out agreement
+  figures measure. (`claim-scores.json`'s *aggregates* collapse one step
+  further, to the event, for a reason that does not apply here — every
+  evaluator of one prediction carries an *identical* harness-computed block, so
+  there is no second observation to keep. Its judge validation stays per cell.)
+
   **The board also names its partitions.** `frozen_process` records the freeze
   constants in force at build time — the blessed digest set and the freeze
   instant — so *what was blessed* is readable from the artifact rather than by
@@ -263,6 +280,15 @@ stays outside the gate:
   disagreement rather than assigning blame. It never affects the ranking, and
   `events` beside it is small enough to matter — tau-b over a handful of shared
   events moves a long way on one disagreement.
+
+  Both agreement figures read a judge's **current** read of a case, under the
+  one-grading-per-cell-per-judge rule above: the collapse to the newest grading
+  runs before the stakes read is looked for, so a judge that re-graded a cell
+  without recording a `big_case` block has no current read of it and leaves the
+  panel rather than falling back to the read its re-grade superseded. That is
+  the honest reading of a re-grade — the newest grading is the observation, all
+  of it — but it means a withdrawn read moves `cases` / `events` as well as the
+  coefficient, so read the two together.
   `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
@@ -315,8 +341,9 @@ stays outside the gate:
   evaluation's block wins where a statpack revision between evaluator stamps
   ever made copies differ — newest on the harness stamp,
   `fedcourtsai.integrity.evaluation_clock`, never the agent-written
-  `created_at`), and `cells` beside `events` is the raw evaluation
-  census. Strata are never pooled, and a total or pair set is never
+  `created_at`), and `cells` beside `events` is the census of counted
+  gradings — one per judge, after the board-wide run collapse above, so a
+  superseded re-grade appears in neither. Strata are never pooled, and a total or pair set is never
   comparable across process versions or across the frozen/all scope: the
   artifact publishes its scope, keyed on the prediction's stamp exactly like
   the leaderboard, and a scope that comes to hold more than one

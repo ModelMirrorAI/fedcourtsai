@@ -11,6 +11,7 @@ from fedcourtsai.integrity import (
     evaluation_clock,
     forward_claim_breach,
     forward_claim_record,
+    latest_evaluations,
 )
 from fedcourtsai.schemas import (
     Disposition,
@@ -167,14 +168,16 @@ def _evaluation(
     *,
     created_at: datetime,
     stamped_at: datetime | None = None,
+    run_id: str = "20260101T000000Z",
+    evaluator_id: str = "eval-a",
 ) -> Evaluation:
     return Evaluation(
         case_id="scotus/1",
         event_id="evt-petition-disposition",
         predictor_id="alpha",
-        evaluator_id="eval-a",
+        evaluator_id=evaluator_id,
         engine=Engine.claude_code,
-        run_id="20260101T000000Z",
+        run_id=run_id,
         created_at=created_at,
         correct=1,
         process_version=(
@@ -203,3 +206,36 @@ def test_evaluation_clock_normalizes_a_bare_timestamp_to_utc() -> None:
     # clocks from different writers always compare.
     evaluation = _evaluation(created_at=datetime(2026, 1, 1))
     assert evaluation_clock(evaluation) == datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def test_a_clock_tie_between_two_gradings_breaks_on_the_run_id() -> None:
+    # Two runs of one grader can share a clock — two unstamped runs written the
+    # same second, or two stamps from one `stamp-cell` invocation. The survivor
+    # must be a property of the records, not of dict insertion, or a board
+    # rebuild could pick a different grading from an unchanged ledger.
+    same_clock = datetime(2026, 2, 2, tzinfo=UTC)
+    lower = _evaluation(created_at=same_clock, run_id="20260101T000000Z")
+    higher = _evaluation(created_at=same_clock, run_id="20260202T000000Z")
+
+    assert [ev.run_id for ev in latest_evaluations([lower, higher])] == ["20260202T000000Z"]
+    # ...and the input order does not decide it.
+    assert [ev.run_id for ev in latest_evaluations([higher, lower])] == ["20260202T000000Z"]
+
+
+def test_survivors_come_back_in_input_order() -> None:
+    # The ledger reads hand this function `sorted(glob(...))` path order and the
+    # boards serialize deterministically off it, so the collapse must preserve
+    # the surviving records' relative order rather than emit them in key order.
+    first = _evaluation(created_at=datetime(2026, 1, 1, tzinfo=UTC), evaluator_id="eval-a")
+    superseded = _evaluation(
+        created_at=datetime(2026, 1, 1, tzinfo=UTC), evaluator_id="eval-b", run_id="r1"
+    )
+    winner = _evaluation(
+        created_at=datetime(2026, 3, 3, tzinfo=UTC), evaluator_id="eval-b", run_id="r2"
+    )
+    last = _evaluation(created_at=datetime(2026, 1, 1, tzinfo=UTC), evaluator_id="eval-c")
+
+    kept = latest_evaluations([first, superseded, winner, last])
+
+    assert [ev.evaluator_id for ev in kept] == ["eval-a", "eval-b", "eval-c"]
+    assert [ev.run_id for ev in kept] == ["20260101T000000Z", "r2", "20260101T000000Z"]

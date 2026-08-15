@@ -1576,3 +1576,249 @@ def test_latest_prediction_keys_on_the_harness_stamp(tmp_path: Path) -> None:
     latest = _latest_prediction(data_root / "cases", ev.case_id, ev.event_id, ev.predictor_id)
 
     assert latest is not None and latest.run_id == "p0"
+
+
+# --- run collapse: one grading per cell per judge ---------------------------------
+
+
+def _graded_at(day: int) -> ProcessVersion:
+    """A harness stamp on the given June day — the clock a collapse orders on."""
+    return ProcessVersion(
+        label="proc-v2", digest="sha256:any", stamped_at=datetime(2026, 6, day, tzinfo=UTC)
+    )
+
+
+def test_a_regraded_cell_counts_once_in_the_aggregates(tmp_path: Path) -> None:
+    """A re-graded cell is one observation, not two.
+
+    Both gradings stay committed, so counting both would reweight the
+    predictor's standing with no trace: accuracy and Brier drawn as a two-cell
+    mean over one cell, and `evaluations` running ahead of `events_scored`
+    without a second judge to explain it.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha", run_id="r1", correct=1, brier_score=0.1, process_version=_graded_at(1)
+        ),
+    )
+    _write(
+        data_root,
+        _evaluation(
+            "alpha", run_id="r2", correct=0, brier_score=0.4, process_version=_graded_at(2)
+        ),
+    )
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    assert board.evaluations_total == 1
+    (entry,) = board.entries
+    assert entry.evaluators == 1
+    forward = entry.forward
+    assert forward is not None
+    assert (forward.evaluations, forward.events_scored) == (1, 1)
+    # The newest grading alone, not a blend of the two.
+    assert forward.accuracy == 0.0
+    assert forward.mean_brier_score == pytest.approx(0.4)
+
+
+def test_the_surviving_grading_keys_on_the_harness_clock(tmp_path: Path) -> None:
+    # The later *agent-written* created_at sits on the earlier-stamped run, so a
+    # collapse that trusted the agent clock would keep the superseded grading —
+    # and the clock the agent controls would pick which grading counts.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha",
+            run_id="r1",
+            created_at=datetime(2026, 6, 30, tzinfo=UTC),
+            process_version=_graded_at(1),
+        ),
+    )
+    _write(
+        data_root,
+        _evaluation(
+            "alpha",
+            run_id="r2",
+            created_at=datetime(2026, 6, 2, tzinfo=UTC),
+            process_version=_graded_at(20),
+        ),
+    )
+
+    cells = iter_stratified_evaluations(data_root, frozen_only=False)
+
+    assert [ev.run_id for ev, *_ in cells] == ["r2"]
+
+
+def test_a_naive_and_aware_created_at_mix_cannot_raise(tmp_path: Path) -> None:
+    # Agent-written created_at carries no offset guarantee, so two unstamped
+    # gradings of one cell can mix naive and aware clocks. They must still
+    # order (naive reads as UTC) rather than raising out of the compare.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", run_id="r1", created_at=datetime(2026, 6, 1)))
+    _write(
+        data_root, _evaluation("alpha", run_id="r2", created_at=datetime(2026, 6, 2, tzinfo=UTC))
+    )
+
+    cells = iter_stratified_evaluations(data_root, frozen_only=False)
+
+    assert [ev.run_id for ev, *_ in cells] == ["r2"]
+
+
+def test_the_collapse_never_crosses_evaluators(tmp_path: Path) -> None:
+    # Evaluator multiplicity is the panel, not a duplicate: two judges reading
+    # one prediction are two observations and both must count, or the panel
+    # means and the `evaluators` column stop measuring anything.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", evaluator_id="eval-a"))
+    _write(data_root, _evaluation("alpha", evaluator_id="eval-b"))
+
+    board = build_leaderboard(iter_stratified_evaluations(data_root, frozen_only=False))
+
+    (entry,) = board.entries
+    assert entry.evaluators == 2
+    forward = entry.forward
+    assert forward is not None
+    assert (forward.evaluations, forward.events_scored) == (2, 1)
+
+
+def test_the_collapse_runs_inside_the_scope_it_is_read_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A re-grade the scope excludes cannot take the in-scope grading with it.
+
+    Collapsing before the scope gate would drop the cell from the frozen board
+    outright — the newer shakedown run wins the collapse, then fails the gate —
+    so an unblessed re-grade would delete a frozen observation.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", run_id="r1", process_version=_frozen_stamp()),
+        process_version=_frozen_stamp(),
+    )
+    # Unstamped: newer on the clock, but outside the frozen scope.
+    _write(data_root, _evaluation("alpha", run_id="r2"))
+
+    assert [ev.run_id for ev, *_ in iter_stratified_evaluations(data_root)] == ["r1"]
+    # Pooled, the re-grade is in scope and supersedes.
+    pooled = iter_stratified_evaluations(data_root, frozen_only=False)
+    assert [ev.run_id for ev, *_ in pooled] == ["r2"]
+
+
+def _write_big_case_read(
+    data_root: Path,
+    predictor_id: str,
+    case_id: str,
+    evaluator_id: str,
+    run_id: str,
+    score: float,
+) -> None:
+    """One judge's big-case read on an existing cell, under its own run id."""
+    court, _, docket = case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event("evt-petition-disposition")
+    write_json(
+        event.evaluation(evaluator_id, predictor_id, run_id),
+        Evaluation(
+            case_id=case_id,
+            event_id="evt-petition-disposition",
+            predictor_id=predictor_id,
+            evaluator_id=evaluator_id,
+            engine=Engine.claude_code,
+            run_id=run_id,
+            # Later than `_write_big_case_cell`'s reads, which is what makes
+            # this the re-grade rather than the superseded read.
+            created_at=datetime(2026, 6, 25, tzinfo=UTC),
+            correct=1,
+            big_case=BigCaseAssessment(evaluator_score=score),
+        ),
+    )
+
+
+def test_big_case_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
+    """A judge that re-graded a cell contributes one read to the panel mean.
+
+    Weighted twice, its superseded read drags the case's panel mean and can
+    invert the predictor's ordering against the panel — here from +1 to -1.
+    """
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.0, 1.0])
+    _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 1.0)
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.8, 0.8])
+
+    result = big_case_agreement(data_root, frozen_only=False)
+
+    # Panel mean 1.0 on case 1 (not 0.667 over three reads) keeps it above
+    # case 2's 0.8, so the predictor's ordering is concordant with the panel's.
+    assert result["p"].cases == 2
+    assert result["p"].rank_agreement == 1.0
+
+
+def test_evaluator_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
+    """The leave-one-out comparison sees each judge's current read, once.
+
+    A superseded read sits inside the judge's own mean *and* every peer's
+    peer-mean. Here it would tie eval-0 across both cases on its own axis,
+    which is tau-b's undefined case — a coefficient lost to a re-grade.
+    """
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[1.0, 0.0])
+    _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 0.0)
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.5, eval_scores=[0.5, 0.5])
+
+    result = evaluator_agreement(data_root, frozen_only=False)
+
+    assert result["eval-0"].events == 2
+    assert result["eval-0"].rank_agreement == 1.0
+
+
+def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shakedown re-grade must not delete a frozen big-case read.
+
+    The reachable shape is a local re-run: the re-grade is unstamped, so its
+    `created_at` fallback clocks newer than the frozen grading's harness stamp
+    while failing `graded_post_freeze`. Collapsing before the scope gate would
+    hand the collapse to the shakedown run and then drop it at the gate, taking
+    the frozen read out of the frozen board with it — so the frozen view keeps
+    the frozen reads, and only the pooled view sees the re-grade.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    for case_id, score in (("ca9/1", 0.9), ("ca9/2", 0.1)):
+        _write_cell(
+            data_root,
+            _evaluation(
+                "alpha",
+                case_id=case_id,
+                run_id="r1",
+                process_version=_frozen_stamp(),
+                big_case=BigCaseAssessment(evaluator_score=score),
+            ),
+            process_version=_frozen_stamp(),
+            big_case_score=score,
+        )
+    # Unstamped re-grade of the first case, inverting that judge's read.
+    _write(
+        data_root,
+        _evaluation(
+            "alpha",
+            case_id="ca9/1",
+            run_id="r2",
+            big_case=BigCaseAssessment(evaluator_score=0.0),
+        ),
+    )
+
+    frozen = big_case_agreement(data_root)
+    pooled = big_case_agreement(data_root, frozen_only=False)
+
+    # Frozen: the r1 reads order with the predictor's own scores.
+    assert frozen["alpha"].cases == 2
+    assert frozen["alpha"].rank_agreement == 1.0
+    # Pooled: the re-grade is in scope, supersedes, and inverts the ordering.
+    assert pooled["alpha"].cases == 2
+    assert pooled["alpha"].rank_agreement == -1.0
