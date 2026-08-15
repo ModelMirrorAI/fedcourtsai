@@ -2948,6 +2948,303 @@ class ToolUsageEntry(_Strict):
     actors: dict[str, int] = Field(
         default_factory=dict, description="Calls per predictor/evaluator id"
     )
+    null_result_calls: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls whose `result_digest` is null, per engine, and ONLY for engines "
+        "whose transcript capture records a result side at all (see "
+        "`ToolUsageEngine.captures_results`) — an engine that never captures results would "
+        "otherwise read as 100% dead ends. Even here a null conflates a genuinely empty "
+        "result with one the transcript failed to pair to its call, so read the rate as an "
+        "upper bound on the dead-end rate rather than as the rate itself",
+    )
+
+
+class ToolUsageEngine(_Strict):
+    """One engine's retrieval profile: what it called, what came back, what it cost.
+
+    The result-side fields exist because a rollup that counts only calls cannot
+    see the difference between an engine whose retrieval is observable and one
+    whose transcript records the request and drops the answer — and the second
+    silently removes that engine's cells from every result-derived reading,
+    including the evaluator's leakage grading.
+    """
+
+    engine: str = Field(description="Engine id as the logs record it, e.g. `claude-code`")
+    cells: int = Field(default=0, ge=0, description="Retrieval logs this engine produced")
+    calls: int = Field(
+        default=0, ge=0, description="Tool calls across those cells, MCP and builtin"
+    )
+    calls_with_result: int = Field(
+        default=0,
+        ge=0,
+        description="Calls carrying a `result_digest` — the result side was captured AND "
+        "non-empty. The committed `RetrievalCall` has no capture flag, so this is the only "
+        "positive evidence of result capture there is",
+    )
+    result_observability_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`calls_with_result / calls`, or null with no calls. TWO states, not "
+        "three: a null digest means the result was empty OR was never captured, and the "
+        "committed record cannot separate them per call. Read a rate of 0 across thousands "
+        "of calls as a capture gap in that engine's transcript rather than as an engine "
+        "whose every call came back empty. The denominator is EVERY call, builtins "
+        "included, so an engine can score well here on shell output while its MCP results "
+        "go uncaptured — `mcp_calls_with_result` is the one that speaks to the manifest",
+    )
+    mcp_calls_with_result: int = Field(
+        default=0,
+        ge=0,
+        description="The manifest-tool subset of `calls_with_result` — result digests on "
+        "normalized MCP calls only",
+    )
+    captures_results: bool = Field(
+        default=False,
+        description="Whether any **MCP** call from this engine carried a result digest. "
+        "False is the engine-level reading the per-call record cannot give: with no positive "
+        "instance the honest conclusion is that the result side is not observable, which is "
+        "why the dead-end rows are withheld rather than reported as total. Gated on MCP "
+        "calls rather than on any call, because a builtin's result pairing says nothing "
+        "about whether the tool transcript this table is about carries results",
+    )
+    mean_calls_per_cell: float = Field(default=0.0, ge=0.0, description="calls / cells")
+    median_calls_per_cell: float = Field(
+        default=0.0, ge=0.0, description="Median calls per cell — the mean's skew check"
+    )
+    cells_with_cost: int = Field(
+        default=0,
+        ge=0,
+        description="Cells whose retrieval log has a sibling `usage.json` to join a cost to; "
+        "the denominator for the cost fields, which is not `cells`",
+    )
+    mean_cost_usd_per_cell: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Mean `estimated_cost_usd` over `cells_with_cost`, or null when none "
+        "joined. An estimate from published rates, not a billed figure",
+    )
+    median_cost_usd_per_cell: float | None = Field(
+        default=None, ge=0.0, description="Median of the same joined cells, or null when none"
+    )
+
+
+class ToolUsageCut(_Strict):
+    """Cells and calls under one value of a cut — a mode, a role, or an actor."""
+
+    key: str = Field(description="The cut's value, e.g. `forward`, `predictor`, `claude-baseline`")
+    cells: int = Field(default=0, ge=0, description="Retrieval logs with this value")
+    calls: int = Field(default=0, ge=0, description="Tool calls from those cells, MCP and builtin")
+    mcp_calls: int = Field(
+        default=0, ge=0, description="The manifest-tool subset of `calls` — builtins excluded"
+    )
+
+
+class ToolUsageCell(_Strict):
+    """One cell's call volume beside its cost — the scatter's raw points."""
+
+    case_id: str
+    event_id: str = Field(
+        description="The forecast moment the cell ran on, from its path — the retrieval log "
+        "names only the case, and without it two cells of one case and predictor on "
+        "different events are indistinguishable rows"
+    )
+    run_id: str
+    role: str = Field(description="predictor | evaluator")
+    actor_id: str
+    engine: str
+    mode: str = Field(description="The cell's provisioned mode, or `unknown` where unrecorded")
+    calls: int = Field(default=0, ge=0, description="Tool calls in this cell's log")
+    mcp_calls: int = Field(default=0, ge=0, description="The manifest-tool subset")
+    cost_usd: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="`estimated_cost_usd` from the sibling `usage.json`; null where the cell "
+        "committed no usage record, which is missing data rather than a free cell",
+    )
+
+
+class ToolUsefulnessSegment(_Strict):
+    """Call volume beside forecast skill for one (engine, mode, event kind) segment.
+
+    Descriptive only. Every number carries its own ``cells`` so a reader cannot
+    lift a mean off a segment of two.
+    """
+
+    engine: str
+    mode: str = Field(
+        description="The cell's provisioned mode as its own `retrieval_log.json` recorded "
+        "it — forward | replay | unknown. The harness's field, not the evaluator's "
+        "transcription of it in the leakage block, so the key is a fact rather than a "
+        "grading. NOT the leaderboard's `Stratum`: that vocabulary is "
+        "forward/retrospective/procedural and is derived from the harness clock against "
+        "the outcome, and this surface does not apply the forward-claim exclusion the "
+        "scored boards apply, so its `forward` set is the broader one"
+    )
+    stage: str = Field(
+        description="The event's declared decision stage (cert | interim | merits), or "
+        "`unknown` for an event the moment registry does not declare. Part of the key "
+        "because a cert Brier and a merits Brier score different questions against "
+        "different base rates, so pooling them would mix outcome vocabularies into one "
+        "meaningless mean"
+    )
+    moment: str = Field(
+        description="The declared forecast moment within that stage, or `unknown`. Keyed "
+        "beside the stage rather than folded into it: two moments of one stage answered "
+        "from different information sets are two populations, and the event id's kind slug "
+        "is too coarse to separate either axis"
+    )
+    cells: int = Field(
+        default=0, ge=0, description="Predicted cells in the segment — the n beside every mean"
+    )
+    evaluations: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations behind those cells. Larger than `cells` under "
+        "cross-evaluation: several judges score one prediction, and their scores are not "
+        "independent observations of it",
+    )
+    brier_gradings: int = Field(
+        default=0,
+        ge=0,
+        description="The subset of `evaluations` that actually recorded a Brier — the mean's "
+        "true denominator, which can sit well below `evaluations`. Read the mean against "
+        "this count, never against the evaluation total",
+    )
+    mean_calls: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Mean tool calls per cell, MCP and builtin. The x axis the correlation "
+        "uses, and neither axis is clean: total calls sweeps in shell and file work that "
+        "retrieves nothing, while an MCP-only count would drop the open-web route, which "
+        "every engine reaches through a builtin. Read it beside `mean_mcp_calls`. Counted "
+        "off the cell's LATEST prediction run, while a grading names no run — so on a "
+        "re-run cell these calls may not be the calls the Brier was earned with",
+    )
+    mean_mcp_calls: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Mean manifest-tool calls per cell — how much of the volume was the "
+        "configured retrieval surface rather than the engine's own builtins",
+    )
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean over cells of each cell's mean Brier across its judges, or null "
+        "where no cell in the segment was scored",
+    )
+
+
+class ToolUsefulnessCorrelation(_Strict):
+    """One population's call-volume/Brier coefficient, or the refusal to compute it.
+
+    One row per (mode, stage, moment) — the population a coefficient may be taken
+    over. There is deliberately **no pooled row**: a tau over forward and replay
+    cells together, or over cert and merits together, would blend populations
+    whose grades are not comparable, and the pooled number is the one a reader
+    would quote.
+    """
+
+    mode: str = Field(description="The population's provisioned mode: forward | replay | unknown")
+    stage: str = Field(description="The population's decision stage, or `unknown`")
+    moment: str = Field(description="The population's declared forecast moment, or `unknown`")
+    cells: int = Field(default=0, ge=0, description="Joined cells in this population — the n")
+    published: bool = Field(
+        default=False, description="Whether the floor was met and a coefficient computed"
+    )
+    calls_brier_tau: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b of (total calls, mean Brier) over this population. Null "
+        "whenever `published` is false — withheld, not merely unreported, so no downstream "
+        "reader can quote a coefficient the floor refused. Brier is a loss, so a NEGATIVE "
+        "tau is the one that would mean more calls beside BETTER forecasts. Engines are "
+        "pooled within the row, which confounds it with everything else that differs "
+        "between them",
+    )
+    withheld_reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Why no coefficient was published, in prose, or null when one was",
+    )
+
+
+class ToolUsefulness(_Strict):
+    """Does retrieval buy accuracy? The denominators, and the refusal to answer yet.
+
+    The question the tool rollup exists to reach, and the one it is furthest from
+    answering: whether cells that called more tools forecast better. This block
+    publishes the join that would answer it — call volume against Brier, per
+    engine, mode, and forecast moment — and, below a pre-declared cell floor,
+    publishes no correlation at all. The floor is declared in code
+    (``tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS``) rather than chosen once the
+    numbers are in, because a coefficient over a handful of cells is noise that
+    reads as a finding, and the reader who most needs the caveat is the one least
+    likely to supply it.
+
+    **This is an ops view, not a scored board.** It shares the boards' process
+    scope and their one-grading-per-judge collapse, but it does not apply the
+    forward-claim exclusion, and it keys its mode on the harness's own record
+    rather than on the derived stratum. So its cell population is a superset of
+    the leaderboard's and its means are not the board's numbers; a figure here
+    that disagrees with a board figure is two populations, not an error in
+    either. Nothing here is causal even at full power: engines differ in prompt,
+    model, and sandbox as well as in retrieval, and a cell calls more tools
+    partly *because* its case is hard.
+    """
+
+    process_scope: Literal["frozen", "all"] = Field(
+        description="Which process versions the joined cells span. `frozen` (the default) "
+        "keeps only cells whose prediction carries a blessed process digest and whose "
+        "gradings were stamped at or after the freeze instant; `all` pools every version, "
+        "including pre-freeze shakedown cells whose Brier is not comparable to anything. A "
+        "grade with no process scope beside it is not readable, which is why this is not "
+        "optional",
+    )
+    min_cells_for_correlation: int = Field(
+        ge=1,
+        description="The pre-declared floor: below this many cells in a population, that "
+        "population publishes no correlation",
+    )
+    predicted_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Predicted cells the walk found at all — the coverage denominator, so "
+        "`joined_cells` reads as a share rather than as a bare count",
+    )
+    joined_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Predicted cells in scope with both a retrieval log and at least one "
+        "evaluation carrying a Brier — the correlations' would-be n",
+    )
+    joined_evaluations: int = Field(
+        default=0, ge=0, description="Evaluations behind those cells, Brier-bearing or not"
+    )
+    brier_gradings: int = Field(
+        default=0,
+        ge=0,
+        description="The subset of `joined_evaluations` that recorded a Brier — the figure's "
+        "true denominator",
+    )
+    cells_at_call_cap: int = Field(
+        default=0,
+        ge=0,
+        description="Joined cells whose log hit the per-log call cap. Their call volume is "
+        "right-censored at the cap, which compresses the top of the correlation's x axis; a "
+        "non-zero count means the coefficient understates the spread it was taken over",
+    )
+    segments: list[ToolUsefulnessSegment] = Field(
+        default_factory=list,
+        description="The denominator table, engine then mode then event kind",
+    )
+    correlations: list[ToolUsefulnessCorrelation] = Field(
+        default_factory=list,
+        description="One row per (mode, stage, moment) population, each gated on the floor "
+        "independently. There is no pooled row on purpose",
+    )
 
 
 class ToolUsage(_Strict):
@@ -3007,6 +3304,37 @@ class ToolUsage(_Strict):
         default_factory=dict,
         description="Calls to engine built-ins (shell, file IO, web search), counted "
         "separately because they are not what the manifest offers",
+    )
+    engine_profiles: list[ToolUsageEngine] = Field(
+        default_factory=list,
+        description="Per-engine result observability and cost-per-cell, engine-id ordered",
+    )
+    by_mode: list[ToolUsageCut] = Field(
+        default_factory=list,
+        description="Cells and calls per provisioned mode (forward | replay | unknown). A "
+        "ledger of one mode is the expected reading early on; the cut exists so the "
+        "comparison is available the moment the other mode lands",
+    )
+    by_role: list[ToolUsageCut] = Field(
+        default_factory=list,
+        description="Cells and calls per stage (predictor | evaluator) — the two roles run "
+        "different prompts against the same manifest",
+    )
+    by_actor: list[ToolUsageCut] = Field(
+        default_factory=list,
+        description="Cells and calls per predictor/evaluator id, descending by calls",
+    )
+    cells: list[ToolUsageCell] = Field(
+        default_factory=list,
+        description="One row per retrieval log: call volume beside joined cost. The scatter "
+        "the per-engine means summarize, kept so a reader can check the means against the "
+        "spread rather than trust them",
+    )
+    usefulness: ToolUsefulness | None = Field(
+        default=None,
+        description="Call volume against forecast skill, with the pre-declared floor below "
+        "which no correlation is published. Null on artifacts written before the block "
+        "existed — not the same as a floor that was met and found nothing",
     )
 
 

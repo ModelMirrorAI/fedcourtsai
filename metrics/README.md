@@ -1136,6 +1136,43 @@ reference set. No topic label enters a claim score, a leaderboard rank, or any
 denominator here; a labeling run describes the corpus and commits a predictor to
 nothing.
 
+**What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
+publishes call counts, per-engine result observability, per-cell cost, and a
+call-volume-against-Brier table. The counts are facts about the pipeline and
+carry no process scope; the Brier column is a **grade** and carries one —
+blessed processes only by default, `all` under `--all-versions`, stamped in
+`process_scope` and printed beside the table, because a grade with no scope
+beside it is not readable. It is an **ops view, not a scored board**: it shares
+the boards' process scope and their one-grading-per-judge collapse, but it does
+not apply the forward-claim exclusion and it keys its `mode` on the harness's
+own `retrieval_log.json` record rather than on the derived stratum, so its
+population is a superset of the leaderboard's and a figure that differs from a
+board figure is two populations rather than an error in either. Nothing is
+pooled across modes or across forecast moments, in the table or in the
+coefficient.
+
+**No correlation between retrieval and accuracy may be claimed.** A rank
+correlation is published only for a (mode, moment) population that clears
+`tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS`, a floor declared in code ahead of
+any coefficient rather than chosen once one is in view; below it the value is
+**withheld**, not merely unreported, and the surface prints denominators and an
+under-powered verdict. Above the floor it stays **descriptive, never causal**:
+engines are pooled within a row, so the coefficient carries every difference
+between them — prompt, model, sandbox — and a cell calls more tools partly
+*because* its case is hard. Brier is a loss, so the negative sign is the one
+that would mean more calls beside better forecasts; a cell whose log hit the
+per-log call cap is right-censored on the call axis, and the count of those is
+published beside the coefficient.
+
+**A result-observability rate is two states, not three.** A captured
+`result_digest` proves the result side was recorded and non-empty; a null covers
+an empty result *and* a result the engine's transcript never carried, and the
+committed `RetrievalCall` separates neither. So the rate is a floor on how much
+of the answer side is observable, never a hit rate, and its denominator is every
+call including builtins. An engine with no captured MCP result anywhere has its
+per-tool dead-end rows **withheld** rather than printed as 100%, and where they
+are printed they are an upper bound.
+
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
 `salience-replay.json`) are **iteration

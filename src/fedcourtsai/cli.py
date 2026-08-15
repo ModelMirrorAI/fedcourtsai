@@ -1825,6 +1825,13 @@ def tool_usage_command(
     markdown_out: Annotated[
         Path | None, typer.Option(help="Write the Markdown rollup here (e.g. a run summary).")
     ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Pool every process version in the usefulness block (default: frozen only).",
+        ),
+    ] = False,
 ) -> None:
     """Roll committed retrieval logs into an offered-vs-called tool report.
 
@@ -1843,6 +1850,17 @@ def tool_usage_command(
     A zero means **never called**, not useless — the prompt may never mention
     the tool, or a sandbox may have blocked it. The report says so; check the
     cause before retiring anything.
+
+    Beside that it reports **result observability** per engine (a captured
+    result digest is the only evidence the answer side was recorded at all, so
+    the rate is two-state and an engine that captured none has its dead-end rows
+    withheld rather than printed as total), cuts by mode / role / actor, calls
+    beside each cell's estimated cost, and **call volume against Brier** joined
+    to the gradings of each predicted cell. That last block is a grade-bearing
+    surface, so it is scoped to blessed processes by default — ``--all-versions``
+    pools every version, including shakedown cells whose Brier is comparable to
+    nothing — and it publishes no correlation for any population below the floor
+    pre-declared as ``tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS``.
     """
     settings = get_settings()
     # The current manifest's advertised set, so a never-called tool is visible
@@ -1854,7 +1872,9 @@ def tool_usage_command(
         path = settings.config_root / filename
         if path.exists():
             offered_now.update(mcp.manifest_tools(load_mcp_servers(path)))
-    usage = tool_usage.build_tool_usage(settings.data_root, sorted(offered_now))
+    usage = tool_usage.build_tool_usage(
+        settings.data_root, sorted(offered_now), frozen_only=not all_versions
+    )
     markdown = tool_usage.render_tool_usage_markdown(usage)
     if out is not None:
         write_json(out, usage)
