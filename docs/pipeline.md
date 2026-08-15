@@ -128,21 +128,20 @@ sidecar under the tested `mcp-integration-check` client, a stub
 `local-cascade` cell, the `collect-run` composite over synthetic cell
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
-built from the committed reference set (token-free and credential-free;
-outside the required suite), or (the one token-spending scenario) a single
-real-engine cell over the service sidecar — dispatched around changes to
-corpus access, the sidecars, engine CLIs, the collect contract, or the
-corpus-consuming workflows and before releases — from main, or via the
-`staging` deployment environment (the collect scenario needs
-none) from the `staging` branch, which is the only branch that environment
-accepts (those runs are the promotion gate's freshness evidence; see
-*Promotion: staging → main* below). The deployment environment resolves from
+built from the committed reference set (token-free and credential-free), or
+(the one token-spending scenario) a single real-engine cell over the service
+sidecar — dispatched around changes to corpus access, the sidecars, engine
+CLIs, the collect contract, or the corpus-consuming workflows and before
+releases — from main, or via the `staging` deployment environment (collect
+binds none; qp-topic binds one it never reads) from the `staging` branch, which
+is the only branch that environment accepts (those runs are the promotion
+gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every scenario — collect rides the run
-as its own environment-free job — with engine-smoke once per engine, so three
-cells' token spend) out of one run.
+fans the gate's whole required suite (every real scenario — collect rides the
+run as its own environment-free job — with engine-smoke once per engine, so
+three cells' token spend) out of one run.
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
@@ -429,10 +428,10 @@ The mechanics:
   flight — no open trigger issue, no unfinished run) and *freshness* (every
   required integration scenario green at exactly the staging head being
   promoted — one green `scenario=all` run, which succeeds only when every
-  matrix leg does, satisfies all seven required runs at once, engine-smoke
-  counted once per engine). The `promote` dispatch runs it as pre-flight;
-  ci.yml's
-  `promotion-gate` job runs it as a required check on the promotion PR.
+  matrix leg and its collect job does, satisfies all nine required runs at
+  once, engine-smoke counted once per engine). The `promote` dispatch runs
+  it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
+  check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
