@@ -586,13 +586,23 @@ nothing from a null-guard merits section. The merits baseline enforces this
 structurally at the granularity that matters: `merits_base_rate` returns no
 baseline when any Term **inside its pooled window** carries a null
 count (a null on a Term the leakage rule or the lookback window already
-excludes contributes nothing and so cannot contaminate the rate). Three residues
+excludes contributes nothing and so cannot contaminate the rate). Four residues
 survive, and they travel with any quoted figure: a summary reversal issued in
 a later order than its grant is caught by neither guard; an *unparsed*
 cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
-figure can still carry it even though the rate cannot; and a parsed judgment
+figure can still carry it even though the rate cannot; a parsed judgment
 with no date stays in `granted` the same way, since the gap test cannot run
-on it. And the window is the same ten-Term
+on it; and a granted case recorded as `merits_terminated` stays in `granted`
+too. That last residue covers two unlike shapes, and the distinction matters
+for what may be said about it: a post-grant Rule 46 dismissal has **no
+disposition to record** — nobody reached the merits — while a bare mandate
+notation marks a case that *was* decided on a docket whose disposition entry
+the corpus never captured, which is a coverage failure of the same family as
+the two residues above. Neither is folded into the judgment vocabulary,
+because a seventh value would be scored as an undisturbed judgment, asserting
+in the first case that the decision below survived a merits ruling nobody
+made, and in the second that it survived a ruling whose direction is simply
+unread. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -811,7 +821,8 @@ the rendered table) and
   T is routinely granted in T+1; Terms with no parsed judgment are omitted
   from the rendered table): the granted-cohort count, the parsed count
   beside it (the backfill's own coverage — read `granted − parsed` as an upper
-  bound blending still-pending cases with genuine parse gaps, so a recent
+  bound blending still-pending cases, genuine parse gaps, and the proceedings
+  that ended with no disposition to parse, so a recent
   Term's thin parse is mostly pendency), the six-way judgment distribution
   (affirmed / reversed /
   vacated / affirmed-in-part / DIG / equally divided), and the **disturbed

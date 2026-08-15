@@ -693,10 +693,16 @@ or network.
      event from those columns (`Outcome.judgment` plus the disturbed binary
      as `actual_granted`; an undated parse surfaces for triage instead of
      guessing a `resolved_at`), and the docket exits the rotation with its
-     last open event. The merits event is forecastable while it stays open:
-     `store.forecastable_events` admits it on a row whose grant opened a merits
-     proceeding, so the granted docket queues a merits predict cell the way an
-     application docket queues its interim one.
+     last open event. An open merits event is *usually* forecastable, but open
+     is not the test: `store.forecastable_events` admits it on a row whose grant
+     opened a merits proceeding, whose judgment is unlatched **and** whose
+     proceeding is not recorded terminated, so the granted docket queues a
+     merits predict cell the way an application docket queues its interim one.
+     The terminated arm is what separates the two: a case that ended with no
+     disposition (a post-grant Rule 46 dismissal, a docket whose only terminal
+     notation is the mandate) keeps its merits event open, because nothing
+     resolves an event on a row carrying no judgment — but there is no longer a
+     judgment to forecast, so the event stops earning cells and simply sits.
 
 ## Event definition — deterministic, corpus-driven
 
@@ -767,6 +773,13 @@ give the data **invariants** worth asserting on their own, distinct from
   exist in the corpus, every evaluation targets a real prediction, and every
   prose document a prediction names exists beside it (so a pointer to a document
   the cell never wrote fails rather than passing as a valid record).
+- **Record completeness** — a row that should have resolved by now has. A cert
+  grant that opens a merits proceeding and is more than two Terms old, carrying
+  neither a parsed judgment nor a recorded termination, is a decided docket the
+  record never captured rather than a pending case, and every row-keyed merits
+  gate reads it as forecastable. Unlike the two layers above this one cannot
+  fail on a well-formed corpus alone — it measures the sweeps' coverage — so it
+  names the cases whose record needs mending.
 
 The corpus-dependent layers run as `fedcourts validate-corpus`, **produced
 where the corpus is already pulled** (a non-blocking trailing step on the

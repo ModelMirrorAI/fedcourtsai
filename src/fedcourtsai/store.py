@@ -255,7 +255,8 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
 
     The merits admission: an **order-kind** event carrying the **merits
     stage**, on a row whose cert grant actually opened a merits proceeding, whose
-    judgment is not already latched, and which the row-only scope rules keep in
+    judgment is not already latched and whose proceeding is not recorded
+    terminated, and which the row-only scope rules keep in
     scope. The stage carries the event test — an order event of any other sort
     carries no stage at all — with the kind checked defensively beside it, since
     only the merits mint produces an order-kind event today and a second one
@@ -266,6 +267,15 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     rather than resolving the event, so the row knows the case is decided while
     the event stays open. Without the check that docket mints a cell per
     predictor, per day, that provisioning then refuses.
+
+    The terminated check is the same guard for the case that ends with no
+    disposition at all — a post-grant Rule 46 dismissal, a docket whose only
+    terminal notation is the mandate. Nothing will ever latch a judgment there,
+    so an unlatched column alone would keep the event forecastable forever, and
+    on a long-decided docket that is a forward cell on a case whose answer is
+    already public. The column
+    (``merits_terminated``, :mod:`fedcourtsai.pipeline.judgment`) is what makes
+    the record refuse it rather than the scope latch.
 
     The row predicate is :func:`fedcourtsai.corpus.opens_merits_proceeding` —
     the same rule that mints the event, that the judgment backfill parses, and
@@ -304,6 +314,7 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
         _declares_forecastable(event, Stage.merits)
         and row is not None
         and row.merits_judgment is None
+        and row.merits_terminated is None
         and corpus.opens_merits_proceeding(row)
         and corpus.out_of_scope_reason(row) is None
     )
@@ -473,6 +484,14 @@ def forward_refusal_reason_from_parts(
     if spec is not None and spec.stage is Stage.merits:
         if row.merits_judgment is not None:
             return "the corpus already latched the merits judgment"
+        if row.merits_terminated is not None:
+            # No disposition was ever entered, so no judgment can latch — but
+            # the proceeding is over, and a forward cell on it would be
+            # forecasting a question the docket already closed.
+            return (
+                "the corpus records the merits proceeding terminated without a "
+                f"disposition ({row.merits_terminated})"
+            )
     elif row.disposition is not None or corpus.resolution_date(row) is not None:
         return "the corpus records the case decided"
     return None

@@ -22,7 +22,7 @@ from fedcourtsai.merits_event_migration import (
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
-from fedcourtsai.schemas import EventKind
+from fedcourtsai.schemas import EventKind, MeritsTermination
 
 runner = CliRunner()
 
@@ -379,6 +379,44 @@ def test_unparsed_judgment_signal_blocks_the_mint(tmp_path: Path) -> None:
     ((skipped_case, reason),) = result.skipped
     assert skipped_case == _GRANTED
     assert "possibly decided" in reason
+
+
+def test_a_post_grant_rule_46_dismissal_blocks_the_mint(tmp_path: Path) -> None:
+    # The residue shape the disposition scan has no branch for: a granted case
+    # voluntarily dismissed under Rule 46 ends with no disposition at all, so
+    # the high-recall merits scan has to read the termination vocabulary or the
+    # docket mints a forward event on a closed proceeding.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted(_GRANTED, "25-100")])
+        corpus.upsert_snapshot(
+            conn,
+            _GRANTED,
+            date(2026, 8, 11),
+            _pending_payload(("Aug 11 2026", "Case Dismissed - Rule 46.")),
+        )
+        result = backfill_merits_events(conn, _data_root(tmp_path), apply=True)
+        events = corpus.events_for_case(conn, _GRANTED)
+    assert events == []
+    ((skipped_case, reason),) = result.skipped
+    assert skipped_case == _GRANTED
+    assert "possibly decided" in reason
+
+
+def test_a_recorded_termination_leaves_the_row_alone(tmp_path: Path) -> None:
+    # Once the sweep has recorded the termination the row is decided for the
+    # mint's purposes, exactly as a latched judgment is — the population is
+    # forward-only, and there is nothing left to forecast.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted(_GRANTED, "25-100")])
+        corpus.upsert_snapshot(conn, _GRANTED, date(2026, 4, 22), _pending_payload())
+        corpus.set_merits_termination(conn, _GRANTED, MeritsTermination.voluntary_dismissal)
+        result = backfill_merits_events(conn, _data_root(tmp_path), apply=True)
+        events = corpus.events_for_case(conn, _GRANTED)
+    assert events == []
+    assert result.minted == [] and result.skipped == []
+    assert result.decided == 1
 
 
 def test_backfill_event_moments_stamps_and_converges(tmp_path: Path) -> None:

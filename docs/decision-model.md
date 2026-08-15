@@ -403,7 +403,14 @@ same artifact. A pack parsed from a build the guard never ran on publishes
 `null` there, never a zero, for the same reason. A parsed judgment carrying
 **no** date cannot be gap-tested:
 its membership is unknown, so it stays in `granted` as a visible coverage
-gap while its judgment stays out of the parsed slice and the rate. The
+gap while its judgment stays out of the parsed slice and the rate. A granted
+case recorded as `merits_terminated` sits in `granted` on the same footing,
+whichever of the two shapes it carries: a post-grant Rule 46 dismissal has no
+judgment to place, because nobody reached the merits; a bare mandate notation
+has one the corpus never captured. Folding either into the vocabulary as a
+seventh value would score it as undisturbed — asserting for the first that the
+decision below survived a merits ruling no one made, and for the second that it
+survived a ruling whose direction the record does not state. The
 invariant the pool publishes under is therefore exact: **every judgment in
 the parsed slice provably postdates its grant**, and `brier_skill_score` is
 computed on merits cells against that guarded pool — the prohibition is

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.merits_event_migration import BRIEFED_MERITS_EVENT_ID
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
@@ -28,11 +29,13 @@ from fedcourtsai.pipeline.outcome import (
     resolution_signals,
     resolve_case,
     snapshot_shows_disposition,
+    snapshot_shows_judgment,
     termination_signal,
 )
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    MeritsTermination,
     Moment,
     Outcome,
     PredictableEvent,
@@ -676,6 +679,40 @@ def test_minting_never_reopens_a_resolved_merits_event(tmp_path: Path) -> None:
     assert ledger.resolved is True
 
 
+def test_minting_refuses_a_terminated_merits_docket(tmp_path: Path) -> None:
+    """A terminated proceeding mints no merits event, on the live seam too.
+
+    The mint seams read the *ingestion* row, which by design never carries
+    `merits_terminated` — the column belongs to the offline sweep. So the live
+    poll has to consult the stored row, or a merits brief latching on a docket
+    whose proceeding ended with no disposition mints `evt-brief-judgment`
+    forever: nothing resolves a merits event on a row with no judgment, and
+    provisioning refuses every cell it earns.
+    """
+    _scotus_event(tmp_path)
+    row = from_api_docket(GRANTED_SCOTUS_DOCKET)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "scotus", 22451)
+    # The respondent's merits brief is on the docket, so the briefed moment is
+    # owed too — the shape that would mint a phantom event on a closed
+    # proceeding once the grant event is open.
+    briefed = row.model_copy(update={"merits_brief_filed": date(2023, 2, 1)})
+    with corpus.connect(_db(tmp_path)) as conn:
+        # The stored row is what carries the finding — the live poll upserts it
+        # before minting, and `set_merits_termination` updates in place.
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/22451", court="scotus")])
+        termination = MeritsTermination.voluntary_dismissal
+        corpus.set_merits_termination(conn, "scotus/22451", termination)
+
+    minted = mint_moment_events(
+        _db(tmp_path), tmp_path, "scotus", 22451, briefed, resolution, [MERITS_EVENT_ID]
+    )
+
+    # Neither merits moment mints: not the grant event this resolution opens,
+    # and not the briefed moment the latched brief would otherwise owe.
+    assert minted == []
+    assert not CasePaths(tmp_path, "scotus", 22451).event(BRIEFED_MERITS_EVENT_ID).base.exists()
+
+
 def test_minting_is_scotus_only() -> None:
     # The shared resolution seam also records granted dispositions on circuit
     # dockets; those open no merits proceeding before the Court, so no
@@ -1254,6 +1291,42 @@ def test_snapshot_shows_disposition_none_for_a_pending_snapshot() -> None:
         ],
     }
     assert snapshot_shows_disposition(docket) is None
+
+
+def test_snapshot_shows_judgment_reads_a_post_grant_rule_46_dismissal() -> None:
+    # A granted case voluntarily dismissed under Rule 46 ends with no
+    # disposition, so the disposition-shaped branches all miss it while the
+    # outcome — the case is over — is plainly legible to a merits cell. The
+    # merits scan takes the termination vocabulary for exactly this shape.
+    docket = {
+        "CaseNumber": "24-413 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jan 10 2025", "Text": "Petition GRANTED."},
+            {"Date": "Aug 08 2025", "Text": "Stipulation of dismissal under Rule 46.1 filed."},
+            {"Date": "Aug 11 2025", "Text": "Case Dismissed - Rule 46."},
+        ],
+    }
+    signal = snapshot_shows_judgment(docket)
+    assert signal is not None and "Case Dismissed" in signal
+    # The cert-stage scan is deliberately untouched: on a *petition* the shape
+    # is a cert exit its own "petition ... dismissed" branch already reads.
+    assert snapshot_shows_disposition(docket) is None
+
+
+def test_snapshot_shows_judgment_none_for_a_pending_merits_docket() -> None:
+    docket = {
+        "CaseNumber": "25-183 ",
+        "ProceedingsandOrder": [
+            {"Date": "May 18 2026", "Text": "Petition GRANTED."},
+            {
+                "Date": "Jul 09 2026",
+                "Text": "Motion to dismiss the case pursuant to Rule 46 filed by petitioner.",
+            },
+            {"Date": "Jul 12 2026", "Text": "Brief of Thomas Crowther, et al. submitted."},
+        ],
+    }
+    # The motion asking for a Rule 46 dismissal is not the order granting it.
+    assert snapshot_shows_judgment(docket) is None
 
 
 def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> None:

@@ -207,6 +207,32 @@ class Judgment(StrEnum):
     equally_divided = "affirmed-by-an-equally-divided-court"
 
 
+class MeritsTermination(StrEnum):
+    """How a merits proceeding *ended without a disposition* of the judgment below.
+
+    Deliberately not members of :class:`Judgment`, and the distinction is the
+    whole point of the vocabulary: these entries say **that** the case is over,
+    never **how** the judgment below fared. A voluntary Rule 46 dismissal after
+    the grant leaves nothing decided, and the mandate-analog "Judgment issued."
+    is a clerk's notation on a docket whose disposition entry the corpus never
+    captured. Folding either into ``Judgment`` would fabricate merits ground
+    truth twice over: ``judgment_disturbed`` would read it as *undisturbed*
+    (a substantive claim about the lower court's judgment that nobody made),
+    and the value would enter the predictor-emittable outcome vocabulary as
+    something a cell could forecast.
+
+    So a termination resolves the corpus row's merits *state* — the case is not
+    pending, and the forward-forecast gates must refuse it — while leaving
+    ``merits_judgment`` null, which keeps the row out of the statpack's
+    ``parsed`` slice and out of the disturbed rate the merits baseline is
+    pooled from. Stored in the ``merits_terminated`` column
+    (``pipeline/judgment.py`` is the parser).
+    """
+
+    voluntary_dismissal = "voluntary-dismissal"
+    judgment_issued = "judgment-issued"
+
+
 class EventKind(StrEnum):
     """The filing that *opened* an event — not what the event decides.
 
@@ -4079,7 +4105,8 @@ class _StatPackMeritsCounts(_Strict):
     claimed. ``parsed`` against ``granted`` is the
     backfill's own coverage statement, so a thin parse never masquerades as a
     thin docket — read the gap as an upper bound that blends still-pending
-    cases (granted, not yet decided) with genuine parse gaps.
+    cases (granted, not yet decided), genuine parse gaps, and the proceedings
+    that ended with no disposition to parse (``merits_terminated``).
     """
 
     granted: int = Field(
@@ -4092,7 +4119,10 @@ class _StatPackMeritsCounts(_Strict):
         "its grant's own date, whatever its label says: see "
         "cert_order_excluded). A parsed judgment with no date stays here as "
         "a visible coverage gap, outside the parsed slice, since the gap "
-        "test cannot run on it. Parsed or not",
+        "test cannot run on it, and so does a row carrying `merits_terminated` "
+        "— either a post-grant Rule 46 dismissal, where nobody reached the "
+        "merits, or a bare mandate notation, where the disposition entry was "
+        "never captured. Parsed or not",
     )
     cert_order_excluded: int | None = Field(
         default=None,

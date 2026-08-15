@@ -94,7 +94,12 @@ from .cert_signals import (
     snapshot_carries_proceedings,
 )
 from .ingest import CorpusRow
-from .judgment import judgment_disturbed, judgment_rode_the_grant_order, last_judgment_entry
+from .judgment import (
+    judgment_disturbed,
+    judgment_rode_the_grant_order,
+    last_judgment_entry,
+    match_merits_termination,
+)
 
 # Which grants open a merits proceeding is one definition, shared with the
 # judgment backfill and the statpack's merits section so the population that is
@@ -372,11 +377,20 @@ def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
     The plain cert grant needs no exclusion because it matches no branch of the
     regex at all — only the resolver sees it, and the merits scan does not run
     the resolver.
+
+    One vocabulary is added: the merits **terminations**
+    (:func:`fedcourtsai.pipeline.judgment.match_merits_termination`), which end
+    a granted case with no disposition and so are invisible to a regex written
+    around dispositions. The post-grant Rule 46 dismissal is the shape that
+    matters — the cert-stage scan has no branch for it, because on a *petition*
+    it is a cert-stage exit its own "petition ... dismissed" branch already
+    reads — and a merits cell whose snapshot carries it can see the case ended.
+    Sourced from the parser so the two seams cannot drift.
     """
     for description in entry_descriptions(docket):
         if _CBJ_GRANT_RE.search(description):
             continue
-        if _TERMINAL_ENTRY_RE.search(description):
+        if _TERMINAL_ENTRY_RE.search(description) or match_merits_termination(description):
             return f"snapshot entry reads as terminal: {description!r}"
     return None
 
@@ -1406,7 +1420,45 @@ def mint_moment_events(
     if not minted:
         return []
     with corpus.connect(corpus_db_path) as conn:
+        minted = _without_terminated_merits(conn, row.case_id, minted)
+        if not minted:
+            return []
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def _without_terminated_merits(
+    conn: sqlite3.Connection, case_id: str, minted: list[corpus.CorpusEvent]
+) -> list[corpus.CorpusEvent]:
+    """Drop merits-stage mints on a docket recorded as terminated, if any.
+
+    The mint seams read the **ingestion** row, which by design carries no
+    ``merits_terminated``: no channel asserts one, so the column belongs to the
+    offline judgment sweep alone and the row this poll just built cannot show
+    it. Left unchecked that is a phantom-event source — a merits brief latching
+    on a docket whose proceeding ended with no disposition would mint
+    ``evt-brief-judgment``, and nothing resolves a merits event on a terminated
+    row (detection keys on ``merits_judgment``), so it would stay open forever
+    while provisioning refused every cell it earned. The stored row settles it,
+    read on the connection this seam already opens and only when a merits mint
+    is actually on the table; the interim and CVSG mints never consult it.
+
+    A row the corpus has not stored yet reads as *no finding*, not as a refusal:
+    the column is a sweep product, so its absence is the ordinary state of a
+    docket the sweep has never walked, and failing closed there would stop the
+    merits event minting on the very grant order that opens it.
+
+    The offline twin of this guard is the merits-event backfill's own
+    forward-only population (:mod:`fedcourtsai.merits_event_migration`), so both
+    ends of the pipeline refuse the same docket.
+    """
+    # `==`, not `is`: the event model stores the stage by value, so a member
+    # read back off one is a plain string that no enum member is identical to.
+    if not any(event.stage == Stage.merits for event in minted):
+        return minted
+    stored = corpus.get_row(conn, case_id)
+    if stored is None or stored.merits_terminated is None:
+        return minted
+    return [event for event in minted if event.stage != Stage.merits]
 
 
 def persist_moment_events(
