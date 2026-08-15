@@ -10,6 +10,8 @@ never read as a disposition.
 
 from datetime import date
 
+import pytest
+
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import (
     dissent_from_denial,
@@ -412,13 +414,12 @@ def test_allcaps_cbj_grant_with_a_named_lower_court_reads_as_gvr() -> None:
     assert matched[1] == "GVR"
 
 
-def test_a_lowercase_copulaless_vacatur_does_not_upgrade_a_grant() -> None:
-    # The precision bound on the all-caps admission: lowercase "vacated"
-    # without the order-voice copula is exactly the narrative shape the tail
-    # exists to exclude, and the case-sensitive `(?-i:VACATED)` group must not
-    # relax it. The named court holds the vacatur beyond the gap-bounded
-    # grant..vacate..remand row's reach, so the tail is the only path that
-    # could re-label this entry.
+def test_a_lowercase_narrative_vacatur_does_not_upgrade_a_grant() -> None:
+    # The lowercase narrative participle — no ordering voice anywhere — is
+    # the shape the tail has always excluded, and the case-sensitive
+    # `(?-i:VACATED)` group must not relax it. The named court holds the
+    # vacatur beyond the gap-bounded grant..vacate..remand row's reach, so
+    # the tail is the only path that could re-label this entry.
     text = (
         "Petition GRANTED. The judgment of the United States Court of Appeals "
         "for the Ninth Circuit, previously vacated and remanded in an earlier "
@@ -426,6 +427,54 @@ def test_a_lowercase_copulaless_vacatur_does_not_upgrade_a_grant() -> None:
     )
 
     matched = match_disposition_signal(text)
+
+    assert matched is not None
+    assert matched[0] is Disposition.granted
+    assert matched[1] == "cert granted"  # the upgrade never clobbers the label
+
+
+@pytest.mark.parametrize(
+    "tail_sentence",
+    [
+        # An all-caps entry reciting history: the auxiliary marks the voice
+        # as narrative however the participle is cased.
+        (
+            "THE JUDGMENT OF THE UNITED STATES COURT OF APPEALS FOR THE NINTH "
+            "CIRCUIT WAS VACATED AND REMANDED LAST TERM."
+        ),
+        # Mixed-case narrative with a capitalized participle.
+        (
+            "The judgment of the United States Court of Appeals for the Ninth "
+            "Circuit was VACATED and the case REMANDED last Term."
+        ),
+        # A suggested vacatur that capitalizes the verbs.
+        (
+            "The judgment of the United States Court of Appeals for the Ninth "
+            "Circuit should be VACATED and the case REMANDED."
+        ),
+        # A participial-clause recital.
+        (
+            "The judgment of the United States Court of Appeals for the Ninth "
+            "Circuit having been VACATED and the case REMANDED by that court, "
+            "the petition is held."
+        ),
+        # The citation-recital shape: the comma marks the capitalized pair as
+        # subsequent-history notation, not this entry's order.
+        (
+            "The judgment under review in No. 23-100, reported below as "
+            "United States v. Doe, VACATED AND REMANDED (9th Cir. 2024), is "
+            "attached."
+        ),
+    ],
+)
+def test_a_capitalized_narrative_vacatur_does_not_upgrade_a_grant(tail_sentence: str) -> None:
+    # The precision bound the clerk-voice admission must hold: capitalization
+    # alone is not the ordering voice. Each shape carries a narrative marker
+    # (auxiliary, "having been", or the recital comma) that the lookbehinds
+    # bar, so the grant keeps its label. The named court holds each participle
+    # beyond the gap-bounded grant..vacate..remand rows' reach, so the tail is
+    # the only path that could re-label these entries.
+    matched = match_disposition_signal(f"Petition GRANTED. {tail_sentence}")
 
     assert matched is not None
     assert matched[0] is Disposition.granted

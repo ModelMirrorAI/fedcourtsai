@@ -123,20 +123,28 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
 # that vacates and remands the judgment. Matched per sentence and anchored to
 # the sentence's own subject — what actually defeats the bare-vacatur row on
 # the prose form is that row's *entry-start* `^` anchor, since the vacatur is
-# the entry's second sentence there — with order voice required so a narrative
-# or suggested vacatur ("the judgment ... was vacated last Term", "suggests
-# that the judgment be vacated") never re-labels a real merits grant. Order
-# voice takes two forms: the prose copula ("is/are [hereby] vacated") and the
-# terse all-caps clerk form ("Judgment of the ... Court ... VACATED and case
-# REMANDED"), admitted case-sensitively via the scoped `(?-i:...)` group so
-# the bare lowercase past participle — the narrative shapes' — still never
-# matches alone. The gaps only need to span a named lower court between
-# "judgment" and "vacated". A false upgrade is costlier than a miss on the
-# label axis (`gvr` leaves the merits population silently), which is why every
-# bound here is tight even though the upgrade can never *create* a
-# disposition.
+# the entry's second sentence there — with the ordering voice required so a
+# narrative or suggested vacatur ("the judgment ... was vacated last Term",
+# "suggests that the judgment be vacated") never re-labels a real merits
+# grant. That voice takes two forms. The prose copula ("is/are [hereby]
+# vacated") carries the voice test in the words. The terse clerk form
+# ("Judgment of the ... Court VACATED and case REMANDED") has no copula at
+# all — its signature is the subject noun phrase running straight into the
+# capitalized verb — so it is admitted case-sensitively via the scoped
+# `(?-i:...)` group, barred by lookbehind where an auxiliary, "previously" /
+# "already", or a comma (the citation-recital shape, "..., VACATED AND
+# REMANDED (9th Cir. 2024)") marks a capitalized participle as narrative.
+# Two accepted residuals, one per side: a capitalized participle behind an
+# unlisted narrative marker would still upgrade, and a comma'd clerk variant
+# would miss and keep its grant label — the miss is the cheap side, because
+# a false upgrade is costlier than a miss on the label axis (`gvr` leaves
+# the merits population silently), which is why every bound here is tight
+# even though the upgrade can never *create* a disposition. The gaps only
+# need to span a named lower court between "judgment" and "vacated".
 _GVR_TAIL_RE = re.compile(
-    r"^(?:the\s+)?judgment\b.{0,120}?\b(?:(?:is|are)\s+(?:hereby\s+)?vacated|(?-i:VACATED))\b"
+    r"^(?:the\s+)?judgment\b.{0,120}?\b(?:(?:is|are)\s+(?:hereby\s+)?vacated"
+    r"|(?<!\bwas\s)(?<!\bwere\s)(?<!\bbe\s)(?<!\bbeen\s)(?<!\bbeing\s)"
+    r"(?<!\bpreviously\s)(?<!\balready\s)(?<!,\s)(?-i:VACATED))\b"
     r".{0,120}?\bremand\w*",
     re.IGNORECASE | re.DOTALL,
 )
@@ -272,7 +280,8 @@ def mootness_disposition(text: str) -> bool:
 def _gvr_tail_sentence(text: str) -> str | None:
     """The order sentence in ``text`` that vacates and remands the judgment.
 
-    Per sentence, subject-anchored, order-voiced (see ``_GVR_TAIL_RE``), and
+    Per sentence, subject-anchored, in the ordering voice — the prose copula
+    or the terse clerk form (see ``_GVR_TAIL_RE``) — and
     still behind the non-order-sentence guard — a party paper suggesting a
     vacatur ("Brief of respondent suggesting that the judgment be vacated and
     the case remanded filed.") is a recital, not an order, and must not turn
