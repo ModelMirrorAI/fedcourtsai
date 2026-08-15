@@ -347,9 +347,7 @@ Three consequences bind every use of the set:
   from the summary block alone, and each re-run costs real model spend — so
   the transcript is uploaded on every path the action survives (a
   gate-refusing run is as diagnostic as a no-output one; a hard step-timeout
-  kill leaves no file to capture; a tree the pristine assertion rejects
-  forfeits its transcript, since the scanner runs this checkout's code and
-  must never run tampered code with the engine key in reach), only after a
+  kill is the one path that leaves no file to capture), only after a
   secret scan over the
   transcript passes (a hit withholds the artifact and says so — the collect
   job's withhold-and-continue posture, minus its trigger-issue report, since a
@@ -361,6 +359,28 @@ Three consequences bind every use of the set:
   extract, for the
   reasons argued above rather than a second, looser rule for the same
   disclosure class.
+
+  That scan holds the engine API key, so what it *imports* is as much a part of
+  the gate as what it reads. `setup-python-env` installs this project editable,
+  which would put the labeler's own workspace — and its gitignored venv — on
+  the scanner's import path, where the tree-pristine assertion cannot follow:
+  that assertion compares tracked files, and an untracked module or a `.pth`
+  dropped into the venv is invisible to it. So the scanner is built after the
+  agent exits, from a second checkout of this run's commit fetched from GitHub
+  into its own path, installed into a venv inside that fresh tree and resolved
+  through a package cache inside it too. Nothing on the resulting import path
+  passed through the workspace, its object store, or any file that existed
+  while the agent ran. That is also why a tampered tree keeps its transcript:
+  the capture exists to diagnose exactly that run, and the scan no longer has
+  to trust the tree. The pristine assertion remains, gating the measure step,
+  because a rigged *number* is a different threat from a stolen key. The bound
+  is worth stating out loud: the labeler shares a runner with these steps, the
+  runner user holds passwordless sudo, and nothing stops an agent leaving a
+  process behind — so one willing to escalate or to persist can still reach
+  the interpreter, `uv`, or these files between steps. What the fresh checkout
+  removes is the entire class that needs neither: the standing tamper of the
+  editable install's own import path, invisible to the assertion and free to
+  the agent.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error

@@ -572,13 +572,15 @@ jobs:
       - name: Restore the reference set and assert the tree is pristine
         id: pristine
         # `!cancelled()` so this runs — and records a real success/failure
-        # outcome — even when the labeling step failed: the transcript scan
-        # below keys on that outcome, and a skipped assertion would read as
-        # not-success, silently forfeiting the transcript on exactly the
-        # failed runs it exists to diagnose. Idempotent on every early-exit
-        # path (the rm tolerates a missing dir; the checkout is a no-op when
-        # the move step never ran), and its success never revives the job —
-        # the measure and PR steps stay gated on overall status.
+        # outcome — even when the labeling step failed: a run that both failed
+        # and tampered should say which, and a skipped assertion says nothing.
+        # Idempotent on every early-exit path (the rm tolerates a missing dir;
+        # the checkout is a no-op when the move step never ran), and its
+        # success never revives the job — the measure and PR steps carry no
+        # `if:` of their own, so they stay on the default `success()` gate that
+        # a failed assertion has already turned red. That gating is this
+        # assertion's whole job: it is about a *rigged number*, since the
+        # measure step does run this checkout's `fedcourts qp-topics`.
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
@@ -593,38 +595,118 @@ jobs:
           fi
           echo "work tree pristine"
 
+      # The scan below runs Python with the engine API key in its environment,
+      # so every byte it imports has to be a byte the labeler could not have
+      # written. `setup-python-env` installs this project *editable*, which
+      # puts the workspace tree and its gitignored `.venv` on the import path
+      # — and the labeler runs `bypassPermissions` in that workspace. The
+      # assertion above does not close this: it compares *tracked* files, so an
+      # untracked module, or a `.pth` dropped into the venv, is invisible to
+      # it. Nor would a venv built before the agent ran, wherever it sat: the
+      # agent writes to any path on this runner by naming it.
+      # What it cannot reach is a source tree that does not exist while it
+      # runs and is fetched over the network once it is gone. So the scanner
+      # comes from a second checkout of this run's own commit, taken here,
+      # into its own path, with the scanner installed from it into a venv
+      # inside that same fresh tree. Nothing on the resulting import path
+      # passes through the workspace, its object store, its venv, or any file
+      # that existed while the agent was alive.
+      # Bounded honestly: the labeler shares a runner with these steps. The
+      # runner user holds passwordless sudo, and nothing stops an agent leaving
+      # a process behind, so one willing to escalate or to persist can still
+      # reach the interpreter, `uv`, or these files between steps. What this
+      # removes is the whole class that needs neither — the standing tamper of
+      # the editable install's own import path, which the assertion above
+      # cannot see and which costs the agent nothing.
+      - name: Clear the isolated scanner path
+        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        # A `.git` the agent planted at this path would be *reused* by the
+        # checkout below rather than replaced, and its hooks would run during
+        # the checkout. Remove the path so the clone is a clone.
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          rm -rf "${GITHUB_WORKSPACE:?}/.transcript-scanner"
+
+      - name: Check out the scanner afresh from GitHub
+        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        # This step and the install below carry the scan's own posture, for the
+        # scan's own reason: this run's artifact is the labels, and a network
+        # blip on the transcript surface must never cost them. A scanner that
+        # failed to build leaves the scan with no executable, which is the
+        # fail-closed path it already has — withhold, do not fail.
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This run's own commit — the bytes the workflow itself was read
+          # from — fetched from the remote. Stated rather than defaulted,
+          # because the property that matters is that it is resolved against
+          # GitHub and never out of the workspace's object store, which the
+          # agent could have rewritten as freely as the work tree.
+          ref: ${{ github.sha }}
+          path: .transcript-scanner
+          persist-credentials: false
+
+      - name: Install the scanner into its own venv
+        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          # A package cache the labeler can write is on the import path just as
+          # surely as a venv it can write, and uv's default cache sits under
+          # the runner user's home. Resolve through a cache inside the fresh
+          # tree instead: every dependency is fetched now and checked against
+          # the freshly checked-out lockfile's hashes.
+          UV_CACHE_DIR: ${{ github.workspace }}/.transcript-scanner/.uv-cache
+        run: |
+          set -euo pipefail
+          cd "${GITHUB_WORKSPACE}/.transcript-scanner"
+          # This tree must be this commit and nothing else. A `.git` that
+          # survived the clear step would have been reused rather than cloned,
+          # and anything its hooks wrote during the checkout shows up here —
+          # checked before the sync, which adds untracked paths of its own.
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::the scanner checkout is not a clean clone; refusing to scan"
+            exit 1
+          fi
+          # Runtime dependencies only — the scanner is one CLI command, and the
+          # dev group is a wider supply chain to admit for no gain here.
+          uv sync --locked --no-default-groups
+          # Fail here rather than inside the scan if the entry point is unusable.
+          ./.venv/bin/fedcourts scan-diff-for-secrets --help >/dev/null
+
       # The transcript is the only record of *how* the labeler failed: the
       # action reports a summary block and discards the turn-by-turn log with
       # the runner, so a success-that-wrote-nothing run (the shape this job
-      # can produce) is undiagnosable without a paid re-run. Ordered after the
-      # tree-pristine assert AND gated on its success: the scanner runs this
-      # checkout's Python with the engine key in its env, so a tampered tree
-      # forfeits its transcript artifact rather than handing unreviewed code
-      # the credential — the pristine step's own log records the tampering,
-      # which is the diagnosis that run needs. The assertion itself runs on
-      # `!cancelled()` so a labeler-failed run still records a real outcome
-      # and keeps its transcript — the runs the capture exists for. Scan before
-      # publishing — the transcript is agent-authored bytes no other scan sees
-      # — and withhold on a hit rather than fail the job, mirroring the
-      # collect job's withhold-and-continue posture (minus its trigger-issue
-      # report: a dispatch mode has none, so the warning and the step summary
-      # are the record). The one credential reachable from the labeler's env
-      # is the engine's own API key, so the scan searches for that value
-      # literally, exactly as the collect job's scan holds its reachable
-      # credential: the agent process is gone by this step, which parses
-      # bytes with tested Python and executes none of them. On this surface
-      # the generic entropy rule is off (see the run block below), so the
-      # literal containment plus the structured credential shapes are the
-      # whole gate — which is exactly why the scan failing closed on an
-      # unset variable is load-bearing here.
+      # can produce) is undiagnosable without a paid re-run. Which is why the
+      # scan is gated on nothing but a transcript existing: a tampered tree is
+      # a run that badly needs diagnosing, and with the scanner installed out
+      # of the labeler's reach above, running it there costs nothing. Scan
+      # before publishing — the transcript is agent-authored bytes no other
+      # scan sees — and withhold on a hit rather than fail the job, mirroring
+      # the collect job's withhold-and-continue posture (minus its
+      # trigger-issue report: a dispatch mode has none, so the warning and the
+      # step summary are the record). The one credential reachable from the
+      # labeler's env is the engine's own API key, so the scan searches for
+      # that value literally, exactly as the collect job's scan holds its
+      # reachable credential: the agent process is gone by this step, which
+      # parses bytes with tested Python and executes none of them. On this
+      # surface the generic entropy rule is off (see the run block below), so
+      # the literal containment plus the structured credential shapes are the
+      # whole gate — which is exactly why the scan failing closed on an unset
+      # variable is load-bearing here.
       - name: Scan the transcript before publishing it
         id: transcript_scan
-        if: ${{ !cancelled() && steps.pristine.outcome == 'success' && steps.label.outputs.execution_file != '' }}
+        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
         continue-on-error: true
         timeout-minutes: 5
         env:
           TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The isolated install above, by absolute path: a bare `uv run` would
+          # resolve the project out of the workspace the labeler just wrote to.
+          SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/fedcourts
         run: |
           set -euo pipefail
           status=0
@@ -633,7 +715,7 @@ jobs:
           # so the generic heuristic convicts every real file and the artifact
           # would only ever publish empty — the surface is gated by containment
           # of the one reachable credential and the credential shapes instead.
-          uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+          "$SCANNER" scan-diff-for-secrets --name-status-file /dev/null \
             --known-secret-env ANTHROPIC_API_KEY \
             --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
@@ -651,9 +733,7 @@ jobs:
       - name: Upload the transcript
         # Gated on the scan, not on the labeling step's outcome: a
         # gate-refusing run (sub-80% agreement) is as diagnostic as a
-        # no-output one. `!cancelled()` covers every path the action survives
-        # and the scan gate carries the pristine condition transitively — a
-        # rejected tree forfeits its transcript;
+        # no-output one. `!cancelled()` covers every path the action survives;
         # the hard step-timeout kill is the one path with no execution file to
         # capture, and the step below says so.
         if: ${{ !cancelled() && steps.transcript_scan.outcome == 'success' }}

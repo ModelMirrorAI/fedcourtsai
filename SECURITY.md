@@ -82,7 +82,19 @@ runbook, [docs/security.md](docs/security.md).
   credential-shape patterns are that surface's whole gate, which is why it
   fails closed the same way: a hit, or a scan that could not run at all,
   withholds the artifact, and with no trigger issue on a dispatch run the
-  run's warning and step summary are the record. A different surface is
+  run's warning and step summary are the record. Holding that key makes the
+  scan's own **import path** part of the gate, and it follows an agent that
+  writes freely in the workspace the editable install resolves through — so
+  the scanner is built from a checkout taken *after* the agent exits and
+  fetched from GitHub, into a venv inside that fresh tree. The same job's
+  tree-pristine assertion is a separate control for a separate threat, a
+  rigged measurement rather than a stolen key, and it gates the measure step
+  rather than the capture: a tampered run keeps the transcript that is its
+  evidence. The bound on the isolation is a shared runner: the runner user
+  holds passwordless sudo and an agent can leave a process behind, so one that
+  goes after the interpreter itself is outside what this reaches; what it
+  removes is every path needing neither escalation nor persistence. A
+  different surface is
   handled a layer earlier instead: the tool-call log the harness harvests from
   an engine transcript into `retrieval_log.json` records whatever a tool call
   carried, which is not the agent's choice, so
