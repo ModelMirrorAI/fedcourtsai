@@ -13,9 +13,8 @@ semantic family, which is declared but neither pre-registered nor producing
 anything.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — five cert-stage claims under `cert-v2`, carried by every
 declared cert moment, four interim claims under `interim-v1` carried by every
-interim moment, and the one merits
-claim (`judgment-disturbed`) under `merits-v1`, carried by every declared
-merits moment — live
+interim moment, and the one merits claim (`judgment-disturbed`) under
+`merits-v1`, carried by every declared merits moment — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
 availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The

@@ -650,7 +650,7 @@ anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) r
 forecast is scored against (6.5%–12.5% on the terminal rate the same table shows
 in the lead column — see below). Anchored at an OT2026
 petition, the high band reads roughly **35% (n≈960)** pooling every prior Term,
-**36% (n≈525)** over the last five, and **42% (n≈66)** over the last one — recompute
+**36% (n≈524)** over the last five, and **42% (n≈66)** over the last one — recompute
 from the statpack's per-Term band table rather than quoting these. That is a
 ~7-point spread in the number a forecast's Brier skill is scored against, and in
 the prior a cell is told to start from, turning on a parameter — and the
@@ -855,7 +855,8 @@ Reusing the band would be the
 conditioning mismatch this document spends its length warning about.
 
 **Most of the docket is not the thing predicted.** Over the 1,797 parsed
-application dockets, **81.9%** are requests to extend the time to file: granted
+application dockets across every walked Term, **81.9%** are requests to extend
+the time to file: granted
 by a single Justice as a matter of course, with nothing about the case moving
 the answer. **13.9%** are substantive and **4.3%** carry an ask the parser
 cannot read. Admitting the whole docket would hand a

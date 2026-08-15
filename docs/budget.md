@@ -54,24 +54,29 @@ case-equivalent.
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
 | cert | arrival | 98 | the sal-v3 arrival cohort, **beside** `N`, filling forward from the registration-fixed cohort start (the OT2026 docket-year roll — the standing pending backlog never enters): 75 from the 1-in-20 deterministic random slice over ~1,500 paid arrivals (`salience.arrival_sample_rate`) + ~23 from the federal-petitioner carve-in under `caption-v2`, whose census run passed statistical verification (8/8 complete Terms at 9.1–17.7× lift; per-Term 11–41, so a heavy government-litigation Term runs high; the caption-v1 cut carved ~20, with caption-v2 adding ≈2.5/Term — `docs/salience.md`) |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
-| interim | response requested | 8 | 12.3% of the 67 selected arrivals |
-| interim | response filed | 21 | 30.6% of the 67 |
+| interim | response requested | 10 | 15.1% of the 67 selected arrivals — 27 of OT2025's 179 substantive applications |
+| interim | response filed | 21 | 30.6% of the 67, measured over the pack-wide 219-substantive population the moment was declared against; the response-filed timestamp is published in no artifact, so this one rate cannot be refreshed from the pack |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
-| | **total** | **836–863** | **≈$10.9–11.2K/Term** at the $13 planning rate, arrival slice + carve-in included (≈$11.4K at the bound if the federal carve-in's conference-cohort reach adds its full ~14) |
+| | **total** | **838–865** | **≈$10.9–11.2K/Term** at the $13 planning rate, arrival slice + carve-in included (≈$11.4K at the bound if the federal carve-in's conference-cohort reach adds its full ~14) |
 
 The later moments differ sharply in how much runway they leave, which is the
 figure to read before trusting any of their skill numbers: a merits brief
 precedes the judgment by a median 159 days (minimum 44), a requested interim
 response by a median 17 (minimum 3), and a *filed* interim response by a median
 of only 2 — so a material share of that last moment's cells will classify
-retrospective on commit latency alone.
+retrospective on commit latency alone. The two interim horizons come from the
+same declaration-time 219-substantive measurement as the filed rate above, and
+rest on corpus-only fields no artifact republishes.
 
 The interim rows carry two selection biases, in opposite directions. The
 reserve's ladder orders on response-requested first, so the selected 67 are
-enriched in exactly the property the 12.3% rates — read the 8 as biased low
-for the selected slice, bounded above by the 67. And the 67 itself divides
-slot turnover by the stream's 27.1-day mean occupancy, while the ladder
+enriched in exactly the property the 15.1% rates — read the 10 as biased low
+for the selected slice, bounded above by the 67. Two populations answer that
+rate and they differ: 15.1% is OT2025's, while the whole accumulated
+substantive slice the interim estimator pools over runs about a fifth (52 of
+249), which is the figure [salience.md](salience.md) quotes. And the 67 itself
+divides slot turnover by the stream's 27.1-day mean occupancy, while the ladder
 plausibly favors longer-lived applications (p95 110 days), which would cut
 arrivals below 67.
 
@@ -127,7 +132,9 @@ population is the relist-selected slice rather than the docket-wide mean.
 
 **The interim reserve bounds concurrency, and is sized to trade inside `N`
 rather than add spend.** Substantive applications resolve in a *mean* of 27.1
-days (median 13, p95 110), so 179 arrivals need ≈13 concurrent slots against
+days (median 13, p95 110) — measured over the whole accumulated substantive
+slice, which OT2025's 179 dominate at 72% of the pack-wide 249 — so OT2025's
+179 arrivals need ≈13 concurrent slots against
 `interim_reserve_slots: 5` — the reserve is continuously full, and the predicted
 interim slice is therefore a ladder-ordered subsample of the substantive stream
 rather than the stream itself.
@@ -149,12 +156,13 @@ would be funded.
 
 Two things bound the interim figures. Lifespans run from each docket's first
 entry to its disposing entry rather than from the `date_filed` /
-`date_decided` columns, which are null on a material share of the rows and null
-disproportionately on the long-lived ones; the entry-based measure covers 178 of
-the 179, the exception being the one application still pending. And OT2025 is
-open, so
-the arrival count is a partial year divided into a full-year denominator —
-saturation is understated, not overstated.
+`date_decided` columns, which are null on a substantial minority of the rows
+and null disproportionately on the long-lived ones; the entry-based measure
+therefore reaches every *resolved* application and only those — 243 of the
+pack-wide 249, and 178 of OT2025's own 179 — the remainder being applications
+still pending. And OT2025 is open, so the arrival count is a partial year
+divided into a full-year denominator — saturation is understated, not
+overstated.
 
 ## Cost drivers
 

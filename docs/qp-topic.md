@@ -397,8 +397,9 @@ Three consequences bind every use of the set:
   run its transcript rather than its labels. Each step is `if:`-gated on its
   predecessor's outcome, so a failed build **skips** the scan rather than
   running whatever sits at the scanner path; the upload is gated in turn on the
-  scan having succeeded, which withholds the artifact by the same
-  say-so path a scan that could not run for any other reason takes.
+  scan having succeeded, so the artifact is withheld silently, via the skip —
+  read the step outcomes on the run, not the summary, to tell a withheld
+  transcript from one that was never asked for.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
