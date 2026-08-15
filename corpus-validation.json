@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2152398,
-      "detail": "2152398 rows vs baseline 2152298",
+      "checked": 2152418,
+      "detail": "2152418 rows vs baseline 2152398",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4307972,
+      "checked": 4308017,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -33,7 +33,36 @@
       "problems": []
     },
     {
-      "checked": 2152398,
+      "checked": 674,
+      "detail": "granted before 2024-08-15 (730 days); 0 resolved by termination",
+      "failures": 40,
+      "name": "no_stale_unparsed_grants",
+      "passed": false,
+      "problems": [
+        "granted 2017-10-30: scotus/66644943 still carries no merits judgment or termination",
+        "granted 2017-11-06: scotus/6217670 still carries no merits judgment or termination",
+        "granted 2017-12-01: scotus/66645745 still carries no merits judgment or termination",
+        "granted 2018-01-16: scotus/66724510 still carries no merits judgment or termination",
+        "granted 2018-04-02: scotus/6351957 still carries no merits judgment or termination",
+        "granted 2018-06-04: scotus/7022587 still carries no merits judgment or termination",
+        "granted 2019-02-04: scotus/66721476 still carries no merits judgment or termination",
+        "granted 2019-03-18: scotus/16351623 still carries no merits judgment or termination",
+        "granted 2019-03-21: scotus/66722520 still carries no merits judgment or termination",
+        "granted 2019-06-28: scotus/66723004 still carries no merits judgment or termination",
+        "granted 2019-09-20: scotus/66726256 still carries no merits judgment or termination",
+        "granted 2019-11-15: scotus/66725205 still carries no merits judgment or termination",
+        "granted 2020-03-12: scotus/72464801 still carries no merits judgment or termination",
+        "granted 2020-04-10: scotus/66728618 still carries no merits judgment or termination",
+        "granted 2020-05-05: scotus/72464303 still carries no merits judgment or termination",
+        "granted 2020-05-21: scotus/72463740 still carries no merits judgment or termination",
+        "granted 2020-06-08: scotus/66724573 still carries no merits judgment or termination",
+        "granted 2020-07-09: scotus/72464349 still carries no merits judgment or termination",
+        "granted 2020-11-20: scotus/72468114 still carries no merits judgment or termination",
+        "granted 2020-12-04: scotus/72466140 still carries no merits judgment or termination"
+      ]
+    },
+    {
+      "checked": 2152418,
       "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-08-15); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 22,
       "name": "case_dates_ordered",
@@ -62,7 +91,7 @@
       ]
     },
     {
-      "checked": 4304899,
+      "checked": 4304944,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -70,7 +99,7 @@
       "problems": []
     },
     {
-      "checked": 4307972,
+      "checked": 4308017,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -121,14 +150,38 @@
       "checked": 0,
       "detail": "",
       "failures": 0,
+      "name": "prediction_semantic_claims_conform",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
+      "name": "evaluation_semantic_grades_gradeable",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
       "name": "merits_predictions_carry_judgment",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 36,
+      "detail": "",
+      "failures": 0,
+      "name": "vote_accuracy_only_on_merits_events",
       "passed": true,
       "problems": []
     }
   ],
-  "corpus_events": 2152501,
-  "corpus_rows": 2152398,
-  "ok": true,
+  "corpus_events": 2152526,
+  "corpus_rows": 2152418,
+  "ok": false,
   "schema_version": "1.0",
   "skipped": false
 }
