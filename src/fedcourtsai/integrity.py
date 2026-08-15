@@ -1,6 +1,6 @@
-"""The mechanical integrity rules a scored cell must pass — clock, claim, stratum.
+"""The mechanical integrity rules a scored cell must pass — clock, run, claim, stratum.
 
-Three questions every scoring surface needs answered the same way, in one leaf
+Four questions every scoring surface needs answered the same way, in one leaf
 module so no join can answer them differently:
 
 **Whose clock says when a cell ran?** The pre-registration boundary must not
@@ -16,6 +16,13 @@ diagnostic views, where an agent-movable clock costs a diagnostic row, never
 a claim. Never the git
 commit timestamp: the stratified join is documented deterministic and offline
 over committed artifacts, and a git read would break that.
+
+**Which of a cell's gradings counts?** A re-graded cell commits a second
+``evaluation.json`` under a new run id beside the first, and both are real
+artifacts of the ledger. Only one of them is an observation, so every scoring
+surface collapses the re-runs to the newest before it counts anything
+(:func:`latest_evaluation_runs`) — never across evaluators, whose multiplicity
+is the panel.
 
 **May the cell's forward claim be believed?** A cell whose harness-written
 record says ``mode: forward`` while its event had resolved before the harness
@@ -43,7 +50,7 @@ behavior.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, date, datetime
 from typing import Literal
 
@@ -142,6 +149,72 @@ def evaluation_clock(evaluation: Evaluation) -> datetime:
     that vintage, which is a reason the flag is harness-side only.
     """
     return _harness_clock(evaluation.process_version, evaluation.created_at)
+
+
+#: One graded cell's identity: ``(case, event, predictor, evaluator)``.
+#: Deliberately **not** keyed on the run — the run is what varies between a
+#: grading and its re-grading, so two runs sharing this key are one observation
+#: — and deliberately keyed **on** the evaluator, because two judges of one
+#: prediction are two observations, not a duplicate. (``leaderboard``'s
+#: ``EvaluationKey`` is this tuple plus the run: the identity of a *grading*,
+#: which is what a per-cell figure computed at render must be keyed on.)
+EvaluationCellKey = tuple[str, str, str, str]
+
+
+def evaluation_cell_key(evaluation: Evaluation) -> EvaluationCellKey:
+    """This evaluation's :data:`EvaluationCellKey`."""
+    return (
+        evaluation.case_id,
+        evaluation.event_id,
+        evaluation.predictor_id,
+        evaluation.evaluator_id,
+    )
+
+
+def latest_evaluation_runs[T](items: Iterable[T], evaluation: Callable[[T], Evaluation]) -> list[T]:
+    """Collapse re-runs of one grader on one cell to the newest, in input order.
+
+    The ledger keeps every grading a judge committed, so a re-graded cell holds
+    two ``evaluation.json`` files that describe **one** observation. Counting
+    both would let a re-grade reweight a predictor's standing with no trace —
+    silently, since nothing about the aggregate looks wrong — so every surface
+    that aggregates the ledger collapses on :data:`EvaluationCellKey` first.
+
+    Newest wins, on the **harness clock** (:func:`evaluation_clock` — the
+    process stamp, with the agent-written ``created_at`` only where no stamp
+    exists, which the frozen scope excludes; aware-normalized, so a naive/aware
+    mix cannot raise). ``run_id`` breaks a clock tie, highest winning: the
+    evaluator is already part of the key and so cannot decide one, and the
+    tiebreak is the opposite convention from the prediction side's
+    ``max(predictions, key=cell_clock)``, which keeps the first path. Survivors
+    hold the **winner's** position in the input, which is path order at every
+    ledger read — and a cell's runs are path-adjacent under both ledger globs
+    (``.../evaluations/<evaluator>/<predictor>/<run>/``), so the survivors come
+    back in the order the uncollapsed stream had and the collapse cannot move a
+    byte of a deterministic artifact.
+
+    The collapse stops at the evaluator: panel means, the ``evaluators`` count,
+    and both agreement views rest on several judges reading one cell, so
+    pooling them here would erase the multiplicity that is the measurement.
+
+    ``evaluation`` names the ``Evaluation`` inside each item, so a caller
+    carrying the record's path or its joined siblings collapses the whole row
+    rather than re-deriving it afterwards.
+    """
+    latest: dict[EvaluationCellKey, tuple[tuple[datetime, str, str], int, T]] = {}
+    for position, item in enumerate(items):
+        record = evaluation(item)
+        order = (evaluation_clock(record), record.evaluator_id, record.run_id)
+        key = evaluation_cell_key(record)
+        current = latest.get(key)
+        if current is None or order > current[0]:
+            latest[key] = (order, position, item)
+    return [item for _order, _position, item in sorted(latest.values(), key=lambda kept: kept[1])]
+
+
+def latest_evaluations(evaluations: Iterable[Evaluation]) -> list[Evaluation]:
+    """:func:`latest_evaluation_runs` where the item *is* the evaluation."""
+    return latest_evaluation_runs(evaluations, lambda evaluation: evaluation)
 
 
 def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None:

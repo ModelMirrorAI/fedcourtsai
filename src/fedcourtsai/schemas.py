@@ -1932,7 +1932,9 @@ class ForwardClaimRecord(_Strict):
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
-    A deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:
+    A deterministic, offline roll-up of the ``evaluation.json`` files under
+    ``data/`` — the newest per (case, event, predictor, evaluator), since a
+    re-graded cell commits a second file describing one observation:
     one entry per predictor, ranked best-first on the **forward** stratum (see
     :class:`LeaderboardStratum` — the strata are never blended into one number,
     and ``evaluations_total`` includes the procedural cells the ranking

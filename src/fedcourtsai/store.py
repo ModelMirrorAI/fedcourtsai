@@ -25,6 +25,7 @@ from .integrity import (
     cell_clock,
     classify_stratum,
     forward_claim_breach,
+    latest_evaluation_runs,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -508,8 +509,13 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
 
     Walks ``data/cases/<court>/<docket>/events/<event>/evaluations/<evaluator>/
     <predictor>/<run>/evaluation.json`` and validates each against the schema, so
-    the leaderboard aggregates only well-formed rows. Returns nothing if the
-    ledger does not exist yet (reading must not create it).
+    a reader sees only well-formed rows. Returns nothing if the ledger does not
+    exist yet (reading must not create it).
+
+    Deliberately **uncollapsed**, unlike :func:`stratify`: its caller is the ops
+    report's leakage digest, an all-versions diagnostic whose subject is what
+    each grading recorded, so a superseded run is evidence rather than a
+    duplicate. Nothing that scores a predictor reads the ledger this way.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -556,6 +562,20 @@ class ExcludedCell(NamedTuple):
     reason: str
 
 
+class _ScopedCell(NamedTuple):
+    """One in-scope ``evaluation.json`` with the siblings its stratum needs.
+
+    :func:`stratify`'s first pass: the record, the event directory its path
+    identifies, and the latest prediction the frozen gate already resolved —
+    carried so the run collapse can drop a superseded grading before the
+    outcome join, and so the survivor's prediction is not read twice.
+    """
+
+    evaluation: Evaluation
+    event_dir: Path
+    latest_prediction: Prediction
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
@@ -593,6 +613,19 @@ def stratify(
     evaluation can only exist for a resolved event with a real prediction (the
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
+
+    **One grading per cell per judge.** A re-graded cell commits a second
+    ``evaluation.json`` beside the first, and both describe one observation, so
+    the scoped records are collapsed on ``(case, event, predictor, evaluator)``
+    — newest by harness clock
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`) — before anything is
+    joined or counted. Every surface built on this stream inherits the collapse,
+    so no board, claim aggregate, or exclusion count can double-count a
+    re-grade. The collapse never reaches across evaluators: a panel of judges on
+    one prediction is several observations, which is what the ``evaluators``
+    counts and the agreement views measure. It runs **after** the scope gate
+    below, so a re-grade outside the scope cannot displace the in-scope grading
+    it superseded.
 
     A cell whose harness record **contradicts its own forward claim**
     (:func:`fedcourtsai.integrity.forward_claim_breach` — ``context.mode``
@@ -634,6 +667,7 @@ def stratify(
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
     claimed_forward = 0
+    scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
@@ -647,6 +681,16 @@ def stratify(
             is_frozen(latest.process_version) and graded_post_freeze(evaluation.process_version)
         ):
             continue
+        scoped.append(_ScopedCell(evaluation, event_dir, latest))
+
+    # The run collapse runs *after* the scope gate, never before: a cell graded
+    # under the frozen process and re-graded outside it must keep the frozen
+    # grading on the frozen board rather than lose the cell to a newer run the
+    # board does not admit. Every counter below therefore sees one grading per
+    # (case, event, predictor, evaluator).
+    for evaluation, event_dir, latest in latest_evaluation_runs(
+        scoped, lambda cell: cell.evaluation
+    ):
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome never enters the forward/retrospective
         # skill aggregates — the label tracks vacatur practice, not

@@ -578,3 +578,51 @@ def test_a_statpack_revision_between_evaluator_stamps_picks_the_newer_stamp() ->
     assert stratum.cells == 2
     assert stratum.events == 1
     assert stratum.mean_total == pytest.approx(0.2)
+
+
+def test_a_regraded_cell_pairs_once_through_the_join(tmp_path: Path) -> None:
+    """The judge validation counts one grading per judge per cell.
+
+    `pairs` is what `AGREEMENT_MIN_PAIRS` suppresses on, so a re-graded cell
+    entering twice would push the intersection toward a threshold it has not
+    reached and publish a coefficient the suppression rule is holding back.
+    The join collapses the runs, so the pair set, the absence counts, and the
+    block means all see the newest grading only.
+    """
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha",
+            claim_scores=_block(0.4),
+            run_id="r1",
+            process_version=ProcessVersion(
+                label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 1, tzinfo=UTC)
+            ),
+        ),
+    )
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha",
+            claim_scores=_block(0.2),
+            run_id="r2",
+            process_version=ProcessVersion(
+                label="proc-v2", digest="sha256:x", stamped_at=datetime(2026, 6, 20, tzinfo=UTC)
+            ),
+        ),
+    )
+
+    board = build_claim_scores(
+        iter_stratified_evaluations(data_root, frozen_only=False), process_scope="all"
+    )
+
+    assert board.evaluations_total == 1
+    assert board.cells_with_claims == 1
+    agreement = board.forward_agreement
+    assert agreement is not None
+    assert (agreement.pairs, agreement.pair_events) == (1, 1)
+    stratum = board.entries[0].forward
+    assert stratum is not None
+    assert (stratum.cells, stratum.events) == (1, 1)
+    assert stratum.mean_total == pytest.approx(0.2)
