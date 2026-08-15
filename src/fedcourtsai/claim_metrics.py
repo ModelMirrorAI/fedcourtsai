@@ -33,7 +33,7 @@ block whose every claim is masked or baseline-less) are a property of the
 record and are counted separately. No inter-grader agreement is derived here:
 ``Leaderboard.evaluator_agreement`` publishes the panel's agreement on its
 **big-case reads**, and the semantic claim family has its own per-grader number
-in :mod:`fedcourtsai.pipeline.semantic` (wired but inert — no cell produces a
+in :mod:`fedcourtsai.pipeline.semantic` (declared, but no cell produces a
 semantic grade). Both correlate through the one
 :func:`fedcourtsai.leaderboard.kendall_tau_b`, which is the part that must not
 be duplicated.

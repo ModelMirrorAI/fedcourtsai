@@ -19,7 +19,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 from urllib.parse import quote
 
 import typer
@@ -100,7 +100,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .integrity import cell_clock, forward_claim_record
+from .integrity import cell_clock, evaluation_clock, forward_claim_record
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -130,7 +130,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe, moments, qp_topics
+from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
 from .pipeline.asof import CutoffPolicy
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
@@ -194,6 +194,7 @@ from .schemas import (
     SalienceReplay,
     Stage,
     StatPack,
+    Stratum,
     UsageRole,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
@@ -1636,6 +1637,151 @@ def claim_scores_command(
         f"claim-scores [{scope}]: {board.cells_with_claims} of {board.evaluations_total} "
         f"evaluation(s) carry a claim block; forward judge agreement: "
         f"{agreement_summary(board.forward_agreement)} -> {destination}"
+    )
+
+
+@app.command("semantic-summary")
+def semantic_summary_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Output path (default: <metrics_root>/semantic-grades-<stratum>-<scope>.json)."
+        ),
+    ] = None,
+    stratum: Annotated[
+        str,
+        typer.Option(
+            help="Which stratum to summarize (" + ", ".join(get_args(Stratum)) + "). One "
+            "call is one segment: grades are never pooled across strata, and a graded "
+            "unit carries no stratum of its own, so this states the population rather "
+            "than describing it."
+        ),
+    ] = "forward",
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline "
+            "(the shakedown pooled view).",
+        ),
+    ] = False,
+) -> None:
+    """Roll the ledger's semantic grade blocks into a census, published only above the floor.
+
+    Deterministic and offline: collects every committed ``evaluation.json``
+    carrying a ``semantic_grades`` block for one stratum, bridges each through
+    the **declaration** (``fedcourtsai.pipeline.semantic`` — the declared set,
+    never the grader's block, fixes what is graded), and rolls the units into
+    per-claim counts, a pooled coverage census, and leave-one-out inter-grader
+    agreement. Descriptive only: no score, no total, never a rank key, and never
+    pooled with a mechanical claim score. The reading contract is
+    ``metrics/README.md``; the methodology is ``docs/outcome-decomposition.md``,
+    *The semantic family, alpha*, and it is alpha.
+
+    Three things this command owes the roll-up, which sees only the units it is
+    handed.
+
+    It **segments**, on every axis the roll-up says is never pooled — stratum,
+    process scope, and *vantage*. The last one is why the cells are filtered to
+    each stage's **first declared moment** (``pipeline.moments.first_moment``),
+    the rule ``claim_metrics`` keeps for the same reason: a set is declared on
+    every moment of its stage, so a later moment carries the same block off a
+    larger information set, and pooling the two would average a forecast taken
+    at the grant with one taken after briefing. Stratum and scope are recorded
+    on the artifact; a census that does not state them is not readable at all.
+
+    It **deduplicates re-runs** to one grade per grader per cell, newest first
+    on the harness clock (``integrity.evaluation_clock``) rather than the
+    agent-written ``created_at``. The *ordering* is the one ``claim-scores``
+    uses; the *key* is not, and must not be — that surface collapses across
+    evaluators because their blocks are identical harness output, while here
+    graders genuinely differ and collapsing them would destroy the very
+    population the agreement figure is computed over. A grader's newest run
+    decides, including when it carries no block: that is a withdrawn grade, not
+    a reason to resurrect an older one.
+
+    And it **withholds** on two independent preconditions, because
+    ``metrics/README.md`` bars publication on either. The pooled census must
+    clear the ``SEMANTIC_MIN_GRADED`` floor, and at least one grader must carry
+    a non-null agreement coefficient — a count or share with no agreement
+    figure beside it is one reader's opinion presented as a measurement, and a
+    null coefficient is not an agreement figure. Below either, nothing is
+    written and the state is printed, naming which precondition failed.
+
+    So today it writes nothing and says so. No prompt asks a grader for a
+    semantic block, so no committed evaluation carries one, and no opinion body
+    is ingested to grade against.
+    """
+    if stratum not in get_args(Stratum):
+        raise typer.BadParameter(
+            f"unknown stratum {stratum!r}; expected one of {', '.join(get_args(Stratum))}"
+        )
+    segment = cast(Stratum, stratum)
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_forward_claim_exclusions(run.excluded)
+    latest: dict[tuple[str, str, str, str], tuple[tuple[datetime, str, str], Evaluation]] = {}
+    for evaluation, cell_stratum, stage, moment in run.cells:
+        if cell_stratum != segment or stage is None:
+            continue
+        if moment != moments.first_moment(stage):
+            continue
+        key = (
+            evaluation.case_id,
+            evaluation.event_id,
+            evaluation.predictor_id,
+            evaluation.evaluator_id,
+        )
+        order = (evaluation_clock(evaluation), evaluation.evaluator_id, evaluation.run_id)
+        current = latest.get(key)
+        if current is None or order > current[0]:
+            latest[key] = (order, evaluation)
+    units: list[semantic.GradedUnit] = []
+    blocks = 0
+    refused = 0
+    for key in sorted(latest):
+        evaluation = latest[key][1]
+        if evaluation.semantic_grades is None:
+            continue
+        blocks += 1
+        produced = semantic.graded_units(evaluation)
+        if not produced:
+            # `graded_units` refuses silently, five ways. A systematic refusal —
+            # every grader stamping a superseded declaration, say — would
+            # otherwise render as "few grades" rather than "many grades refused".
+            refused += 1
+        units.extend(produced)
+    summary = semantic.summarize_semantic_grades(units, stratum=segment, process_scope=scope)
+    graded = summary.overall.graded if summary.overall is not None else 0
+    masked = summary.overall.not_addressed if summary.overall is not None else 0
+    disputed = summary.overall.mask_disputed if summary.overall is not None else 0
+    agreed = any(record.rank_agreement is not None for record in summary.agreement.values())
+    census = (
+        f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
+        f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
+        f"on {summary.cases} case(s)"
+    )
+    if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
+        reason = (
+            f"below the {semantic.SEMANTIC_MIN_GRADED}-unit floor"
+            if graded < semantic.SEMANTIC_MIN_GRADED
+            else "no grader carries an agreement coefficient"
+        )
+        typer.echo(
+            f"semantic-summary [{segment}/{scope}]: withheld — {reason}. {census}. Nothing written."
+        )
+        return
+    destination = (
+        out
+        if out is not None
+        else settings.metrics_root / f"semantic-grades-{segment}-{scope}.json"
+    )
+    write_json(destination, summary)
+    typer.echo(
+        f"semantic-summary [{segment}/{scope}]: {census}, "
+        f"{summary.graders} grader(s), set(s) "
+        f"{', '.join(summary.declared_set_versions)} -> {destination}"
     )
 
 

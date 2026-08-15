@@ -40,7 +40,11 @@ and are committed. Others land here without being gate-checked:
 which is regenerated on demand by `fedcourts docket`, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
-`replay: salience-gate` mode, landing as a reviewed PR). The gate's presence check
+`replay: salience-gate` mode, landing as a reviewed PR), and
+`semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
+writes **only** when the semantic census clears both preconditions below — it
+is outside the gate precisely because its absence is a state the contract
+requires, not a missing artifact. The gate's presence check
 tracks the set the weekly refresh regenerates, so an artifact outside that set
 stays outside the gate:
 
@@ -404,13 +408,20 @@ stays outside the gate:
   predictor — counted separately.
 
 **Semantic grades publish nothing today, and this is the contract for when they
-do.** No artifact here carries a semantic claim grade: no stage declares a
-semantic claim set, no cell produces a grade, and the schema blocks that would
-carry one are null on every committed prediction and evaluation. The rules are
-written before the surface exists so that a first publication has a contract to
+do.** No artifact here carries a semantic claim grade. The merits moments
+declare `semantic-v1`, but no prompt asks a cell or a grader for it and no
+opinion body is ingested to grade against, so the schema blocks that would carry
+one are null on every committed prediction and evaluation. `fedcourts
+semantic-summary` is the surface that publishes them, and it writes
+`semantic-grades-<stratum>-<scope>.json` only where **both** preconditions below
+are met — the floor *and* a non-null agreement coefficient. Below either it
+prints the withheld state and writes nothing, which is what it does today: for
+this artifact the file's **absence is the withheld state**, and the command's
+output is where the counts behind it are read. The rules are fixed before any
+artifact exists so that a first publication has a contract to
 meet rather than one written around it. The methodology behind them is
 [outcome-decomposition.md](../docs/outcome-decomposition.md)'s *The semantic
-family, alpha*, and it is **alpha** — `semantic-v0` is provisional, has never
+family, alpha*, and it is **alpha** — `semantic-v1` is provisional, has never
 met a real opinion, and is explicitly not a pre-registered commitment of the
 kind the mechanical claim sets are. A grade produced under it would be a design
 under test, not evidence about a predictor.
@@ -418,10 +429,10 @@ under test, not evidence about a predictor.
 Not to be confused with the judge validation above, which calls
 `reasoning_quality` "the semantic side" of its pair. That is a **different
 number**: one judge-graded score of a prediction's reasoning as a whole,
-standing in for a claim family that does not exist. A `semantic-v0` grade is
-per declared claim and graded against opinion text. The pre-registered pairing
-keeps `reasoning_quality`; whether it ever changes hands is `semantic-v1`'s
-question, not this contract's.
+standing in for a claim family that produces nothing yet. A `semantic-v1` grade
+is per declared claim and graded against opinion text. The pre-registered
+pairing keeps `reasoning_quality`; whether it ever changes hands is a later
+version's question, not this contract's.
 
 **Descriptive only, and never a rank key** — under the alpha caveat above,
 which travels with each rule below rather than being spent on the lead. A
@@ -432,10 +443,23 @@ declared claim, with the graded count beside them, and a pooled
 `overall` census that is a coverage figure rather than a headline (different
 claims are propositions of different difficulty, so a pooled share describes
 the claim mix as much as the predictor — and it reaches its minimum on units
-pooled across claims, so it publishes the distinct-cell count that actually
-bounds it). No standing, no ordering, and no entry
+pooled across claims, so it publishes the distinct-cell and distinct-**case**
+counts that actually bound it). The case count is the strictest of the three
+and the one to read: one opinion backs a cell per predictor, every claim in the
+set is read off that same opinion in a single pass, so units and cells both
+multiply against a case count that does not. No standing, no ordering, and no entry
 into the leaderboard or any headline. Nothing derived from a grade is a skill,
 calibration, or forecasting claim of any kind.
+
+**A `majority-ground` census is an upper bound on forecasting skill, not a
+measure of it.** Nothing pins a merits predict cell to the grant, and a forward
+cell may retrieve without restriction, so a cell running after oral argument can
+read a transcript in which the doctrinal ground is frequently telegraphed — the
+claim's forecastability decays across the Term. Discharging this would mean
+publishing each prediction's date relative to argument beside its grade, and no
+artifact in this project records an argument date, so the caveat travels as
+prose. `docs/outcome-decomposition.md`, *The declared set*, is where it is
+argued.
 
 **Never pooled with a mechanical claim score.** A semantic grade never enters
 a claim `total`, `floor`, or `lift`, is never summed with one, and never
