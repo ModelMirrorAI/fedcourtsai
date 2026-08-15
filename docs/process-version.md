@@ -91,7 +91,7 @@ canonical config and is recorded in no artifact field — moving it re-bases
 every forward skill number and every backtest per-band skill at once, under
 unchanged digests. (The salience *version* does have a boundary:
 `context.salience_version` and the pack's `base_rate_salience_version` make a
-`sal-v2` cut visible in the data.) The pre-registered baseline is therefore
+per-version cut visible in the data.) The pre-registered baseline is therefore
 the whole tree at the `prereg/<label>` tag — lookback window included — and a
 later window change belongs in the freeze record beside the masking changes,
 never in a commit message alone.

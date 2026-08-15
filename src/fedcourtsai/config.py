@@ -413,8 +413,9 @@ class SalienceConfig(BaseModel):
     per_conference_capacity: int = Field(default=12, ge=0)
     long_conference_capacity: int = Field(default=24, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
-    # The sal-v2 arrival cohort's random-slice rate: the fraction of eligible
-    # arrivals the deterministic draw (`salience.arrival_draw`) selects at
+    # The caption-banded arrival cohort's random-slice rate: the fraction of
+    # eligible arrivals the deterministic draw (`salience.arrival_draw`,
+    # keyed on the frozen draw literal, never the active version) selects at
     # docketing. The slice is load-bearing — its unbiased predicted population
     # is what makes forward skill numbers transfer to live prospective use —
     # and it is sized against that purpose, not against class measurement

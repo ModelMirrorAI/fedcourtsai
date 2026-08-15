@@ -583,7 +583,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     # no version's band names appear under another's.
     caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
     assert set(active.bands) <= caption_bands
-    assert set(v2.bands) <= caption_bands  # sal-v2 shares sal-v3's vocabulary exactly
+    assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
