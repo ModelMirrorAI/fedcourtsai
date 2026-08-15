@@ -1327,7 +1327,26 @@ class Evaluation(_Strict):
         "`pipeline.evaluate.is_correct`; the leaderboard's accuracy column is "
         "its mean.",
     )
-    brier_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`(probability - actual_granted)**2` over the stage's declared "
+        "binary — granted on a cert or interim cell, judgment-disturbed on a merits "
+        "one — computed identically in code by `pipeline.evaluate.brier_score`. Who "
+        "owns it splits by stage. On a **merits** or **interim** cell whose "
+        "`event.yaml` names that stage it is harness-stamped **at stamp time** by "
+        "`stamp-cell --role evaluator` from the scored prediction's committed "
+        "`probability` and the outcome's `actual_granted`, never the evaluator's "
+        "word, and cleared where either artifact is missing — so the "
+        "`segment_base_rate` and `brier_skill_score` stamped beside it share "
+        "one source and the skill ratio is verifiable rather than merely "
+        "self-consistent. An unstamped cell keeps whatever it was written with. "
+        "On a **cert** cell it is the evaluator's, and the "
+        "leaderboard's coherence check holds it to the skill recorded against it. "
+        "Null where the cell scored no probability and on records written before the "
+        "field existed.",
+    )
     judgment_correct: int | None = Field(
         default=None,
         ge=0,
@@ -1337,11 +1356,11 @@ class Evaluation(_Strict):
         "vocabulary (a `reversed` call against a `vacated` outcome is 0). Null "
         "wherever either side records no judgment: every non-merits cell, and "
         "records written before the field existed. The evaluator's field, like "
-        "`correct` and `brier_score` — on a merits cell the harness stamps the "
-        "claim block, the base-rate basis record, and the segment base rate "
-        "with its skill, but never this — computed identically in code by "
-        "`pipeline.evaluate.judgment_correct`, which the offline engines use. "
-        "Descriptive accuracy, never a "
+        "`correct` — on a merits cell the harness stamps the claim block, the "
+        "base-rate basis record, and the whole skill record (`brier_score`, "
+        "`segment_base_rate`, `brier_skill_score`), but never this — computed "
+        "identically in code by `pipeline.evaluate.judgment_correct`, which the "
+        "offline engines use. Descriptive accuracy, never a "
         "proper score: `brier_score` on the disturbed binary is the scored axis, "
         "and `correct` already carries this same comparison on a merits cell.",
     )
@@ -1437,9 +1456,10 @@ class Evaluation(_Strict):
         "(1 - brier / baseline_brier): ~0 when the prediction merely parrots the "
         "segment base rate, positive when it beats it, negative when worse. On a "
         "merits or interim cell it is harness-derived at stamp time from the "
-        "recorded brier_score, the outcome, and the stamped `segment_base_rate`, so "
-        "the two halves cannot disagree; on a cert cell it is the evaluator's, "
-        "computed against the band rate it recorded. Null "
+        "*stamped* brier_score, the outcome, and the stamped `segment_base_rate` — "
+        "all three off one set of committed artifacts, so the ratio is correct by "
+        "construction rather than merely reproducible from the record; on a cert "
+        "cell it is the evaluator's, computed against the band rate it recorded. Null "
         "when `segment_base_rate` is null, when the baseline is already exact (the "
         "base rate matched the outcome), and on records written before the field "
         "existed.",

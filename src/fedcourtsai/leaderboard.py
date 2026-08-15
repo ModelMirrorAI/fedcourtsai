@@ -615,10 +615,11 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #: band cannot pass — band rates differ several-fold, so a mismatch moves the
 #: score far further than this.
 #:
-#: On the stages where ``stamp-cell`` writes the base rate and the skill
-#: together (merits and interim) the check passes by construction — both halves
-#: come from one set of inputs — so what it guards in practice is the **cert**
-#: cell, whose pair is the evaluator's own arithmetic.
+#: On the stages where ``stamp-cell`` writes the whole skill record (merits and
+#: interim: the Brier, the base rate, and the ratio over them) the check passes
+#: by construction — all three come from one set of inputs — so what it guards
+#: in practice is the **cert** cell, whose three are the evaluator's own
+#: arithmetic.
 _SKILL_COHERENCE_TOLERANCE = 1e-2
 
 
@@ -638,14 +639,14 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     rather than published on a baseline it was never graded against. Harness
     output always agrees; a stale or hand-written record need not.
 
-    That check is the only one, and it is enough because the rate itself is
-    only the evaluator's word where a judgment had to be made: on merits and
-    interim cells ``stamp-cell`` writes the rate and the skill together from
-    the statpack (:func:`fedcourtsai.cli._harness_base_rate_for`), so a wrong
-    pool cannot reach the board to be caught, and the check passes trivially.
-    On a **cert** cell both halves are the evaluator's arithmetic against its
-    own frozen band, and this is what stands between that arithmetic and the
-    published column.
+    That check is the only one, and it is enough because the numbers are the
+    evaluator's word only where a judgment had to be made: on merits and interim
+    cells ``stamp-cell`` writes all three together — the Brier from the scored
+    prediction and the outcome, the rate from the statpack
+    (:func:`fedcourtsai.cli._skill_record_for`) — so no hand-computed number can
+    reach the board to be caught, and the check passes trivially. On a **cert**
+    cell all three are the evaluator's arithmetic against its own frozen band,
+    and this is what stands between that arithmetic and the published column.
     """
     recorded_rate = evaluation.segment_base_rate
     if (

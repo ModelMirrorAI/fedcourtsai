@@ -403,6 +403,7 @@
         }
       ],
       "default": null,
+      "description": "`(probability - actual_granted)**2` over the stage's declared binary \u2014 granted on a cert or interim cell, judgment-disturbed on a merits one \u2014 computed identically in code by `pipeline.evaluate.brier_score`. Who owns it splits by stage. On a **merits** or **interim** cell whose `event.yaml` names that stage it is harness-stamped **at stamp time** by `stamp-cell --role evaluator` from the scored prediction's committed `probability` and the outcome's `actual_granted`, never the evaluator's word, and cleared where either artifact is missing \u2014 so the `segment_base_rate` and `brier_skill_score` stamped beside it share one source and the skill ratio is verifiable rather than merely self-consistent. An unstamped cell keeps whatever it was written with. On a **cert** cell it is the evaluator's, and the leaderboard's coherence check holds it to the skill recorded against it. Null where the cell scored no probability and on records written before the field existed.",
       "title": "Brier Score"
     },
     "brier_skill_score": {
@@ -416,7 +417,7 @@
         }
       ],
       "default": null,
-      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. On a merits or interim cell it is harness-derived at stamp time from the recorded brier_score, the outcome, and the stamped `segment_base_rate`, so the two halves cannot disagree; on a cert cell it is the evaluator's, computed against the band rate it recorded. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
+      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. On a merits or interim cell it is harness-derived at stamp time from the *stamped* brier_score, the outcome, and the stamped `segment_base_rate` \u2014 all three off one set of committed artifacts, so the ratio is correct by construction rather than merely reproducible from the record; on a cert cell it is the evaluator's, computed against the band rate it recorded. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
       "title": "Brier Skill Score"
     },
     "case_id": {
@@ -470,7 +471,7 @@
         }
       ],
       "default": null,
-      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. The evaluator's field, like `correct` and `brier_score` \u2014 on a merits cell the harness stamps the claim block, the base-rate basis record, and the segment base rate with its skill, but never this \u2014 computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
+      "description": "1 iff the prediction's `judgment` exactly matches the outcome's \u2014 the merits-axis analogue of `correct`, on the full Judgment vocabulary (a `reversed` call against a `vacated` outcome is 0). Null wherever either side records no judgment: every non-merits cell, and records written before the field existed. The evaluator's field, like `correct` \u2014 on a merits cell the harness stamps the claim block, the base-rate basis record, and the whole skill record (`brier_score`, `segment_base_rate`, `brier_skill_score`), but never this \u2014 computed identically in code by `pipeline.evaluate.judgment_correct`, which the offline engines use. Descriptive accuracy, never a proper score: `brier_score` on the disturbed binary is the scored axis, and `correct` already carries this same comparison on a merits cell.",
       "title": "Judgment Correct"
     },
     "leakage": {

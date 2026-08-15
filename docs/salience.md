@@ -970,8 +970,10 @@ answers all four `interim-v1` claims and anchors on this estimator by name. The
 **baseline** never depended on that re-bless, because it is not the evaluator's
 to record: `stamp-cell` writes an interim cell's `segment_base_rate` from the
 estimator above — keyed on the application Term the scored prediction froze —
-together with the `brier_skill_score` derived from it, overwriting whatever the
-cell carried — and clearing `base_rate_basis` with them, so the null the
+together with the `brier_score` it recomputes from the scored prediction and
+the committed outcome and the `brier_skill_score` derived from those two,
+overwriting whatever the cell carried — and clearing `base_rate_basis` with
+them, so the null the
 interim pool (no band product) requires is structural rather than a rule an
 evaluator has to honour.
 **Pre-registered claimability rule:** the stage stopped being descriptive-only

@@ -583,8 +583,9 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
     # No band was frozen, so the basis record stays null on both halves — the
     # interim pool is not a band product.
     assert stamped["base_rate_salience_version"] is None
-    # The headline pair is stamped off the same frozen application Term:
-    # 0.10, and 1 - 0.04/(0.10 - 0)**2.
+    # The headline record is stamped off the same frozen application Term and
+    # the same committed artifacts: (0.2 - 0)**2, 0.10, and 1 - 0.04/(0.10)**2.
+    assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["segment_base_rate"] == pytest.approx(0.10)
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.01)
 
@@ -681,17 +682,21 @@ def test_stamp_evaluator_clears_the_pair_where_the_pack_has_no_interim_section(
     )
     assert stamped["segment_base_rate"] is None
     assert stamped["brier_skill_score"] is None
+    # The Brier is not cleared with them: it answers to the prediction and the
+    # outcome, both committed here, and neither depends on the pack.
+    assert stamped["brier_score"] == pytest.approx(0.04)
 
 
 def test_stamp_leaves_a_cert_cells_recorded_base_rate_alone(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The cert pair is the evaluator's: the stamp touches neither half.
+    """The cert trio is the evaluator's: the stamp touches none of the three.
 
     Which band population the rate is taken over is a judgment about the scored
     prediction's frozen band, so the harness records the basis version beside it
-    but never overwrites the rate — and the internal-coherence check on the
-    board is what stands behind the cert column's arithmetic.
+    but never overwrites the rate — nor the Brier scored against it, whose
+    ownership follows the rate's on every stage — and the internal-coherence
+    check on the board is what stands behind the cert column's arithmetic.
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event = "evt-petition-writ-of-certiorari"
@@ -733,6 +738,10 @@ def test_stamp_leaves_a_cert_cells_recorded_base_rate_alone(
     )
     assert stamped["segment_base_rate"] == pytest.approx(0.067)
     assert stamped["brier_skill_score"] == pytest.approx(0.443)
+    # Untouched even though this cell has no prediction and no outcome to
+    # recompute one from: the cert stage is not stamped at all, so the absence
+    # never reaches the clearing path.
+    assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
 
 
@@ -837,8 +846,9 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
             base_rate_basis="risk_set",
         ),
     )
-    # A second predictor's cell, scored without a Brier: the rate is still the
-    # harness's, but nothing derives a skill from it.
+    # A second predictor's cell, with no prediction of its own on this event:
+    # the rate is still the harness's, but there is nothing to score a Brier
+    # from and so nothing to derive a skill from either.
     write_json(
         event_paths.evaluation("claude-judge", "codex-baseline", "RID"),
         Evaluation(
@@ -855,6 +865,10 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
 
     result = _stamp("evaluator", "claude-judge", 5, event, "RID")
     assert result.exit_code == 0, result.output
+    # The evaluator's Brier here is the right one, so only the rate it got
+    # wrong is called out: the warning marks a disagreement, not the overwrite.
+    assert "brier_score" not in result.output
+    assert "segment_base_rate 0.85" in result.output
 
     eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
     stamped = json.loads(eval_path.read_text())
@@ -866,8 +880,10 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
     assert row["baseline"] == pytest.approx(0.70)
     assert row["outcome"] == 1
     assert row["score"] == pytest.approx(0.30**2 - 0.20**2)
-    # The headline pair is stamped from the same pool and the same Term, so the
-    # evaluator's own numbers are gone: 0.70, and 1 - 0.04/(0.70 - 1)**2.
+    # The headline record is stamped from the same pool, the same Term, and the
+    # same committed artifacts, so the evaluator's own numbers are gone:
+    # (0.8 - 1)**2, 0.70, and 1 - 0.04/(0.70 - 1)**2.
+    assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["segment_base_rate"] == pytest.approx(0.70)
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.09)
     # Neither half of the basis record applies: the merits pool is no band
@@ -877,11 +893,12 @@ def test_stamp_evaluator_keys_the_merits_baseline_on_the_grant_term(
     assert stamped["base_rate_basis"] is None
     assert stamped["base_rate_salience_version"] is None
 
-    # No Brier to score: the rate stands, the skill it would derive does not.
+    # No prediction to score: the rate stands, the Brier and the skill do not.
     sibling = json.loads(
         event_paths.evaluation("claude-judge", "codex-baseline", "RID").read_text()
     )
     assert sibling["segment_base_rate"] == pytest.approx(0.70)
+    assert sibling["brier_score"] is None
     assert sibling["brier_skill_score"] is None
 
 
@@ -958,6 +975,9 @@ def test_stamp_evaluator_clears_the_pair_where_the_merits_pool_refuses(
     stamped = json.loads(eval_path.read_text())
     assert stamped["segment_base_rate"] is None
     assert stamped["brier_skill_score"] is None
+    # This cell has no prediction either, so the Brier clears on its own inputs
+    # — the same tolerant discipline the rate takes, and for the same reason.
+    assert stamped["brier_score"] is None
 
     # And the same where there is no pack at all to pool from.
     (tmp_path / "metrics" / "statpack.json").unlink()
@@ -965,3 +985,301 @@ def test_stamp_evaluator_clears_the_pair_where_the_merits_pool_refuses(
     stamped = json.loads(eval_path.read_text())
     assert stamped["segment_base_rate"] is None
     assert stamped["brier_skill_score"] is None
+
+
+def test_stamp_evaluator_recomputes_the_brier_over_the_evaluators_number(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On a stamped stage the Brier is the harness's too, not the evaluator's.
+
+    This is what makes the skill ratio *verifiable* rather than merely
+    reproducible: with the base rate stamped and the Brier left to the agent,
+    the board's internal-coherence check passes by construction on a numerator
+    nothing ever checked, so a wrong Brier publishes a wrong skill that agrees
+    with its own record. Here the evaluator writes a Brier off by an order of
+    magnitude and the stamp replaces it from the two committed artifacts — and
+    all three stamped numbers reproduce the ratio from one another.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = MERITS_EVENT_ID
+    event_paths = CasePaths(_data_root, "scotus", 11).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/11",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Merits judgment",
+            opened_at=date(2024, 3, 1),  # a March grant → October Term 2023
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/11",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.6,
+            predicted_disposition=Disposition.other,
+            judgment=Judgment.reversed,
+            votes=[JusticeVote(justice="Roberts", vote=VoteValue.majority)],
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=True,
+                band="baseline",
+                salience_version="sal-v1",
+                term=2023,
+            ),
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/11",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.other,
+            actual_granted=1,
+            judgment=Judgment.reversed,
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            merits=StatPackMerits(
+                parsed=30,
+                disturbed=21,
+                terms=[
+                    StatPackMeritsTerm(term=2022, parsed=30, disturbed=21, cert_order_excluded=0)
+                ],
+            ),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/11",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            # Off by an order of magnitude, and internally coherent with the
+            # skill beside it against the rate the harness will stamp — exactly
+            # the record the coherence check cannot tell from a right one.
+            brier_score=0.016,
+            segment_base_rate=0.70,
+            brier_skill_score=1 - 0.016 / 0.09,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 11, event, "RID")
+    assert result.exit_code == 0, result.output
+    # The discarded Brier is named out loud, as the discarded rate is.
+    assert "::warning::" in result.output
+    assert "brier_score 0.016" in result.output
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    # (0.6 - 1)**2 from the committed probability and the committed binary.
+    assert stamped["brier_score"] == pytest.approx(0.16)
+    assert stamped["segment_base_rate"] == pytest.approx(0.70)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.16 / 0.09)
+    # The whole point, stated as the reader of the frozen record would check
+    # it: the skill reproduces from the two numbers stamped beside it, and both
+    # of those answer to committed artifacts rather than to the agent.
+    baseline = (stamped["segment_base_rate"] - 1) ** 2
+    assert stamped["brier_skill_score"] == pytest.approx(1 - stamped["brier_score"] / baseline)
+
+
+def test_stamp_scores_the_merits_brier_on_the_undisturbed_side(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merits cell whose judgment below **stood**: the binary is 0, not 1.
+
+    The merits axis is P(disturbed), so an affirmance scores the same forecast
+    the other way round. Every other merits case here resolves disturbed, which
+    an implementation reading the wrong side of the binary would pass; this one
+    is the direction that catches it.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = MERITS_EVENT_ID
+    event_paths = CasePaths(_data_root, "scotus", 13).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/13",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Merits judgment",
+            opened_at=date(2024, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/13",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.6,
+            predicted_disposition=Disposition.other,
+            judgment=Judgment.reversed,
+            votes=[JusticeVote(justice="Roberts", vote=VoteValue.majority)],
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/13",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.other,
+            actual_granted=0,  # the judgment below stood
+            judgment=Judgment.affirmed,
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            merits=StatPackMerits(
+                parsed=30,
+                disturbed=21,
+                terms=[
+                    StatPackMeritsTerm(term=2022, parsed=30, disturbed=21, cert_order_excluded=0)
+                ],
+            ),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/13",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=0,
+        ),
+    )
+
+    assert _stamp("evaluator", "claude-judge", 13, event, "RID").exit_code == 0
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    # (0.6 - 0)**2, not (0.6 - 1)**2: a confident disturbed call against an
+    # affirmance scores badly, and the skill against a 0.70 baseline is deeply
+    # negative rather than mildly so.
+    assert stamped["brier_score"] == pytest.approx(0.36)
+    assert stamped["segment_base_rate"] == pytest.approx(0.70)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.36 / 0.49)
+
+
+def test_stamp_evaluator_clears_the_brier_with_no_committed_outcome(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No outcome -> no stamped Brier, and so no skill, whatever was recorded.
+
+    The tolerant-clearing half of the rule. An interim cell can be stamped
+    before its application resolves, and the harness has no binary to score
+    against then; leaving the evaluator's number in place would let exactly the
+    unchecked value the stamp exists to displace survive the one case where
+    nothing can check it. The base rate, which needs the outcome no more than
+    the pack does, stands.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 12).event(event)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/12",
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            moment=Moment.arrival,
+            title="Application for a stay",
+            opened_at=date(2026, 3, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/12",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 3, 2, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-03-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 3, 1),
+                signals_observable=True,
+                band=None,
+                term=2026,
+            ),
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            interim=StatPackInterim(
+                substantive_resolved=110,
+                substantive_granted=56,
+                terms=[
+                    StatPackInterimTerm(term=2025, substantive_resolved=60, substantive_granted=6)
+                ],
+            ),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/12",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            brier_score=0.04,
+            brier_skill_score=-3.0,
+        ),
+    )
+
+    assert _stamp("evaluator", "claude-judge", 12, event, "RID").exit_code == 0
+
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert stamped["brier_score"] is None
+    assert stamped["brier_skill_score"] is None
+    # The pool needs only the pack and the frozen application Term: OT2025
+    # alone, 6/60.
+    assert stamped["segment_base_rate"] == pytest.approx(0.10)

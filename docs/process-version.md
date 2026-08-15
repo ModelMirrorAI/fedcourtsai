@@ -89,11 +89,15 @@ salience-band base rates, and the lookback window that builds them
 (`base_rate_lookback_terms` in `config/tracking.yaml`) sits in no actor's
 canonical config and is recorded in no artifact field — moving it re-bases
 every forward skill number and every backtest per-band skill at once, under
-unchanged digests. **Who** computes a baseline sits outside the digest for the
-same reason: the merits and interim rates are stamped from harness code rather
-than pooled by the evaluator, so a change there moves how a number was produced
-without moving any actor's digest, and belongs in the freeze record beside the
-window. (The salience *version* does have a boundary:
+unchanged digests. **Who** computes a scored number sits outside the digest for
+the same reason — and the rule covers the numerator as well as the baseline it
+is scored against: on the merits and interim stages the rate, the Brier, and
+the skill over them are all stamped from harness code rather than computed by
+the evaluator, so a change there moves how a number was produced without moving
+any actor's digest, and belongs in the freeze record beside the window. The
+quantity itself is unchanged in every such move — the harness computes what the
+prompt defined — which is exactly why no digest moves and why the freeze record
+is the only place the change is visible. (The salience *version* does have a boundary:
 `context.salience_version` and the pack's `base_rate_salience_version` make a
 per-version cut visible in the data.) The pre-registered baseline is therefore
 the whole tree at the `prereg/<label>` tag — lookback window included — and a
@@ -131,7 +135,12 @@ and the cell's `claim_scores` block is *silently* absent rather than wrong —
 `base_rate_salience_version` too, except where the evaluation records a
 `risk_set` basis, which fails the stamp rather than losing its version half —
 and, on an interim cell, the harness-stamped `segment_base_rate`, whose
-application Term is read off that same prediction. So
+application Term is read off that same prediction. On **both** stamped stages it
+also costs the harness-stamped `brier_score`, which needs that prediction's
+`probability`, and the skill derived from it: that is the expensive one, because
+a null `brier_score` drops the cell from the leaderboard outright rather than
+merely leaving a field empty. Not silent, at least — the discard warning fires
+where the evaluator wrote a number of its own. So
 `fedcourts unblind-evaluations` runs first, then `stamp-cell`, then `validate` —
 whose `check_evaluation_targets` resolves the same join and is the loud backstop
 for an alias that survived.
