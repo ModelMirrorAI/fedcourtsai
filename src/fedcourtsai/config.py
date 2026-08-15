@@ -445,10 +445,12 @@ class SalienceConfig(BaseModel):
     # grant rate. 0 = unbounded — every prior Term in the statpack — and is the
     # absent-file fallback only; the shipped config value is 10, matching
     # ``statpack.markdown_terms``. A bound trades variance for
-    # bias: the high band carries only ~60-165 weighted-resolved petitions per Term,
+    # bias: the high band carries only ~66-137 weighted-resolved petitions per Term,
     # so a short window is noisy, while a long one assumes the Court's grant
-    # behaviour is stationary across the whole walked range (it visibly is not —
-    # per-Term high-band rates run 25.8%-48.0%; see docs/salience.md, *Base rates &
+    # behaviour is stationary across the whole walked range. Per-Term sal-v3
+    # high-band rates run 24.2%-42.4% on those counts — too thin to tell drift
+    # from sampling either way — which is why the window is stated rather than
+    # defaulted (see docs/salience.md, *Base rates &
     # baselines for the predicted segment*). Moving this re-bases every forward
     # Brier skill number and every
     # `cert-backtest.json` per-band skill at once, which is exactly why it is config

@@ -292,10 +292,12 @@ salience:
   # every published skill number is unchanged — it only pins where the edge
   # will sit. The bias/variance tension is real and deliberate
   # (docs/salience.md, *Base rates & baselines for the predicted segment*):
-  # per-Term high-band grant rates run 25.8%-48.0% across OT2017-OT2025, so a
-  # long window is stable but assumes the Court's grant behaviour is
-  # stationary, while a short one tracks the drift on only 61-163
-  # weighted-resolved petitions per Term. Counted in Term YEARS, not statpack
+  # per-Term sal-v3 high-band grant rates run 24.2%-42.4% across OT2017-OT2025,
+  # so a long window is stable but assumes the Court's grant behaviour is
+  # stationary, while a short one tracks recent Terms on only 66-137
+  # weighted-resolved petitions each — too thin to tell drift from sampling
+  # either way, which is why the window is stated rather than defaulted.
+  # Counted in Term YEARS, not statpack
   # rows: a Term missing from the pack shortens the sample rather than pulling
   # an older Term in. Move it between Terms, never part-way through one —
   # a change re-bases every published skill number at once.
@@ -312,8 +314,9 @@ salience:
   # remainder exceeds it — which typical cohorts reach at
   # per_conference_capacity 12, where a full reserve leaves a rank fill of 7 —
   # so slots in use displace cert picks by design (docs/budget.md). Set well BELOW the
-  # observed concurrency (~16 substantive applications live at once against a
-  # walked Term's 219 arrivals): the reserve is a deliberate cap on how much of
+  # observed concurrency (~13 substantive applications live at once against
+  # OT2025-to-date's 179 arrivals, a floor while the Term is open): the reserve
+  # is a deliberate cap on how much of
   # the interim stream is predicted at all, not a fit to it, which is why the
   # predicted slice is a ladder-ordered subsample. Raising it widens interim
   # coverage and narrows the cert rank fill one-for-one.
@@ -356,7 +359,7 @@ spend:
   # new cells — the predict queue and the evaluate backlog are untouched and
   # re-derive next cycle — it never destroys queued work. The value guards
   # against a BURST, not a rate: it sits above every legitimate month
-  # (~2.3x the Term's average, clear of the heaviest month's build-up — whose
+  # (~2.1x the Term's average, clear of the heaviest month's build-up — whose
   # carve-out band is uncapped by construction — and of the lagging ledger)
   # and within days of a runaway burst, a mis-set capacity knob minting whole
   # cohorts in single runs. The derivation, the measured figures it rests on,

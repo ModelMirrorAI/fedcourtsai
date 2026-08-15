@@ -6496,7 +6496,10 @@ def cert_backtest_plan(
 def metrics_refresh_plan(
     changed_file: Annotated[
         Path,
-        typer.Option(help="File holding `git diff --name-only -- metrics/` output to summarize."),
+        typer.Option(
+            help="File holding `git diff --cached --name-only -- metrics/ data/scope/` "
+            "output to summarize."
+        ),
     ],
     run_id: Annotated[
         str, typer.Option(help="Refresh run id for the PR prose; defaults to now (UTC).")
@@ -6505,7 +6508,9 @@ def metrics_refresh_plan(
     """Render the review-PR plan for a metrics refresh (``run-analytics``).
 
     The workflow regenerates the metrics artifacts (the same tested commands the
-    stages run), diffs ``metrics/``, and hands the changed paths here; this prints a
+    stages run), stages them and reads ``git diff --cached --name-only -- metrics/
+    data/scope/`` so a brand-new artifact is not missed, and hands the changed paths
+    here; this prints a
     JSON plan ``{"changed":[...],"pr":<branch/title/commit/body|null>}`` with a
     per-artifact headline read from the regenerated files. ``pr`` is null when
     nothing changed (byte-stable artifacts -> empty diff -> no PR), so the workflow

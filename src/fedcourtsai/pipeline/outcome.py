@@ -1262,14 +1262,21 @@ def interim_response_events_for(
     its own and the next refit can drop whichever earns nothing.
 
     Their horizons differ sharply, which is why they are separate moments rather
-    than one "the record filled" signal. Measured over 219 substantive
-    applications: a **requested** response precedes the disposition by a median
-    17 days and never fewer than 3, on 12.3% of applications, with a 37.0% grant
-    rate against a 7.8% base. A **filed** response covers more — 30.6% — but
-    precedes the disposition by a median of only 2 days, and 7 of 67 land the
-    same day. Expect a materially higher share of the filed moment's cells to
-    classify retrospective, because the pipeline's own commit latency eats a
-    two-day horizon.
+    than one "the record filled" signal. The figures that decided the split were
+    measured over the 219-substantive population the corpus carried when the
+    moments were declared, and are quoted against that population throughout: a
+    **requested** response precedes the disposition by a median 17 days and
+    never fewer than 3, on 12.3% of applications, with a 37.0% grant rate
+    against a 7.8% base. A **filed** response covers more — 30.6% — but precedes
+    the disposition by a median of only 2 days, and 7 of the 67 filed responses
+    (30.6% of 219) land the same day.
+    The response-requested share is the one of these the statpack's `interim`
+    section can restate (`response_requested` over `substantive`); the filed
+    share and both horizons rest on corpus-only fields no artifact publishes, so
+    the population is named rather than the numbers refreshed. Expect a
+    materially higher share of the filed moment's cells to classify
+    retrospective, because the pipeline's own commit latency eats a two-day
+    horizon.
 
     Same forever-true triggers as the other later moments, and the same
     open-first-moment guard: the interim baseline must still be open.
