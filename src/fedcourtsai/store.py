@@ -159,6 +159,7 @@ def forecastable_events(
     docket_id: int,
     *,
     backend: corpus.CorpusBackend | None = None,
+    today: date | None = None,
 ) -> list[str]:
     """The subset of :func:`open_events` the predict fan-out may target.
 
@@ -177,7 +178,7 @@ def forecastable_events(
     if choice == "local" and not corpus_db_path.exists():
         return []
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
-        return forecastable_event_ids(conn, court_id, docket_id)
+        return forecastable_event_ids(conn, court_id, docket_id, today=today)
 
 
 def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
@@ -287,7 +288,9 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
     )
 
 
-def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+def _merits_forecastable(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, today: date
+) -> bool:
     """Whether an event is the forecastable merits event of a granted case.
 
     The merits admission: an **order-kind** event carrying the **merits
@@ -314,7 +317,8 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
     The terminated check is the same guard for the case that ends with no
     disposition at all — a post-grant Rule 46 dismissal, a docket whose only
     terminal notation is the mandate. Nothing will ever latch a judgment there,
-    so an unlatched column alone would keep the event forecastable forever, and
+    so an unlatched column alone would keep the event forecastable for the
+    stale-grant bound's two Terms, and
     on a long-decided docket that is a forward cell on a case whose answer is
     already public. The column
     (``merits_terminated``, :mod:`fedcourtsai.pipeline.judgment`) is what makes
@@ -359,7 +363,7 @@ def _merits_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None
         and row.merits_judgment is None
         and row.merits_terminated is None
         and corpus.opens_merits_proceeding(row)
-        and not corpus.is_stale_unparsed_grant(row, today=date.today())
+        and not corpus.is_stale_unparsed_grant(row, today=today)
         and corpus.out_of_scope_reason(row) is None
     )
 
@@ -412,8 +416,22 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
     return not _premature_distribution_cell(event, row)
 
 
-def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
-    """:func:`forecastable_events` over an already-open connection."""
+def forecastable_event_ids(
+    conn: corpus.ReadConnection,
+    court_id: str,
+    docket_id: int,
+    *,
+    today: date | None = None,
+) -> list[str]:
+    """:func:`forecastable_events` over an already-open connection.
+
+    ``today`` anchors the merits arm's stale-grant bound; callers holding an
+    injected clock (the live cycle threads one through routing and stamping)
+    pass it so one cycle's decisions cannot straddle midnight, and tests pass
+    a fixed date. ``None`` — the default the predict matrix and pull take —
+    reads the wall clock, which is what a live queue decision means by now.
+    """
+    resolved_today = today if today is not None else date.today()
     case_id = ids.case_id(court_id, docket_id)
     row = corpus.get_row(conn, case_id)
     if row is not None and row.predict_excluded:
@@ -427,7 +445,7 @@ def forecastable_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id
             _case_baseline_forecastable(event, row)
             or _cert_forecastable(event, row)
             or _interim_forecastable(event, row)
-            or _merits_forecastable(event, row)
+            or _merits_forecastable(event, row, resolved_today)
         )
     ]
 

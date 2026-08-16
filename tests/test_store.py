@@ -398,7 +398,7 @@ def test_forecastable_events_refuses_a_stale_unparsed_grant(tmp_path: Path) -> N
         )
 
     assert "evt-order-judgment" not in forecastable_events(db, "scotus", 83)
-    # The fixture's fresh grant (2025-01-10) stays admitted — the refusal is
+    # The helper's 180-day-old grant stays admitted — the refusal is
     # the staleness, not the stage.
     db2 = corpus.corpus_db_path(tmp_path / "corpus2")
     _granted_case(db2, 84, disposition=Disposition.granted)

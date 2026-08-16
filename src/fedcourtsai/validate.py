@@ -281,15 +281,17 @@ def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> Corpus
     judgment sweep could not read its terminal entry or never reached a
     snapshot of it.
 
-    The point is that the residue stops being latent. The row-keyed gates read
-    exactly those two columns, so on this class every one of them reads
-    *pending* and the event stays forecastable indefinitely — and a *forward*
-    cell on a case decided years ago is a mislabeled backtest with unrestricted
-    retrieval. What actually holds the line is the pair of snapshot-reading
-    guards either side of it — the mint's pendency check
+    The point is that the residue stops being latent — and stops spending.
+    The merits fan-out arm refuses this exact class at the queue seam
+    (:func:`fedcourtsai.corpus.is_stale_unparsed_grant`, over the same
+    population and the same bound), so a row this check turns red can never
+    also be earning forecast cells: a *forward* cell on a case decided years
+    ago is a mislabeled backtest with unrestricted retrieval. Inside the
+    bound — a fresh grant whose judgment simply has not parsed yet — the
+    snapshot-reading guards hold the line instead: the mint's pendency check
     (:func:`fedcourtsai.merits_event_migration._pendency_conflict`) and
-    provisioning's leakage scan — which re-derive from the stored payload what
-    the row failed to record. That is a guard over bad data; a failing check
+    provisioning's leakage scan re-derive from the stored payload what the
+    row failed to record. A failing check therefore
     names the cases whose record needs mending, which is the durable fix.
 
     Corpus-side, so it runs on the scheduled verdict rather than the offline
