@@ -33,9 +33,9 @@
       "problems": []
     },
     {
-      "checked": 673,
+      "checked": 672,
       "detail": "granted before 2024-08-16 (730 days); 12 resolved by termination",
-      "failures": 27,
+      "failures": 26,
       "name": "no_stale_unparsed_grants",
       "passed": false,
       "problems": [
@@ -57,8 +57,8 @@
         "granted 2020-12-08: scotus/72463956 still carries no merits judgment or termination",
         "granted 2020-12-16: scotus/72466423 still carries no merits judgment or termination",
         "granted 2020-12-30: scotus/72467123 still carries no merits judgment or termination",
-        "granted 2021-01-19: scotus/72465845 still carries no merits judgment or termination",
-        "granted 2021-02-22: scotus/72466202 still carries no merits judgment or termination"
+        "granted 2021-02-22: scotus/72466202 still carries no merits judgment or termination",
+        "granted 2021-02-22: scotus/72466229 still carries no merits judgment or termination"
       ]
     },
     {
