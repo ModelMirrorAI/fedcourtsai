@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The case may set nationwide constitutional limits on prolonged mandatory immigration detention and bond-hearing remedies.",
+  "big_case_score": 0.78,
+  "case_id": "scotus/73280386",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.94
+    }
+  ],
+  "confidence": 0.76,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T12:00:32Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73280386/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.94,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T12:05:08.711450Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Demore permits categorical detention under 8 U.S.C. 1226(c) while removal proceedings remain genuinely pending, so Mathews does not authorize a bond hearing merely because detention has become prolonged."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will adopt a categorical rule against duration-based bond hearings for Section 1226(c) detention, limited to bona fide pending removal proceedings in which removal remains practically attainable."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

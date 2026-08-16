@@ -1,0 +1,5 @@
+This petition is at the arrival stage and has not yet been distributed for conference. We anticipate the standard first distribution once briefing is complete. We expect it will not be relisted beyond that first conference (P(relist) ~ 0.15), as the petition explicitly asks the Court to hold this case pending the disposition of a related petition, *Town of Vinton v. Indian Harbor Ins. Co.* (25-1383). The Court typically holds such petitions without relisting them. 
+
+Because the petitioner requests a hold pending another case, a CVSG is highly unlikely (~2%). If the Court grants the lead case (*Town of Vinton*), it will almost certainly hold this petition and subsequently dispose of it via a summary GVR (Grant, Vacate, and Remand) in light of that decision. Thus, conditional on a grant, the probability of a summary disposition route is very high (~85%).
+
+If the Court denies the lead case, it is highly likely to deny this petition as well, without any separate writing or dissent from denial.

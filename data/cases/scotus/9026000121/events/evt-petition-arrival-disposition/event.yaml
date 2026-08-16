@@ -1,0 +1,13 @@
+case_id: scotus/9026000121
+decision_target: disposition
+description: "Disposition of the petition, forecast at docketing \u2014 before any\
+  \ distribution or docket-acquired signal exists."
+docket_entry_id: null
+event_id: evt-petition-arrival-disposition
+kind: petition
+moment: arrival
+opened_at: '2026-07-27'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Joseph Basso v. Jose Rodriguez, et al.

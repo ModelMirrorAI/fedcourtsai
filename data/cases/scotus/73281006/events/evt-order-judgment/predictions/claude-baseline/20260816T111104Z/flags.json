@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281006",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Provisioned petition.txt is empty (documents.json: empty_text=true — a 44-page scanned PDF with no text layer), and the Court's own QP PDF returns HTTP 403 to direct fetch. The petition's argument was reconstructed from the BIO, the Sixth Circuit opinion, and the QP as republished by SCOTUSblog rather than from the petition's text. A questions-presented.txt was also not provisioned for this cell.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+P(grant) 0.70.
+
+The snapshot indicates this is a petition brought by the Federal Parties (Philip L. Rhoney, Acting Director of the Buffalo Field Office of ICE, represented by the Solicitor General). Because of this, the salience band is `federal`. 
+Based on the provided statpack (`metrics/statpack.md`), the `federal` salience band has a very high base rate of reaching a grant. Specifically, the bracketed `reached` rate for the `federal` band in the prior Term (2025) was 52.4%, and in preceding terms like 2024 it was 60.0%, reaching up to 86.2% and 89.5% in older terms. I've anchored on an overall historical federal bracketed rate of approximately 60-70%.
+
+The lower court is the Second Circuit (25-3141). I attempted to query the CourtListener MCP tool to fetch the 2nd Circuit opinion for more context, but the API was rate-limited (HTTP 429). Thus, I am degrading gracefully and forecasting based on the provisioned snapshot and base rates alone.
+
+The SG does not petition the Supreme Court lightly. A petition by the SG in an immigration matter from the 2nd Circuit strongly implies that a federal statute has been invalidated, or there is a deeply entrenched circuit split on immigration enforcement or detention that requires the Court's immediate resolution. Therefore, the likelihood of a grant is extremely high, which aligns with the `federal` salience band's historical performance. I place the grant probability at 0.70.

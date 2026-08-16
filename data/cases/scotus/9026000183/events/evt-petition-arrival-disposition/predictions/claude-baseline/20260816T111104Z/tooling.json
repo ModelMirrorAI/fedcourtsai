@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000183",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "The salience-band reached-rate table with its per-Term rows made the arrival-cell anchor a mechanical pooling exercise",
+    "Provisioned petition.txt and questions-presented.txt were clean full text; no PDF wrangling needed",
+    "CourtListener MCP docket search settled the companion-petition (Detwiler) status question in two calls"
+  ],
+  "gaps": [
+    "No corpus text/party-name search: 'fedcourts query' filters cannot find a named case or a topic like Rule 23 on SCOTUS rows, so companion-case lookup falls entirely to CourtListener, whose SCOTUS docket coverage may lag supremecourt.gov",
+    "No counsel-experience cut in the statpack (grant rate by expert-SCOTUS-bar representation) although it is arrival-observable and strongly predictive; my 3x uplift over the segment base rate is judgment where it could be a published number",
+    "fedcourts query prints its ranged-reads line on stderr only, so any piped invocation silently drops the egress record the prompt asks me to log"
+  ],
+  "notes": "Forward arrival cell; MCP available and used within budget (2 corpus queries, 3 MCP searches)."
+}

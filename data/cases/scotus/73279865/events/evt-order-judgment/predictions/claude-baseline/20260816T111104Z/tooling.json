@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md (committed base rates)",
+    "provisioned record/documents texts"
+  ],
+  "helpful": [
+    "The statpack merits section with its excluded-count guard made the baseline arithmetic mechanical (pool 2017-2024, 359/515).",
+    "The provisioned respondent document contained the SG's merits-stage brief text, not just the cert response - having both sides' merits framing on disk made retrieval unnecessary for a grant-moment cell."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or issue-based filter, so there is no way to pull 'jurisdiction-channeling' priors; the citation filter is a known-case lookup over a 161-of-590k coverage slice and came back empty.",
+    "No provisioned text for the petitioner's merits brief or the nine amicus briefs; the docket names them but a grant-moment merits cell must fetch them itself if it wants their content."
+  ],
+  "notes": "One corpus query cost 1329 ranged GETs (~348 MB) to return zero rows against a documented coverage gap; a cheaper preflight (e.g. the note emitted before the scan) would save that egress."
+}

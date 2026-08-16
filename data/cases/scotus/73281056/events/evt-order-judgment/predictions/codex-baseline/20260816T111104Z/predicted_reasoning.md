@@ -1,0 +1,9 @@
+# Forecast of the Court's judgment
+
+The Court will reverse the Ninth Circuit's judgment. The likeliest judgment is a five-Justice majority consisting of the Chief Justice and Justices Thomas, Alito, Gorsuch, and Kavanaugh, with Justice Barrett agreeing with part of the disposition but not all of its reasoning or relief. Justices Sotomayor, Kagan, and Jackson will dissent. No recusal is expected, and neither a dismissal as improvidently granted nor an equally divided affirmance is a material possibility.
+
+On the first question, the majority will distinguish the Federal Form at issue in *Arizona v. Inter Tribal Council* from Arizona's own voter-registration form. It will hold that the NVRA's requirement that a state form request only information "necessary" to assess eligibility does not make a sworn attestation the maximum permissible evidence, and that an "equivalent" state form need not be identical to the Federal Form. It will also conclude that the 2018 LULAC consent decree cannot bind nonparty state actors indefinitely or displace the later statute without an adjudicated federal violation and proper modification proceedings.
+
+On the second question, the majority will read the NVRA's sequence of eligible applicants, registrants, and eligible or ineligible voters to exclude confirmed never-eligible noncitizens from the 90-day systematic-removal protection. The opinion will permit systematic removal only for that defined class; it will not authorize last-minute systematic removal of voters who were eligible when registered or relax the Federal Form's separate protections.
+
+The most plausible alternative is a mixed judgment: reversal on the state-form and consent-decree holdings but affirmance on the 90-day holding because "any program" and "ineligible voters" naturally cover citizenship-based database matching. Justice Barrett is the likeliest vote for that narrower result. Even under that alternative, the judgment below is disturbed.

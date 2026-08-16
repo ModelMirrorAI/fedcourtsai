@@ -1,0 +1,5 @@
+I predict the Court will reverse the judgment of the Second Circuit.
+
+The Court will likely split 6-3. Justices Sotomayor, Kagan, Jackson, Gorsuch, Barrett, and Roberts will form the majority favoring the petitioners' interpretation of the statute. Justices Thomas, Alito, and Kavanaugh will dissent, favoring the government's categorical bar interpretation. 
+
+The Court will reach the sole question presented and hold that 8 U.S.C. § 1159(b)'s phrase "alien granted asylum" unambiguously encompasses noncitizens who were historically granted asylum, even if that status was subsequently terminated. The majority's ground will rest heavily on textualism, noting that the past participle "granted" refers to a historical event rather than a continuing status, particularly in contrast to other provisions in the immigration laws that explicitly require a current status. The breadth of this ground will be categorical, establishing that a past grant of asylum satisfies this specific statutory prerequisite for adjustment of status. A summary procedural exit like a DIG is unlikely, as the circuit split is mature and the question is squarely presented.

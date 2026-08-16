@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "Decisive forward signal disclosed per the retrieval etiquette: FCC v. AT&T, 608 U.S. ___ (decided 2026-06-04, before this cell's snapshot), retrieved via CourtListener to verify the respondent brief's citation, materially shaped the forecast (it cabins Jarkesy on a saving feature - a post-order trial de novo - that DOL's H-2A scheme lacks). It is a companion-line ruling predating the snapshot, not leakage; this case's own judgment does not exist (argument set 2026-11-10)."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "documents.json labels a concatenated document (cert-stage BIO + respondent's 2026-07-27 merits brief, two URLs in one row) as kind 'brief-in-opposition'. Content was usable and welcome for this briefed-moment cell, but the kind label understates what the slot carries; a separate merits-brief kind would be cleaner."
+    }
+  ]
+}

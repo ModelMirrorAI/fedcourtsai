@@ -1,0 +1,7 @@
+P(grant) = 0.01. The snapshot shows a pro se application for a stay, filed by Allen Watkins, an applicant without an attorney of record, submitted to Justice Kagan in November 2025. As of the prediction cutoff (August 2026), the application has sat on the docket for approximately nine months with no response requested and no referral to the full Court. 
+
+I was unable to consult the statpack's published base rate for the interim docket as an anchor because the resolved substantive applications from strictly prior Terms (2024 and earlier) only sum to 47, which is below the published minimum floor of 50. I anchored strictly on the record alone. The lack of any escalation signal over a prolonged nine-month period, combined with the extreme unlikelihood of pro se interim relief, suggests the application is almost certainly heading for a denial. 
+
+The CourtListener MCP server was unavailable (rate limit exceeded), so I was unable to pull any further contextual information about the underlying Ninth Circuit litigation. I degraded gracefully and relied entirely on the provisioned snapshot and corpus priors, which demonstrate that pro se applications that do not trigger a response request are virtually never granted.
+
+My probabilities for the interim increment claims are correspondingly low: P(response-requested) = 0.01 and P(referral) = 0.05, given the nine months that have already elapsed. I assign P(amicus) = 0.0, as amicus activity is effectively non-existent for unescalated pro se stay applications.

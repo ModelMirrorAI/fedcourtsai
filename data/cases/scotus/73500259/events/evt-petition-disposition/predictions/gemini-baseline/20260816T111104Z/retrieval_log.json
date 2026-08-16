@@ -1,0 +1,303 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "93a2024d3ca44a32",
+      "query": "{\"strategic_intent\": \"Understanding the prediction prompt and agent setup constraints.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:15.519Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:28.572Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:28.573Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dff122db8cbc938d",
+      "query": "ls -la data/cases/scotus/73500259/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:32.656Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "593bd0aedc881beb",
+      "query": "cat data/cases/scotus/73500259/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:36.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "52449ecffd5795b8",
+      "query": "ls -la data/cases/scotus/73500259/events/evt-petition-disposition/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:36.057Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3c2fd492765d4bae",
+      "query": "{\"file_path\": \"data/cases/scotus/73500259/events/evt-petition-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:39.711Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "971e6b86617e0af5",
+      "query": "ls -la data/cases/scotus/73500259/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:39.712Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c17674421ee870b2",
+      "query": "ls -la data/cases/scotus/73500259/record/snapshots/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:42.823Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ecdf03c7113c4563",
+      "query": "ls -la data/cases/scotus/73500259/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:42.824Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e77254378b9ae02",
+      "query": "cat data/cases/scotus/73500259/record/documents/documents.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:46.221Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d619e53cb2f808ac",
+      "query": "cat data/cases/scotus/73500259/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:46.221Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5f4593d5ccc19d40",
+      "query": "head -n 50 data/cases/scotus/73500259/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:49.553Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f02692da41524eff",
+      "query": "cat data/cases/scotus/73500259/record/snapshots/2026-08-16.json | grep -A 20 -B 5 \"docket_entries\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:49.553Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "50da851dc6f85740",
+      "query": "grep -A 1000 '\"ProceedingsandOrder\":' data/cases/scotus/73500259/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:57.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "04e5cd66826687bb",
+      "query": "cat metrics/statpack.md | grep -A 50 \"Modern discretionary-cert petitions by disposition\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:02.789Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:02.790Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b1eab391ac6221dc",
+      "query": "uv run fedcourts query --court scotus --full --decided-before 2026-08-16 \"FTAIA Sherman Act foreign price-fixing domestic negotiations circuit split\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:11.872Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f192732f21bb2974",
+      "query": "uv run fedcourts query --court scotus --full --decided-before 2026 \"FTAIA Sherman Act foreign price-fixing domestic negotiations circuit split\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:18.595Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:24.378Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "24fd41dfc0d659a9",
+      "query": "\"FTAIA\" AND \"Motorola Mobility\" AND \"Ninth Circuit\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:29.134Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "85167d616e0dd649",
+      "query": "cat schemas/prediction.schema.json | grep -A 10 '\"granted\":'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:45.733Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a0b7f37a026066aa",
+      "query": "mkdir -p data/cases/scotus/73500259/events/evt-petition-disposition/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:57.899Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bfc02bfb815c70f8",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500259\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500259/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.25,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.6,\\n  \\\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:04.182Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7006f4345cb386e5",
+      "query": "{\"content\": \"Distributed twice so far (once on a waiver, then again for the long conference after a response was requested). Expect at least one further relist or a call for the views of the Solicitor General (CVSG) before a decision on the petition. The QP presents a direct circuit split between the Ninth and Seventh Circuits on the extraterritorial reach of the Sherman Act under the FTAIA, an issue implicating foreign commerce where the SG's views are heavily sought. A CVSG is highly likely. I",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:04.186Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1b11b9e5c19f6f55",
+      "query": "{\"content\": \"P(grant) 0.25. The prior-Term salience band for an 'elevated' paid petition is ~20%. I adjust slightly upward because the petition presents a clean, acknowledged circuit split on an important antitrust statute (the FTAIA), and the Court's request for a response after a waiver shows affirmative interest from at least one Justice. A CVSG is highly likely given the foreign commerce implications, which would further increase the grant probability if the SG recommends a grant. I could no",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:08.571Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bcca80b04289ec2c",
+      "query": "{\"content\": \"CourtListener MCP lookup:\\n- `search` for `\\\"FTAIA\\\" AND \\\"Motorola Mobility\\\" AND \\\"Ninth Circuit\\\"` (type: o): Failed with HTTP 429 Rate Limit Exceeded.\\n\\nNo further retrieval beyond the provisioned inputs due to MCP rate limit.\", \"file_path\": \"data/cases/scotus/73500259/events/evt-petition-disposition/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:08.575Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c57d76669d04650f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500259\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided necessary base rates for the elevated band.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"The CourtListener MCP server was rate limited",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:13.583Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:37.331Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9873eac645d4ef3e",
+      "query": "{\"strategic_intent\": \"Finishing the prediction task.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:40.412Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500259",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

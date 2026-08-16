@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280341",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search and document reader",
+    "Committed merits statpack"
+  ],
+  "helpful": [
+    "Provisioned petition, opposition, and snapshot",
+    "CourtListener access to a closely related 2026 parental-rights interim decision",
+    "Merits base-rate table keyed by grant Term"
+  ],
+  "gaps": [
+    "The docket lists a cert-stage reply, but its text was not provisioned."
+  ],
+  "notes": "CourtListener supplied the most relevant pre-decision precedent. No live corpus query was necessary because the committed merits statpack provided the registered baseline."
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73280386",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided a clear baseline for the merits disturbed rate."
+  ],
+  "gaps": [],
+  "notes": "The corpus query tool threw an error when queried for a case name, but it was not necessary given the availability of provisioned inputs and the statpack."
+}

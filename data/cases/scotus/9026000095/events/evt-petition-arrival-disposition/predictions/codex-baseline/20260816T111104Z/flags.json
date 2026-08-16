@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The event is defined as a docketing-time arrival forecast opened July 21, 2026, but the as-stored August 16 snapshot contains later linked-stay rulings and an August 11 supplemental filing. Those post-arrival developments were excluded from the cert probability; please verify that an arrival cell is intended to receive the latest forward snapshot rather than an opened-at cutoff."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The snapshot says the petition was docketed July 21, 2026 and links a July 2026 PDF, while its proceedings entry says filed December 30, 2025 and the petition is dated December 29, 2025. The inconsistent chronology could affect timeliness and the arrival information set."
+    }
+  ]
+}

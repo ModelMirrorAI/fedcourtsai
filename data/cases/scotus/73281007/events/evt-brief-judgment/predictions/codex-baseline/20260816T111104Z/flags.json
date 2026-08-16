@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-judgment",
+      "message": "This briefed-merits cell does not provision the government's June 18 merits brief. The brief-in-opposition artifact concatenates the March cert opposition with the July respondent merits brief and truncates the latter near the end of its statutory argument, so the forecast had to infer one side's merits position from the cert petition and respondent's quotations."
+    }
+  ]
+}

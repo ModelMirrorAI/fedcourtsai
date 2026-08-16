@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "run_shell_command", "mcp_courtlistener_search"],
+  "helpful": ["Provisioned documents (petition) were critical because CourtListener was rate-limited."],
+  "gaps": ["The CourtListener MCP tools returned HTTP 429."],
+  "notes": "Attempted to use CourtListener MCP but hit a rate limit; fell back to the provisioned documents and statpack."
+}

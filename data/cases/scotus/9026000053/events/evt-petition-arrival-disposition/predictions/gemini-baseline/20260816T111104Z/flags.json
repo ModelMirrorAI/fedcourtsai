@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000053",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "CourtListener MCP server reported rate limit exceeded (HTTP 429) when attempting to search for the lead case docket 25-1383.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

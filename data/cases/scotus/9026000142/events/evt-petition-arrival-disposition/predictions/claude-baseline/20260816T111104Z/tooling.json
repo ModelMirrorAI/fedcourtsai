@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "The statpack's per-Term federal-band segment table gave a clean, leakage-safe anchor for the arrival-moment federal-petitioner class",
+    "Provisioned petition.txt and questions-presented.txt were high-quality and made the QP and the warrants-review posture directly readable"
+  ],
+  "gaps": [
+    "No sanctioned way to see a related SCOTUS docket's state (the President's companion petition): RECAP search carries no SCOTUS dockets, so coordination signals between companion petitions are invisible at arrival",
+    "The corpus citation filter is a known-case lookup over sparse coverage (161 of ~590k scotus rows), so pulling topical priors like Osborn v. Haley by cite is rarely productive"
+  ],
+  "notes": "The single fedcourts query cost 1329 ranged GETs / ~348 MB and exceeded a 120s foreground timeout before returning an empty coverage-gap result; a cheaper failure mode for sparse filters would help arrival cells stay inside budget."
+}

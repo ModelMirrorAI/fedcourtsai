@@ -1,0 +1,3 @@
+- Consulted `metrics/statpack.md` and `metrics/statpack.json` for the sal-v3 prior-Term arrival anchor, paid fee-class counts, originating-circuit cut, and terminal relist/CVSG shapes.
+- CourtListener MCP opinion search for `"Rene Acosta Tapia" OR "Rene Acosta-Tapia"`, limited to the Ninth Circuit and filings before February 1, 2026. The service returned HTTP 429 (rate limit exceeded), so no result informed the forecast.
+- No corpus query or web search was used.

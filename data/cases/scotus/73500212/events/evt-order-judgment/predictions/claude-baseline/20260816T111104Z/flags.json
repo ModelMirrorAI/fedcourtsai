@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500212",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "Statpack merits-docket table: Terms 2023 and 2024 look internally inconsistent — parsed + excluded exceeds granted (2023: 55 + 13 > 56; 2024: 73 + 34 > 75), while the pack-level totals reconcile (539 + 67 <= 607). Possibly the excluded rows are keyed to a different Term axis than the granted/parsed columns. Does not affect this cell's baseline (pooled disturbed/parsed over Terms 2017-2024 = 359/515 as the prompt instructs), but the per-Term excluded column may mislead a reader of the committed pack."
+    }
+  ]
+}

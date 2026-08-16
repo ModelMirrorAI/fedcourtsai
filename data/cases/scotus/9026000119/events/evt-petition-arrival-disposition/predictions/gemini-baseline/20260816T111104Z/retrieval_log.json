@@ -1,0 +1,357 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "009ca401b286c426",
+      "query": "{\"strategic_intent\": \"Read prediction instructions and agent configuration.\", \"title\": \"Preparation\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:22.187Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:26.086Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:26.087Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "90a711d573235d68",
+      "query": "uv run fedcourts paths --court scotus --docket 9026000119 --event evt-petition-arrival-disposition --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:31.847Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7d5bc126942785f1",
+      "query": "{\"strategic_intent\": \"Retrieve event data, context, documents, and prediction schema.\", \"title\": \"Data Gathering\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:35.745Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6d64b12b22e21e05",
+      "query": "ls -la data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:35.761Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:35.761Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3de1c5e1008169b7",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:35.762Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8dcbf7cd858ddde6",
+      "query": "ls -la data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:38.979Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c870f0344e8191a4",
+      "query": "find data/cases/scotus/9026000119 -type d",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:45.026Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "71e97d5099b1ae4c",
+      "query": "ls -la data/cases/scotus/9026000119/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:49.163Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dadcc5c95952785",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000119/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:49.164Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c157b201a277cc28",
+      "query": "ls -la data/cases/scotus/9026000119/record/snapshots/ && ls -la data/cases/scotus/9026000119/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:53.053Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2f1638d511298187",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000119/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:56.600Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "670b3a576ce73fd3",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000119/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:56.601Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8e65781d4ef34adc",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000119/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:40:56.601Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d69c4591475bc302",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:03.653Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "625e6b8285c5e407",
+      "query": "{\"court\": [\"guam\"], \"name\": \"Ybanez\", \"type\": \"o\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:11.362Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "0172e41415e2c8e3",
+      "query": "{\"case_name\": \"Ybanez\", \"court\": [\"guam\"], \"type\": \"o\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:14.535Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "1237709aef443a17",
+      "query": "uv run fedcourts query --court scotus --disposition denied \"disqualification of attorney general\" \"disqualify prosecutor office\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:20.850Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3520b25a225c2a3",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:24.777Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8260865514a6a737",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:36.670Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7239a04b38c51f10",
+      "query": "mkdir -p data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:41:41.365Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e703d563da2f7af",
+      "query": "{\"strategic_intent\": \"Write prediction files and validate the data output.\", \"title\": \"Writing Outputs\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.293Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9fbc7809f9f38ce7",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T12:41:36Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000119/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.301Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "31e09b15b5472ca1",
+      "query": "{\"content\": \"P(grant) 0.03. At the arrival moment, I anchored on the weakest band's bracketed reached rate from the statpack (5.4% for the most recent fully parsed Term strictly before 2026, which is 2025; generally ~6-7% over recent Terms). I adjusted down because the case comes from the Supreme Court of Guam and involves the disqualification of the entire territorial Attorney General's office. While this is disruptive locally, it is likely governed by local rules of professional conduct or ter",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.305Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5a397bc281781a56",
+      "query": "{\"content\": \"Distributed zero times so far (arrival moment). Expect no further relists beyond the initial conference, as this petition presents a localized issue regarding the disqualification of a territorial Attorney General's office that likely rests on non-federal grounds or lacks a mature circuit split. A CVSG is highly unlikely since there is no clear federal institutional interest or program at stake in how a territory manages attorney conflicts. If granted, the Court would likely focus o",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.308Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "11a13ea3a880a1f4",
+      "query": "{\"content\": \"* CourtListener MCP `search` tool: Attempted to search for case \\\"Ybanez\\\" in \\\"guam\\\" court, but received an HTTP 429 Rate limit exceeded error.\\n* `fedcourts query`: Attempted a query for priors (`uv run fedcourts query --court scotus --disposition denied \\\"disqualification of attorney general\\\"`), but it failed due to invalid arguments (positional text search is unsupported).\\n* Fallback: Relied on the provisioned snapshot, `documents.json`, `questions-presented.txt`, and the sta",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.311Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "24676ca7069d00b5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"run_shell_command\\\", \\\"mcp_courtlistener_search\\\"],\\n  \\\"helpful\\\": [\\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"gaps\\\": [\\\"Text-based search over the corpus for prior cases without relying on CourtListener MCP, which was rate-limited.\\\"],\\n  ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.314Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "547da4fadf931ac8",
+      "query": "{\"content\": \"[\\n  {\\n    \\\"category\\\": \\\"other\\\",\\n    \\\"severity\\\": \\\"info\\\",\\n    \\\"message\\\": \\\"CourtListener MCP search returned a 429 Rate Limit Exceeded error. Degraded gracefully to provisioned inputs and base rates.\\\",\\n    \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\"\\n  }\\n]\", \"file_path\": \"data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/flags.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:00.318Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "02b71374d59d9050",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:23.899Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4f0a3ad89b5d3ae9",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:27.022Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "468f7e2a2ea33afb",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000119\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"CourtListener MCP search returned a 429 Rate Limit Exceeded error. Degraded gracefully to provisioned inputs and base rates.\\\",\\n      \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\"\\n    }\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:30.588Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "56ef9b10a47087ca",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:53.651Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "40fbbb3b581bd5f9",
+      "query": "echo \"Prediction completed successfully.\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:56.599Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f58db98c0a829780",
+      "query": "{\"strategic_intent\": \"Finish task.\", \"title\": \"Complete\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:42:59.381Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9026000119",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

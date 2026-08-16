@@ -1,0 +1,4 @@
+- Read the provisioned `questions-presented.txt` and `petition.txt`.
+- Consulted `metrics/statpack.md` (Modern discretionary-cert petitions by disposition, Segment base rate by salience band).
+- Executed `fedcourts query --court scotus --topic "class action" --era roberts` (ranged corpus reads: 1518 GET(s), 397934592 byte(s)).
+- Executed `google_web_search` for `"Kincannon v. United Airlines" "class certification"` and `"Detwiler v. Mid-Columbia Medical Center" "Supreme Court"` to confirm the procedural history, the Fifth Circuit's three-stage holding, and the context of the requested hold.

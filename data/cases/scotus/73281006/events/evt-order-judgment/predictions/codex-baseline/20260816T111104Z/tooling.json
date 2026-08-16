@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281006",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "committed merits statpack",
+    "official Supreme Court Question Presented sheet"
+  ],
+  "helpful": [
+    "The merits statpack provided the exact scored population anchor.",
+    "CourtListener supplied the complete pre-grant Sixth Circuit opinion.",
+    "The official Question Presented sheet supplied the exact granted issue."
+  ],
+  "gaps": [
+    "OCR for the scanned provisioned petition would have exposed petitioner's full cert-stage argument.",
+    "No merits briefs or oral-argument materials existed at this grant-stage snapshot."
+  ],
+  "notes": "The extractable BIO was useful but respondent-framed; the official QP and lower-court opinion partly mitigated the unavailable petition text."
+}

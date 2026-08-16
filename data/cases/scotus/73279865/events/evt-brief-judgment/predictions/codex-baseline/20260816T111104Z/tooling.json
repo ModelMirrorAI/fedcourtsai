@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed metrics statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP document search"
+  ],
+  "helpful": [
+    "The context file clearly identified the forward merits moment and grant Term.",
+    "The merits statpack supplied the registered disturbed-rate anchor.",
+    "The combined response text included the respondent's merits argument through its conclusion."
+  ],
+  "gaps": [
+    "The petitioner's separately docketed merits brief was not provisioned as text for this briefed-moment cell.",
+    "The combined response file was labeled brief-in-opposition and truncated, making its cert and merits components less explicit."
+  ],
+  "notes": "The provisioned materials were sufficient for a forecast, but merits-brief parity would reduce the risk of overweighting the respondent's argument."
+}

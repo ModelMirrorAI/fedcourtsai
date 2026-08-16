@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": null,
+  "case_id": "scotus/73281007",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.7
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:11:04Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "missing-snapshot",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.7,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T12:32:33.797107Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that the agency action exceeded statutory authority or was arbitrary and capricious, reversing the judgment below."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will be narrow, tied specifically to the regulatory provisions governing the Department of Labor's specific penalty assessments in this case."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "none"
+    }
+  ]
+}

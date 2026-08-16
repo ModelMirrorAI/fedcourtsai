@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The frozen distribution_count is 2 and assigns the sal-v3 elevated band, but the snapshot shows one conference distribution for sealing motion 25M86 and only one distribution of the cert petition. The procedural-motion distribution appears to be counted as a petition distribution, likely inflating the salience band and its baseline. The prediction preserves the harness-owned count and band but discounts that signal substantively.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

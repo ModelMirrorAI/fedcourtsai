@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack",
+    "CourtListener MCP opinion search and document reader"
+  ],
+  "helpful": [
+    "Complete petition and brief in opposition",
+    "Frozen salience context and prior-Term risk-set rates",
+    "CourtListener search for pre-decision doctrinal context"
+  ],
+  "gaps": [
+    "The CourtListener result labeled as the Ninth Circuit opinion opened to unrelated Idaho case text, preventing a reliable direct read of that opinion."
+  ],
+  "notes": "The provisioned filings contained detailed competing descriptions of the lower-court decision, so the bad CourtListener document association did not block a calibrated forecast."
+}

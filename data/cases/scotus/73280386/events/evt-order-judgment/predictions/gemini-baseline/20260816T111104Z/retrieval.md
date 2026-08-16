@@ -1,0 +1,1 @@
+- `cat metrics/statpack.md | grep -A 30 "The merits docket (granted cases)"` (Read local statpack to compute the baseline rate for the 10 preceding terms: 2015-2024, yielding ~69.7%).

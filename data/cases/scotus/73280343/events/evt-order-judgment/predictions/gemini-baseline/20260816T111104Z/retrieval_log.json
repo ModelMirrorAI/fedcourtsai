@@ -1,0 +1,330 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "ba90beada0d5cea2",
+      "query": "{\"strategic_intent\": \"Reading instructions for predicting outcome on docket 73280343\", \"summary\": \"Starting the prediction process by reading .github/prompts/predict.md and AGENTS.md to understand the workflow and the expected output files.\", \"title\": \"Read Instructions and Prepare Prediction\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:47.817Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:50.685Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:50.686Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1f4e8312bc089ab6",
+      "query": "cat data/cases/scotus/73280343/events/evt-order-judgment/event.yaml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:56.247Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "35f27610371f88dd",
+      "query": "ls -la data/cases/scotus/73280343/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:56.247Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5050b6bb5b8ed8c2",
+      "query": "tree data/cases/scotus/73280343/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:26:59.977Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b1ff1af55249e98",
+      "query": "{\"file_path\": \"data/cases/scotus/73280343/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:05.222Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "be9fe5f7f94b0834",
+      "query": "{\"file_path\": \"data/cases/scotus/73280343/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:05.222Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "48557fab089f8acb",
+      "query": "cat data/cases/scotus/73280343/record/snapshots/2026-08-16.json | grep -v 'html' | head -n 50",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:05.223Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "03f4fd640377c280",
+      "query": "jq -r '.ProceedingsandOrder[] | \"\\(.Date) \\(.Text)\"' data/cases/scotus/73280343/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:08.271Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9c763906b156a094",
+      "query": "cat data/cases/scotus/73280343/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:13.813Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc57cec2c45ad587",
+      "query": "cat metrics/statpack.md | grep -A 30 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:19.315Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9593d9c3f6218124",
+      "query": "cat metrics/statpack.md | grep -A 50 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:23.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "415a26a023ffbff3",
+      "query": "cat metrics/statpack.md | grep -A 60 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:26.601Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1d89a0f3f37ef9d1",
+      "query": "cat metrics/statpack.md | sed -n '/## The merits docket/,/## /p'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:29.874Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "844f6e21133cd843",
+      "query": "cat data/cases/scotus/73280343/record/documents/petition.txt | head -n 100",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:35.747Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "02a17edc929485ee",
+      "query": "cat data/cases/scotus/73280343/record/documents/petition.txt | grep -i -A 20 \"Board of Immigration Appeals\" | head -n 50",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:46.331Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c0a1c233d5d55e3a",
+      "query": "cat data/cases/scotus/73280343/record/documents/petition.txt | grep -i -A 30 \"REASONS FOR GRANTING THE PETITION\" | head -n 40",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:55.777Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "020660dbe352caeb",
+      "query": "cat data/cases/scotus/73280343/record/documents/petition.txt | grep -A 40 \"INTRODUCTION\" | head -n 40",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:27:59.290Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "229970eaff560bc3",
+      "query": "grep -n \"INTRODUCTION\" data/cases/scotus/73280343/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:03.021Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8372508c8ef1757b",
+      "query": "tail -n +412 data/cases/scotus/73280343/record/documents/petition.txt | head -n 40",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:11.224Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "331a089cfd883a44",
+      "query": "grep -A 20 '\"votes\"' schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:20.545Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b3863febe8cc7ea0",
+      "query": "grep -A 15 '\"JusticeVote\"' schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:24.033Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea14f457d0027ed0",
+      "query": "grep -A 10 '\"VoteValue\"' schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:29.759Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e48aa870eee1908",
+      "query": "mkdir -p data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:39.319Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5341ffc4fff3ee93",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:47.505Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f28c9e3367857842",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280343\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T12:28:47Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280343/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.70,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"vote",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:54.516Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aee3de344452529f",
+      "query": "{\"content\": \"I predict the Court will reverse the judgment of the Second Circuit.\\n\\nThe Court will likely split 6-3. Justices Sotomayor, Kagan, Jackson, Gorsuch, Barrett, and Roberts will form the majority favoring the petitioners' interpretation of the statute. Justices Thomas, Alito, and Kavanaugh will dissent, favoring the government's categorical bar interpretation. \\n\\nThe Court will reach the sole question presented and hold that 8 U.S.C. \\u00a7 1159(b)'s phrase \\\"alien granted asylum\\\" u",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:02.515Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "df6ab8fe15fb1352",
+      "query": "{\"content\": \"P(disturbed) = 0.70.\\n\\nThe case presents a circuit split over the interpretation of 8 U.S.C. \\u00a7 1159(b), specifically whether \\\"any alien granted asylum\\\" includes individuals whose asylum was later terminated. I anchor my base rate on the merits docket disturbed rate for the parsed slice of the 8 terms strictly prior to the OT2025 grant term (2017 to 2024), which is 69.7% (359 disturbed out of 515 parsed judgments). \\n\\nI maintain this baseline of 0.70 because the Court usuall",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:13.026Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7397c3226868bb60",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:15.871Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "002477d9795ffec3",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280343\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true\\n}\", \"file_path\": \"data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:19.773Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "07fc239146457fee",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:43.869Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dbfac61c599a9428",
+      "query": "{\"strategic_intent\": \"Prediction complete for cell scotus/73280343/evt-order-judgment\", \"summary\": \"I have written the prediction files (`prediction.json`, `predicted_reasoning.md`, `reasoning.md`, `retrieval.md`, and `tooling.json`) to the specified output directory. The schema validation passed. The prediction is for a merits-stage case where the Supreme Court is predicted to reverse the Second Circuit.\", \"title\": \"Finalize Prediction\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:48.660Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73280343",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

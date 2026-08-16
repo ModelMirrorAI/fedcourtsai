@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500212",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend, citation lookup)",
+    "metrics/statpack.md (merits-docket section, pooled disturbed-rate baseline)",
+    "provisioned record/documents (petition, BIO, questions presented)",
+    "provisioned snapshot + record/context.json"
+  ],
+  "helpful": [
+    "The petition.txt appendix carried the Ninth Circuit opinion text, which let me read the panel's actual contempt reasoning (text-violation alternative ground, McComb reliance) rather than only the parties' framings — decisive for splitting vacate vs affirm mass.",
+    "The merits-docket statpack section's per-Term table with the excluded count made the baseline pooling mechanical."
+  ],
+  "gaps": [
+    "A merits-stage judgment-class cut (vacated vs reversed vs affirmed conditional on disturbance, by originating circuit) would sharpen the judgment label; the section publishes the aggregate distribution only.",
+    "The citation filter on SCOTUS rows is thin (161 of 590k rows carry cites), so known-case lookups for doctrinal anchors like Taggart come back empty; a caption-substring lookup would cover this.",
+    "The single citation query cost 1329 ranged GETs / ~348 MB for an empty result — expensive relative to its yield."
+  ],
+  "notes": "Grant-moment merits cell: no merits briefs exist yet, so the cert-stage documents plus the docket skeleton were the whole substantive record; they were sufficient."
+}

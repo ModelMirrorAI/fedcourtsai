@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "snapshot-linked Supreme Court PDF retrieval",
+    "local PDF image extraction and visual review"
+  ],
+  "helpful": [
+    "The frozen interim escalation signals made the prediction-time state explicit.",
+    "The application PDF link supplied the actual requested relief and asserted grounds.",
+    "The statpack clearly identified that the strictly prior pool missed the baseline floor."
+  ],
+  "gaps": [
+    "Provisioned OCR text for scanned application filings would avoid manual page rendering.",
+    "A snapshot-freshness diagnostic would help distinguish a quiet docket from incomplete ingestion."
+  ],
+  "notes": "The prediction used the committed interim section for context but correctly treated the below-floor strictly prior pool as no published baseline."
+}

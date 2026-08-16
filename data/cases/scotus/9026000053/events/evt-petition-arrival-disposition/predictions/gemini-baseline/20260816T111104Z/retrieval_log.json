@@ -1,0 +1,285 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "5aaaab504884b6cd",
+      "query": "{\"strategic_intent\": \"Reading project instructions to understand the prediction prompt contract and required output files.\", \"title\": \"Reading Instructions\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:34.497Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:36.811Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:36.811Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e9cb968290e2dd91",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"9026000053\" --event \"evt-petition-arrival-disposition\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:43.626Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "449459679418ffd9",
+      "query": "ls -R data/cases/scotus/9026000053/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:50.592Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e5b56f3d53ce340",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000053/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:56.362Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d52adac8fbe170c4",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000053/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:56.362Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "74cea67a34221eb9",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000053/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:56.362Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dcbc17191e07d850",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000053/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:59.929Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f703905259cd3d7c",
+      "query": "cat data/cases/scotus/9026000053/record/documents/documents.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:04.991Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:04.992Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "16f4eb21e8004f86",
+      "query": "uv run fedcourts query --court scotus --docket 25-1383",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:13.033Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "afdd855a37a0a609",
+      "query": "{\"docket_number\": \"25-1383\", \"type\": \"d\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:20.970Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "af8bf78446e5dc4a",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000053/record/documents/brief-in-opposition.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:31.958Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d52dd42e3194ce52",
+      "query": "mkdir -p data/cases/scotus/9026000053/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:43.757Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3409fcee94058e30",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000053\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.08,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.2,\\n  \\\"big_case_rationale\\\": \\\"Involves a",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:04.611Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0f9e3ea5ed1a6a1d",
+      "query": "{\"content\": \"This petition is at the arrival stage and has not yet been distributed for conference. We anticipate the standard first distribution once briefing is complete. We expect it will not be relisted beyond that first conference (P(relist) ~ 0.15), as the petition explicitly asks the Court to hold this case pending the disposition of a related petition, *Town of Vinton v. Indian Harbor Ins. Co.* (25-1383). The Court typically holds such petitions without relisting them. \\n\\nBecause the pe",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:08.679Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c6de7be0f538cb8b",
+      "query": "{\"content\": \"P(grant) = 0.08. \\nThis is a paid petition at the `arrival` moment. The `record/context.json` assigns it to the `baseline` salience band under `sal-v3`. According to the statpack, the pooled bracketed `reached` rate for the `baseline` band over the preceding terms (2017-2025) is approximately 6.5%.\\n\\nI have adjusted this base rate slightly upward to 8% because the petition involves a claimed 4-1 circuit split on an issue under the New York Convention and the Federal Arbitration Act",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:13.957Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2f89dccc188c59ee",
+      "query": "{\"content\": \"- Attempted to query `mcp_courtlistener_search` for docket `25-1383` (Town of Vinton), but the server returned a rate limit exceeded error (HTTP 429).\\n- Consulted `metrics/statpack.md` for base rates on paid petitions and salience bands.\\n\", \"file_path\": \"data/cases/scotus/9026000053/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:17.381Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "30ec848bcfcfe1bc",
+      "query": "{\"content\": \"[\\n  {\\n    \\\"category\\\": \\\"other\\\",\\n    \\\"severity\\\": \\\"info\\\",\\n    \\\"message\\\": \\\"CourtListener MCP server reported rate limit exceeded (HTTP 429) when attempting to search for the lead case docket 25-1383.\\\",\\n    \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\"\\n  }\\n]\", \"file_path\": \"data/cases/scotus/9026000053/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/flags.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:20.373Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1aa9bc6f00e33794",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000053\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The statpack provided necessary base rates. Reading the BIO was crucial to understanding the procedural posture (the hold request).\\\",\\n  \\\"notes\\\": \\\"Co",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:25.216Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:51.845Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:55.544Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "271db4d3f0e487a7",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:55.544Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5a6c825f3b2fe313",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000053\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"CourtListener MCP server reported rate limit exceeded (HTTP 429) when attempting to search for the lead case docket 25-1383.\\\",\\n      \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\"\\n    }\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:01.314Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "31240f1b66bc2acd",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000053\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack provided necessary base rates.\\\",\\n    \\\"Reading the BIO was crucial to understanding the procedural posture (the hold request).\\\"\\n ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:05.504Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:28.514Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "143fe7956e35ca20",
+      "query": "{\"strategic_intent\": \"Finish prediction task as all required artifacts are generated and validated.\", \"summary\": \"The prediction for the cell `evt-petition-arrival-disposition` in docket 9026000053 was successfully generated. I read the necessary project instructions, extracted the docket context and filing text (the questions presented and the brief in opposition), and leveraged the statpack base rates for an arrival-moment paid petition to form the prediction. A rate-limit on the CourtListener",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:33.746Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9026000053",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

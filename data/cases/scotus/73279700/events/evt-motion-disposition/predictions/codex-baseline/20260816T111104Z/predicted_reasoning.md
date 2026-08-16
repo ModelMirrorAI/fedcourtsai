@@ -1,0 +1,5 @@
+# Forecast
+
+The Court will deny the application without an unqualified grant. The requested mandatory relief is far broader than preservation of an existing judgment: it would stop child-support collection by multiple state agencies, reinstate several categories of licenses, halt reporting, and effectively compel confirmation of a claimed arbitration award. The filing does not establish a clear and indisputable entitlement to that relief, a viable path to certiorari or reversal, or the absence of an adequate appellate remedy.
+
+The record currently shows no requested response, no referral to the full Court, and no amicus briefs. No response will be requested, and no amicus brief will arrive. Justice Kagan is most likely to deny the application directly; referral to the full Court is a small alternative, but it would still end in denial. On an ordinarily functioning application docket, disposition would follow without merits-style briefing, within days or a few weeks rather than after prolonged proceedings.
