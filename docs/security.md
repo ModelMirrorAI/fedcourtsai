@@ -236,7 +236,12 @@ The predict/evaluate `plan` job carries the same **ambient `GITHUB_TOKEN`
 `issues: write`** for the same reason: when the scope gate empties the matrix it
 closes the trigger issue (with a note) so the run doesn't orphan it, and closing an
 issue triggers no workflow — so this stays on the lower-trust ambient token, never
-the App token.
+the App token. Predict's `plan` also holds **`actions: read`**, on the same
+ambient token and the same reasoning as `collect`: its stranded-run guard lists
+recent runs and their artifact *names* (it downloads nothing) to avoid re-minting
+cells that already ran, the grant is repo-wide because Actions scopes cannot be
+run-scoped, and `plan` runs no agent code — the census step's only inputs are
+this workflow's own run history.
 
 ## The `prod` environment
 
@@ -376,7 +381,8 @@ variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. An `all` dispatch fans one smoke per
 engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells. The keys live on the `prod`
+and spends three cells; `all-offline`, the same suite without the smoke legs,
+reads no engine key and spends nothing. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's

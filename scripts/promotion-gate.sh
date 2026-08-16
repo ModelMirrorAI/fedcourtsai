@@ -28,6 +28,9 @@
 #       matched per-run. Matching is on the integration-test workflow's
 #       `run-name`; the format here and there are coupled, and a
 #       workflow-shape test pins both ends (tests/test_workflow_promote.py).
+#       Under PROMOTION_SKIP_SMOKE (below) the engine-smoke entries leave the
+#       required set and a green `scenario=all-offline` run — the same suite
+#       without them — also counts as whole-suite evidence.
 #
 #   scripts/promotion-gate.sh contexts [candidate...]
 #       Every context `main`'s ruleset requires must have a job on `main` that
@@ -44,12 +47,29 @@
 #
 # quiesce and freshness need `gh` with Actions read + issues read (GH_TOKEN in
 # CI); contexts additionally needs repository administration read (see above).
-# PROMOTION_SCENARIOS overrides the required scenario set (space-separated;
-# an entry is `<scenario>` or `engine-smoke/<engine>`) — for narrowing a local
-# re-check, never for weakening the gate in a workflow. An override also
+#
+# Two environment variables move the required set, and they are not peers:
+#
+# PROMOTION_SCENARIOS overrides it outright (space-separated; an entry is
+# `<scenario>` or `engine-smoke/<engine>`) — for narrowing a local re-check,
+# never for weakening the gate in a workflow. An override also
 # disables the whole-suite `scenario=all` acceptance in freshness: the `all`
 # matrix is keyed to the default set, so an overridden set is checked against
 # per-scenario runs only.
+#
+# PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` entries and lets a green
+# `scenario=all-offline` run stand in for `scenario=all`. It is the one
+# relaxation a workflow may set, and `promote.yml`'s `skip_engine_smoke`
+# dispatch input is the only workflow that sets it (a shape test pins that no
+# other does) — so a workflow-side skip is always an explicit act on one
+# dispatch, never a standing configuration. Only the exact value `1` enables
+# it; anything else, a typo included, leaves the gate strict. What it trades
+# away is the only evidence that real engine cells still run in the production
+# posture at the sha being promoted, so reserve it for batches that cannot
+# affect a cell — docs, analytics, non-cell code — and when in doubt run the
+# full suite. It narrows a pre-flight, not a merge: ci.yml's `promotion-gate`
+# job — the required check on the promotion PR — sets neither variable, so the
+# full set is what a batch actually merges on.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
@@ -59,6 +79,20 @@ REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwn
 # integration-test.yml — a `scenario=all` dispatch must fan out exactly this
 # set (a workflow-shape test pins both couplings).
 REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
+
+# The engine-smoke skip (see the header): a filter over whatever set is in
+# force, so it composes with a local PROMOTION_SCENARIOS narrowing instead of
+# racing it. Fails closed — only the literal `1` drops anything.
+if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
+  kept=""
+  for entry in $REQUIRED_SCENARIOS; do
+    case "$entry" in
+      engine-smoke/*) continue ;;
+    esac
+    kept="${kept:+${kept} }${entry}"
+  done
+  REQUIRED_SCENARIOS="$kept"
+fi
 
 fail=0
 
@@ -88,6 +122,15 @@ quiesce() {
 
 freshness() {
   local sha="$1" titles req scenario engine prefix
+  # The one stage that reads the required set, so the one that must refuse an
+  # empty one: the loop below would run zero times and report a clean gate
+  # that checked no evidence at all. Reachable only from a
+  # PROMOTION_SCENARIOS narrowing the engine-smoke skip then filters away to
+  # nothing.
+  if [ -z "$REQUIRED_SCENARIOS" ]; then
+    echo "::error::freshness: the required scenario set is empty — the gate would check nothing"
+    exit 2
+  fi
   # Why the titles this matches cannot be forged: every dispatcher-controlled
   # component of the integration-test run-name — scenario, engine, and
   # deploy-environment — is a server-validated `choice` input (workflow-shape
@@ -118,9 +161,20 @@ freshness() {
   # Skipped entirely under a PROMOTION_SCENARIOS override: the `all` matrix
   # covers the default set, so an overridden set — which may name something
   # beyond it — must be satisfied by per-scenario runs.
-  if [ -z "${PROMOTION_SCENARIOS:-}" ] \
-    && grep -Fqx "integration-test: all @ staging" <<<"$titles"; then
-    return
+  if [ -z "${PROMOTION_SCENARIOS:-}" ]; then
+    if grep -Fqx "integration-test: all @ staging" <<<"$titles"; then
+      return
+    fi
+    # Under the engine-smoke skip the requirement is the smaller suite, which
+    # an `all-offline` run covers leg for leg — same jobs, same environment
+    # binding, same success-only-when-every-job-succeeded arithmetic, minus
+    # the three token-spending legs the skip already removed. The `all`
+    # acceptance above stays first and unconditional: a full run is always
+    # sufficient evidence for a subset of what it ran.
+    if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ] \
+      && grep -Fqx "integration-test: all-offline @ staging" <<<"$titles"; then
+      return
+    fi
   fi
   for req in $REQUIRED_SCENARIOS; do
     scenario="${req%%/*}"

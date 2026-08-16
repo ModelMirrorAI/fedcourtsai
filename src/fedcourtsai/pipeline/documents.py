@@ -35,6 +35,7 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -120,6 +121,15 @@ _QP_MAX_CHARS = 4_000
 # extraction, which the manifest labels as such and the labeling extract skips,
 # while a fragment stored as text reads to every consumer as the question.
 _QP_MIN_CHARS = 40
+# Concurrent content-store readers for the backfill's document fetch. The pass
+# is one GET per live-slice case — ~1,500 today — and serial GET latency is
+# what cancelled the first dispatched pass against the seed job's cap; sixteen
+# bounded workers hold the scan to minutes without meaningfully loading the
+# store. Read only where payload reads are offloaded — the registered source's
+# Protocol requires concurrent-read safety, and one warm-up read constructs
+# its lazy client before the pool exists — while the SQLite path stays serial
+# on its single-thread connection.
+_QP_BACKFILL_READERS = 16
 # A captured section that is really a table-of-contents entry, in the two forms
 # a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
 # PRESENTED" with a page reference, so matching that entry instead of the real
@@ -544,8 +554,10 @@ class QPBackfillResult(BaseModel):
         default_factory=list,
         description="Cases whose stored text is a full-length question the current "
         "extractor can no longer derive: reported for triage, never written, since "
-        "emptying a substantive row is the one rewrite this pass will not make on "
-        "its own reading",
+        "emptying a substantive row is a rewrite this pass makes on its own "
+        "reading only where the stored value is contents junk throughout — that "
+        "heal carries its own reason class (`toc-junk-emptied`) so a dry run "
+        "shows the emptied subset apart",
     )
 
 
@@ -568,6 +580,42 @@ def _qp_change_reason(stored: str, derived: str) -> str:
     return "other-change"
 
 
+def _qp_stored_is_fragment(stored: str) -> bool:
+    """Whether a stored questions-presented value is contents junk throughout.
+
+    True only when TOC-shaped stripping removed something *and* what remains
+    is not question-sized. The refusal guard consults this rather than the
+    per-line change classifier, because the two questions differ: a value
+    that merely *contains* a contents line — a genuine question the old
+    extractor captured with trailing TOC residue — classifies as a stale
+    fragment line-wise, but blanking it would destroy the question; a value
+    that is leader dots and folios all the way down is junk however far it
+    clears the character floor, since the floor counts the dots.
+
+    One predicate, applied per line, decides both halves — there is no
+    separate whole-value check to disagree with the strip. A dot-leader run
+    strips the *run*, not its line, keeping the line where its residue is
+    itself question-sized: a single-line question quoting a statute through a
+    long elision is prose around dots, not a leader. The two folio forms
+    strip whole lines, whose residue is heading words that would only push
+    real junk back over the floor — with the known bound that a justified
+    genuine line ending in a bare page-number token is stripped with them,
+    which bites only on a value already scraping the floor.
+    """
+    lines = stored.splitlines()
+    kept: list[str] = []
+    for line in lines:
+        if _QP_TOC_RE.search(line):
+            residue = _QP_TOC_RE.sub(" ", line).strip()
+            if len(residue) >= _QP_MIN_CHARS:
+                kept.append(residue)
+            continue
+        if _QP_TOC_LINE_RE.search(line) or _QP_TOC_SPACES_RE.match(line):
+            continue
+        kept.append(line)
+    return len(kept) != len(lines) and len(" ".join(kept).strip()) < _QP_MIN_CHARS
+
+
 def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QPBackfillResult:
     """Re-derive each case's questions presented from its **stored** petition text.
 
@@ -588,26 +636,50 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     or above :data:`_QP_MIN_CHARS` — a full-length question — is never replaced
     by the empty extraction, because that reading is as likely to be this pass
     misjudging a question as it is a bad row; those cases are listed
-    (``refused``) for a maintainer to decide. Dry-run unless ``apply``.
+    (``refused``) for a maintainer to decide. The refusal does not extend to a
+    stored value that is contents junk throughout
+    (:func:`_qp_stored_is_fragment`): a run of leader dots clears the
+    character floor by counting the dots, and protecting it would freeze
+    exactly the junk this pass exists to heal — so it heals to the honest
+    empty row however long it is, while a genuine question that merely
+    carries trailing contents residue keeps the refusal. Dry-run unless
+    ``apply``.
 
     The population is the live/historical slice (:func:`corpus.is_live_slice`):
     documents reach the corpus only on that channel, and the row predicate is
     what keeps the walk from a per-case content-store read for every SCOTUS row
-    the bulk import ever wrote.
+    the bulk import ever wrote. Where payload reads are offloaded to the
+    content store their latency is the pass's whole cost — a serial walk of
+    the ~1,500-case population is what turned the first dispatched pass into a
+    job-cap cancellation — so the document fetch runs on a bounded reader pool
+    there (:data:`_QP_BACKFILL_READERS`), consumed lazily in input order and
+    warmed by one serial read so the source's lazily built client is
+    constructed on this thread, never raced. The SQLite fallback keeps the
+    serial loop: its local reads never needed the help, and the connection
+    must stay on one thread. Everything after a fetch — extraction,
+    comparison, classification, the writes — is the same serial, ordered code
+    either way, so pooled and serial fetching produce identical results. A
+    fetch that raises aborts the whole pass, deliberately against the
+    degrade-don't-crash default: this is a dispatch-gated convergence sweep
+    whose apply verifies itself by re-running, and a silently partial ledger
+    would read as a converged one.
     """
     petitions = unchanged = no_petition_text = 0
     reasons: Counter[str] = Counter()
     changes: dict[str, str] = {}
     refused: list[str] = []
     updates: list[corpus.CaseDocument] = []
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.is_live_slice(row):
-            continue
-        by_kind = {doc.kind: doc for doc in corpus.documents_for_case(conn, row.case_id)}
+    case_ids = [
+        row.case_id for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)
+    ]
+
+    def consider(case_id: str, documents: list[corpus.CaseDocument]) -> None:
+        nonlocal petitions, unchanged, no_petition_text
+        by_kind = {doc.kind: doc for doc in documents}
         petition = by_kind.get(KIND_PETITION)
         if petition is None or not petition.text.strip():
             no_petition_text += 1
-            continue
+            return
         petitions += 1
         stored = by_kind.get(KIND_QUESTIONS_PRESENTED)
         # `None` (no heading anywhere) and "" (a heading with nothing usable
@@ -616,10 +688,17 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         current = stored.text if stored is not None else ""
         if derived == current:
             unchanged += 1
-            continue
-        if not derived and len(current) >= _QP_MIN_CHARS:
-            refused.append(row.case_id)
-            continue
+            return
+        if (
+            not derived
+            and len(current) >= _QP_MIN_CHARS
+            # A stored TOC fragment over the floor is dots, not a question —
+            # but only when it is fragment through and through: a genuine
+            # question with a trailing contents line must keep the refusal.
+            and not _qp_stored_is_fragment(current)
+        ):
+            refused.append(case_id)
+            return
         if stored is None:
             # The row's provenance is the petition's, including its fetch date:
             # nothing was fetched here, so claiming today's date would date the
@@ -630,9 +709,45 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             reason = "derived-anew"
         else:
             updates.append(stored.model_copy(update={"text": derived}))
-            reason = _qp_change_reason(current, derived)
+            if not derived and len(current) >= _QP_MIN_CHARS:
+                # Reaching here empty-over-floor means the fragment test
+                # lifted the refusal — the one heal that *empties* a
+                # full-length value, so the ledger names it apart: the
+                # emptied subset is the part of a dry run a maintainer
+                # eyeballs before dispatching the apply.
+                reason = "toc-junk-emptied"
+            else:
+                reason = _qp_change_reason(current, derived)
         reasons[reason] += 1
-        changes[row.case_id] = reason
+        changes[case_id] = reason
+
+    if corpus.payload_reads_offloaded() and case_ids:
+        # The offloaded branch never touches `conn` inside
+        # `documents_for_case` (the registered source serves it, and the
+        # Protocol requires it to tolerate concurrent reads), which is what
+        # makes handing the call to worker threads sound; the mode cannot
+        # flip mid-pass because nothing here re-registers the source. The
+        # first case is read serially on purpose: the source builds its
+        # client lazily on first use behind a broad catch that caches the
+        # outcome, so a pool-first call would race sixteen constructions and
+        # a losing thread's cached failure would silently empty the pass.
+        # Client *calls* tolerate threads; construction does not.
+        first = corpus.documents_for_case(conn, case_ids[0])
+        with ThreadPoolExecutor(
+            max_workers=_QP_BACKFILL_READERS, thread_name_prefix="qp-backfill"
+        ) as pool:
+            consider(case_ids[0], first)
+            fetched = pool.map(
+                lambda case_id: corpus.documents_for_case(conn, case_id), case_ids[1:]
+            )
+            # Consumed lazily, in input order: results free as they are
+            # processed, so peak memory is the in-flight window, not the
+            # population's whole document text.
+            for case_id, documents in zip(case_ids[1:], fetched, strict=True):
+                consider(case_id, documents)
+    else:
+        for case_id in case_ids:
+            consider(case_id, corpus.documents_for_case(conn, case_id))
     if apply and updates:
         corpus.upsert_documents(conn, updates)
     return QPBackfillResult(

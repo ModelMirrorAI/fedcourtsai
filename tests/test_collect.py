@@ -19,6 +19,7 @@ from fedcourtsai.collect import (
     cell_failures,
     collect_plan,
     feedback_marker,
+    parse_cell_artifact_name,
     parse_name_status,
     render_feedback_comment,
     render_flags,
@@ -682,3 +683,53 @@ def test_a_genuinely_empty_run_opens_no_facts_only_pr() -> None:
     # No cells and no matrix: nothing failed, nothing to record, no PR.
     plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[])
     assert plan.ready is None and plan.partial is None and plan.facts_only is None
+
+
+# `parse_cell_artifact_name` — the plan-time stranded-run guard reads a past
+# run's cells out of their artifact names, having listed rather than downloaded
+# them, so the split must survive the hyphens that both the actor id and the
+# event id carry.
+
+
+@pytest.mark.parametrize(
+    "actor",
+    ["claude-baseline", "codex-baseline", "gemini-baseline"],
+)
+@pytest.mark.parametrize(
+    "event_id",
+    [
+        "evt-petition-cert",
+        "evt-petition-arrival-disposition",
+        "evt-merits-judgment",
+    ],
+)
+def test_a_cell_artifact_name_round_trips_through_the_parse(actor: str, event_id: str) -> None:
+    cell = ExpectedCell(actor=actor, court="scotus", docket=9026000183, event_id=event_id)
+    name = cell_artifact_name(FinalizeRole.predict, cell)
+    assert parse_cell_artifact_name(FinalizeRole.predict, name) == cell
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        # The evaluate seam's own cells, read as predict.
+        "evaluate-cross-judge-scotus-24001-evt-petition-cert",
+        "predict-nonsense",  # no court/docket/event at all
+        "predict-claude-baseline-scotus-x-evt-petition-cert",  # docket is not an integer
+        "predict-claude-baseline-scotus-24001-petition-cert",  # event id lacks its `evt-` anchor
+        # Round-trip rejects what the split reads but cannot rebuild.
+        "predict-claude-baseline-scotus-024001-evt-petition-cert",
+        "predict--scotus-24001-evt-petition-cert",  # empty actor
+    ],
+)
+def test_an_unreadable_name_is_none_rather_than_a_guess(name: str) -> None:
+    # A guessed split would withhold the wrong cell, which is worse than the
+    # re-spend the guard exists to prevent.
+    assert parse_cell_artifact_name(FinalizeRole.predict, name) is None
+
+
+def test_an_absurd_docket_is_unreadable_rather_than_an_exception() -> None:
+    # A digit run past the interpreter's int-parsing limit must degrade the one
+    # record, not raise through the caller and disable the whole guard.
+    name = "predict-claude-baseline-scotus-" + "9" * 5000 + "-evt-petition-cert"
+    assert parse_cell_artifact_name(FinalizeRole.predict, name) is None

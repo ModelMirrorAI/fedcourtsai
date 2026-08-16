@@ -34,10 +34,26 @@ name: promote
 #      scenario green at exactly that sha. After a sync moved staging this
 #      fails by construction — the summary prints the scenario dispatch
 #      commands (each runs from the staging branch, which is the gate), and
-#      this workflow is re-dispatched after they land.
+#      this workflow is re-dispatched after they land. The `skip_engine_smoke`
+#      input narrows what this pre-flight asks for to the token-free
+#      scenarios; the required check on the promotion PR runs the gate
+#      strictly either way, so the batch still needs the smokes to merge.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      skip_engine_smoke:
+        description: >-
+          Drop the three engine-smoke runs from THIS PRE-FLIGHT's freshness
+          check, accepting a token-free `scenario=all-offline` run as
+          whole-suite evidence. It answers "is anything else missing" without
+          paying for the smokes; it does not narrow what the batch must
+          satisfy to merge, since the promotion PR's own `promotion-gate`
+          check sets no skip. Reserve it for batches that cannot affect a
+          cell — docs, analytics, non-cell code — and when in doubt run the
+          full suite.
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -94,15 +110,38 @@ jobs:
       - name: Freshness gate at the staging head
         env:
           GH_TOKEN: ${{ github.token }}
+          # The freshness stage is the only one that reads this; quiescence
+          # above is unaffected by which scenarios are required. A truthiness
+          # test, not a `!=` comparison: a false input and an absent one both
+          # yield '' and leave the gate strict, so no non-dispatch event could
+          # ever read as "skip" (compare run-seed's qp_backfill guard, where
+          # `!= 'none'` against an empty inputs context is TRUE).
+          PROMOTION_SKIP_SMOKE: ${{ inputs.skip_engine_smoke && '1' || '' }}
         run: |
           set -euo pipefail
           sha=$(git rev-parse origin/staging)
           # Keep the dispatch-command list below in step with the script's
           # REQUIRED_SCENARIOS default — the script is the gate; this list is
-          # the help text for satisfying it.
+          # the help text for satisfying it. The `= 1` sentinel is likewise
+          # the script's (scripts/promotion-gate.sh); the gate stays strict on
+          # any drift, so the only cost of missing one would be help text
+          # naming the wrong suite.
+          if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
+            suite=all-offline
+            spend="spends nothing — this dispatch dropped the engine-smoke runs"
+          else
+            suite=all
+            spend="spends three engine-smoke cells' worth of tokens"
+          fi
           if scripts/promotion-gate.sh freshness "$sha"; then
             {
-              echo "## Promotion gates green at \`${sha}\`"
+              if [ "$suite" = all-offline ]; then
+                echo "## Pre-flight green at \`${sha}\` — engine-smoke skipped"
+                echo
+                echo "Green on the token-free suite alone, so this says nothing about the smokes. The promotion PR's own \`promotion-gate\` check sets no skip and runs the gate strictly, and \`main\`'s ruleset has no bypass for it: the three engine-smoke runs at this sha are still what the batch merges on. Dispatch them when the rest of the batch checks out."
+              else
+                echo "## Promotion gates green at \`${sha}\`"
+              fi
               echo
               echo "Open (or refresh) the promotion PR — required checks run under your identity:"
               echo
@@ -116,21 +155,25 @@ jobs:
             {
               echo "## Integration runs needed at \`${sha}\`"
               echo
-              echo "One dispatch from the staging branch covers the whole required suite (spends three engine-smoke cells' worth of tokens); the workflow resolves the staging environment from the branch:"
+              echo "One dispatch from the staging branch covers the whole required suite (${spend}); the workflow resolves the staging environment from the branch:"
               echo
               echo '```'
-              echo "gh workflow run integration-test.yml --ref staging -f scenario=all"
+              echo "gh workflow run integration-test.yml --ref staging -f scenario=${suite}"
               echo '```'
               echo
-              echo "A red \`all\` run earns no partial credit (the gate matches whole runs); \`gh run rerun <run-id> --failed\` turns it green in place. Or dispatch the scenarios individually:"
+              echo "A red whole-suite run earns no partial credit (the gate matches whole runs); \`gh run rerun <run-id> --failed\` turns it green in place. Or dispatch the scenarios individually:"
               echo
               echo '```'
               for s in ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic; do
                 echo "gh workflow run integration-test.yml --ref staging -f scenario=${s}"
               done
-              for e in claude-code codex gemini; do
-                echo "gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=${e}"
-              done
+              # Only when they are still required: under the skip the point of
+              # the batch is not to spend them.
+              if [ "$suite" = all ]; then
+                for e in claude-code codex gemini; do
+                  echo "gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=${e}"
+                done
+              fi
               echo '```'
               echo
               echo "Then re-dispatch this workflow."

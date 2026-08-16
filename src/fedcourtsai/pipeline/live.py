@@ -649,7 +649,7 @@ def _route_result(
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
-    events = forecastable_events(corpus_db_path, "scotus", docket_id)
+    events = forecastable_events(corpus_db_path, "scotus", docket_id, today=today)
     if queue_predict and in_scope and result.changed and events:
         # A decided-looking docket never queues forward (pull's rule, verbatim).
         decided_reason = _decided_reason(result)
@@ -823,7 +823,7 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
             continue
         if row.predict_queued_at == today:
             continue
-        events = forecastable_events(corpus_db_path, "scotus", docket_id)
+        events = forecastable_events(corpus_db_path, "scotus", docket_id, today=today)
         # The owed check runs BEFORE the fetch — a fully-predicted case costs no
         # docket fetch — exactly where the old any-prediction case gate sat.
         if not events:
@@ -882,7 +882,7 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
         _route_result(
             queues, corpus_db_path, data_root, result, gated=True, queue_predict=False, today=today
         )
-        open_now = forecastable_events(corpus_db_path, "scotus", docket_id)
+        open_now = forecastable_events(corpus_db_path, "scotus", docket_id, today=today)
         if not open_now or not _in_predict_scope(corpus_db_path, result.case_id):
             continue
         reason = _decided_reason(result)

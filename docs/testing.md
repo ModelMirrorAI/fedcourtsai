@@ -65,7 +65,9 @@ dispatch, read-only role — the collect scenario none at all — strictly
 side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
 engine-smoke once per engine, so three cells' token spend; collect rides the
-run as its own environment-free job beside the matrix).
+run as its own environment-free job beside the matrix). `scenario=all-offline`
+is that suite minus the three engine-smoke legs; the jobs that remain are
+identical, environment binding included, and the run is token-free end to end.
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
@@ -146,7 +148,12 @@ scenarios, with engine-smoke counted once per engine, or one green
 `scenario=all` run, which covers all nine because it succeeds only when each of
 its eight matrix legs and its collect job does — green at exactly that staging
 head, and `promotion-gate` is a required check on `main`, so it is
-branch-protection-enforced rather than advisory.
+branch-protection-enforced rather than advisory. A `promote` dispatch carrying
+`skip_engine_smoke` narrows what *that pre-flight* asks for to the six
+token-free scenarios, taking a green `scenario=all-offline` run as their
+whole-suite evidence — for batches that cannot affect a cell, and never by
+default. The required check is unaffected: it sets no skip, so the nine stand
+between any batch and `main`.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
@@ -235,9 +242,12 @@ check. Beside them, a family of pytest
 workflow-shape tests pins the YAML *contracts* the linters cannot see — the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
-(`test_workflow_collect`), and the cell invariants
+(`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard) — so deleting a load-bearing line fails a
+env pair, the forward leakage guard), and the predict plan job's stranded-run
+guard (`test_workflow_plan_census`: the census runs before the matrix step and
+feeds it, degrades open rather than failing the job, and lets a fully-superseded
+run close with the recovery note) — so deleting a load-bearing line fails a
 named test instead of passing every linter. For a heavier local check of the
 deterministic jobs (the `plan` job, matrix generation, the auth gate),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for

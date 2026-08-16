@@ -1431,7 +1431,15 @@ def _mirror_sink() -> MirrorSink | None:
 
 
 class PayloadReadSource(Protocol):
-    """Casestore-backed payload reads, consulted under the corpus-split mode."""
+    """Casestore-backed payload reads, consulted under the corpus-split mode.
+
+    Implementations must tolerate **concurrent reads**: callers keyed on
+    :func:`payload_reads_offloaded` may fan document reads across worker
+    threads. An implementation with non-thread-safe first-use construction
+    must make that construction safe or complete it on the first (serial)
+    call — callers warm it with one read before pooling, but the contract is
+    the implementation's to keep.
+    """
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
@@ -1461,6 +1469,18 @@ def _payload_read_source() -> PayloadReadSource | None:
     if not get_settings().corpus_split:
         return None
     return _READ_SOURCE.get("source")
+
+
+def payload_reads_offloaded() -> bool:
+    """Whether payload reads are served by the registered source rather than SQLite.
+
+    The seam concurrency-sensitive callers key on: the registered
+    :class:`PayloadReadSource` owes concurrent-read safety (see its contract),
+    while the SQLite fallback rides the caller's connection, which must stay
+    on a single thread. True exactly when a payload read source will serve
+    the next read.
+    """
+    return _payload_read_source() is not None
 
 
 def _split_mode() -> bool:
@@ -1769,6 +1789,42 @@ def case_era(row: CorpusRow) -> str | None:
     if year is None:
         return None
     return f"{year - year % 10}s"
+
+
+#: How long after its cert grant a merits proceeding may sit with neither a
+#: parsed judgment nor a recorded termination before the row reads as stale
+#: rather than pending. Two October Terms, against the six-to-eighteen-month
+#: grant-to-judgment window `docs/decision-model.md` states: 730 days clears
+#: the far end of that window by half a Term, which covers the outliers the
+#: window does not name — a case held in abeyance, or one restored for
+#: reargument. One bound, two consumers: `validate`'s
+#: `no_stale_unparsed_grants` check reports the class, and the merits
+#: forecastability arm refuses it — a row this old is not a pending case but a
+#: decided docket the record never resolved, and a forward cell on it is a
+#: mislabeled backtest with unrestricted retrieval.
+STALE_GRANT_DAYS = 730
+
+
+def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
+    """Whether a granted row's merits proceeding is stale rather than pending.
+
+    The merits analogue of :func:`is_stale_unresolvable`: the population is
+    :func:`opens_merits_proceeding` (the grants whose disposition does not
+    ride in the cert order), and a member carrying neither a parsed
+    ``merits_judgment`` nor a recorded ``merits_terminated``
+    :data:`STALE_GRANT_DAYS` after its own grant reads as unresolvable, not
+    open. The same population and bound as ``validate``'s
+    ``no_stale_unparsed_grants`` check, so what the check reports and what
+    the forecastability arm refuses are one class — a row the check turns
+    red can never also be spending forecast cells. Releases itself: a later
+    re-fetch that latches either column takes the row out of the class.
+    """
+    if not opens_merits_proceeding(row):
+        return False
+    if row.merits_judgment is not None or row.merits_terminated is not None:
+        return False
+    granted = row.date_cert_granted
+    return granted is not None and (today - granted).days > STALE_GRANT_DAYS
 
 
 def is_stale_unresolvable(row: CorpusRow) -> bool:

@@ -111,11 +111,13 @@ from .matrix import (
     CappedMatrix,
     CaseRequest,
     cap_predict_cells,
+    drop_stranded_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
     parse_cases,
     predict_matrix,
+    read_stranded_census,
 )
 from .merits_event_migration import (
     backfill_event_moments,
@@ -814,11 +816,15 @@ def backfill_questions_presented_cmd(
     output differs from what is stored. Nothing is fetched and no PDF is
     re-read — the input is text the corpus already holds. A stored full-length
     question the extractor can no longer derive is reported (`refused`) rather
-    than emptied: that reading is as likely to be this pass misjudging a
-    question as a bad row, and the sweep does not decide it alone. Each rewrite
-    is
+    than emptied — that reading is as likely to be this pass misjudging a
+    question as a bad row, and the sweep does not decide it alone — unless the
+    stored value is contents junk throughout (leader dots clear the character
+    floor by counting the dots), which empties under its own reason class,
+    `toc-junk-emptied`, so a dry run shows the emptied subset apart. Each
+    rewrite is
     classified by the extraction hole it comes from (`stale-toc-fragment`,
-    `prose-terminator-fragment`, `below-floor`, `other-change`, plus
+    `prose-terminator-fragment`, `below-floor`, `other-change`,
+    `toc-junk-emptied`, plus
     `derived-anew` where a case had no row), so the dry run is the triage list;
     the printed `QPBackfillResult` carries the untruncated case-id ledger of
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
@@ -6166,6 +6172,127 @@ def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
             )
 
 
+_STRANDED_RERUN_CAVEAT = (
+    "`--failed` is right when only `collect` failed; if that run also had failed *cells* it "
+    "re-runs those too and a duplicate artifact name rejects their uploads, so rerun the "
+    "`collect` job alone instead."
+)
+_STRANDED_OVERRIDE = (
+    "The guard releases itself: a run leaves the census once its `collect` concludes success, "
+    "and ages out of the 48-hour window regardless. To get a fresh run *sooner*, delete the "
+    "stranded run's cell artifacts (`gh api -X DELETE "
+    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and re-queue — an explicit act "
+    "rather than a new trigger."
+)
+
+
+def _stranded_note(runs: Sequence[int]) -> str:
+    """The trigger-issue close note for a run the guard withheld entirely."""
+    reruns = "\n".join(f"    gh run rerun {run} --failed" for run in runs)
+    return (
+        "Every cell this run would have queued already ran in a run whose `collect` never "
+        "succeeded — the predictions exist as cell artifacts; what is missing is the step that "
+        f"commits them. Recover {'that run' if len(runs) == 1 else 'those runs'} rather than "
+        "re-running this one, which would re-spend the same tokens on the same events — rerun "
+        "the collect job:\n\n"
+        f"{reruns}\n\n"
+        f"{_STRANDED_RERUN_CAVEAT}\n\n"
+        "Closing this issue loses nothing: an event with no committed prediction re-queues on a "
+        f"later cycle regardless. {_STRANDED_OVERRIDE}\n"
+    )
+
+
+def _guarded_matrix(
+    matrix: dict[str, list[dict[str, Any]]],
+    stranded_file: Path | None,
+    note_file: Path | None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+
+    Fails **open** in every degraded direction — an unreadable census, an
+    artifact name that does not parse — because the failure this guard prevents
+    is expensive, not dangerous: a census the plan cannot trust must never be
+    the reason a legitimate run does not start. Reports on the same channels as
+    the other plan-time gates (workflow-command lines on stderr and the step
+    summary; stdout carries only the matrix JSON), plus ``note_file`` when the
+    guard empties the matrix, which the workflow's close step posts in place of
+    its generic out-of-scope note.
+    """
+    if stranded_file is None:
+        return matrix
+    try:
+        census = read_stranded_census(stranded_file)
+    except (OSError, ValueError) as exc:
+        typer.echo(
+            f"::warning::predict-matrix: the stranded-run guard is off — {stranded_file} is "
+            f"unreadable ({exc}). Cells already sitting in an uncollected run may be re-minted.",
+            err=True,
+        )
+        return matrix
+    for name in census.unparsed:
+        typer.echo(
+            f"::warning::predict-matrix: stranded-run guard skipped the census record {name!r} — "
+            "it does not read as a cell artifact naming predictor/court/docket/event, and a "
+            "guessed reading would withhold the wrong cell",
+            err=True,
+        )
+    guarded = drop_stranded_cells(matrix, census.cells)
+    if not guarded.withheld:
+        return matrix
+    for cell in guarded.withheld:
+        typer.echo(
+            f"::warning::predict-matrix: withheld {cell.predictor_id} "
+            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
+            f"in uncollected run {cell.run_db_id}; recover it with "
+            f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
+            err=True,
+        )
+    runs = sorted({cell.run_db_id for cell in guarded.withheld})
+    run_list = ", ".join(str(run) for run in runs)
+    if not guarded.include:
+        # Every cell withheld: the plan reports has_jobs=false, and the workflow's
+        # close step would otherwise post its generic out-of-scope note. Write the
+        # honest one for it to post instead, and escalate here so the cause is on
+        # the record even if the note never reaches the issue.
+        typer.echo(
+            f"::error::predict-matrix: the stranded-run guard withheld ALL "
+            f"{len(guarded.withheld)} cell(s) — every event this trigger names already ran in "
+            f"uncollected run(s) {run_list}. Recover rather than re-run: "
+            f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
+            err=True,
+        )
+        if note_file is not None:
+            try:
+                note_file.write_text(_stranded_note(runs), encoding="utf-8")
+            except OSError as exc:
+                # An unwritable note costs the issue its honest close message,
+                # never the run: the ::error:: above is already on the record.
+                typer.echo(
+                    f"::warning::predict-matrix: could not write the stranded-run close note to "
+                    f"{note_file} ({exc}); the trigger issue closes with the generic note",
+                    err=True,
+                )
+    else:
+        typer.echo(
+            f"::warning::predict-matrix: the stranded-run guard withheld "
+            f"{len(guarded.withheld)} cell(s) whose output sits in uncollected run(s) "
+            f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
+            err=True,
+        )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
+                f"Their output already sits in uncollected run(s) {run_list}, whose `collect` did "
+                f"not succeed: the tokens are spent and the predictions exist as cell artifacts. "
+                f"Recover with `gh run rerun {runs[0]} --failed` rather than re-running this "
+                f"trigger. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
+                f"cell(s). {_STRANDED_OVERRIDE}\n"
+            )
+    return {"include": guarded.include}
+
+
 @app.command("predict-matrix")
 def predict_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
@@ -6182,6 +6309,20 @@ def predict_matrix_cmd(
     event: Annotated[
         list[str] | None,
         typer.Option(help="Single-case event id(s); default: open case-baseline events."),
+    ] = None,
+    stranded_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of cell artifacts left by recent runs whose collect did not succeed; "
+            "a cell already sitting in one is not re-minted. Absent or empty = guard off.",
+        ),
+    ] = None,
+    stranded_note_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where to write the trigger-issue close note when the stranded-run guard "
+            "withholds every cell (nothing is written otherwise).",
+        ),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
@@ -6238,6 +6379,14 @@ def predict_matrix_cmd(
     matrix = predict_matrix(
         settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
     )
+    # The stranded-run guard, before the volume cap so the cap's budget goes to
+    # genuinely new cells: a cell whose output already sits in a run whose
+    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
+    # above cannot see those predictions — they are cell artifacts, not commits —
+    # which is exactly why a failed collect otherwise re-mints the whole run
+    # every live cycle. Fail-open in every degraded direction; see
+    # `_guarded_matrix` and `drop_stranded_cells`.
+    matrix = _guarded_matrix(matrix, stranded_file, stranded_note_file)
     # Salience-independent volume backstop, after scope filtering: hold the
     # fan-out under the cell cap even if selection failed open, deferring whole
     # overflow cases (they stay queued and re-run next cycle). See

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -15,9 +16,11 @@ from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import (
+    _QP_MIN_CHARS,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    _qp_stored_is_fragment,
     backfill_questions_presented,
     extract_pdf_text,
     extract_questions_presented,
@@ -733,6 +736,77 @@ def test_backfill_questions_presented_classifies_every_change(tmp_path: Path) ->
     assert _stored_qp_text(db, "scotus/4") is None
 
 
+class _DictReadSource:
+    """A payload read source over a dict — just enough of the Protocol to
+    serve document reads, the one method the backfill exercises. Records the
+    thread each read ran on, so a test can pin the fetch schedule (the serial
+    warm-up read, then the pool) and that no case is fetched twice."""
+
+    def __init__(self, documents: dict[str, list[corpus.CaseDocument]]) -> None:
+        self._documents = documents
+        self.read_threads: dict[str, list[int]] = {}
+        self._lock = threading.Lock()
+
+    def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def documents_for_case(self, case_id: str) -> list[corpus.CaseDocument]:
+        with self._lock:
+            self.read_threads.setdefault(case_id, []).append(threading.get_ident())
+        return self._documents.get(case_id, [])
+
+    def opinion_text(self, case_id: str) -> str | None:
+        return None
+
+
+def test_backfill_reads_the_content_store_concurrently_and_identically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offloaded branch serves document reads from the registered source —
+    the first case on the calling thread (the warm-up that constructs a lazy
+    client before the pool exists), the rest on worker threads, one read per
+    case — and its result is identical to the serial SQLite pass: same counts,
+    same ledger, same ordering. The rows stay in SQLite either way (the
+    candidate walk is metadata); only the payload reads move."""
+    db = _seed_qp_backfill_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        serial = backfill_questions_presented(conn, apply=False)
+        stored = {
+            f"scotus/{n}": corpus.documents_for_case(conn, f"scotus/{n}") for n in (1, 2, 3, 4)
+        }
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = _DictReadSource(stored)
+    # Save/restore the registered source around the swap; the read of the
+    # private registry is the only way to put back the casestore singleton it
+    # registers at import (there is no public getter).
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(source)
+    try:
+        assert corpus.payload_reads_offloaded()
+        with corpus.connect(db) as conn:
+            offloaded = backfill_questions_presented(conn, apply=False)
+    finally:
+        corpus.set_payload_read_source(previous)
+    assert offloaded == serial
+    assert offloaded.updated == 3
+    # One read per case — the pool never duplicates a fetch.
+    assert sorted(source.read_threads) == sorted(stored)
+    assert all(len(idents) == 1 for idents in source.read_threads.values())
+    # The warm-up read runs on the calling thread; the tail runs off it.
+    first_case = next(iter(source.read_threads))
+    assert source.read_threads[first_case] == [threading.get_ident()]
+    tail_idents = {
+        idents[0] for case_id, idents in source.read_threads.items() if case_id != first_case
+    }
+    assert threading.get_ident() not in tail_idents
+
+
 def test_backfill_questions_presented_floors_a_stored_fragment(tmp_path: Path) -> None:
     # A stored row the current extractor would no longer produce, and cannot
     # replace either: the rewrite is the honest empty text, not the fragment.
@@ -784,6 +858,101 @@ def test_backfill_questions_presented_refuses_to_empty_a_full_length_question(
     assert result.refused == ["scotus/11"]
     assert result.changes == {} and result.updated == 0
     assert _stored_qp_text(db, "scotus/11") == _HONEST_QP
+
+
+def test_qp_stored_fragment_table() -> None:
+    # The helper's whole truth table, so a strip-rule change cannot silently
+    # move the refusal boundary: junk-throughout shapes read as fragments
+    # (heal), anything question-sized after stripping does not (refuse).
+    question = "Whether a claim for wrongful death under state law is preempted by ERISA."
+    assert len(question) >= _QP_MIN_CHARS
+    fragment_shapes = [
+        "." * 42 + "i",  # pure dot leader
+        "." * 42 + "i\n" + "." * 50 + "ii",  # a leader block
+        "QUESTION PRESENTED\n      i\nTABLE OF AUTHORITIES\n      iii",  # folio on its own line
+    ]
+    protected_shapes = [
+        question + "\nRELATED PROCEEDINGS      ii\n",  # question + trailing TOC residue
+        # A single-line question quoting a statute through a long elision:
+        # prose around dots, never a leader — the run strips, the line stays.
+        'Whether the phrase "any person . . . . . . . . who violates" the statute '
+        "reaches an authorized user who misuses access.",
+        # No TOC shape at all: trailing padding is not stripping, so the
+        # entry condition never fires and the refusal holds.
+        question + "\n\n\n",
+    ]
+    for shape in fragment_shapes:
+        assert _qp_stored_is_fragment(shape), shape[:60]
+    for shape in protected_shapes:
+        assert not _qp_stored_is_fragment(shape), shape[:60]
+
+
+def test_backfill_heals_a_toc_fragment_however_long_over_the_floor(tmp_path: Path) -> None:
+    # A stored dot-leader run clears the character floor by counting the dots
+    # — 43 characters of leader and a folio is not a question, and the refusal
+    # must not freeze it. The fragment test (not the change classifier — they
+    # ask different questions) lifts the refusal, and the heal that empties a
+    # full-length value carries its own reason class so the dry-run ledger
+    # shows the emptied subset apart.
+    long_leader = "." * 42 + "i"
+    assert len(long_leader) >= _QP_MIN_CHARS  # over the floor: the refusal's trigger shape
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/12", court="scotus", last_live_polled=date(2026, 6, 2)
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                # No QP heading in the visible text -> the extractor derives
+                # nothing; the stored fragment must heal, not survive refused.
+                _petition_document("scotus/12", "PARTIES TO THE PROCEEDING Acme Corp."),
+                _stored_qp("scotus/12", long_leader),
+            ],
+        )
+        result = backfill_questions_presented(conn, apply=True)
+    assert result.refused == []
+    assert result.changes == {"scotus/12": "toc-junk-emptied"}
+    assert _stored_qp_text(db, "scotus/12") == ""
+
+
+def test_backfill_keeps_refusing_a_question_with_trailing_toc_residue(tmp_path: Path) -> None:
+    # The mixed shape the fragment test must not swallow: a genuine stored
+    # question whose old extraction also captured a trailing contents line.
+    # Line-wise it classifies as a stale fragment, but stripping the
+    # TOC-shaped lines leaves a question-sized text — so the refusal holds
+    # and the question survives.
+    mixed = (
+        "Whether a claim for wrongful death under state law is preempted by "
+        "ERISA where the plan is self-funded.\n"
+        "RELATED PROCEEDINGS      ii\n"
+    )
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/13", court="scotus", last_live_polled=date(2026, 6, 2)
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                _petition_document("scotus/13", "PARTIES TO THE PROCEEDING Acme Corp."),
+                _stored_qp("scotus/13", mixed),
+            ],
+        )
+        result = backfill_questions_presented(conn, apply=True)
+    assert result.refused == ["scotus/13"]
+    assert result.changes == {} and result.updated == 0
+    assert _stored_qp_text(db, "scotus/13") == mixed
 
 
 def test_degraded_extraction_provisions_as_an_empty_text_document(

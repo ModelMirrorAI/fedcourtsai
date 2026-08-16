@@ -217,7 +217,8 @@ def _pendency_conflict(conn: sqlite3.Connection, case_id: str) -> str | None:
     would open an event provisioning refuses daily (the ``no_match`` shape) or
     — worse — one a snapshot-less forward cell could run on a decided docket
     (the ``no_snapshot`` shape, which defeats the provisioning guard), with
-    ``forecastable_event_ids`` re-admitting it every fan-out. So a mint
+    ``forecastable_event_ids`` re-admitting it every fan-out inside the
+    stale-grant bound's two Terms. So a mint
     requires a stored snapshot
     (:func:`fedcourtsai.corpus.latest_snapshot`, the judgment sweep's own
     read) whose high-recall judgment scan

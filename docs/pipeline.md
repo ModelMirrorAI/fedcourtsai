@@ -150,7 +150,10 @@ the dispatching branch by default — `main` gets `prod`, `staging` gets
 and no keys — and a `scenario=all` dispatch
 fans the gate's whole required suite (every real scenario — collect rides the
 run as its own environment-free job — with engine-smoke once per engine, so
-three cells' token spend) out of one run.
+three cells' token spend) out of one run. `scenario=all-offline` is that same
+suite with the three engine-smoke legs dropped: token-free end to end, and
+whole-suite evidence only for a pre-flight that skipped them (*The
+engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
@@ -451,6 +454,20 @@ The mechanics:
   it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
+- **The engine-smoke skip, and how far it reaches.** `promote`'s
+  `skip_engine_smoke` input drops the three engine-smoke runs from that
+  dispatch's freshness check and accepts a token-free `scenario=all-offline`
+  run as whole-suite evidence instead. It costs the only evidence that real
+  engine cells still run in the production posture at the sha being promoted,
+  so it is reserved for batches that cannot affect a cell — docs, analytics,
+  non-cell code — and the default is the full suite.
+  **It narrows the pre-flight only.** ci.yml's `promotion-gate` job sets the
+  variable nowhere, so the required check on the promotion PR still demands
+  all nine runs at the head sha, and `main`'s ruleset has no bypass for it —
+  the data App's deterministic writers are its only bypass actor. A skipped
+  batch therefore reaches a green summary and a mergeable PR only once the
+  smokes have run too; what the input buys is a cheap answer to *is anything
+  else missing* before paying for them.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
@@ -472,6 +489,9 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
+   On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
+   the `all-offline` form and tells you whether anything *else* is missing
+   before you pay for the smokes, which step 4 still needs.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
    check right before merging, and merge with a **merge commit**; tag the
@@ -581,6 +601,33 @@ PR where the cap itself was the problem. Distinguishing refusal kinds in the
 failure fact so a staleness refusal never burns the cap is open follow-up
 work.
 
+On `run:predict`, `plan` also refuses to re-mint a cell that already ran. A cell
+spends its tokens before `collect`, the run's single durability step, so a
+failed collect leaves every prediction in a cell artifact and nothing in the
+ledger the already-predicted gate reads — and the next live cycle re-derives the
+same events and re-spends the whole run. Before building the matrix, `plan`
+lists the cell artifacts of this workflow's completed runs from the last 48
+hours whose `collect` did not conclude success, and **withholds** any cell
+already sitting in one, naming the stranded run and `gh run rerun <id> --failed`
+per cell: the remedy is to recover that run, not to re-run this one (the
+collect-recovery section below carries the order). The match is per predictor ×
+case × event and keys on the artifact's *existence*, not on whether that cell
+produced anything — a cell that spent its tokens and delivered nothing is
+withheld too, because collecting the run is how anyone learns which of the two
+it was, and the event re-queues normally once the ledger is honest. A cell with
+no artifact — never queued, or dead before upload — still runs. The census step
+fetches and filters only: every decision is in `fedcourts predict-matrix`
+(`--stranded-file`), and it degrades open at two grains rather than blocking a
+legitimate run, since the failure this guard prevents is expensive rather than
+dangerous — a run it cannot read after three attempts drops out of the census
+with a `::warning::`, and a failure leaving nothing usable empties it
+altogether. The guard also releases itself: a run leaves the census once its
+`collect` concludes success on the latest attempt, and ages out of the window
+regardless. A maintainer who wants a fresh run *sooner* makes that an explicit
+act rather than a new trigger — delete the stranded run's cell artifacts (`gh
+api -X DELETE repos/<owner>/<repo>/actions/artifacts/<artifact_id>`), then
+re-queue.
+
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
 would otherwise close the trigger issue; the `plan` job closes it with a note
@@ -591,13 +638,22 @@ so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
 — armed, see [budget.md](budget.md)) when the trailing window's measured spend
 reaches the ceiling; and so can the plan-time openness re-check, when every
 event the trigger listed has resolved since the issue was queued. The close
-step cannot tell any of them from scope-empty, so it closes with the
-out-of-scope note in all four cases. Each surfaces its own escalated
-`::error::` for correct attribution, and the close is safe in each case for
-its own reason: a cap- or spend-deferred case stays in its queue and re-queues
-next cycle, while a resolved event needs an evaluate run, not a re-queue. A
+step cannot tell any of those from scope-empty, so it closes with the
+out-of-scope note in all four cases. On `run:predict` the stranded-run guard is
+the one exception: when it withholds *every* cell, `predict-matrix` writes the
+close note itself (`--stranded-note-file`) and the step posts that instead, so a
+fully-superseded run says recover the uncollected run rather than reporting
+nothing was in scope. Each surfaces its own escalated `::error::` for correct
+attribution, and the close is safe in each case for its own reason: a cap- or
+spend-deferred case stays in its queue and re-queues next cycle, a resolved
+event needs an evaluate run rather than a re-queue, and a withheld event
+re-queues on a later cycle for as long as no prediction is committed for it. A
 spend-breach deferral clears on its own when the window rolls past the burst
-that tripped it (or when the maintainer raises `spend.ceiling_usd`).
+that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
+driven by a sustained *rate* rather than a burst — a capacity knob left
+non-binding, which at the current planning rate runs above the ceiling
+([budget.md](budget.md)) — does not clear that way: it re-trips each cycle, and
+the fix is the capacity knob or the ceiling, not waiting.
 
 ### The evaluate cell grades blind
 
@@ -741,14 +797,23 @@ run-scoped branch, finds-or-updates the PR (reconciling draft state), and
 marker-dedupes the trigger-issue reports, so nothing stacks or aborts on a
 second pass. A kind whose PR already merged is skipped.
 
-Two caveats:
+Three caveats:
 
 - **Cell artifacts are retained 7 days.** After that a transfer-lost cell is
   gone and only a re-queue recovers it.
 - **`--failed` also re-runs failed *cells*,** and `upload-artifact` rejects a
   duplicate artifact name within a run, so those re-run cells fail at upload.
   `--failed` is the recovery for a *collect-only* failure; when cells failed
-  too, re-apply the `run:*` label instead.
+  too, land `collect` first and let the re-queue pick the rest up.
+- **On `run:predict`, collect first — a re-queue will not stand in for it.**
+  The stranded-run guard above withholds every cell that uploaded an artifact to
+  an uncollected run, so re-applying `run:predict` inside its 48-hour window
+  queues nothing and closes the new trigger issue saying so. Rerun `collect`,
+  which commits what the cells produced; the guard then releases that run, and
+  any event still holding no prediction — including a cell that ran and
+  delivered nothing — re-queues on a later cycle. That costs one round trip
+  where re-queueing first would cost a whole fan-out's tokens to reach the same
+  ledger.
 
 A rerun discards hand-edits to an unmerged draft branch — it is rebuilt from the
 artifacts. Finish a draft by merging it, not by editing and then re-running.

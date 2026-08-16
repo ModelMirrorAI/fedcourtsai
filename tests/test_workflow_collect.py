@@ -445,11 +445,12 @@ def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() ->
     for job_id in ("plan", "scenario"):
         assert workflow["jobs"][job_id]["if"] == "${{ inputs.scenario != 'collect' }}"
     assert workflow["jobs"]["scenario"]["needs"] in ("plan", ["plan"])
-    # Its own dispatch, plus the `all` run — collect is part of the promotion
-    # freshness suite, riding the run as its own environment-free job.
-    assert (
-        _collect_scenario_job()["if"]
-        == "${{ inputs.scenario == 'collect' || inputs.scenario == 'all' }}"
+    # Its own dispatch, plus either whole-suite run — collect is part of the
+    # promotion freshness suite under both, riding the run as its own
+    # environment-free job, and it costs no tokens for `all-offline` to drop.
+    assert _collect_scenario_job()["if"] == (
+        "${{ inputs.scenario == 'collect' || inputs.scenario == 'all'"
+        " || inputs.scenario == 'all-offline' }}"
     )
     # `on:` parses as the YAML boolean True.
     options = workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]

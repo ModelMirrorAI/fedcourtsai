@@ -7,7 +7,9 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.corpus_ranged import RangedBackendError
+from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
@@ -213,6 +215,352 @@ def test_predict_matrix_under_the_cap_is_unchanged(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert len(_cells(result.stdout)) == 6
     assert "volume cap" not in result.stderr
+
+
+EVENT = "evt-petition-cert"
+_PREDICTORS = ("claude-baseline", "codex-baseline", "gemini-baseline")
+_SINGLE_BODY = f'```json\n{{"court": "scotus", "docket": 24001, "events": ["{EVENT}"]}}\n```\n'
+
+
+def _stranded_census(tmp_path: Path, records: list[dict[str, object]]) -> Path:
+    """Write the plan job's census file — what its API step hands the matrix."""
+    path = tmp_path / "stranded-artifacts.json"
+    path.write_text(json.dumps(records))
+    return path
+
+
+def _stranded_cell(run_db_id: int, predictor_id: str) -> dict[str, object]:
+    """One census record for the shared single-case fixture's event.
+
+    The artifact name is built by the production helper the cell workflows'
+    upload step mirrors, so a change to the naming convention breaks this test
+    rather than silently disarming the guard.
+    """
+    return {
+        "run_db_id": run_db_id,
+        "artifact_name": cell_artifact_name(
+            FinalizeRole.predict,
+            ExpectedCell(actor=predictor_id, court="scotus", docket=24001, event_id=EVENT),
+        ),
+    }
+
+
+def test_predict_matrix_withholds_a_cell_stranded_in_an_uncollected_run(tmp_path: Path) -> None:
+    # The guard at its grain: one predictor's artifact from an uncollected run
+    # withholds that predictor's cell and no other. A cell the stranded run never
+    # produced still runs, exactly as an engine-backfill re-queue does today.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(tmp_path, [_stranded_cell(4242, "claude-baseline")])
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    # The note names the run and the recovery, never a re-queue.
+    assert "::warning::" in result.stderr
+    assert "uncollected run 4242" in result.stderr
+    assert "gh run rerun 4242 --failed" in result.stderr
+
+
+def test_predict_matrix_keeps_cells_no_stranded_artifact_matches(tmp_path: Path) -> None:
+    # A census that names another case's cells changes nothing: the match is on
+    # (predictor, case, event), so an unrelated stranded run is inert here.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(
+        tmp_path,
+        [
+            {
+                "run_db_id": 4242,
+                "artifact_name": cell_artifact_name(
+                    FinalizeRole.predict,
+                    ExpectedCell(
+                        actor="claude-baseline", court="scotus", docket=24002, event_id=EVENT
+                    ),
+                ),
+            }
+        ],
+    )
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "stranded" not in result.stderr
+
+
+def test_predict_matrix_skips_an_unreadable_artifact_name_with_a_warning(tmp_path: Path) -> None:
+    # A name that does not split into (predictor, court, docket, event) is
+    # reported and ignored — a guessed split would withhold the wrong cell — and
+    # the readable records in the same census still apply.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(
+        tmp_path,
+        [
+            {"run_db_id": 4242, "artifact_name": "predict-nonsense"},
+            {"run_db_id": 4242, "artifact_name": "predict-claude-baseline-scotus-x-evt-petition"},
+            {"artifact_name": "predict-codex-baseline-scotus-24001-evt-petition-cert"},
+            _stranded_cell(4242, "claude-baseline"),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    # The unreadable records are skipped, so codex (named only by the record
+    # missing its run id) still runs; the readable one still withholds claude.
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    assert "does not read as a cell artifact" in result.stderr
+    assert "'predict-nonsense'" in result.stderr
+
+
+def test_predict_matrix_without_a_census_is_unguarded(tmp_path: Path) -> None:
+    # Guard off in all three shapes the workflow can hand it: no flag, an absent
+    # file (a census step that died before writing), and the empty list a
+    # degraded census step writes. None of them may cost a cell.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    absent = tmp_path / "never-written.json"
+    empty = _stranded_census(tmp_path, [])
+    for args in ([], ["--stranded-file", str(absent)], ["--stranded-file", str(empty)]):
+        result = runner.invoke(
+            app,
+            ["predict-matrix", "--run-id", "RID", "--body-file", str(body), *args],
+            env=env,
+        )
+        assert result.exit_code == 0, args
+        assert len(_cells(result.stdout)) == 3, args
+        assert "stranded" not in result.stderr, args
+
+
+def test_predict_matrix_malformed_census_records_are_skipped_not_fatal(tmp_path: Path) -> None:
+    # The census is machine-written, so a shape it should never take means the
+    # census step misbehaved — and the guard degrades rather than failing the
+    # plan job, which would block a legitimate fan-out.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = tmp_path / "stranded-artifacts.json"
+    # Not a list at the top level: a `jq -s` mishap emitting one object.
+    census.write_text(json.dumps({"run_db_id": 4242, "artifact_name": "x"}))
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "stranded-run guard is off" in result.stderr
+
+    # Records that are not objects, or whose name is not a string, are skipped
+    # one by one while the readable ones still apply.
+    census.write_text(
+        json.dumps([[1, 2], "x", {"artifact_name": 5}, _stranded_cell(4242, "codex-baseline")])
+    )
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "claude-baseline",
+        "gemini-baseline",
+    }
+    assert "does not read as a cell artifact" in result.stderr
+
+
+def test_predict_matrix_guard_runs_before_the_volume_cap(tmp_path: Path) -> None:
+    # Order is load-bearing: the cap's budget must go to genuinely new cells. Two
+    # cases x 3 engines = 6 cells with a 3-cell cap. With the guard first, case
+    # 24001's three stranded cells are withheld and 24002's three fit whole; run
+    # the cap first and it would admit 24001 (lowest case_id) and defer 24002,
+    # leaving a run that mints nothing but re-spends.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        max_cells=3,
+        seed_predictions=False,
+    )
+    census = _stranded_census(tmp_path, [_stranded_cell(4242, pid) for pid in _PREDICTORS])
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    cells = _cells(result.stdout)
+    assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24002)}
+    assert len(cells) == 3
+    assert "volume cap" not in result.stderr, "the withheld cells never reached the cap"
+
+
+def test_predict_matrix_unreadable_census_fails_open_with_a_warning(tmp_path: Path) -> None:
+    # The guard prevents an expensive failure, not a dangerous one: a census the
+    # plan cannot trust must never be why a legitimate run does not start.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = tmp_path / "stranded-artifacts.json"
+    census.write_text("{not json")
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "::warning::" in result.stderr
+    assert "stranded-run guard is off" in result.stderr
+
+
+def test_predict_matrix_all_cells_stranded_signals_recovery_not_requeue(tmp_path: Path) -> None:
+    # Every cell withheld: the matrix empties, so the workflow's has_jobs=false
+    # path closes the trigger issue — and it must close with the guard's note,
+    # which says recover the stranded run rather than re-run this one.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(
+        tmp_path,
+        [_stranded_cell(4242, pid) for pid in ("claude-baseline", "codex-baseline")]
+        + [_stranded_cell(4343, "gemini-baseline")],
+    )
+    note = tmp_path / "stranded-close.md"
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--stranded-note-file",
+            str(note),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::" in result.stderr
+    assert "withheld ALL 3 cell(s)" in result.stderr
+    body_text = note.read_text()
+    # Both stranded runs are named, each with its own recovery command.
+    assert "gh run rerun 4242 --failed" in body_text
+    assert "gh run rerun 4343 --failed" in body_text
+    # The override is documented, not built: an explicit deletion, no new trigger.
+    assert "gh api -X DELETE" in body_text
+    assert "48-hour window" in body_text
+
+
+def test_predict_matrix_writes_no_close_note_when_only_some_cells_are_stranded(
+    tmp_path: Path,
+) -> None:
+    # The distinct close note belongs to the fully-superseded run only; a partly
+    # stranded run still queues its new cells and its issue closes the usual way.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(tmp_path, [_stranded_cell(4242, "claude-baseline")])
+    note = tmp_path / "stranded-close.md"
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--stranded-note-file",
+            str(note),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert not note.exists()
+    assert "::error::" not in result.stderr
 
 
 def test_predict_matrix_predictors_filter_survives_default_event_resolution(tmp_path: Path) -> None:

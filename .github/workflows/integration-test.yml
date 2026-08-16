@@ -2,13 +2,17 @@ name: integration-test
 
 # The staging→main promotion freshness gate matches runs on this title format
 # (scripts/promotion-gate.sh); change the two together — a workflow-shape test
-# pins both ends. An `all` dispatch drops the `<scenario> / <engine>` pair for
-# a bare `all` — the title the gate accepts as whole-suite evidence. The
+# pins both ends. A whole-suite dispatch (`all`, `all-offline`) drops the
+# `<scenario> / <engine>` pair for the bare scenario name. The gate takes an
+# `all` title as evidence for the whole required set always, and an
+# `all-offline` title only for the narrowed set a skipped-smoke pre-flight
+# asks for — it tells the two apart, so the cheaper suite never satisfies the
+# fuller requirement. The
 # branch→environment resolution here is duplicated on the scenario job's
 # `environment:` key (YAML anchors do not work in workflows); keep the two
 # expressions identical, or the title stops naming the environment the job
 # actually bound.
-run-name: "integration-test: ${{ inputs.scenario == 'all' && 'all' || format('{0} / {1}', inputs.scenario, inputs.engine) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
@@ -19,7 +23,9 @@ run-name: "integration-test: ${{ inputs.scenario == 'all' && 'all' || format('{0
 # log, and any cell output lands only in the runner's throwaway checkout. Every
 # scenario is also token-free except engine-smoke, which spends about one
 # predict cell's worth of the selected engine's model tokens and says so on
-# its input. The collect scenario is environment-free on top of token-free:
+# its input — so a whole-suite `all` dispatch spends three cells' worth, and
+# `all-offline` (the same suite with the engine-smoke legs dropped) spends
+# nothing. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
 # binds no deployment environment and is the one scenario that still
@@ -57,7 +63,10 @@ on:
           whole required suite out of one dispatch — the matrix legs plus the
           environment-free collect job, with engine-smoke once per engine —
           and therefore SPENDS MODEL TOKENS: three engine-smoke cells' worth,
-          one per engine.
+          one per engine. `all-offline` is that same suite with the three
+          engine-smoke legs dropped: token-free end to end, and accepted as
+          whole-suite freshness evidence only by a promotion dispatched with
+          its own engine-smoke skip set.
         type: choice
         default: ranged-reads
         options:
@@ -69,6 +78,7 @@ on:
           - collect
           - qp-topic
           - all
+          - all-offline
       # The known-good case the scenarios target: it must exist in the corpus
       # with at least one open (predictable) event and — for the snapshot and
       # cascade reads — a snapshot in the per-case content store, which under
@@ -94,7 +104,8 @@ on:
           TOKENS: one predict cell's worth against the default open-event
           case; a resolved or multi-event case also replays evaluator cells,
           so narrow with `event` when pointing elsewhere. Ignored by `all`,
-          which runs one smoke per engine.
+          which runs one smoke per engine, and by `all-offline`, which runs
+          no smoke at all.
         type: choice
         default: claude-code
         options:
@@ -135,21 +146,22 @@ permissions: {}
 # is part of the key so per-engine smokes run side by side (scenario-only
 # grouping made simultaneous claude/gemini smoke dispatches cancel each
 # other); for the other scenarios the engine input is a constant default, so
-# the grouping is unchanged. An `all` dispatch groups on the scenario alone —
-# its engine input is meaningless, and folding it in would let two `all`
-# dispatches differing only on that input race instead of superseding each
-# other. An `all` run and a single-scenario run therefore never share a group:
-# neither can cancel or queue behind the other, and an overlap on the same
-# scenario is harmless because every scenario is idempotent and side-effect
-# free.
+# the grouping is unchanged. A whole-suite dispatch (`all`, `all-offline`)
+# groups on the scenario alone — its engine input is meaningless, and folding
+# it in would let two such dispatches differing only on that input race
+# instead of superseding each other. The two whole-suite scenarios keep
+# separate groups, and neither shares one with a single-scenario run: none can
+# cancel or queue behind another, and an overlap on the same scenario is
+# harmless because every scenario is idempotent and side-effect free.
 concurrency:
-  group: integration-test-${{ inputs.scenario == 'all' && 'all' || format('{0}-{1}', inputs.scenario, inputs.engine) }}
+  group: integration-test-${{ (inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0}-{1}', inputs.scenario, inputs.engine) }}
   cancel-in-progress: true
 
 jobs:
   # Expands the dispatch into the {scenario, engine} legs the job below fans
   # out over: `all` becomes the required suite's matrix legs (collect rides
-  # the run as its own job, not a leg), any
+  # the run as its own job, not a leg), `all-offline` those same legs minus
+  # the token-spending engine-smoke ones, any
   # other scenario one leg carrying the inputs unchanged — so a
   # single-scenario dispatch runs exactly the steps, env, and environment
   # binding it always has.
@@ -169,13 +181,14 @@ jobs:
           ENGINE: ${{ inputs.engine }}
         run: |
           set -euo pipefail
-          if [ "$SCENARIO" = all ]; then
+          case "$SCENARIO" in
+          all | all-offline)
             # The promotion gate's required suite — keep in lockstep with
             # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a
             # workflow-shape test pins the two ends). collect is required
             # evidence too, but it needs no environment or engine, so it
-            # stays out of this matrix and joins an `all` run through its
-            # own job below. The engine field is meaningful only for
+            # stays out of this matrix and joins a whole-suite run through
+            # its own job below. The engine field is meaningful only for
             # engine-smoke; the other legs carry the engine input's default
             # as a benign constant.
             matrix='[
@@ -188,11 +201,20 @@ jobs:
               {"scenario": "engine-smoke", "engine": "codex"},
               {"scenario": "engine-smoke", "engine": "gemini"}
             ]'
-            matrix=$(jq -c . <<<"$matrix")
-          else
+            # One literal for both whole-suite scenarios, filtered rather than
+            # copied: `all-offline` is `all` minus exactly the legs that spend
+            # model tokens, and a second literal could drift from the first.
+            if [ "$SCENARIO" = all-offline ]; then
+              matrix=$(jq -c '[.[] | select(.scenario != "engine-smoke")]' <<<"$matrix")
+            else
+              matrix=$(jq -c . <<<"$matrix")
+            fi
+            ;;
+          *)
             matrix=$(jq -nc --arg s "$SCENARIO" --arg e "$ENGINE" \
               '[{scenario: $s, engine: $e}]')
-          fi
+            ;;
+          esac
           printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 
   scenario:
@@ -730,13 +752,13 @@ jobs:
   # real token in the job is the ambient read-only one the composite's
   # downloader uses to list and fetch this run's own artifacts.
   collect-scenario:
-    # Fires on its own dispatch and inside an `all` run: the collect composite
-    # is the single writer for every predict/evaluate run's output, so the
-    # promotion freshness suite must include it — and because this job is a
-    # separate job in the same run, an `all` title is whole-suite evidence
-    # only if this job succeeded too (a run concludes success only when every
-    # job did).
-    if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' }}
+    # Fires on its own dispatch and inside either whole-suite run: the collect
+    # composite is the single writer for every predict/evaluate run's output,
+    # so the promotion freshness suite must include it — and because this job
+    # is a separate job in the same run, a whole-suite title is evidence only
+    # if this job succeeded too (a run concludes success only when every job
+    # did). Token-free, so `all-offline` keeps it.
+    if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' || inputs.scenario == 'all-offline' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
