@@ -617,7 +617,11 @@ out-of-scope note in all four cases. Each surfaces its own escalated
 its own reason: a cap- or spend-deferred case stays in its queue and re-queues
 next cycle, while a resolved event needs an evaluate run, not a re-queue. A
 spend-breach deferral clears on its own when the window rolls past the burst
-that tripped it (or when the maintainer raises `spend.ceiling_usd`).
+that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
+driven by a sustained *rate* rather than a burst — a capacity knob left
+non-binding, which at the current planning rate runs above the ceiling
+([budget.md](budget.md)) — does not clear that way: it re-trips each cycle, and
+the fix is the capacity knob or the ceiling, not waiting.
 
 ### The evaluate cell grades blind
 

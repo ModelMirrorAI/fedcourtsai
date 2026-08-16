@@ -553,8 +553,8 @@ budget's "more funding = more cases" equation and the milestones' funding milest
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release fits the
-~$16.5K envelope: ≈$11K inference at the $13 planning rate with the sal-v2
-arrival cohort included (~$9.6–9.9K for the escalation program alone) — **12
+~$18.5K envelope: ≈$13K inference at the $15 planning rate with the sal-v3
+arrival cohort included (~$11.1–11.5K for the escalation program alone) — **12
 per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
