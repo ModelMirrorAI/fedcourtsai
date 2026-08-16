@@ -825,9 +825,11 @@ def backfill_questions_presented_cmd(
     the command echoes. Idempotent. A
     deliberate maintainer surface, never scheduled: corpus writes exist only
     inside the writer workflows, so this fires on an explicit `run-seed`
-    dispatch naming its `qp_backfill` input — dry-run first into the run
-    summary, then (only when the dispatch says apply) the rewrite and the
-    `corpus-push`. Fails loud if
+    dispatch naming its `qp_backfill` input — two dispatches by design, a
+    `dry-run` whose summary ledger the maintainer reads and then an `apply`,
+    which verifies its own convergence by re-running the dry-run (under the
+    corpus split the durable write is the content store's per-case mirror, so
+    the pointer alone cannot witness it) before the `corpus-push`. Fails loud if
     the corpus is absent, or if it holds no petition text at all (a payload-free
     index, or a split-mode blob with no content store configured — the wrong
     blob for this command).

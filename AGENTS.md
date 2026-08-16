@@ -42,7 +42,10 @@ non-interactive** container. Two consequences shape everything you do:
   to a remote is lost with the runner. The ownership is exclusive, not a
   convention: the corpus-write credentials exist **only** inside those writer
   jobs (a job-scoped role plus the data App), so no interactive session or dev
-  checkout can write the corpus remote at all. Plan any new corpus mutation as
+  checkout can write the corpus remote at all — the write half, that is: a dev
+  checkout can pull and dry-run any maintenance command against the read-only
+  role, which is what "run where the corpus is pulled" means wherever a
+  command's docs say it. Plan any new corpus mutation as
   a step or dispatch input on a writer workflow — dispatch-gated where its
   dry-run needs a maintainer's reading first — never as a command someone runs
   by hand. See `docs/data-pipeline.md`.
