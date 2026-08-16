@@ -135,7 +135,12 @@ timeline ([live-sources.md](live-sources.md)).
 Two workflows carry four writer jobs over one corpus — `run-pull`'s **pull**,
 **live**, and dispatch-only **enrich**, and `run-seed`'s **historical** walker —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
-at most one running at a time:
+at most one running at a time. These jobs are the **only** place corpus writes
+can happen: the write role is job-scoped and the pointer commit rides the data
+App, neither of which any interactive session holds — so a maintenance pass
+that mutates the corpus (a backfill, a relabel, an overhang clear) is always a
+step or dispatch input on one of these workflows, dispatch-gated where its
+dry-run is a triage list a maintainer must read before an apply:
 
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|

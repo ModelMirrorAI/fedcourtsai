@@ -66,6 +66,26 @@ on:
         required: false
         default: false
         type: boolean
+      qp_backfill:
+        description: >-
+          Re-derive stored questions-presented rows with the current extractor
+          (`fedcourts backfill-questions-presented`). `dry-run` prints the
+          reason-class triage ledger to the run summary and writes nothing;
+          `apply` rewrites the safe classes, verifies its own convergence, and
+          pushes. The intended procedure is two dispatches — `dry-run`, read
+          the summary ledger, then `apply`: an apply run's in-run dry-run is a
+          receipt, not a reading, since nobody reads it before the rewrite.
+          The refusal
+          guard holds either way — a stored full-length question the extractor
+          can no longer derive is reported, never emptied. Only fires on an
+          explicit dispatch naming it; never on the schedule.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dry-run
+          - apply
 
 permissions: {}
 
@@ -211,7 +231,10 @@ jobs:
           # a cap hit is a cancellation — the one outcome continue-on-error
           # cannot absorb — so the budget yields rather than gambling the
           # trailing verdict.
-          LOOP_BUDGET_SECONDS: ${{ github.event.schedule == '31 2 * * *' && '1500' || '2400' }} # 25m sweep window / 40m
+          # 25m where trailing sweeps need the tail — the daily sweep window,
+          # and any dispatch running the questions-presented backfill, whose
+          # step bound is the largest in the tail — 40m otherwise.
+          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && inputs.qp_backfill != 'none')) && '1500' || '2400' }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -412,6 +435,82 @@ jobs:
           git commit -m "seed: clear pre-resize salience overhang"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "unlatch-overselected pointer"
+
+      # The questions-presented re-derivation (`backfill-questions-presented`).
+      # Like the overhang clear above, it fires only on an explicit dispatch
+      # that names it, never on the schedule: the command's dry-run ledger is
+      # the triage list a maintainer reads, so the intended procedure is two
+      # dispatches — `dry-run`, read the summary, then `apply` (the apply
+      # run's own dry-run is a receipt, not a reading). It runs in this lane
+      # because corpus writes exist nowhere else — the write role and the
+      # content store are the job's — and inherits the dedupe gate for the
+      # sibling's reason: the sweep must weigh deduped rows, not a twin's.
+      # No fetch/ff-only here, unlike the merits-events sibling: the command
+      # reads corpus rows and documents only — no `data/` ledger guard — and
+      # commits only the pointer, the judgments sibling's shape.
+      # The refusal guard makes the apply non-destructive (a stored
+      # full-length question the current extractor cannot re-derive is
+      # reported, never emptied), and the apply verifies itself: under the
+      # corpus split the durable write is the content store's per-case PUT —
+      # best-effort, per-case failures logged not raised — and the blob and
+      # pointer may not move at all, so convergence is witnessed by re-running
+      # the dry-run and requiring zero remaining rewrites, not by the pointer.
+      - name: Backfill questions presented (dispatch-only)
+        # The event_name conjunct is load-bearing: on a schedule the inputs
+        # context is empty and `inputs.qp_backfill != 'none'` evaluates TRUE
+        # (null vs 'none' is a NaN comparison) — never lift the input clause
+        # out of this conjunction.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.qp_backfill != 'none' && steps.dedupe-live-rows.outcome == 'success' }}
+        continue-on-error: true
+        # A guess sized above the siblings', not a measurement: the pass reads
+        # stored petition text per live-slice SCOTUS row — under the split
+        # mode one content-store GET each, twice on an apply, plus the mirror
+        # PUTs. The first `dry-run` dispatch is what measures the real cost;
+        # resize from its wall clock. A cap hit is absorbed by
+        # continue-on-error and nothing publishes without the verification
+        # below, so the bound errs generous rather than tight.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          QP_BACKFILL_MODE: ${{ inputs.qp_backfill }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping questions-presented backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the reason-class ledger is the
+          # triage record, and it must outlive the step log either way.
+          uv run fedcourts backfill-questions-presented 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${QP_BACKFILL_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-questions-presented --apply 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # Convergence check: the command is idempotent, so a clean apply
+          # leaves the re-run with nothing to rewrite. This is the witness the
+          # pointer cannot be under the split mode (see the step comment) —
+          # and it is what catches a swallowed content-store write.
+          uv run fedcourts backfill-questions-presented 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/qp-verify.txt
+          if ! grep -q "would rewrite 0," /tmp/qp-verify.txt; then
+            echo "::error::apply did not converge — the re-run still reports rewrites (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere. Under the split mode
+          # the blob carries no document text, so an unmoved pointer here is
+          # the normal converged outcome, not a missing write.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "pointer unmoved — the durable write is the content store's, verified converged above."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (questions presented)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "questions-presented pointer"
 
       # An application docket's baseline event is a stay or injunction, not a
       # cert petition; discovery mints it as motion/interim, and this converges
