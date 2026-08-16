@@ -153,6 +153,26 @@ block shows you losing, and finish.
 
 ## Rules
 
+- **The session ends with your final message — never leave work in flight.**
+  You run in a single headless turn: no completion notification arrives after
+  it, and nothing you delegate or leave running can finish for you — a
+  spawned subagent dies with the session, and a background process left
+  writing races the measure step. (`AGENTS.md`'s delegate-to-subagents
+  guidance is for interactive development sessions and does not apply to this
+  run.) Label every text yourself, **by reading it** — never through a
+  subagent, and never through a keyword or statute script, which
+  `docs/qp-topic.md` rules out as an instrument for this vocabulary. Work in
+  slices of roughly 50–100 texts against the budget (~1,200 extract rows,
+  120 turns, a 40-minute step), appending each slice's lines to
+  `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
+  slice rather than the run — though only the complete file yields an
+  artifact. Every case appears exactly once: to repair a bad slice, rewrite
+  the file, never append again, and check the line count and key uniqueness
+  before finishing. `$LABELS_OUT` is also the only file you write — its line
+  count is your progress record; keep no scratch files. Apart from the abort
+  paths this section names, never end the turn with a text unlabeled; once
+  the file holds exactly one line per extract row, run the measure command
+  and report its block as required above.
 - **You run headless** (in CI, no interactive input). You cannot ask a question
   and wait, so never stall: if the extract is missing, malformed, or empty, say
   so in your final report and stop. Genuinely torn calls follow the doc's
