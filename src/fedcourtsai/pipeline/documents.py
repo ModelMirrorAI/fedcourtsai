@@ -578,6 +578,35 @@ def _qp_change_reason(stored: str, derived: str) -> str:
     return "other-change"
 
 
+def _qp_stored_is_fragment(stored: str) -> bool:
+    """Whether a stored questions-presented value is contents junk throughout.
+
+    True only when the value carries a table-of-contents shape *and* removing
+    every TOC-shaped line leaves nothing question-sized behind. The refusal
+    guard consults this rather than the per-line change classifier, because
+    the two questions differ: a value that merely *contains* a contents line
+    — a genuine question the old extractor captured with trailing TOC residue
+    — classifies as a stale fragment line-wise, but blanking it would destroy
+    the question; a value that is leader dots and folios all the way down is
+    junk however far it clears the character floor, since the floor counts
+    the dots.
+    """
+    if not (
+        _QP_TOC_RE.search(stored)
+        or _QP_TOC_LINE_RE.search(stored)
+        or _QP_TOC_SPACES_RE.match(stored)
+    ):
+        return False
+    kept = [
+        line
+        for line in stored.splitlines()
+        if not (
+            _QP_TOC_RE.search(line) or _QP_TOC_LINE_RE.search(line) or _QP_TOC_SPACES_RE.match(line)
+        )
+    ]
+    return len(" ".join(kept).strip()) < _QP_MIN_CHARS
+
+
 def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QPBackfillResult:
     """Re-derive each case's questions presented from its **stored** petition text.
 
@@ -598,7 +627,14 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     or above :data:`_QP_MIN_CHARS` — a full-length question — is never replaced
     by the empty extraction, because that reading is as likely to be this pass
     misjudging a question as it is a bad row; those cases are listed
-    (``refused``) for a maintainer to decide. Dry-run unless ``apply``.
+    (``refused``) for a maintainer to decide. The refusal does not extend to a
+    stored value that is contents junk throughout
+    (:func:`_qp_stored_is_fragment`): a run of leader dots clears the
+    character floor by counting the dots, and protecting it would freeze
+    exactly the junk this pass exists to heal — so it heals to the honest
+    empty row however long it is, while a genuine question that merely
+    carries trailing contents residue keeps the refusal. Dry-run unless
+    ``apply``.
 
     The population is the live/historical slice (:func:`corpus.is_live_slice`):
     documents reach the corpus only on that channel, and the row predicate is
@@ -644,7 +680,14 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         if derived == current:
             unchanged += 1
             return
-        if not derived and len(current) >= _QP_MIN_CHARS:
+        if (
+            not derived
+            and len(current) >= _QP_MIN_CHARS
+            # A stored TOC fragment over the floor is dots, not a question —
+            # but only when it is fragment through and through: a genuine
+            # question with a trailing contents line must keep the refusal.
+            and not _qp_stored_is_fragment(current)
+        ):
             refused.append(case_id)
             return
         if stored is None:
