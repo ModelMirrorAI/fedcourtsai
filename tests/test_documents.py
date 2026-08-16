@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -735,10 +736,14 @@ def test_backfill_questions_presented_classifies_every_change(tmp_path: Path) ->
 
 class _DictReadSource:
     """A payload read source over a dict — just enough of the Protocol to
-    serve document reads, the one method the backfill exercises."""
+    serve document reads, the one method the backfill exercises. Records the
+    thread each read ran on, so a test can pin the fetch schedule (the serial
+    warm-up read, then the pool) and that no case is fetched twice."""
 
     def __init__(self, documents: dict[str, list[corpus.CaseDocument]]) -> None:
         self._documents = documents
+        self.read_threads: dict[str, list[int]] = {}
+        self._lock = threading.Lock()
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, object]] | None:
         return None
@@ -750,6 +755,8 @@ class _DictReadSource:
         return None
 
     def documents_for_case(self, case_id: str) -> list[corpus.CaseDocument]:
+        with self._lock:
+            self.read_threads.setdefault(case_id, []).append(threading.get_ident())
         return self._documents.get(case_id, [])
 
     def opinion_text(self, case_id: str) -> str | None:
@@ -759,10 +766,12 @@ class _DictReadSource:
 def test_backfill_reads_the_content_store_concurrently_and_identically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The offloaded branch serves document reads from the registered source on
-    a reader pool, and its result is byte-identical to the serial SQLite pass —
-    same counts, same ledger, same ordering. The rows stay in SQLite either way
-    (the candidate walk is metadata); only the payload reads move."""
+    """The offloaded branch serves document reads from the registered source —
+    the first case on the calling thread (the warm-up that constructs a lazy
+    client before the pool exists), the rest on worker threads, one read per
+    case — and its result is identical to the serial SQLite pass: same counts,
+    same ledger, same ordering. The rows stay in SQLite either way (the
+    candidate walk is metadata); only the payload reads move."""
     db = _seed_qp_backfill_corpus(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         serial = backfill_questions_presented(conn, apply=False)
@@ -770,8 +779,12 @@ def test_backfill_reads_the_content_store_concurrently_and_identically(
             f"scotus/{n}": corpus.documents_for_case(conn, f"scotus/{n}") for n in (1, 2, 3, 4)
         }
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = _DictReadSource(stored)
+    # Save/restore the registered source around the swap; the read of the
+    # private registry is the only way to put back the casestore singleton it
+    # registers at import (there is no public getter).
     previous = corpus._READ_SOURCE.get("source")
-    corpus.set_payload_read_source(_DictReadSource(stored))
+    corpus.set_payload_read_source(source)
     try:
         assert corpus.payload_reads_offloaded()
         with corpus.connect(db) as conn:
@@ -780,6 +793,16 @@ def test_backfill_reads_the_content_store_concurrently_and_identically(
         corpus.set_payload_read_source(previous)
     assert offloaded == serial
     assert offloaded.updated == 3
+    # One read per case — the pool never duplicates a fetch.
+    assert sorted(source.read_threads) == sorted(stored)
+    assert all(len(idents) == 1 for idents in source.read_threads.values())
+    # The warm-up read runs on the calling thread; the tail runs off it.
+    first_case = next(iter(source.read_threads))
+    assert source.read_threads[first_case] == [threading.get_ident()]
+    tail_idents = {
+        idents[0] for case_id, idents in source.read_threads.items() if case_id != first_case
+    }
+    assert threading.get_ident() not in tail_idents
 
 
 def test_backfill_questions_presented_floors_a_stored_fragment(tmp_path: Path) -> None:

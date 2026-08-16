@@ -1431,7 +1431,15 @@ def _mirror_sink() -> MirrorSink | None:
 
 
 class PayloadReadSource(Protocol):
-    """Casestore-backed payload reads, consulted under the corpus-split mode."""
+    """Casestore-backed payload reads, consulted under the corpus-split mode.
+
+    Implementations must tolerate **concurrent reads**: callers keyed on
+    :func:`payload_reads_offloaded` may fan document reads across worker
+    threads. An implementation with non-thread-safe first-use construction
+    must make that construction safe or complete it on the first (serial)
+    call — callers warm it with one read before pooling, but the contract is
+    the implementation's to keep.
+    """
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
@@ -1464,10 +1472,10 @@ def _payload_read_source() -> PayloadReadSource | None:
 
 
 def payload_reads_offloaded() -> bool:
-    """Whether payload reads are served by the content store rather than SQLite.
+    """Whether payload reads are served by the registered source rather than SQLite.
 
-    The seam concurrency-sensitive callers key on: a content-store read is a
-    thread-safe network GET (one boto3 client tolerates concurrent calls),
+    The seam concurrency-sensitive callers key on: the registered
+    :class:`PayloadReadSource` owes concurrent-read safety (see its contract),
     while the SQLite fallback rides the caller's connection, which must stay
     on a single thread. True exactly when a payload read source will serve
     the next read.
