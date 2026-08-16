@@ -1,0 +1,5 @@
+Expect the Court to affirm the Sixth Circuit, leaving the judgment below undisturbed. The Court will adopt the "narrow" view of the Video Privacy Protection Act (VPPA), holding that the phrase "goods or services from a video tape service provider" limits the definition of "consumer" to individuals who subscribe to the provider's audiovisual offerings. 
+
+The majority will conclude that reading the phrase literally to include *any* goods or services—such as the free digital newsletter at issue here—would expand liability beyond the statute's original focus and context. Consequently, a user who accesses non-video content is not a VPPA consumer.
+
+Expect a 6-3 split, with the conservative majority ruling in favor of Paramount, while Justices Sotomayor, Kagan, and Jackson dissent on the grounds that the statutory text unambiguously encompasses all "goods or services." A DIG (dismissal as improvidently granted) is unlikely given the clear circuit split and the importance of the issue to class action litigation.

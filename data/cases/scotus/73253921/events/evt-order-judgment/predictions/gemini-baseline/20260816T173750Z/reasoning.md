@@ -1,0 +1,9 @@
+P(disturbed) = 0.65. The question presented is whether a habeas challenge to civil immigration detention is a "civil action" under the Equal Access to Justice Act (EAJA).
+
+The petition comes to the Court from the Fourth Circuit, which, along with the Fifth Circuit, held that the EAJA's waiver of sovereign immunity does not unequivocally encompass immigration habeas. The Second, Third, and Tenth Circuits have held the opposite. The fact that the Court granted certiorari on this issue suggests an interest in resolving the circuit split. 
+
+Base rates strongly suggest that when the Supreme Court grants certiorari, it is more likely to reverse than affirm. The baseline probability of a reversal (disturbed judgment) is typically around 60-70%. I anchor at the base rate and find no strong reason to deviate significantly downward.
+
+While the government raises a formidable argument based on the strict construction of sovereign immunity waivers and historical precedent (e.g., *Schlanger v. Seamans*), the plain text of "any civil action" is exceedingly broad. A textualist Court is likely to find that since immigration detention is a civil matter, a habeas petition challenging it is a civil action, thus rejecting the government's attempt to categorize it as a unique proceeding outside the EAJA's scope. 
+
+The primary uncertainty is how stringently the conservative majority will apply the "unequivocal waiver" standard for sovereign immunity. A strict formalist reading might side with the government, but the combination of the circuit split leaning 3-2 against the government, the plain text, and the general tendency to reverse following a grant of certiorari justifies predicting a reversal.

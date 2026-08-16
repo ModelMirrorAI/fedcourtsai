@@ -1,0 +1,294 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:00.705Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e77ecd4669e71a36",
+      "query": "ls -R /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/ 2>/dev/null | head -80",
+      "result_capture": "captured",
+      "result_digest": "21c871bea8071ad2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:08.437Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "43694358f754d3a2",
+      "query": "uv run fedcourts paths --court scotus --docket 73278510 --event evt-order-judgment --role predictor 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "9a62b001f6acdd50",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:09.445Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cc72ff6d57b9c920",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "76285055f25eb288",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:15.675Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9ac3d79cf4000577",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/context.json\"}",
+      "result_capture": "captured",
+      "result_digest": "930f1388535c9952",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:16.326Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2c9923762118ca3b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/documents.json\"}",
+      "result_capture": "captured",
+      "result_digest": "dd3487c02996463d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:16.336Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e351eef7d9576834",
+      "query": "wc -c /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/snapshots/2026-08-16.json /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/*.txt",
+      "result_capture": "captured",
+      "result_digest": "6278a126586e70d8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:46.750Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4bd9821f03ea399f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/questions-presented.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "d6c26e9564e9a752",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:47.360Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1b9381fe03e6d5b1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "c2631095f257f15e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:51.260Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ab391b0bb3da7118",
+      "query": "grep -n \"merits docket\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -5",
+      "result_capture": "captured",
+      "result_digest": "9656bbe20914dd48",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:59.299Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:59:59.574Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d2133a6a2c70cbda",
+      "query": "sed -n '225,300p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "2e6eb1c4fd749ce4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:00:05.230Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4a4fd46781589d76",
+      "query": "sed -n '300,330p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:00:11.809Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f81b0e222058770c",
+      "query": "awk 'NR>=246 && NR<=300' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "5a51bddfbff140b9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:00:16.461Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "35c8602ef0bf5ef4",
+      "query": "grep -n -E \"^[A-Z][A-Z .,'&-]{8,}$|ARGUMENT|REASONS|CONCLUSION|SUMMARY\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/petition.txt | head -40",
+      "result_capture": "captured",
+      "result_digest": "336f26bc04b22dcb",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:01:51.562Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f2e685ca368b9f23",
+      "query": "grep -n -E \"^[A-Z][A-Z .,'&-]{8,}$|ARGUMENT|REASONS|CONCLUSION|SUMMARY\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/brief-in-opposition.txt | head -40",
+      "result_capture": "captured",
+      "result_digest": "9fb1bc5163b1df92",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:01:52.293Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fcd9eb0d1d3a1ea5",
+      "query": "sed -n '249,330p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "22f65c5873b112cf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:02:00.358Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "295d4ac546b2b67b",
+      "query": "sed -n '572,660p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "0b42e0c243d3bd31",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:02:00.807Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "41afc7f6df65118b",
+      "query": "sed -n '1370,1470p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/brief-in-opposition.txt",
+      "result_capture": "captured",
+      "result_digest": "2456e2d50e032e44",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:02:08.773Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2180cb5293ce6bfe",
+      "query": "grep -n -i \"en banc\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/petition.txt | head -20; echo ---; sed -n '500,571p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278510/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "bdec23dfcf836df3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:02:16.178Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "676a580aaf94f726",
+      "query": "uv run fedcourts query --court scotus --era modern --disposition granted \"Video Privacy Protection Act consumer subscriber statutory interpretation circuit split\" 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "8777962d7a10737b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:03:19.779Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aa11048e39ad9bc0",
+      "query": "uv run fedcourts query --help 2>&1 | head -50",
+      "result_capture": "captured",
+      "result_digest": "90c7a176dc78abd6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:03:24.407Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4567aab101f21f4d",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_capture": "captured",
+      "result_digest": "a812209a88ab7738",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:04:18.377Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b3db9bf9497abc00",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278510\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T18:04:18Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73278510/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.45,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgme",
+      "result_capture": "captured",
+      "result_digest": "0c1b293f641cdafb",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:04:35.592Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2e6bc1d64b58cbac",
+      "query": "{\"content\": \"# Forecast: Salazar v. Paramount Global, dba 247Sports (No. 25-459) \\u2014 merits judgment\\n\\n**Judgment class: affirmed** (probability the judgment below is disturbed: 0.45).\\nThe Court will hold that a \\\"consumer\\\" under the Video Privacy Protection Act,\\n18 U.S.C. \\u00a7 2710(a)(1), must rent, purchase, or subscribe to *audiovisual*\\ngoods or services from a video tape service provider, and that Salazar's\\nsubscription to 247Sports' free online newsletter does not qualify \\u2014 ",
+      "result_capture": "captured",
+      "result_digest": "6065fac0a82ce67a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:04:55.526Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0028f21920c927c3",
+      "query": "{\"content\": \"# Rationale \\u2014 P(disturbed) 0.45, judgment: affirmed\\n\\n**Cell and mode.** Merits stage, `moment: grant` (evt-order-judgment), forward\\nmode \\u2014 the judgment does not exist yet (argument is set for October 14, 2026).\\nI worked from the provisioned snapshot (2026-08-16), the provisioned cert-stage\\ndocuments (`questions-presented.txt`, `petition.txt`, and\\n`brief-in-opposition.txt` \\u2014 whose text in fact concatenates the cert BIO with\\nParamount's June 23, 2026 merits respo",
+      "result_capture": "captured",
+      "result_digest": "e6c8c8684317d8f1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:05:29.281Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b7feb79d83ec3920",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot 2026-08-16, `event.yaml`,\\n`record/context.json`, and the three `record/documents/` texts), I consulted:\\n\\n- **Committed statpack** (`metrics/statpack.md`), \\\"The merits docket (granted\\n  cases)\\\" section \\u2014 pooled the per-Term disturbed rates for grant Terms\\n  2017\\u20132024 (359/515 \\u2248 69.7%) as the scored baseline.\\n- **`fedcourts query`** \\u2014 one attempted call\\n  (`uv run fedcourts query --court scotus --e",
+      "result_capture": "captured",
+      "result_digest": "45706e7f3118dbc7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:05:40.106Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1ed9736642b6c6ef",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278510\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md (merits docket section)\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"provisioned record/documents texts\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack merits table with per-Term disturbed rates and the excluded-count",
+      "result_capture": "captured",
+      "result_digest": "a4ede19c5069188a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:05:48.119Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4bea2031400f82c0",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_capture": "captured",
+      "result_digest": "ecc5d6ea8729ff36",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:05:53.834Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73278510",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

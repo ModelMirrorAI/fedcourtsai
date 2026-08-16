@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278555",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "Provisioned questions presented, petition, and cert-stage brief in opposition",
+    "Merits grant-Term base-rate table"
+  ],
+  "gaps": [
+    "CourtListener MCP search was unavailable because its daily rate limit was exhausted",
+    "Corpus citation queries did not return or emit transfer diagnostics"
+  ],
+  "notes": "The statpack supplied a valid merits anchor. The combined document artifact mislabeled post-grant merits advocacy as part of the brief in opposition, so moment-aware filtering was necessary."
+}

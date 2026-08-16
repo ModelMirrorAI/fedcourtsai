@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The ruling will govern compensation in private Natural Gas Act condemnations nationwide, affecting landowners, pipeline costs, and a mature circuit split.",
+  "big_case_score": 0.63,
+  "case_id": "scotus/73274853",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.34
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:16:50Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73274853/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.34,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:18:20.031042Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Section 717f(h)'s categorical delegation of federal eminent-domain power carries the Fifth Amendment measure of just compensation, so state compensation law cannot enlarge an award where Congress neither incorporated state law nor authorized the requested fees."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court will adopt a nationwide rule that federal Fifth Amendment compensation, rather than state substantive compensation law, governs private Natural Gas Act condemnations, while leaving Congress free to require greater compensation expressly."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

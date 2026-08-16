@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs, other than one web search for the Second Circuit's holding in "RiseandShine Corporation v PepsiCo" to confirm the nature of the 12-1 circuit split on trademark strength.

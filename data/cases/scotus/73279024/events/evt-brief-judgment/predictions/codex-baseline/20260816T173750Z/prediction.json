@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The case could set a nationally important boundary on final agency action and NEPA review when federal facilities seek environmental permits.",
+  "big_case_score": 0.7,
+  "case_id": "scotus/73279024",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.74
+    }
+  ],
+  "confidence": 0.68,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:35:58Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279024/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.74,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:38:26.659057Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that the Air Force's RCRA renewal application is not final agency action under Bennett because it initiates an iterative permitting process and any operative legal consequences flow from Guam EPA's later permit decision rather than from the application itself."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will adopt a narrow applicant-side finality rule for permit applications awaiting action by a separate regulator, leaving unresolved whether RCRA displaces NEPA and not broadly exempting federal hazardous-waste operations from NEPA."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

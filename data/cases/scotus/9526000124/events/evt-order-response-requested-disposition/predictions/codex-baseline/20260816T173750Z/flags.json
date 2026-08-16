@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The frozen context records amicus_briefs=6, but the provisioned snapshot contains 13 distinct docket entries beginning 'Brief amicus curiae' or 'Brief amici curiae.' The count appears to recognize singular 'amicus' entries while missing plural 'amici' entries, compromising the amicus-increment conditioning state."
+    }
+  ]
+}

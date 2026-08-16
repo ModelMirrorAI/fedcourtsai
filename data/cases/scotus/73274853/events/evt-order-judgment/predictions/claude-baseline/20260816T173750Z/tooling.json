@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73274853",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (citation lookup)",
+    "metrics/statpack.md (merits-docket section)",
+    "web search",
+    "web fetch"
+  ],
+  "helpful": [
+    "The provisioned snapshot carried the full docket through the merits calendar (grant, argument date, petitioners' merits brief), so no MCP docket retrieval was needed.",
+    "The statpack merits section's per-Term disturbed table with the excluded-count guard made the pooled baseline a five-minute computation with clear quotability rules."
+  ],
+  "gaps": [
+    "No free-text/semantic corpus search: `fedcourts query` is structured-filter only, so there is no way to pull doctrinally similar priors (e.g. federal-common-law borrowing cases) for a merits cell.",
+    "The citation filter's coverage is very thin (161 of ~590k SCOTUS rows), so known-case lookups mostly return empty.",
+    "No PDF text extraction for docket-linked filings beyond the provisioned cert documents: the SG's CVSG brief and the merits briefs are on the docket as URLs, but I had to rely on secondary press summaries for the SG's position. A document-fetch tool that extracts text from supremecourt.gov PDFs would have materially improved this forecast."
+  ],
+  "notes": "Forward merits cell at moment: grant. The decisive signal (SG's CVSG position) came from web search summaries rather than a primary source; see reasoning.md for the discount.",
+  "schema_version": "1.0"
+}

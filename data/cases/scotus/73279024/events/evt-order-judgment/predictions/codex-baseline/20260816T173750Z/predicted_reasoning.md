@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will reverse the Ninth Circuit, most likely by a 7-2 vote. Chief Justice Roberts and Justices Thomas, Alito, Kagan, Gorsuch, Kavanaugh, and Barrett will vote to disturb the judgment; Justices Sotomayor and Jackson will dissent. A DIG, equally divided affirmance, or other procedural exit is unlikely.
+
+The majority will resolve the case on the first question presented. It will hold that the Air Force's submission of a RCRA permit-renewal application to Guam EPA was not final agency action under the APA. The submission began an iterative permitting process controlled by a separate regulator; Guam EPA could require changes and retained authority to grant, condition, or deny the permit. The application therefore did not consummate the relevant decisionmaking process and did not itself determine rights or obligations. The majority will reject the Ninth Circuit's reliance on consequences contingent on Guam EPA's later action and will treat continuation of the existing permit as flowing from the governing renewal regime rather than as the kind of direct legal consequence Bennett requires.
+
+That holding will dispose of Prutehi Guahan's only claim. The Court will leave open whether RCRA's specialized environmental-review procedures displace NEPA for a federal permit applicant. Its rule will be limited to an applicant agency's submission to a distinct permitting authority and will preserve review after the permitting authority takes final action.
+
+The dissent will characterize the relevant action as the Air Force's completed choice to continue open-burn/open-detonation operations at Tarague Beach, memorialized in a self-binding application. It will emphasize that timely filing automatically extended the old permit and thus had an immediate legal effect. The principal disagreement will be over APA finality, not the environmental merits of the proposed operations.

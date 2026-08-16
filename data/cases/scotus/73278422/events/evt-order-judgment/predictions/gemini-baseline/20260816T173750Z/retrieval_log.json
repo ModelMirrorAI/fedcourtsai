@@ -1,0 +1,249 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "9da6d83524174d2d",
+      "query": "{\"strategic_intent\": \"I am starting to investigate the prediction task for SCOTUS docket 73278422.\", \"summary\": \"I am reading the prompt contract (`.github/prompts/predict.md`) and the agents file (`AGENTS.md`) to understand the prediction requirements and output formats for this task.\", \"title\": \"Prediction Task Setup\", \"wait_for_previous\": true}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:05.749Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:05.756Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:05.756Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c71e362625cca87b",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73278422\" --event \"evt-order-judgment\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:10.749Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6516e69c5bbfe990",
+      "query": "ls -la data/cases/scotus/73278422/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:12.813Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "12cb4061f4c95af0",
+      "query": "ls -la data/cases/scotus/73278422/events/evt-order-judgment/ && ls -la data/cases/scotus/73278422/record/ && cat data/cases/scotus/73278422/events/evt-order-judgment/event.yaml && cat data/cases/scotus/73278422/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:15.280Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "50a766922982e1a1",
+      "query": "ls -la data/cases/scotus/73278422/record/documents/ && ls -la data/cases/scotus/73278422/record/snapshots/ && cat data/cases/scotus/73278422/record/documents/documents.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:17.964Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "72b7cc2a735f6193",
+      "query": "cat data/cases/scotus/73278422/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:19.989Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "379dc90b6618b9e7",
+      "query": "cat metrics/statpack.md | grep -A 30 \"merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:22.887Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c33d604e7ab2ef41",
+      "query": "cat metrics/statpack.md | grep -A 50 \"merits docket\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:26.652Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7f0c8f041a57b3b4",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 -B 5 \"justice\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:31.934Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1fc080d97f2583cb",
+      "query": "cat schemas/prediction.schema.json | grep -A 10 \"VoteValue\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:33.867Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "23bf3483d6f21477",
+      "query": "cat schemas/prediction.schema.json | grep -A 10 \"WritingRole\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:36.192Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e63d3b4538717669",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 -B 5 \"input_snapshot\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:43.443Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "430771c34c599831",
+      "query": "cat schemas/prediction.schema.json | grep -A 10 \"Judgment\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:45.842Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fa8d48d2d88cfbfb",
+      "query": "mkdir -p data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:49.872Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5c45c76f9a33a84b",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73278422\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T18:50:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73278422/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.90,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"vote",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:56.428Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:09.939Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1b120259a567c40d",
+      "query": "{\"content\": \"P(disturbed) 0.90. The case involves an extension of *Bivens* recognized by the Ninth Circuit, concerning a prison gang fight resulting in a fractured coccyx. The Supreme Court has grown increasingly hostile to recognizing new *Bivens* contexts, as seen in recent decisions like *Egbert v. Boule* and *Ziglar v. Abbasi*. The Court often finds that any \\\"special factor\\\" counseling hesitation, including an alternative remedial structure, precludes extending *Bivens*. \\n\\nThe petitioner",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:14.897Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2370356fe1157f46",
+      "query": "{\"content\": \"The Court will reverse the judgment of the Ninth Circuit. The Court will hold that the respondent's suit presents a \\\"new context\\\" under *Bivens* and that special factors counsel hesitation in extending the judicially created damages remedy. The Court will heavily emphasize that Congress, not the courts, is better equipped to create a damages remedy, pointing to the existence of an alternative remedial scheme.\\n\\nExpect a 6-3 split along ideological lines. Justice Thomas or Justice",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:18.908Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d00bc72331927c87",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:21.624Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c57816e66bb2a9cf",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73278422\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [],\\n  \\\"helpful\\\": [\\\"statpack.md base rates\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"\\\"\\n}\", \"file_path\": \"data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:24.650Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:38.064Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a7db3ef1f0c31bdc",
+      "query": "{\"strategic_intent\": \"I am concluding the prediction task.\", \"summary\": \"I read the per-case inputs, including the baseline snapshot and the questions presented, which indicate this is a Bivens case from the 9th Circuit. Based on the Supreme Court's current hostility to extending Bivens causes of action, I predicted a high probability of reversal. I constructed the required prediction.json, predicting a 6-3 conservative majority reversing the lower court, along with the two reasoning markdown fi",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:49:43.178Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73278422",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

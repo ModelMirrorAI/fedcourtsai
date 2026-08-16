@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279024",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-judgment",
+      "message": "This event is the grant-moment merits forecast opened on 2026-03-09, but the provisioned 2026-08-16 snapshot contains later merits filings and the file named brief-in-opposition.txt concatenates the respondent's 2026-07-20 merits brief after the cert-stage opposition. A whole-file heading search inadvertently surfaced scattered later-brief headings and snippets; I disregarded them. The forecast uses the grant-moment petition, cert-stage opposition, questions presented, general precedent, and prior-Term base rate."
+    }
+  ]
+}

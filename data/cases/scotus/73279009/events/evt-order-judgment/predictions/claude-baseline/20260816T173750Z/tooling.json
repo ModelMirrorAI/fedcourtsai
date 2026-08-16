@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73279009",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "web search",
+    "provisioned documents (QP, petition, BIO)"
+  ],
+  "helpful": [
+    "The statpack merits section's per-Term table with the excluded-count guard made the pooled baseline a two-minute computation",
+    "Provisioned QP/petition/BIO text meant the cert-stage record needed no fetching",
+    "documents.json's truncation/empty_text markers say exactly how much to trust each text"
+  ],
+  "gaps": [
+    "A cases-citing-authority search (rather than own-cite matching) would make the corpus useful for doctrine-line priors; the citation filter returned nothing for Bruen/Heller at a cost of 1329 ranged GETs / ~348 MB",
+    "A consolidated-docket pointer in the record would help: this docket froze at the grant and all future activity lands on the lead case No. 25-238, which the snapshot only reveals in free text"
+  ],
+  "notes": "Grant-moment merits cell; merits briefs not yet filed, so the forecast is from the cert-stage record plus public context, as designed.",
+  "schema_version": "1.0"
+}

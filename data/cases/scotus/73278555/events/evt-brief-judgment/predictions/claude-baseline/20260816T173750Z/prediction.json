@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Sets the pleading standard for the ERISA excessive-fee/underperformance litigation wave against 401(k) fiduciaries \u2014 trillions in defined-contribution assets and hundreds of pending suits turn on it, with the SG, DOL, Chamber, ICI, and NAM all filing; high stakes for the benefits industry though modest general-public salience.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73278555",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.66
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:07:34Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73278555/record/snapshots/2026-08-16.json",
+  "judgment": "vacated",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.66,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:10:37.204449Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will rest the judgment on ERISA section 1104(a)(1)(B)'s context-specific duty of prudence as construed in Fifth Third Bancorp v. Dudenhoeffer and Hughes v. Northwestern: a 'meaningful benchmark' may not be treated as a categorical pleading prerequisite for underperformance-based imprudence claims. Plausibility under Twombly and Iqbal must be assessed holistically on the totality of the circumstantial allegations of flawed process, with comparator allegations treated as relevant but not indispensable evidence, and the Ninth Circuit erred by screening the complaint for a qualifying benchmark rather than weighing petitioners' allegations as a whole with due regard to the range of reasonable judgments a fiduciary may make."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be narrow rather than categorical: it will reject the meaningful-benchmark requirement only insofar as it operates as an across-the-board pleading element for underperformance claims, will decline to announce any affirmative pleading formula for ERISA prudence claims generally, will expressly preserve dismissal where a complaint's only imprudence theory rests on apples-to-oranges comparisons, and will remand for the Ninth Circuit to apply the holistic standard to this complaint rather than deciding itself whether petitioners stated a claim."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "31da09bdad2137b7",
+      "query": "const r = await tools.exec_command({cmd:\"if [ -f .claude/agents/stats-reviewer.md ]; then sed -n '1,240p' .claude/agents/stats-reviewer.md; fi\\nfind data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z -maxdepth 1 -type f -print -exec sh -c 'echo \\\"### $1\\\"; sed -n \\\"1,260p\\\" \\\"$1\\\"' sh {} \\\\;\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "d4d9bcd300cfb5db",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:36:56.302Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "adf2248f9bf541b9",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,280p' .github/prompts/predict.md\\nrg -n \\\"359|515|557|69\\\\.7|disturbed|brief-judgment|judgment-disturbed|predicted_disposition|granted\\\" metrics/statpack.md docs/outcome-decomposition.md docs/predicted-artifacts.md src/fedcourtsai tests | head -n 260\\nfind data/cases/scotus/73279024 -maxdepth 4 -type f | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "9e75d2b7851e607c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:36:59.850Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "dbc23442fa2bf5cd",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '220,275p' metrics/statpack.md\\nsed -n '280,520p' .github/prompts/predict.md\\nprintf '%s\\\\n' '### event' && sed -n '1,220p' data/cases/scotus/73279024/events/evt-brief-judgment/event.yaml\\nprintf '%s\\\\n' '### context' && sed -n '1,220p' data/cases/scotus/73279024/record/context.json\\nprintf '%s\\\\n' '### schema relevant' && rg -n -C 4 '\\\"granted\\\"|\\\"probability\\\"|\\\"predicted_disposition\\\"|\\\"judgment\\\"|\\\"votes\\\"|\\\"confidence\\\"|\\\"claims\\\"|judgment-dis",
+      "result_capture": "captured",
+      "result_digest": "6073e79f21346694",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:37:05.600Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "65976a11868ec23e",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '320,410p' src/fedcourtsai/pipeline/base_rates.py\\nrg -n -C 5 \\\"merits|grant_term|judgment-disturbed|semantic-v1\\\" docs/decision-model.md docs/outcome-decomposition.md metrics/README.md src/fedcourtsai/pipeline/claims.py src/fedcourtsai/pipeline/semantic.py | head -n 420\\nsed -n '520,760p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "998e7514c6735de7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:37:15.714Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "ead34f07f256f056",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n \\\"class Merits|cert_order_excluded|Parsed slice|granted case\\\\(s\\\\)|merits.*granted\\\" src/fedcourtsai | head -n 240\\nrg -n -C 8 \\\"cert_order_excluded\\\" src/fedcourtsai tests | head -n 360\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "7f6c683b35a567e7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:37:37.410Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "bf29bcebc0b103a4",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:37:44.949Z",
+      "tool": "send_message"
+    },
+    {
+      "params_digest": "b56303ad15fea54e",
+      "query": "const r = await tools.exec_command({cmd:\"nl -ba data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z/reasoning.md | sed -n '1,18p'\\nnl -ba data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z/prediction.json | sed -n '1,80p'\\nrg -n \\\"0\\\\.76|0\\\\.74|redistribut|relist|ten grant Terms|eight\\\" data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z\",\"workdir\":\"/home/runner",
+      "result_capture": "captured",
+      "result_digest": "fc30fbfe59d987db",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:38:05.271Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "6d27871a43150fed",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:38:09.063Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/73279024",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

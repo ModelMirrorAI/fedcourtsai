@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The VPPA rule will affect nationwide digital-media, advertising, and privacy litigation, as reflected by the broad industry amicus participation.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/73278510",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.66
+    }
+  ],
+  "confidence": 0.63,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:29:01Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73278510/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.66,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:32:15.020189Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that the unmodified phrase 'goods or services from a video tape service provider' covers any goods or services supplied by an entity that meets the statutory provider definition; the express audiovisual limitation elsewhere in the VPPA confirms that courts may not insert one into the consumer definition."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court will adopt a categorical but element-specific rule that consumer status does not require an audiovisual transaction, while leaving for remand whether Paramount is a covered provider, whether Salazar was a subscriber, and whether the disclosed data was protected personally identifiable information."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279024",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-judgment",
+      "message": "The provisioned brief-in-opposition.txt concatenates the January cert opposition with the July respondent merits brief and is marked truncated; extraction stops after merits-brief page 37 before the full final-agency-action argument. No petitioner merits-brief text was provisioned. The prediction used the available respondent introduction, summary, partial argument, and earlier cert opposition, and records the resulting limitation in reasoning.md."
+    }
+  ]
+}

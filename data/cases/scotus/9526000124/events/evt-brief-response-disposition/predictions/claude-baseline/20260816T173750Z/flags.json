@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The amicus counter (_AMICUS_RE in pipeline/interim_signals.py) matches 'amicus curiae' only, so the seven 'Brief amici curiae ...' entries on this docket are not counted: the frozen amicus_briefs=6 sits against 13 amicus filings a human would count. The counter's docstring registers one-entry-many-filers as a deliberate undercount, but the singular/plural miss looks unintentional and materially understates the stakes signal on multi-filer dockets like this one. My amicus-increment claim is stated against the counter's own semantics, so the cell is consistent either way."
+    }
+  ]
+}

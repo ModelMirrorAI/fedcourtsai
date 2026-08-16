@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A significant administrative-law case \u2014 APA finality and NEPA's reach over federal facilities' permitting, with military-operations stakes and an indigenous-community challenge from Guam \u2014 but doctrinal rather than headline-grabbing; closely watched in environmental and admin-law circles, not broadly salient.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73279024",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:05:54Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279024/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:08:04.255165Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests reversal on APA finality, not on NEPA displacement: applying Bennett v. Spear's two conditions read through Franklin v. Massachusetts and Dalton v. Specter, it holds the Air Force's submission of a RCRA permit-renewal application to Guam EPA is not 'final agency action' under 5 U.S.C. 704 \u2014 the application consummates no decisionmaking process (it initiates a separate regulator's iterative review) and itself determines no rights and fixes no legal consequences, because any operative effect, including continued operations under the automatically extended permit, flows from Guam EPA's regulations and eventual permit decision rather than from the act of applying."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states its ground as a categorical rule reaching well beyond this record \u2014 a federal agency's submission of a permit application to a separate permitting authority is not, by itself, final agency action reviewable under the APA \u2014 framed to govern agency-as-applicant permitting generally, not confined to RCRA, to open-burn/open-detonation operations at Tarague Beach, or to the Guam EPA regulation that automatically extends the prior permit's term."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

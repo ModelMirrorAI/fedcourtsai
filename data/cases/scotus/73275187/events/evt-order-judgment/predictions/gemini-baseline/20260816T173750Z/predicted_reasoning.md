@@ -1,0 +1,6 @@
+Expect the Court to **vacate** the judgment of the Alaska Supreme Court and remand the case.
+
+**Judgment Class**: Vacated and remanded.
+**Vote Lineup**: Unanimous (9-0), with all Justices in the majority or concurring in the judgment.
+
+The Court will likely hold that the Excessive Fines Clause proportionality inquiry requires an individualized assessment of the specific defendant's wrongdoing, rather than evaluating the underlying offense purely in the abstract. Extending the principles of *United States v. Bajakajian* and *Timbs v. Indiana*, the majority will rule that determining whether a forfeiture is grossly disproportionate to the gravity of a defendant's offense necessitates considering the actual facts of the violation and the defendant's specific culpability. Consequently, they will reject the "stratospheric level of abstraction" approach taken by the Alaska Supreme Court and remand for the lower court to apply the correct standard to the forfeiture of the petitioner's airplane. I do not expect a procedural exit such as a DIG.

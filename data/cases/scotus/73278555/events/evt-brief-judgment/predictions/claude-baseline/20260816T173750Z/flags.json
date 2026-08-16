@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73278555",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-judgment",
+      "message": "The provisioned 'brief-in-opposition' document bundles two distinct filings — the Dec 9, 2025 brief in opposition and Intel's Jul 2, 2026 merits response brief — under one document kind, with both source URLs concatenated in documents.json's url field (pipe-separated) and truncated: true across the bundle. The extra merits-brief text was valuable for this briefed-moment cell, but the kind label understates what the file holds, and the petitioners' Apr 23, 2026 merits brief has no counterpart document; a merits-stage document kind would make the provisioning symmetric.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

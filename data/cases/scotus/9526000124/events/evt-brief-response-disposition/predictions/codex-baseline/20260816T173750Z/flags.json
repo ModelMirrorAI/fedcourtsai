@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The frozen context records 6 amicus briefs, but the provisioned snapshot contains 13 amicus filing entries: 6 use 'Brief amicus curiae' and 7 use 'Brief amici curiae.' This appears to be a singular/plural parsing gap. The prediction uses the harness-owned frozen count of 6 for the amicus-increment claim.",
+      "event_id": "evt-brief-response-disposition"
+    }
+  ]
+}

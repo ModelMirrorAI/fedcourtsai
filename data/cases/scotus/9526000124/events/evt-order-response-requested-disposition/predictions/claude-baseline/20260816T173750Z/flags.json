@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Frozen context reports amicus_briefs: 6, but the same-day snapshot shows 13 amicus filings on the docket. The 6 matches exactly the entries reading 'Brief amicus curiae' (singular); the seven 'Brief amici curiae' (plural) entries appear uncounted, so the amicus escalation signal systematically undercounts group briefs. My amicus-increment probability assumes the resolver counts the same way as the freezer; if resolution counts all amicus entries the claim resolves true immediately."
+    }
+  ]
+}

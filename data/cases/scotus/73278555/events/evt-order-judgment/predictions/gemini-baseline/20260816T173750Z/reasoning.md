@@ -1,0 +1,10 @@
+The prediction anchors on the base rate for merits judgments. Following the instruction for merits cases, I pooled the `disturbed` judgments over the `parsed` judgments for the ten grant Terms strictly preceding this case's OT2025 grant Term (from OT2017 to OT2024, as the pack holds data starting OT2017).
+Parsed sum: 73 + 55 + 72 + 65 + 69 + 54 + 75 + 52 = 515.
+Disturbed sum: 50 + 34 + 49 + 46 + 57 + 42 + 50 + 31 = 359.
+Pooled disturbed rate = 359 / 515 = 69.7%.
+
+I adjust this base probability upwards to 0.85. The petition challenges the Ninth Circuit's imposition of a "meaningful benchmark" categorical pleading requirement for ERISA duty of prudence claims. The Supreme Court has recently and unanimously rejected similar rigid, categorical pleading rules in ERISA cases in favor of a context-specific inquiry (e.g., *Hughes v. Northwestern University* (2022) and *Fifth Third Bancorp v. Dudenhoeffer* (2014)). The Ninth Circuit's decision appears highly vulnerable under these precedents. Furthermore, the docket shows that the United States Solicitor General sought to participate in oral argument as amicus curiae and requested divided argument, which strongly suggests the government's active involvement, typically to oppose restrictive pleading standards under ERISA, further increasing the likelihood of a reversal or vacatur. 
+
+I predict the Court will vacate the judgment below and remand. A vacatur is the standard remedy when the Court corrects a lower court's legal standard and remands for application of the correct standard in the first instance.
+
+Note: The CourtListener MCP tool was unavailable due to rate limiting (HTTP 429), so I could not retrieve the text of the Ninth Circuit's opinion or the merits briefs. I relied on the provisioned petition to understand the decision below and the questions presented.

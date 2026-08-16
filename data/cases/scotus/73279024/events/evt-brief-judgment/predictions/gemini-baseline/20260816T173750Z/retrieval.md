@@ -1,0 +1,1 @@
+Google web search used to identify the lower court case details for "Prutehi Guahan v. Department of the Air Force" (Ninth Circuit 22-16613), which confirmed the Ninth Circuit ruled against the federal government on the "final agency action" and NEPA questions.
