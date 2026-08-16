@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281056",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (merits docket section)",
+    "provisioned record/documents (petition, BIOs, QP text)"
+  ],
+  "helpful": [
+    "The provisioned petition and BIO full texts were the single most useful input for a grant-moment merits cell — the stay-history and circuit-split framing, and the BIO's standing/vehicle objections, came straight from them with no retrieval needed.",
+    "The statpack merits section's per-Term disturbed table with the excluded column made the pooled baseline a two-minute computation with clear quotability rules."
+  ],
+  "gaps": [
+    "fedcourts query --citation cost 1329 GETs (~348 MB) to return zero rows; a cheap pre-check (or a note in --help that citation coverage is 161/590k) before the ranged scan would save most of that egress.",
+    "A merits cell would benefit from the companion/linked dockets' state (here 25-1019 and 25-1022 are VIDED throughout) being provisioned or at least identified in context.json — whether the companion petition was also granted bears on the scope of the judgment being forecast."
+  ],
+  "notes": "Forward merits cell at moment: grant; merits briefs not yet filed, so the provisioned cert-stage record plus the statpack carried the whole forecast. One background-slow corpus query (~2 min) was the only retrieval."
+}

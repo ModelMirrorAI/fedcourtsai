@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500263",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "statpack (metrics/statpack.md)",
+    "courtlistener-mcp search",
+    "courtlistener-mcp read_document"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates made the anchor a single pooling exercise.",
+    "Provisioned petition text and QP section meant no fetching was needed for the core read."
+  ],
+  "gaps": [
+    "The text of the decision below: the CourtListener opinion record's body was a different case, and no provisioned document carries the CA4 opinion. A provisioned lower-court-opinion text (or a per-case pointer known to be text-verified) would materially improve vehicle assessment.",
+    "distribution_count conflates motion distributions with petition distributions; a per-entry distribution kind (or a petition-only count) would make the relist-increment baseline state unambiguous."
+  ],
+  "notes": "Retrieval used 2 of ~25 budgeted calls; the case posture (pro se, waived response) dominated the number, so deeper retrieval had little expected value."
+}

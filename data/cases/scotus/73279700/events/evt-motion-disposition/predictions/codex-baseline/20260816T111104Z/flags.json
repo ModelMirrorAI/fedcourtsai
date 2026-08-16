@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The forward snapshot is dated 2026-08-16 but contains only the 2025-11-18 application entry and no later proceedings. Because interim applications ordinarily resolve promptly, the record may be incomplete or stale. I treated the silence as a data-quality uncertainty, did not infer continued pendency or a disposition from it, and did not query the current docket or outcome."
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The case governs the judicial forum for constitutional challenges affecting veterans nationwide, but presents a specialized jurisdictional question rather than a broadly salient merits controversy.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73279865",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.4
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:55:37Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73279865/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.4,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:57:57.144835Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The amended text of 38 U.S.C. \u00a7 511(a), read with the constitutional-review provisions in 38 U.S.C. \u00a7\u00a7 7261 and 7292, channels a constitutional question necessary to an individual veteran's benefits determination through the Board, Veterans Court, and Federal Circuit rather than a district court; Johnson v. Robison addressed materially different pre-VJRA text and a scheme lacking that judicial route."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will categorically cover facial and as-applied attacks on a veterans-benefits statute when resolving the constitutional question is necessary to determine an individual claimant's entitlement or benefit amount, while reserving wholly collateral structural challenges to the VA's authority."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

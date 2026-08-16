@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp read_document"
+  ],
+  "helpful": [
+    "The sal-v3 per-Term band table with bracketed reached rates answered the arrival-moment anchor directly, version match included.",
+    "Provisioned petition.txt and questions-presented.txt made the vehicle assessment possible without any document fetching."
+  ],
+  "gaps": [
+    "A corpus filter for petitioner representation status (pro se vs counseled) within the paid segment would sharpen exactly this cell's largest adjustment, which currently rests on general knowledge rather than a published cut.",
+    "The citation filter's sparse coverage (161 of ~590k SCOTUS rows) made precedent-similarity retrieval a no-op; a QP-text similarity query would have been the natural tool here.",
+    "The single fedcourts query cost 1,329 ranged GETs / ~348 MB and ran past 120 s on a cold service cache - fine once, but it discourages the multi-query retrieval the prompt envisions."
+  ],
+  "notes": "CourtListener's opinion record for the CA5 decision below (opinion 10705997) carries mismatched text from an unrelated W.D. Wash. case, so the petition's claimed panel dissent could not be independently verified."
+}

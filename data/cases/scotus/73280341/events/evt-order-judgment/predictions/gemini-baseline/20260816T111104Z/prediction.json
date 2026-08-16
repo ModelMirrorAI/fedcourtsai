@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "This case addresses the highly salient culture-war issue of transgender minors and parental rights, touching on both fundamental liberty interests and Article III standing doctrine.",
+  "big_case_score": 0.9,
+  "case_id": "scotus/73280341",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:11:04Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-16",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T12:29:32.277704Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court will hold that parents possess an Article III injury-in-fact when a state law deliberately bypasses their parental consent rights regarding their child's medical or gender-affirming care, because it inflicts a concrete and particularized interference with their fundamental right to direct their child's upbringing."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court will adopt a broad categorical rule that the state's deliberate displacement of parental decision-making authority over a minor child's medical and gender transition care inherently constitutes a cognizable Article III injury to the parents, regardless of whether the state has yet administered specific treatments to the child."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "none"
+    }
+  ]
+}

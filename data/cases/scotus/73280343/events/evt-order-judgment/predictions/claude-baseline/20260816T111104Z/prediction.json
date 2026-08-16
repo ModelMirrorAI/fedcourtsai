@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A clean statutory circuit split with real stakes for terminated asylees and their derivative spouses and children, sharpened by the current wave of asylum terminations, but technical adjustment-of-status doctrine rather than a headline constitutional or structural question.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73280343",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.74
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:17:28Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73280343/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.74,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:20:17.778741Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that the phrase 'any alien granted asylum' in 8 U.S.C. \u00a7 1159(b)'s prefatory clause denotes the completed past event of an asylum grant, not a continuing present status, adopting the Fifth Circuit's Siwe reading and rejecting the 'status signals a present condition' inference of Cela and the Second Circuit. The holding rests on intra-section contrast: Congress wrote express continuing-status requirements three times in \u00a7 1159 \u2014 \u00a7 1159(a)(1)(A) ('has not been terminated'), (b)(3) ('continues to be a refugee'), and (b)(5) (admissible 'at the time of examination') \u2014 so its omission of any continuing-asylum requirement from (b)'s prefatory clause is treated as deliberate, with \u00a7 1159(b)(2)'s 'after being granted asylum' confirming the past-event usage. The judgment rests on text and structure, not on the immigration lenity canon and not on deference to the DOJ regulation."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a categorical rule rather than a fact-bound one: every noncitizen once granted asylum remains statutorily eligible for \u00a7 1159(b) adjustment regardless of why or when the asylum was later terminated \u2014 criminal-conviction terminations like petitioners' included \u2014 with the safeguard against undeserving applicants located in \u00a7 1159(b)(3) and (b)(5)'s express criteria and the Attorney General's retained case-by-case discretion to deny adjustment, not in a threshold eligibility bar. The opinion does not confine the holding to no-fault terminations, to derivative asylees, or to these petitioners."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

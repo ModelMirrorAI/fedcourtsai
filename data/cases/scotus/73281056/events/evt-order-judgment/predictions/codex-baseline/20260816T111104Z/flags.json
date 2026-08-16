@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281056",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "documents.json marks the concatenated brief-in-opposition text as truncated. The Mi Familia Vota/Voto Latino filing ends mid-word on body page 4, before its merits sections; two other complete joined opposition briefs cover both questions, so the prediction was completed with reduced confidence.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

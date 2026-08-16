@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts query --include-applications surfaced recent resolved substantive applications whose escalation-signal columns made the no-signal-then-denied pattern easy to verify",
+    "The statpack interim section's explicit pool arithmetic (per-Term resolved counts plus the stated floor) made the no-baseline determination mechanical",
+    "CourtListener docket search established the applicant's pro se litigation history cheaply"
+  ],
+  "gaps": [
+    "No way to filter corpus application priors by applicant representation status or respondent type (court-as-respondent vs. adverse party), which is the strongest signal on this cell",
+    "The snapshot carries no last-polled timestamp visible to the cell, so judging staleness requires inference from the disposition-timing pattern rather than a recorded fact",
+    "The interim section publishes no time-to-disposition distribution; one would sharpen both staleness detection and the unscored timing forecast"
+  ],
+  "notes": "Interim arrival cell with no published baseline (strictly-prior pool 47 < 50 floor); anchored on the record and corpus priors alone."
+}

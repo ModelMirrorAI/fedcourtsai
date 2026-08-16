@@ -1,0 +1,249 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "dec997d558e61be1",
+      "query": "{\"strategic_intent\": \"Read instructions from .github/prompts/predict.md and AGENTS.md to understand the prediction task.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:19.474Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:23.028Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:23.028Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0c2c5f235be71176",
+      "query": "uv run fedcourts paths --court scotus --docket 73500263 --event evt-petition-disposition --role predictor --predictor gemini-baseline --run-id 20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:39.485Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2fc0237d17bc5ff3",
+      "query": "uv run fedcourts paths --court scotus --docket 73500263 --event evt-petition-disposition --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:43.770Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "192099e5c34b3c36",
+      "query": "ls -laR data/cases/scotus/73500263/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:46.643Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0db8511296af969f",
+      "query": "{\"strategic_intent\": \"Read the case inputs to make the prediction\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:49.907Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6894030b6d82c793",
+      "query": "cat data/cases/scotus/73500263/events/evt-petition-disposition/event.yaml data/cases/scotus/73500263/record/context.json data/cases/scotus/73500263/record/documents/documents.json data/cases/scotus/73500263/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:53.836Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e2ec11612641bc2",
+      "query": "cat data/cases/scotus/73500263/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:57.149Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:05.144Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b952e099e607e4da",
+      "query": "uv run fedcourts query --court scotus --topic \"ERISA\" --decided-before \"2026-08-16\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:19.690Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:28.082Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "45560087ae1fedf1",
+      "query": "grep -C 5 \"David Gasper\" data/cases/scotus/73500263/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:35.933Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:42.511Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "909d56a73bb687f2",
+      "query": "cat schemas/prediction.schema.json | grep -i required -A 10",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:48.343Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:51.979Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0da33841e531a43",
+      "query": "mkdir -p data/cases/scotus/73500263/events/evt-petition-disposition/predictions/gemini-baseline/20260816T111104Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:55.466Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "63c77be853bc7e98",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500263\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"claims\\\": [\\n    {\\n      \\\"claim_id\\\": \\\"disposition\\\",\\n    ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:02.597Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6321087ce4f95f3f",
+      "query": "{\"content\": \"Distributed once so far; expect no further relists before a decision on the petition. The petitioner is proceeding pro se and the respondents have waived their right to respond, indicating they do not view the petition as presenting a substantial risk of a grant. No CVSG is expected, as there is no federal party or compelling federal interest implicated in this private ERISA/QDRO dispute. Should the Court grant the petition, a summary disposition (such as a GVR) is unlikely given th",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:06.157Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e2547edd7c2ffe97",
+      "query": "{\"content\": \"P(grant) = 0.01. The snapshot shows the petition is proceeding to its first conference (the September 2026 long conference). Although the `record/context.json` notes an `elevated` salience band (base rate for a paid petition reaching this band in the prior Term is ~20%), this is heavily outweighed by several negative case-specific factors. Specifically, the petitioner is proceeding pro se, and the respondents have waived their right to respond. A waiver is a strong signal that the r",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:09.567Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d647a9b962b2de5d",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`.\", \"file_path\": \"data/cases/scotus/73500263/events/evt-petition-disposition/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:12.449Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e26e7d08ea948d0f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500263\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"statpack\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": null\\n}\", \"file_path\": \"data/cases/scotus/73500263/events/evt-petition-disposition/predictions/gemini-baseline/20260816T111104Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:15.882Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:39.658Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddc5e55ba4eee1f9",
+      "query": "{\"strategic_intent\": \"Complete the task.\", \"summary\": \"I read the prediction inputs and produced the prediction files (prediction.json, reasoning.md, predicted_reasoning.md, retrieval.md, tooling.json) for the specified SCOTUS case and event. Data validation passed successfully.\", \"title\": \"Prediction completed\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:44.750Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500263",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

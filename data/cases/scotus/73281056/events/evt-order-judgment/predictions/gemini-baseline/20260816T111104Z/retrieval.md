@@ -1,0 +1,4 @@
+- `cat metrics/statpack.md` to read the merits docket baseline rates.
+- CourtListener MCP `search` tool attempted but failed with HTTP 429 Rate Limit Exceeded.
+- Read provisioned documents (`questions-presented.txt`, `petition.txt`, `documents.json`).
+- Read provisioned snapshot (`2026-08-16.json`) and `context.json`.

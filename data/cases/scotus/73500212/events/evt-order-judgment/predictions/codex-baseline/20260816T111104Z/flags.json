@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500212",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "No provisioned record directory was present: the snapshot, context, document manifest, questions presented, petition, and brief in opposition were unavailable. The prediction was completed from the event definition, committed merits base rate, and pre-decision general context; this case's live docket was not queried.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

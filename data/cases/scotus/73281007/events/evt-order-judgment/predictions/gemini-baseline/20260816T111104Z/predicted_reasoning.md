@@ -1,0 +1,3 @@
+I expect the Court to reverse the judgment below. The majority will likely find that the Department of Labor either exceeded its statutory authority or acted arbitrarily and capriciously in its enforcement action against Sun Valley Orchards. 
+
+The holding will likely be a narrow one, interpreting the specific regulatory text governing the H-2A visa program penalty assessments rather than establishing a broad constitutional invalidation of agency power. Expect a 6-3 split, with the conservative wing in the majority and Justices Sotomayor, Kagan, and Jackson dissenting. There is a small possibility of a dismissal as improvidently granted (DIG) or a remand for further factual development, but a straightforward reversal on statutory grounds is the most probable route.

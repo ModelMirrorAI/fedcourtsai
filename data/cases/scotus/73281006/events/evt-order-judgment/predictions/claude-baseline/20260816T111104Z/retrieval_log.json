@@ -1,0 +1,348 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:19:51.511Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "102ce95836430b38",
+      "query": "ls -la /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/ 2>/dev/null && find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006 -type f | head -50",
+      "result_capture": "captured",
+      "result_digest": "4c5e351daf54d6fa",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:19:53.545Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c3597e9790783d96",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/events/evt-order-judgment/event.yaml /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/context.json /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/documents/documents.json",
+      "result_capture": "captured",
+      "result_digest": "6212564524ba49f4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:01.826Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:02.129Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "04bb21b785554147",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/snapshots/2026-08-16.json'))\ndef walk(o, depth=0):\n    if isinstance(o, dict):\n        for k,v in o.items():\n            if isinstance(v,(dict,list)):\n                print('  '*depth+k+':')\n                walk(v,depth+1)\n            else:\n                print('  '*depth+f'{k}: {str(v)[:300]}')\n    elif isinstance(o, list):\n        print('  '*depth+f'[{len(o)} items]')\nwalk(",
+      "result_capture": "captured",
+      "result_digest": "a5cadf751f7f3844",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:16.506Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8822091774b9cca9",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/snapshots/2026-08-16.json'))\nfor e in d['ProceedingsandOrder']:\n    print(e.get('Date',''), '|', e.get('Text','')[:250])\nprint('---PETITIONER---')\nprint(json.dumps(d['Petitioner'], indent=1)[:800])\nprint('---RESPONDENT---')\nprint(json.dumps(d['Respondent'], indent=1)[:800])\n\"",
+      "result_capture": "captured",
+      "result_digest": "3a22d0126253e3fb",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:22.100Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cd64788213d28aab",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/documents/brief-in-opposition.txt; head -c 6000 /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/documents/brief-in-opposition.txt",
+      "result_capture": "captured",
+      "result_digest": "5176ac19591c00fa",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:34.570Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "04f8d77003f8f241",
+      "query": "grep -n \"merits\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head; grep -n \"The merits docket\" -A 40 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_capture": "captured",
+      "result_digest": "f137b6ffe6e64449",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:35.714Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f5a3d72bd3f07f11",
+      "query": "sed -n '248,262p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "f19509ae498b52e4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:48.106Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "432a353063a95e10",
+      "query": "sed -n '120,760p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/documents/brief-in-opposition.txt | head -c 9000",
+      "result_capture": "captured",
+      "result_digest": "0451666a31d236e4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:49.013Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1f5704370cafdb2a",
+      "query": "sed -n '238,275p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "7c26085084b79a88",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:20:56.088Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "49006d82bdb3fdca",
+      "query": "awk 'NR>300' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/record/documents/brief-in-opposition.txt | head -c 10000",
+      "result_capture": "captured",
+      "result_digest": "6656d3cd8a1c8a28",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:21:43.957Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dc273ad8fb46d377",
+      "query": "select:WebFetch,mcp__courtlistener__search",
+      "result_capture": "captured",
+      "result_digest": "8e03b0e3ac585caf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:21:52.013Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "fb7903190eeaeb6c",
+      "query": "Quote the question(s) presented in this Supreme Court QP document verbatim, including any limitation noted in the grant (e.g. \"limited to Question 1\").",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:21:56.962Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "4c0b4e849c933db6",
+      "query": "Grand \"University Heights\"",
+      "result_capture": "captured",
+      "result_digest": "cb5c7fd825db134e",
+      "retrieved_doc_date": "2025-11-13",
+      "timestamp": "2026-08-16T11:21:58.323Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "309a5b2d6bf9fdc2",
+      "query": "select:mcp__courtlistener__read_document",
+      "result_capture": "captured",
+      "result_digest": "8c64cb2f9a85c219",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:22:05.908Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "333d6ed8c1e1c4ee",
+      "query": "echo n/a",
+      "result_capture": "captured",
+      "result_digest": "fc1da59e80561a46",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:22:09.550Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "01892fffad260433",
+      "query": "{\"chunk_index\": 0, \"chunk_size\": 8000, \"opinion_id\": 10735939}",
+      "result_capture": "captured",
+      "result_digest": "6e46b040f8317cf0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:22:16.414Z",
+      "tool": "mcp__courtlistener__read_document"
+    },
+    {
+      "params_digest": "e0c4759d990c45ad",
+      "query": "select:mcp__courtlistener__get_endpoint_item",
+      "result_capture": "captured",
+      "result_digest": "50e473a4cbff94c4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:22:22.846Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "096ec4a922a8a683",
+      "query": "{\"endpoint_id\": \"clusters\", \"fields\": [\"id\", \"case_name\", \"date_filed\", \"sub_opinions\", \"judges\", \"precedential_status\"], \"item_id\": 10735939}",
+      "result_capture": "captured",
+      "result_digest": "eaa2846bc3741e73",
+      "retrieved_doc_date": "2025-11-13",
+      "timestamp": "2026-08-16T11:22:28.033Z",
+      "tool": "mcp__courtlistener__get_endpoint_item"
+    },
+    {
+      "params_digest": "f212b9b49b71d05c",
+      "query": "{\"chunk_index\": [0, 1, 2], \"chunk_size\": 9000, \"opinion_id\": 11202524}",
+      "result_capture": "captured",
+      "result_digest": "8b2b3400df7c7ad8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:22:33.948Z",
+      "tool": "mcp__courtlistener__read_document"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_capture": "captured",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:20.360Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d21f589c106eaa19",
+      "query": "uv run fedcourts query --court scotus --era roberts \"religious land use zoning ripeness finality Williamson County house of worship\" 2>&1 | head -50",
+      "result_capture": "captured",
+      "result_digest": "cdfb245fa0133449",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:21.607Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fcdadd1ba999fda2",
+      "query": "uv run fedcourts query --help 2>&1 | sed -e 's/\\x1b\\[[0-9;]*m//g' | head -40",
+      "result_capture": "captured",
+      "result_digest": "82bdacd6cfb1a5ea",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:28.135Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a5d559d5eac66512",
+      "query": "Supreme Court cert granted \"Grand v. City of University Heights\" question presented",
+      "result_capture": "captured",
+      "result_digest": "bdbb111c2b252697",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:28.151Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "915258098257ab82",
+      "query": "Quote the question presented verbatim for this case, and list any noted proceedings (grant date, argument date if scheduled).",
+      "result_capture": "captured",
+      "result_digest": "e1b307b46a9e4a86",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:43.145Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "c363aec41314415a",
+      "query": "uv run fedcourts query --court scotus --citation \"588 U.S. 180\" 2>&1 | sed -e 's/\\x1b\\[[0-9;]*m//g' | head -20",
+      "result_capture": "captured",
+      "result_digest": "5a6be2f97655095c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:23:44.106Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "60dbaaead402aa72",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281006/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_capture": "captured",
+      "result_digest": "36494881b0531ef2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:25:25.569Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "544aa4816383adbc",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281006\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:25:25Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281006/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.82,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgme",
+      "result_capture": "captured",
+      "result_digest": "ad4f5cec89b31b75",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:25:39.353Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "08241ad2fcad1be7",
+      "query": "{\"content\": \"# Predicted reasoning \\u2014 Grand v. City of University Heights, Ohio (No. 25-965)\\n\\nMerits forecast at the grant moment (`evt-order-judgment`, cert granted\\n2026-06-30; no merits briefing on the docket yet \\u2014 petitioner's brief due\\nAugust 31, 2026, respondents' October 16, 2026).\\n\\n## Judgment class\\n\\n**The Court will disturb the judgment below \\u2014 most likely `reversed`.**\\nP(disturbed) = 0.82, distributed roughly: reversed 0.55, vacated 0.22,\\naffirmed-in-part-reverse",
+      "result_capture": "captured",
+      "result_digest": "4f5e8ee9ea0558ae",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:01.526Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a1f50d93c1abbf9e",
+      "query": "{\"content\": \"# Rationale \\u2014 P(disturbed) = 0.82, judgment `reversed`, 9\\u20130\\n\\n## Anchor\\n\\nThe committed statpack's \\\"The merits docket (granted cases)\\\" section publishes\\nan `excluded` count (67), so it is quotable and is the baseline my Brier is\\nscored against. My case's grant Term is 2025 (granted 2026-06-30, from the\\nevent's `opened_at`). The ten-Term window is 2015\\u20132024, strictly before; the\\npack's merits table renders every Term it holds, which is 2017\\u20132025, so the\\ns",
+      "result_capture": "captured",
+      "result_digest": "2f0c52ad6b5cdc59",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:32.094Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fa7f345f6e7227e4",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot, BIO text, `documents.json`,\\n`context.json`, `event.yaml`) and the committed `metrics/statpack.md`:\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --era roberts \\\"\\u2026\\\"` \\u2014 usage error\\n  (free-text positional args are not accepted); no read performed.\\n- `uv run fedcourts query --court scotus --citation \\\"588 U.S. 180\\\"` \\u2014 no\\n  matching rows; stderr: `ranged corpus reads: 1329 GET(s), 3483893",
+      "result_capture": "captured",
+      "result_digest": "9f471c426a5c50b9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:47.980Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c8cba831ee6863b3",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281006\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"Provisioned petition.txt is empty (documents.json: empty_text=true \\u2014 a 44-page scanned PDF with no text layer), and the Court's own QP PDF returns HTTP 403 to direct fetch. The petition's argum",
+      "result_capture": "captured",
+      "result_digest": "81811baf2a48660d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:51.575Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8a13a50d2867163a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281006\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener-mcp search\\\",\\n    \\\"courtlistener-mcp get_endpoint_item\\\",\\n    \\\"courtlistener-mcp read_document\\\",\\n    \\\"web search\\\",\\n    \\\"web fetch\\\"\\n  ],\\n  \\\"",
+      "result_capture": "captured",
+      "result_digest": "a725762f6ce901af",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:59.926Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0e48ad4b9516edcf",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_capture": "captured",
+      "result_digest": "08a451dbda25d50d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:27:04.149Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281006",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

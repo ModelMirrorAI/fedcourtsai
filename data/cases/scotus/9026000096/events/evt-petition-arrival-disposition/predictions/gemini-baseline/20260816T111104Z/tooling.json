@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000096",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query",
+    "google_web_search",
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The statpack provides a clear anchor for federal petitions.",
+    "Google Web Search was helpful for summarizing the lower court decision when CourtListener MCP hit rate limits."
+  ],
+  "gaps": [
+    "mcp_courtlistener rate limits prevented querying by docket number directly."
+  ],
+  "notes": "Had to fall back to Google Web Search to understand the Ninth Circuit ruling."
+}

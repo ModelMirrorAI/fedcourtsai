@@ -1,0 +1,402 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:01.496Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "40444a584c760774",
+      "query": "uv run fedcourts paths --court scotus --docket 73500212 --event evt-order-judgment --role predictor 2>&1",
+      "result_capture": "captured",
+      "result_digest": "ac5905e8167c8e3a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:08.965Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7bc4a052300b724e",
+      "query": "ls -la data/cases/scotus/73500212/ data/cases/scotus/73500212/events/evt-order-judgment/ 2>&1",
+      "result_capture": "captured",
+      "result_digest": "3544c6a2e00d25c6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:09.933Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ef5b554a82f7ed3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500212/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "419ffaa13a808c8d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:14.987Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9141ccbc5d803757",
+      "query": "find data/cases/scotus/73500212/record -type f | head -50 && echo --- && cat data/cases/scotus/73500212/record/context.json 2>/dev/null",
+      "result_capture": "captured",
+      "result_digest": "e436a13327eff75d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:15.636Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b32b20965756fd6c",
+      "query": "cat data/cases/scotus/73500212/record/documents/documents.json && echo === && wc -c data/cases/scotus/73500212/record/documents/*.txt",
+      "result_capture": "captured",
+      "result_digest": "9829488b78efe46f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:25.303Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "28eaa1f0842e45ce",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500212/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f5da1ae068b06541",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:25.580Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d4d41ef39e5c9c32",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500212/record/documents/questions-presented.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "6a8de1c957f15133",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:35.814Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e8244bb10dc8ed4c",
+      "query": "head -c 12000 data/cases/scotus/73500212/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "7144852178e4f4ec",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:43.865Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f3a8e57699dd8c2b",
+      "query": "grep -n \"merits docket\" -A 60 metrics/statpack.md | head -100",
+      "result_capture": "captured",
+      "result_digest": "ac38f121a432f04f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:44.390Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4cfb6d5c0ad85f19",
+      "query": "sed -n '248,275p' metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "f19509ae498b52e4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:51.728Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0f5c61815ca4d235",
+      "query": "sed -n '231,300p' metrics/statpack.md | tail -30",
+      "result_capture": "captured",
+      "result_digest": "f62223ac98f6bd7d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:24:55.773Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ed7221a97db8e49",
+      "query": "head -c 14000 data/cases/scotus/73500212/record/documents/brief-in-opposition.txt",
+      "result_capture": "captured",
+      "result_digest": "28819cf908f52b1a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:25:50.268Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "92192f4c59e84d41",
+      "query": "grep -n -A 3 \"spirit\" data/cases/scotus/73500212/record/documents/petition.txt | sed -n '1,80p'",
+      "result_capture": "captured",
+      "result_digest": "83eda6fe7ec393c8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:03.221Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ffabec2f830aeee5",
+      "query": "python3 -c \"\nimport json\ns=json.load(open('schemas/prediction.schema.json'))\nprint(list(s.get('properties',{}).keys()))\nprint('required:', s.get('required'))\ndefs=s.get('\\$defs') or s.get('definitions') or {}\nprint(list(defs.keys()))\n\"",
+      "result_capture": "captured",
+      "result_digest": "6c8dc2ec0e962e12",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:04.527Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "57918d6d5d177b9c",
+      "query": "python3 -c \"\nimport json\ns=json.load(open('schemas/prediction.schema.json'))\nd=s.get('\\$defs') or s['definitions']\nfor k in ['JusticeVote','VoteValue','Judgment','SemanticClaim','ClaimProbability','WritingRole']:\n    print(k, json.dumps(d[k])[:600]); print()\nprint('votes:', json.dumps(s['properties']['votes'])[:300])\nprint('judgment:', json.dumps(s['properties']['judgment'])[:300])\nprint('semantic_claims:', json.dumps(s['properties']['semantic_claims'])[:300])\nprint('claims:', json.dumps(s['prop",
+      "result_capture": "captured",
+      "result_digest": "d0fcb3fc0ef0ea53",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:11.141Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f394e67cf04132ec",
+      "query": "python3 -c \"\nimport json\ns=json.load(open('schemas/prediction.schema.json'))\nd=s.get('\\$defs') or s['definitions']\nprint('VoteValue enum:', d['VoteValue']['enum'])\nprint('Judgment enum:', d['Judgment']['enum'])\nprint('WritingRole enum:', d['WritingRole']['enum'])\nprint('Disposition enum:', d['Disposition']['enum'])\nprint('SemanticClaim props:', {k:(v.get('type'),v.get('maxLength')) for k,v in d['SemanticClaim']['properties'].items()})\nprint('ClaimProbability props:', list(d['ClaimProbability']['",
+      "result_capture": "captured",
+      "result_digest": "db4c71630f0072a0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:17.128Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0469f2b2af504151",
+      "query": "grep -n \"does not present\" -A 40 data/cases/scotus/73500212/record/documents/brief-in-opposition.txt | sed -n '1,60p'",
+      "result_capture": "captured",
+      "result_digest": "1dee2ed96edf3092",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:28.918Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "391a051637bfbcac",
+      "query": "tail -c 3000 data/cases/scotus/73500212/record/documents/petition.txt && echo ==== && grep -c \"App\\.\" data/cases/scotus/73500212/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "cd7b5a44b4f29d6a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:30.043Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "509f7d1b1c4f2709",
+      "query": "grep -n \"Taggart\\|McComb\\|fair ground\" data/cases/scotus/73500212/record/documents/petition.txt | tail -30",
+      "result_capture": "captured",
+      "result_digest": "8971afb4bec0358a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:36.685Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b06023658f111db9",
+      "query": "sed -n '2040,2120p' data/cases/scotus/73500212/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "726307d94c96a272",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:41.392Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7a765a67d3759f16",
+      "query": "sed -n '2250,2300p' data/cases/scotus/73500212/record/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "b0e2678b1d84c47a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:26:46.719Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c20e2be54647c7fc",
+      "query": "grep -n -A 20 \"fedcourts query\" docs/cli.md | head -60",
+      "result_capture": "captured",
+      "result_digest": "719badc09a03ab16",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:27:00.798Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a6ee6d131b312a5d",
+      "query": "grep -n \"^| \\`query\\`\" -A 2 docs/cli.md | head -10; echo ===; env | grep -i \"FEDCOURTS\\|DECIDED\" | sed 's/=.*/=<set>/'",
+      "result_capture": "captured",
+      "result_digest": "b2225e3a509480d7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:27:05.381Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8c0b9faf1daf1c73",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "40133d2256c1ad04",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:27:13.420Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "571fbf3b18295d63",
+      "query": "uv run fedcourts query --court scotus --citation \"587 U.S. 554\" --limit 3 2>corpus_query_stderr.txt; echo \"--- stderr:\"; cat corpus_query_stderr.txt",
+      "result_capture": "captured",
+      "result_digest": "6c0c6dd19e0deac9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:27:25.020Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a973af1bb2a149c5",
+      "query": "grep -rn \"merits-v1\\|judgment-disturbed\\|semantic-v1\\|majority-ground\\|ground-breadth\" src/fedcourtsai/pipeline/claims.py src/fedcourtsai/pipeline/semantic.py 2>/dev/null | head -20",
+      "result_capture": "captured",
+      "result_digest": "3e12a41b5afa8562",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:30:16.684Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3853eaab4cf97662",
+      "query": "cat /tmp/claude-1001/-home-runner-work-fedcourtsai-fedcourtsai/9a21b10b-e7bb-45ea-ae0a-9b83c6aefd79/tasks/bbx3ii8mh.output; echo; echo \"=== stderr file:\"; cat corpus_query_stderr.txt; rm -f corpus_query_stderr.txt",
+      "result_capture": "captured",
+      "result_digest": "cda0ab1e0a7742b8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:30:22.330Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7e6c7fd8b87fba53",
+      "query": "mkdir -p data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_capture": "captured",
+      "result_digest": "448d7f629a7e376d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:31:00.354Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c629384a162cffba",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500212\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:31:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500212/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.82,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgme",
+      "result_capture": "captured",
+      "result_digest": "daaa5083bc095059",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:31:14.512Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a290842bc6aabd20",
+      "query": "{\"content\": \"# Forecast: Apple Inc. v. Epic Games, Inc., No. 25-1311 (evt-order-judgment)\\n\\n**Judgment class: `vacated`.** The Court will hold that civil contempt cannot\\nrest on violation of an injunction's \\\"spirit\\\" where the order's text does not\\nclearly and unambiguously proscribe the conduct at issue, repudiating the Ninth\\nCircuit's Sea Shepherd line as inconsistent with Taggart v. Lorenzen's\\nobjective no-fair-ground-of-doubt standard, Rule 65(d)'s specificity command,\\nand Internation",
+      "result_capture": "captured",
+      "result_digest": "0ec94cb1e6f96db7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:31:33.794Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5730f546dd937af7",
+      "query": "{\"content\": \"# Rationale for the numbers (claude-baseline, 20260816T111104Z)\\n\\n**P(disturbed) = 0.82.**\\n\\n**Anchor.** The committed statpack's \\\"The merits docket (granted cases)\\\"\\nsection publishes an `excluded` count (67 pool-guard exclusions), so its rates\\nare quotable. This case's grant date is 2026-06-30 (the event's `opened_at`),\\nso the grant Term is OT2025 and the pool is grant Terms 2015\\u20132024. The pack\\nholds parsed rows for 2017\\u20132024 within that window; pooling `disturbed",
+      "result_capture": "captured",
+      "result_digest": "47d329e2dfc6aaaa",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:32:04.878Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "583c3b871161584f",
+      "query": "{\"content\": \"# Retrieval log (claude-baseline, 20260816T111104Z)\\n\\nBeyond the provisioned inputs (snapshot 2026-08-16, `record/documents/`\\npetition / brief-in-opposition / questions-presented, `record/context.json`)\\nand the committed `metrics/statpack.md`:\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"587 U.S. 554\\\" --limit 3`\\n   (known-case lookup for Taggart v. Lorenzen, the controlling contempt\\n   precedent) \\u2014 returned **no rows**.\\n   - stderr transfer line: `ranged cor",
+      "result_capture": "captured",
+      "result_digest": "808a91d8f3e84f6d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:32:10.495Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8e91405eeabcf008",
+      "query": "python3 -c \"\nimport json\nfor f in ['schemas/agent_flags.schema.json','schemas/agent_tooling.schema.json']:\n    s=json.load(open(f))\n    print(f, 'req:', s.get('required'))\n    print(' props:', list(s.get('properties',{}).keys()))\n    d=s.get('\\$defs') or {}\n    for k,v in d.items(): print(' def', k, 'req:', v.get('required'), 'props:', list(v.get('properties',{}).keys()))\n\"",
+      "result_capture": "captured",
+      "result_digest": "fb91e7e7d91ed68c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:32:18.028Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8f0e6b49b5e56937",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500212\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend, citation lookup)\\\",\\n    \\\"metrics/statpack.md (merits-docket section, pooled disturbed-rate baseline)\\\",\\n    \\\"provisioned record/documents (petition, BIO, questions presented)\\\",\\n    \\\"",
+      "result_capture": "captured",
+      "result_digest": "27c64df9565e3609",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:32:31.847Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ad7d1980de801d47",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500212\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n      \\\"message\\\": \\\"Statpack merits-docket table: Terms 2023 and 2024 look internally inconsistent \\u2014 parsed + excluded exceeds granted (2023: 55 + 13 > 56; 2024: 73 + 3",
+      "result_capture": "captured",
+      "result_digest": "2e646439601517af",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:32:58.194Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b107c58f9f026bb6",
+      "query": "uv run fedcourts validate data/cases/scotus/73500212 2>&1 | tail -5",
+      "result_capture": "captured",
+      "result_digest": "7b8a887f24d6f443",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:33:03.293Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "de2474652cc467e8",
+      "query": "grep -rn \"reference\" src/fedcourtsai/*.py src/fedcourtsai/**/*.py 2>/dev/null | grep -i \"valid\\|consistent\\|doc\" | head -10",
+      "result_capture": "captured",
+      "result_digest": "0df909e3a20c7794",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:33:13.766Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a082eab522062da5",
+      "query": "sed -n 280,310p src/fedcourtsai/cli.py",
+      "result_capture": "captured",
+      "result_digest": "012ce11b3442b048",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:33:18.630Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0f6c5cb17570255d",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_capture": "captured",
+      "result_digest": "08a451dbda25d50d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:33:27.302Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "96db791e3640e8e2",
+      "query": "git status --porcelain | head; echo ===; ls data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z/",
+      "result_capture": "captured",
+      "result_digest": "eb750715e862458d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:34:00.626Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73500212",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000104",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "warning",
+      "message": "CourtListener MCP search tool is rate-limited (HTTP 429), blocking retrieval of external case context.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

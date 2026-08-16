@@ -1,0 +1,2 @@
+- Attempted to query `mcp_courtlistener_search` for docket `25-1383` (Town of Vinton), but the server returned a rate limit exceeded error (HTTP 429).
+- Consulted `metrics/statpack.md` for base rates on paid petitions and salience bands.

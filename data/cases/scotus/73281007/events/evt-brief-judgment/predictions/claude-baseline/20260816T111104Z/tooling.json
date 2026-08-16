@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md (merits section pooled baseline)",
+    "CourtListener MCP: search, read_document",
+    "provisioned record/documents (petition, QP, BIO+respondent merits brief)"
+  ],
+  "helpful": [
+    "The provisioned brief-in-opposition slot carrying the respondent's merits brief (second URL) was the single most valuable input for a briefed-moment merits cell - it surfaced the FCC v. AT&T citation I would otherwise have missed.",
+    "The statpack merits section's excluded count and per-Term table made the pooled baseline computable in one pass."
+  ],
+  "gaps": [
+    "No provisioned text for the petitioner's merits brief (Jun 18 filing); for evt-brief-judgment cells, fetching both merits briefs would put the two sides on equal textual footing - I worked from the cert petition for the government's theory.",
+    "documents.json labels the concatenated BIO+respondent-merits-brief as kind 'brief-in-opposition' with two URLs; a distinct 'merits-brief' kind would make the moment's evidence base explicit.",
+    "fedcourts query has no filter shaped like 'granted merits cases with similar constitutional subject matter'; the disposition filter surfaces recent grants but nothing doctrinally adjacent."
+  ],
+  "notes": "Forward merits cell; CourtListener MCP worked throughout. Retrieval stayed at 5 MCP calls + 1 corpus query, well under budget."
+}

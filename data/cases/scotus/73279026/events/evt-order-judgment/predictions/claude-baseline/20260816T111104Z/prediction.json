@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Marquee free-exercise case on Smith's general-applicability standard at the religion/LGBTQ-nondiscrimination seam of a universal school-choice program; SG amicus support, a multistate amicus bloc, and 30+ merits amici mark it as one of the Term's most watched.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/73279026",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.93
+    }
+  ],
+  "confidence": 0.75,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:18:32Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279026/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.93,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:21:04.719551Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will rest the judgment on Employment Division v. Smith's general-applicability prong as glossed by Fulton v. City of Philadelphia and Tandon v. Newsom: it will hold that Colorado's equal-opportunity condition is not generally applicable because the program's categorical and discretionary secular carve-outs (e.g., providers serving only low-income children, children with disabilities, or specified identity groups) undermine the State's asserted nondiscrimination interests in a manner comparable to the religious exemption petitioners seek, expressly rejecting the Tenth Circuit's rule that only 'unfettered' discretion or exemptions for 'identical' secular conduct defeat general applicability; applying strict scrutiny, it will hold the exclusion of the Catholic preschools unconstitutional. The majority will not overrule Smith and will not rest the holding on Carson v. Makin's status-based-exclusion rule (QP2)."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will state its ground as a categorical rule, not a fact-bound one: a comparability standard for general applicability that governs any exemption-bearing scheme or public-benefit program \u2014 a law fails Smith's general-applicability prong whenever its secular exceptions, categorical or discretionary, undermine the government's interests comparably to the requested religious accommodation \u2014 rather than a holding confined to Colorado's preschool program, to education funding, or to these parties. Its breadth will stop at existing doctrine: the Court will decline to revisit Smith itself, leaving rational-basis review for genuinely neutral and generally applicable laws intact."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

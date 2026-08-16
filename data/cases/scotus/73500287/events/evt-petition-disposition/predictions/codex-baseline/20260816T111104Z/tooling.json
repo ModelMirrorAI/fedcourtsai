@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search and document reader",
+    "committed corpus statpack",
+    "fedcourts path resolver"
+  ],
+  "helpful": [
+    "The provisioned petition and extracted questions presented",
+    "The frozen context made the salience-version mismatch check explicit",
+    "CourtListener MCP exposed preservation and vehicle details in the lower-court opinion",
+    "The statpack JSON supported an exact prior-Term risk-set calculation"
+  ],
+  "gaps": [
+    "The distribution counter does not distinguish a petition conference from distribution of a separate procedural motion"
+  ],
+  "notes": "The corpus-query CLI was unnecessary because targeted CourtListener research and the committed base-rate pack addressed the material questions."
+}

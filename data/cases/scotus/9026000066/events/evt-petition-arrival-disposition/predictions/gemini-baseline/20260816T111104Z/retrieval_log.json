@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "965b4b2a46be7538",
+      "query": "{\"strategic_intent\": \"Read prediction prompt instructions and agent configurations to understand the task.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:55.343Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:57.597Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:35:57.597Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "84becdaf8dd548c0",
+      "query": "ls -la data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:06.648Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2a7fd26804de1f12",
+      "query": "ls -la data/cases/scotus/9026000066/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:09.263Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7db69962728a6109",
+      "query": "ls -la data/cases/scotus/9026000066/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:11.602Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9591e99f2e3f177",
+      "query": "cat data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/event.yaml data/cases/scotus/9026000066/record/context.json data/cases/scotus/9026000066/record/documents/documents.json data/cases/scotus/9026000066/record/snapshots/*",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:15.175Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "af569360bcb25573",
+      "query": "cat data/cases/scotus/9026000066/record/documents/questions-presented.txt data/cases/scotus/9026000066/record/documents/petition.txt | head -n 50",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:22.110Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e7f07aad034abce",
+      "query": "cat metrics/statpack.md | grep -A 20 \"sal-v3\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:26.261Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "749607af0d8ed9ef",
+      "query": "mkdir -p data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:35.745Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "63909b674d33a934",
+      "query": "cat << 'EOF' > data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/prediction.json\n{\n  \"case_id\": \"scotus/9026000066\",\n  \"event_id\": \"evt-petition-arrival-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260816T111104Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-08-16T12:00:00Z\",\n  \"input_snapshot\": \"2026-08-16\",\n  \"granted\": 0,\n  \"probability\": 0.001,\n  \"predicted_disposition\": ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:42.214Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ffb3ebf00ee87712",
+      "query": "cat << 'EOF' > data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/reasoning.md\nP(grant) 0.001. The prior-Term salience band bracketed `reached` base rate for the paid segment (the arrival population anchor) is around 6.5%. However, I adjust this heavily downward because this is a pro se petition challenging a state family law decision (divorce proceedings) from the Arizona Court of Appeals. The questions presented attempt to frame th",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:52.065Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "109bdb05563d5d40",
+      "query": "{\"content\": \"P(grant) 0.001. The prior-Term salience band bracketed `reached` base rate for the paid segment (the arrival population anchor) is around 6.5%. However, I adjust this heavily downward because this is a pro se petition challenging a state family law decision (divorce proceedings) from the Arizona Court of Appeals. The questions presented attempt to frame the issues as Fourteenth Amendment procedural due process violations (regarding a \\\"catch-22\\\" and \\\"hyper-technical subsection mis",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:59.490Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "de9fc67175aa204a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000066\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T12:00:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-08-16\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\\"big_case_rationale\\\": \\\"Routine pro se",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:36:59.495Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cb898e4a57745f45",
+      "query": "{\"content\": \"Distributed zero times so far (arrival moment); expect zero relists before a decision on the petition. The case is a pro se challenge to a state family law decision resting on state procedural grounds, presenting no split and no federal interest. No CVSG is expected, as no federal party's interest is implicated and the dispute is entirely local. If granted, the Court might summarily reverse due to a perceived egregious due process violation, but a grant is highly unlikely. Should th",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:03.859Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8a3ff23f10b20133",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:03.863Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f4bea03e29d3f489",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000066\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [],\\n  \\\"helpful\\\": [\\\"Provisioned documents (petition and questions-presented) were clear and sufficient for a case of this nature.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": []\\n}\", \"file_path\": \"data/cases/scotus/9026000066/events/evt-petition-arrival-disposition/pr",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:07.577Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0a40a67cd8280b85",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:36.169Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42b786ebc13de405",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000066\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [],\\n  \\\"helpful\\\": [\\\"Provisioned documents (petition and questions-presented) were clear and sufficient for a case of this nature.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"No special retrieval needed.\\\"\\n}\", \"file_path\": \"data/cases/scotus/9026000066/events/evt-p",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:37:40.039Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "55e4c21b9fbf14ab",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:04.088Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3fa7bdab81b9a61d",
+      "query": "{\"strategic_intent\": \"Finalize prediction output and complete task.\", \"title\": \"Finalizing Prediction\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:38:08.287Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9026000066",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

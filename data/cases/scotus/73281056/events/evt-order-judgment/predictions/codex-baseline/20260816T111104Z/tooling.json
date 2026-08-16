@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281056",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP document search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The statpack supplied the registered prior-Term merits anchor.",
+    "CourtListener document search verified the controlling Inter Tribal Council passages without retrieving this case."
+  ],
+  "gaps": [
+    "Exact-citation CourtListener search also returned partial reporter-number matches and required manual target selection.",
+    "The corpus exact-citation query returned no row or transfer diagnostic for the requested Supreme Court citations."
+  ],
+  "notes": "The provisioned filings were sufficient for a forecast, but one of three concatenated opposition briefs was truncated before its argument sections."
+}

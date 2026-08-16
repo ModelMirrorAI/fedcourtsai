@@ -1,0 +1,7 @@
+P(disturbed) = 0.70.
+
+The case presents a circuit split over the interpretation of 8 U.S.C. § 1159(b), specifically whether "any alien granted asylum" includes individuals whose asylum was later terminated. I anchor my base rate on the merits docket disturbed rate for the parsed slice of the 8 terms strictly prior to the OT2025 grant term (2017 to 2024), which is 69.7% (359 disturbed out of 515 parsed judgments). 
+
+I maintain this baseline of 0.70 because the Court usually steps in to reverse in mature circuit splits like this one, especially when the lower court sided with the government's more restrictive reading in an immigration context that has a viable textualist argument for the noncitizen. The text uses the past participle "granted," which strongly supports the petitioners' argument (and the Fifth Circuit's approach) that the statute refers to a historical event, not a continuing status. This textualist argument is likely to attract a cross-ideological majority, including Justices like Gorsuch and Barrett joining the liberal wing, leading to a reversal of the Second Circuit.
+
+Because I only had the petition and BIO available (and not the merits briefs, which are filed but not provisioned directly in the text), my prediction is based on the cert-stage filings and the base rate.

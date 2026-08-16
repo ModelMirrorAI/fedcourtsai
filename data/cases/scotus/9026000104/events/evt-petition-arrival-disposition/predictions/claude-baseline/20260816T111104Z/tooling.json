@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000104",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "courtlistener-mcp search_document",
+    "courtlistener-mcp call_endpoint (dockets)"
+  ],
+  "helpful": [
+    "The sal-v3 federal-band per-Term table gave a directly applicable pooled anchor for this arrival-moment federal-petitioner cell",
+    "search_document over sister-circuit opinions was the fastest way to reconstruct the decision below and the split when no petition text was provisioned",
+    "The dockets endpoint let me confirm the companion SG petition (25-1415) was still pending without touching this case's own disposition"
+  ],
+  "gaps": [
+    "No provisioned record/documents/ text for this arrival cell (no questions-presented.txt or petition text), so the QP had to be reconstructed from third-party opinions",
+    "No sanctioned way to check the current SCOTUS docket state of companion petitions in one step; a docket-status lookup keyed on a docket number would help vehicle-competition reasoning on cells like this one"
+  ],
+  "notes": "fedcourts query has no free-text argument (filters only); the first attempt with a text query errored. The statpack plus MCP citing-passage search covered everything this cell needed."
+}

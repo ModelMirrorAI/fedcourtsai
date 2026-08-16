@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Snapshot likely stale: application 25A622 (stay, submitted to Justice Kagan Nov 18, 2025; docketed Nov 25, 2025) shows a single docket entry and no action through the 2026-08-16 snapshot. Substantive stay applications of this shape resolve within days to weeks, so nine months of docket silence suggests the stored payload lags the true docket and the application may already be resolved without the disposition being captured. Predicted from the provisioned record without retrieving the case's current docket state, per the leakage rules.",
+      "event_id": "evt-motion-disposition"
+    }
+  ]
+}

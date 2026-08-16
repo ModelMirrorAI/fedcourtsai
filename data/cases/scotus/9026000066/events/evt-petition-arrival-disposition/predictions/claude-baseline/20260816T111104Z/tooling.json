@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000066",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition and questions-presented text extracted cleanly and were decisive — the pro se signature block and the fact-bound QPs carry most of the signal.",
+    "The sal-v3 band table's bracketed reached rates made the arrival-moment anchor a direct read."
+  ],
+  "gaps": [
+    "fedcourts query has no text-similarity or subject filter usable on SCOTUS rows (--topic is circuit-only), so finding 'pro se state family-law petitions' as a comparison class is not possible; a petitioner-representation (pro se vs counseled) cut in the statpack would sharpen exactly this kind of cell."
+  ],
+  "notes": "Forward arrival cell; one corpus query sufficed, no MCP retrieval needed."
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000096",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's federal column with bracketed reached rates was exactly the arrival-moment anchor the prompt describes — no derivation needed.",
+    "Provisioned petition text (197pp incl. appendix) let me read the en banc dissent signals and the SG's importance argument directly."
+  ],
+  "gaps": [
+    "The corpus citation filter is too sparse to hydrate a petition's cited grant lineage (161 of 590k scotus rows carry citation data); a cases-citing-authority or free-text QP-similarity retrieval would have let me compare this petition against resolved public-lands cert petitions.",
+    "No published cut isolates SG-as-petitioner from the broader federal band, so the upward adjustment from the 71% anchor is judgment rather than a measured increment."
+  ],
+  "notes": "Single fedcourts query cost 1329 ranged GETs / ~348MB for zero rows — expensive for a known-sparse filter; the coverage note printed only after the transfer."
+}

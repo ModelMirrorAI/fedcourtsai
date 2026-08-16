@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and questions-presented text",
+    "Arrival-specific salience risk-set base rate",
+    "CourtListener confirmation that the lower-court opinion is published"
+  ],
+  "gaps": [
+    "CourtListener throttling prevented inspection of the panel opinions and dissent"
+  ],
+  "notes": "The provisioned documents were sufficient for a conservative forecast. The first CourtListener lookup succeeded, but the service throttled the follow-up request."
+}

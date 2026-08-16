@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["grep", "read_file", "list_directory", "run_shell_command"],
+  "helpful": ["The provisioned snapshot, event.yaml, context.json, and the briefs (petition and BIO) were very helpful and contained all necessary information.", "The statpack merits base rate tables were crucial for establishing the baseline."]
+}

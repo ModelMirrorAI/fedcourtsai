@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000115",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition text including the appended district-court and Fourth Circuit opinions — the unpublished per curiam in Appendix C was the single most decision-relevant fact and required no retrieval",
+    "statpack segment-band table with bracketed reached rates: the arrival-moment anchor was directly computable from committed data"
+  ],
+  "gaps": [
+    "No cases-citing-authority search in fedcourts query: --citation is a known-case lookup, so there is no corpus route to 'resolved cert petitions raising Groff/Title VII accommodation issues'; a topic or issue-text filter over SCOTUS rows would have given real comparables",
+    "The one query I ran cost 1329 ranged GETs (~348 MB) to return zero rows; a cheap pre-check or clearer up-front warning that the filter cannot match would save that egress"
+  ],
+  "notes": "Statpack sufficed for anchoring; case-specific adjustment came almost entirely from the provisioned documents."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500263",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP within-document search"
+  ],
+  "helpful": [
+    "Provisioned petition and questions-presented text",
+    "Frozen prediction context",
+    "Salience risk-set base rates",
+    "CourtListener opinion-text search"
+  ],
+  "gaps": [
+    "Distribution parsing should distinguish an ancillary motion's conference from the petition's conference"
+  ],
+  "notes": "The legal-research surface was sufficient. The main tooling issue was a cross-proceeding distribution count that materially inflated the frozen salience band."
+}

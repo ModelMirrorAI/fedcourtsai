@@ -1,0 +1,3 @@
+- Attempted to use the CourtListener MCP `search` tool for `q="Sun Valley Orchards" "Department of Labor"` but encountered an HTTP 429 Rate Limit error.
+- Consulted `metrics/statpack.md` for the base rate of disturbed judgments among granted cases (OT 2017 to OT 2024 pool).
+- No further corpus queries were made.
