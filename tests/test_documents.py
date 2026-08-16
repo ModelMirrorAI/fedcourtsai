@@ -18,6 +18,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    backfill_questions_presented,
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
@@ -337,14 +338,115 @@ def test_extract_questions_presented_skips_table_of_contents_entry() -> None:
     )
 
 
-def test_extract_questions_presented_none_when_only_a_toc_entry() -> None:
+def test_extract_questions_presented_degraded_when_only_a_toc_entry() -> None:
     # If the only match is the TOC entry (no real QP body extracted), better to
-    # derive nothing than to hand the agent dotted table-of-contents text.
+    # derive nothing than to hand the agent dotted table-of-contents text. The
+    # heading WAS there, so the result is the degraded empty extraction (stored
+    # as an empty-text row and labeled `empty_text`), not `None`.
     toc_only = (
         "QUESTIONS PRESENTED ............................................. i\n"
         "TABLE OF AUTHORITIES .......................................... iii"
     )
-    assert extract_questions_presented(toc_only) is None
+    assert extract_questions_presented(toc_only) == ""
+
+
+def test_extract_questions_presented_skips_a_space_aligned_toc_entry() -> None:
+    # The same TOC entry aligned with blanks instead of leader dots: everything
+    # after the heading text is alignment and the folio, which the dot rule alone
+    # does not see, so the capture would read as the single character "i". The
+    # real QP page later in the petition is the answer.
+    petition = (
+        "TABLE OF CONTENTS\n"
+        "QUESTIONS PRESENTED                                           i\n"
+        "PARTIES TO THE PROCEEDING                                    ii\n"
+        "\n"
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "CORPORATE DISCLOSURE STATEMENT Petitioner is Acme Corp."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_reads_past_prose_naming_the_opinion_below() -> None:
+    # "the opinion below" is ordinary prose inside a question, and the
+    # end-heading vocabulary also spells OPINIONS BELOW: on case alone the phrase
+    # cuts the question short at itself. Only a match printed as a heading may
+    # end the section.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        "I. In the opinion below, the court of appeals held that the statute reaches "
+        "conduct wholly outside the United States. The question presented is whether "
+        "it does.\n"
+        "OPINIONS BELOW\n"
+        "The opinion of the court of appeals is reported at 1 F.4th 1."
+    )
+    section = extract_questions_presented(petition)
+    assert section is not None
+    assert section.startswith("I. In the opinion below,")
+    assert section.endswith("The question presented is whether it does.")
+    assert "reported at 1 F.4th 1" not in section  # the heading still terminates it
+
+
+def test_extract_questions_presented_skips_a_space_aligned_toc_the_floor_cannot_catch() -> None:
+    # The space-aligned rule earns its keep where the floor cannot help: a TOC
+    # whose following entries are outside the end-heading vocabulary, so the
+    # capture runs on well past 40 characters and reads as a long "question".
+    petition = (
+        "QUESTIONS PRESENTED                                           i\n"
+        "STATEMENT OF JURISDICTION                                     4\n"
+        "STATUTES AND REGULATIONS INVOLVED                             5\n"
+        "SUMMARY OF ARGUMENT                                           9\n"
+        "\n"
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "PARTIES TO THE PROCEEDING Petitioner is Acme Corp."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_ends_at_a_title_case_heading() -> None:
+    # Petitions set the same front matter in title case as often as in caps, and
+    # pypdf recovers a small-caps heading that way: the section must still end
+    # there rather than running on into the parties list.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "Parties to the Proceeding\n"
+        "Petitioner is Acme Corp. Respondents are the agency and its administrator."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_keeps_a_quotation_that_elides() -> None:
+    # A legal quotation elides with a four-dot ellipsis, which is dots in a run:
+    # the leader-dot rule must be long enough that a question quoting a statute
+    # is not read as a contents page.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        'Whether 18 U.S.C. 924(c), which reaches "any person who . . . uses a firearm '
+        '. . . ." during a crime of violence, requires proof that the defendant knew '
+        "the weapon was operable.\n"
+        "PARTIES TO THE PROCEEDING Petitioner is Acme Corp."
+    )
+    section = extract_questions_presented(petition)
+    assert section is not None
+    assert section.startswith("Whether 18 U.S.C. 924(c)")
+    assert section.endswith("the weapon was operable.")
+
+
+def test_extract_questions_presented_floors_a_fragment() -> None:
+    # A capture under the length floor is a front-matter crumb, not a question:
+    # the degraded empty extraction, never text that reads as the QP.
+    fragment = "QUESTIONS PRESENTED\ni\nPARTIES TO THE PROCEEDING Petitioner is Acme Corp."
+    assert extract_questions_presented(fragment) == ""
+    # Absent heading and degraded capture stay distinguishable.
+    assert extract_questions_presented("no heading here") is None
 
 
 # --- fetch orchestration ----------------------------------------------------------
@@ -367,7 +469,8 @@ def _doc_client(served: dict[str, bytes]) -> SupremeCourtClient:
 def test_fetch_case_documents_fetches_extracts_and_derives_qp() -> None:
     served = {
         "https://example/petition.pdf": _pdf(
-            "QUESTION PRESENTED Whether X. PARTIES TO THE PROCEEDING Acme."
+            "QUESTION PRESENTED Whether the agency exceeded its statutory authority. "
+            "PARTIES TO THE PROCEEDING Acme."
         ),
         "https://example/bio.pdf": _pdf("The petition should be denied because Y."),
     }
@@ -382,8 +485,10 @@ def test_fetch_case_documents_fetches_extracts_and_derives_qp() -> None:
         )
     by_kind = {d.kind: d for d in documents}
     assert set(by_kind) == {KIND_PETITION, KIND_BRIEF_IN_OPPOSITION, KIND_QUESTIONS_PRESENTED}
-    assert "Whether X." in by_kind[KIND_PETITION].text
-    assert by_kind[KIND_QUESTIONS_PRESENTED].text == "Whether X."
+    assert "Whether the agency exceeded" in by_kind[KIND_PETITION].text
+    assert by_kind[KIND_QUESTIONS_PRESENTED].text == (
+        "Whether the agency exceeded its statutory authority."
+    )
     assert by_kind[KIND_QUESTIONS_PRESENTED].pages == 0  # derived, not fetched
     assert "denied because Y" in by_kind[KIND_BRIEF_IN_OPPOSITION].text
 
@@ -514,3 +619,250 @@ def test_select_documents_real_bio_caption_and_amicus_excluded() -> None:
     assert [(r.kind, r.url) for r in refs] == [
         (KIND_BRIEF_IN_OPPOSITION, "https://example/bio.pdf")
     ]
+
+
+# --- backfill: re-deriving stored questions presented --------------------------------
+
+_HONEST_QP = "Whether a reviewing court may affirm on a ground the agency never reached."
+# What a pre-guard extraction stored: the petition's own contents entry.
+_STALE_TOC_QP = (
+    "QUESTIONS PRESENTED ............................................. i\n"
+    "TABLE OF AUTHORITIES .......................................... iii"
+)
+_HONEST_PETITION = (
+    "QUESTIONS PRESENTED ............................................. i\n"
+    "QUESTIONS PRESENTED\n" + _HONEST_QP + "\nPARTIES TO THE PROCEEDING Acme Corp."
+)
+
+
+def _petition_document(case_id: str, text: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_PETITION,
+        url=f"https://example/{case_id.rsplit('/', 1)[-1]}.pdf",
+        entry_date="Jun 01 2026",
+        fetched_at=date(2026, 6, 2),
+        pages=40,
+        text=text,
+    )
+
+
+def _stored_qp(case_id: str, text: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_QUESTIONS_PRESENTED,
+        url=f"https://example/{case_id.rsplit('/', 1)[-1]}.pdf",
+        entry_date="Jun 01 2026",
+        fetched_at=date(2026, 6, 2),
+        text=text,
+    )
+
+
+def _seed_qp_backfill_corpus(corpus_root: Path) -> Path:
+    """Four petitions covering every class the backfill separates.
+
+    - scotus/1: a stale dot-leader TOC capture stored over a derivable QP.
+    - scotus/2: the same petition, stored honestly -> unchanged.
+    - scotus/3: a body truncated at the prose phrase "the opinion below".
+    - scotus/4: petition text but no stored QP row at all -> derived anew.
+    """
+    db = corpus.corpus_db_path(corpus_root)
+    prose = (
+        "QUESTIONS PRESENTED\n"
+        "I. In the opinion below, the court of appeals held that the statute reaches "
+        "conduct wholly outside the United States.\n"
+        "OPINIONS BELOW\nThe opinion is reported at 1 F.4th 1."
+    )
+    truncated = "I. In the"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # `last_live_polled` puts the row in the live slice — the channel
+                # that stores documents, and the backfill's population.
+                corpus.CorpusRow(
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    docket_number=f"25-{n}",
+                    last_live_polled=date(2026, 6, 2),
+                )
+                for n in (1, 2, 3, 4)
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                _petition_document("scotus/1", _HONEST_PETITION),
+                _stored_qp("scotus/1", _STALE_TOC_QP),
+                _petition_document("scotus/2", _HONEST_PETITION),
+                _stored_qp("scotus/2", _HONEST_QP),
+                _petition_document("scotus/3", prose),
+                _stored_qp("scotus/3", truncated),
+                _petition_document("scotus/4", _HONEST_PETITION),
+            ],
+        )
+    return db
+
+
+def _stored_qp_text(db: Path, case_id: str) -> str | None:
+    with corpus.connect(db) as conn:
+        found = {d.kind: d for d in corpus.documents_for_case(conn, case_id)}
+    document = found.get(KIND_QUESTIONS_PRESENTED)
+    return None if document is None else document.text
+
+
+def test_backfill_questions_presented_classifies_every_change(tmp_path: Path) -> None:
+    db = _seed_qp_backfill_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        result = backfill_questions_presented(conn, apply=False)
+    assert result.petitions == 4
+    assert result.unchanged == 1  # scotus/2, already what the extractor derives
+    assert result.updated == 3
+    assert result.changes == {
+        "scotus/1": "stale-toc-fragment",
+        "scotus/3": "prose-terminator-fragment",
+        "scotus/4": "derived-anew",
+    }
+    assert result.reasons == {
+        "derived-anew": 1,
+        "prose-terminator-fragment": 1,
+        "stale-toc-fragment": 1,
+    }
+    # A dry run writes nothing at all.
+    assert _stored_qp_text(db, "scotus/1") == _STALE_TOC_QP
+    assert _stored_qp_text(db, "scotus/4") is None
+
+
+def test_backfill_questions_presented_floors_a_stored_fragment(tmp_path: Path) -> None:
+    # A stored row the current extractor would no longer produce, and cannot
+    # replace either: the rewrite is the honest empty text, not the fragment.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    toc_only = "QUESTIONS PRESENTED                                          i\nTABLE OF CONTENTS"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9", court="scotus", last_live_polled=date(2026, 6, 2)
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [_petition_document("scotus/9", toc_only), _stored_qp("scotus/9", "i")],
+        )
+        result = backfill_questions_presented(conn, apply=True)
+    assert result.changes == {"scotus/9": "below-floor"}
+    assert _stored_qp_text(db, "scotus/9") == ""
+
+
+def test_backfill_questions_presented_refuses_to_empty_a_full_length_question(
+    tmp_path: Path,
+) -> None:
+    # The stored row is a whole question; this pass derives nothing from the
+    # petition text it can see. That is as likely a misjudged extraction as a bad
+    # row, so it is reported and left alone — the write a sweep does not make.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/11", court="scotus", last_live_polled=date(2026, 6, 2)
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                # Petition text with no QP heading at all -> nothing to derive.
+                _petition_document("scotus/11", "PARTIES TO THE PROCEEDING Acme Corp."),
+                _stored_qp("scotus/11", _HONEST_QP),
+            ],
+        )
+        result = backfill_questions_presented(conn, apply=True)
+    assert result.refused == ["scotus/11"]
+    assert result.changes == {} and result.updated == 0
+    assert _stored_qp_text(db, "scotus/11") == _HONEST_QP
+
+
+def test_degraded_extraction_provisions_as_an_empty_text_document(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The seam the tri-state exists for: a petition whose QP heading yields
+    # nothing usable stores an empty-text row, and provisioning labels it
+    # `empty_text` — "we derived nothing", never a fragment reading as the
+    # question.
+    served = {
+        "https://example/petition.pdf": _pdf(
+            "QUESTIONS PRESENTED i TABLE OF CONTENTS Petitioner is Acme Corp."
+        )
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/305",
+            {"ProceedingsandOrder": [_PAYLOAD["ProceedingsandOrder"][0]]},
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    by_kind = {d.kind: d for d in documents}
+    assert by_kind[KIND_QUESTIONS_PRESENTED].text == ""
+    db = corpus.corpus_db_path(fixture_corpus.corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(conn, documents)
+    result = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    entry = next(
+        e
+        for e in json.loads(paths.documents_manifest.read_text())
+        if e["kind"] == KIND_QUESTIONS_PRESENTED
+    )
+    assert entry["empty_text"] is True
+
+
+def test_backfill_questions_presented_cli_dry_run_then_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _seed_qp_backfill_corpus(tmp_path / "corpus")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    dry = runner.invoke(app, ["backfill-questions-presented"])
+    assert dry.exit_code == 0, dry.output
+    assert "dry-run" in dry.output and "would rewrite 3" in dry.output
+    assert "scotus/1: stale-toc-fragment" in dry.output
+    stale = _stored_qp_text(db, "scotus/1")
+    assert stale is not None and stale.startswith("QUESTIONS PRESENTED ...")
+
+    applied = runner.invoke(app, ["backfill-questions-presented", "--apply"])
+    assert applied.exit_code == 0, applied.output
+    assert "applied" in applied.output and "rewrote 3" in applied.output
+    assert _stored_qp_text(db, "scotus/1") == _HONEST_QP
+    assert _stored_qp_text(db, "scotus/2") == _HONEST_QP  # the honest row is untouched
+    prose = _stored_qp_text(db, "scotus/3")
+    assert prose is not None and prose.startswith("I. In the opinion below,")
+    assert _stored_qp_text(db, "scotus/4") == _HONEST_QP
+
+    again = runner.invoke(app, ["backfill-questions-presented"])
+    assert again.exit_code == 0, again.output
+    assert "would rewrite 0" in again.output  # idempotent
+
+
+def test_backfill_questions_presented_cli_fails_loud(tmp_path: Path) -> None:
+    absent = runner.invoke(
+        app,
+        ["backfill-questions-presented"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "absent")},
+    )
+    assert absent.exit_code == 1
+
+    # A corpus holding no petition text at all is the wrong blob, not a converged one.
+    empty_root = tmp_path / "empty"
+    with corpus.connect(corpus.corpus_db_path(empty_root)):
+        pass  # schema only, no rows
+    empty = runner.invoke(
+        app, ["backfill-questions-presented"], env={"FEDCOURTS_CORPUS_ROOT": str(empty_root)}
+    )
+    assert empty.exit_code == 1
+    assert "wrong blob" in empty.output

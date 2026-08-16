@@ -137,12 +137,13 @@ above).
 **`tax`** is not a tax-foreclosure taking, which follows the takings routing.
 
 **`unclassifiable`** covers two cases and only these: *no subject present*
-(front matter, a dot-leader table of contents, a parties list captured by the
-extractor — a failure mode the current extractor guards against, so stored
-pre-guard texts are its main source) and *no cognizable question present* —
-coherent text, typically pro se, in which no doctrinal question can be made
-out even though subject-flavored words appear. It is never "hard to label": a
-labeler who can name the subject of an actual question must pick one.
+(front matter, a table of contents in either alignment, a parties list captured
+by the extractor — a failure mode the current extractor guards against, so its
+main source is stored texts that predate a guard and stay as they are until
+`fedcourts backfill-questions-presented` re-derives them) and *no cognizable
+question present* — coherent text, typically pro se, in which no doctrinal question can
+be made out even though subject-flavored words appear. It is never "hard to
+label": a labeler who can name the subject of an actual question must pick one.
 
 ## Structure: primary, secondary, vehicle
 
@@ -226,7 +227,12 @@ else.
 `data/qp-topics/qp-topic-reference.json` — labels for 353 cases, assigned by
 reading the stored `questions-presented` texts under this document's rules
 (text-only, primaries only), recorded against the Court's docket numbers and
-joined to canonical case ids. The set is two blocks with different rater
+joined to canonical case ids. The labels are therefore keyed to the text as
+stored when they were assigned: a run of `fedcourts
+backfill-questions-presented --apply` rewrites some of those texts, so the
+entries whose text it changes are re-read before the set backs another
+measurement — an entry labeled off a fragment is not evidence about a labeler
+that now sees the question. The set is two blocks with different rater
 processes, both disclosed: the **founding block** (189 cases, a single agent
 session, no second pass) and the **stratified supplement** (164 cases,
 labeled by **two independent blind agent raters**, whose 13 primary
@@ -496,8 +502,11 @@ the corpus is a **document-fetch artifact, not a sample**:
   near-identical normalized QP text, stating the equivalence it used.
 - Extraction is lossy at the edges: some cases with a stored petition yield
   no QP text, the extractor sometimes captures the wrong page, and a text can
-  open mid-sentence when the heading sat on the prior page. `unclassifiable`
-  absorbs the worst of this and is published, never dropped.
+  open mid-sentence when the heading sat on the prior page. A capture the
+  extractor cannot vouch for is stored as an **empty** text, which `qp-corpus`
+  skips, so it never reaches a labeler and never enters a denominator — read
+  "QP-bearing" as text-bearing throughout. `unclassifiable` absorbs what does
+  reach the labeler and is published, never dropped.
 
 The caveat travels **inline**: every published share renders with a one-line
 scope string beside it, of the form
