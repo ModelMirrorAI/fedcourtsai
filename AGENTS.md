@@ -39,7 +39,13 @@ non-interactive** container. Two consequences shape everything you do:
   workflow commits, pushes, and opens the PR; do **not** push yourself).
   Corpus / bulk data goes to the remote stores (the corpus remote and the per-case
   content store; the run-pull and run-seed writer jobs own this) — a data file never pushed
-  to a remote is lost with the runner. See `docs/data-pipeline.md`.
+  to a remote is lost with the runner. The ownership is exclusive, not a
+  convention: the corpus-write credentials exist **only** inside those writer
+  jobs (a job-scoped role plus the data App), so no interactive session or dev
+  checkout can write the corpus remote at all. Plan any new corpus mutation as
+  a step or dispatch input on a writer workflow — dispatch-gated where its
+  dry-run needs a maintainer's reading first — never as a command someone runs
+  by hand. See `docs/data-pipeline.md`.
 
 ## The golden rules
 

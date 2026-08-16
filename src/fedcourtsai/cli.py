@@ -823,8 +823,11 @@ def backfill_questions_presented_cmd(
     the printed `QPBackfillResult` carries the untruncated case-id ledger of
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
     the command echoes. Idempotent. A
-    deliberate maintainer surface, never scheduled: dry-run by default, run
-    where the corpus is pulled, `corpus-push` after an `--apply`. Fails loud if
+    deliberate maintainer surface, never scheduled: corpus writes exist only
+    inside the writer workflows, so this fires on an explicit `run-seed`
+    dispatch naming its `qp_backfill` input — dry-run first into the run
+    summary, then (only when the dispatch says apply) the rewrite and the
+    `corpus-push`. Fails loud if
     the corpus is absent, or if it holds no petition text at all (a payload-free
     index, or a split-mode blob with no content store configured — the wrong
     blob for this command).
