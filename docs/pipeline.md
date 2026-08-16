@@ -204,13 +204,22 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. One further writer step is **not** among the seven and
-never runs on a schedule: `unlatch-overselected`, gated behind the
-`unlatch_overselected` dispatch input, clears the pre-resize `salience_selected`
-overhang a capacity change leaves behind (`docs/salience.md`). It runs after the
-scope reconcile on an explicit dispatch only — the latch's one `1 → 0` writer, a
-deliberate one-time act rather than a converging sweep, and gated further on the
-dedupe succeeding so an unmerged twin cannot re-latch a cleared case. The full
+any other corpus write. Two further writer steps are **not** among the seven and
+never run on a schedule, each gated behind its own dispatch input and on the
+dedupe succeeding. `unlatch-overselected` (the `unlatch_overselected` input)
+clears the pre-resize `salience_selected`
+overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
+`1 → 0` writer, a
+deliberate one-time act rather than a converging sweep, gated on the
+dedupe so an unmerged twin cannot re-latch a cleared case.
+`backfill-questions-presented` (the `qp_backfill` input) re-derives the stored
+questions-presented rows under the current extractor: a `dry-run` dispatch
+prints the reason-class triage ledger to the run summary and writes nothing;
+an `apply` dispatch rewrites the safe classes, verifies its own convergence by
+re-running the dry-run (under the corpus split the durable write is the
+content store's, so the pointer alone cannot witness it), and pushes. The
+dry-run ledger is a maintainer's reading, so the intended procedure is two
+dispatches: `dry-run`, read, then `apply`. The full
 design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
