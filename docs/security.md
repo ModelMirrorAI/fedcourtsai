@@ -236,7 +236,12 @@ The predict/evaluate `plan` job carries the same **ambient `GITHUB_TOKEN`
 `issues: write`** for the same reason: when the scope gate empties the matrix it
 closes the trigger issue (with a note) so the run doesn't orphan it, and closing an
 issue triggers no workflow — so this stays on the lower-trust ambient token, never
-the App token.
+the App token. Predict's `plan` also holds **`actions: read`**, on the same
+ambient token and the same reasoning as `collect`: its stranded-run guard lists
+recent runs and their artifact *names* (it downloads nothing) to avoid re-minting
+cells that already ran, the grant is repo-wide because Actions scopes cannot be
+run-scoped, and `plan` runs no agent code — the census step's only inputs are
+this workflow's own run history.
 
 ## The `prod` environment
 

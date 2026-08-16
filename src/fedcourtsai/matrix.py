@@ -29,10 +29,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .collect import parse_cell_artifact_name
+from .finalize import FinalizeRole
 from .ids import case_id
 from .paths import CasePaths
 from .pricing import DEFAULT_MODELS
@@ -252,6 +255,176 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
     ]
     dropped_cases = tuple(cid for cid in sorted(per_case) if cid not in kept_cases)
     return CappedMatrix(kept, len(include) - len(kept), dropped_cases)
+
+
+_CellKey = tuple[str, str, int, str]
+
+
+def _cell_key(predictor_id: str, court: str, docket: int, event_id: str) -> _CellKey:
+    """The one spelling of the guard's match key.
+
+    Both sides of the match — the census's stranded cells and the matrix's
+    entries — build it here. Spelled twice, the two would type-check while
+    transposed, and a transposed key silently disarms the guard rather than
+    failing anything.
+    """
+    return (predictor_id, court, docket, event_id)
+
+
+@dataclass(frozen=True)
+class StrandedCell:
+    """One predict cell whose output sits in a run that was never collected.
+
+    ``run_db_id`` is the GitHub run's database id — the handle
+    ``gh run rerun <id> --failed`` takes, and the one the recovery note names.
+    The cell's *pipeline* run id (the plan-time UTC stamp) is deliberately
+    absent: the cell artifact name does not encode it
+    (:func:`fedcourtsai.collect.cell_artifact_name`) and the runs API does not
+    know it, so naming one would mean inventing it.
+    """
+
+    run_db_id: int
+    predictor_id: str
+    court: str
+    docket: int
+    event_id: str
+
+    @property
+    def key(self) -> _CellKey:
+        """The (predictor, case, event) grain the matrix is deduped at."""
+        return _cell_key(self.predictor_id, self.court, self.docket, self.event_id)
+
+
+@dataclass(frozen=True)
+class StrandedCensus:
+    """The parsed stranded-artifact census, plus the records it could not read.
+
+    ``unparsed`` holds each unreadable record — a malformed one, or a name that
+    does not split into (predictor, court, docket, event) — and is never
+    silently discarded: the caller reports them and moves on, because a guessed
+    reading would withhold the wrong cell, a worse failure than the re-spend the
+    guard exists to prevent.
+    """
+
+    cells: tuple[StrandedCell, ...]
+    unparsed: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GuardedMatrix:
+    """A predict matrix after the stranded-run guard, and what it withheld.
+
+    ``withheld`` names the stranded cell behind each drop (its run included),
+    so every withheld cell can be reported with its own recovery command.
+    Empty when the census was empty or nothing matched, in which case
+    ``include`` is the input list unchanged.
+    """
+
+    include: list[dict[str, Any]]
+    withheld: tuple[StrandedCell, ...]
+
+
+def read_stranded_census(path: Path) -> StrandedCensus:
+    """Read the census of cell artifacts left behind by uncollected runs.
+
+    The file is a JSON list of ``{"run_db_id": <int>, "artifact_name": <str>}``
+    records, written by the plan job's census step from the runs and artifacts
+    APIs. An absent or empty file is an empty census — the guard is simply off,
+    which is what a degraded census step writes.
+
+    Raises ``ValueError`` if the file is not a JSON list, leaving the caller to
+    decide the direction: the CLI fails **open** there, because this guard
+    prevents an expensive failure, not a dangerous one, and must never be the
+    reason a legitimate run does not start.
+    """
+    if not path.exists():
+        return StrandedCensus((), ())
+    raw = path.read_text().strip()
+    if not raw:
+        return StrandedCensus((), ())
+    records = json.loads(raw)
+    if not isinstance(records, list):
+        raise ValueError(f"{path}: expected a JSON list of census records, got {type(records)}.")
+    cells: list[StrandedCell] = []
+    unparsed: list[str] = []
+    for record in records:
+        name = record.get("artifact_name") if isinstance(record, dict) else None
+        if not isinstance(name, str):
+            unparsed.append(repr(record))
+            continue
+        parsed = parse_cell_artifact_name(FinalizeRole.predict, name)
+        if parsed is None:
+            unparsed.append(name)
+            continue
+        try:
+            run_db_id = int(record["run_db_id"])
+        except (KeyError, TypeError, ValueError):
+            unparsed.append(name)
+            continue
+        cells.append(
+            StrandedCell(
+                run_db_id=run_db_id,
+                predictor_id=parsed.actor,
+                court=parsed.court,
+                docket=parsed.docket,
+                event_id=parsed.event_id,
+            )
+        )
+    return StrandedCensus(tuple(cells), tuple(unparsed))
+
+
+def drop_stranded_cells(
+    matrix: dict[str, list[dict[str, Any]]], stranded: Sequence[StrandedCell]
+) -> GuardedMatrix:
+    """Withhold cells whose output already sits in an uncollected run.
+
+    A predict cell spends its tokens *before* the run's single durability step,
+    so a `collect` that fails after a full-width fan-out leaves every cell's
+    output in an artifact and nothing in the ledger — and the ledger is what the
+    already-predicted gate in :func:`predict_matrix` reads. The next live cycle
+    therefore re-derives the same unpredicted events and re-spends the whole
+    run. This guard closes that loop at the one place the spend can still be
+    withheld: the plan.
+
+    The grain is (predictor, case, event), matching the artifact name, so a cell
+    the stranded run left no artifact for still runs — an engine whose cells
+    died before upload while the others delivered is re-minted exactly as it is
+    today.
+
+    Two properties are deliberate:
+
+    * **Existence, not success.** A cell uploads its artifact whether or not it
+      produced a prediction, and the guard keys on the artifact alone. A cell
+      that spent tokens and produced nothing is therefore withheld too, because
+      collecting the run is how anyone learns which of the two it was; once
+      collect lands, an event with no committed prediction re-queues normally.
+    * **Uncollected runs only.** A run whose `collect` succeeded is not in the
+      census, so an unmerged-but-collected run is outside this guard — that
+      window is still the plan-time-read race :func:`predict_matrix` documents.
+    """
+    if not stranded:
+        return GuardedMatrix(matrix["include"], ())
+    # First wins, because the census is written newest run first: when one cell
+    # is stranded in two uncollected runs, the note should name the newer, which
+    # is the better recovery target (either recovers the cell).
+    by_key: dict[_CellKey, StrandedCell] = {}
+    for stranded_cell in stranded:
+        by_key.setdefault(stranded_cell.key, stranded_cell)
+    include: list[dict[str, Any]] = []
+    withheld: list[StrandedCell] = []
+    for cell in matrix["include"]:
+        key = _cell_key(
+            str(cell["predictor_id"]),
+            str(cell["court"]),
+            int(cell["docket"]),
+            str(cell["event_id"]),
+        )
+        match = by_key.get(key)
+        if match is None:
+            include.append(cell)
+        else:
+            withheld.append(match)
+    return GuardedMatrix(include, tuple(withheld))
 
 
 def event_has_predictions(

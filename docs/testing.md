@@ -242,9 +242,12 @@ check. Beside them, a family of pytest
 workflow-shape tests pins the YAML *contracts* the linters cannot see — the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
-(`test_workflow_collect`), and the cell invariants
+(`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard) — so deleting a load-bearing line fails a
+env pair, the forward leakage guard), and the predict plan job's stranded-run
+guard (`test_workflow_plan_census`: the census runs before the matrix step and
+feeds it, degrades open rather than failing the job, and lets a fully-superseded
+run close with the recovery note) — so deleting a load-bearing line fails a
 named test instead of passing every linter. For a heavier local check of the
 deterministic jobs (the `plan` job, matrix generation, the auth gate),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for
