@@ -814,11 +814,15 @@ def backfill_questions_presented_cmd(
     output differs from what is stored. Nothing is fetched and no PDF is
     re-read — the input is text the corpus already holds. A stored full-length
     question the extractor can no longer derive is reported (`refused`) rather
-    than emptied: that reading is as likely to be this pass misjudging a
-    question as a bad row, and the sweep does not decide it alone. Each rewrite
-    is
+    than emptied — that reading is as likely to be this pass misjudging a
+    question as a bad row, and the sweep does not decide it alone — unless the
+    stored value is contents junk throughout (leader dots clear the character
+    floor by counting the dots), which empties under its own reason class,
+    `toc-junk-emptied`, so a dry run shows the emptied subset apart. Each
+    rewrite is
     classified by the extraction hole it comes from (`stale-toc-fragment`,
-    `prose-terminator-fragment`, `below-floor`, `other-change`, plus
+    `prose-terminator-fragment`, `below-floor`, `other-change`,
+    `toc-junk-emptied`, plus
     `derived-anew` where a case had no row), so the dry run is the triage list;
     the printed `QPBackfillResult` carries the untruncated case-id ledger of
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`

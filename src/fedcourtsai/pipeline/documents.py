@@ -554,8 +554,10 @@ class QPBackfillResult(BaseModel):
         default_factory=list,
         description="Cases whose stored text is a full-length question the current "
         "extractor can no longer derive: reported for triage, never written, since "
-        "emptying a substantive row is the one rewrite this pass will not make on "
-        "its own reading",
+        "emptying a substantive row is a rewrite this pass makes on its own "
+        "reading only where the stored value is contents junk throughout — that "
+        "heal carries its own reason class (`toc-junk-emptied`) so a dry run "
+        "shows the emptied subset apart",
     )
 
 
@@ -581,30 +583,37 @@ def _qp_change_reason(stored: str, derived: str) -> str:
 def _qp_stored_is_fragment(stored: str) -> bool:
     """Whether a stored questions-presented value is contents junk throughout.
 
-    True only when the value carries a table-of-contents shape *and* removing
-    every TOC-shaped line leaves nothing question-sized behind. The refusal
-    guard consults this rather than the per-line change classifier, because
-    the two questions differ: a value that merely *contains* a contents line
-    — a genuine question the old extractor captured with trailing TOC residue
-    — classifies as a stale fragment line-wise, but blanking it would destroy
-    the question; a value that is leader dots and folios all the way down is
-    junk however far it clears the character floor, since the floor counts
-    the dots.
+    True only when TOC-shaped stripping removed something *and* what remains
+    is not question-sized. The refusal guard consults this rather than the
+    per-line change classifier, because the two questions differ: a value
+    that merely *contains* a contents line — a genuine question the old
+    extractor captured with trailing TOC residue — classifies as a stale
+    fragment line-wise, but blanking it would destroy the question; a value
+    that is leader dots and folios all the way down is junk however far it
+    clears the character floor, since the floor counts the dots.
+
+    One predicate, applied per line, decides both halves — there is no
+    separate whole-value check to disagree with the strip. A dot-leader run
+    strips the *run*, not its line, keeping the line where its residue is
+    itself question-sized: a single-line question quoting a statute through a
+    long elision is prose around dots, not a leader. The two folio forms
+    strip whole lines, whose residue is heading words that would only push
+    real junk back over the floor — with the known bound that a justified
+    genuine line ending in a bare page-number token is stripped with them,
+    which bites only on a value already scraping the floor.
     """
-    if not (
-        _QP_TOC_RE.search(stored)
-        or _QP_TOC_LINE_RE.search(stored)
-        or _QP_TOC_SPACES_RE.match(stored)
-    ):
-        return False
-    kept = [
-        line
-        for line in stored.splitlines()
-        if not (
-            _QP_TOC_RE.search(line) or _QP_TOC_LINE_RE.search(line) or _QP_TOC_SPACES_RE.match(line)
-        )
-    ]
-    return len(" ".join(kept).strip()) < _QP_MIN_CHARS
+    lines = stored.splitlines()
+    kept: list[str] = []
+    for line in lines:
+        if _QP_TOC_RE.search(line):
+            residue = _QP_TOC_RE.sub(" ", line).strip()
+            if len(residue) >= _QP_MIN_CHARS:
+                kept.append(residue)
+            continue
+        if _QP_TOC_LINE_RE.search(line) or _QP_TOC_SPACES_RE.match(line):
+            continue
+        kept.append(line)
+    return len(kept) != len(lines) and len(" ".join(kept).strip()) < _QP_MIN_CHARS
 
 
 def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QPBackfillResult:
@@ -700,7 +709,15 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             reason = "derived-anew"
         else:
             updates.append(stored.model_copy(update={"text": derived}))
-            reason = _qp_change_reason(current, derived)
+            if not derived and len(current) >= _QP_MIN_CHARS:
+                # Reaching here empty-over-floor means the fragment test
+                # lifted the refusal — the one heal that *empties* a
+                # full-length value, so the ledger names it apart: the
+                # emptied subset is the part of a dry run a maintainer
+                # eyeballs before dispatching the apply.
+                reason = "toc-junk-emptied"
+            else:
+                reason = _qp_change_reason(current, derived)
         reasons[reason] += 1
         changes[case_id] = reason
 

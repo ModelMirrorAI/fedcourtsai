@@ -16,9 +16,11 @@ from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import (
+    _QP_MIN_CHARS,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    _qp_stored_is_fragment,
     backfill_questions_presented,
     extract_pdf_text,
     extract_questions_presented,
@@ -858,13 +860,42 @@ def test_backfill_questions_presented_refuses_to_empty_a_full_length_question(
     assert _stored_qp_text(db, "scotus/11") == _HONEST_QP
 
 
+def test_qp_stored_fragment_table() -> None:
+    # The helper's whole truth table, so a strip-rule change cannot silently
+    # move the refusal boundary: junk-throughout shapes read as fragments
+    # (heal), anything question-sized after stripping does not (refuse).
+    question = "Whether a claim for wrongful death under state law is preempted by ERISA."
+    assert len(question) >= _QP_MIN_CHARS
+    fragment_shapes = [
+        "." * 42 + "i",  # pure dot leader
+        "." * 42 + "i\n" + "." * 50 + "ii",  # a leader block
+        "QUESTION PRESENTED\n      i\nTABLE OF AUTHORITIES\n      iii",  # folio on its own line
+    ]
+    protected_shapes = [
+        question + "\nRELATED PROCEEDINGS      ii\n",  # question + trailing TOC residue
+        # A single-line question quoting a statute through a long elision:
+        # prose around dots, never a leader — the run strips, the line stays.
+        'Whether the phrase "any person . . . . . . . . who violates" the statute '
+        "reaches an authorized user who misuses access.",
+        # No TOC shape at all: trailing padding is not stripping, so the
+        # entry condition never fires and the refusal holds.
+        question + "\n\n\n",
+    ]
+    for shape in fragment_shapes:
+        assert _qp_stored_is_fragment(shape), shape[:60]
+    for shape in protected_shapes:
+        assert not _qp_stored_is_fragment(shape), shape[:60]
+
+
 def test_backfill_heals_a_toc_fragment_however_long_over_the_floor(tmp_path: Path) -> None:
     # A stored dot-leader run clears the character floor by counting the dots
     # — 43 characters of leader and a folio is not a question, and the refusal
-    # must not freeze it. The classifier that names the change also lifts the
-    # refusal, so the row heals to the honest empty text.
+    # must not freeze it. The fragment test (not the change classifier — they
+    # ask different questions) lifts the refusal, and the heal that empties a
+    # full-length value carries its own reason class so the dry-run ledger
+    # shows the emptied subset apart.
     long_leader = "." * 42 + "i"
-    assert len(long_leader) >= 40  # over the floor: the refusal's trigger shape
+    assert len(long_leader) >= _QP_MIN_CHARS  # over the floor: the refusal's trigger shape
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -886,7 +917,7 @@ def test_backfill_heals_a_toc_fragment_however_long_over_the_floor(tmp_path: Pat
         )
         result = backfill_questions_presented(conn, apply=True)
     assert result.refused == []
-    assert result.changes == {"scotus/12": "stale-toc-fragment"}
+    assert result.changes == {"scotus/12": "toc-junk-emptied"}
     assert _stored_qp_text(db, "scotus/12") == ""
 
 
