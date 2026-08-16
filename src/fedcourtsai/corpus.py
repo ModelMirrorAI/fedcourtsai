@@ -1463,6 +1463,18 @@ def _payload_read_source() -> PayloadReadSource | None:
     return _READ_SOURCE.get("source")
 
 
+def payload_reads_offloaded() -> bool:
+    """Whether payload reads are served by the content store rather than SQLite.
+
+    The seam concurrency-sensitive callers key on: a content-store read is a
+    thread-safe network GET (one boto3 client tolerates concurrent calls),
+    while the SQLite fallback rides the caller's connection, which must stay
+    on a single thread. True exactly when a payload read source will serve
+    the next read.
+    """
+    return _payload_read_source() is not None
+
+
 def _split_mode() -> bool:
     """Whether the corpus-split write mode is on: the payload columns/tables are
     left empty (the content store is the system of record for them) so the blob

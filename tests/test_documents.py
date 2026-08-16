@@ -733,6 +733,55 @@ def test_backfill_questions_presented_classifies_every_change(tmp_path: Path) ->
     assert _stored_qp_text(db, "scotus/4") is None
 
 
+class _DictReadSource:
+    """A payload read source over a dict — just enough of the Protocol to
+    serve document reads, the one method the backfill exercises."""
+
+    def __init__(self, documents: dict[str, list[corpus.CaseDocument]]) -> None:
+        self._documents = documents
+
+    def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, object]] | None:
+        return None
+
+    def documents_for_case(self, case_id: str) -> list[corpus.CaseDocument]:
+        return self._documents.get(case_id, [])
+
+    def opinion_text(self, case_id: str) -> str | None:
+        return None
+
+
+def test_backfill_reads_the_content_store_concurrently_and_identically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offloaded branch serves document reads from the registered source on
+    a reader pool, and its result is byte-identical to the serial SQLite pass —
+    same counts, same ledger, same ordering. The rows stay in SQLite either way
+    (the candidate walk is metadata); only the payload reads move."""
+    db = _seed_qp_backfill_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        serial = backfill_questions_presented(conn, apply=False)
+        stored = {
+            f"scotus/{n}": corpus.documents_for_case(conn, f"scotus/{n}") for n in (1, 2, 3, 4)
+        }
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(_DictReadSource(stored))
+    try:
+        assert corpus.payload_reads_offloaded()
+        with corpus.connect(db) as conn:
+            offloaded = backfill_questions_presented(conn, apply=False)
+    finally:
+        corpus.set_payload_read_source(previous)
+    assert offloaded == serial
+    assert offloaded.updated == 3
+
+
 def test_backfill_questions_presented_floors_a_stored_fragment(tmp_path: Path) -> None:
     # A stored row the current extractor would no longer produce, and cannot
     # replace either: the rewrite is the honest empty text, not the fragment.

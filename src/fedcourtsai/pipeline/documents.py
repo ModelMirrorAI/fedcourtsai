@@ -35,6 +35,7 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -120,6 +121,14 @@ _QP_MAX_CHARS = 4_000
 # extraction, which the manifest labels as such and the labeling extract skips,
 # while a fragment stored as text reads to every consumer as the question.
 _QP_MIN_CHARS = 40
+# Concurrent content-store readers for the backfill's document fetch. The pass
+# is one GET per live-slice case — ~1,500 today — and serial GET latency is
+# what cancelled the first dispatched pass against the seed job's cap; sixteen
+# bounded workers hold the scan to minutes without meaningfully loading the
+# store (one boto3 client, thread-safe for concurrent calls). Read only where
+# payload reads are offloaded; the SQLite path stays serial on its
+# single-thread connection.
+_QP_BACKFILL_READERS = 16
 # A captured section that is really a table-of-contents entry, in the two forms
 # a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
 # PRESENTED" with a page reference, so matching that entry instead of the real
@@ -593,17 +602,42 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     The population is the live/historical slice (:func:`corpus.is_live_slice`):
     documents reach the corpus only on that channel, and the row predicate is
     what keeps the walk from a per-case content-store read for every SCOTUS row
-    the bulk import ever wrote.
+    the bulk import ever wrote. Under the corpus-split mode those reads are
+    network GETs and their latency is the pass's whole cost — a serial walk of
+    the ~1,500-case population is what turned the first dispatched pass into a
+    job-cap cancellation — so the document fetch runs on a bounded reader pool
+    there (:data:`_QP_BACKFILL_READERS`), while the SQLite fallback keeps the
+    serial loop: its local reads never needed the help, and the connection
+    must stay on one thread. Everything after the fetch — extraction,
+    comparison, classification, the writes — stays serial and ordered, so the
+    result is byte-identical either way.
     """
     petitions = unchanged = no_petition_text = 0
     reasons: Counter[str] = Counter()
     changes: dict[str, str] = {}
     refused: list[str] = []
     updates: list[corpus.CaseDocument] = []
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.is_live_slice(row):
-            continue
-        by_kind = {doc.kind: doc for doc in corpus.documents_for_case(conn, row.case_id)}
+    rows = [row for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)]
+    if corpus.payload_reads_offloaded():
+        # The offloaded branch never touches `conn` inside
+        # `documents_for_case` (the read source serves it), which is what
+        # makes handing the call to worker threads sound; the mode cannot
+        # flip mid-pass because nothing here re-registers the source.
+        with ThreadPoolExecutor(max_workers=_QP_BACKFILL_READERS) as pool:
+            documents = dict(
+                zip(
+                    (row.case_id for row in rows),
+                    pool.map(
+                        lambda case_id: corpus.documents_for_case(conn, case_id),
+                        (row.case_id for row in rows),
+                    ),
+                    strict=True,
+                )
+            )
+    else:
+        documents = {row.case_id: corpus.documents_for_case(conn, row.case_id) for row in rows}
+    for row in rows:
+        by_kind = {doc.kind: doc for doc in documents[row.case_id]}
         petition = by_kind.get(KIND_PETITION)
         if petition is None or not petition.text.strip():
             no_petition_text += 1
