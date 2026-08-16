@@ -55,7 +55,7 @@
             }
           ],
           "default": null,
-          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the paired result item; it does NOT mean the result had content \u2014 an empty result is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), or the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`). The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
+          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the paired result item; it does NOT mean the result had content \u2014 an empty result, or a failed one, is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), or capture found no result item to pair with the call \u2014 the parsers derive the marker from a pairing rule, so a call the engine logged without a pairing id, and one whose result sits past a truncated transcript, both land here for a capture-side reason. The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
           "title": "Result Capture"
         },
         "result_digest": {
@@ -184,7 +184,7 @@
         }
       ],
       "default": null,
-      "description": "Share of this log's marker-carrying calls whose `result_capture` is `captured` \u2014 the log-level reading of what the grader could see. Derived from `calls`, never asserted independently, so the rate and the rows cannot disagree. Null when no call carries the marker: an empty log, or one written before the marker existed. A 0.0 is a real and different fact \u2014 every call ran with its result unobserved, which is the standing shape of a Gemini cell.",
+      "description": "Share of this log's marker-carrying calls whose `result_capture` is `captured` \u2014 the log-level reading of what the grader could see. Derived from `calls`, never asserted independently, so the rate and the rows cannot disagree; its denominator is therefore the calls this log *retained*, after capture's head-cut at the schema's 500-call maximum, not every call the cell made. Null when no call carries the marker: an empty log, or one written before the marker existed. A 0.0 is a real and different fact \u2014 every call ran with its result unobserved, which is the standing shape of a Gemini cell.",
       "title": "Result Capture Coverage"
     },
     "role": {

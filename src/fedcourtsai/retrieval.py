@@ -29,8 +29,10 @@ because capture is instrumentation that must never fail a real run.
 
 Every row also states whether its result was seen at all: ``result_capture``
 is ``captured`` where the transcript carried the paired result item and
-``unobserved`` where nothing came back to capture — every Gemini row, and a
-hosted Codex ``web_search_call``. The digests cannot say it, because a null
+``unobserved`` where nothing came back to capture — every Gemini row, a hosted
+Codex ``web_search_call``, or any call this pairing rule found no result item
+for, which includes one the engine logged without a pairing id and one whose
+result sits past a truncated transcript. The digests cannot say it, because a null
 ``result_digest`` or ``retrieved_doc_date`` is what a captured-empty result
 and an uncaptured one both leave behind; without the marker a reader grades
 "this call surfaced nothing" over calls whose results were never in the log.

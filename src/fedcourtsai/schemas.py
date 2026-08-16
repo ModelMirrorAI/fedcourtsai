@@ -1717,13 +1717,23 @@ class RetrievalCall(_Strict):
         description="A document/decision date parsed from the result, where one is legible "
         "— the leakage grading's timing signal",
     )
+    # Two named states rather than a bool: `false` would read as "returned
+    # nothing", which is the very conflation this field exists to end, and the
+    # legacy null then sits one typo away from it in any `if not …` test. No
+    # third `not_applicable` state, because no call class the parsers emit has
+    # a structurally meaningless result — the provider-side ones have results
+    # nobody captured, which is what `unobserved` says.
     result_capture: Literal["captured", "unobserved"] | None = Field(
         default=None,
         description="Whether capture saw this call's result at all. `captured` means the "
         "engine log carried the paired result item; it does NOT mean the result had "
-        "content — an empty result is still captured. `unobserved` means no result "
-        "reached the log: the engine logs none (Gemini's telemetry), or the call ran "
-        "provider-side and echoed nothing back (a Codex hosted `web_search_call`). "
+        "content — an empty result, or a failed one, is still captured. `unobserved` "
+        "means no result reached the log: the engine logs none (Gemini's telemetry), "
+        "the call ran provider-side and echoed nothing back (a Codex hosted "
+        "`web_search_call`), or capture found no result item to pair with the call — "
+        "the parsers derive the marker from a pairing rule, so a call the engine "
+        "logged without a pairing id, and one whose result sits past a truncated "
+        "transcript, both land here for a capture-side reason. "
         "The digests cannot make that distinction on their own — `result_digest` is "
         "null both for a captured-empty result and for one never captured, and so is "
         "`retrieved_doc_date` — which is why a reader who treats a null digest as "
@@ -1790,11 +1800,17 @@ class RetrievalLog(_Strict):
         description="Share of this log's marker-carrying calls whose `result_capture` is "
         "`captured` — the log-level reading of what the grader could see. Derived from "
         "`calls`, never asserted independently, so the rate and the rows cannot "
-        "disagree. Null when no call carries the marker: an empty log, or one written "
+        "disagree; its denominator is therefore the calls this log *retained*, after "
+        "capture's head-cut at the schema's 500-call maximum, not every call the cell "
+        "made. Null when no call carries the marker: an empty log, or one written "
         "before the marker existed. A 0.0 is a real and different fact — every call ran "
         "with its result unobserved, which is the standing shape of a Gemini cell.",
     )
 
+    # Derives and replaces where `_check_coverage_denominator` raises, because
+    # this rate is recomputable from the rows it summarizes while a leaderboard's
+    # covered-count is a union the entries alone cannot reconstruct — there, a
+    # writer's number is evidence to check; here it is a copy to refresh.
     @model_validator(mode="after")
     def _coverage_follows_the_calls(self) -> RetrievalLog:
         """Derive the capture rate from the rows rather than trusting a writer's copy.

@@ -115,6 +115,40 @@ def test_claude_empty_result_is_captured_and_a_missing_one_is_not(tmp_path: Path
     assert [call.result_digest for call in calls] == [None, None]
 
 
+def test_claude_failed_result_is_captured_and_an_id_less_call_is_not(tmp_path: Path) -> None:
+    # Both are capture-side facts about the pairing, not about what a tool
+    # found: a call that errored was answered and is captured, while a call the
+    # engine logged with no id has nothing an answer could pair against.
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}},
+                    {"type": "tool_use", "name": "search", "input": {"q": "b"}},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "is_error": True,
+                        "content": "upstream 502",
+                    }
+                ]
+            },
+        },
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    calls = parse_claude_retrieval(path)
+    assert [call.result_capture for call in calls] == ["captured", "unobserved"]
+
+
 def test_codex_rollout_function_calls(tmp_path: Path) -> None:
     rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
     rollout.parent.mkdir(parents=True)

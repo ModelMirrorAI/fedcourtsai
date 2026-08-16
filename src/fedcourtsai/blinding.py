@@ -463,7 +463,11 @@ def mask_retrieval_log(
     capture profile is engine-correlated, as the module docstring's residual
     list records. They survive because stripping them leaks worse: every
     uncaptured call would read as one that returned nothing, which is the
-    grader crediting an engine for a result nobody ever saw.
+    grader crediting an engine for a result nobody ever saw. Carrying the rate
+    through verbatim is correct only because this mask keeps ``calls``
+    one-for-one; a future mask that dropped or filtered calls would have to
+    recompute it, since the staged rate would otherwise denominate rows the
+    grader cannot see.
     """
     masked = scrub_json(dict(payload), pattern)
     if not isinstance(masked, dict):  # pragma: no cover - a JSON object by construction
