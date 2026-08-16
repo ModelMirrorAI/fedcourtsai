@@ -136,7 +136,11 @@ jobs:
     # The staging→main promotion PR's gate: quiescence plus integration-run
     # freshness at the PR head, via scripts/promotion-gate.sh — the same
     # script the `promote` dispatch runs, so the pre-flight and this required
-    # check cannot drift apart. Skipped — and therefore green as a required
+    # check cannot drift apart on what the gate *means*. What each asks for
+    # can differ, and only in one direction: this job sets neither
+    # PROMOTION_SCENARIOS nor PROMOTION_SKIP_SMOKE, so it always demands the
+    # full required set, whatever a pre-flight dispatch narrowed itself to.
+    # Skipped — and therefore green as a required
     # check — on every other PR. Gate state is point-in-time: re-run this
     # check immediately before merging the promotion. Same-repo head only: a
     # fork branch named `staging` gets the skip, never the gate (and a fork's

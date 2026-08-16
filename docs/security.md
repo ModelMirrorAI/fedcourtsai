@@ -376,7 +376,8 @@ variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. An `all` dispatch fans one smoke per
 engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells. The keys live on the `prod`
+and spends three cells; `all-offline`, the same suite without the smoke legs,
+reads no engine key and spends nothing. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's

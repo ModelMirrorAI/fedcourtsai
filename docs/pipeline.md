@@ -150,7 +150,10 @@ the dispatching branch by default — `main` gets `prod`, `staging` gets
 and no keys — and a `scenario=all` dispatch
 fans the gate's whole required suite (every real scenario — collect rides the
 run as its own environment-free job — with engine-smoke once per engine, so
-three cells' token spend) out of one run.
+three cells' token spend) out of one run. `scenario=all-offline` is that same
+suite with the three engine-smoke legs dropped: token-free end to end, and
+whole-suite evidence only for a pre-flight that skipped them (*The
+engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
@@ -451,6 +454,20 @@ The mechanics:
   it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
+- **The engine-smoke skip, and how far it reaches.** `promote`'s
+  `skip_engine_smoke` input drops the three engine-smoke runs from that
+  dispatch's freshness check and accepts a token-free `scenario=all-offline`
+  run as whole-suite evidence instead. It costs the only evidence that real
+  engine cells still run in the production posture at the sha being promoted,
+  so it is reserved for batches that cannot affect a cell — docs, analytics,
+  non-cell code — and the default is the full suite.
+  **It narrows the pre-flight only.** ci.yml's `promotion-gate` job sets the
+  variable nowhere, so the required check on the promotion PR still demands
+  all nine runs at the head sha, and `main`'s ruleset has no bypass for it —
+  the data App's deterministic writers are its only bypass actor. A skipped
+  batch therefore reaches a green summary and a mergeable PR only once the
+  smokes have run too; what the input buys is a cheap answer to *is anything
+  else missing* before paying for them.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
@@ -472,6 +489,9 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
+   On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
+   the `all-offline` form and tells you whether anything *else* is missing
+   before you pay for the smokes, which step 4 still needs.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
    check right before merging, and merge with a **merge commit**; tag the
