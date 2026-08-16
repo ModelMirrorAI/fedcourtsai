@@ -223,6 +223,54 @@ def cell_artifact_name(role: FinalizeRole, cell: ExpectedCell) -> str:
     return f"{role.value}-{cell.actor}-{cell.court}-{cell.docket}-{cell.event_id}"
 
 
+# The inverse split of `cell_artifact_name`. Three anchors make it unambiguous
+# although both the actor id and the event id carry hyphens: an event id always
+# begins `evt-` (`ids.event_id`), a docket is an integer, and a court id carries
+# no hyphen. Example name: `predict-gemini-baseline-scotus-9026000183-evt-petition-arrival`.
+_CELL_ARTIFACT_RE = re.compile(
+    r"^(?P<role>[a-z]+)-(?P<actor>.+)-(?P<court>[^-]+)-(?P<docket>\d+)-(?P<event_id>evt-.+)$"
+)
+
+
+def parse_cell_artifact_name(role: FinalizeRole, name: str) -> ExpectedCell | None:
+    """Read a cell's identity back out of its artifact name, or ``None``.
+
+    The inverse of :func:`cell_artifact_name`, for the one caller that has the
+    name and nothing else: the plan-time stranded-run guard, which *lists* a
+    past run's artifacts rather than downloading them, and so must decide from
+    the name alone whether a cell it is about to mint already ran.
+
+    The parse is round-tripped through :func:`cell_artifact_name` before it is
+    returned, so the two spellings of the convention cannot drift apart — a name
+    this reads but cannot rebuild is reported unreadable rather than acted on,
+    because a guessed split would name the wrong cell.
+
+    The round trip cannot separate a genuinely ambiguous name, since both splits
+    rebuild the same string: an event id that itself embedded ``-<digits>-evt-``
+    would surrender its leading segments to the actor. That costs nothing, because the
+    caller matches the result against real cells rather than trusting it — a
+    mis-split yields a predictor id no registry holds, so the cell is minted
+    rather than wrongly withheld.
+    """
+    match = _CELL_ARTIFACT_RE.match(name)
+    if match is None or match["role"] != role.value:
+        return None
+    try:
+        docket = int(match["docket"])
+    except ValueError:
+        # A digit run past the interpreter's int-parsing limit. Unreachable
+        # through a real artifact name, and unreadable is the honest verdict —
+        # the caller degrades one record rather than the whole census.
+        return None
+    cell = ExpectedCell(
+        actor=match["actor"],
+        court=match["court"],
+        docket=docket,
+        event_id=match["event_id"],
+    )
+    return cell if cell_artifact_name(role, cell) == name else None
+
+
 @dataclass(frozen=True)
 class PrPlan:
     """One PR the collect job should open: ready or partial."""

@@ -31,6 +31,10 @@ jobs:
       contents: read
       id-token: write # assume the AWS role for ranged corpus reads (scope gating)
       issues: write # close the trigger issue when the matrix is empty (nothing in scope)
+      # List recent runs and their cell artifacts for the stranded-run guard below
+      # (repo-wide read of run metadata and artifact *names*; the plan job runs no
+      # agent code and downloads no artifact).
+      actions: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -78,6 +82,98 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
 
+      # The stranded-run guard's census. A cell spends its tokens *before*
+      # `collect`, the run's single durability step, so a collect that fails
+      # after a full-width fan-out leaves every prediction sitting in a cell
+      # artifact and nothing in the ledger — and the ledger is what the matrix's
+      # already-predicted gate reads, so the next live cycle re-derives the same
+      # events and re-spends the identical run. This lists the cell artifacts of
+      # recent runs whose `collect` did not conclude success; the matrix step
+      # below withholds those cells and names the recovery instead.
+      #
+      # Fetch and filter only — the decision lives in the tested `predict-matrix`
+      # command. Fail-open by construction, at two grains (see the shell below):
+      # an unreadable run drops out of the census, and a failure leaving nothing
+      # usable empties it. The failure this guard prevents is expensive, not
+      # dangerous, so it must never be the reason a legitimate run does not
+      # start.
+      - name: Census the cell artifacts of uncollected recent runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo '[]' > stranded-artifacts.json
+          # Two degradation grains. `degraded` is the whole-guard one: nothing
+          # usable was fetched, so withhold nothing. `skipped` loses one run's
+          # cells from the census and keeps the rest — a flake on the seventh
+          # candidate must not discard the six good ones and re-spend them.
+          degraded() {
+            echo '[]' > stranded-artifacts.json
+            echo "::warning::stranded-run guard degraded — $1; this plan proceeds unguarded and may re-mint cells that already ran"
+            exit 0
+          }
+          skipped() {
+            echo "::warning::stranded-run guard skipped a run — $1; that run's cells may be re-minted"
+          }
+          # One fetch, three attempts, backoff — the shape (and the reason) of
+          # the collect action's artifact listing: a single transient 502 here
+          # would silently turn the guard off and re-spend a whole fan-out.
+          # `< /dev/null` because this runs inside a loop whose stdin IS the
+          # candidate list, and a command that read it would swallow the rest.
+          api() {
+            out=$1
+            shift
+            for attempt in 1 2 3; do
+              if gh api "$@" > "$out" < /dev/null; then
+                return 0
+              fi
+              sleep $((attempt * 3))
+            done
+            return 1
+          }
+          # Bounded candidate set: one page of recent completed runs, narrowed to
+          # a 48-hour window — the window is the real bound, and the page is sized
+          # so a day's predict cycles cannot push a stranded run out of view
+          # before the re-queue it must catch. CUTOFF travels as jq's environment
+          # rather than being interpolated into the query program.
+          CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ) \
+            || degraded "could not compute the lookback window"
+          export CUTOFF
+          api candidate-runs.txt "repos/${REPO}/actions/workflows/run-predict.yml/runs?status=completed&per_page=50" \
+            --jq '.workflow_runs[] | select(.created_at > env.CUTOFF) | .id' \
+            || degraded "could not list this workflow's recent runs"
+          : > census.ndjson
+          while IFS= read -r run; do
+            [ -n "$run" ] || continue
+            # Uncollected: no `collect` job on that run concluded success — it
+            # failed, was cancelled, or never reached the job at all.
+            # `filter=latest` is the default made explicit, and it is what makes
+            # the guard release itself: a run recovered by rerunning `collect`
+            # reads as collected and its events queue normally again. Paginated,
+            # because a full-width run's cell jobs push `collect` off page one.
+            if ! api collect-conclusions.txt --paginate \
+                 "repos/${REPO}/actions/runs/${run}/jobs?per_page=100&filter=latest" \
+                 --jq '.jobs[] | select(.name == "collect") | .conclusion'; then
+              skipped "could not read run ${run}'s jobs"
+              continue
+            fi
+            if grep -qx success collect-conclusions.txt; then
+              continue
+            fi
+            if ! api artifact-names.txt --paginate \
+                 "repos/${REPO}/actions/runs/${run}/artifacts?per_page=100" \
+                 --jq '.artifacts[] | select(.expired == false) | select(.name | startswith("predict-")) | .name'; then
+              skipped "could not list run ${run}'s artifacts"
+              continue
+            fi
+            jq -R --argjson run "$run" '{run_db_id: $run, artifact_name: .}' artifact-names.txt \
+              >> census.ndjson || degraded "could not record run ${run}'s cell artifacts"
+          done < candidate-runs.txt
+          jq -s '.' census.ndjson > stranded-artifacts.json \
+            || degraded "could not assemble the census"
+          echo "stranded cell artifact(s): $(jq 'length' stranded-artifacts.json)"
+
       - name: Build predictor x case x event matrix
         id: plan
         env:
@@ -85,7 +181,14 @@ jobs:
         run: |
           python -c "import os, pathlib; pathlib.Path('issue-body.md').write_text(os.environ.get('ISSUE_BODY', ''))"
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
-          matrix=$(uv run fedcourts predict-matrix --body-file issue-body.md --run-id "$run_id")
+          # --stranded-file: withhold any cell whose output already sits in an
+          # uncollected run (the census above; an empty or absent file is the
+          # guard off). --stranded-note-file: when that withholds *every* cell,
+          # the command writes the close note the step below posts, so the issue
+          # says "recover that run", not the generic out-of-scope line.
+          matrix=$(uv run fedcourts predict-matrix --body-file issue-body.md --run-id "$run_id" \
+            --stranded-file stranded-artifacts.json \
+            --stranded-note-file stranded-close.md)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           count=$(echo "$matrix" | jq '.include | length')
           if [ "$count" -gt 0 ]; then
@@ -96,10 +199,12 @@ jobs:
           # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-predict — queued ${count} prediction job(s)" >> "$GITHUB_STEP_SUMMARY"
 
-      # An empty matrix means every queued case was out of scope (or already
-      # predicted): the `predict`/`collect` jobs are skipped (`needs` + `has_jobs`),
-      # so nothing would otherwise close the trigger issue. Close it here with a note
-      # rather than leave it orphaned open. Uses the ambient GITHUB_TOKEN (closing
+      # An empty matrix usually means every queued case was out of scope (or
+      # already predicted): the `predict`/`collect` jobs are skipped (`needs` +
+      # `has_jobs`), so nothing would otherwise close the trigger issue. Close it
+      # here with a note rather than leave it orphaned open. The stranded-run
+      # guard is the one cause the note can name exactly, because its remedy is
+      # the opposite of a re-queue. Uses the ambient GITHUB_TOKEN (closing
       # triggers nothing) — least privilege, no App token.
       - name: Close the trigger issue when nothing is in scope
         if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
@@ -109,10 +214,18 @@ jobs:
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+          comment="No predictable cases in scope this run — every queued case was dropped by the predict-scope gate (out of scope, or already predicted). Closing; nothing to predict."
+          # The stranded-run guard writes its own note when it withheld every
+          # cell, because the honest instruction there is the opposite of a
+          # re-queue: the events are already predicted in a run whose collect
+          # never landed, so recover that run. Absent for every other cause of
+          # an empty matrix, which keeps the line above.
+          if [ -s stranded-close.md ]; then
+            comment=$(cat stranded-close.md)
+          fi
           # One atomic call: close with the explanatory comment, so there's no
           # commented-but-still-open state if a separate close were to fail.
-          gh issue close "$ISSUE" --repo "$REPO" --comment \
-            "No predictable cases in scope this run — every queued case was dropped by the predict-scope gate (out of scope, or already predicted). Closing; nothing to predict."
+          gh issue close "$ISSUE" --repo "$REPO" --comment "$comment"
 
   predict:
     needs: plan
