@@ -715,13 +715,17 @@ rendered band table's heading names its salience version, and where that does
 not match the prediction's frozen `context.salience_version` — or the
 prediction froze a band with no version beside it — the agent omits the baseline
 and flags it rather than pooling from a table another version rendered. The
-harness holds part of the same line from the other side, and it is worth being
-exact about which part: a recorded `risk_set` basis whose version resolves to
+harness holds the same line from the other side, and it is worth being
+exact about which parts: a recorded `risk_set` basis whose version resolves to
 **nothing** fails the cell at the stamp, so a versionless frozen band cannot
-pass as a scored cell. A version that resolves but does not *match* the pack's
-rendered one passes the stamp cleanly — there the omission is prompt discipline
-rather than an enforced rule, and the discipline is what this paragraph
-registers. The
+pass as a scored cell — and a recorded `terminal` basis while the prediction
+froze a band **at all** fails the same way, so the relabel is machine-refused
+rather than merely forbidden, whether or not the band's version resolves.
+`validate`'s `base_rate_basis_carries_version` holds both refusals over the
+merged ledger, so neither shape rides a green cell into `main`. A version that
+resolves but does not *match* the pack's rendered one passes both — there the
+omission is prompt discipline rather than an enforced rule, and the
+discipline is what this paragraph registers. The
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered

@@ -1749,3 +1749,184 @@ def test_stamp_recomputes_correct_on_an_interim_cell(
     )
     assert stamped["correct"] == 0
     assert stamped["brier_score"] == pytest.approx(0.64)
+
+
+def test_stamp_evaluator_fails_a_risk_set_basis_whose_join_finds_no_prediction(
+    _data_root: Path,
+) -> None:
+    """The alias path: a `risk_set` basis with no prediction to join fails.
+
+    A surviving alias (or a predictor that produced nothing) leaves the stamp's
+    join empty, so the version cannot resolve — the same rule as the
+    no-frozen-context case, pinned separately because four doc surfaces rest on
+    this exact sentence.
+    """
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 19).event(event)
+    write_json(
+        event_paths.evaluation("claude-judge", "claude_baseline", "RID"),
+        Evaluation(
+            case_id="scotus/19",
+            event_id=event,
+            predictor_id="claude_baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            base_rate_basis="risk_set",
+            segment_base_rate=0.3555,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 19, event, "RID")
+    assert result.exit_code != 0
+    assert "::error::" in result.output
+    assert "risk_set" in result.output
+
+
+def test_stamp_evaluator_fails_a_terminal_basis_where_a_band_was_frozen(
+    _data_root: Path,
+) -> None:
+    """The mirror mispairing: `terminal` taken where the prediction froze a band.
+
+    Both frozen-band shapes are offenders — with the band's version beside it,
+    a well-formed rate read against the wrong population; without it, a moved
+    band priced at the terminal rate, where omission is the only answer — and
+    each error names its own correction. Only a prediction that froze no band
+    at all takes the fallback legitimately.
+    """
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 20).event(event)
+    # The guard's terminal arm keys on the cert stage, so the event definition
+    # has to say so — an unreadable one suppresses the arm rather than firing it.
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/20",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition for writ of certiorari",
+            opened_at=date(2025, 12, 1),
+        ),
+    )
+    cases = (
+        ("claude-baseline", "baseline", "sal-v1"),
+        ("codex-baseline", "elevated", None),
+        ("gemini-baseline", None, None),
+    )
+    for predictor, band, salience_version in cases:
+        write_json(
+            event_paths.prediction(predictor, "RID"),
+            Prediction(
+                case_id="scotus/20",
+                event_id=event,
+                predictor_id=predictor,
+                engine="claude-code",
+                run_id="RID",
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                input_snapshot="record/snapshots/2026-01-01.json",
+                granted=0,
+                probability=0.2,
+                predicted_disposition=Disposition.denied,
+                context=PredictionContext(
+                    mode="forward",
+                    snapshot_date=date(2026, 1, 1),
+                    signals_observable=band is not None,
+                    distribution_count=1,
+                    band=band,
+                    salience_version=salience_version,
+                    term=2025,
+                ),
+            ),
+        )
+        write_json(
+            event_paths.evaluation("claude-judge", predictor, "RID"),
+            Evaluation(
+                case_id="scotus/20",
+                event_id=event,
+                predictor_id=predictor,
+                evaluator_id="claude-judge",
+                engine="claude-code",
+                run_id="RID",
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                correct=1,
+                base_rate_basis="terminal",
+                segment_base_rate=0.15,
+            ),
+        )
+
+    result = _stamp("evaluator", "claude-judge", 20, event, "RID")
+    assert result.exit_code != 0
+    # The versioned offender gets the wrong-population arm, the versionless one
+    # the omission arm — distinguishable at the console, each with the scored
+    # prediction's run id so a maintainer can check the join without redoing it.
+    versioned = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    assert str(versioned) in result.output
+    assert "wrong population" in result.output
+    versionless = event_paths.evaluation("claude-judge", "codex-baseline", "RID")
+    assert str(versionless) in result.output
+    assert "no salience version beside it" in result.output
+    assert "run RID" in result.output
+    # The band-less sibling took the documented fallback and is not named.
+    survivor = event_paths.evaluation("claude-judge", "gemini-baseline", "RID")
+    assert str(survivor) not in result.output
+
+
+def test_stamp_evaluator_keeps_the_terminal_arm_off_unstaged_events(
+    _data_root: Path,
+) -> None:
+    """The terminal arm is cert-only; an event with no readable stage passes.
+
+    The frozen-band pairing is a cert-petition concept while the frozen
+    context is stamped per case, so a case-level band visible from a
+    stage-less event's cell must not reach the rule. The risk-set arm is not
+    narrowed — a `risk_set` basis without its version is incoherent on any
+    stage — so only the terminal shape is exercised here.
+    """
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 21).event(event)
+    # No event.yaml is written, so the stage is unresolvable by design.
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/21",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=True,
+                distribution_count=1,
+                band="baseline",
+                salience_version="sal-v1",
+                term=2025,
+            ),
+        ),
+    )
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id="scotus/21",
+            event_id=event,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+            base_rate_basis="terminal",
+            segment_base_rate=0.15,
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 21, event, "RID")
+    assert result.exit_code == 0, result.output

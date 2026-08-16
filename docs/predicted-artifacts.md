@@ -527,10 +527,11 @@ who writes the baseline on each:
   `brier_skill_score` are omitted where no band, no prior-Term rate, or no
   matching salience version exists — the last of those is an omission and never
   a relabel to `terminal`, which would pair a risk-set population with a
-  terminal rate. A recorded `risk_set` basis must therefore
+  terminal rate, and which the stamp and `validate` refuse outright wherever
+  the scored prediction froze a band at all. A recorded `risk_set` basis must
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
-  `base_rate_basis_carries_version` holds the same rule over the ledger.
+  `base_rate_basis_carries_version` holds both rules over the ledger.
 - **An interim cell's baseline is registered and wired** — the statpack interim
   section's substantive grant rate pooled over application Terms strictly before
   the case's own — but it is no band product either, so `base_rate_basis` and
