@@ -140,8 +140,9 @@ def stage_moment_key(stage: Stage | None, moment: Moment | None) -> str:
 # Brier scores are bounded in [0, 1]; predictors that never reported one sort
 # after every predictor that did, without colliding with a real worst score.
 _NO_BRIER: float = 2.0
-# Accuracies are bounded in [0, 1]; a predictor with no cells in a stratum sorts
-# after every predictor that has any, without colliding with a real worst score.
+# Accuracies are bounded in [0, 1]; a predictor with no cells in a stratum — or
+# none whose `correct` the stamp could compute — sorts after every predictor
+# that has any, without colliding with a real worst score.
 _NO_ACCURACY: float = -1.0
 
 
@@ -208,6 +209,13 @@ def _aggregate(
     as a zero, and each column publishes its own ``*_scored`` denominator. The
     two are never combined — different baselines, different questions.
 
+    ``accuracy`` takes the same rule as the rest: a cell whose ``correct`` the
+    stamp could not compute — no readable prediction or no committed outcome —
+    leaves the column's numerator *and* denominator, which is what
+    ``accuracy_scored`` records. Entering it as a zero would score a missing
+    artifact as a wrong call, and the board's first rank key is the last place
+    that should happen.
+
     ``mean_vote_accuracy`` takes the same stage gate the per-cell figure does
     (:func:`fedcourtsai.pipeline.moments.scores_votes`), applied here to the
     cell's own event rather than inherited from the block it landed in. The
@@ -224,6 +232,7 @@ def _aggregate(
     # Each skill column's own denominator rides beside it: a cell scores a
     # column only where that column's baseline exists, so the gap between it and
     # `evaluations` must be visible rather than silent.
+    correct = [ev.correct for ev in evals if ev.correct is not None]
     cells = [skills.get(_evaluation_key(ev)) for ev in evals]
     prior = [
         (cell.brier, cell.prior_term_baseline)
@@ -238,7 +247,8 @@ def _aggregate(
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
         evaluations=len(evals),
-        accuracy=sum(ev.correct for ev in evals) / len(evals),
+        accuracy=_mean(correct),
+        accuracy_scored=len(correct),
         mean_brier_score=_mean([ev.brier_score for ev in evals if ev.brier_score is not None]),
         population_brier_skill_score=_skill_of_means(prior),
         skill_scored=len(prior),
@@ -260,7 +270,7 @@ def _aggregate(
 def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]:
     """Total order: forward stratum first, retrospective as tie-break, then id.
 
-    Forward accuracy (desc) then forward Brier (asc, missing last) lead because
+    Forward accuracy (desc, missing last) then forward Brier (asc, missing last) lead because
     only the forward stratum measures forecasting skill; the retrospective pair
     orders predictors that have no forward cells yet. The procedural stratum
     never contributes — vacatur-practice calls buy no rank. ``predictor_id`` makes the
@@ -272,7 +282,9 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
     """
 
     def acc(stratum: LeaderboardStratum | None) -> float:
-        return stratum.accuracy if stratum is not None else _NO_ACCURACY
+        if stratum is None or stratum.accuracy is None:
+            return _NO_ACCURACY
+        return stratum.accuracy
 
     def brier(stratum: LeaderboardStratum | None) -> float:
         if stratum is None or stratum.mean_brier_score is None:
@@ -813,7 +825,8 @@ def build_leaderboard(
 
         One entry per predictor, each carrying its **forward** and **retrospective**
         aggregates separately (a stratum with no cells is null, never zero-filled
-        into a blend). Entries rank by forward accuracy (desc), forward Brier (asc,
+        into a blend). Entries rank by forward accuracy (desc, missing last),
+        forward Brier (asc,
         missing last), the retrospective pair as tie-break, then ``predictor_id`` —
         a total order, so the ranking is deterministic even under ties. ``big_case``
         (from :func:`big_case_agreement`) attaches each predictor's big-case

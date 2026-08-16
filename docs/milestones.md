@@ -128,12 +128,14 @@ each freeze commit is recorded here.
   out-of-sample re-census once frozen-window Terms accrue. The scored window
   opens at the first post-promotion metrics refresh, as it did for `sal-v2`.
 
-- Freeze commit: `8d256a32f`, to be tagged **`prereg/proc-v3`**. Carried to
-  `main` by the promotion tagged `promotion/<FILL: YYYY-MM-DD>` (merge commit
-  `<FILL: sha>`, merged `<FILL: instant>`) — the auditor's comparison of the
-  cutover procedure is that date against the freeze instant, and it is a **hard
-  gate before the tag is minted**, not a note: the `prereg/` namespace blocks
-  update and deletion, so a tag over a bad instant burns the label. It blesses
+- Freeze commit: `8d256a32f`, tagged **`prereg/proc-v3`**. Carried to
+  `main` by the promotion tagged `promotion/2026-08-15` (merge commit
+  `596740de4`, merged `2026-08-15T16:13:46Z`) — the auditor's comparison of the
+  cutover procedure is that date against the freeze instant, and it was a **hard
+  gate before the tag was minted**, not a note: the `prereg/` namespace blocks
+  update and deletion, so a tag over a bad instant burns the label. The merge
+  precedes the instant by under eight hours — inside the gate, with the
+  tight margin the entry below anticipated. It blesses
   the six proc-v3 digests (three predictors, three evaluators) and keeps the
   freeze instant at `2026-08-16T00:00:00Z`, deliberately unmoved from proc-v2's.
   Holding it is safe in the direction that matters — proc-v2 has zero stamped
@@ -154,8 +156,8 @@ each freeze commit is recorded here.
   precedes the freeze instant, so `is_frozen`'s time cutoff excludes them
   mechanically, and **zero cells were ever counted under proc-v2**: its headline
   is legitimately empty forever, and its tag stays as the record that the label
-  was registered and then superseded. The grep must be **re-run at promotion
-  time** — cells land on `main` continuously, so the count can move.
+  was registered and then superseded. The grep was re-run against `main` at
+  promotion time, as the procedure requires — the count held at 27.
 
   What moved every digest is the prompt pair: `.github/prompts/predict.md`
   elicits `cert-v2`'s five claims (the two additions in the conditional forms
@@ -182,6 +184,29 @@ each freeze commit is recorded here.
     `segment_base_rate`, and `brier_skill_score` off the evaluator and onto
     `stamp-cell` on the merits and interim stages — a change to *who computes a
     scored number*, which the scoring-baseline rule puts in this list;
+  - the **harness `correct` stamp**, which moves the accuracy column's per-cell
+    bit off the evaluator and onto `stamp-cell` on **every** stage, cert
+    included: the comparison needs no pooled baseline and so no salience band,
+    which is the whole of the skill stamp's cert exemption. No digest moves —
+    no prompt byte changed, and `stamp-cell` calls `pipeline.evaluate.is_correct`,
+    the same function the evaluate prompt already names as the definition — so
+    the quantity is unchanged and only its author moves, which is precisely what
+    puts it in this list. The leaderboard's **first rank key** is the affected
+    figure. Zero frozen-scope cells were ever stamped under the prior
+    ownership: the committed board reads `evaluations_total: 0` at
+    `process_scope: frozen`, so no published standing rests on an
+    evaluator-authored `correct`;
+  - the **retrieval-log capture marker** — `result_capture` on every call and
+    the log-level `result_capture_coverage` — which passes `mask_retrieval_log`
+    unmasked and so reaches the grader on the leakage grading's own required
+    reading path: a change to every evaluator's information set with no digest
+    of its own, the masking-surface case
+    [process-version.md](process-version.md) names. The promotion carrying it
+    lands some hours *after* the freeze instant, and the frozen partition is
+    homogeneous regardless: `run:predict` and `run:evaluate` are held until the
+    promotion lands, so zero frozen-scope cells are stamped before it and the
+    frozen information set carries the marker from its first cell. No label
+    bump;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.

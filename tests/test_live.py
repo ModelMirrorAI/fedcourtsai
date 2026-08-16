@@ -1393,7 +1393,8 @@ def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     served_docs = {
         "https://example/p.pdf": _pdf(
-            "QUESTION PRESENTED Whether Z. PARTIES TO THE PROCEEDING Acme."
+            "QUESTION PRESENTED Whether the agency exceeded its statutory authority. "
+            "PARTIES TO THE PROCEEDING Acme."
         )
     }
     served = {"25-1": _payload("25-1")}
@@ -1425,7 +1426,9 @@ def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9025000001")}
     assert set(stored) == {"petition", "questions-presented"}
-    assert stored["questions-presented"].text == "Whether Z."
+    assert stored["questions-presented"].text == (
+        "Whether the agency exceeded its statutory authority."
+    )
 
 
 def test_resolution_without_predictions_queues_no_evaluate(tmp_path: Path) -> None:

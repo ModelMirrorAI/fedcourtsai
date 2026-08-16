@@ -10,7 +10,7 @@ stage.
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
-| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex (replay) |
+| `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
@@ -86,7 +86,16 @@ each as its own least-privilege job holding only the credentials its mode needs:
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
-  engine / actor. It reads `data/` only — no corpus, no network — so it binds no
+  engine / actor. The same walk adds per-engine result observability (whether an
+  engine's transcript captures the answer side at all), cuts by mode / role /
+  actor, calls beside each cell's estimated cost, and call volume against the
+  evaluators' Brier scores — that last one scoped to blessed processes like any
+  grade-bearing surface, and a denominator table with an under-powered verdict
+  until a population clears the cell floor its module pre-declares. The dispatch
+  takes the default scope, so while no committed cell is inside the freeze the
+  usefulness section renders as empty and says so; the diagnostic read over every
+  process version is `fedcourts tool-usage --all-versions`, run locally. It reads
+  `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
 - **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over every

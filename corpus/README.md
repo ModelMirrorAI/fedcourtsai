@@ -42,8 +42,12 @@ The corpus has two halves:
 
   Document text leaves are content-addressed and dated snapshots immutable per
   day, so bulk content is never overwritten in place; the small manifests are
-  versioned by the bucket rather than deleted. Its location comes from
-  `FEDCOURTS_CASESTORE_URL`.
+  versioned by the bucket rather than deleted. The `questions-presented` leaf is
+  *derived* from the stored petition text rather than fetched, so a fixed
+  extractor can be carried onto rows already stored (`fedcourts
+  backfill-questions-presented`) under that same rule: the re-derivation writes
+  a new leaf and re-points the manifest, and the superseded text stays
+  readable. Its location comes from `FEDCOURTS_CASESTORE_URL`.
 
 SQLite keeps the index a single artifact — one pointer, queryable with
 plain SQL. The format is internal; the stable contract is the **row schema**
@@ -90,6 +94,12 @@ source.
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty, which is every row the walk now writes; 10 on a denial kept by the earlier sampled walk); null = no channel asserted a weight |
+| `has_opinion`         | integer (0/1)   | presence bit for a linked published opinion — kept in the index so the scope classifiers still work when the split moves the `opinion_text` body to the content store |
+| `salience_score`      | real            | the salience gate's deterministic score ([docs/salience.md](../docs/salience.md)); owned by the selection pass, never an ingestion channel |
+| `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
+| `salience_selected`   | integer (0/1)   | the one-way selection latch — a selected petition is never de-selected |
+| `predict_queued_at`   | date            | the last date the live channel queued predict for this case (routing or selection sweep); the sweep's daily-retry debounce reads it |
+| `evaluate_queued_at`  | date            | the last date the evaluate backlog deriver queued evaluate; its daily-retry debounce reads it the same way |
 | `application_kind`    | text            | what an interim application asks for (`extension` / `substantive` / `unknown`); null = never application-parsed |
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
@@ -217,6 +227,7 @@ is a motion under the interim standard, not a cert petition.
 | `court`           | text        | CourtListener court id                       |
 | `kind`            | text        | motion / petition / appeal / order          |
 | `stage`           | text        | decision standard (cert / interim / merits); null where none is recorded |
+| `moment`          | text        | which forecast moment of the stage this event is; null where unrecorded, read downstream as the stage's first moment |
 | `title`           | text        |                                             |
 | `description`     | text        |                                             |
 | `docket_entry_id` | integer     | docket entry the event is pinned to; null for case-level |

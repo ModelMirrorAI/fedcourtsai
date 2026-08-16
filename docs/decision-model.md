@@ -14,9 +14,10 @@ not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice — on a
 declared **merits** moment only, the stage gate below — feeding the
 leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
-`stage` — stamped `cert` on a cert docket's petition baseline, `interim` on an
-application docket's motion baseline and on SCOTUS entry-pinned
-stay/injunction motions, `merits` on the minted merits event, absent
+`stage` — stamped on **all eight declared moments** (`cert` on the three cert
+moments, `interim` on the three interim moments, `merits` on the two merits
+moments) and on the SCOTUS entry-pinned stay/injunction motions the interim
+standard also covers, absent
 everywhere the writers do not classify one. The merits **cell contract** is
 implemented end to end: a cert grant that
 opens a merits proceeding mints an open `evt-order-judgment` (kind `order`,
@@ -461,8 +462,11 @@ claim goes unscored, and no substitute rate is invented.
 
 **The Term axis is the grant Term, on both sides.** The statpack merits
 section is keyed on the October Term certiorari was granted in, and so is the
-baseline lookup — read from the merits event's `opened_at`, which *is* the
-grant date. The docket-number Term is not a stand-in for it: the two disagree
+baseline lookup — read from the **first** merits moment's `opened_at`, which
+*is* the grant date. A later merits moment opens on its own filing (a
+respondent's merits brief lands months after the grant, routinely in the next
+October Term), so it reads its sibling first-moment record rather than its own
+`opened_at`. The docket-number Term is not a stand-in for it: the two disagree
 for a petition docketed into the incoming Term and granted before that Term
 opens, where the docket Term runs one *later* and would admit the case's own
 cohort into its own baseline. Keying both sides on the grant Term also keeps
@@ -538,10 +542,13 @@ outright: `correct` on a merits cell *is* this comparison
 (`pipeline.evaluate.is_correct`), because a merits outcome's
 `actual_disposition` is always the off-vocabulary `other` and comparing
 dispositions there would score every cell against a constant the merits
-contract never defines. Both are computed by the shared helpers, but on a real
-cell they are the evaluator's field to write — the harness stamps
-`claim_scores`, the base-rate basis record, and, on a merits or interim cell,
-the whole skill record of `brier_score` / `segment_base_rate` /
+contract never defines. Both are computed by the shared helpers, and they split
+on ownership: `correct` is harness-stamped on **every** stage from the two
+committed artifacts, because a label comparison needs no pooled baseline and so
+no band judgment, while `judgment_correct` remains the evaluator's field to
+write — no published figure ranks on it. Beside `correct` the harness also
+stamps `claim_scores`, the base-rate basis record, and, on a merits or interim
+cell, the whole skill record of `brier_score` / `segment_base_rate` /
 `brier_skill_score`.
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole

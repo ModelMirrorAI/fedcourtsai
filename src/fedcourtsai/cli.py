@@ -139,7 +139,8 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.evaluate import brier_score, brier_skill
+from .pipeline.documents import backfill_questions_presented
+from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -787,6 +788,97 @@ def backfill_merits_judgments_cmd(
         ", ".join(f"{value}: {count}" for value, count in result.terminations.items()) or "none"
     )
     typer.echo(f"  terminations: {terminations}")
+    typer.echo(result.model_dump_json())
+
+
+@app.command("backfill-questions-presented")
+def backfill_questions_presented_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Rewrite the questions-presented rows; omit for a dry-run that only counts.",
+        ),
+    ] = False,
+) -> None:
+    """Re-derive each SCOTUS case's questions presented from its stored petition text.
+
+    The `questions-presented` row is **derived** from the petition, and the
+    ingest path derives it only when the petition itself is (re)fetched — an
+    unchanged petition URL is never re-fetched, so a row keeps whatever the
+    extractor said the day it was ingested and an extractor fix never reaches
+    it. This pass closes that gap: over the live-slice SCOTUS cases holding
+    petition text (SQLite, or the per-case content store under the corpus-split
+    mode — documents reach the corpus on that channel only), run the current
+    extractor (`pipeline/documents.py`) and rewrite the row only where its
+    output differs from what is stored. Nothing is fetched and no PDF is
+    re-read — the input is text the corpus already holds. A stored full-length
+    question the extractor can no longer derive is reported (`refused`) rather
+    than emptied: that reading is as likely to be this pass misjudging a
+    question as a bad row, and the sweep does not decide it alone. Each rewrite
+    is
+    classified by the extraction hole it comes from (`stale-toc-fragment`,
+    `prose-terminator-fragment`, `below-floor`, `other-change`, plus
+    `derived-anew` where a case had no row), so the dry run is the triage list;
+    the printed `QPBackfillResult` carries the untruncated case-id ledger of
+    which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
+    the command echoes. Idempotent. A
+    deliberate maintainer surface, never scheduled: dry-run by default, run
+    where the corpus is pulled, `corpus-push` after an `--apply`. Fails loud if
+    the corpus is absent, or if it holds no petition text at all (a payload-free
+    index, or a split-mode blob with no content store configured — the wrong
+    blob for this command).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the questions-presented backfill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        # The pointer the rewrite is about to supersede. Where the replaced text
+        # is recoverable from depends on the mode: from this blob in the
+        # self-contained mode, which holds the documents inline; from the prior
+        # content-addressed leaf and the bucket-versioned manifest under the
+        # split mode, where the blob carries no document text at all. Echo it
+        # either way — it is what names the corpus state the ledger below
+        # describes.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with corpus.connect(db_path) as conn:
+        result = backfill_questions_presented(conn, apply=apply)
+    if not result.petitions:
+        typer.echo(
+            f"backfill-questions-presented: no stored petition text in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if apply else "would rewrite"
+    distribution = (
+        ", ".join(f"{reason}: {count}" for reason, count in result.reasons.items()) or "none"
+    )
+    # Summary first: the per-case ledger below runs to the size of the change
+    # set, and a first pass over an unconverged corpus would bury the counts.
+    typer.echo(
+        f"backfill-questions-presented ({'applied' if apply else 'dry-run'}): "
+        f"{result.petitions} stored petition(s) — {result.unchanged} unchanged, "
+        f"{verb} {result.updated}, {result.no_petition_text} without petition text"
+    )
+    typer.echo(f"  reasons: {distribution}")
+    if result.refused:
+        typer.echo(
+            f"  REFUSED: {result.refused} carry a full-length question this pass "
+            "cannot re-derive — never emptied automatically; triage them"
+        )
+    for case_id, reason in result.changes.items():
+        typer.echo(f"  {case_id}: {reason}")
+    if apply:
+        _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
 
 
@@ -1825,6 +1917,13 @@ def tool_usage_command(
     markdown_out: Annotated[
         Path | None, typer.Option(help="Write the Markdown rollup here (e.g. a run summary).")
     ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Pool every process version in the usefulness block (default: frozen only).",
+        ),
+    ] = False,
 ) -> None:
     """Roll committed retrieval logs into an offered-vs-called tool report.
 
@@ -1843,6 +1942,17 @@ def tool_usage_command(
     A zero means **never called**, not useless — the prompt may never mention
     the tool, or a sandbox may have blocked it. The report says so; check the
     cause before retiring anything.
+
+    Beside that it reports **result observability** per engine (a captured
+    result digest is the only evidence the answer side was recorded at all, so
+    the rate is two-state and an engine that captured none has its dead-end rows
+    withheld rather than printed as total), cuts by mode / role / actor, calls
+    beside each cell's estimated cost, and **call volume against Brier** joined
+    to the gradings of each predicted cell. That last block is a grade-bearing
+    surface, so it is scoped to blessed processes by default — ``--all-versions``
+    pools every version, including shakedown cells whose Brier is comparable to
+    nothing — and it publishes no correlation for any population below the floor
+    pre-declared as ``tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS``.
     """
     settings = get_settings()
     # The current manifest's advertised set, so a never-called tool is visible
@@ -1854,7 +1964,9 @@ def tool_usage_command(
         path = settings.config_root / filename
         if path.exists():
             offered_now.update(mcp.manifest_tools(load_mcp_servers(path)))
-    usage = tool_usage.build_tool_usage(settings.data_root, sorted(offered_now))
+    usage = tool_usage.build_tool_usage(
+        settings.data_root, sorted(offered_now), frozen_only=not all_versions
+    )
     markdown = tool_usage.render_tool_usage_markdown(usage)
     if out is not None:
         write_json(out, usage)
@@ -2443,6 +2555,14 @@ def stamp_cell(
     frozen context (:func:`_base_rate_salience_version_for`), so both are the
     harness's word and an evaluator-authored value never survives the stamp.
 
+    ``correct`` is stamped on **every** stage, cert included
+    (:func:`_harness_correct_for`): it is a label comparison between the scored
+    prediction and the outcome with no baseline and so no band to choose, which
+    is the only thing the cert exemption below is about — and it is the
+    leaderboard's first rank key, so the ranked cert board's lead column would
+    otherwise rest on the evaluator's word alone. Cleared where either committed
+    artifact is unreadable, like the Brier.
+
     **Who owns the skill record.** The harness stamps it wherever the baseline
     pool is a Term-keyed ratio of published integer counts with no band to
     choose — every **merits** and every **interim** cell — because there the
@@ -2539,8 +2659,9 @@ def stamp_cell(
             # evaluator-authored one is replaced — with the computed block where
             # the committed inputs support one, with nothing otherwise.
             cell_update["claim_scores"] = _claim_scores_for(event_paths, record, settings)
-            # The skill record — Brier, base rate, and the ratio over them —
-            # same discipline: derived deterministically from the stage and the
+            # `correct` on every stage, and the skill record — Brier, base
+            # rate, and the ratio over them — on the stages that own it: same
+            # discipline, derived deterministically from the stage and the
             # committed inputs, overwritten unconditionally so what it says is
             # the harness's word. The basis pair it returns is what the risk-set
             # guard below judges — the record as stamped, never as the evaluator
@@ -2689,16 +2810,33 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
 #: judgment for an evaluator to exercise. The cert stage is absent by design —
-#: see :func:`stamp_cell`.
+#: see :func:`stamp_cell`. It governs the *skill record* only: ``correct`` needs
+#: no pooled rate and so no band, and is stamped on every stage including cert.
 _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 
 def _skill_record_for(
     event_paths: EventPaths, evaluation: Evaluation, settings: Settings
 ) -> tuple[dict[str, object], tuple[str | None, str | None]]:
-    """This cell's whole skill record as a stamp update, plus its basis pair.
+    """This cell's ``correct`` and skill record as a stamp update, plus its basis pair.
 
-    Two shapes, keyed on the stage. On a **cert** cell the Brier, the rate, and
+    ``correct`` is stamped on **every** stage, cert included, and is the one
+    field here that does not split by stage. The exemption the cert stage holds
+    is about the *baseline*: which band population a pooled rate is taken over
+    is a judgment about the scored prediction's frozen band, and that judgment
+    reaches the Brier skill through ``segment_base_rate``. ``correct`` has no
+    baseline and no band — it is a label comparison between the scored
+    prediction and the outcome (:func:`fedcourtsai.pipeline.evaluate.is_correct`,
+    routed on the outcome's own axis) — so there is nothing on a cert cell for
+    an evaluator to exercise judgment over, and no reason for the exemption to
+    carry across. It is also the leaderboard's first rank key, so leaving it as
+    the evaluator's word on the one stage the ranked board is built from would
+    leave the board's lead column unverifiable exactly where it is load-bearing.
+    Like the Brier it is ``None`` where either committed artifact — the scored
+    predictor's latest prediction, or the outcome — is unreadable.
+
+    The **skill record** beside it takes two shapes, keyed on the stage. On a
+    **cert** cell the Brier, the rate, and
     the skill are the evaluator's — which band population the rate was taken
     over is a judgment about the scored prediction's frozen band, and the
     leaderboard's coherence check is what stands between that arithmetic and the
@@ -2725,16 +2863,28 @@ def _skill_record_for(
     The returned ``(basis, version)`` pair is the record **as stamped**, so the
     guard judges what was written rather than what the evaluator proposed.
     """
+    outcome = _outcome_for(event_paths)
+    correct = _harness_correct_for(event_paths, evaluation, outcome)
+    # The one field the evaluate prompt requires of every cell, so a null is a
+    # contract miss rather than a stage's silence — and it costs the stamped
+    # bit its only independent read, which is worth as much noise as a
+    # disagreement.
+    _warn_on_discarded_number(
+        evaluation, "correct", evaluation.correct, correct, warn_on_omission=True
+    )
     if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
         version = _base_rate_salience_version_for(event_paths, evaluation)
-        return ({"base_rate_salience_version": version}, (evaluation.base_rate_basis, version))
-    outcome = _outcome_for(event_paths)
+        return (
+            {"correct": correct, "base_rate_salience_version": version},
+            (evaluation.base_rate_basis, version),
+        )
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
     brier = _harness_brier_for(event_paths, evaluation, outcome)
     _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
     _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
     return (
         {
+            "correct": correct,
             "brier_score": brier,
             "segment_base_rate": rate,
             "brier_skill_score": _harness_skill_for(brier, outcome, rate),
@@ -2752,12 +2902,19 @@ def _skill_record_for(
 #: different pool window or Term axis for the rate, a different probability or
 #: binary for the Brier. Absolute rather than relative, so it is a floor on what
 #: gets *said*, not on what gets written: a disagreeing Brier under it — which a
-#: squared quantity reaches near ``p == y`` — is still replaced, silently.
+#: squared quantity reaches near ``p == y`` — is still replaced, silently. A
+#: 0/1 field like ``correct`` can only disagree by a whole unit, so every
+#: disagreement there is said.
 _STAMP_ECHO_TOLERANCE = 1e-3
 
 
 def _warn_on_discarded_number(
-    evaluation: Evaluation, field: str, recorded: float | None, stamped: float | None
+    evaluation: Evaluation,
+    field: str,
+    recorded: float | None,
+    stamped: float | None,
+    *,
+    warn_on_omission: bool = False,
 ) -> None:
     """Say when a stamped number replaces a *different* one the evaluator wrote.
 
@@ -2774,17 +2931,56 @@ def _warn_on_discarded_number(
     systematic disagreement — an evaluator scoring the wrong binary, or reading
     a stale probability — surfaces here and nowhere else. A field the prompt
     stopped asking for would leave that check with nothing to compare.
+
+    ``warn_on_omission`` extends that to the other direction: an evaluator that
+    simply *omits* the elicited value kills the independent read as effectively
+    as a wrong one, and silently, since there is then no disagreement to
+    report. It is off by default because on an optional field an omission is
+    the normal shape — most cells legitimately record no Brier or no rate — and
+    on by exception for a field the prompt requires of every cell, where a null
+    is a prompt-contract miss rather than a stage's silence.
+
+    "Harness-stamped" in the note is said of the **field**, not the stage: on a
+    cert cell ``correct`` is stamped while the skill record beside it is not, so
+    naming the stage would misdescribe exactly the cell this most often fires on.
     """
-    if recorded is None or (
-        stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE
-    ):
+    if recorded is None:
+        if not (warn_on_omission and stamped is not None):
+            return
+    elif stamped is not None and abs(stamped - recorded) <= _STAMP_ECHO_TOLERANCE:
         return
+    said = f"recorded no {field}" if recorded is None else f"recorded {field} {recorded}"
     typer.echo(
-        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
-        + f"{field} {recorded} on a harness-stamped stage; the stamp wrote "
-        + f"{stamped} instead.",
+        f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} {said} "
+        + f"for a harness-stamped field; the stamp wrote {stamped}.",
         err=True,
     )
+
+
+def _harness_correct_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> int | None:
+    """The harness's own correctness bit for one evaluation, or ``None``.
+
+    The stage's own label comparison between the two committed artifacts,
+    through the shared numeric core
+    (:func:`fedcourtsai.pipeline.evaluate.is_correct`, which routes on the
+    outcome: judgment on a merits cell, disposition elsewhere), so the stamped
+    bit is the definition rather than a restatement of it. The scored prediction
+    is the predictor's **latest** for this event, the same join the Brier and
+    the claim block take.
+
+    Stamped on every stage, cert included — it needs no pooled baseline and so
+    no band judgment, which is the whole of the cert stage's skill-record
+    exemption. ``None`` only where an artifact is absent outright, exactly
+    :func:`_harness_brier_for`'s tolerance: this is a post-agent step, so a
+    missing input suppresses the bit rather than failing a cell that already
+    produced its output.
+    """
+    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    if latest is None or outcome is None:
+        return None
+    return is_correct(latest, outcome)
 
 
 def _harness_brier_for(
@@ -4004,6 +4200,17 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
+    include_applications: Annotated[
+        bool,
+        typer.Option(
+            help="Include the non-cert SCOTUS letter forms — time-extension and "
+            "unread-ask applications, original-jurisdiction and miscellaneous "
+            "matters. Excluded by default because their 'granted' records an "
+            "extension or a procedural leave rather than a cert vote, and "
+            "resolving in days floats them to the head of the recency ranking; "
+            "substantive applications (stays, injunctions) return either way."
+        ),
+    ] = False,
     limit: Annotated[
         int, typer.Option(help="Maximum priors to return.")
     ] = corpus.DEFAULT_PRIOR_LIMIT,
@@ -4017,9 +4224,16 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     Precedent retrieval for predictors: pull a handful of similar resolved cases
     by structured filter instead of loading the bulk set. ``--court`` / ``--topic``
     / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
-    match on overlap and rank the results by how much they share. Prints one
-    compact JSON row per line, ranked, with ``opinion_text`` omitted unless
-    ``--full``. Reads the pulled file, the blob in place on the remote with
+    match on overlap and rank the results by how much they share. The SCOTUS
+    letter forms that are not cert petitions — time-extension applications,
+    original-jurisdiction and miscellaneous dockets — are screened out unless
+    ``--include-applications``: their disposition is not a cert vote, and an
+    extension resolves so fast that recency would put them ahead of the
+    petitions a cert cell asked for. A substantive application — a stay, an
+    injunction — is kept either way, being the interim predict scope.
+    Prints one compact JSON row per line, ranked, with
+    ``opinion_text`` omitted unless ``--full``.
+    Reads the pulled file, the blob in place on the remote with
     ``--corpus-backend ranged``, or forwards to a corpus query sidecar with
     ``--corpus-backend service`` (same rows, same read-stats line — a
     transport change, not a different surface).
@@ -4053,6 +4267,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         era=era or None,
         decided_before=decided_before or None,
         resolved_only=not include_open,
+        exclude_non_cert=not include_applications,
     )
     if backend == "service":
         try:
@@ -6496,7 +6711,10 @@ def cert_backtest_plan(
 def metrics_refresh_plan(
     changed_file: Annotated[
         Path,
-        typer.Option(help="File holding `git diff --name-only -- metrics/` output to summarize."),
+        typer.Option(
+            help="File holding `git diff --cached --name-only -- metrics/ data/scope/` "
+            "output to summarize."
+        ),
     ],
     run_id: Annotated[
         str, typer.Option(help="Refresh run id for the PR prose; defaults to now (UTC).")
@@ -6505,7 +6723,9 @@ def metrics_refresh_plan(
     """Render the review-PR plan for a metrics refresh (``run-analytics``).
 
     The workflow regenerates the metrics artifacts (the same tested commands the
-    stages run), diffs ``metrics/``, and hands the changed paths here; this prints a
+    stages run), stages them and reads ``git diff --cached --name-only -- metrics/
+    data/scope/`` so a brand-new artifact is not missed, and hands the changed paths
+    here; this prints a
     JSON plan ``{"changed":[...],"pr":<branch/title/commit/body|null>}`` with a
     per-artifact headline read from the regenerated files. ``pr`` is null when
     nothing changed (byte-stable artifacts -> empty diff -> no PR), so the workflow

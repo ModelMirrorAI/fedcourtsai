@@ -170,7 +170,7 @@ absent optional field as null.
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v2",
+    "label": "proc-v3",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",
@@ -431,7 +431,18 @@ directory without knowing which part is which invites trusting the wrong half.
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the
-  agent does not write it; credential-shaped runs are redacted at capture.
+  agent does not write it; credential-shaped runs are redacted at capture. Each
+  call also states whether capture saw its result at all — `result_capture` is
+  `captured` when the paired result item was in the log and `unobserved` when
+  nothing came back to capture or capture found no result item to pair with the
+  call, with `result_capture_coverage` the log-level share. Read it before reading the digests: a null `result_digest` is what a
+  captured-but-empty result and a never-captured one both leave behind, so
+  "this call surfaced nothing" is a claim only the marker can support. The
+  evaluate prompt does not name the marker — the process the frozen partition
+  keys on cannot gain a reading instruction without moving
+  ([process-version.md](process-version.md)) — so it serves a maintainer, and
+  is available to the tool-usage rollup, which does not yet read it, until the
+  next re-blessing carries the instruction.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts
@@ -482,11 +493,14 @@ in prose.
   stage whose votes are scored at all and an individual cert vote never is
   (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
-  independent `big_case` read. `claim_scores`, `base_rate_salience_version`,
-  and `process_version` are the harness's, never the evaluator's word — as is
-  the whole skill record of `brier_score`, `segment_base_rate`, and
-  `brier_skill_score` on the two stages whose pool the harness computes
-  (below), which leaves `brier_score` the evaluator's on a cert cell only.
+  independent `big_case` read. `correct`, `claim_scores`,
+  `base_rate_salience_version`, and `process_version` are the harness's, never
+  the evaluator's word — as is the whole skill record of `brier_score`,
+  `segment_base_rate`, and `brier_skill_score` on the two stages whose pool the
+  harness computes (below), which leaves `brier_score` the evaluator's on a cert
+  cell only. `correct` takes no such exemption: a label comparison needs no
+  pooled baseline and so no band judgment, so it is stamped on every stage, and
+  null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
   above: written on a **merits** cell, one ordinal grade per declared claim, and
   null on every other stage. No opinion body is ingested, so every grade it

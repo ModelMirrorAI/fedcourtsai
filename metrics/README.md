@@ -99,7 +99,22 @@ stays outside the gate:
   sit on the entry rather than the stratum, because they describe the whole
   entry: `evaluators`, the distinct judges that scored it, and `events_scored`
   pooled across its strata, which the coverage contract below reads against the
-  board's own. Each
+  board's own. The **accuracy** column is the mean of each cell's `correct`,
+  which the harness stamps on **every** stage — cert included, unlike the skill
+  record beside it — from the scored prediction's committed label and the
+  outcome's, so the board's first rank key is recomputed from committed
+  artifacts rather than taken on the evaluator's word. A cell whose `correct`
+  the stamp could not compute (no readable prediction, or no committed outcome)
+  leaves both halves of the fraction rather than entering as a wrong call, which
+  is what `accuracy_scored` beside the column records; read accuracy against
+  that count. Harness authorship makes the number **verifiable, not
+  meaningful**: it certifies that the bit reproduces from committed artifacts,
+  and says nothing about whether the accuracy it sums to is skill. Read it
+  against `population_brier_skill_score` and that column's own `skill_scored`,
+  never alone — on the cert board a predictor that denies everything scores the
+  denial rate, so an accuracy near it is the **floor**, not performance, exactly
+  as the back-test section below states the rule for a constant-`denied`
+  predictor. Each
   stratum block reports `skill_scored` beside `population_brier_skill_score` — the
   skill figure's true denominator (the cells carrying a non-null skill score),
   which can sit far below `evaluations` because a cell scores skill only where
@@ -140,7 +155,15 @@ stays outside the gate:
   survivor is indistinguishable from a cell graded once, and every figure
   around it is already post-collapse, so re-grading — a maintainer-reachable
   operation — could otherwise move a standing with nothing on any published
-  artifact recording that it happened. Read it as an audit line, never as a
+  artifact recording that it happened. It does **not** cover a **re-stamp**:
+  running `stamp-cell` again over an existing `evaluation.json` rewrites
+  `correct` — the first rank key — *in place*, on the same file, so no second
+  grading exists, nothing is collapsed away, and `superseded_gradings` stays
+  where it was. Against a corrected outcome that moves a published standing
+  with a trace only in `data/`'s git history. The honest route to moving a
+  standing after an outcome correction is therefore a **re-grade** — a second
+  `evaluation.json`, which the collapse counts — never a bare re-stamp of the
+  existing one. Read it as an audit line, never as a
   term: it is **not** subtracted from any count on the board, and a count
   plus it is not a ledger total. Its population is the **scope gate's**, which
   is the board's process scope but a slightly wider set of cells. The scope
@@ -1135,6 +1158,45 @@ runs, not a second measurement — its *level* is uninterpretable off the
 reference set. No topic label enters a claim score, a leaderboard rank, or any
 denominator here; a labeling run describes the corpus and commits a predictor to
 nothing.
+
+**What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
+publishes call counts, per-engine result observability, per-cell cost, and a
+call-volume-against-Brier table. The counts are facts about the pipeline and
+carry no process scope; the Brier column is a **grade** and carries one —
+blessed processes only by default, `all` under `--all-versions`, stamped in
+`process_scope` and printed beside the table, because a grade with no scope
+beside it is not readable. It is an **ops view, not a scored board**: it shares
+the boards' process scope and their one-grading-per-judge collapse, but it does
+not apply the forward-claim exclusion and it keys its `mode` on the harness's
+own `retrieval_log.json` record rather than on the derived stratum, so its
+population is a superset of the leaderboard's and a figure that differs from a
+board figure is two populations rather than an error in either. Nothing is
+pooled across modes or across forecast moments, in the table or in the
+coefficient.
+
+**No correlation between retrieval and accuracy may be claimed.** A rank
+correlation is published only for a (mode, moment) population that clears
+`tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS`, a floor declared in code ahead of
+any coefficient rather than chosen once one is in view; below it the value is
+**withheld**, not merely unreported, and the surface prints denominators and an
+under-powered verdict. Above the floor it stays **descriptive, never causal**:
+engines are pooled within a row, so the coefficient carries every difference
+between them — prompt, model, sandbox — and a cell calls more tools partly
+*because* its case is hard. Brier is a loss, so the negative sign is the one
+that would mean more calls beside better forecasts; a cell whose log hit the
+per-log call cap is right-censored on the call axis, and the count of those is
+published beside the coefficient.
+
+**A result-observability rate is two states, not three.** A captured
+`result_digest` proves the result side was recorded and non-empty; a null covers
+an empty result *and* a result the engine's transcript never carried. The
+per-call `result_capture` marker separates those two, but every committed log
+predates it and reads null — capture-unknown, a third state again. So the rate
+is a floor on how much
+of the answer side is observable, never a hit rate, and its denominator is every
+call including builtins. An engine with no captured MCP result anywhere has its
+per-tool dead-end rows **withheld** rather than printed as 100%, and where they
+are printed they are an upper bound.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,

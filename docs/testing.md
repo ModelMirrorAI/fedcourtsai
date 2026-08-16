@@ -226,7 +226,12 @@ run in CI and catch most mistakes without execution:
 [`lint-actions.yml`](../.github/workflows/lint-actions.yml) runs **actionlint**
 (workflow syntax, `${{ }}` expressions, `needs`/matrix references, embedded shell)
 and **zizmor** (the security invariants in [SECURITY.md](../SECURITY.md) — pinned
-actions, least-privilege permissions). Beside them, a family of pytest
+actions, least-privilege permissions). CodeQL
+([`codeql.yml`](../.github/workflows/codeql.yml)) runs the `security-and-quality`
+suite over the Python package on pushes and PRs to both integration branches —
+including `py/implicit-string-concatenation-in-list`, the dropped-comma guard
+AGENTS.md leans on — with results in the Security tab rather than a required
+check. Beside them, a family of pytest
 workflow-shape tests pins the YAML *contracts* the linters cannot see — the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition

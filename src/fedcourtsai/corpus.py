@@ -2462,6 +2462,9 @@ class PriorQuery(BaseModel):
 
     ``resolved_only`` defaults to ``True`` because a prior is only useful as
     precedent once its outcome is known; flip it off to retrieve open cases too.
+    ``exclude_non_cert`` defaults to ``True`` for the same reason read one step
+    further: the SCOTUS letter forms carry a disposition that is not the
+    disposition a cert cell is reasoning about.
     """
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
@@ -2507,6 +2510,22 @@ class PriorQuery(BaseModel):
         "decided when it carries a disposition label OR a decision date (the "
         "same closed-case reading the refresh rotation uses), so a decided "
         "docket whose disposition was never machine-labeled still retrieves.",
+    )
+    exclude_non_cert: bool = Field(
+        default=True,
+        description="Drop the SCOTUS letter-form dockets that are not a cert "
+        "petition (`is_non_cert_scotus_form`): time-extension and unread-ask "
+        "applications, original-jurisdiction and miscellaneous matters. Their "
+        "outcomes land in the same `disposition` column as a cert vote while "
+        "recording something else entirely — an extension granted by a single "
+        "Justice, a procedural leave, a merits judgment — and because an "
+        "extension resolves within days the recency ranking floats them above "
+        "the petitions a cert cell asked for. A **substantive** application "
+        "(a stay, an injunction, a vacatur) is kept: it is the interim predict "
+        "scope, a real prior for a real event. Reads one docket number, so a "
+        "consolidated row carrying several (`A-363; A-366`) is not screened — "
+        "the same single-form bar the predicate itself draws. Flip it off to "
+        "retrieve the whole letter-form docket.",
     )
 
 
@@ -2585,6 +2604,47 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
+def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
+    """Apply the query's derived filters to one retrieved row.
+
+    Era, best-known year and docket form are computed from the row (decade,
+    Term year or filing/decision dates, the letter-form recognizers) rather
+    than read from a column, so they screen retrieved rows instead of riding
+    the SQL. ``None`` means screened out; otherwise the row comes back possibly
+    rewritten, since the ``decided_before`` clock also strips a surviving row's
+    post-clock merits columns. Both retrieval paths screen through here, so the
+    ranked fast path and the scored path admit exactly the same rows.
+    """
+    if query.exclude_non_cert and is_non_cert_scotus_form(row):
+        return None
+    if query.era is not None and case_era(row) != query.era:
+        return None
+    if query.decided_before is not None:
+        year = case_year(row)
+        if year is None or year >= query.decided_before:
+            return None
+        return _mask_post_clock_merits(row, query.decided_before)
+    return row
+
+
+def _screens_in_python(query: PriorQuery) -> bool:
+    """Whether any of the query's derived filters can drop a row after SQL.
+
+    ``era``, ``decided_before`` and ``exclude_non_cert`` are computed from the
+    row (decade, best-known year, docket-number form), not from a column SQL can
+    filter on, so they screen the retrieved stream. A screened row must not
+    consume a result slot — which is what makes this the condition on pushing
+    the ``LIMIT`` down, and (with no court equality to serve the ordering) the
+    condition on taking the ranked fast path at all.
+
+    The non-cert screen is SCOTUS-only, so a query pinned to another court
+    cannot lose a row to it and keeps the pushdown for free.
+    """
+    if query.era is not None or query.decided_before is not None:
+        return True
+    return query.exclude_non_cert and query.court in (None, "scotus")
+
+
 def _retrieve_priors_ranked(
     conn: ReadConnection,
     query: PriorQuery,
@@ -2599,9 +2659,11 @@ def _retrieve_priors_ranked(
     ``idx_cases_priors_recency`` (ISO date text compares chronologically; DESC
     puts the undated rows last, matching ``recency_key``'s dated-first key).
     Streaming the ranked cursor and stopping at ``limit`` reads a handful of
-    index pages instead of the whole court slice; the era / decided_before
-    filters are derived in Python, so they screen the stream rather than the
-    SQL, and the LIMIT is pushed down only when no such screen runs.
+    index pages instead of the whole court slice; the era / decided_before /
+    exclude_non_cert filters are derived in Python, so they screen the stream
+    rather than the SQL, and the LIMIT is pushed down only when no such screen
+    runs (:func:`_screens_in_python`) — a screened-out row must never spend a
+    result slot.
     """
     recency = (
         "CASE WHEN court = 'scotus' "
@@ -2609,19 +2671,14 @@ def _retrieve_priors_ranked(
         "ELSE date_decided END"
     )
     sql = f"SELECT * FROM cases{where} ORDER BY {recency} DESC, case_id"
-    if query.era is None and query.decided_before is None:
+    if not _screens_in_python(query):
         sql += " LIMIT ?"
         params = [*params, limit]
     ranked: list[CorpusRow] = []
     for record in conn.execute(sql, params):
-        row = _from_record(record)
-        if query.era is not None and case_era(row) != query.era:
+        row = _screen_derived(_from_record(record), query)
+        if row is None:
             continue
-        if query.decided_before is not None:
-            year = case_year(row)
-            if year is None or year >= query.decided_before:
-                continue
-            row = _mask_post_clock_merits(row, query.decided_before)
         ranked.append(row)
         if len(ranked) >= limit:
             break
@@ -2645,6 +2702,12 @@ def retrieve_priors(
     relevance term is uniformly zero and the whole ranking is served by SQL off
     the recency index — the same ordering, a fraction of the pages — with a
     test pinning the two paths byte-identical.
+
+    The derived screens run in Python on either path: ``era`` /
+    ``decided_before``, and the ``exclude_non_cert`` default that keeps the
+    SCOTUS letter forms out of a cert cell's priors. Screening after the SQL
+    means the screened rows never spend a result slot, so a full page comes
+    back whenever the corpus can fill one.
     """
     if limit <= 0:
         return []
@@ -2675,7 +2738,7 @@ def retrieve_priors(
     # screened, court-less query has neither — an unbounded sort that spills
     # to a temp file the ranged backend's VFS refuses to open — so that shape
     # keeps the Python ranking, which scans exactly as it always did.
-    sortable = (query.era is None and query.decided_before is None) or query.court is not None
+    sortable = not _screens_in_python(query) or query.court is not None
     if not want_judges and not want_citations and sortable:
         return _retrieve_priors_ranked(conn, query, where, params, limit)
 
@@ -2686,16 +2749,9 @@ def retrieve_priors(
     # into recency order (scattered pages) — same rows, far more ranged reads.
     source = "cases INDEXED BY idx_cases_court" if query.court is not None else "cases"
     for record in conn.execute(f"SELECT * FROM {source}{where}", params):
-        row = _from_record(record)
-        # Era and year are derived (Term year or filing/decision dates), not
-        # stored columns, so they filter here rather than in SQL.
-        if query.era is not None and case_era(row) != query.era:
+        row = _screen_derived(_from_record(record), query)
+        if row is None:
             continue
-        if query.decided_before is not None:
-            year = case_year(row)
-            if year is None or year >= query.decided_before:
-                continue
-            row = _mask_post_clock_merits(row, query.decided_before)
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.

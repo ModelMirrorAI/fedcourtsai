@@ -18,6 +18,7 @@ from fedcourtsai.retrieval import (
     parse_codex_retrieval,
     parse_gemini_retrieval,
 )
+from fedcourtsai.schemas import RetrievalCall, RetrievalLog
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -73,6 +74,7 @@ def test_claude_transcript_tool_calls_with_results(tmp_path: Path) -> None:
     assert call.params_digest and call.result_digest
     assert call.retrieved_doc_date == "2023-05-01"
     assert call.timestamp == "2026-07-10T12:00:01Z"
+    assert call.result_capture == "captured"
 
 
 def test_claude_transcript_missing_or_garbage_is_empty(tmp_path: Path) -> None:
@@ -80,6 +82,71 @@ def test_claude_transcript_missing_or_garbage_is_empty(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text("not json")
     assert parse_claude_retrieval(bad) == []
+
+
+def test_claude_empty_result_is_captured_and_a_missing_one_is_not(tmp_path: Path) -> None:
+    """The distinction the marker exists for, which the digests cannot make.
+
+    Both rows end with a null ``result_digest``: one searched and got an empty
+    payload back, the other's result never reached the transcript at all. A
+    grader reading only the digest scores them identically and credits the
+    second with having surfaced nothing.
+    """
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}},
+                    {"type": "tool_use", "id": "toolu_2", "name": "search", "input": {"q": "b"}},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            # An answered call whose answer was empty — captured, digest null.
+            "message": {"content": [{"type": "tool_result", "tool_use_id": "toolu_1"}]},
+        },
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    calls = parse_claude_retrieval(path)
+    assert [call.result_capture for call in calls] == ["captured", "unobserved"]
+    assert [call.result_digest for call in calls] == [None, None]
+
+
+def test_claude_failed_result_is_captured_and_an_id_less_call_is_not(tmp_path: Path) -> None:
+    # Both are capture-side facts about the pairing, not about what a tool
+    # found: a call that errored was answered and is captured, while a call the
+    # engine logged with no id has nothing an answer could pair against.
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}},
+                    {"type": "tool_use", "name": "search", "input": {"q": "b"}},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "is_error": True,
+                        "content": "upstream 502",
+                    }
+                ]
+            },
+        },
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    calls = parse_claude_retrieval(path)
+    assert [call.result_capture for call in calls] == ["captured", "unobserved"]
 
 
 def test_codex_rollout_function_calls(tmp_path: Path) -> None:
@@ -111,6 +178,7 @@ def test_codex_rollout_function_calls(tmp_path: Path) -> None:
     assert calls[0].tool == "shell"
     assert calls[0].result_digest is not None
     assert calls[0].timestamp == "2026-07-10T12:00:02Z"
+    assert calls[0].result_capture == "captured"
 
 
 def test_codex_rollout_captures_hosted_web_search(tmp_path: Path) -> None:
@@ -137,6 +205,32 @@ def test_codex_rollout_captures_hosted_web_search(tmp_path: Path) -> None:
     assert calls[0].tool == "web_search_call"
     assert calls[0].query == "cert granted Smith v Jones"
     assert calls[0].timestamp == "2026-07-10T12:00:05Z"
+    # No call_id to pair an output against, and none is ever emitted: the row
+    # says what was asked and cannot say what came back.
+    assert calls[0].result_capture == "unobserved"
+
+
+def test_codex_empty_output_is_captured_and_an_unanswered_call_is_not(tmp_path: Path) -> None:
+    # Same pairing rule as the Claude transcript: the output *item*, not its
+    # content, is what "captured" asserts. A call the rollout never answered
+    # (the engine died mid-turn, say) is unobserved.
+    rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
+    rollout.parent.mkdir(parents=True)
+    lines = [
+        {
+            "type": "response_item",
+            "payload": {"type": "function_call", "name": "shell", "call_id": "c1", "input": "{}"},
+        },
+        {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1"}},
+        {
+            "type": "response_item",
+            "payload": {"type": "function_call", "name": "shell", "call_id": "c2", "input": "{}"},
+        },
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in lines))
+    calls = parse_codex_retrieval(tmp_path / "sessions")
+    assert [call.result_capture for call in calls] == ["captured", "unobserved"]
+    assert [call.result_digest for call in calls] == [None, None]
 
 
 def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
@@ -157,6 +251,9 @@ def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     assert len(calls) == 1
     assert calls[0].tool == "search"
     assert calls[0].query == "qualified immunity"
+    # The local exporter logs no result payload, so the whole engine is
+    # unobserved — never "returned nothing".
+    assert calls[0].result_capture == "unobserved"
 
 
 def test_gemini_telemetry_ignores_tool_call_metric_points(tmp_path: Path) -> None:
@@ -243,6 +340,11 @@ def test_record_retrieval_writes_log_with_manifest(
     assert log["mode"] == "forward"
     assert log["mcp_servers"] == ["courtlistener=courtlistener-api-client[mcp]==1.1.0"]
     assert log["calls"][0]["tool"] == "mcp__courtlistener__search"
+    # The transcript carries the call and no result block for it, so the
+    # written artifact says so rather than leaving a reader to infer it from a
+    # null digest.
+    assert log["calls"][0]["result_capture"] == "unobserved"
+    assert log["result_capture_coverage"] == 0.0
 
 
 def test_record_retrieval_empty_transcript_still_records(fixture_corpus: FixtureCorpus) -> None:
@@ -273,7 +375,11 @@ def test_record_retrieval_empty_transcript_still_records(fixture_corpus: Fixture
         .event("evt-petition-disposition")
         .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
     )
-    assert json.loads(destination.read_text())["calls"] == []
+    written = json.loads(destination.read_text())
+    assert written["calls"] == []
+    # No call carries a marker, so there is no rate to report: zero-of-zero is
+    # not 0.0, which would claim every call went uncaptured.
+    assert written["result_capture_coverage"] is None
 
 
 def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> None:
@@ -586,3 +692,76 @@ def test_record_retrieval_refuses_an_out_of_vocabulary_context_mode(
         .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
     )
     assert json.loads(destination.read_text())["mode"] == "forward"
+
+
+def _log(calls: list[RetrievalCall]) -> RetrievalLog:
+    """A retrieval log carrying nothing but the calls under test."""
+    return RetrievalLog(
+        case_id="scotus/305",
+        run_id="20260710T120000Z",
+        role="predictor",
+        actor_id="claude-baseline",
+        engine="claude-code",
+        calls=calls,
+    )
+
+
+def _captured(count: int) -> list[RetrievalCall]:
+    return [RetrievalCall(tool="search", result_capture="captured") for _ in range(count)]
+
+
+def _unobserved(count: int) -> list[RetrievalCall]:
+    return [RetrievalCall(tool="search", result_capture="unobserved") for _ in range(count)]
+
+
+def test_capture_coverage_is_the_share_of_calls_whose_result_was_seen() -> None:
+    assert _log(_captured(1) + _unobserved(3)).result_capture_coverage == 0.25
+    assert _log(_captured(2)).result_capture_coverage == 1.0
+    # A whole log of provider-side calls: a real rate, and a different fact
+    # from "no rate", which is why the null below is not spelled 0.0.
+    assert _log(_unobserved(3)).result_capture_coverage == 0.0
+
+
+def test_capture_coverage_is_null_where_no_call_carries_the_marker() -> None:
+    """The committed ledger's shape: rows written before the field existed.
+
+    Recomputing over such a log has to reproduce exactly what the record
+    already holds — a null — or reading the ledger would restate it.
+    """
+    assert _log([]).result_capture_coverage is None
+    legacy = _log([RetrievalCall(tool="search"), RetrievalCall(tool="read_file")])
+    assert legacy.result_capture_coverage is None
+    # Mixed: only marker-carrying rows can be the denominator, because a legacy
+    # row is capture-unknown rather than a capture failure.
+    mixed = _log([*_captured(1), RetrievalCall(tool="read_file")])
+    assert mixed.result_capture_coverage == 1.0
+
+
+def test_capture_coverage_follows_the_calls_rather_than_a_writers_claim() -> None:
+    # Derived, so the rate and the rows cannot disagree in a committed artifact.
+    asserted = RetrievalLog(
+        case_id="scotus/305",
+        run_id="20260710T120000Z",
+        role="predictor",
+        actor_id="claude-baseline",
+        engine="claude-code",
+        calls=_unobserved(1),
+        result_capture_coverage=1.0,
+    )
+    assert asserted.result_capture_coverage == 0.0
+
+
+def test_capture_marker_round_trips_through_the_schema() -> None:
+    original = _log(_captured(1) + _unobserved(1))
+    payload = json.loads(original.model_dump_json())
+    assert payload["calls"][0]["result_capture"] == "captured"
+    assert payload["calls"][1]["result_capture"] == "unobserved"
+    assert payload["result_capture_coverage"] == 0.5
+    assert RetrievalLog.model_validate(payload) == original
+    # A record written before the field existed still validates, and reads as
+    # capture-unknown rather than as a call whose result went uncaptured.
+    legacy = {key: value for key, value in payload.items() if key != "result_capture_coverage"}
+    legacy["calls"] = [{"tool": "search"}]
+    restored = RetrievalLog.model_validate(legacy)
+    assert restored.calls[0].result_capture is None
+    assert restored.result_capture_coverage is None

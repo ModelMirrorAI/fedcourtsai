@@ -13,9 +13,8 @@ semantic family, which is declared but neither pre-registered nor producing
 anything.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — five cert-stage claims under `cert-v2`, carried by every
 declared cert moment, four interim claims under `interim-v1` carried by every
-interim moment, and the one merits
-claim (`judgment-disturbed`) under `merits-v1`, keyed on the minted merits
-event — live
+interim moment, and the one merits claim (`judgment-disturbed`) under
+`merits-v1`, carried by every declared merits moment — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
 availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The
@@ -89,8 +88,8 @@ signal it resolves against.
 | Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution no schema field carries |
 | The petition is distributed at least once more (`relist-increment`) | `Outcome.signals.distribution_count` past `Prediction.context.distribution_count` |
 | The Court calls for the Solicitor General's views (`cvsg-increment`) | `Outcome.signals.cvsg_date` becoming non-null, from null (and observable) at prediction |
-| The grant disposes in the cert order (`summary-disposition-route`) | `Outcome.disposition_route` — a GVR or a judgment riding the grant order, against a grant set down for plenary review; masked on every denial |
-| Some Justice notes a dissent from the denial (`dissent-from-denial`) | `Outcome.noted_dissent_from_denial` — aggregated existence read from the order text, never which Justice; masked on every grant |
+| The grant disposes in the cert order (`summary-disposition-route`) | `Outcome.disposition_route` — a GVR or a judgment riding the grant order, against a grant set down for plenary review; masked on every non-grant |
+| Some Justice notes a dissent from the denial (`dissent-from-denial`) | `Outcome.noted_dissent_from_denial` — aggregated existence read from the order text, never which Justice; masked on every disposition that is not a denial |
 
 The two increments are the ones whose signals are already populated:
 `distribution_count` is set on every live SCOTUS row and `cvsg_date` on the
@@ -100,9 +99,9 @@ is committed. The two order-text markers are the opposite case: they are written
 only where a disposing order's text was retained, so most committed events carry
 the not-assessed null rather than a reading (*The availability mask*, below).
 
-**Merits** — the merits event is forecast and its outcome recorded
-(`Outcome.judgment`, resolved by judgment detection from the docket's
-disposition entry):
+**Merits** — each declared merits moment is forecast against the one merits
+outcome recorded (`Outcome.judgment`, resolved by judgment detection from the
+docket's disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |
@@ -116,7 +115,7 @@ Disposition is **one** claim, not two. `Outcome.actual_granted` is a pure
 function of `actual_disposition` (`pipeline.outcome.granted_flag`), so scoring
 both would score one belief twice — see *No claim may be derived from another*.
 It is also the set's one candidate for a multi-class score: the disposition
-vocabulary has seven values, so its full-resolution form is the sum of
+vocabulary has eight values, so its full-resolution form is the sum of
 per-value Brier terms, which has the same properties as the binary rule. The
 **declared** form is nonetheless binary — the grant projection — because a
 multi-class claim needs a per-label distribution and no schema field carries
@@ -791,9 +790,12 @@ sums over a different set, so the two are pooled no more freely than a total
 from a cell run under a different process digest — `metrics/README.md`'s
 `declared_set_versions` rule is where that is enforced.
 
-**The declared merits set: `merits-v1`.** The minted merits event
-(`evt-order-judgment` — keyed by exact event id, since its kind is `order`
-and not every order event is merits) declares exactly one claim,
+**The declared merits set: `merits-v1`.** Both declared merits moments — the
+grant moment `evt-order-judgment` and the briefed moment `evt-brief-judgment` —
+carry it, reached through the declared-moment table rather than by event id or
+kind: a forecast taken after briefing answers the same claim as one taken at
+the grant, and only the evidence behind the answer differs. The set declares
+exactly one claim,
 `judgment-disturbed`: the binary disturbed projection of `Outcome.judgment`,
 restating the merits headline `probability` the way the cert set's
 `disposition` claim restates its headline (a divergent pair voids the block

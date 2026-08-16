@@ -174,10 +174,18 @@ right-censored and counted as supportive, never held-out). The **state**
 class never enters selection — per-Term unstable, its below-cap
 slice underperforming the arrival population — though it is a *band* under
 both caption-banded versions (placed above `elevated` from the class
-marginal — a registration choice pending measurement, since the band's own
-realized rate, net of its strongest members leaving for `high`, is thin in
-every rendered pack: 26 resolved rows in its best Term, under the 30-row
-realized floor). The gate replay still
+marginal, and the band's own realized rate, net of its strongest members
+leaving for `high`, does not settle that placement). Four Terms clear the
+30-row realized floor — OT2017 n=33, OT2019 n=37, OT2020 n=33, OT2021 n=46 —
+and what decides nothing is not the spread alone but the **sign flip** inside
+it: state lands *below* `elevated`'s terminal rate in two of the four (6.1% vs
+8.5%, 8.1% vs 10.6%) and above it in the other two (30.3% vs 11.4%, 23.9% vs
+11.5%). Pooled over those same four Terms state runs 17.5% (26/149) against
+`elevated`'s 10.5% (116/1107), which would weakly support the registered
+placement — but the four were selected on sample size out of nine, and the
+floor is a *per-Term* rule, so that pooled cut is a post-hoc read the
+registration does not authorize and it is not claimed. The ordering rests on
+the registration, frozen per version, rather than on a measurement. The gate replay still
 cannot validate any caption feature, because the replay's reconstruction
 carries the terminal caption: a declared gap, never papered over with a
 replay number.
@@ -643,16 +651,20 @@ prediction's timing contract:
 
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
-anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) run
-**25.8%–48.0%**, nearly 2×; elevated runs 16.8%–25.2% on the **risk-set** rate a
-forecast is scored against (8.7%–18.8% on the terminal rate the same table shows
+anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025),
+on the **`sal-v3`** segments the pack scores against, run
+**24.2%–42.4%**, a ~1.75× spread — the pack's `sal-v1` alternative segments
+give a materially different band, so read the version before the number;
+elevated runs 17.5%–22.2% on the **risk-set** rate a
+forecast is scored against (6.5%–12.5% on the terminal rate the same table shows
 in the lead column — see below). Anchored at an OT2026
-petition, the high band reads roughly **37% (n≈1000)** pooling every prior Term,
-**34% (n≈610)** over the last five, and **44% (n≈70)** over the last one — recompute
+petition, the high band reads roughly **35% (n≈960)** pooling every prior Term,
+**36% (n≈524)** over the last five, and **42% (n≈66)** over the last one — recompute
 from the statpack's per-Term band table rather than quoting these. That is a
-~10-point spread in the number a forecast's Brier skill is scored against, and in
-the prior a cell is told to start from, turning on a parameter — so the parameter
-is stated rather than left to a default.
+~7-point spread in the number a forecast's Brier skill is scored against, and in
+the prior a cell is told to start from, turning on a parameter — and the
+per-Term range above is wider still, so the parameter is stated rather than
+left to a default.
 
 **Two rates per band, and which one is scored depends on how the band was
 obtained.** A band only ever strengthens — the distribution count is max-latched
@@ -716,16 +728,20 @@ under the same version, and that gap is visible instead of silently papered
 over.
 
 The tension is bias against variance, and it has no free answer. Per-Term
-high-band samples are small (61–163 weighted-resolved petitions), so a short
-window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
+high-band samples are small (66–137 weighted-resolved petitions), so a short
+window is noisy: two Terms gives n≈180. Pooling every prior Term buys n≈960 and a
 stable estimate, but assumes the Court's grant behaviour is stationary across the
-whole range, which the spread above suggests it is not. Two second-order effects
-push the same way. The bands are frozen per version, and each per-Term entry
+whole range — and the spread above cannot adjudicate that either way: at 66–137
+petitions a Term the widest per-Term deviation is about 2.3 standard errors over
+nine looks, which is what a constant rate produces as often as a drifting one.
+The window is therefore stated rather than defaulted, and no skill claim rests
+on which of the two is true. Two second-order effects push the same way. The bands are frozen per version, and each per-Term entry
 carries its own `salience_version` — the field the version pin above reads, so
 cross-version pooling is impossible at any window length and the window carries
 no versioning duty. And the pooling weights are
-`weighted_resolved`, not `resolved` (OT2024's high band is `resolved=58`,
-`weighted_resolved=121`), so a long window compounds Terms whose walk coverage
+`weighted_resolved`, not `resolved` — identical on every segment of the current
+pack, whose walked Terms are denial-complete censuses, but they diverge wherever
+a Term's walk was sampled, so a long window compounds Terms whose walk coverage
 differs.
 
 So the window is **config, not a constant**: `salience.base_rate_lookback_terms`
@@ -823,11 +839,15 @@ rather than folding it into an undifferentiated "granted."
 - **Migration is a forward-convention change, not a retroactive relabel.** New
   resolutions label a GVR `gvr`; outcomes recorded before the label keep `granted`,
   because retroactively flipping a decided outcome would penalize a past
-  `granted` prediction for using the *then-current* vocabulary (its `correct` is
-  frozen and fair). The one exception a one-time deterministic backfill *can* fix
+  `granted` prediction for using the *then-current* vocabulary. `correct` is no
+  defence there: it is stamped from the outcome, so a re-stamp after a relabel
+  would recompute it — what protects the past cell is that the relabel does not
+  happen, not that its bit could not move. The one exception a one-time
+  deterministic backfill *can* fix
   from committed data alone is the **identifiable Munsingwear vacatur** (`granted`
   + `mootness` basis → `gvr`), which is already in the non-ranked procedural
-  stratum, so no metric moves. A plain-`granted` **merits** GVR in history is an
+  stratum and unranked whatever its bit says, so no published metric moves —
+  and nothing re-stamps it in any case. A plain-`granted` **merits** GVR in history is an
   accepted residual — indistinguishable post-hoc without re-resolving the source
   docket text (the `outcome.json` does not carry it), and immaterial on the binary
   axis.
@@ -850,11 +870,14 @@ so banding an application on caption alone would be the same mismatch.)
 Reusing the band would be the
 conditioning mismatch this document spends its length warning about.
 
-**Most of the docket is not the thing predicted.** Over the 1,410 parsed
-application dockets, **80.4%** are requests to extend the time to file: granted
+**Most of the docket is not the thing predicted.** Over the 1,797 parsed
+application dockets — every walked Term pooled, though seven of the ten
+contribute none and OT2025 alone is 76% of the total — **81.9%** are requests
+to extend the time to file: granted
 by a single Justice as a matter of course, with nothing about the case moving
-the answer. **15.5%** are substantive and **4.1%** carry an ask the parser
-cannot read. Admitting the whole docket would hand a
+the answer. **13.9%** are substantive and **4.3%** carry an ask the parser
+cannot read. The cohort accumulates with every walk, so recompute these from
+the statpack's `interim` section rather than quoting them. Admitting the whole docket would hand a
 predictor a base rate it beats by answering "granted" every time — the IFP
 problem in a sharper form. `interim_signals.is_predictable_application` keeps only
 the substantive ones, and excludes an unreadable ask with them: that is a parser
@@ -1062,7 +1085,8 @@ strictly-prior substantive slice, while the cells scored against it are the
 reserve's occupants — and the reserve fills its bounded slots in **escalation
 ladder order** (a requested response first, then the amicus count). A predicted
 application therefore sits systematically higher on those rungs than the cohort
-behind the rate: of the accumulated substantive slice only about a fifth ever
+behind the rate: of the accumulated substantive slice only about a fifth (52 of
+249) ever
 drew a response request, while a reserve-selected cell is frequently picked
 *because* it did. The baseline is unconditioned on the ladder and the scored set
 is selected on it, which is the outcome-decomposition register's test 3 answered

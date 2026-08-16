@@ -22,19 +22,25 @@ check at implementation):
 
 Only :func:`fetch_case_documents` touches the network (through the polite
 :class:`~fedcourtsai.supremecourt.SupremeCourtClient`); selection, extraction,
-and the QP derivation are pure and tested offline.
+and the QP derivation are pure and tested offline. Because the derivation is
+pure, it can also be re-run over text already stored —
+:func:`backfill_questions_presented`, the convergence sweep that carries an
+extractor fix onto the rows an unchanged petition URL would otherwise freeze.
 """
 
 from __future__ import annotations
 
 import io
 import re
+import sqlite3
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
@@ -84,7 +90,8 @@ def _is_bio_entry(text: str) -> bool:
 
 # Where the questions-presented section of a petition ends: the next standard
 # front-matter heading. Petitions front the QP page, so the section runs from
-# the QUESTION(S) PRESENTED heading to the first of these.
+# the QUESTION(S) PRESENTED heading to the first of these that is *set as a
+# heading* (:func:`_is_heading_match`), not merely spelled like one.
 _QP_START_RE = re.compile(r"QUESTIONS?\s+PRESENTED", re.IGNORECASE)
 _QP_END_RE = re.compile(
     r"PARTIES TO THE PROCEEDING|CORPORATE DISCLOSURE|RULE 29\.6|RELATED (?:CASES|PROCEEDINGS)"
@@ -92,15 +99,57 @@ _QP_END_RE = re.compile(
     r"|OPINIONS? BELOW|IN THE\s+SUPREME COURT",
     re.IGNORECASE,
 )
+# Title case as a petition sets a heading: a capitalized first word, then
+# capitalized words and the lower-case function words that stay small in a title
+# ("Parties to the Proceeding", "Table of Authorities"). Used with the position
+# test in :func:`_is_heading_match`.
+_QP_TITLE_CASE_RE = re.compile(
+    r"[A-Z][A-Za-z0-9.]*(?:\s+(?:of|to|the|in|and|for|a|an)\b|\s+[A-Z0-9][A-Za-z0-9.]*)*"
+)
 # A QP section beyond this is a parsing miss, not a question (they run a page).
 _QP_MAX_CHARS = 4_000
-# A captured section that is really a table-of-contents entry: a run of leader
-# dots (to a page number). A petition's own TOC lists "QUESTIONS PRESENTED"
-# with a page reference, so matching that entry instead of the real heading
-# pulls in the TOC's dotted lines. pypdf preserves the leader dots, and a
-# genuine QP body — prose — never carries them, so their run is the reliable
-# tell. Tolerates the spaced form (". . . .") some fonts extract to.
-_QP_TOC_RE = re.compile(r"(?:\.\s*){4,}")
+# Below this a capture is a front-matter crumb, not a question. The crumbs the
+# scan lands on — a table-of-contents folio ("i"), a numbered heading stub ("I.
+# In the") — run one to fifteen characters; a real QP page runs hundreds, and
+# its shortest legitimate shape is the bare overrule question ("Whether Roe v.
+# Wade should be overruled." — 40 characters). 40 is therefore a judgment on
+# where to cut, not a measured boundary: it clears every observed crumb by a
+# wide margin, and the questions it can cost are the handful pitched shorter
+# still ("Whether Chevron should be overruled." — 36). That trade is the right
+# way round because a capture under the floor degrades to the *empty*
+# extraction, which the manifest labels as such and the labeling extract skips,
+# while a fragment stored as text reads to every consumer as the question.
+_QP_MIN_CHARS = 40
+# A captured section that is really a table-of-contents entry, in the two forms
+# a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
+# PRESENTED" with a page reference, so matching that entry instead of the real
+# heading captures the TOC instead of the questions.
+#
+# Leader dots (to a page number): pypdf preserves them, and a genuine QP body —
+# prose — never carries a run of them, so the run is the reliable tell.
+# Tolerates the spaced form (". . . .") some fonts extract to, which is also why
+# the run has to be long: a legal quotation elides with a four-dot ellipsis
+# (". . . ."), so a shorter bound reads a question quoting a statute as a
+# contents page. A printed leader runs the width of the line — dozens of dots —
+# so eight is far below any real leader and far above any ellipsis.
+_QP_TOC_RE = re.compile(r"(?:\.\s*){8,}")
+# Space alignment: the same entry set flush-right with blanks instead of dots,
+# which leaves the capture (everything *after* the heading text) as nothing but
+# alignment and the folio the entry points at — roman in the front matter,
+# arabic in the body. Bounded the way the dot rule bounds itself: a run of
+# blanks no word spacing produces, and then the folio must be all that is left
+# of the line. A real QP page cannot look like this — its heading is followed by
+# the question, not by a bare number — so the rule stays a TOC discriminator
+# rather than a page filter.
+_QP_TOC_FOLIO = r"[ \t]{3,}(?:[ivx]{1,6}|\d{1,3})[ \t]*"
+_QP_TOC_SPACES_RE = re.compile(rf"\A{_QP_TOC_FOLIO}(?:\n|\Z)", re.IGNORECASE)
+# The same shape seen from the other side, for classifying an *already stored*
+# QP text (whose leading alignment has long since been stripped): a line of the
+# stored value that ends heading-text, blanks, folio is TOC residue. Folios only
+# in the case front matter prints them — lower-case roman — because here a
+# capitalized token *does* follow text on the line, and upper-case roman would
+# read a justified line ending "under Title   VII" as a contents entry.
+_QP_TOC_LINE_RE = re.compile(rf"\S{_QP_TOC_FOLIO}(?:\n|\Z)")
 
 
 @dataclass(frozen=True)
@@ -206,26 +255,93 @@ def extract_pdf_text(data: bytes, *, char_cap: int) -> ExtractedText:
         return ExtractedText(text="", pages=0, truncated=False)
 
 
+def _is_toc_capture(capture: str) -> bool:
+    """Whether a raw capture is a table-of-contents entry rather than a QP body.
+
+    Both alignments a TOC uses — leader dots, and blanks to a flush-right folio
+    (see the two regexes). Read the *raw* capture, before stripping: the blank
+    run is the space form's evidence.
+    """
+    return bool(_QP_TOC_RE.search(capture) or _QP_TOC_SPACES_RE.match(capture))
+
+
+def _is_heading_match(text: str, match: re.Match[str]) -> bool:
+    """Whether an end-heading match is set as a heading rather than said in prose.
+
+    Two ways a petition sets one, and the test takes either. **All caps** counts
+    wherever it lands, since nothing in a question body shouts a front-matter
+    heading's exact words. **Title case counts only at the start of a line** —
+    the position a heading occupies — because title case alone cannot separate
+    "Opinions Below" the heading from a sentence that opens on the same words,
+    and line position alone cannot either, since extracted line breaks fall
+    wherever the PDF put them.
+    """
+    span = match.group()
+    if span == span.upper():
+        return True
+    if not _QP_TITLE_CASE_RE.fullmatch(span):
+        return False  # sentence-case prose: "the opinion below", "in the Supreme Court"
+    line_start = text.rfind("\n", 0, match.start()) + 1
+    return not text[line_start : match.start()].strip()
+
+
+def _qp_section_end(rest: str) -> int | None:
+    """Where the questions-presented section ends in ``rest``, or ``None``.
+
+    The first end-heading match that is set as a heading
+    (:func:`_is_heading_match`). The vocabulary is matched case-insensitively —
+    it has to be, since pypdf recovers a small-caps heading in whatever case the
+    font stored — and several of its alternatives are also ordinary English:
+    "the opinion below", "corporate disclosure", "related proceedings", "in the
+    Supreme Court". Taking the first match outright therefore cuts a question
+    short at the phrase inside it; walking on to the first match that is *set*
+    as a heading keeps prose out of the terminator. A heading the extraction
+    flattens past recognition costs an over-capture — the section runs to the
+    next heading, or to the length cap — never a fragment, which is the failure
+    that matters.
+    """
+    for match in _QP_END_RE.finditer(rest):
+        if _is_heading_match(rest, match):
+            return match.start()
+    return None
+
+
 def extract_questions_presented(petition_text: str) -> str | None:
-    """The questions-presented section of a petition's text, or ``None``.
+    """The questions-presented section of a petition's text.
 
     Petitions front the QP page (Rule 14.1(a)), so the section runs from the
     QUESTION(S) PRESENTED heading to the next standard front-matter heading.
     But a petition's own table of contents lists that heading too, and matching
-    the TOC entry captures the dotted TOC lines instead of the questions — so
-    scan *every* occurrence and return the first whose body reads as prose (no
-    leader-dot run), skipping the TOC entry wherever it falls.
-    Length-capped: a runaway match means the end-heading regex missed, and a
-    4-page "question" would only bury the signal it exists to surface.
+    the TOC entry captures the TOC lines instead of the questions — so scan
+    *every* occurrence and return the first capture that reads as a question
+    body: not a TOC entry (:func:`_is_toc_capture`), and at least
+    :data:`_QP_MIN_CHARS` long, the floor below which a capture is a
+    front-matter crumb. Length-capped at the other end too: a runaway match
+    means the end-heading regex missed, and a 4-page "question" would only bury
+    the signal it exists to surface.
+
+    Three results, and the third is the point of the distinction: the section
+    when one survives; ``None`` when the petition names no QUESTION(S) PRESENTED
+    heading at all (nothing to derive, so no row is stored); and the **empty
+    string** when the heading is there but no capture under it is usable — a
+    degraded extraction, stored as an empty-text row so the documents manifest's
+    ``empty_text`` flag labels it exactly as it labels a scanned filing with no
+    text layer. A fragment stored as text reads to every downstream consumer as
+    the questions this case presents.
     """
+    heading_seen = False
     for start in _QP_START_RE.finditer(petition_text):
+        heading_seen = True
         rest = petition_text[start.end() :]
-        end = _QP_END_RE.search(rest)
-        section = (rest[: end.start()] if end is not None else rest[:_QP_MAX_CHARS]).strip()
-        if not section or _QP_TOC_RE.search(section):
-            continue  # an empty capture or a dotted TOC entry — not the questions body
+        end = _qp_section_end(rest)
+        capture = rest[:end] if end is not None else rest[:_QP_MAX_CHARS]
+        if _is_toc_capture(capture):
+            continue  # a TOC entry, dotted or space-aligned — not the questions body
+        section = capture.strip()
+        if len(section) < _QP_MIN_CHARS:
+            continue  # an empty capture or a front-matter crumb
         return section[:_QP_MAX_CHARS]
-    return None
+    return "" if heading_seen else None
 
 
 def _combine_bio_documents(
@@ -321,7 +437,9 @@ def fetch_case_documents(
     multi-respondent case are combined into the one ``brief-in-opposition``
     document (:func:`_combine_bio_documents`). The questions presented are
     **derived** from the petition text — never the outcome-bearing ``QPLink`` —
-    whenever the petition itself was (re)fetched. A missing or unextractable
+    whenever the petition itself was (re)fetched; a petition whose QP heading
+    yields nothing usable stores the empty-text row the extractor's degraded
+    result names, never a fragment. A missing or unextractable
     document degrades to a skip / an empty-text row; an upstream error skips
     just that document, never the poll.
     """
@@ -367,16 +485,163 @@ def fetch_case_documents(
     if petition is not None and petition.text:
         questions = extract_questions_presented(petition.text)
         if questions is not None:
-            documents.append(
-                corpus.CaseDocument(
-                    case_id=case_id,
-                    kind=KIND_QUESTIONS_PRESENTED,
-                    url=petition.url,
-                    entry_date=petition.entry_date,
-                    fetched_at=today,
-                    pages=0,
-                    truncated=False,
-                    text=questions,
-                )
-            )
+            documents.append(_derived_questions_document(petition, questions, fetched_at=today))
     return documents
+
+
+def _derived_questions_document(
+    petition: corpus.CaseDocument, questions: str, *, fetched_at: date
+) -> corpus.CaseDocument:
+    """The ``questions-presented`` row derived from one stored petition.
+
+    Its identity is the petition's — same case, same source URL, same docket
+    entry — because that is what the text was read out of; ``pages`` is 0 and
+    ``truncated`` false because nothing was paged or capped here.
+    """
+    return corpus.CaseDocument(
+        case_id=petition.case_id,
+        kind=KIND_QUESTIONS_PRESENTED,
+        url=petition.url,
+        entry_date=petition.entry_date,
+        fetched_at=fetched_at,
+        pages=0,
+        truncated=False,
+        text=questions,
+    )
+
+
+class QPBackfillResult(BaseModel):
+    """What one questions-presented backfill pass found, and wrote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applied: bool = Field(description="Whether the pass wrote the rows or only counted them")
+    petitions: int = Field(
+        ge=0, description="Cases carrying stored petition text the pass re-derived from"
+    )
+    no_petition_text: int = Field(
+        ge=0,
+        default=0,
+        description="Live-slice cases whose petition row is absent or reads back "
+        "empty — the population the pass could not judge; a climb is a content-store "
+        "read degradation, not a converged corpus",
+    )
+    unchanged: int = Field(
+        ge=0,
+        description="Cases whose stored questions-presented text is already what "
+        "the current extractor derives (a case owed nothing counts here too)",
+    )
+    updated: int = Field(ge=0, description="Rows rewritten (apply) or that would be (dry-run)")
+    reasons: dict[str, int] = Field(
+        default_factory=dict, description="Change distribution, reason class -> case count"
+    )
+    changes: dict[str, str] = Field(
+        default_factory=dict,
+        description="case_id -> reason class, untruncated: the record of which "
+        "stored rows an applied pass rewrites",
+    )
+    refused: list[str] = Field(
+        default_factory=list,
+        description="Cases whose stored text is a full-length question the current "
+        "extractor can no longer derive: reported for triage, never written, since "
+        "emptying a substantive row is the one rewrite this pass will not make on "
+        "its own reading",
+    )
+
+
+def _qp_change_reason(stored: str, derived: str) -> str:
+    """Why a stored questions-presented text is not what the extractor now derives.
+
+    Named for the extraction hole each class comes from, most specific first: a
+    table-of-contents capture (either alignment); a body cut short at a prose
+    phrase the end-heading vocabulary also spells, which leaves the stored value
+    a prefix of the full section; a front-matter crumb under the length floor;
+    and anything else, which is a change worth a maintainer's eye before it is
+    applied.
+    """
+    if _QP_TOC_RE.search(stored) or _QP_TOC_LINE_RE.search(stored):
+        return "stale-toc-fragment"
+    if stored and derived.startswith(stored):
+        return "prose-terminator-fragment"
+    if len(stored) < _QP_MIN_CHARS:
+        return "below-floor"
+    return "other-change"
+
+
+def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QPBackfillResult:
+    """Re-derive each case's questions presented from its **stored** petition text.
+
+    The questions-presented row is derived, not fetched, so it carries whatever
+    the extractor said on the day the petition was ingested — and the ingest
+    path never re-derives it, because an unchanged petition URL is not
+    re-fetched. This is the pass that closes that gap: over every SCOTUS case
+    holding petition text (SQLite, or the per-case content store under the
+    corpus-split mode), run the current :func:`extract_questions_presented` and
+    rewrite the row only where its output differs from what is stored — a
+    convergence sweep, not a re-extraction of PDFs, so it touches no network and
+    re-reads no filing. Each rewrite is classified (:func:`_qp_change_reason`)
+    so the dry run reads as triage rather than a count. Idempotent: a second
+    pass over the same corpus reports everything unchanged. Where a case has
+    petition text but no stored row and the extractor now derives one, the row
+    is created; where it derives nothing, no empty row is invented for a case
+    that never had one. One rewrite is withheld on principle: a stored text at
+    or above :data:`_QP_MIN_CHARS` — a full-length question — is never replaced
+    by the empty extraction, because that reading is as likely to be this pass
+    misjudging a question as it is a bad row; those cases are listed
+    (``refused``) for a maintainer to decide. Dry-run unless ``apply``.
+
+    The population is the live/historical slice (:func:`corpus.is_live_slice`):
+    documents reach the corpus only on that channel, and the row predicate is
+    what keeps the walk from a per-case content-store read for every SCOTUS row
+    the bulk import ever wrote.
+    """
+    petitions = unchanged = no_petition_text = 0
+    reasons: Counter[str] = Counter()
+    changes: dict[str, str] = {}
+    refused: list[str] = []
+    updates: list[corpus.CaseDocument] = []
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if not corpus.is_live_slice(row):
+            continue
+        by_kind = {doc.kind: doc for doc in corpus.documents_for_case(conn, row.case_id)}
+        petition = by_kind.get(KIND_PETITION)
+        if petition is None or not petition.text.strip():
+            no_petition_text += 1
+            continue
+        petitions += 1
+        stored = by_kind.get(KIND_QUESTIONS_PRESENTED)
+        # `None` (no heading anywhere) and "" (a heading with nothing usable
+        # under it) both mean "no questions to store" for an existing row.
+        derived = extract_questions_presented(petition.text) or ""
+        current = stored.text if stored is not None else ""
+        if derived == current:
+            unchanged += 1
+            continue
+        if not derived and len(current) >= _QP_MIN_CHARS:
+            refused.append(row.case_id)
+            continue
+        if stored is None:
+            # The row's provenance is the petition's, including its fetch date:
+            # nothing was fetched here, so claiming today's date would date the
+            # text to a fetch that did not happen.
+            updates.append(
+                _derived_questions_document(petition, derived, fetched_at=petition.fetched_at)
+            )
+            reason = "derived-anew"
+        else:
+            updates.append(stored.model_copy(update={"text": derived}))
+            reason = _qp_change_reason(current, derived)
+        reasons[reason] += 1
+        changes[row.case_id] = reason
+    if apply and updates:
+        corpus.upsert_documents(conn, updates)
+    return QPBackfillResult(
+        applied=apply,
+        petitions=petitions,
+        no_petition_text=no_petition_text,
+        unchanged=unchanged,
+        updated=len(updates),
+        reasons=dict(sorted(reasons.items())),
+        changes=dict(sorted(changes.items())),
+        refused=sorted(refused),
+    )

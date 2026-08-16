@@ -95,16 +95,18 @@ The live source follows the replica guardrails exactly
   proceedings list is the docket-entries analogue, so event extraction and
   resolution detection work unchanged. One caveat:
   replay redaction has two halves. Outcome-revealing keys — the derived,
-decision-only ones (`sJsonCreationDate`, `QPLink`, `disposition`, the decision
-dates) and the party/counsel blocks that accrue with every amicus filing (their
-size on a decided docket is a grant oracle) — come off by a **key-name**
-blocklist, so a new channel's snapshot shape must be checked against it. The
-proceedings entries are removed by **date** instead — content offers no
-rule separating a disposing order from a pre-decision entry, but an entry filed
-before a cutoff cannot record a decision that came after it. A new channel must
-therefore register its entries key in `PROCEEDINGS_KEYS` **and** expose a
-per-entry date, or its entries are unprotected; and the surviving entries are
-scanned for a disposition, falling back to removing them outright on a hit
+  decision-only ones (`sJsonCreationDate`, `QPLink`, `disposition`, the decision
+  dates) and the party/counsel blocks that accrue with every amicus filing (their
+  size on a decided docket is a grant oracle) — come off by a **key-name**
+  blocklist, so a new channel's snapshot shape must be checked against it. The
+  proceedings entries are removed by **date** instead — content offers no
+  rule separating a disposing order from a pre-decision entry, but an entry filed
+  before a cutoff cannot record a decision that came after it. A new channel must
+  therefore register its entries key in `PROCEEDINGS_KEYS` **and** expose a
+  per-entry date, or its entries are unprotected; and the surviving entries are
+  scanned for a disposition, falling back to removing them outright on a hit,
+  because a disposing order that survives the cutoff means the cutoff itself
+  cannot be trusted and the snapshot must show no trajectory at all.
 
 ## The live cert watchlist and conference detection
 

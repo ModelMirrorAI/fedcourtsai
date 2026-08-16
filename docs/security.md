@@ -175,9 +175,10 @@ pre-registration record's commit ids.
   staging-environment deployments execute.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
-  corpus-writer path (`run-pull`, via the `publish-corpus-verdict` action) publishes
+  corpus-writer path (`run-pull` and `run-seed`, via the `publish-corpus-verdict`
+  action) publishes
   the data-validation verdict and live-frontier snapshot for `run-ops` to present.
-  Both writers only ever do a normal append push (never a force-push), so the rule
+  Every writer only ever does a normal append push (never a force-push), so the rule
   does not impede them; it guards the metrics history from accidental or malicious
   rewrite once the repo is public. No required PR (the jobs push directly) and no
   bypass needed.
@@ -401,7 +402,7 @@ Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
 stores — the corpus remote (the index blob under its content-addressed
 `index/sha256/<digest>` keys) and the per-case content store:
 
-- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
+- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull` and `run-seed`) —
   **append-only**: it can read, list, and add objects, with an explicit
   `Deny` on every delete and on bucket-versioning changes. The
   content-addressed `fedcourts corpus-push` only ever adds objects (an
@@ -423,7 +424,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live jobs), `run-seed` | read-write    | corpus writers (`corpus-push` + content-store mirror) |
+| `run-pull` (pull + live + enrich jobs), `run-seed` | read-write | corpus writers (`corpus-push` + content-store mirror) |
 | `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |

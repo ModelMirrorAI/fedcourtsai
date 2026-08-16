@@ -4,15 +4,18 @@ The metrics artifacts are deterministic roll-ups whose inputs (the ``data/``
 evaluations ledger, the corpus) move without them. The ``run-analytics``
 workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
 ``metrics/leaderboard.json``, ``metrics/claim-scores.json``,
-``metrics/backtest.json``, and ``metrics/statpack.{json,md}`` — by rerunning
+``metrics/backtest.json``, ``metrics/statpack.{json,md}``, and
+``data/scope/scope.json`` — by rerunning
 the tested ``fedcourts`` commands
-(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack``) and, when anything changed,
+(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` /
+``scope-manifest``) and, when anything changed,
 landing the result as a **reviewed** PR (never a direct commit to ``main``,
 never auto-merged). ``metrics/docket.{json,md}`` is committed alongside them but
 is regenerated on demand with ``fedcourts docket``, not on the schedule.
 
 This module is the tested half of that workflow: given the changed paths (``git
-diff --name-only -- metrics/``, plumbed by the workflow), it renders the branch and
+diff --cached --name-only -- metrics/ data/scope/``, plumbed by the workflow),
+it renders the branch and
 PR prose, with a per-artifact headline read from the regenerated artifact itself.
 Byte-stable artifacts mean a no-op refresh produces no changed paths and therefore
 no PR.
@@ -211,8 +214,9 @@ def _headline(path: Path, relpath: str) -> str:
 def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> MetricsRefreshPr | None:
     """Render the review PR (branch / title / commit / body) for a refresh's changes.
 
-    ``changed`` is the repo-relative output of ``git diff --name-only`` over the
-    refreshed paths after the regeneration commands ran; empty means the committed
+    ``changed`` is the repo-relative output of ``git diff --cached --name-only`` over
+    the refreshed paths, staged after the regeneration commands ran so a
+    brand-new artifact is not missed; empty means the committed
     artifacts were already current and no PR should open (returns ``None``).
     Matched on the full relative path rather than the filename, so two artifacts
     sharing a basename across directories can never be confused for one another.
