@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service backend)",
+    "metrics/statpack.md (committed base rates)",
+    "provisioned snapshot and document texts"
+  ],
+  "helpful": [
+    "The provisioned document texts were the decisive input: having the SG's actual merits-brief summary of argument (inside brief-in-opposition.txt) and the full petition made the doctrinal forecast concrete rather than inferred from docket entries.",
+    "The statpack merits section's per-Term table with the excluded column made the pooled strictly-prior baseline a five-minute computation."
+  ],
+  "gaps": [
+    "A merits cell would benefit from the petitioner's merits brief and reply being provisioned the way the cert-stage documents are — the document pipeline fetched only cert-kind documents, so petitioner's merits-stage theory had to be inferred from the petition.",
+    "A cases-citing-this-authority search (citation graph) would have answered 'how have this Court's recent channeling cases come out' from the corpus; the --citation filter is own-cites-only and sparse, so it returned nothing for Johnson v. Robison."
+  ],
+  "notes": "The provisioned brief-in-opposition.txt concatenates two distinct filings (the Mar 6 cert-stage BIO and the Jul 13 merits brief for respondent) under one cert-stage kind with truncated: true — usable, and in fact valuable, but mislabeled; flagged in flags.json."
+}

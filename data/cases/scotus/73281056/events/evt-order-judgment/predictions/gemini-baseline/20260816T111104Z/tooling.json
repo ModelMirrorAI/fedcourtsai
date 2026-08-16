@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281056",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided a very clear baseline for merits judgments.",
+    "Provisioned documents (questions-presented.txt) were extremely helpful in determining the legal issues and the posture."
+  ],
+  "gaps": [
+    "CourtListener MCP was rate-limited, preventing additional docket research. A fallback mechanism or local cache for pending cases could be useful."
+  ],
+  "notes": "Degrading gracefully to the provisioned documents and the statpack worked well due to the strong signal embedded in the Questions Presented document regarding the emergency stay."
+}

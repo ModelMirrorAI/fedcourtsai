@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "The statpack's per-Term salience-band table with bracketed reached rates made the arrival-cell anchor a mechanical pooled computation.",
+    "CourtListener docket-entries for the lower-court docket surfaced the decisive vehicle facts (unpublished memorandum, dismissal, no-argument submission, rejected amicus) that the SCOTUS snapshot alone does not carry."
+  ],
+  "gaps": [
+    "No petition/QP text could be provisioned because the petition was filed in paper form only (Rule 34.6 note on the docket); a fallback fetch of the lower-court opinion text would have partially substituted, but both CA9 documents were is_available:false in RECAP.",
+    "fedcourts query has no subject-matter filter on SCOTUS rows (--topic is circuit-only), so pulling comparable immigration cert petitions as priors was not possible; recency-ranked results were dominated by applications and unrelated denials."
+  ],
+  "notes": "Forward cell; ~6 retrieval calls total, well under budget."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280343",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "fedcourts paths"],
+  "helpful": [
+    "The statpack merits section's per-Term table with the excluded count made the pooled baseline a two-minute computation with no judgment calls.",
+    "documents.json's empty_text marker made the BIO's unavailability unambiguous — content-unavailable rather than absent."
+  ],
+  "gaps": [
+    "No way to hydrate a provisioned document that was fetched but had no text layer (the BIO here) — an OCR pass at provisioning time would have closed my largest evidentiary gap.",
+    "fedcourts query has no free-text or subject filter, and its citation filter is own-cites only, so there is no corpus route to 'SCOTUS merits outcomes in immigration statutory-interpretation cases' — the cut a merits cell most wants; one unproductive citation lookup cost ~348 MB of ranged reads.",
+    "No committed cut of merits outcomes conditioned on split shape (grant from the majority vs minority side of a circuit split), which is the main case-specific adjustment a grant-moment merits cell makes from the pooled rate."
+  ],
+  "notes": "Forward merits cell at the grant moment: the record was current to today and the merits briefs do not exist yet, so retrieval had little to add beyond the provisioned petition and the committed statpack."
+}

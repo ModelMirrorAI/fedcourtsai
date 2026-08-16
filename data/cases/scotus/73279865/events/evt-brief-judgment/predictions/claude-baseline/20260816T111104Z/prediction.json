@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A recurring jurisdictional question governing every veteran's access to district courts, with a broad and ideologically diverse amicus coalition \u2014 significant for the veterans' bar and administrative-law watchers, but technical channeling doctrine with little general-public salience.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73279865",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.78
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:19:33Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279865/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:21:57.625494Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests the judgment on Johnson v. Robison's textual ground carried forward into 38 U.S.C. \u00a7 511(a): the clause precludes review only of decisions of the Secretary made under a law affecting benefits, and a facial constitutional challenge to an act of Congress (here \u00a7 5313) contests a decision of Congress, not of the Secretary, so 28 U.S.C. \u00a7 1331 jurisdiction survives. The Court reaffirms Robison rather than overruling or confining it \u2014 holding that Congress's retention of the operative 'decision ... under a law' language in the VJRA carried Robison's construction forward \u2014 and rejects the government's Elgin/Thunder Basin implied-channeling framework as inapplicable where the express preclusion text does not reach the claim, rather than resting the holding on a Thunder Basin factor analysis."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states its ground categorically for a defined class rather than confining it to this petitioner or \u00a7 5313: district courts retain \u00a7 1331 jurisdiction over facial constitutional challenges to acts of Congress affecting veterans' benefits generally. But the rule stops at that class \u2014 the opinion expressly preserves the VJRA's exclusive channeling of individual benefits determinations and of as-applied challenges to the Secretary's decisions into the Veterans Court and Federal Circuit, and it announces no broader rule about jurisdiction-channeling schemes outside Title 38 (Elgin and Thunder Basin are distinguished, not cut back)."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

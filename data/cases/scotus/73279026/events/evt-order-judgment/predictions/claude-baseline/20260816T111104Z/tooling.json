@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits-docket section, pooled disturbed-rate baseline)",
+    "provisioned snapshot + record/documents (QP, petition, BIO)",
+    "fedcourts query (attempted twice; timed out, no rows returned)"
+  ],
+  "helpful": [
+    "The statpack merits section with its excluded count and per-Term parsed/disturbed columns made the baseline arithmetic mechanical",
+    "Provisioned QP text and BIO were decisive for the doctrinal read",
+    "The docket's grant-order text ('limited to Questions 1 and 2') carried the single most informative merits signal"
+  ],
+  "gaps": [
+    "fedcourts query hung (default and --corpus-backend service) — a fast-fail with a clear error would beat a silent hang",
+    "Merits-stage briefs are not provisioned even when already on the docket (petitioners' merits brief and SG merits amicus were filed pre-snapshot); provisioning them would materially improve a moment:grant merits cell"
+  ],
+  "notes": "Corpus-priors retrieval was unavailable in this cell, so the prediction anchors on the committed statpack plus the provisioned record only."
+}

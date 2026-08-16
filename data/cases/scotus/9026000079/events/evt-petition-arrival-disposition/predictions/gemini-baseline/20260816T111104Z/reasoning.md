@@ -1,0 +1,7 @@
+P(grant) 0.005. 
+
+The case arrived as a paid petition in the `baseline` salience band. According to the statpack, the prior-Term pooled rate for the paid `baseline` band segment is around 6.5%. I adjust this figure heavily downward because this is a profoundly poor vehicle for Supreme Court review. Web retrieval confirms this case, *Acosta-Tapia v. Bondi*, No. 25-2460 (9th Cir. 2026), involves an immigrant challenging an Immigration Judge's negative "reasonable fear" determination. The Ninth Circuit dismissed the petition as untimely under 8 U.S.C. § 1252(b)(1) in an unpublished memorandum. 
+
+The Supreme Court rarely grants review of unpublished, fact-bound decisions, and the untimeliness of the filing presents a fatal procedural barrier. Furthermore, the Solicitor General has already filed a waiver of the right to respond on behalf of the government, signaling that the respondent sees no circuit split or important federal question requiring the Court's intervention. 
+
+Due to CourtListener MCP API rate limits (HTTP 429), I used Google Web Search to obtain the necessary context for the underlying Ninth Circuit decision. The documents for this case were not provisioned in the workspace, so my read of the case relies entirely on the docket snapshot and web retrieval.

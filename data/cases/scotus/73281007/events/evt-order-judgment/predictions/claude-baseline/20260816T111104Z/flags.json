@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "Forward-mode hygiene note: the forecast leans materially on an intervening decided precedent, FCC v. AT&T (25-406, decided 2026-06-04), surfaced from the respondent's provisioned merits brief and confirmed by web search. It predates the snapshot and concerns a different case, so it is legitimate forward signal, not leakage; flagged only because it was decisive in setting P(disturbed) below the pooled merits baseline."
+    }
+  ]
+}

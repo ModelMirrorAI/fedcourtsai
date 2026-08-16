@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000095",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "Provisioned inputs and statpack were sufficient for predicting this clearly unwinnable state-court petition."
+}

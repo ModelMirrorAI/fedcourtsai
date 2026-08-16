@@ -1,0 +1,249 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:23.727Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9f2f0aea0dd1e5e7",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000079 -type f | head -50",
+      "result_capture": "captured",
+      "result_digest": "4d82a00ea3bdcbec",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:24.516Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "01bd28c6c236bef5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000079/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "f2f9d768b3e03db4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:35.260Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "046d1a00cd731cd0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000079/record/context.json\"}",
+      "result_capture": "captured",
+      "result_digest": "3d01e17ae2d74ec7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:35.942Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "75444cb6ebc872e3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000079/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "ff6d6503fdc53a55",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:36.298Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_capture": "captured",
+      "result_digest": "ac3867a311016da3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:50.149Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:36:50.505Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a0f7e8a9266e1e62",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__read_document",
+      "result_capture": "captured",
+      "result_digest": "3835684e65cc317a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:37:15.772Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d277ab2cd7cc5027",
+      "query": "uv run fedcourts paths --court scotus --docket 9026000079 --event evt-petition-arrival-disposition --role predictor 2>&1 | head -30",
+      "result_capture": "captured",
+      "result_digest": "cc7c7b6ddc1c9924",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:37:16.888Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "282362bba1ad7056",
+      "query": "Acosta-Tapia",
+      "result_capture": "captured",
+      "result_digest": "27af232c61ed4745",
+      "retrieved_doc_date": "2003-07-10",
+      "timestamp": "2026-08-16T11:37:22.975Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "3bf266877282d490",
+      "query": "{\"court\": \"ca9\", \"docket_number\": \"25-2460\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"status\", \"cluster_id\", \"opinions\", \"snippet\"], \"num_results\": 5, \"type\": \"o\"}",
+      "result_capture": "captured",
+      "result_digest": "8fd4e493c278b3ba",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:37:29.215Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "442acf4359e72ded",
+      "query": "{\"court\": \"ca9\", \"docket_number\": \"25-2460\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"docket_id\", \"suitNature\", \"cause\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_capture": "captured",
+      "result_digest": "be93ca22b2bd978c",
+      "retrieved_doc_date": "2025-04-16",
+      "timestamp": "2026-08-16T11:37:34.144Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "f3cbf2128b99ef67",
+      "query": "select:mcp__courtlistener__call_endpoint",
+      "result_capture": "captured",
+      "result_digest": "ac8526b6da10cd5a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:37:44.728Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "c8f6e53fbc451337",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 15, \"query\": {\"docket\": 72369758, \"fields\": [\"date_filed\", \"description\", \"entry_number\"], \"order_by\": \"-date_filed\"}}",
+      "result_capture": "captured",
+      "result_digest": "12d1b311be92cfbd",
+      "retrieved_doc_date": "2026-02-26",
+      "timestamp": "2026-08-16T11:37:48.618Z",
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "cdae56898d805c81",
+      "query": "memorandum",
+      "result_capture": "captured",
+      "result_digest": "10a8b3467d829d0e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:38:03.798Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "40133d2256c1ad04",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:38:34.817Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "952cd88294a4f215",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 2>&1 | tail -20",
+      "result_capture": "captured",
+      "result_digest": "56360ebc537ea96b",
+      "retrieved_doc_date": "2026-08-09",
+      "timestamp": "2026-08-16T11:38:40.354Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2b1fc718101a10f9",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_capture": "captured",
+      "result_digest": "95d2b50c7e60bc56",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:39:26.514Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b3a60cf42613a89",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000079\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:39:26Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000079/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.025,\\n  \\\"predicted_disposition\\\": \\\"d",
+      "result_capture": "captured",
+      "result_digest": "1cabb0f2652da3de",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:39:35.145Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "740df3d9c7f70204",
+      "query": "{\"content\": \"# Forecast: Acosta-Tapia v. Blanche, No. 26-79 (petition disposition, forecast at arrival)\\n\\nThe docket shows **zero distributions** \\u2014 this is an arrival-moment forecast, made\\nbefore any conference signal exists. The respondent (the Solicitor General) waived\\nthe right to respond on August 14, 2026, three days before the response was due.\\n\\n**Disposition.** The Court will **deny** the petition. The petition challenges an\\nunpublished Ninth Circuit memorandum disposition (Haw",
+      "result_capture": "captured",
+      "result_digest": "054bc84f22792b7f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:39:53.409Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "adeb3670b03d7a82",
+      "query": "{\"content\": \"# Rationale for the numbers\\n\\n**P(grant family) = 0.025.**\\n\\n**Anchor.** This is a cert-stage `arrival` cell with a frozen band of `baseline`\\nunder `sal-v3` (matching the statpack table's version), Term 2026,\\n`distribution_count` 0. The scored yardstick is the baseline band's bracketed\\n`reached` rate \\u2014 for the weakest band that is the whole paid scored segment's\\ngrant rate, unconditional on trajectory, which is exactly the arrival\\npopulation's rate. Pooling every rendere",
+      "result_capture": "captured",
+      "result_digest": "d7ae20c0d86d562a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:40:19.443Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6a50cbeac3397cb8",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned snapshot, event definition, context, and the committed\\n`metrics/statpack.md`:\\n\\n## CourtListener MCP (4 calls)\\n\\n1. `search` (type `o`, q \\\"Acosta-Tapia\\\", court ca9) \\u2014 looked for the Ninth\\n   Circuit opinion under review. No 2026 hit (older unrelated cases only).\\n2. `search` (type `o`, docket_number \\\"25-2460\\\", court ca9) \\u2014 0 results; the\\n   memorandum disposition is not in the opinions index.\\n3. `search` (type `d`, docket",
+      "result_capture": "captured",
+      "result_digest": "ca2f7ac7c21c75dc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:40:32.352Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0717da2d9f6bd078",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000079\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener-mcp search\\\",\\n    \\\"courtlistener-mcp call_endpoint (docket-entries)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack's per-Term salience-band table with",
+      "result_capture": "captured",
+      "result_digest": "d6deb6876b30f98b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:40:39.124Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_capture": "captured",
+      "result_digest": "d1a34deb89aa9c43",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:40:47.969Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000079",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,2 @@
+- `metrics/statpack.md`: Consulted the overall and `elevated` salience band base rates.
+- CourtListener MCP Server: Attempted to search for the Fifth Circuit opinion (`24-10995`), but the `search` tool returned a rate limit error (`HTTP 429`). Degraded gracefully to predicting from the provisioned inputs and base rates.

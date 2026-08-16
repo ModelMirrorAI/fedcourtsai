@@ -1,0 +1,294 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:10.024Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8af085011587790d",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000104 -type f | head -50",
+      "result_capture": "captured",
+      "result_digest": "6c17df0cfdbd2ac4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:11.073Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f8f5f8db2bbf4cf3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000104/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "932956f3020d726d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:18.214Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2280d90ac3d734af",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000104/record/context.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f5ce94a35cfb6b06",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:18.920Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c2d888840b8db551",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000104/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "d36da9bbc8021768",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:19.041Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7616dba59bfe88f1",
+      "query": "grep -n \"salience band\\|Modern discretionary\\|federal\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40; echo ---; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "692d4ae7d5501616",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:33.239Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_capture": "captured",
+      "result_digest": "ac3867a311016da3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:41:37.222Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:05.382Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_capture": "captured",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:05.836Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "a43cbeaa32199938",
+      "query": "\"Barbosa da Cunha\"",
+      "result_capture": "captured",
+      "result_digest": "140403a1fd2909f4",
+      "retrieved_doc_date": "2026-07-30",
+      "timestamp": "2026-08-16T11:42:12.418Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4e7947ce857849b5",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s \"federal government petitioner immigration detention habeas Second Circuit\" 2>&1 | head -60",
+      "result_capture": "captured",
+      "result_digest": "8d8d62700744fa1c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:13.948Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "89bdf924b0680b34",
+      "query": "\"da Cunha\" Rhoney",
+      "result_capture": "captured",
+      "result_digest": "00784e86cb88b837",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:27.092Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "40133d2256c1ad04",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:27.654Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dae358fb07af707d",
+      "query": "\"Barbosa da Cunha\"",
+      "result_capture": "captured",
+      "result_digest": "ab496467ee252a7d",
+      "retrieved_doc_date": "2026-07-29",
+      "timestamp": "2026-08-16T11:42:35.623Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "5cc6b02a6b54a1fc",
+      "query": "select:mcp__courtlistener__search_document,mcp__courtlistener__read_document",
+      "result_capture": "captured",
+      "result_digest": "bfa0251f380443b1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:43.481Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "3b2e4ad07ed51829",
+      "query": "Barbosa da Cunha",
+      "result_capture": "captured",
+      "result_digest": "01e2e90b84cb7410",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:42:47.203Z",
+      "tool": "mcp__courtlistener__search_document"
+    },
+    {
+      "params_digest": "dee63ada8d1d4eac",
+      "query": "\"Barbosa da Cunha\"",
+      "result_capture": "captured",
+      "result_digest": "30f3e726ce4574eb",
+      "retrieved_doc_date": "2026-07-30",
+      "timestamp": "2026-08-16T11:42:52.812Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "da22ac2469796b91",
+      "query": "Barbosa da Cunha",
+      "result_capture": "captured",
+      "result_digest": "7fa059fd2586877e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:43:01.794Z",
+      "tool": "mcp__courtlistener__search_document"
+    },
+    {
+      "params_digest": "505cca01253827ba",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-1415\", \"fields\": [\"id\", \"case_name\", \"docket_number\", \"date_filed\", \"date_terminated\"]}}",
+      "result_capture": "captured",
+      "result_digest": "6e767a4817c02b58",
+      "retrieved_doc_date": "2026-06-24",
+      "timestamp": "2026-08-16T11:44:25.153Z",
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "3e1b0aa62f567b7e",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted 2>&1 | tail -20",
+      "result_capture": "captured",
+      "result_digest": "5a3e3b5515a0da09",
+      "retrieved_doc_date": "2025-09-03",
+      "timestamp": "2026-08-16T11:44:26.040Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ee6def67826190b1",
+      "query": "tail -c 600 /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/358cee03-d076-4b1e-8898-9c79f9dd95f5/tool-results/bc1e4zglq.txt; echo; grep -o \"ranged corpus reads[^\\\"]*\" /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/358cee03-d076-4b1e-8898-9c79f9dd95f5/tool-results/bc1e4zglq.txt | head -3",
+      "result_capture": "captured",
+      "result_digest": "340c10e9667521f1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:44:40.922Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "034ee0f1adef7712",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted 2>/tmp/qerr.txt >/tmp/qout.jsonl; echo \"--- stderr:\"; cat /tmp/qerr.txt; echo \"--- rows:\"; wc -l < /tmp/qout.jsonl",
+      "result_capture": "captured",
+      "result_digest": "45991ec00dcefb78",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:44:47.269Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7dea101ddbba0090",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000104/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+      "result_capture": "captured",
+      "result_digest": "66cdf6f90818ab9f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:45:19.631Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a7e8356fc307693",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000104\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:45:19Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000104/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.78,\\n  \\\"predicted_disposition\\\": \\\"gr",
+      "result_capture": "captured",
+      "result_digest": "52a83701809b3721",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:45:28.882Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "13ac2709b4894321",
+      "query": "{\"content\": \"# Forecast \\u2014 Rhoney v. Barbosa da Cunha, No. 26-104 (petition disposition, forecast at arrival)\\n\\nThe docket shows **zero distributions** \\u2014 this is the arrival moment, forecast\\nbefore any conference signal exists. Everything below forecasts forward from\\nthat state.\\n\\n## What the Court will do\\n\\n**The Court will grant this petition** \\u2014 most likely consolidated with, or as a\\ncompanion to, the Solicitor General's earlier petition in *Raycraft v.\\nLopez-Campos*, No.",
+      "result_capture": "captured",
+      "result_digest": "53cdcd70b7c1c121",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:45:50.852Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2755e7699efc2578",
+      "query": "{\"content\": \"# Rationale \\u2014 P(grant family) = 0.78\\n\\n## Anchor\\n\\nThis is an arrival-moment cert cell with a frozen `band: federal` under\\n`sal-v3`, which matches the committed statpack's segment table version, so the\\npublished anchor for the class applies. Pooling the federal band's bracketed\\n`reached` rates over the Term rows strictly before this case's own (2017\\u20132025;\\nthe 2026 row is empty), the pooled grant-family rate is **\\u2248 71.2%**\\n(143.0/201 weighted resolved). The fede",
+      "result_capture": "captured",
+      "result_digest": "5dd417cf3bf8b76c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:46:21.044Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "12e1273966a29fb7",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline / 20260816T111104Z\\n\\nForward-mode cell; retrieval unrestricted. Consulted beyond the provisioned\\ninputs:\\n\\n## Committed statpack\\n\\n- `metrics/statpack.md` \\u2014 \\\"Segment base rate by salience band (sal-v3)\\\"\\n  (federal column, Terms 2017\\u20132025 pooled), \\\"Cert petitions by salience band\\\",\\n  \\\"Modern discretionary-cert petitions by disposition\\\", relist-count and CVSG\\n  cuts.\\n\\n## CourtListener MCP\\n\\n1. `search` (opinions, q=\\\"Bar",
+      "result_capture": "captured",
+      "result_digest": "783e9e5d7688c1ca",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:46:32.348Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "26adfd75c413cbdd",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9026000104\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md\\\",\\n    \\\"fedcourts query\\\",\\n    \\\"courtlistener-mcp search\\\",\\n    \\\"courtlistener-mcp search_document\\\",\\n    \\\"courtlistener-mcp call_endpoint (dockets)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The sal-v3 ",
+      "result_capture": "captured",
+      "result_digest": "0aacae79501fa1de",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:46:38.884Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2acf92fdcee7b769",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_capture": "captured",
+      "result_digest": "d1a34deb89aa9c43",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T11:46:44.776Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000104",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

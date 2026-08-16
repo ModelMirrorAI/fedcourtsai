@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed merits statpack",
+    "CourtListener MCP opinion search and document reader"
+  ],
+  "helpful": [
+    "The stage- and moment-specific prompt made the merits scoring axis and declared claims unambiguous.",
+    "The statpack exposed the exact strictly-prior merits baseline and its coverage.",
+    "The filed petition and cert response contained both sides' core statutory arguments."
+  ],
+  "gaps": [
+    "The grant-moment snapshot was not frozen at the grant date.",
+    "The brief-in-opposition artifact merged a cert response with a later merits brief instead of preserving one filing per document."
+  ],
+  "notes": "I excluded post-grant material to preserve the event's grant-moment information set and recorded the document/snapshot mismatch in flags.json."
+}

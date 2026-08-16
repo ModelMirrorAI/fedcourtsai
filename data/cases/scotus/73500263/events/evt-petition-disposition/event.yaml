@@ -1,0 +1,12 @@
+case_id: scotus/73500263
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-09'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: David Gasper v. EIDP, Inc. fka, E. I. DuPont De Nemours & Company, et al.

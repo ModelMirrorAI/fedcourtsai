@@ -1,0 +1,12 @@
+case_id: scotus/73279700
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: '2025-11-25'
+resolved: false
+schema_version: '1.0'
+stage: interim
+title: Allen Watkins v. United States District Court for District of Arizona

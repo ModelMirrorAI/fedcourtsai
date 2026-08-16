@@ -1,0 +1,3 @@
+- Web search: `"Acosta-Tapia" "Ninth Circuit" 25-2460` surfaced the underlying decision *Acosta-Tapia v. Bondi*, No. 25-2460 (9th Cir. 2026), indicating an unpublished memorandum dismissing the petition for untimeliness.
+- CourtListener MCP Server: Attempted `call_endpoint` with `endpoint_id: dockets` and `query: {id: 9026000079}`, but received HTTP 429 Rate Limit Exceeded.
+- `fedcourts query`: Checked availability but the corpus service required MCP or was not used further since Web Search fulfilled the query context.

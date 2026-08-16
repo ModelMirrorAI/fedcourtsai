@@ -1,0 +1,1 @@
+Consulted the provisioned inputs and the committed `metrics/statpack.md` (specifically the merits docket section to calculate the pooled disturbed rate). No `fedcourts query` or MCP tooling was used beyond this base-rate check.

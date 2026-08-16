@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000066",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The frozen arrival context made the zero-distribution claim state explicit.",
+    "The statpack exposed the leakage-safe paid-arrival risk-set anchor.",
+    "Complete petition and questions-presented text allowed a vehicle assessment."
+  ],
+  "gaps": [
+    "No appendix or lower-court-opinion text was provisioned, limiting independent verification of preservation and the state grounds.",
+    "No brief in opposition was available at this arrival moment."
+  ],
+  "notes": "The CourtListener MCP service was available. General doctrinal searches were sufficient; no case-specific outcome retrieval or corpus query was needed."
+}

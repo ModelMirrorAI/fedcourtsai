@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Post-Jarkesy boundary case for agency adjudication of monetary penalties, with direct consequences for H-2A enforcement (a sixth of the agricultural workforce) and, by extension, other benefit-condition and employer-sanction schemes; a broad cross-ideological amicus field on both sides marks the stakes.",
+  "big_case_score": 0.7,
+  "case_id": "scotus/73281007",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.45
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:33:02Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73281007/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:35:47.714744Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will rest the judgment on the absence of clear statutory authorization: 8 U.S.C. 1188(g)(2)'s grant of power to take actions 'including imposing appropriate penalties' authorizes the Secretary to assess monetary remedies but not to adjudicate them through binding in-house proceedings, reading 'impose' as FCC v. AT&T (2026) read the FCC's forfeiture power - assessment followed by court enforcement - and invoking constitutional avoidance because binding DOL adjudication of contract-based penalties and back wages would collide with SEC v. Jarkesy's claims-and-remedies analysis, while the Oceanic Steam immigration public-rights line is held not to reach employment-condition remedies covering domestic as well as H-2A workers."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be narrow: confined to DOL's H-2A enforcement scheme under 8 U.S.C. 1188(g)(2) and to monetary remedies for employment-condition violations. The Court will not announce a categorical rule against administrative adjudication of civil penalties, will not overrule Atlas Roofing, and will expressly preserve executive adjudication of admission, exclusion, and other status-linked immigration matters, leaving DOL free to pursue the same remedies by suit in district court."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

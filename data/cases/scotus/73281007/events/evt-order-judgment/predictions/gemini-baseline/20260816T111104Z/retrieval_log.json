@@ -1,0 +1,213 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "5d7be028fb56e72f",
+      "query": "{\"strategic_intent\": \"Read instructions from predict.md and AGENTS.md to understand the prediction workflow and output requirements.\", \"title\": \"Reading Guidelines\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:50.666Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:53.655Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:53.655Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "750d6a38df23e630",
+      "query": "ls -la data/cases/scotus/73281007/events/evt-order-judgment/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:01.698Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5150eb97da257867",
+      "query": "cat data/cases/scotus/73281007/events/evt-order-judgment/event.yaml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:01.699Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a130bae128eae1fe",
+      "query": "ls -la data/cases/scotus/73281007/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:01.699Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f34d922f7cd759ba",
+      "query": "cat data/cases/scotus/73281007/events/evt-order-judgment/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:01.700Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ebf06b1cad319c02",
+      "query": "mkdir -p data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:08.203Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:08.203Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:08.204Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:23.566Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "271db4d3f0e487a7",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:23.566Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d8472db9eac58e02",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281007\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"missing-snapshot\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.70,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"votes\\\": [\\n    {\\\"justice\\\": \\\"Roberts\\\", \\\"vo",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.312Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4e4eb87e966f575b",
+      "query": "{\"content\": \"I expect the Court to reverse the judgment below. The majority will likely find that the Department of Labor either exceeded its statutory authority or acted arbitrarily and capriciously in its enforcement action against Sun Valley Orchards. \\n\\nThe holding will likely be a narrow one, interpreting the specific regulatory text governing the H-2A visa program penalty assessments rather than establishing a broad constitutional invalidation of agency power. Expect a 6-3 split, with the",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.316Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a999df82b7ffff1a",
+      "query": "{\"content\": \"The provisioned snapshot and record documents for this case (`scotus/73281007`, `evt-order-judgment`) were completely missing from the expected path. Operating headless as per instructions, I could not stall or fetch the live case status, so I defaulted to predicting from prior base rates alone, making a conservative call.\\n\\nThis is a `merits` stage event at the `grant` moment. The historical base rate for disturbed judgments on granted merits cases (pooled over the 10 terms strict",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.319Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "11a77b204c98796b",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs. (Inputs were missing, so no retrieval was performed.)\", \"file_path\": \"data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.322Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "19d514cba3339a62",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281007\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"blocked\\\",\\n      \\\"severity\\\": \\\"blocker\\\",\\n      \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n      \\\"message\\\": \\\"The provisioned snapshot and record documents were completely missing (no record directory exists for this event). Falling back to prior base rates.\\\"\\n    }\\n  ]\\n}\", \"file_path\": \"data/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.325Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2f47053eab8b1ede",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281007\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"cat metrics/statpack.md\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md\\\"],\\n  \\\"gaps\\\": [\\\"Provisioned snapshot data was missing\\\"]\\n}\", \"file_path\": \"data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:41.328Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:04.657Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c6aee828bc1f9a9d",
+      "query": "{\"strategic_intent\": \"Complete the task, successfully wrote prediction files as requested.\", \"title\": \"Prediction complete\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:17.555Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281007",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

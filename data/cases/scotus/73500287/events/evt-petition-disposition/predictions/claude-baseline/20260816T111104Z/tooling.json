@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73500287",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot and documents"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates made the anchor unambiguous",
+    "Provisioned petition text with the QP section was the single most useful input",
+    "fedcourts query surfaced a same-Term antitrust grant (Apple v. Epic) as docket context"
+  ],
+  "gaps": [
+    "No statpack cut conditions on response-waived / call-for-response state, which is the pivotal forward signal for a pre-first-conference petition; a CFR-rate cut would sharpen relist-increment claims",
+    "distribution_count conflates motion distributions with petition distributions (see flags.json); a petition-only count would make the frozen conditioning cleaner",
+    "The lower-court opinion text is not provisioned; the petition's characterization of the CA5 holding had to be taken on faith"
+  ],
+  "notes": "MCP server was available but not needed; the provisioned documents plus statpack carried the forecast."
+}

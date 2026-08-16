@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "provisioned snapshot + filed-document text",
+    "fedcourts query --help (surface inspection only)"
+  ],
+  "helpful": [
+    "The provisioned petition text was decisive: the full 9-page petition made the merits-weakness assessment direct rather than inferred from docket metadata.",
+    "The sal-v3 band table's bracketed reached figures, with the arrival-moment anchoring rule in the prompt, made the baseline unambiguous for a zero-distribution cell."
+  ],
+  "gaps": [
+    "fedcourts query has no text/similarity filter, so 'find resolved petitions like this one' (pro se, state-court originating, recusal/due-process subject) is not expressible; a subject or free-text filter over SCOTUS rows would have let me check the anchor against a matched cohort.",
+    "No statpack cut exists for pro se vs counseled or waived-response petitions within the paid segment; those are the two strongest observable negatives here and both adjustments had to come from general knowledge rather than a committed rate."
+  ],
+  "notes": "Forward arrival-moment cell; retrieval kept minimal deliberately since the provisioned record carried the load-bearing facts."
+}

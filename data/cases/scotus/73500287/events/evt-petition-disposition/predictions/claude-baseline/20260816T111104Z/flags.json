@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73500287",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "context.json freezes distribution_count=2, but one of the two counted distributions is the 2026-05-26 distribution of the sealing motion (25M86), not of the petition; the petition's only distribution is for the 2026-09-28 long conference, which postdates the snapshot. The petition has therefore never been relisted, and the elevated sal-v3 band may partly rest on the motion distribution. I anchored on the frozen band as instructed and adjusted downward in reasoning.md.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

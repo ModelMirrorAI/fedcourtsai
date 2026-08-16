@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The grant-moment information set is not frozen at the April 6, 2026 grant. The 2026-08-16 snapshot contains post-grant docket entries, and brief-in-opposition.txt concatenates the March 6 cert response with a July 13 merits brief while documents.json marks the combined artifact truncated. The snapshot also duplicates the August 4 SET FOR ARGUMENT entry. I excluded all post-grant merits content from this forecast.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000115",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "committed statpack",
+    "fedcourts query (attempted)",
+    "CourtListener MCP search (attempted)"
+  ],
+  "helpful": [
+    "Provisioned petition and lower-court appendices",
+    "Arrival-moment context and snapshot",
+    "Machine-readable sal-v3 statpack"
+  ],
+  "gaps": [
+    "CourtListener search was unavailable because its daily rate limit was exhausted",
+    "The local corpus query service did not respond or emit ranged-read statistics"
+  ],
+  "notes": "The committed statpack supplied the needed anchor despite both live research paths being unavailable. Redirecting the uv cache to /tmp was necessary because the configured runner cache path was read-only."
+}

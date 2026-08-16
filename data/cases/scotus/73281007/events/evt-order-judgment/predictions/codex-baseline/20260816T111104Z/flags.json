@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-judgment",
+      "message": "This grant-moment event opened on 2026-04-27, but the provisioned 2026-08-16 snapshot contains later merits filings and brief-in-opposition.txt concatenates the 2026-03-16 cert opposition with a 2026-07-27 merits brief. The later material was encountered during input inspection but excluded from the forecast to preserve the grant-moment information set."
+    }
+  ]
+}

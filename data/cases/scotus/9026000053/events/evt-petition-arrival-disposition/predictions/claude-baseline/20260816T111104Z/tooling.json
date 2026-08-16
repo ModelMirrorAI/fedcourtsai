@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000053",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "CourtListener MCP: search, call_endpoint (dockets, docket-entries)",
+    "committed metrics/statpack.md",
+    "provisioned record/documents (petition, BIO, QP)"
+  ],
+  "helpful": [
+    "The provisioned QP/petition text immediately revealed the hold-companion structure, which no docket-signal cut captures",
+    "The salience-band Term table's bracketed reached rates made the arrival anchor a one-step pooled computation",
+    "fedcourts query --disposition gvr surfaced the Monsanto companion GVRs, a direct prior for the hold-then-GVR pattern",
+    "CourtListener dockets endpoint confirmed the lead case (25-1383) is still pending"
+  ],
+  "gaps": [
+    "No free-text or similarity retrieval over corpus priors (query is structured-filter only), so 'companion/held petition' as a class cannot be pulled directly",
+    "No statpack cut for hold-companion petitions (petitions whose QP defers to a pending lead case) — their grant-family rate is dominated by the lead case's GVR channel and sits far from the band anchor",
+    "CourtListener carries no docket-entry mirror for SCOTUS dockets, so the lead case's conference/distribution state is invisible; a supremecourt.gov docket fetch for a named related docket would fill it"
+  ],
+  "notes": "Retrieval spend: 3 MCP calls + 2 fedcourts query invocations (one flag error). Well under budget; the cell's information ceiling was the lead case's still-empty docket, not tooling limits."
+}

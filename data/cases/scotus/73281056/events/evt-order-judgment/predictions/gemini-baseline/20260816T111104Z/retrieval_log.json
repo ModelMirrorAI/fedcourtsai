@@ -1,0 +1,285 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "9eb9e1ce67adbdd3",
+      "query": "{\"strategic_intent\": \"Read the prediction prompt and instructions.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:31.081Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:34.089Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:34.089Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e32398c79c273c1f",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281056\" --event \"evt-order-judgment\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:39.382Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2dd62f2882a9f5e3",
+      "query": "ls -la data/cases/scotus/73281056/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:42.445Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b4e00d85bb768781",
+      "query": "ls -la data/cases/scotus/73281056/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:46.044Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb40289cfb1a7068",
+      "query": "ls -la data/cases/scotus/73281056/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:51.952Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "473fd9856984e2d7",
+      "query": "cat data/cases/scotus/73281056/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:58.574Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9f19603a3e237fab",
+      "query": "ls -la data/cases/scotus/73281056/record/snapshots/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:58.575Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "20c3cecca7307df4",
+      "query": "cat data/cases/scotus/73281056/events/evt-order-judgment/event.yaml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:31:58.576Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:07.503Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:20.192Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b2f9faa19e6fbfe3",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"case_name\": \"Republican National Committee v. Mi Familia Vota\", \"court\": \"scotus\", \"fields\": [\"id\", \"case_name\", \"date_filed\", \"docket_number\"]}}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:24.560Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "8064b545966885da",
+      "query": "{\"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\"], \"type\": \"d\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:28.812Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "358eb90d1450e28f",
+      "query": "ls -la data/cases/scotus/73281056/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:34.114Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b195fe3ab82c5f14",
+      "query": "{\"file_path\": \"data/cases/scotus/73281056/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:37.660Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c751bf15d9f422a3",
+      "query": "{\"file_path\": \"data/cases/scotus/73281056/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:37.661Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7ea3e6ac16abc377",
+      "query": "cat metrics/statpack.md | grep -A 50 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:41.931Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ae1b104a0c6a547a",
+      "query": "cat metrics/statpack.md | grep -A 5 \"2017 |\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:46.629Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:32:49.874Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9c015956e4237d1c",
+      "query": "mkdir -p data/cases/scotus/73281056/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:11.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "795d3feb942f0a6b",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281056\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T12:00:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"votes\\\": [\\n    {\\n      \\\"just",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:24.080Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0d3140602d9b9b98",
+      "query": "{\"content\": \"The Court is likely to reverse the Ninth Circuit's judgment. The fact that the Court already granted an emergency stay on these exact issues strongly signals that a majority of the Justices believe the Ninth Circuit erred in enjoining Arizona's proof-of-citizenship requirement. I expect a 6-3 decision along ideological lines, with the conservative majority holding that the National Voter Registration Act (NVRA) does not preempt Arizona's requirement for satisfactory evidence of citi",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:28.139Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2e54a3d55ce2908e",
+      "query": "{\"content\": \"P(disturbed) 0.85. The pooled disturbed rate for the 8 preceding parsed Terms (OT2017 to OT2024, as the 10-Term window includes 2 Terms not parsed) is 69.7% (359 disturbed out of 515 parsed judgments). I adjust this base rate significantly upward to 85% due to the specific posture of this case: the Supreme Court previously granted an emergency stay against the Ninth Circuit's decision on these very issues, as noted in the Questions Presented document. A stay requires a showing of a ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:36.448Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a8a704a27d50bf97",
+      "query": "{\"content\": \"- `cat metrics/statpack.md` to read the merits docket baseline rates.\\n- CourtListener MCP `search` tool attempted but failed with HTTP 429 Rate Limit Exceeded.\\n- Read provisioned documents (`questions-presented.txt`, `petition.txt`, `documents.json`).\\n- Read provisioned snapshot (`2026-08-16.json`) and `context.json`.\", \"file_path\": \"data/cases/scotus/73281056/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:40.813Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1d0a818e0378b1e5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281056\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided a very clear baseline for merits judgments.\\\",\\n    \\\"Provisioned documents (questions-presented.txt) were extremely he",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:33:46.638Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:10.305Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c44e1cea4f80d325",
+      "query": "{\"strategic_intent\": \"Completed the prediction generation and verification.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:34:15.058Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281056",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

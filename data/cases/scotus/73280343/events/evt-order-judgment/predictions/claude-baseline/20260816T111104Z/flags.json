@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280343",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "The provisioned brief-in-opposition (22 pages, fetched 2026-08-14) carries empty_text: true — fetched but no extractable text layer. The government's position was inferred from the decision below and the Cela cert history, not from the BIO's own text; noted in reasoning.md."
+    }
+  ]
+}

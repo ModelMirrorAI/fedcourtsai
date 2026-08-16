@@ -1,0 +1,8 @@
+P(grant) = 0.08. 
+This is a paid petition at the `arrival` moment. The `record/context.json` assigns it to the `baseline` salience band under `sal-v3`. According to the statpack, the pooled bracketed `reached` rate for the `baseline` band over the preceding terms (2017-2025) is approximately 6.5%.
+
+I have adjusted this base rate slightly upward to 8% because the petition involves a claimed 4-1 circuit split on an issue under the New York Convention and the Federal Arbitration Act—specifically, whether federal or state law governs equitable estoppel for non-signatories. This is a classic area of Supreme Court interest.
+
+However, the petition is explicitly framed as a "hold" request pending *Town of Vinton v. Indian Harbor Ins. Co.* (25-1383). The ultimate disposition of this petition is therefore almost entirely dependent on what the Court does with *Town of Vinton*. Because I must predict without knowing the outcome of *Town of Vinton* (and an attempt to look it up on CourtListener failed due to a rate limit), I rely on the general base rate for such issues. An 8% probability reflects a slightly elevated chance that the lead case is granted (and this one subsequently GVR'd) compared to the baseline pool. 
+
+If the petition is granted, it is highly likely to be a summary GVR (85%) because of the hold request. For the `relist-increment` claim, since the petition currently has 0 distributions, I am estimating the probability of it receiving a *relist* (i.e., 2 or more distributions total) at 15%, because held petitions typically do not require relists; they are simply held and then disposed of once the lead case is decided.

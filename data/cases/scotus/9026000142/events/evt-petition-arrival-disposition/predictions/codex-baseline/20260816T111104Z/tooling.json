@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "The statpack exposed a stage- and band-matched federal-petitioner anchor.",
+    "The provisioned petition included the question presented and the lower-court appendices."
+  ],
+  "gaps": [
+    "CourtListener MCP search was unavailable because its daily request limit had been exhausted.",
+    "No brief in opposition was available at the arrival moment."
+  ],
+  "notes": "The prediction degraded cleanly to provisioned materials and committed base rates after the sanctioned live-research service returned HTTP 429."
+}

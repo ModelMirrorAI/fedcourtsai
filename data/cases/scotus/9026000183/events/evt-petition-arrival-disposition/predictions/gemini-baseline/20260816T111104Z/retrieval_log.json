@@ -1,0 +1,294 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "d9e8c1a227bace1f",
+      "query": "{\"strategic_intent\": \"Reading prediction instructions from .github/prompts/predict.md and AGENTS.md\", \"summary\": \"I am reading the prompt and agent configuration files to understand the requirements for generating the prediction cell.\", \"title\": \"Understanding Prediction Instructions\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:41.324Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:43.716Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:43.716Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b551729374340291",
+      "query": "uv run fedcourts paths --court scotus --docket 9026000183 --event evt-petition-arrival-disposition --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:49.108Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d516999403959247",
+      "query": "ls -R data/cases/scotus/9026000183/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:53.099Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ebbed0fc64473c69",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000183/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:56.845Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "300d13dc7d29a320",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000183/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:56.846Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a0a52be900887800",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000183/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:56.846Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:43:56.847Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "623ec4092a36c2e3",
+      "query": "grep -n \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:01.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e4b4b96dd6c54a7",
+      "query": "sed -n '175,200p' metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:03.598Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eefd7d6238bd9ec7",
+      "query": "cat data/cases/scotus/9026000183/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:09.678Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "96e0c3d11e23d7a7",
+      "query": "head -n 50 data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:21.348Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "323ff9fb7832d503",
+      "query": "grep -A 20 -i \"INTRODUCTION\" data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:24.209Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3cd1a0358692a325",
+      "query": "grep -B 5 -A 5 -i \"reported at\" data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:27.618Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6cd39a42610b5dcc",
+      "query": "grep -A 20 -i \"Other Circuits Faithfully Apply the\" data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:34.710Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "84228cc3362972e8",
+      "query": "grep -B 5 -A 20 -i \"HELD FOR CONSIDERATION OF THE DETWILER PETITION\" data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:38.390Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ecde799fc3c1eb71",
+      "query": "grep -i -C 5 \"DETWILER\" data/cases/scotus/9026000183/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:44:40.911Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d59f04fe1470b46b",
+      "query": "uv run fedcourts query --court scotus --topic \"class action\" --era roberts",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:47:03.128Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5b4b27387d06d7f",
+      "query": "\"Kincannon v. United Airlines\" \"class certification\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:47:15.040Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "1e00e571b0eb711d",
+      "query": "\"Detwiler v. Mid-Columbia Medical Center\" \"Supreme Court\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:47:39.008Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "4591c00534366631",
+      "query": "mkdir -p data/cases/scotus/9026000183/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:47:54.426Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7cc1aeccbc82ce5c",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000183\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/9026000183/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.28,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:05.222Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0ccc179a788b4c2d",
+      "query": "{\"content\": \"Forecasts for the arrival-stage cert petition in *United Airlines v. Kincannon*:\\n\\n- **Relists:** The docket currently shows no distributions (arrival moment). We expect the petition to be relisted at least twice. The petition expressly requests that the Court hold this case pending the disposition of the petition in *Detwiler v. Mid-Columbia Medical Center* (No. 25A1336). Such a hold or active consideration of the substantial Rule 23 circuit split will require multiple conferences",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:05.227Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "33e25ec5c3f83c25",
+      "query": "{\"content\": \"P(grant or GVR) is estimated at 0.28. \\n\\nThe baseline grant rate for a modern discretionary-cert petition at the \\\"baseline\\\" salience band (Term 2025 anchor) is approximately 5.4% (bracketed reached rate). However, several case-specific factors justify a significant upward adjustment:\\n\\n1. **Rule 23 Circuit Split:** The petition, filed by experienced Supreme Court advocate Noel J. Francisco, credibly alleges a circuit split on a fundamental class action procedural issue. The Fift",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:05.230Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "582782d3ea7c7cb0",
+      "query": "{\"content\": \"- Read the provisioned `questions-presented.txt` and `petition.txt`.\\n- Consulted `metrics/statpack.md` (Modern discretionary-cert petitions by disposition, Segment base rate by salience band).\\n- Executed `fedcourts query --court scotus --topic \\\"class action\\\" --era roberts` (ranged corpus reads: 1518 GET(s), 397934592 byte(s)).\\n- Executed `google_web_search` for `\\\"Kincannon v. United Airlines\\\" \\\"class certification\\\"` and `\\\"Detwiler v. Mid-Columbia Medical Center\\\" \\\"Supreme ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:05.234Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1f2d9ad44956a307",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000183\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Google web search was highly effective for quickly contextualizing the related *Detwiler* petition requested as a hold in the petition.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\":",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:05.238Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:28.641Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "105f52365bf15beb",
+      "query": "{\"strategic_intent\": \"Completing the prediction for the provided cell.\", \"summary\": \"I have generated all required output files for the cell (prediction.json, predicted_reasoning.md, reasoning.md, retrieval.md, and tooling.json). The files validate perfectly against the provided schema and capture a well-supported prediction regarding the likely disposition of the cert petition.\", \"title\": \"Finalizing Prediction\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:48:33.588Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9026000183",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}

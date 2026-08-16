@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280386",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "CourtListener MCP read_document",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The committed merits statpack supplied the exact registered disturbed baseline and coverage cautions.",
+    "CourtListener supplied the pre-grant Eighth Circuit split authority when the provisioned documents were limited to cert-stage filings."
+  ],
+  "gaps": [
+    "The provisioned questions-presented extraction began mid-document instead of containing the questions.",
+    "No merits-brief text was provisioned even though the snapshot showed that petitioners' merits brief had been filed."
+  ],
+  "notes": "The prediction was completed from the provisioned record, the committed merits baseline, and pre-decision precedent. Two targeted CourtListener searches for the lower-court case returned no results, but the broader split-authority search succeeded."
+}

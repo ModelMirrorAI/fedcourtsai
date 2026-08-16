@@ -1,0 +1,5 @@
+- CourtListener MCP `search` tool returned HTTP 429 Rate Limit Exceeded.
+- I read the provisioned snapshot `data/cases/scotus/73279865/record/snapshots/2026-08-16.json`.
+- I read the provisioned petition document `data/cases/scotus/73279865/record/documents/petition.txt`.
+- I consulted the base rate metrics in `metrics/statpack.md`.
+- No further external retrieval was successful due to the MCP rate limit.

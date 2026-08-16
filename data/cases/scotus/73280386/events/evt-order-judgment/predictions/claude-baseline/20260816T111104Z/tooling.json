@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280386",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md (merits docket section)",
+    "provisioned documents (petition, BIO, QP extract)"
+  ],
+  "helpful": [
+    "The statpack merits table with per-Term parsed/excluded counts made the pooled baseline computable exactly as the scorer will compute it.",
+    "Full-text petition and BIO were decisive: the BIO's mootness/vehicle section explains the limited grant and the added mootness question."
+  ],
+  "gaps": [
+    "No provisioned merits-stage documents: the petitioners' merits brief (filed 2026-07-30) and the amicus briefs are on the docket but not fetched, so a moment:grant cell that runs after merits filings begin still sees only cert papers.",
+    "The corpus citation filter is too sparse to surface the well-known priors in this line (Jennings, Preap, Arteaga-Martinez); a query mode matching on statute or QP text would have found comparables the citation column cannot."
+  ],
+  "notes": "One corpus query, zero rows; the precedent trajectory in reasoning.md is from general legal knowledge, flagged as such there."
+}

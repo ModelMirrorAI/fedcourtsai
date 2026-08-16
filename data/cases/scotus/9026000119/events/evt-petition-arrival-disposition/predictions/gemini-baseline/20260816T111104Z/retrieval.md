@@ -1,0 +1,3 @@
+* CourtListener MCP `search` tool: Attempted to search for case "Ybanez" in "guam" court, but received an HTTP 429 Rate limit exceeded error.
+* `fedcourts query`: Attempted a query for priors (`uv run fedcourts query --court scotus --disposition denied "disqualification of attorney general"`), but it failed due to invalid arguments (positional text search is unsupported).
+* Fallback: Relied on the provisioned snapshot, `documents.json`, `questions-presented.txt`, and the statpack (`metrics/statpack.md`) for base rates.

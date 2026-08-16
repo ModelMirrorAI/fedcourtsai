@@ -1,0 +1,2 @@
+- `mcp_courtlistener_search` called for docket_number "25A622" in "scotus" but failed with a rate limit error (HTTP 429).
+- `fedcourts query --court scotus --era 2020s | head -n 20`: `ranged corpus reads: 6 GET(s), 1572864 byte(s)`

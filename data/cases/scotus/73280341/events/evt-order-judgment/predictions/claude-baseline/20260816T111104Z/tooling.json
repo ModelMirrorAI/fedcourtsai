@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280341",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits docket section)",
+    "provisioned snapshot + documents (petition, BIO, QP)"
+  ],
+  "helpful": [
+    "The provisioned petition and BIO texts were decisive — the en banc dissent history, the response-request timeline, and the BIO's vehicle argument all came from them, no live retrieval needed.",
+    "The merits statpack section with its excluded-count guard made the baseline unambiguous to compute."
+  ],
+  "gaps": [
+    "The petition text truncates before the appendix, so the Ninth Circuit panel opinion itself was not readable — a provisioned lower-court-opinion document would help every merits cell.",
+    "fedcourts query has no free-text or doctrine filter, so it cannot surface 'similar standing cases' priors; a doctrine/QP-topic filter on SCOTUS rows would be useful at the merits stage.",
+    "No committed cut of judgment-label shares conditional on the question type (e.g. jurisdictional reversals), so the reversed-vs-vacated split rests on analogy."
+  ],
+  "notes": "Forward merits cell at moment: grant; no merits briefs existed to retrieve (petitioners' brief due 2026-09-08)."
+}

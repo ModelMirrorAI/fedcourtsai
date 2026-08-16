@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279865",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The provisioned document of kind 'brief-in-opposition' concatenates two distinct filings under one cert-stage kind: the Mar 6 2026 cert-stage BIO and the Jul 13 2026 merits brief for respondent (documents.json shows both URLs pipe-joined, 91 pages, truncated). On a merits cell this was actually the most valuable input, but the kind label misdescribes the content, and petitioner's merits brief (filed Jun 1 2026) and reply (Aug 12 2026) were not fetched at all — the document pipeline appears to fetch only cert-kind documents even when the cell is merits-stage.",
+      "event_id": "evt-brief-judgment"
+    }
+  ]
+}

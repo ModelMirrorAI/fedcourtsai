@@ -1,0 +1,8 @@
+- `uv run fedcourts paths --court "scotus" --docket "9026000096" --event "evt-petition-arrival-disposition" --role predictor`
+- `find data/cases/scotus/9026000096/events/evt-petition-arrival-disposition -maxdepth 2`
+- `find . -name "context.json"`
+- `find data/cases/scotus/9026000096/record -type f`
+- `head -n 50 data/cases/scotus/9026000096/record/documents/petition.txt`
+- `uv run fedcourts query --citation "23-35543"` (ranged corpus reads: 2689 GET(s), 704905216 byte(s))
+- `google_web_search`: `"Department of the Interior" "Shoshone-Bannock Tribes" 9th circuit 23-35543`
+- `grep -A 20 "federal" metrics/statpack.md`

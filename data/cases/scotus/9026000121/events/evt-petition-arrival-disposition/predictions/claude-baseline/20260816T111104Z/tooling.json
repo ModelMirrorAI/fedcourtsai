@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot and filed-document text"
+  ],
+  "helpful": [
+    "The salience band table's bracketed reached rates with the arrival-cell anchoring rule in the prompt made the baseline unambiguous",
+    "Provisioned questions-presented.txt and petition.txt were decisive — the no-split, first-impression framing and the state-law second QP drive the whole adjustment"
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior bracketed reached rate per band (the exact scoring yardstick) would remove hand arithmetic over the Term rows",
+    "The lower-court opinion text is not provisioned for state-court petitions; the vehicle assessment had to rely on the petition's own framing",
+    "A citing-cases graph (cases citing a given authority) — the --citation filter is a known-case lookup, so precedent-similarity retrieval by cited authority is not possible"
+  ],
+  "notes": "One corpus query attempted, zero rows returned (sparse citation coverage); prediction rests on the statpack and the provisioned record."
+}

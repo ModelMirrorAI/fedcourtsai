@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md` for base rates (specifically the `federal` salience band).
+- Attempted to use the CourtListener MCP `search` tool for `docket_number=25-3141` in `court=ca2` and `docket_number=26-104` in `court=scotus`, but received an HTTP 429 Rate Limit Exceeded error. No retrieval beyond the provisioned inputs and the statpack was successful.

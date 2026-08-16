@@ -1,0 +1,5 @@
+Distributed 0 times so far.
+Since this is a petition from the Federal Parties (the Acting Director of ICE, represented by the Solicitor General), the Court will not call for a CVSG (the SG has already spoken through the petition). 
+I expect this petition may be relisted 0 to 1 time before a decision on the petition. SG petitions are highly scrutinized but often granted quickly without multiple relists if the circuit split or federal interest is clear.
+If granted, the Court will likely grant plenary review on the primary question presented regarding immigration enforcement or habeas jurisdiction, rather than issuing a summary GVR (unless there is an immediate intervening decision that bears on the issue).
+Should the Court deny the petition, there is a moderate chance of a dissent from denial by one of the more conservative Justices who may favor the government's position on immigration enforcement.

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280386",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The provisioned questions-presented.txt begins mid-petition and does not contain the questions presented. The complete petition.txt is available and was used for both questions.",
+      "event_id": "evt-order-judgment"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "This grant-moment event opened on 2026-06-15, but the forward snapshot dated 2026-08-16 includes later merits-stage docket activity, including petitioners' merits brief filing and the argument setting. No merits-brief text was provisioned or used.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

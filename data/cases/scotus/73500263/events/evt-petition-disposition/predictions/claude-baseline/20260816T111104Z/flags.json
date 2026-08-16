@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500263",
+  "run_id": "20260816T111104Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json's distribution_count of 2 counts the May 19 2026 distribution of the linked seal motion (25M82) alongside the petition's own single June 17 2026 distribution. The petition has never been relisted; a count read as 'relisted once' plausibly inflated the frozen 'elevated' band. The relist-increment claim was stated from the frozen count of 2 as required, but the band anchor may overstate this docket's trajectory."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener opinion 10750028 (the CA4 decision below, 24-1959, filed 2025-12-08) has mismatched text: read_document returns a D. Or. opinion (Northwest Investment Holdings v. PacWest Funding, 3:24-cv-01144-HZ). The decision below could not be read and its 'Published' status is unverified; the prediction relied on the petition's account of it."
+    }
+  ]
+}

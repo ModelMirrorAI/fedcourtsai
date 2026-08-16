@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A constitutional test case on prolonged mandatory immigration detention \u2014 the question Jennings v. Rodriguez reserved \u2014 reaching thousands of 1226(c) detainees amid a large detention expansion, litigated by the Solicitor General against the ACLU with multi-state amicus participation.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/73280386",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.89
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T11:25:23Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73280386/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.89,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "5bd4659fdd1c3395785a2025c9a0887f955997c2",
+    "stamped_at": "2026-08-16T11:27:32.357417Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will rest the judgment on Demore v. Kim (and Reno v. Flores): detention under 8 U.S.C. 1226(c) is constitutionally permissible for the duration of removal proceedings as a categorical congressional judgment about criminal aliens, so the Due Process Clause imposes no duration-based 'unreasonably prolonged' trigger entitling a detainee to an individualized bond hearing. The Court will hold that the Second Circuit erred in applying Mathews v. Eldridge balancing to require a hearing at which the government must justify continued detention by clear and convincing evidence \u2014 Demore, not Mathews or Zadvydas-style avoidance, supplies the governing framework while removal proceedings remain pending."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be categorical rather than fact-bound: a rule for the whole class of 1226(c) detainees that continued detention during pending removal proceedings requires no bond hearing regardless of its length (or, at narrowest, that due process never requires the Mathews-derived hearing with a clear-and-convincing government burden the Second Circuit imposed), not a holding confined to G.M.'s twenty-one-month record \u2014 and the Court will reverse outright rather than remand for individualized, case-specific due-process balancing."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

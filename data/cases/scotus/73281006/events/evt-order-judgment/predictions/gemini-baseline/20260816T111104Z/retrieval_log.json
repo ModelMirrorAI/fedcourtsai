@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "b4beb0ffeb136224",
+      "query": "{\"strategic_intent\": \"Read instructions and process prediction task for SCOTUS docket 73281006\", \"summary\": \"I am going to read `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow and the expected output for the given prediction cell. Then I will execute the prediction process.\", \"title\": \"Prediction Task\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:28:56.923Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:09.241Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:09.242Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e6e183b79d797361",
+      "query": "ls -la data/cases/scotus/73281006/events/evt-order-judgment/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:14.377Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a0936cd41aafb9c2",
+      "query": "find data/cases/scotus/73281006 -type f",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:17.246Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab45038a294be27d",
+      "query": "{\"file_path\": \"data/cases/scotus/73281006/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:21.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "41bbd592d82434a7",
+      "query": "{\"file_path\": \"data/cases/scotus/73281006/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:21.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c39aa0d1df8803fd",
+      "query": "{\"file_path\": \"data/cases/scotus/73281006/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:21.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ca845c9d313d1802",
+      "query": "{\"file_path\": \"data/cases/scotus/73281006/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:21.360Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb8230b6237ef80d",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-965\"}}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:28.473Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "7c99d8e913c2dd0c",
+      "query": "{\"file_path\": \"data/cases/scotus/73281006/record/documents/brief-in-opposition.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:33.896Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:39.702Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d171434df26b5773",
+      "query": "mkdir -p data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:29:58.454Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:02.556Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "77deb922544347b2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281006\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T11:11:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281006/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"vote",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:14.902Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "63bc2a218fd062e8",
+      "query": "{\"content\": \"The Court is likely to reverse the judgment below and hold that Grand's First Amendment and RLUIPA claims are ripe for judicial review. We anticipate a 6-3 decision, divided along typical ideological lines, with the conservative majority favoring the religious claimant. \\n\\nThe majority will likely conclude that a cease-and-desist letter from a city official concerning home religious gatherings creates a sufficient chilling effect to support a pre-enforcement challenge. The Court wi",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:14.910Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "68361937d399c350",
+      "query": "{\"content\": \"P(disturbed) = 0.85. The historical pooled base rate for a disturbed judgment among argued merits cases is approximately 69.7% (over the 8 available Terms in the statpack prior to the OT2025 grant term).\\n\\nI adjust this probability upwards significantly because of the subject matter and posture. The Supreme Court granted certiorari after the Sixth Circuit affirmed a dismissal on threshold ripeness grounds. This Court, particularly its current conservative majority, has been excepti",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:14.916Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b06561558dfda699",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`.\\n\\nAn attempt was made to use the CourtListener MCP tool (`call_endpoint`), but it returned a Rate Limit Exceeded error (HTTP 429). I proceeded gracefully using the provisioned `brief-in-opposition.txt` and the `metrics/statpack.md` file.\", \"file_path\": \"data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:14.921Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8effd3184a3c2d7f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281006\\\",\\n  \\\"run_id\\\": \\\"20260816T111104Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"mcp_courtlistener_call_endpoint\\\"],\\n  \\\"helpful\\\": [\\\"The provisioned documents and the statpack were very helpful in the absence of live CourtListener access.\\\"],\\n  \\\"gaps\\\": [\\\"OCR or text extraction for scanned petition PDFs would have been",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:14.927Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:30.040Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "83aa5bc8eaef546f",
+      "query": "{\"strategic_intent\": \"Task Complete\", \"summary\": \"I read the required `predict.md` instructions and generated the appropriate prediction files for the merits stage event of the Daniel Grand v. City of University Heights case. The prediction forecasts that the Supreme Court will disturb (reverse/vacate) the judgment below. Validation passed successfully.\", \"title\": \"Task Complete\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T12:30:35.506Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281006",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T111104Z",
+  "schema_version": "1.0"
+}
