@@ -554,8 +554,10 @@ class QPBackfillResult(BaseModel):
         default_factory=list,
         description="Cases whose stored text is a full-length question the current "
         "extractor can no longer derive: reported for triage, never written, since "
-        "emptying a substantive row is the one rewrite this pass will not make on "
-        "its own reading",
+        "emptying a substantive row is a rewrite this pass makes on its own "
+        "reading only where the stored value is contents junk throughout — that "
+        "heal carries its own reason class (`toc-junk-emptied`) so a dry run "
+        "shows the emptied subset apart",
     )
 
 
@@ -578,6 +580,42 @@ def _qp_change_reason(stored: str, derived: str) -> str:
     return "other-change"
 
 
+def _qp_stored_is_fragment(stored: str) -> bool:
+    """Whether a stored questions-presented value is contents junk throughout.
+
+    True only when TOC-shaped stripping removed something *and* what remains
+    is not question-sized. The refusal guard consults this rather than the
+    per-line change classifier, because the two questions differ: a value
+    that merely *contains* a contents line — a genuine question the old
+    extractor captured with trailing TOC residue — classifies as a stale
+    fragment line-wise, but blanking it would destroy the question; a value
+    that is leader dots and folios all the way down is junk however far it
+    clears the character floor, since the floor counts the dots.
+
+    One predicate, applied per line, decides both halves — there is no
+    separate whole-value check to disagree with the strip. A dot-leader run
+    strips the *run*, not its line, keeping the line where its residue is
+    itself question-sized: a single-line question quoting a statute through a
+    long elision is prose around dots, not a leader. The two folio forms
+    strip whole lines, whose residue is heading words that would only push
+    real junk back over the floor — with the known bound that a justified
+    genuine line ending in a bare page-number token is stripped with them,
+    which bites only on a value already scraping the floor.
+    """
+    lines = stored.splitlines()
+    kept: list[str] = []
+    for line in lines:
+        if _QP_TOC_RE.search(line):
+            residue = _QP_TOC_RE.sub(" ", line).strip()
+            if len(residue) >= _QP_MIN_CHARS:
+                kept.append(residue)
+            continue
+        if _QP_TOC_LINE_RE.search(line) or _QP_TOC_SPACES_RE.match(line):
+            continue
+        kept.append(line)
+    return len(kept) != len(lines) and len(" ".join(kept).strip()) < _QP_MIN_CHARS
+
+
 def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QPBackfillResult:
     """Re-derive each case's questions presented from its **stored** petition text.
 
@@ -598,7 +636,14 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     or above :data:`_QP_MIN_CHARS` — a full-length question — is never replaced
     by the empty extraction, because that reading is as likely to be this pass
     misjudging a question as it is a bad row; those cases are listed
-    (``refused``) for a maintainer to decide. Dry-run unless ``apply``.
+    (``refused``) for a maintainer to decide. The refusal does not extend to a
+    stored value that is contents junk throughout
+    (:func:`_qp_stored_is_fragment`): a run of leader dots clears the
+    character floor by counting the dots, and protecting it would freeze
+    exactly the junk this pass exists to heal — so it heals to the honest
+    empty row however long it is, while a genuine question that merely
+    carries trailing contents residue keeps the refusal. Dry-run unless
+    ``apply``.
 
     The population is the live/historical slice (:func:`corpus.is_live_slice`):
     documents reach the corpus only on that channel, and the row predicate is
@@ -644,7 +689,14 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         if derived == current:
             unchanged += 1
             return
-        if not derived and len(current) >= _QP_MIN_CHARS:
+        if (
+            not derived
+            and len(current) >= _QP_MIN_CHARS
+            # A stored TOC fragment over the floor is dots, not a question —
+            # but only when it is fragment through and through: a genuine
+            # question with a trailing contents line must keep the refusal.
+            and not _qp_stored_is_fragment(current)
+        ):
             refused.append(case_id)
             return
         if stored is None:
@@ -657,7 +709,15 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             reason = "derived-anew"
         else:
             updates.append(stored.model_copy(update={"text": derived}))
-            reason = _qp_change_reason(current, derived)
+            if not derived and len(current) >= _QP_MIN_CHARS:
+                # Reaching here empty-over-floor means the fragment test
+                # lifted the refusal — the one heal that *empties* a
+                # full-length value, so the ledger names it apart: the
+                # emptied subset is the part of a dry run a maintainer
+                # eyeballs before dispatching the apply.
+                reason = "toc-junk-emptied"
+            else:
+                reason = _qp_change_reason(current, derived)
         reasons[reason] += 1
         changes[case_id] = reason
 
