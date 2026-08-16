@@ -111,18 +111,11 @@ CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 
-# How long after its cert grant a merits proceeding may sit with neither a
-# parsed judgment nor a recorded termination before the row reads as stale
-# rather than pending. Two October Terms, against the six-to-eighteen-month
-# grant-to-judgment window `docs/decision-model.md` states: 730 days clears the
-# far end of that window by half a Term, which covers the outliers the window
-# does not name — a case held in abeyance, or one restored for reargument.
-# The bound wants headroom rather than precision, because what it separates is
-# not a slow case from a fast one but a pending case from a decided docket the
-# record never resolved: such a row keeps a merits event forecastable forever,
-# and a forward cell on it is a mislabeled backtest with unrestricted
-# retrieval. The residue this check exists for is years old, not months.
-_STALE_GRANT_DAYS = 730
+# The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the
+# rationale beside it): one bound, two consumers — this check reports the
+# class, and the merits forecastability arm refuses it, so what turns red
+# here can never also be spending forecast cells.
+_STALE_GRANT_DAYS = corpus.STALE_GRANT_DAYS
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:

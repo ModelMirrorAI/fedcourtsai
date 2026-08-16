@@ -1,5 +1,5 @@
 import dataclasses
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -373,6 +373,38 @@ def test_forecastable_events_refuses_a_predistribution_baseline_through_every_ar
     assert forecastable_events(db, "scotus", 26) == []
 
 
+def test_forecastable_events_refuses_a_stale_unparsed_grant(tmp_path: Path) -> None:
+    """A grant two Terms past with neither judgment nor termination latched is
+    a decided docket the record never resolved, not a pending case — the
+    merits analogue of the petition stage's stale-Term refusal. The first
+    post-freeze fan-out spent ~25 events' cells on exactly this class; the
+    class is the same population `validate`'s no_stale_unparsed_grants check
+    reports, so a row the check turns red can never also earn a cell."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _granted_case(db, 83, disposition=Disposition.granted)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/83",
+                    court="scotus",
+                    docket_number="24-1234",
+                    disposition=Disposition.granted,
+                    # Far past the 730-day bound relative to any present run.
+                    date_cert_granted=date(2019, 2, 4),
+                )
+            ],
+        )
+
+    assert "evt-order-judgment" not in forecastable_events(db, "scotus", 83)
+    # The fixture's fresh grant (2025-01-10) stays admitted — the refusal is
+    # the staleness, not the stage.
+    db2 = corpus.corpus_db_path(tmp_path / "corpus2")
+    _granted_case(db2, 84, disposition=Disposition.granted)
+    assert "evt-order-judgment" in forecastable_events(db2, "scotus", 84)
+
+
 def test_forecastable_events_admits_the_arrival_moment_before_any_distribution(
     tmp_path: Path,
 ) -> None:
@@ -516,7 +548,11 @@ def _granted_case(
                     court="scotus",
                     docket_number=docket_number,
                     disposition=disposition,
-                    date_cert_granted=date(2025, 1, 10),
+                    # Relative, not fixed: a fresh grant must stay inside the
+                    # stale-grant bound whatever today is, or every merits
+                    # test here starts failing two Terms after the date was
+                    # typed.
+                    date_cert_granted=date.today() - timedelta(days=180),
                     merits_judgment=merits_judgment,
                 )
             ],
