@@ -1791,6 +1791,42 @@ def case_era(row: CorpusRow) -> str | None:
     return f"{year - year % 10}s"
 
 
+#: How long after its cert grant a merits proceeding may sit with neither a
+#: parsed judgment nor a recorded termination before the row reads as stale
+#: rather than pending. Two October Terms, against the six-to-eighteen-month
+#: grant-to-judgment window `docs/decision-model.md` states: 730 days clears
+#: the far end of that window by half a Term, which covers the outliers the
+#: window does not name — a case held in abeyance, or one restored for
+#: reargument. One bound, two consumers: `validate`'s
+#: `no_stale_unparsed_grants` check reports the class, and the merits
+#: forecastability arm refuses it — a row this old is not a pending case but a
+#: decided docket the record never resolved, and a forward cell on it is a
+#: mislabeled backtest with unrestricted retrieval.
+STALE_GRANT_DAYS = 730
+
+
+def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
+    """Whether a granted row's merits proceeding is stale rather than pending.
+
+    The merits analogue of :func:`is_stale_unresolvable`: the population is
+    :func:`opens_merits_proceeding` (the grants whose disposition does not
+    ride in the cert order), and a member carrying neither a parsed
+    ``merits_judgment`` nor a recorded ``merits_terminated``
+    :data:`STALE_GRANT_DAYS` after its own grant reads as unresolvable, not
+    open. The same population and bound as ``validate``'s
+    ``no_stale_unparsed_grants`` check, so what the check reports and what
+    the forecastability arm refuses are one class — a row the check turns
+    red can never also be spending forecast cells. Releases itself: a later
+    re-fetch that latches either column takes the row out of the class.
+    """
+    if not opens_merits_proceeding(row):
+        return False
+    if row.merits_judgment is not None or row.merits_terminated is not None:
+        return False
+    granted = row.date_cert_granted
+    return granted is not None and (today - granted).days > STALE_GRANT_DAYS
+
+
 def is_stale_unresolvable(row: CorpusRow) -> bool:
     """Whether a SCOTUS row is an old petition the corpus can never resolve.
 

@@ -719,9 +719,13 @@ or network.
      guessing a `resolved_at`), and the docket exits the rotation with its
      last open event. An open merits event is *usually* forecastable, but open
      is not the test: `store.forecastable_events` admits it on a row whose grant
-     opened a merits proceeding, whose judgment is unlatched **and** whose
-     proceeding is not recorded terminated, so the granted docket queues a
-     merits predict cell the way an application docket queues its interim one.
+     opened a merits proceeding, whose judgment is unlatched, whose
+     proceeding is not recorded terminated, **and** whose grant is not stale
+     (two Terms past with neither column latched reads as a decided docket
+     the record never resolved, not a pending case — the shared bound
+     `validate`'s stale-grant check reports on), so the granted docket queues
+     a merits predict cell the way an application docket queues its interim
+     one.
      The terminated arm is what separates the two: a case that ended with no
      disposition (a post-grant Rule 46 dismissal, a docket whose only terminal
      notation is the mandate) keeps its merits event open, because nothing
