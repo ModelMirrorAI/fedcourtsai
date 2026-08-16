@@ -58,7 +58,15 @@ number depends on naming them:
   predictor per engine, so a raw name on the grader's required reading path
   would name the candidate. What the rename cannot hide is the *shape*: an
   engine that reads through its shell stages a log of nothing but ``shell``,
-  which narrows the guessing space the way prose style does.
+  which narrows the guessing space the way prose style does. The same holds
+  for the capture profile: one engine's telemetry logs no results at all, so
+  an all-``unobserved`` log with a ``result_capture_coverage`` of 0.0 points
+  at it — marginally, since that engine's staged log already carries a null
+  ``result_digest`` and a null ``retrieved_doc_date`` on every row, both of
+  which pass the mask untouched. The marker is kept regardless, because
+  dropping it makes every uncaptured call read as one that returned nothing —
+  a leakage grade wrong in a known direction, which is the worse of the two
+  harms.
 - **Style is not masked.** Three candidates over three known engines is a small
   guessing space, and an engine may recognise its own prose.
 
@@ -449,6 +457,17 @@ def mask_retrieval_log(
     so a raw name would identify the candidate on the grader's own required
     reading path. The query slice and ``retrieved_doc_date`` pass through
     untouched.
+
+    So do each call's ``result_capture`` and the log-level
+    ``result_capture_coverage``, which is a trade and not a free pass — the
+    capture profile is engine-correlated, as the module docstring's residual
+    list records. They survive because stripping them leaks worse: every
+    uncaptured call would read as one that returned nothing, which is the
+    grader crediting an engine for a result nobody ever saw. Carrying the rate
+    through verbatim is correct only because this mask keeps ``calls``
+    one-for-one; a future mask that dropped or filtered calls would have to
+    recompute it, since the staged rate would otherwise denominate rows the
+    grader cannot see.
     """
     masked = scrub_json(dict(payload), pattern)
     if not isinstance(masked, dict):  # pragma: no cover - a JSON object by construction

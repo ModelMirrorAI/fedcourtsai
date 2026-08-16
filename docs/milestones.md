@@ -196,6 +196,17 @@ each freeze commit is recorded here.
     ownership: the committed board reads `evaluations_total: 0` at
     `process_scope: frozen`, so no published standing rests on an
     evaluator-authored `correct`;
+  - the **retrieval-log capture marker** — `result_capture` on every call and
+    the log-level `result_capture_coverage` — which passes `mask_retrieval_log`
+    unmasked and so reaches the grader on the leakage grading's own required
+    reading path: a change to every evaluator's information set with no digest
+    of its own, the masking-surface case
+    [process-version.md](process-version.md) names. The promotion carrying it
+    lands some hours *after* the freeze instant, and the frozen partition is
+    homogeneous regardless: `run:predict` and `run:evaluate` are held until the
+    promotion lands, so zero frozen-scope cells are stamped before it and the
+    frozen information set carries the marker from its first cell. No label
+    bump;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.

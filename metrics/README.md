@@ -1189,8 +1189,10 @@ published beside the coefficient.
 
 **A result-observability rate is two states, not three.** A captured
 `result_digest` proves the result side was recorded and non-empty; a null covers
-an empty result *and* a result the engine's transcript never carried, and the
-committed `RetrievalCall` separates neither. So the rate is a floor on how much
+an empty result *and* a result the engine's transcript never carried. The
+per-call `result_capture` marker separates those two, but every committed log
+predates it and reads null — capture-unknown, a third state again. So the rate
+is a floor on how much
 of the answer side is observable, never a hit rate, and its denominator is every
 call including builtins. An engine with no captured MCP result anywhere has its
 per-tool dead-end rows **withheld** rather than printed as 100%, and where they

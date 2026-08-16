@@ -33,10 +33,12 @@ un-normalized, one tool splits into two rows and every rate is wrong.
 **Was the answer captured?** A call and its result are two different facts, and
 only one of them is reliably in the record. ``result_digest`` is positive
 evidence that the result side was captured and non-empty; a null covers both an
-empty result and a result the engine's transcript never carried, and the
-committed :class:`~fedcourtsai.schemas.RetrievalCall` has no flag separating
-them. So the rollup reports two states per call, not three, and takes the
-engine-level reading the per-call record cannot give: an engine with no positive
+empty result and a result the engine's transcript never carried.
+:class:`~fedcourtsai.schemas.RetrievalCall` carries a ``result_capture`` marker
+that separates exactly those two, but every committed log predates it and reads
+null — capture-unknown, which is a third thing again. So the rollup reports two
+states per call, not three, and takes the
+engine-level reading the per-call record cannot yet give: an engine with no positive
 instance across every **MCP** call it ever made has an unobservable result side,
 and its dead-end rows are withheld rather than printed as 100%. Gated on the MCP
 subset rather than on any call, because a builtin whose output pairs cleanly
@@ -821,7 +823,8 @@ def _render_observability(usage: ToolUsage) -> list[str]:
         "",
         "_Two states, not three. A captured result digest proves the result side was "
         + "recorded and non-empty; a null covers an empty result **and** a result the "
-        + "transcript never carried, and the committed record separates neither. So this "
+        + "transcript never carried. The per-call `result_capture` marker separates "
+        + "those two, but every committed log predates it and reads null. So this "
         + "column is a floor on how much of the answer side is observable, not a hit rate. "
         + "Its denominator is every call, builtins included — the MCP column beside it is "
         + "the one that speaks to the manifest tools._",
