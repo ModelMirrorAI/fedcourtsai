@@ -1,0 +1,285 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "5d800ae23975e47d",
+      "query": "{\"strategic_intent\": \"Understanding prediction task requirements\", \"summary\": \"I am reading the prompt and agent definition files to understand the requirements and output contract for the prediction task on docket 73277468.\", \"title\": \"Task Understanding\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:00.183Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:02.005Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:02.005Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "685503a58a28e1e0",
+      "query": "ls -R data/cases/scotus/73277468/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:05.645Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8dcb178c34f33acd",
+      "query": "cat data/cases/scotus/73277468/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:08.855Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "348ae516e1b5e292",
+      "query": "cat data/cases/scotus/73277468/events/evt-order-judgment/event.yaml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:08.855Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3cf8447c2c679bc4",
+      "query": "cat data/cases/scotus/73277468/record/documents/documents.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:08.856Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b6d1ef887a11bf39",
+      "query": "cat data/cases/scotus/73277468/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:12.409Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "20e78b23a1e32aa0",
+      "query": "jq -r '.case_name, .court, .docket_entries[] | [.date_filed, .description] | @tsv' data/cases/scotus/73277468/record/snapshots/2026-08-16.json | grep -i 'judgment\\|opinion'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:15.212Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "39eeca7f5d44b881",
+      "query": "cat data/cases/scotus/73277468/record/snapshots/2026-08-16.json | head -n 40",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:17.339Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8470126100e9bd02",
+      "query": "23-11418",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:20.411Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "82a68d15b5cee2be",
+      "query": "head -n 200 data/cases/scotus/73277468/record/documents/petition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:23.428Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4d120e66517a68a0",
+      "query": "cat metrics/statpack.md | grep -A 30 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:28.844Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "902fab668f6f0a0d",
+      "query": "cat metrics/statpack.md | grep -A 40 \"The merits docket (granted cases)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:31.704Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8d7b20681a3cbb85",
+      "query": "mkdir -p data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:38.292Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "441c5f6607ff8476",
+      "query": "cat schemas/prediction.schema.json | jq '.definitions.Vote'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:44.719Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aa4e6fe932e3c45e",
+      "query": "cat schemas/prediction.schema.json | grep -i -A 10 '\"votes\"'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:46.788Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb33f91109fb75f4",
+      "query": "cat schemas/prediction.schema.json | jq '.\"$defs\".JusticeVote'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:48.604Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ef7a0d81e831b7eb",
+      "query": "cat schemas/prediction.schema.json | jq '.\"$defs\".VoteValue' && cat schemas/prediction.schema.json | jq '.\"$defs\".WritingRole'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:47:50.709Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d126b312841067a8",
+      "query": "cat << 'EOF' > data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/prediction.json\n{\n  \"case_id\": \"scotus/73277468\",\n  \"event_id\": \"evt-order-judgment\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260816T173750Z\",\n  \"created_at\": \"2026-08-16T17:37:50Z\",\n  \"input_snapshot\": \"2026-08-16.json\",\n  \"probability\": 0.85,\n  \"granted\": 1,\n  \"predicted_disposition\": \"other\",\n  \"judgment\": \"reve",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:15.055Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f690f6918a4ab45c",
+      "query": "cat << 'EOF' > data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/predicted_reasoning.md\nThe Court will reverse the judgment of the Eleventh Circuit. The Court is highly likely to hold that the plain text of Federal Rule of Civil Procedure 8(c) requires a defendant to plead affirmative defenses in their answer, and that raising them for the first time at summary judgment without formally amending the pleadings is impermissible. The Court will likely",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:15.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e12da83afee8de1",
+      "query": "cat << 'EOF' > data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/reasoning.md\nP(disturbed) is 0.85. The petition challenges the Eleventh Circuit's rule that allows defendants to assert unpled affirmative defenses at the summary judgment stage without amending their answer, even when Rule 16(b)(4) would bar such an amendment. The text of Federal Rule of Civil Procedure 8(c) dictates that a party \"must\" plead an affirmative defense. This represents a",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:15.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7eb66225562cbe0e",
+      "query": "cat << 'EOF' > data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\n{\n  \"case_id\": \"scotus/73277468\",\n  \"run_id\": \"20260816T173750Z\",\n  \"role\": \"predictor\",\n  \"actor_id\": \"gemini-baseline\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\"read_file\", \"run_shell_command\", \"mcp_courtlistener_search\"],\n  \"helpful\": [\"statpack.md base rates\"],\n  \"gaps\": [\"Fallback options when CourtListener MCP is rate limited\"],\n  \"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:19.079Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ced3d931a979eb56",
+      "query": "cat << 'EOF' > data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\nNo retrieval beyond the provisioned inputs. I attempted an MCP search on CourtListener for the lower court opinion, but the server returned a rate limit error (`Rate limit exceeded: HTTP 429`). I degraded gracefully to the provisioned `questions-presented.txt` and `petition.txt`, and used the `statpack.md` to compute the baseline disturbed rate for merits cases over the p",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:19.079Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73f9dc94ae1f4e86",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs. I attempted an MCP search on CourtListener for the lower court opinion, but the server returned a rate limit error (Rate limit exceeded: HTTP 429). I degraded gracefully to the provisioned questions-presented.txt and petition.txt, and used the statpack.md to compute the baseline disturbed rate for merits cases over the prior 10 Terms.\", \"file_path\": \"data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:23.834Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "528ec02c04bfbd52",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73277468\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"run_shell_command\\\", \\\"mcp_courtlistener_search\\\"],\\n  \\\"helpful\\\": [\\\"statpack.md base rates\\\"],\\n  \\\"gaps\\\": [\\\"Fallback options when CourtListener MCP is rate limited\\\"],\\n  \\\"notes\\\": \\\"MCP rate limiting hit immediately on first query.\\\"\\n}\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:23.838Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:41.074Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e0ba82bde9e3e173",
+      "query": "{\"strategic_intent\": \"Completing task\", \"summary\": \"I have successfully gathered the necessary case information, generated the prediction and reasoning artifacts, wrote the output files required by the predictor schema, and verified their structural validity. The task is now complete.\", \"title\": \"Task Complete\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:48:44.296Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73277468",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

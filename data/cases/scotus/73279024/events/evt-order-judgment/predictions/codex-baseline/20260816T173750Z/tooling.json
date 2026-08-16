@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279024",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition, cert-stage opposition, and questions presented exposed both sides' complete grant-moment theories.",
+    "The statpack supplied the registered merits disturbed-rate baseline and coverage."
+  ],
+  "gaps": [
+    "CourtListener MCP was unavailable because the shared daily rate limit was exhausted.",
+    "Corpus citation lookups returned neither rows nor the documented transfer-stat line.",
+    "The filed-document bundler mixed a post-grant merits brief into the grant-moment brief-in-opposition input."
+  ],
+  "notes": "The prediction remained feasible from provisioned inputs and base rates; later merits materials were deliberately excluded to preserve the event moment."
+}

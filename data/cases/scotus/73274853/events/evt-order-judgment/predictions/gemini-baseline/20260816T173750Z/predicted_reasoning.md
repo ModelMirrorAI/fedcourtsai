@@ -1,0 +1,5 @@
+Expect the Court to reverse the Eighth Circuit's judgment (a "disturbed" outcome). The Court will likely hold that in private condemnations under the Natural Gas Act, just compensation should be determined by reference to state law, effectively aligning the Eighth Circuit with the Third, Fifth, Sixth, and Eleventh Circuits. 
+
+The majority will likely be 7-2 or 6-3, with the conservative wing emphasizing property rights and federalism, and finding that the Natural Gas Act's silence incorporates state law standards for compensation rather than displacing them with the bare Fifth Amendment minimum. Justice Gorsuch is a strong candidate to author a textualist or property-focused majority opinion. I expect Justices Sotomayor and Jackson may dissent, favoring a uniform federal rule that avoids subjecting interstate pipelines to variable state compensation mandates.
+
+If the Court affirms, it would establish a uniform federal constitutional floor across all circuits, significantly changing the compensation landscape in the majority of circuits. However, reversing the outlier is the much more probable path.

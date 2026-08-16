@@ -1,0 +1,9 @@
+# Forecast of the Court's judgment
+
+The Court will reverse the Sixth Circuit and remand, likely by a 6-3 vote. The majority will treat the question presented as a straightforward textual distinction: Congress defined a consumer as a subscriber to unmodified "goods or services from a video tape service provider," while elsewhere it expressly referred to "specific video materials or services." It will conclude that "from a video tape service provider" identifies the source of the offering rather than silently limiting the offering to audiovisual material.
+
+The majority will emphasize that this holding resolves only consumer status. The VPPA still requires a covered video tape service provider, a qualifying subscriber relationship, a knowing disclosure, and personally identifiable information tied to specific video material. It will therefore leave Paramount's preserved alternative defenses for remand rather than decide that the Meta Pixel transmission ultimately creates liability.
+
+Justice Barrett is the likeliest majority author, joined by Justices Thomas, Sotomayor, Kagan, Gorsuch, and Jackson. Justice Kavanaugh is the likeliest dissent author, joined by the Chief Justice and Justice Alito. The dissent will read the consumer and provider definitions together, stress the statute's video-transaction focus and consent structure, and argue that the broader reading produces arbitrary and severe liability based on unrelated purchases or subscriptions.
+
+A dismissal as improvidently granted or an equally divided affirmance is unlikely. The case presents a clean, acknowledged circuit conflict from a final judgment, and the Court will probably decide the statutory question rather than take a procedural exit. A decision is most likely during the second half of the Term following the scheduled October 2026 argument.

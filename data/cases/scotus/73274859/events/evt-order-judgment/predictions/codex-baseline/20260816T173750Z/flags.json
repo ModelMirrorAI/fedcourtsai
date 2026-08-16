@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274859",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-judgment",
+      "message": "This is a grant-moment merits cell, but record/documents/brief-in-opposition.txt concatenates the completed November 2025 cert-stage BIO with respondents' July 2026 merits brief, and documents.json labels the combined 112-page artifact truncated. The later section was detected at its explicit document boundary and was not used in the forecast."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The frozen context records amicus_briefs=6, but the same 2026-08-16 snapshot contains 13 proceedings entries expressly recording amicus filings. The amicus-increment probability is stated against the harness-owned frozen count of 6; the mismatch should be reviewed before interpreting that claim."
+    }
+  ]
+}

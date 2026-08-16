@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72483489",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP",
+    "official Supreme Court filing retrieval",
+    "committed statpack"
+  ],
+  "helpful": [
+    "Complete provisioned brief in opposition and questions presented",
+    "Grant-Term merits baseline in the committed statpack",
+    "Official Solicitor General brief URL in the snapshot"
+  ],
+  "gaps": [
+    "CourtListener MCP daily quota was exhausted",
+    "The filed Solicitor General brief was not provisioned as extracted text"
+  ],
+  "notes": "The provisioned cert-stage documents plus the official pre-grant Solicitor General brief were sufficient. A provisioned extraction of the CVSG response would reduce dependence on live retrieval for merits-at-grant cells."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277468",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-judgment",
+      "message": "This grant-moment event opened on 2026-03-30, but the 2026-08-16 snapshot includes later merits briefing and argument scheduling. The provisioned brief-in-opposition.txt also concatenates the February cert BIO (lines 1-260) with the corrected August respondent merits brief beginning at line 261, while documents.json represents the composite as one brief-in-opposition item. I encountered part of the appended brief while locating the boundary, but it revealed no outcome and I excluded it and all other post-grant material from the forecast."
+    }
+  ]
+}

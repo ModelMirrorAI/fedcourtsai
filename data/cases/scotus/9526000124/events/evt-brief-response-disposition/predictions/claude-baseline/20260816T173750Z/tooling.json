@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "web search",
+    "provisioned snapshot + context.json"
+  ],
+  "helpful": [
+    "The statpack interim section's per-Term substantive counts made the strictly-prior pooled baseline (30/225) computable exactly as the prompt prescribes",
+    "context.json's frozen escalation state (response_requested/referred/amicus) made the increment claims unambiguous",
+    "Reading src/fedcourtsai/pipeline/interim_signals.py clarified exactly what text the referral and amicus resolvers match, which materially changed my referral-increment number"
+  ],
+  "gaps": [
+    "No provisioned document text (record/documents/ absent) for a fully briefed application — the stay application, response, and supplemental briefs are public PDFs on supremecourt.gov and would have been high-value inputs",
+    "fedcourts query has no application-kind or applicant-type filter, so a government-applicant substantive-application prior set cannot be pulled; the top-ranked rows were time-extension grants",
+    "No interim-stage conditioned cuts (e.g. grant rate for government applicants or by escalation state) exist in the statpack; the increments bank without any published shape"
+  ],
+  "notes": "The frozen amicus_briefs count (6) diverges from a naive read of the docket (13 amicus filings) because the counter matches the singular form only; documented in flags.json as an info-level data-quality note."
+}

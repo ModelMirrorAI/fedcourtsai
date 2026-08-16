@@ -1,0 +1,402 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "8bf747abe141dd3b",
+      "query": "{\"strategic_intent\": \"I am going to read the provided prediction prompt and agent documentation to understand the contract for generating predictions and formatting the output.\", \"summary\": \"I am starting the process of generating a prediction for the specified SCOTUS docket and event by first reading the instructions in .github/prompts/predict.md and AGENTS.md.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:53.089Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "3ba4be4171395127",
+      "query": "cat .github/prompts/predict.md AGENTS.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:55.452Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "26cc00dfc55e9968",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73253921\" --event \"evt-order-judgment\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:01.079Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5f588cd7e4ee1a61",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73253921\" --event \"evt-order-judgment\" --role predictor --predictor \"gemini-baseline\" --run-id \"20260816T173750Z\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:05.204Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d49ea416069a7c00",
+      "query": "uv run fedcourts paths --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:07.732Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "697b085f97365ff4",
+      "query": "cat schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:10.533Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6a8b81ae17992312",
+      "query": "ls -la data/cases/scotus/73253921/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:12.640Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "87c13afd7419466d",
+      "query": "ls -la data/cases/scotus/73253921/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:16.261Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6a8b81ae17992312",
+      "query": "ls -la data/cases/scotus/73253921/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:18.924Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ad82deb97eb42786",
+      "query": "ls -la data/cases/scotus/73253921/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:21.075Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ebcf5cc5bb4d5b24",
+      "query": "ls -la data/cases/scotus/73253921/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:23.632Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3ba108ce651c4d0e",
+      "query": "ls -la data/cases/scotus/73253921/record/snapshots/ && cat data/cases/scotus/73253921/events/evt-order-judgment/event.yaml && cat data/cases/scotus/73253921/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:26.178Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a8da46fcfeb10528",
+      "query": "ls -la data/cases/scotus/73253921/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:29.994Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c9feebba4bedb857",
+      "query": "cat data/cases/scotus/73253921/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:32.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "12afa2d7e8771ee1",
+      "query": "cat data/cases/scotus/73253921/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:35.231Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fad1c0d2dd88e9f2",
+      "query": "grep -r -A 10 \"semantic-v1\" src/fedcourtsai/pipeline/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:38.449Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aacade050c0dc61d",
+      "query": "cat src/fedcourtsai/pipeline/semantic.py | grep -A 20 \"SEMANTIC_MERITS_V1\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:41.071Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7a17e2165725f8e9",
+      "query": "cat src/fedcourtsai/pipeline/claims.py | grep -A 20 \"claims_for\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:43.976Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a6aad58695e0376",
+      "query": "grep -A 20 -i \"merits\" src/fedcourtsai/pipeline/claims.py",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:46.032Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "997848a76de5c000",
+      "query": "cat data/cases/scotus/73253921/record/documents/petition.txt | head -n 50",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:50.491Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1eb2cbd701fec1ae",
+      "query": "grep -A 5 -i \"circuit\" data/cases/scotus/73253921/record/documents/petition.txt | head -n 60",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:52.714Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eefefa36ba270034",
+      "query": "cat data/cases/scotus/73253921/record/documents/brief-in-opposition.txt | head -n 100",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:57.772Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "046e5019d0bc9f94",
+      "query": "cat data/cases/scotus/73253921/record/documents/brief-in-opposition.txt | grep -A 50 \"^Discussion\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:00.995Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b39260b70598d3d1",
+      "query": "grep -A 100 -n \"DISCUSSION\" data/cases/scotus/73253921/record/documents/brief-in-opposition.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:03.444Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a06b36ed8bdb672c",
+      "query": "cat schemas/prediction.schema.json | grep -A 10 '\"Disposition\"'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:20.147Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "19a8d9736c9478b7",
+      "query": "grep -A 20 -i \"predicted_disposition\" docs/outcome-decomposition.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:23.034Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3afd8fcdee30aac7",
+      "query": "grep -A 10 -B 5 -i \"merits\" docs/outcome-decomposition.md | head -n 40",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:25.319Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d7f6aba2cfdbcac6",
+      "query": "find tests -name \"*.json\" | grep prediction",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:28.852Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a23f79cc0e33e1cb",
+      "query": "cat tests/cassettes/realistic-grant/prediction.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:30.701Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc0df143febd5fad",
+      "query": "mkdir -p data/cases/scotus/73253921/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:37.983Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "04ce075710388a89",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73253921\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T17:37:50Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73253921/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"votes\\\": [\\n    { \\\"justice\\\": \\\"Roberts\\\", \\\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:43.611Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "75da392831af0fc5",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:05.182Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "988ad4ba5d645c5c",
+      "query": "{\"content\": \"The Court will reverse the judgment of the Fourth Circuit, concluding that a habeas corpus proceeding challenging civil immigration detention is a \\\"civil action\\\" within the meaning of the Equal Access to Justice Act (EAJA).\\n\\nThe core of the dispute turns on whether the waiver of sovereign immunity in the EAJA unequivocally covers immigration habeas cases. The government's position\\u2014that habeas proceedings are historically unique and neither strictly civil nor criminal\\u2014w",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:09.762Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8960c51f5a1fbaef",
+      "query": "{\"content\": \"P(disturbed) = 0.65. The question presented is whether a habeas challenge to civil immigration detention is a \\\"civil action\\\" under the Equal Access to Justice Act (EAJA).\\n\\nThe petition comes to the Court from the Fourth Circuit, which, along with the Fifth Circuit, held that the EAJA's waiver of sovereign immunity does not unequivocally encompass immigration habeas. The Second, Third, and Tenth Circuits have held the opposite. The fact that the Court granted certiorari on this i",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:14.727Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7b852d2bebffd52b",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73253921/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:16.865Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e3d2263cff576fb2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73253921\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": false,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"write_file\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The provisioned snapshot and filed documents (petition and BIO) were sufficient for evaluating the merits.\\\",\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"No external lookup was needed since the docum",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:19.943Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a194baa0313eaf85",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:41.352Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "66f12cf57aec0516",
+      "query": "{\"allow_multiple\": false, \"file_path\": \"data/cases/scotus/73253921/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\", \"instruction\": \"Fix the helpful field to be a list of strings.\", \"new_string\": \"\\\"helpful\\\": [\\n    \\\"The provisioned snapshot and filed documents (petition and BIO) were sufficient for evaluating the merits.\\\"\\n  ],\", \"old_string\": \"\\\"helpful\\\": \\\"The provisioned snapshot and filed documents (petition and BIO) were sufficient for evaluating the",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:44.227Z",
+      "tool": "replace"
+    },
+    {
+      "params_digest": "a98816687417fa69",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:05.793Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f7b6531b6fe3659f",
+      "query": "ls -la data/cases/scotus/73253921/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:09.865Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ae00f9128a49daba",
+      "query": "{\"strategic_intent\": \"I have successfully generated and validated the prediction files according to the schema and instructions. I will now conclude the prediction task.\", \"summary\": \"I investigated the SCOTUS case and determined the expected outcome based on the provided documents. I then generated the required prediction artifacts (prediction.json, reasoning.md, predicted_reasoning.md, retrieval.md, and tooling.json) in the assigned output directory. The artifacts passed schema validation. The",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:12.549Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73253921",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

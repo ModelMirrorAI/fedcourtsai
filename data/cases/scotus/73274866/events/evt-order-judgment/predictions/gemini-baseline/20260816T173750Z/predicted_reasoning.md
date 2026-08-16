@@ -1,0 +1,5 @@
+I predict the Court will affirm the Eleventh Circuit's judgment in a 6-3 decision, holding that Title IX does not provide an implied private right of action for employees to sue for sex discrimination in employment.
+
+The Court is likely to rely on strict textualism and the existence of Title VII's comprehensive remedial scheme for employment discrimination. A majority (Roberts, Thomas, Alito, Gorsuch, Kavanaugh, Barrett) will likely conclude that implying a cause of action under Title IX for employees would allow plaintiffs to bypass Title VII's exhaustion requirements and administrative framework. The opinion will categorically limit the implied right of action recognized in Cannon and Jackson to students and other non-employee beneficiaries of federally funded educational programs.
+
+Justices Sotomayor, Kagan, and Jackson will likely dissent, arguing that precedent (including Jackson) and the broad statutory text ("no person") encompass employees, and that the majority's holding departs from established interpretations of Title IX's reach.

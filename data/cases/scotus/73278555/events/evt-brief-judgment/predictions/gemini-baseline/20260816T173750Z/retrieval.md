@@ -1,0 +1,2 @@
+CourtListener MCP `search` tool was rate-limited (HTTP 429).
+Used `google_web_search` for `"Anderson v. Intel" 25-498 merits briefs` to find the positions of the parties and the Solicitor General at the merits stage.

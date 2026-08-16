@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Frozen context reports amicus_briefs: 6, but the 2026-08-16 snapshot shows 13 amicus docket entries. The 6 entries captioned 'Brief amicus curiae' (singular) match the frozen count exactly, so the counter appears to miss 'Brief amici curiae' (plural) entries. The amicus-increment claim was stated against the frozen 6 assuming the same counter runs at resolution; if the counting changes, the claim's resolution shifts mechanically.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "CourtListener MCP was unavailable for this cell (HTTP 429, daily rate limit exceeded on the first call). The prediction rests on the provisioned snapshot, the committed statpack, one corpus query, and general legal context; no live docket or filed-document text was retrieved.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

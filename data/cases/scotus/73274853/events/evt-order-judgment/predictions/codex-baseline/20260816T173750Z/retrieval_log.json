@@ -1,0 +1,249 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "98a6993eea49d143",
+      "query": "const matches = ALL_TOOLS.filter(x => /search|browse|web|courtlistener/i.test(x.name+\" \"+x.description));\ntext(matches);",
+      "result_capture": "captured",
+      "result_digest": "8cee79758d12a9bd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:24.899Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "aebf614a4e16127b",
+      "query": "const s = ALL_TOOLS.find(x=>x.name===\"mcp__courtlistener__search\");\nconst out = await tools.mcp__courtlistener__search({type:\"o\", q:\"\\\"Hoffmann\\\" \\\"WBI Energy Transmission\\\"\", num_results:10, fields:[\"id\",\"caseName\",\"court\",\"dateFiled\",\"citation\",\"absolute_url\",\"snippet\"]});\ntext(out);",
+      "result_capture": "captured",
+      "result_digest": "5becb731122b233e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:28.637Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "8636ed4d47b77371",
+      "query": "const hits = ALL_TOOLS.filter(x => /web.*search|search.*web|browse/i.test(x.name+\" \"+x.description) && !/courtlistener/i.test(x.name));\ntext(hits.slice(0,20));",
+      "result_capture": "captured",
+      "result_digest": "17a192c3da26bfa9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:30.673Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5697ef694a02993e",
+      "query": "const r = await tools.exec_command({cmd:\"rg --files data/cases/scotus/73274853 | sort | sed -n '1,120p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:5000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "646a155dcbb71115",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:32.631Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5d909c68f75cb37e",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.google.com/search?q=%22Hoffmann+v.+WBI+Energy+Transmission%22' | sed -n '1,80p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:5000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "a8ecee281d274bb2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:35.266Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "473e8db61be1bb20",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://html.duckduckgo.com/html/?q=%22Hoffmann%22+%22WBI+Energy+Transmission%22' | sed -n '1,180p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:10000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "8bd806ac598c45cc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:37.810Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "380209b676053d2a",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.google.com/search?gbv=1&q=%22WBI+Energy+Transmission%22+Hoffmann+compensation' | rg -o 'href=\\\"/url\\\\?q=[^\\\"]+|<h3[^>]*>.*</h3>|[0-9]+ F\\\\.4th [0-9]+' | head -40\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:5000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "0e7e8916209759da",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:41.485Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b6e9b5b1eaf72b59",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.bing.com/search?format=rss&q=%22WBI+Energy+Transmission%22+Hoffmann' | sed -n '1,160p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:10000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "afdde161fb985089",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:43.947Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "48f2d71891fcf4a7",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n --hidden --glob '!data/cases/scotus/73274853/events/evt-order-judgment/predictions/**' --glob '!data/qp-topics/**' 'Hoffmann|WBI Energy' . | head -100\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:10000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "26f3bc6d5d593b72",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:46.565Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b42fe76f88328ded",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.bing.com/search?format=rss&q=%22Hoffmann%22+%22WBI+Energy%22+condemnation' | sed 's:</item>:</item>\\\\n:g' | rg '<item>' | head -20\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:10000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "896696c94bb31faa",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:50.998Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "92fbb60011b03c62",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.supremecourt.gov/search.aspx?Search=25-159&type=Site' | rg -i -C 2 'Hoffmann|25-159|WBI' | head -80\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:10000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "e75b22979da97c6b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:54.714Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "302acc44bf592af0",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 20 -s 'https://www.supremecourt.gov/docket/docketfiles/html/public/25-159.html' | rg -i -C 3 'Hoffmann|petition|brief|transmission|docketed|granted|29' | sed -n '1,220p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:20000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "2f9981f9acd59d4d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:57.872Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "90440fce1ce9b4ee",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 30 -s 'https://www.supremecourt.gov/DocketPDF/25/25-159/369084/20250807094211529_1%20-%20Cert%20Petition_FINAL.pdf' -o /tmp/hoff-pet.pdf\\ncurl -L --max-time 30 -s 'https://www.supremecourt.gov/DocketPDF/25/25-159/409699/20260522181308374_Hoffmann-5.22-final.pdf' -o /tmp/hoff-sg.pdf\\ncurl -L --max-time 30 -s 'https://www.supremecourt.gov/DocketPDF/25/25-159/418892/20260813103936272_1%20-%20Brief%20for%20Petitioners.pdf' -o /tmp/hoff-meri",
+      "result_capture": "captured",
+      "result_digest": "5680b03b9cce9457",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:02.679Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "708613fe85824e29",
+      "query": "const r = await tools.exec_command({cmd:\"uv run python - <<'PY'\\nfrom pathlib import Path\\ntry:\\n import pypdf\\n print('pypdf',pypdf.__version__)\\n for stem in ('hoff-pet','hoff-sg','hoff-merits'):\\n  reader=pypdf.PdfReader('/tmp/'+stem+'.pdf')\\n  Path('/tmp/'+stem+'.txt').write_text('\\\\n'.join(p.extract_text() or '' for p in reader.pages))\\n  print(stem,len(reader.pages))\\nexcept Exception as e:\\n print(type(e).__name__,e)\\nPY\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:3",
+      "result_capture": "captured",
+      "result_digest": "4d5084adbec57f69",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:07.668Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "8e5469a7a8971f5d",
+      "query": "const r = await tools.exec_command({cmd:\"UV_CACHE_DIR=/tmp/uv-cache uv run python - <<'PY'\\nfrom pathlib import Path\\ntry:\\n import pypdf\\n print('pypdf',pypdf.__version__)\\n for stem in ('hoff-pet','hoff-sg','hoff-merits'):\\n  reader=pypdf.PdfReader('/tmp/'+stem+'.pdf')\\n  Path('/tmp/'+stem+'.txt').write_text('\\\\n'.join(p.extract_text() or '' for p in reader.pages))\\n  print(stem,len(reader.pages))\\nexcept Exception as e:\\n print(type(e).__name__,e)\\nPY\",workdir:\"/home/runner/work/fedcourtsai/f",
+      "result_capture": "captured",
+      "result_digest": "6a384c7321d5017f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:10.073Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "1f3ff89054aca1c2",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,220p' /tmp/hoff-sg.txt\\nrg -n -C 3 'PennEast|Miller|Kimbell|Tennessee Gas|Columbia Gas|Sabal Trail|state law|just compensation|Question Presented|REASONS' /tmp/hoff-sg.txt | sed -n '1,260p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "f38e8b8d8f0f6b91",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:22.826Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "2113400257cc5459",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '600,920p' /tmp/hoff-sg.txt\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "8d3e313763e8fa01",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:25.606Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "cc469ff9e950d9ad",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '180,500p' /tmp/hoff-pet.txt\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "37eb6aaba085eb7f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:29.927Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "eb4765d888246d54",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n 'UNITED STATES COURT|Before |STRAS|SHEPHERD|ARNOLD|LOKEN|COLLOTON|GRASZ|KELLY|BENTON|ERICKSON' /tmp/hoff-pet.txt | head -40\\nsed -n '770,980p' /tmp/hoff-pet.txt\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "c6e80f8f782f1708",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:47.749Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "e5acde742bf1c019",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n '132 F.4th|Eighth Circuit|Circuit Judges|STRAS|Opinion of the Court|ARNOLD|GRUENDER' /tmp/hoff-pet.txt | tail -40\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:5000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "f65819dbdc738f58",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:50.732Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "31372af07f30fabb",
+      "query": "const r = await tools.exec_command({cmd:\"curl -L --max-time 30 -s 'https://www.supremecourt.gov/DocketPDF/25/25-159/369084/20250807094220169_2%20-%20Appendix_FINAL.pdf' -o /tmp/hoff-app.pdf\\nUV_CACHE_DIR=/tmp/uv-cache uv run python - <<'PY'\\nfrom pathlib import Path\\nimport pypdf\\nr=pypdf.PdfReader('/tmp/hoff-app.pdf')\\nPath('/tmp/hoff-app.txt').write_text('\\\\n'.join(p.extract_text() or '' for p in r.pages))\\nprint(len(r.pages))\\nPY\\nsed -n '1,220p' /tmp/hoff-app.txt\",workdir:\"/home/runner/work/",
+      "result_capture": "captured",
+      "result_digest": "aa8b36e8281fbe5f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:53.633Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "e27d2243aa34d5a6",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,180p' /tmp/hoff-merits.txt\\nrg -n -C 2 '^I\\\\.|^II\\\\.|^III\\\\.|Miller|Kimbell|PennEast|Bodcaw|Carmack|Kohl|federal common law|Rules of Decision|private' /tmp/hoff-merits.txt | sed -n '1,360p'\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "7128a22515c66c8d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:21.859Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "667a4a6e1eb6e2dd",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '980,1760p' /tmp/hoff-merits.txt\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:40000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "b415e1bb04ec8d93",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:27.078Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b5caf13af0cc7a57",
+      "query": "{\"message\": \"[redacted:fernet-token][redacted:opaque]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:16:02.872Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/73274853",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

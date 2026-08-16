@@ -1,0 +1,7 @@
+# Forecast
+
+The Court is slightly more likely to deny the requested stay than to grant it without qualification. I expect the application to be referred to the full Court and disposed of by an order within roughly ten days, rather than being decided by the Circuit Justice alone. The federal applicants' request, the immediate call for a response, the volume of amicus participation, and the later supplemental briefing all indicate that the application has received sustained attention. Even so, the forecasted label is denial because an order granting only part of the requested relief also resolves as denied under this event's rule.
+
+The frozen record already shows that Justice Jackson requested a response, so no response-request increment remains after prediction time. It shows no referral to the full Court, and I expect that rung to occur before disposition. The frozen context sets the amicus count at six, while the dated snapshot visibly contains thirteen amicus-filing entries. Accordingly, I expect the resolution-time count to exceed the harness's frozen count of six, whether through reconciliation of those existing entries or an additional filing.
+
+The filing text was not provisioned, so I do not forecast a specific doctrinal ground. The likely denial will reflect either an insufficient showing of a fair prospect of success and irreparable harm or the Court's unwillingness to grant the requested relief in full on the present record.

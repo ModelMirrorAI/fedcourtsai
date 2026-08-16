@@ -1,0 +1,285 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "4a51ad9eadb542cf",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and constraints.\", \"title\": \"Reading Guidelines\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:19.527Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:21.434Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:21.435Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7fa4fe4117922ea3",
+      "query": "ls -la data/cases/scotus/72483489/events/evt-order-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:25.657Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1f4138d741e10c50",
+      "query": "{\"file_path\": \"data/cases/scotus/72483489/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:28.272Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "91979dafae33691f",
+      "query": "ls -la data/cases/scotus/72483489/events/evt-order-judgment/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:28.272Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9710d0db454c6516",
+      "query": "ls -la data/cases/scotus/72483489/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:30.739Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dcb4bb2345ef5c85",
+      "query": "ls -la data/cases/scotus/72483489/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:32.783Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fd3ba336ce0f3829",
+      "query": "ls -la data/cases/scotus/72483489/record/snapshots/ data/cases/scotus/72483489/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:35.885Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b73b141d437758e5",
+      "query": "{\"file_path\": \"data/cases/scotus/72483489/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:35.886Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "67ea7e323e31383a",
+      "query": "{\"file_path\": \"data/cases/scotus/72483489/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:38.381Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aa69146dd9b13b7a",
+      "query": "{\"file_path\": \"data/cases/scotus/72483489/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:38.381Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:42.809Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "30f4ab264011c142",
+      "query": "RiseandShine Corporation v PepsiCo Second Circuit trademark strength \"question of fact\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:39:55.013Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "dcb5192d9dbd9417",
+      "query": "mkdir -p data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:03.699Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5bf1accfff8cc6fd",
+      "query": "cat schemas/prediction.schema.json | grep required -A 10",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:10.303Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a90fed8b77144479",
+      "query": "cat schemas/agent_tooling.schema.json | grep required -A 10",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:24.587Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c8cb5dac7607111",
+      "query": "cat << 'EOF' > data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/prediction.json\n{\n  \"case_id\": \"scotus/72483489\",\n  \"event_id\": \"evt-order-judgment\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260816T173750Z\",\n  \"created_at\": \"2026-08-16T17:37:50Z\",\n  \"input_snapshot\": \"2026-08-16.json\",\n  \"granted\": 1,\n  \"probability\": 0.85,\n  \"predicted_disposition\": \"other\",\n  \"judgment\": \"vaca",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:30.801Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1b937854b033d98c",
+      "query": "cat << 'EOF' > data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/predicted_reasoning.md\nThe Court will vacate or reverse the Second Circuit's decision and hold that trademark strength is a question of fact for the jury (or fact-finder). A 12-1 circuit split currently exists, with only the Second Circuit treating it as a question of law. The Court's jurisprudence strongly emphasizes that issues of consumer confusion and mark distinctiveness are inte",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:35.993Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7ca7f8ef9aec69c5",
+      "query": "cat << 'EOF' > data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/reasoning.md\nP(disturbed) 0.85. The `metrics/statpack.md` disturbed rate for merits judgments over the available strictly prior grant Terms (2017-2024) is roughly 69.7% (359 disturbed out of 515 parsed judgments, safely above the 30-case floor and excluding cert-order resolutions). I adjust up substantially because this case presents a deeply lopsided 12-1 circuit split, with the Seco",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:35.993Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3d23adf11b2dfb2",
+      "query": "{\"content\": \"P(disturbed) 0.85. The statpack disturbed rate for merits judgments over the available strictly prior grant Terms (2017-2024) is roughly 69.7% (359 disturbed out of 515 parsed judgments, safely above the 30-case floor and excluding cert-order resolutions). I adjust up substantially because this case presents a deeply lopsided 12-1 circuit split, with the Second Circuit standing entirely alone in treating trademark strength as a question of law. Trademark distinctiveness and likeliho",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:41.024Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d680e40503be2303",
+      "query": "{\"content\": \"The Court will vacate or reverse the Second Circuit's decision and hold that trademark strength is a question of fact for the jury (or fact-finder). A 12-1 circuit split currently exists, with only the Second Circuit treating it as a question of law. The Court's jurisprudence strongly emphasizes that issues of consumer confusion and mark distinctiveness are intensely factual and should not be treated as purely legal questions. Consequently, the Court will likely establish a categori",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:41.028Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "80397a280a1a6efa",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs, other than one web search for the Second Circuit's holding in \\\"RiseandShine Corporation v PepsiCo\\\" to confirm the nature of the 12-1 circuit split on trademark strength.\", \"file_path\": \"data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:44.913Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "02d76ee0c94612f5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/72483489\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"google_web_search\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"\\\"\\n}\", \"file_path\": \"data/cases/scotus/72483489/events/evt-order-judgment/pred",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:40:44.916Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:06.837Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "52b05042f0efa4c2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/72483489\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"google_web_search\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"\\\"\\n}\", \"file_path\": \"data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:09.896Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:31.144Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "adb193ed21f5ca99",
+      "query": "{\"strategic_intent\": \"Finalize the prediction task and submit the completed output.\", \"title\": \"Finalizing Task\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:34.633Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/72483489",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

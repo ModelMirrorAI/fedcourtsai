@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73277468",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["google_web_search", "mcp_courtlistener_search", "run_shell_command"],
+  "helpful": ["google_web_search was very helpful to discover details about the case because the CourtListener MCP server hit a rate limit (HTTP 429)."],
+  "gaps": [],
+  "notes": "CourtListener MCP returned a 429 rate limit exceeded error when I tried to use the search tool. I fell back to using web search to find case details."
+}

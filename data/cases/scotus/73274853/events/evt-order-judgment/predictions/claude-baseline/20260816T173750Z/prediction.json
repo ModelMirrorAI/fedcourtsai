@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Nationwide rule for what pipeline condemnors must pay landowners under the Natural Gas Act \u2014 consequential for energy infrastructure and property owners across at least five circuits, but a technical choice-of-law question with modest general-public salience.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73274853",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.45
+    }
+  ],
+  "confidence": 0.4,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:45:24Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:47:59.644436Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that federal law, not borrowed state law, supplies the measure of compensation in private condemnations under 15 U.S.C. \u00a7717f(h): because PennEast v. New Jersey characterized \u00a7717f(h) as a delegation of the federal government's own eminent-domain power, the Fifth Amendment standard of the United States v. Miller line governs, and \u2014 relying on United States v. Bodcaw Co. (attorney's fees are not part of constitutional just compensation) and the American Rule of Alyeska Pipeline (no fee award in a federal cause of action absent express congressional authorization) \u2014 it will reject the Kimbell Foods state-law-borrowing analysis of the Third, Fifth, Sixth, and Eleventh Circuits, holding that the NGA's silence does not incorporate state fee-shifting statutes such as North Dakota's."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be categorical rather than fact-bound: a uniform nationwide rule that federal law governs the measure of compensation in every private condemnation under \u00a7717f(h), abrogating the state-law-borrowing rule followed in the Third, Fifth, Sixth, and Eleventh Circuits \u2014 not a narrow holding confined to North Dakota's discretionary fee-shifting statute or to attorney's fees alone."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

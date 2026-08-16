@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP search",
+    "fedcourts query",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The frozen interim escalation fields made the forecast state explicit.",
+    "The statpack supplied a stage-correct strictly prior baseline."
+  ],
+  "gaps": [
+    "No application, opposition, reply, or supplemental-brief text was provisioned.",
+    "The CourtListener MCP quota was exhausted, preventing retrieval of the lower-court record."
+  ],
+  "notes": "The corpus query worked but its recent broad slice was mostly extension applications, so the statpack and frozen context were materially more useful."
+}

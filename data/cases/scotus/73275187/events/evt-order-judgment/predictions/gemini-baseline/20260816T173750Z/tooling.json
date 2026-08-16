@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73275187",
+  "gaps": [],
+  "helpful": [
+    "read_file for examining the snapshot and questions-presented.txt"
+  ],
+  "notes": "Base rates for the merits docket were clear and easily accessible from statpack.md.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "tools_used": [
+    "read_file",
+    "run_shell_command"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

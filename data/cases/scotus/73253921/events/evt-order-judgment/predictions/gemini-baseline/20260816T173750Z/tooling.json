@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73253921",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "run_shell_command",
+    "write_file"
+  ],
+  "helpful": [
+    "The provisioned snapshot and filed documents (petition and BIO) were sufficient for evaluating the merits."
+  ],
+  "gaps": [],
+  "notes": "No external lookup was needed since the documents were provided locally."
+}

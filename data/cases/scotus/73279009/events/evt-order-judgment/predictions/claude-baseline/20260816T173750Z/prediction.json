@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The Court's first plenary test of a hardware ban since Heller: whether states may prohibit AR-15-platform rifles, the most commonly owned rifle in the country, with equivalent bans in roughly ten states and the framework for all arms-ban litigation riding on the answer.",
+  "big_case_score": 0.97,
+  "case_id": "scotus/73279009",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.65,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 17,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:06:38Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279009/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:08:59.468120Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that AR-15-platform semiautomatic rifles are 'Arms' in common use for lawful purposes and therefore protected, resting the judgment on Heller's common-use principle as applied through Bruen's text-and-history framework: because tens of millions are lawfully owned, they cannot be 'dangerous and unusual,' and the government identifies no historical tradition of prohibiting the possession of arms in common civilian use. The Court will reject the Second and Seventh Circuits' threshold reasoning that 'militaristic' or military-derived weapons fall outside the Amendment's plain text, treating common use as dispositive against a possession ban rather than one factor to be weighed, and abrogating Bevis v. Naperville's civilian/military line without overruling any of the Court's own precedents."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be categorical as to the weapon class rather than fact-bound to Connecticut's or Cook County's particular statutes: it will announce that the Second Amendment forbids banning possession of AR-15-type semiautomatic rifles in common use, a rule that facially condemns the equivalent 'assault weapons' possession bans of other states. But the Court will confine the rule to the rifles covered by the question presented, expressly reserving magazine-capacity limits, other weapon categories, and regulations short of possession bans (licensing, registration, carry rules)."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}
