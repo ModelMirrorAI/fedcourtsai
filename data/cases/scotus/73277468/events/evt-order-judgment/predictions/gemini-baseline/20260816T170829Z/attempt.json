@@ -1,0 +1,10 @@
+{
+  "actor": "gemini-baseline",
+  "court": "scotus",
+  "docket": 73277468,
+  "error_class": "died",
+  "event_id": "evt-order-judgment",
+  "run_id": "20260816T170829Z",
+  "schema_version": "1.0",
+  "seam": "predict"
+}
