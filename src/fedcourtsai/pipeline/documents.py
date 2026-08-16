@@ -35,6 +35,7 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -120,6 +121,15 @@ _QP_MAX_CHARS = 4_000
 # extraction, which the manifest labels as such and the labeling extract skips,
 # while a fragment stored as text reads to every consumer as the question.
 _QP_MIN_CHARS = 40
+# Concurrent content-store readers for the backfill's document fetch. The pass
+# is one GET per live-slice case — ~1,500 today — and serial GET latency is
+# what cancelled the first dispatched pass against the seed job's cap; sixteen
+# bounded workers hold the scan to minutes without meaningfully loading the
+# store. Read only where payload reads are offloaded — the registered source's
+# Protocol requires concurrent-read safety, and one warm-up read constructs
+# its lazy client before the pool exists — while the SQLite path stays serial
+# on its single-thread connection.
+_QP_BACKFILL_READERS = 16
 # A captured section that is really a table-of-contents entry, in the two forms
 # a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
 # PRESENTED" with a page reference, so matching that entry instead of the real
@@ -593,21 +603,38 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     The population is the live/historical slice (:func:`corpus.is_live_slice`):
     documents reach the corpus only on that channel, and the row predicate is
     what keeps the walk from a per-case content-store read for every SCOTUS row
-    the bulk import ever wrote.
+    the bulk import ever wrote. Where payload reads are offloaded to the
+    content store their latency is the pass's whole cost — a serial walk of
+    the ~1,500-case population is what turned the first dispatched pass into a
+    job-cap cancellation — so the document fetch runs on a bounded reader pool
+    there (:data:`_QP_BACKFILL_READERS`), consumed lazily in input order and
+    warmed by one serial read so the source's lazily built client is
+    constructed on this thread, never raced. The SQLite fallback keeps the
+    serial loop: its local reads never needed the help, and the connection
+    must stay on one thread. Everything after a fetch — extraction,
+    comparison, classification, the writes — is the same serial, ordered code
+    either way, so pooled and serial fetching produce identical results. A
+    fetch that raises aborts the whole pass, deliberately against the
+    degrade-don't-crash default: this is a dispatch-gated convergence sweep
+    whose apply verifies itself by re-running, and a silently partial ledger
+    would read as a converged one.
     """
     petitions = unchanged = no_petition_text = 0
     reasons: Counter[str] = Counter()
     changes: dict[str, str] = {}
     refused: list[str] = []
     updates: list[corpus.CaseDocument] = []
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.is_live_slice(row):
-            continue
-        by_kind = {doc.kind: doc for doc in corpus.documents_for_case(conn, row.case_id)}
+    case_ids = [
+        row.case_id for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)
+    ]
+
+    def consider(case_id: str, documents: list[corpus.CaseDocument]) -> None:
+        nonlocal petitions, unchanged, no_petition_text
+        by_kind = {doc.kind: doc for doc in documents}
         petition = by_kind.get(KIND_PETITION)
         if petition is None or not petition.text.strip():
             no_petition_text += 1
-            continue
+            return
         petitions += 1
         stored = by_kind.get(KIND_QUESTIONS_PRESENTED)
         # `None` (no heading anywhere) and "" (a heading with nothing usable
@@ -616,10 +643,10 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         current = stored.text if stored is not None else ""
         if derived == current:
             unchanged += 1
-            continue
+            return
         if not derived and len(current) >= _QP_MIN_CHARS:
-            refused.append(row.case_id)
-            continue
+            refused.append(case_id)
+            return
         if stored is None:
             # The row's provenance is the petition's, including its fetch date:
             # nothing was fetched here, so claiming today's date would date the
@@ -632,7 +659,35 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             updates.append(stored.model_copy(update={"text": derived}))
             reason = _qp_change_reason(current, derived)
         reasons[reason] += 1
-        changes[row.case_id] = reason
+        changes[case_id] = reason
+
+    if corpus.payload_reads_offloaded() and case_ids:
+        # The offloaded branch never touches `conn` inside
+        # `documents_for_case` (the registered source serves it, and the
+        # Protocol requires it to tolerate concurrent reads), which is what
+        # makes handing the call to worker threads sound; the mode cannot
+        # flip mid-pass because nothing here re-registers the source. The
+        # first case is read serially on purpose: the source builds its
+        # client lazily on first use behind a broad catch that caches the
+        # outcome, so a pool-first call would race sixteen constructions and
+        # a losing thread's cached failure would silently empty the pass.
+        # Client *calls* tolerate threads; construction does not.
+        first = corpus.documents_for_case(conn, case_ids[0])
+        with ThreadPoolExecutor(
+            max_workers=_QP_BACKFILL_READERS, thread_name_prefix="qp-backfill"
+        ) as pool:
+            consider(case_ids[0], first)
+            fetched = pool.map(
+                lambda case_id: corpus.documents_for_case(conn, case_id), case_ids[1:]
+            )
+            # Consumed lazily, in input order: results free as they are
+            # processed, so peak memory is the in-flight window, not the
+            # population's whole document text.
+            for case_id, documents in zip(case_ids[1:], fetched, strict=True):
+                consider(case_id, documents)
+    else:
+        for case_id in case_ids:
+            consider(case_id, corpus.documents_for_case(conn, case_id))
     if apply and updates:
         corpus.upsert_documents(conn, updates)
     return QPBackfillResult(

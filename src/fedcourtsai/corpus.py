@@ -1431,7 +1431,15 @@ def _mirror_sink() -> MirrorSink | None:
 
 
 class PayloadReadSource(Protocol):
-    """Casestore-backed payload reads, consulted under the corpus-split mode."""
+    """Casestore-backed payload reads, consulted under the corpus-split mode.
+
+    Implementations must tolerate **concurrent reads**: callers keyed on
+    :func:`payload_reads_offloaded` may fan document reads across worker
+    threads. An implementation with non-thread-safe first-use construction
+    must make that construction safe or complete it on the first (serial)
+    call — callers warm it with one read before pooling, but the contract is
+    the implementation's to keep.
+    """
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
@@ -1461,6 +1469,18 @@ def _payload_read_source() -> PayloadReadSource | None:
     if not get_settings().corpus_split:
         return None
     return _READ_SOURCE.get("source")
+
+
+def payload_reads_offloaded() -> bool:
+    """Whether payload reads are served by the registered source rather than SQLite.
+
+    The seam concurrency-sensitive callers key on: the registered
+    :class:`PayloadReadSource` owes concurrent-read safety (see its contract),
+    while the SQLite fallback rides the caller's connection, which must stay
+    on a single thread. True exactly when a payload read source will serve
+    the next read.
+    """
+    return _payload_read_source() is not None
 
 
 def _split_mode() -> bool:
