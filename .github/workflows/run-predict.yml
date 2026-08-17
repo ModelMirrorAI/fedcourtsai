@@ -291,7 +291,7 @@ jobs:
     permissions: {}
     steps:
       - name: Release the held fan-out
-        run: echo "review released — the matrix may spend."
+        run: echo "the review hold released — the matrix may spend."
 
   # Any hold that did not release must not strand the trigger issue open:
   # record the outcome where the request lives, pointing at the plan report

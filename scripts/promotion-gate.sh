@@ -272,7 +272,10 @@ contexts() {
   # that it did not gate. Enforced here — the same admin-read stage that
   # verifies the rulesets — from the moment main's workflows reference the
   # environment; before that the check reports itself skipped.
-  if grep -rq "environment: review" "$main_workflows"; then
+  # Both YAML spellings of the binding — the inline scalar and the mapping
+  # form a later `url:` addition would introduce; a grep that knew only one
+  # would skip the check exactly when main really binds the environment.
+  if grep -rqE '^[[:space:]]*(environment:[[:space:]]+review|name:[[:space:]]+review)[[:space:]]*$' "$main_workflows"; then
     local protections
     protections="$(gh api "repos/${REPO}/environments/review" \
       --jq '[.protection_rules[]?.type] | join(",")' 2>/dev/null || true)"
@@ -286,7 +289,7 @@ contexts() {
         ;;
     esac
   else
-    echo "contexts: the review environment not yet referenced on main; environment check skipped"
+    echo "contexts: the review environment is not yet referenced on main; environment check skipped"
   fi
 
   # The staging-corpus mirror of the same failure mode, for the same reason:
