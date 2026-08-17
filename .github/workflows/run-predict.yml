@@ -275,7 +275,7 @@ jobs:
             --marker "<!-- predict-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
 
   # The hold. This job carries no code, no token, and no permissions — its one
-  # purpose is the deployment environment: `predict-approval`'s required
+  # purpose is the deployment environment: the `review` environment's required
   # reviewers gate it, so every downstream job that spends (the matrix and the
   # collect writer behind it) waits on an explicit, audit-logged release. The
   # wait happens before the job is scheduled, so timeout-minutes bounds only
@@ -287,11 +287,11 @@ jobs:
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: predict-approval
+    environment: review
     permissions: {}
     steps:
       - name: Release the held fan-out
-        run: echo "predict-approval released — the matrix may spend."
+        run: echo "review released — the matrix may spend."
 
   # Any hold that did not release must not strand the trigger issue open:
   # record the outcome where the request lives, pointing at the plan report
@@ -317,7 +317,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+          gh issue close "$ISSUE" --repo "$REPO" --comment "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
 
   predict:
     needs: [plan, approval]

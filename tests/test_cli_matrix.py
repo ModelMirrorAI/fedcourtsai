@@ -2020,7 +2020,7 @@ def test_the_approval_report_carries_the_counts_the_table_and_the_spend_caveats(
     assert "- 2 cell(s) dropped as already predicted by that predictor" in report
     assert "Each drop's per-record reason is in the plan JSON." in report
     # The line the workflow parameterizes, and the only GitHub specific here.
-    assert "Approve or reject the `predict-approval` deployment on the run: https://run/9" in report
+    assert "Approve or reject the `review` deployment on the run: https://run/9" in report
 
 
 def test_the_approval_report_omits_the_approval_line_without_a_run_url(tmp_path: Path) -> None:

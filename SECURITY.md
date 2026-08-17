@@ -198,12 +198,17 @@ runbook, [docs/security.md](docs/security.md).
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role
   and its own engine keys for the pre-promotion integration runs. A third,
-  `predict-approval`, holds no secret, no role, and no branch policy: its
-  entire content is a required-reviewer rule, and it exists only as the
-  audit-logged hold between run-predict's plan and its token-spending fan-out.
-  The promotion gate's admin-read stage verifies the rule is present, because
-  an auto-created environment is unprotected and an unprotected hold releases
-  instantly. A fourth, `staging-corpus`, is restricted to the `staging` branch
+  `review`, holds no secret, no role, and no branch policy: its entire content
+  is a required-reviewer rule, and it exists only as the audit-logged hold
+  between a paid fan-out's plan and its token spend (run-predict today; any
+  later spend hold binds the same environment). The promotion gate's
+  admin-read stage verifies the rule is present, because an auto-created
+  environment is unprotected and an unprotected hold releases instantly.
+  Self-review is deliberately permitted: with a single maintainer the hold is
+  a deliberateness gate — an explicit, audit-logged reading of the plan before
+  the spend — not two-person control, and blocking the run's own actor would
+  make a maintainer-labeled run unreleasable. Revisit if a second maintainer
+  joins. A fourth, `staging-corpus`, is restricted to the `staging` branch
   and holds the **staging read-write role** — the only credential in the system
   that can write a corpus store other than through the `prod` writers. It is
   read-only on production and read-write on the staging bucket pair alone, its
