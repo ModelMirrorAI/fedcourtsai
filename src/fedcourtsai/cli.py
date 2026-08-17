@@ -6799,20 +6799,28 @@ def assert_paths_cmd(
 
 
 def _scan_listed_files(
-    files: list[Path] | None, secrets: list[str], *, entropy: bool, noun: str
+    files: list[Path] | None,
+    secrets: list[str],
+    *,
+    entropy: bool,
+    noun: str,
+    run_id: str | None = None,
 ) -> tuple[list[secretscan.Finding], bool]:
     """Scan caller-named files beside the change set; a missing one fails closed.
 
     The caller writes each file immediately before scanning, so absence is a
     misconfigured gate, never an empty surface. ``entropy`` passes through to
     the scanner — off for a transcript, whose format guarantees high-entropy
-    ids as ordinary content.
+    ids as ordinary content — and so does ``run_id``, which narrows the
+    entropy rule alone and is therefore inert wherever that rule is off.
     """
     findings: list[secretscan.Finding] = []
     misconfigured = False
     for path in files or []:
         if path.is_file():
-            findings.extend(secretscan.scan_file(path, str(path), secrets, entropy=entropy))
+            findings.extend(
+                secretscan.scan_file(path, str(path), secrets, entropy=entropy, run_id=run_id)
+            )
         else:
             misconfigured = True
             typer.echo(f"::error::secret-scan: {noun} {path} is missing", err=True)
@@ -6862,6 +6870,17 @@ def scan_diff_for_secrets_cmd(
     run_url: Annotated[
         str, typer.Option(help="Actions run URL, included in the issue comment.")
     ] = "",
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="The run being collected. Exempts that run's own ledger paths "
+            "(`predictions/<actor>/<run id>`, `evaluations/<actor>/<predictor>/"
+            "<run id>`) from the entropy heuristic only — a cell's logged shell "
+            "commands name its own output directory, which is neither secret nor "
+            "random but scores like one. Every other detector is unaffected, and "
+            "the trailing segment must equal this value exactly."
+        ),
+    ] = "",
 ) -> None:
     """Scan a change set's changed data/ files for secrets; exit non-zero on a hit.
 
@@ -6876,7 +6895,8 @@ def scan_diff_for_secrets_cmd(
     too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
     same way rather than silently dropping a detector or a surface. A
     ``--transcript-file`` is scanned without the generic high-entropy
-    heuristic only — see the option's help for why that surface needs it.
+    heuristic only — see the option's help for why that surface needs it, and
+    ``--run-id`` for the one path shape that heuristic is told to skip.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -6892,12 +6912,26 @@ def scan_diff_for_secrets_cmd(
                 err=True,
             )
     changes = parse_name_status(name_status_file.read_text())
-    findings = secretscan.scan_changes(changes, Path(), secrets)
+    own_run = run_id or None
+    # The run id is the single input that defines the exemption's shape, so a
+    # value that is not a run id (an interpolation gone wrong) is a scan
+    # misconfiguration, not a wider exemption.
+    if own_run is not None and not secretscan.is_run_id_shaped(own_run):
+        misconfigured = True
+        own_run = None
+        typer.echo(
+            "::error::secret-scan: --run-id is not a run id; "
+            "the own-run exemption cannot be applied",
+            err=True,
+        )
+    findings = secretscan.scan_changes(changes, Path(), secrets, run_id=own_run)
     for files, entropy, noun in (
         (extra_file, True, "extra file"),
         (transcript_file, False, "transcript file"),
     ):
-        listed_findings, missing = _scan_listed_files(files, secrets, entropy=entropy, noun=noun)
+        listed_findings, missing = _scan_listed_files(
+            files, secrets, entropy=entropy, noun=noun, run_id=own_run
+        )
         findings.extend(listed_findings)
         misconfigured = misconfigured or missing
     if findings:
