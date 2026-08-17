@@ -804,13 +804,28 @@ def dedupe_live_rows_cmd(
     and drops the live row: every fact only the live twin carries fills in on
     the survivor, its events / snapshots / documents move under the surviving
     id, the survivor's `sample_weight` takes the pair's minimum, and the
-    live-minted row is deleted from all four tables — no orphans. A pair
-    disagreeing on `date_filed`, `date_decided`, or `disposition` is skipped
-    and reported, never dropped — the dry-run output is the triage list.
-    Content-store objects under a dropped id are left in place (no-delete
-    store; nothing resolves a dropped id, so they are inert). Idempotent. Run
-    where the corpus is pulled, `corpus-push` after an `--apply`. Prints a
-    `LiveDedupeResult`. Fails loud if the corpus is absent.
+    live-minted row is deleted from all four tables — no orphans. A **minted**
+    forecast moment's committed `event.yaml` directory moves with its re-keyed
+    row, its case id restamped inside, so the merge never leaves the shape
+    `minted_moments_defined_in_ledger` fails on — a row under the survivor whose
+    definition still sits on the dropped case's path. The ledger half goes
+    first, so an interrupted pair converges on the next run. A pair disagreeing
+    on `date_filed`, `date_decided`, or `disposition` is skipped and reported,
+    never dropped — the dry-run output is the triage list — and so is one this
+    merge cannot carry mechanically: committed cell output anywhere under the
+    dropped id (a prediction names that id inside its own file, which no restamp
+    here rewrites, so the row delete would orphan it), committed directories for
+    one moment under **both** ids, or a survivor-side document that will not
+    read. A half-merged twin is worse than an unmerged one. Content-store
+    objects under a dropped id are left in place (no-delete store; nothing
+    resolves a dropped id, so they are inert). Idempotent. Run where the corpus
+    is pulled, `corpus-push` after an `--apply`. Because an `--apply` now writes
+    `data/` as well as the corpus, the lane that runs it **must stage the moved
+    paths in the same pointer commit**, as the merits-events backfill step does;
+    an `--apply` whose ledger writes are not committed drops the corpus half
+    alone and leaves the directory stranded, which no later pass re-detects (the
+    dropped row is gone). Prints a `LiveDedupeResult`. Fails loud if the corpus
+    is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -822,18 +837,26 @@ def dedupe_live_rows_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=apply)
+        result = dedupe.dedupe_live_rows(conn, settings.data_root, apply=apply)
     verb = "dropped" if apply else "would drop"
     typer.echo(
         f"dedupe-live-rows ({'applied' if apply else 'dry-run'}): "
         f"{result.pairs} duplicate pair(s); {verb} {len(result.dropped)} live-minted row(s), "
-        f"skipped {len(result.skipped)} disagreeing pair(s)"
+        f"skipped {len(result.skipped)} pair(s) for triage"
     )
     for entry in result.skipped:
         typer.echo(
             f"  - kept {entry.pair.keep}, not dropped {entry.pair.drop}: "
             f"{'; '.join(entry.conflicts)}"
         )
+    for move in result.ledger_moves:
+        if move.restamp_only:
+            verbed = "restamped" if apply else "would restamp"
+            where = f"{move.to_case}/{move.event_id} (already at the survivor)"
+        else:
+            verbed = "moved" if apply else "would move"
+            where = f"{move.from_case}/{move.event_id} -> {move.to_case}/{move.event_id}"
+        typer.echo(f"  {verbed} ledger event directory {where}")
     if result.dropped:
         typer.echo(
             "  content-store objects under the dropped ids are left in place "

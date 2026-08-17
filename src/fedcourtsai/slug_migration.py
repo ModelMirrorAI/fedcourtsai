@@ -59,14 +59,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import corpus
+from .ledger_events import EVENT_DOCUMENTS, move_event_directory
 from .paths import CasePaths, EventPaths
 from .pipeline.events import entry_event_id
-from .schemas import EventKind, Outcome, PredictableEvent
-from .serialize import read_model, write_json, write_yaml
-
-# The only files an event directory holds; cell output lives in subdirectories,
-# so anything else here is a shape the rename must not carry blindly.
-_EVENT_DOCUMENTS = frozenset({"event.yaml", "outcome.json"})
+from .schemas import EventKind
 
 _NO_TEXT_REASON = (
     "the row stores no entry text, so the id today's rules derive for it is unknowable"
@@ -151,7 +147,7 @@ def converge_event_slugs(
         claimed[(case_id, derived)] = entry_id
         if apply:
             if old_paths is not None and new_paths is not None:
-                _move_ledger_event(old_paths, new_paths, derived)
+                move_event_directory(old_paths, new_paths, {"event_id": derived})
             corpus.rename_event(
                 conn,
                 case_id,
@@ -190,7 +186,7 @@ def _ledger_blocker(old: EventPaths, new: EventPaths) -> str | None:
     if new.base.exists():
         return _BOTH_DIRECTORIES_REASON
     unexpected = sorted(
-        child.name for child in old.base.iterdir() if child.name not in _EVENT_DOCUMENTS
+        child.name for child in old.base.iterdir() if child.name not in EVENT_DOCUMENTS
     )
     if unexpected:
         return (
@@ -198,31 +194,6 @@ def _ledger_blocker(old: EventPaths, new: EventPaths) -> str | None:
             "committed cell output names this event id inside its own files"
         )
     return None
-
-
-def _move_ledger_event(old: EventPaths, new: EventPaths, event_id: str) -> None:
-    """Move the committed event directory and restamp the id inside its documents.
-
-    The restamp is unconditional and idempotent: a run interrupted between the
-    two steps leaves the directory already at the target with its documents
-    still naming the old id — a shape the path/declaration check fails and no
-    later pass would revisit if the rewrite hung off the *source* directory's
-    existence. Re-validated, not ``model_copy``, so every carried field
-    normalizes and a future field travels by construction.
-    """
-    if old.base.is_dir():
-        old.base.rename(new.base)
-    if new.event_file.is_file():
-        event = read_model(new.event_file, PredictableEvent)
-        write_yaml(
-            new.event_file,
-            PredictableEvent.model_validate({**event.model_dump(), "event_id": event_id}),
-        )
-    if new.outcome.is_file():
-        outcome = read_model(new.outcome, Outcome)
-        write_json(
-            new.outcome, Outcome.model_validate({**outcome.model_dump(), "event_id": event_id})
-        )
 
 
 def _ledger_event_paths(data_root: Path, case_id: str, event_id: str) -> EventPaths | None:
