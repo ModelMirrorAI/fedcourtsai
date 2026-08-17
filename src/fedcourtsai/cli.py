@@ -8243,7 +8243,7 @@ def predict_plan_cmd(
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the report."
+            "carries it — a plan mints none — so it names the run only in the plan."
         ),
     ] = "",
     approval_report: _ApprovalReportOption = None,
@@ -8401,7 +8401,7 @@ def evaluate_plan_cmd(
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the report."
+            "carries it — a plan mints none — so it names the run only in the plan."
         ),
     ] = "",
     approval_report: _ApprovalReportOption = None,
