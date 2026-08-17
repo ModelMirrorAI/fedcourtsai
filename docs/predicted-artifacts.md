@@ -434,9 +434,10 @@ directory without knowing which part is which invites trusting the wrong half.
   agent does not write it; credential-shaped runs are redacted at capture. Each
   call also states whether capture saw its result at all — `result_capture` is
   `captured` when the log carried the call's result, whether in a paired result
-  item or on the call item itself where the engine settles it there, and
+  item or on the call item itself for an engine that settles it there, and
   `unobserved` when nothing came back to capture or capture found no result to
-  pair with the call, with `result_capture_coverage` the log-level share. Read it before reading the digests: a null `result_digest` is what a
+  pair with the call, with `result_capture_coverage` the log-level share. Read
+  it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
   "this call surfaced nothing" is a claim only the marker can support. The
   evaluate prompt does not name the marker — the process the frozen partition

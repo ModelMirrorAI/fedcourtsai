@@ -317,9 +317,29 @@ def test_codex_mcp_call_inline_error_is_captured(tmp_path: Path) -> None:
     assert call.retrieved_doc_date is None
 
 
+def test_codex_mcp_call_inline_empty_output_is_captured(tmp_path: Path) -> None:
+    # The load-bearing half of "presence by value, not truthiness": an empty
+    # answer that reached the transcript is captured, and only the marker can
+    # say so — its digest is null exactly like an uncaptured call's.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": "",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is None
+
+
 def test_codex_mcp_call_with_no_result_at_all_is_unobserved(tmp_path: Path) -> None:
     # Neither a sibling output nor an inline one: the item never settled, and
-    # the row must not borrow the inline path's confidence.
+    # the row must not borrow the inline path's confidence. Both spellings of
+    # "nothing settled" — the fields present and null, and the fields absent.
     sessions = _codex_rollout(
         tmp_path,
         {
@@ -330,10 +350,80 @@ def test_codex_mcp_call_with_no_result_at_all_is_unobserved(tmp_path: Path) -> N
             "output": None,
             "error": None,
         },
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "major questions"}),
+        },
+    )
+    calls = parse_codex_retrieval(sessions)
+    assert [call.result_capture for call in calls] == ["unobserved", "unobserved"]
+    assert [call.result_digest for call in calls] == [None, None]
+
+
+def test_codex_mcp_call_reads_the_rollout_s_own_field_spellings(tmp_path: Path) -> None:
+    # The rollout's record of an MCP call may name the same three things
+    # `server` / `tool` / `result` rather than `server_label` / `name` /
+    # `output`. Both spellings compose and settle the same way; which one codex
+    # actually writes is what a real transcript will say.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "tool": "search",
+            "server": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "result": '{"count": 2, "dateFiled": "2024-01-02"}',
+        },
     )
     (call,) = parse_codex_retrieval(sessions)
-    assert call.result_capture == "unobserved"
-    assert call.result_digest is None
+    assert call.tool == "mcp__courtlistener__search"
+    assert normalize_call(call.tool) == "courtlistener.search"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_sibling_output_outranks_the_inline_field(tmp_path: Path) -> None:
+    # The sibling is the pairing wherever it carried anything — an empty string
+    # included, which is a captured empty answer and not an absent one.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "output": '{"dateFiled": "2024-01-02"}',
+        },
+        {"type": "mcp_tool_call_output", "call_id": "m1", "output": ""},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is None  # the sibling's empty output, not the inline one
+    assert call.retrieved_doc_date is None
+
+
+def test_codex_mcp_null_sibling_output_defers_to_the_inline_field(tmp_path: Path) -> None:
+    # A sibling carrying `null` digests to nothing either way, so reading the
+    # item's own result in its place can add a captured result and never
+    # overwrite one; the marker is `captured` under both readings.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "output": '{"dateFiled": "2024-01-02"}',
+        },
+        {"type": "mcp_tool_call_output", "call_id": "m1"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
 
 
 def test_codex_mcp_name_composes_into_the_rollup_s_mcp_spelling(tmp_path: Path) -> None:

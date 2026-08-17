@@ -32,7 +32,7 @@ because capture is instrumentation that must never fail a real run.
 
 Every row also states whether its result was seen at all: ``result_capture``
 is ``captured`` where the transcript carried the result — as a paired result
-item, or on the call item itself where the engine settles it there — and
+item, or on the call item itself for an engine that settles it there — and
 ``unobserved`` where nothing came back to capture — every Gemini row, a hosted
 Codex ``web_search_call``, or any call this pairing rule found no result item
 for, which includes one the engine logged without a pairing id and one whose
@@ -225,6 +225,10 @@ _CODEX_CALL_TYPES = (
     "web_search_call",
 )
 _CODEX_OUTPUT_SUFFIX = "_output"
+# Where an MCP call item carries its own settled result, most authoritative
+# first: the Responses API's `output` / `error`, then the `result` the rollout's
+# own record of the same call may use.
+_CODEX_INLINE_RESULT_FIELDS = ("output", "error", "result")
 
 
 def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
@@ -257,10 +261,11 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         call_id = str(payload.get("call_id", ""))
         captured = call_id in outputs
         result = outputs.get(call_id)
-        # An MCP item settles on itself rather than in a sibling, so where no
-        # output item matched, the item's own result is the pairing. The
-        # sibling path is unchanged and wins wherever one exists.
-        if not captured:
+        # An MCP item settles on itself rather than in a sibling, so where the
+        # sibling lookup produced no result, the item's own is the pairing. A
+        # sibling that carried anything at all — an empty string included — wins;
+        # only a null one, which digests to nothing either way, defers.
+        if result is None:
             inline = _codex_inline_result(payload)
             if inline is not None:
                 captured, result = True, inline
@@ -307,31 +312,48 @@ def _codex_inline_result(payload: dict[str, Any]) -> Any:
     such row as ``unobserved`` while the transcript held the result. An inline
     ``error`` counts as captured for the same reason a Claude ``is_error``
     result does: the transcript recorded what came back, and what came back was
-    a failure. Only MCP shapes are read this way; every other call type pairs
-    against its output item, and the sibling wins wherever one exists.
+    a failure. ``result`` is read after both because the rollout's own record of
+    an MCP call may name the answer that way, and the two spellings cost one
+    lookup to cover jointly. Only MCP shapes are read this way; every other call
+    type pairs against its output item.
 
-    Presence is by value, not by key: an unsettled item carries both fields as
-    ``null``, while an empty string is a real, captured, empty answer.
+    A sibling output item still wins: this is consulted only where the pairing
+    found none, or found one carrying ``null`` — which digests to nothing, so
+    reading the item's own result in its place can add a captured result but
+    never overwrite one.
+
+    Presence is by value, not by key: an unsettled item carries these fields as
+    ``null`` (or omits them), while an empty string is a real, captured, empty
+    answer.
     """
     if payload.get("type") not in _CODEX_MCP_CALL_TYPES:
         return None
-    output = payload.get("output")
-    return output if output is not None else payload.get("error")
+    for field in _CODEX_INLINE_RESULT_FIELDS:
+        value = payload.get(field)
+        if value is not None:
+            return value
+    return None
 
 
 def _codex_tool(payload: dict[str, Any]) -> Any:
     """A Codex call item's tool name, in the spelling the rollup normalizes.
 
-    An MCP item names the server in ``server_label`` and the bare tool in
-    ``name``, so the two are composed into the ``mcp__<server>__<tool>``
-    spelling the engines' MCP calls share. Uncomposed, ``search`` is
-    indistinguishable from an engine builtin and
-    :func:`~fedcourtsai.tool_usage.normalize_call` buckets it as one — the
+    An MCP item names the server and the bare tool in two fields —
+    ``server_label`` + ``name`` in the Responses spelling, ``server`` + ``tool``
+    in the rollout's own — so the two are composed into the
+    ``mcp__<server>__<tool>`` spelling the engines' MCP calls share.
+    Uncomposed, ``search`` is indistinguishable from an engine builtin
+    and :func:`~fedcourtsai.tool_usage.normalize_call` buckets it as one — the
     offered denominator loses the call and the MCP-gated result observability
     reads the engine as having no MCP calls at all.
+
+    The server half flows into the name verbatim, which is what keeps the
+    composition honest about an unknown server: a manifest's server ids are
+    schema-constrained to lowercase, so anything else lands as the literal
+    string the transcript carried rather than as a quietly normalized id.
     """
     name = payload.get("name") or payload.get("tool")
-    server = payload.get("server_label")
+    server = payload.get("server_label") or payload.get("server")
     if name and server:
         return f"mcp__{server}__{name}"
     return name or payload["type"]

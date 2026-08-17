@@ -1755,11 +1755,12 @@ class RetrievalCall(_Strict):
     result_capture: Literal["captured", "unobserved"] | None = Field(
         default=None,
         description="Whether capture saw this call's result at all. `captured` means the "
-        "engine log carried the paired result item; it does NOT mean the result had "
+        "engine log carried the call's result, in a paired result item or on the call "
+        "item itself for an engine that settles it there; it does NOT mean the result had "
         "content — an empty result, or a failed one, is still captured. `unobserved` "
         "means no result reached the log: the engine logs none (Gemini's telemetry), "
         "the call ran provider-side and echoed nothing back (a Codex hosted "
-        "`web_search_call`), or capture found no result item to pair with the call — "
+        "`web_search_call`), or capture found no result to pair with the call — "
         "the parsers derive the marker from a pairing rule, so a call the engine "
         "logged without a pairing id, and one whose result sits past a truncated "
         "transcript, both land here for a capture-side reason. "
