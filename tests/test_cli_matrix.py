@@ -1,3 +1,4 @@
+import copy
 import json
 import shutil
 from datetime import UTC, date, datetime, timedelta
@@ -1948,3 +1949,319 @@ def test_predict_plan_balances_when_the_volume_cap_defers_a_case(tmp_path: Path)
     # A capped plan prices this run only, and says so on both channels.
     assert any("Covers THIS run only" in c for c in plan["spend_estimate_basis"]["caveats"])
     assert "deferred by the volume cap re-queue" in result.stderr
+
+
+# The approval report. A hold gate posts it as a trigger-issue comment for a
+# maintainer to approve or reject the fan-out from, so it is rendered by the
+# tested command rather than assembled in the workflow's shell — and it is
+# bounded, because GitHub refuses an over-long comment with a 422 rather than
+# truncating it, and a 422 is not transient.
+
+#: GitHub's issue-comment ceiling. The report's own cap sits under it.
+_COMMENT_LIMIT = 65_536
+
+
+def _report(tmp_path: Path, args: list[str], env: dict[str, str]) -> tuple[str, str]:
+    """Invoke a plan command with ``--approval-report`` and return (report, stdout)."""
+    out = tmp_path / "approval-report.md"
+    result = runner.invoke(app, [*args, "--approval-report", str(out)], env=env)
+    assert result.exit_code == 0, result.stderr
+    return out.read_text(), result.stdout
+
+
+def _widened(plan: dict[str, Any], cells: int) -> dict[str, Any]:
+    """A real plan re-pointed at ``cells`` would-mint cells, one per docket.
+
+    The renderer is a pure function of the plan document, so widening a plan the
+    command actually produced exercises the size bound on real field shapes
+    without standing up a 200-cell corpus.
+    """
+    wide = copy.deepcopy(plan)
+    template = wide["would_mint"][0]
+    wide["would_mint"] = [{**template, "docket": 30000 + n} for n in range(cells)]
+    wide["counts"]["cell_ledger"]["would_mint_cells"] = cells
+    return wide
+
+
+def test_the_approval_report_carries_the_counts_the_table_and_the_spend_caveats(
+    tmp_path: Path,
+) -> None:
+    # The decision surface: a maintainer approves a fan-out from this comment,
+    # so it has to carry both count grains, the cells themselves, and the spend
+    # sentence with its basis in the same sentence as the number.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+
+    report, stdout = _report(
+        tmp_path,
+        ["predict-plan", "--body-file", str(body), "--approval-report-run-url", "https://run/9"],
+        env,
+    )
+
+    plan = _plan(stdout)
+    assert "predict-plan: 4 cell(s) held for approval" in report
+    # Both grains, verbatim from the same helper the stderr summary prints, so
+    # the comment and the log cannot disagree about what the plan counted.
+    assert "predict-plan provenance: requested_cases=2" in report
+    assert "predict-plan cell ledger: candidate_cells=6" in report
+    # The spend sentence, with the basis inside it rather than a paragraph away.
+    assert f"estimated ${plan['estimated_spend_usd']:.2f} at the per-engine rates" in report
+    assert "Nothing was spent and nothing was written." in report
+    # Every would-mint cell, one row each, naming the engine the price is keyed on.
+    for cell in plan["would_mint"]:
+        assert f"| `{cell['predictor_id']}` | `scotus/{cell['docket']}` " in report
+    assert "| `evt-petition-cert` | `codex` |" in report
+    assert "… and" not in report
+    # The drop class that actually took cells, as a count and no more — the
+    # per-record reasons stay in the JSON the comment points at. The label opens
+    # with its own grain: the classes do not share one, and under a section a
+    # reader arrives at counting cells an ungrained count is read as cells.
+    assert "- 2 cell(s) dropped as already predicted by that predictor" in report
+    assert "Each drop's per-record reason is in the plan JSON." in report
+    # The line the workflow parameterizes, and the only GitHub specific here.
+    assert "Approve or reject the `predict-approval` deployment on the run: https://run/9" in report
+
+
+def test_the_approval_report_omits_the_approval_line_without_a_run_url(tmp_path: Path) -> None:
+    # The closing line points at a deployment gate; with no URL there is nothing
+    # to point at, and a dangling "approve on the run:" would name no run.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+
+    report, _ = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+
+    assert "Approve or reject" not in report
+    assert "predict-plan: 3 cell(s) held for approval" in report
+    # Nothing was dropped, and the section says so rather than going silent —
+    # an absent section reads as a section that was not rendered.
+    assert "- Nothing was dropped: every candidate cell would be minted." in report
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        # The ordinary case: no escaping, no widened fence.
+        ("claude-baseline", "`claude-baseline`"),
+        # A pipe splits the row into an extra column even inside a code span,
+        # because GFM resolves cell boundaries before inline code.
+        ("pipe|baseline", r"`pipe\|baseline`"),
+        # A backtick would close the span early and let the rest of the value
+        # render as markdown into a public issue comment, so the fence widens
+        # past the longest run inside the value.
+        ("tick`baseline", "``tick`baseline``"),
+        ("two``ticks", "```two``ticks```"),
+        # Padding where the value's own backtick would otherwise touch the
+        # fence; the renderer strips the padding again, so the value survives.
+        ("`leading", "`` `leading ``"),
+        ("trailing`", "`` trailing` ``"),
+        # Both characters at once — neither escape may undo the other.
+        ("a|b`c", "``a\\|b`c``"),
+    ],
+)
+def test_a_table_cell_cannot_break_out_of_its_span(value: str, expected: str) -> None:
+    # The report is posted as a public issue comment, so a value that escaped
+    # its cell would render as markdown in it. Ids are corpus- and
+    # registry-derived, which makes this containment rather than a live threat —
+    # but the property has to hold by construction, not by what ids happen to
+    # contain today.
+    assert cli._md_cell(value) == expected
+
+
+def test_the_approval_report_truncates_the_cell_table_at_its_row_cap(tmp_path: Path) -> None:
+    # Past the cap the surviving count carries the fan-out better than another
+    # 160 rows would, and the dropped rows are named rather than silently cut.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _, stdout = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+
+    report = cli._render_approval_report(_widened(_plan(stdout), 200), stage="predict-plan")
+
+    rows = [line for line in report.splitlines() if line.startswith("| `")]
+    assert len(rows) == cli._APPROVAL_REPORT_MAX_ROWS == 40
+    assert "… and 160 more cells. Rows are ordered by case, then actor" in report
+    # The kept rows are a contiguous range of the lowest case ids, which is what
+    # makes a truncated table readable: the reader knows the rest lie past them,
+    # rather than seeing every case's first engine with the others cut.
+    dockets = [int(row.split("`")[3].split("/")[1]) for row in rows]
+    assert dockets == sorted(dockets) == list(range(30000, 30040))
+    # The header count is the whole fan-out, not the rows that fit: a reader who
+    # took 40 for the run size would approve four times the cells they read.
+    assert "predict-plan: 200 cell(s) held for approval" in report
+
+
+def test_the_approval_report_stays_under_the_comment_ceiling_on_a_wide_plan(
+    tmp_path: Path,
+) -> None:
+    # The bound the whole design exists for. A full-width run's pretty-printed
+    # JSON approaches GitHub's comment limit, and a 422 loses the approval
+    # surface exactly where the fan-out most needs a human reading it.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _, stdout = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+
+    report = cli._render_approval_report(_widened(_plan(stdout), 200), stage="predict-plan")
+
+    assert len(report) < cli._APPROVAL_REPORT_MAX_CHARS < _COMMENT_LIMIT
+    # Bounded by construction, not by the clamp: a document that only just fits
+    # because it was cut is one section away from losing something load-bearing.
+    assert cli._APPROVAL_REPORT_TRUNCATED not in report
+
+
+def test_the_approval_report_clamp_cuts_a_document_that_overflows_anyway(
+    tmp_path: Path,
+) -> None:
+    # The backstop behind the construction bound, exercised through the one
+    # unbounded string a plan carries into the report — the run id. Whatever
+    # widens past the sections' own caps, the document still fits a comment, and
+    # says it was cut rather than ending mid-sentence.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _, stdout = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+    plan = _plan(stdout)
+    plan["run_id"] = "X" * 70_000
+
+    report = cli._render_approval_report(plan, stage="predict-plan")
+
+    assert len(report) == cli._APPROVAL_REPORT_MAX_CHARS < _COMMENT_LIMIT
+    assert report.endswith(cli._APPROVAL_REPORT_TRUNCATED)
+
+
+def test_every_drop_class_a_plan_emits_is_named_in_the_report(tmp_path: Path) -> None:
+    # The drift guard. A new drop class added to a plan but not to the report's
+    # table renders as a silently missing line — the counts block would still
+    # reconcile, so nothing else fails, and the approval comment would quietly
+    # stop naming a class that took cells.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    named = {key for key, _ in cli._APPROVAL_DROP_CLASSES}
+
+    for command in ("predict-plan", "evaluate-plan"):
+        plan = _plan(runner.invoke(app, [command, "--body-file", str(body)], env=env).stdout)
+        emitted = {k for k in plan if k.startswith(("dropped_", "withheld_"))}
+        assert emitted, f"{command} emitted no drop lists at all"
+        assert emitted <= named, (
+            f"{command} drop classes missing from the report: {emitted - named}"
+        )
+
+
+def test_the_approval_report_carries_a_spend_breach_verbatim(tmp_path: Path) -> None:
+    # The one state where approving costs nothing and does nothing: the report
+    # must say so in the backstop's own words, beside a table that still lists
+    # the fan-out the earlier steps decided.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+        spend_ceiling_usd=10.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    report, stdout = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+    breach = (
+        "predict-plan: the ex-post spend backstop is breached, so a real run would mint 0 cells "
+        "however many this plan lists; the plan reports the gate rather than applying it"
+    )
+    assert breach in report
+    assert breach in result.stderr
+    # And the closing spend sentence carries it too, so the last line a reader
+    # keeps does not read as a forecast of what approving would cost.
+    assert "so a real run mints 0." in report
+    # The heading is the one line a skimmer is guaranteed to read, so it cannot
+    # promise 6 cells a real run would not mint.
+    assert (
+        "## predict-plan: 6 cell(s) held for approval — but a real run mints 0 under the "
+        "spend backstop" in report
+    )
+    assert len(_plan(stdout)["would_mint"]) == 6
+
+
+def test_the_approval_report_names_a_stranded_guard_that_failed_open(tmp_path: Path) -> None:
+    # A withheld count of zero is three states, and only the degraded ones are a
+    # reason to hesitate before approving — so they are named where the decision
+    # is made rather than left in the JSON.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = tmp_path / "stranded-artifacts.json"
+    census.write_text('{"not": "a list"}')
+
+    report, _ = _report(
+        tmp_path,
+        ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)],
+        env,
+    )
+
+    assert "### Stranded-run guard" in report
+    assert "may re-spend output an uncollected run already produced" in report
+    # The reason quotes the underlying exception, and this census's exception
+    # carries `<class 'dict'>`. Unspanned, GitHub's comment sanitizer eats that
+    # as a tag and the maintainer reads "got ." where the cause should be — so
+    # the whole reason is pinned inside a code span, not merely present.
+    plan = _plan(
+        runner.invoke(
+            app, ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)], env=env
+        ).stdout
+    )
+    reason = plan["stranded_guard"]["degraded_reason"]
+    assert "<class 'dict'>" in reason
+    assert f"The stranded-run guard failed open (`{reason}`)," in report
+
+
+def test_the_approval_report_stays_silent_about_a_guard_that_ran_clean(tmp_path: Path) -> None:
+    # The mirror: a clean or absent guard is not a warning, and a section that
+    # printed on every plan would train a reader to skip the one that matters.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+
+    report, _ = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+
+    assert "### Stranded-run guard" not in report
+
+
+def test_the_evaluate_approval_report_carries_the_assumption_caveat(tmp_path: Path) -> None:
+    # The evaluate seam's rates are a scaled pre-freeze anchor, so the figure the
+    # approval decision turns on cannot be quoted from this comment without it.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+
+    report, stdout = _report(tmp_path, ["evaluate-plan", "--body-file", str(body)], env)
+
+    assert "evaluate-plan: 6 cell(s) held for approval" in report
+    assert "an assumption (pre-freeze cert-stage anchor scaled ~+22%), not a measurement" in report
+    # The judge column is the evaluate seam's actor, not a predictor.
+    assert "| Evaluator | Case | Event | Engine |" in report
+    for cell in _plan(stdout)["would_mint"]:
+        assert f"| `{cell['evaluator_id']}` |" in report
+
+
+@pytest.mark.parametrize("command", ["predict-plan", "evaluate-plan"])
+def test_the_approval_report_leaves_the_plan_json_byte_identical(
+    tmp_path: Path, command: str
+) -> None:
+    # The report is a third channel, not a mode: a gate that parses stdout must
+    # not be able to tell whether a report was written beside it.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    # A fixed run id, since a plan otherwise stamps itself with the clock.
+    args = [command, "--body-file", str(body), "--run-id", "RID"]
+
+    bare = runner.invoke(app, args, env=env)
+    reported, with_report = _report(tmp_path, args, env)
+
+    assert bare.exit_code == 0
+    assert bare.stdout == with_report
+    assert reported.endswith("\n")

@@ -7991,33 +7991,45 @@ def _predict_ledger_gate(
     return _LedgerGate(candidates, tuple(narrowed), tuple(records))
 
 
-def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
-    """Print the plan document to stdout and its human summary to stderr.
+def _plan_count_lines(plan: dict[str, Any], *, stage: str) -> list[str]:
+    """The plan's counts, one line per grain.
 
-    The repo's stdout/stderr split, for the same reason the matrix commands keep
-    it: stdout is the machine surface a consuming gate parses, so every word
-    meant for a person goes to stderr. The counts print as two lines because
-    they are two grains — cases and events on one, cells on the other — and a
-    single run-on line invites reading a case count as a cell count.
+    Two lines because they are two grains — cases and events on one, cells on
+    the other — and a single run-on line invites reading a case count as a cell
+    count. Shared by the stderr summary and the approval report, so the two
+    surfaces cannot disagree about what the plan counted.
     """
     counts = plan["counts"]
-    ledger = counts["cell_ledger"]
+    return [
+        f"{stage} {grain.replace('_', ' ')}: "
+        + ", ".join(f"{name}={value}" for name, value in counts[grain].items())
+        for grain in ("provenance", "cell_ledger")
+    ]
+
+
+def _plan_breach_line(plan: dict[str, Any], *, stage: str) -> str | None:
+    """The ex-post backstop's warning, or ``None`` where it is not breached."""
+    if not plan["spend_gate"]["breached"]:
+        return None
+    return (
+        f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
+        f"however many this plan lists; the plan reports the gate rather than applying it"
+    )
+
+
+def _plan_spend_line(plan: dict[str, Any], *, stage: str) -> str:
+    """The closing sentence: what the fan-out would cost, with its basis in the sentence.
+
+    The line a reader is most likely to quote, so every clause that changes what
+    the number means travels inside it rather than a paragraph away — the
+    evaluate seam's rates being an assumption, a breach that would empty the
+    matrix anyway, and the cap-deferred cells the figure does not cover.
+    """
+    ledger = plan["counts"]["cell_ledger"]
     breached = bool(plan["spend_gate"]["breached"])
-    for grain in ("provenance", "cell_ledger"):
-        typer.echo(
-            f"{stage} {grain.replace('_', ' ')}: "
-            + ", ".join(f"{name}={value}" for name, value in counts[grain].items()),
-            err=True,
-        )
-    if breached:
-        typer.echo(
-            f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
-            f"however many this plan lists; the plan reports the gate rather than applying it",
-            err=True,
-        )
-    # The closing line carries the breach too. Without the suffix it reads as a
-    # prediction of what the next run costs, directly contradicting the warning
-    # above it — and the last line is the one a reader keeps.
+    # Without the suffix the line reads as a prediction of what the next run
+    # costs, directly contradicting the breach warning above it — and the last
+    # line is the one a reader keeps.
     breach_note = (
         " — but the spend backstop would empty the matrix, so a real run mints 0."
         if breached
@@ -8039,12 +8051,262 @@ def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
         if plan["stage"] == "evaluate"
         else "the per-engine rates in docs/budget.md (see spend_estimate_basis)"
     )
-    typer.echo(
+    return (
         f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
         f"${plan['estimated_spend_usd']:.2f} at {rate_note}. Nothing was spent and nothing "
-        f"was written{breach_note}{cap_note}",
-        err=True,
+        f"was written{breach_note}{cap_note}"
     )
+
+
+#: Would-mint rows the approval report prints before it truncates. The comment
+#: is read to decide one question — approve this fan-out or not — and forty rows
+#: is already more than anyone checks line by line; past that the surviving
+#: count and the plan JSON carry the fan-out better than another 200 rows would.
+_APPROVAL_REPORT_MAX_ROWS = 40
+
+#: The rendered document's hard ceiling, under GitHub's 65,536-character comment
+#: limit. That limit is refused with a 422 rather than truncated, and a 422 is
+#: not transient: a fan-out wide enough to overflow would lose its approval
+#: surface at exactly the moment it most needs a human reading it. Every section
+#: is bounded by construction; the clamp makes the bound a guarantee.
+_APPROVAL_REPORT_MAX_CHARS = 60_000
+
+_APPROVAL_REPORT_TRUNCATED = (
+    "\n\n_Report truncated at the comment-size ceiling; the plan JSON carries the full fan-out._"
+)
+
+#: Drop classes as (plan key, the count's grain and what the class did), in
+#: pipeline order. A key a seam does not have is skipped — the two gate on
+#: different things — as is an empty one: the counts block above already
+#: reconciles, so this section exists to name the classes that actually took
+#: something. Each label opens with its own grain because the classes do not
+#: share one: the scope gate drops whole *cases*, the forecastability re-check
+#: drops *events*, and only the ledger-grain classes drop *cells*. Under a
+#: section a reader arrives at counting cells, an ungrained "3 dropped as out of
+#: scope" is read as three cells when it means three cases' worth of them.
+_APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
+    ("dropped_out_of_scope", "case(s) dropped as out of scope"),
+    ("dropped_unforecastable", "event(s) dropped as no longer forecastable"),
+    ("cases_with_no_default_events", "case(s) resolved to no default events"),
+    ("dropped_by_request_narrowing", "cell(s) narrowed away by the request's event list"),
+    ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
+    ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
+    ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    ("withheld_stranded", "cell(s) withheld by the stranded-run guard"),
+)
+
+
+def _md_cell(value: object) -> str:
+    """One table cell: the value as a code span, with any pipe escaped.
+
+    Two characters in a value would otherwise escape the cell it is rendered
+    into, and this document is posted as a public issue comment:
+
+    A `|` splits the row into an extra column even within a code span — GFM
+    resolves the table's cell boundaries before it resolves inline code — so it
+    is backslash-escaped, which keeps a stray pipe in an id from silently
+    shifting every column to its right.
+
+    A backtick would close the span early and let the rest of the value render
+    as markdown. Rather than dropping it, the span is fenced with one more
+    backtick than the longest run inside the value, padded where the value
+    itself begins or ends with one (the renderer strips that padding again).
+    Values here are corpus- and registry-derived ids, so this is a containment
+    property rather than a live threat — but a cell that cannot break out is
+    the same amount of code as one that can, and only one of them stays true
+    when a future id gains a character nobody anticipated.
+    """
+    text = str(value).replace("|", r"\|")
+    longest = run = 0
+    for char in text:
+        run = run + 1 if char == "`" else 0
+        longest = max(longest, run)
+    fence = "`" * (longest + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _approval_report_table(plan: dict[str, Any]) -> list[str]:
+    """The would-mint cells as a markdown table, ordered by case, truncated with its count.
+
+    Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
+    truncated table keeps are a **contiguous range of cases**: a reader can see
+    which cases the visible rows cover and know the rest lie past them, where
+    the registry-major fan-out order would instead show every case's first
+    engine and cut the others.
+    """
+    cells = plan["would_mint"]
+    if not cells:
+        return ["No cells would be minted, so approving this run would spend nothing."]
+    evaluate = plan["stage"] == "evaluate"
+    actor_key = "evaluator_id" if evaluate else "predictor_id"
+    ordered = sorted(cells, key=lambda c: (c["court"], c["docket"], c[actor_key], c["event_id"]))
+    rows = [
+        f"| {'Evaluator' if evaluate else 'Predictor'} | Case | Event | Engine |",
+        "| --- | --- | --- | --- |",
+    ]
+    rows.extend(
+        f"| {_md_cell(cell[actor_key])} "
+        f"| {_md_cell(ids.case_id(cell['court'], cell['docket']))} "
+        f"| {_md_cell(cell['event_id'])} | {_md_cell(cell['engine'])} |"
+        for cell in ordered[:_APPROVAL_REPORT_MAX_ROWS]
+    )
+    if len(cells) > _APPROVAL_REPORT_MAX_ROWS:
+        rows.extend(
+            [
+                "",
+                f"… and {len(cells) - _APPROVAL_REPORT_MAX_ROWS} more cells. Rows are ordered "
+                f"by case, then actor, so the ones above are the lowest case ids; the plan "
+                f"JSON carries every one of them.",
+            ]
+        )
+    return rows
+
+
+def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = "") -> str:
+    """Render a plan as the bounded markdown a maintainer approves or rejects from.
+
+    A pure function of the plan document, so the surface a hold decision is made
+    on is unit-tested rather than assembled by a workflow's shell; the workflow
+    posts this file and contributes only ``run_url``, the one line that needs to
+    know where the deployment approval lives.
+
+    Bounded by construction — a capped cell table, per-class drop *counts* with
+    no per-record lists (those stay in the JSON, which is where a reader who
+    wants one drop's reason goes), and a final clamp — because GitHub refuses an
+    over-long comment with a 422 rather than truncating it, and the widest
+    fan-out is exactly the one that must not lose its approval surface. Every
+    count and caveat is the string the stderr summary prints, not a paraphrase
+    of it, so the report cannot drift from the plan it renders.
+    """
+    ledger = plan["counts"]["cell_ledger"]
+    # The heading is the one line a reader is guaranteed to see, so under a
+    # breach it carries the consequence rather than a cell count that approving
+    # would not deliver: the backstop empties the matrix whatever the plan lists.
+    breach_heading = (
+        " — but a real run mints 0 under the spend backstop"
+        if plan["spend_gate"]["breached"]
+        else ""
+    )
+    lines = [
+        f"## {stage}: {ledger['would_mint_cells']} cell(s) held for approval{breach_heading}",
+        "",
+        f"Run `{plan['run_id']}` is held before minting anything. Nothing has been spent and "
+        f"nothing has been written; this is what a run would do if approved.",
+        "",
+        "### Counts",
+        "",
+    ]
+    lines.extend(f"- `{line}`" for line in _plan_count_lines(plan, stage=stage))
+    lines.extend(["", "### Spend", "", _plan_spend_line(plan, stage=stage)])
+    breach = _plan_breach_line(plan, stage=stage)
+    if breach is not None:
+        lines.extend(["", f"> {breach}"])
+    guard = plan.get("stranded_guard")
+    if guard is not None and (guard["degraded_reason"] or guard["unparsed_records"]):
+        # A withheld count of zero is three states and only one of them is a
+        # reason to distrust the plan, so the two degraded ones are named where
+        # the decision is made rather than left for the JSON. The reason goes in
+        # a code span: it quotes the underlying exception, whose text routinely
+        # carries a repr like `<class 'dict'>` that GitHub's comment sanitizer
+        # eats as a tag — leaving a reader "got ." where the cause should be —
+        # and the span neutralizes any other markdown the exception carries.
+        detail = (
+            f"failed open (`{guard['degraded_reason']}`)"
+            if guard["degraded_reason"]
+            else f"ran but could not read {len(guard['unparsed_records'])} census record(s)"
+        )
+        lines.extend(
+            [
+                "",
+                "### Stranded-run guard",
+                "",
+                f"The stranded-run guard {detail}, so a cell it could not check may re-spend "
+                f"output an uncollected run already produced.",
+            ]
+        )
+    lines.extend(["", "### Would mint", ""])
+    lines.extend(_approval_report_table(plan))
+    dropped = [
+        f"- {len(plan[key])} {label}" for key, label in _APPROVAL_DROP_CLASSES if plan.get(key)
+    ]
+    deferred = ledger.get("deferred_by_cap_cells", 0)
+    if deferred:
+        dropped.append(
+            f"- {deferred} cell(s) deferred by the volume cap "
+            f"(max {plan['deferred_by_cap']['max_cells']} cells a run); they re-queue next cycle"
+        )
+    lines.extend(["", "### Dropped", ""])
+    lines.extend(dropped or ["- Nothing was dropped: every candidate cell would be minted."])
+    lines.extend(["", "Each drop's per-record reason is in the plan JSON."])
+    if run_url:
+        lines.extend(
+            [
+                "",
+                f"Approve or reject the `{plan['stage']}-approval` deployment on the run: "
+                f"{run_url}",
+            ]
+        )
+    document = "\n".join(lines) + "\n"
+    if len(document) > _APPROVAL_REPORT_MAX_CHARS:
+        document = (
+            document[: _APPROVAL_REPORT_MAX_CHARS - len(_APPROVAL_REPORT_TRUNCATED)]
+            + _APPROVAL_REPORT_TRUNCATED
+        )
+    return document
+
+
+# Declared once and shared by both plan commands rather than spelled out twice:
+# the two options describe one contract, and a help text that drifted between
+# the seams would document a difference that does not exist.
+_ApprovalReportOption = Annotated[
+    Path | None,
+    typer.Option(
+        help="Also write the plan as a bounded markdown report, for a hold gate to post as "
+        "a trigger-issue comment. stdout is unchanged, with the flag or without it.",
+    ),
+]
+_ApprovalReportRunUrlOption = Annotated[
+    str,
+    typer.Option(
+        help="Run URL the approval report's closing line points at; omitted, the report "
+        "carries no such line. Ignored without --approval-report.",
+    ),
+]
+
+
+def _echo_plan(
+    plan: dict[str, Any],
+    *,
+    stage: str,
+    approval_report: Path | None = None,
+    run_url: str = "",
+) -> None:
+    """Print the plan to stdout, its human summary to stderr, its report to a file.
+
+    The repo's stdout/stderr split, for the same reason the matrix commands keep
+    it: stdout is the machine surface a consuming gate parses, so every word
+    meant for a person goes to stderr. ``approval_report`` adds a third channel
+    and changes neither of the first two — with the flag or without it stdout
+    carries the same bytes, so a gate that parses the plan cannot tell whether a
+    report was written beside it.
+
+    That write is deliberately **fail-loud**, and deliberately *before* the
+    stdout echo, which is the opposite of the stranded-run close note's
+    fail-open: an unwritable note costs the trigger issue a better message and
+    nothing else, while an unwritable approval report costs the hold its entire
+    decision surface. A gate that read the plan from stdout, found no report,
+    and posted an empty comment would ask a maintainer to approve a fan-out
+    they cannot see. Raising here stops the run instead.
+    """
+    for line in _plan_count_lines(plan, stage=stage):
+        typer.echo(line, err=True)
+    breach = _plan_breach_line(plan, stage=stage)
+    if breach is not None:
+        typer.echo(breach, err=True)
+    typer.echo(_plan_spend_line(plan, stage=stage), err=True)
+    if approval_report is not None:
+        write_text(approval_report, _render_approval_report(plan, stage=stage, run_url=run_url))
     typer.echo(json.dumps(plan, separators=(",", ":")))
 
 
@@ -8075,9 +8337,11 @@ def predict_plan_cmd(
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the report."
+            "carries it — a plan mints none — so it names the run only in the plan."
         ),
     ] = "",
+    approval_report: _ApprovalReportOption = None,
+    approval_report_run_url: _ApprovalReportRunUrlOption = "",
 ) -> None:
     """Report the predict cells a run would mint, step by step, spending nothing.
 
@@ -8085,7 +8349,8 @@ def predict_plan_cmd(
     — scope gate, forecastability re-check, per-predictor ledger gate,
     stranded-run guard, volume cap — with nothing minted and nothing written. No
     trigger-issue close note, no Actions step summary, no model spend; only the
-    plan document on stdout and its summary lines on stderr.
+    plan document on stdout, its summary lines on stderr, and — on request —
+    the ``--approval-report`` markdown.
 
     stdout is a single JSON object. ``counts`` splits by grain — ``provenance``
     counts cases and events, ``cell_ledger`` counts cells — because the two are
@@ -8104,6 +8369,10 @@ def predict_plan_cmd(
     ``would_mint_cells_after_spend_gate``, ``spend_gate.would_empty_matrix``,
     and ``estimated_spend_caveat`` — so a machine reader cannot take
     ``would_mint`` for what a run would actually spend.
+
+    ``--approval-report`` writes the same plan a second time as bounded
+    markdown, for a hold gate to post where a maintainer decides on it. stdout
+    is byte-identical either way: the report is a third channel, not a mode.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
@@ -8194,7 +8463,12 @@ def predict_plan_cmd(
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="predict", breached=verdict.breached),
     }
-    _echo_plan(plan, stage="predict-plan")
+    _echo_plan(
+        plan,
+        stage="predict-plan",
+        approval_report=approval_report,
+        run_url=approval_report_run_url,
+    )
 
 
 @app.command("evaluate-plan")
@@ -8221,9 +8495,11 @@ def evaluate_plan_cmd(
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the report."
+            "carries it — a plan mints none — so it names the run only in the plan."
         ),
     ] = "",
+    approval_report: _ApprovalReportOption = None,
+    approval_report_run_url: _ApprovalReportRunUrlOption = "",
 ) -> None:
     """Report the evaluate cells a run would mint, step by step, spending nothing.
 
@@ -8236,7 +8512,8 @@ def evaluate_plan_cmd(
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
     so: no evaluate fan-out has run since the pre-registration freeze, so the
     rates are ``docs/budget.md``'s scaled assumption rather than a measurement.
-    ``spend_estimate_basis.caveats`` states it on every plan.
+    ``spend_estimate_basis.caveats`` states it on every plan, and
+    ``--approval-report`` carries it into the rendered report's spend sentence.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
@@ -8291,7 +8568,12 @@ def evaluate_plan_cmd(
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="evaluate", breached=verdict.breached),
     }
-    _echo_plan(plan, stage="evaluate-plan")
+    _echo_plan(
+        plan,
+        stage="evaluate-plan",
+        approval_report=approval_report,
+        run_url=approval_report_run_url,
+    )
 
 
 @app.command("authorize-trigger")
