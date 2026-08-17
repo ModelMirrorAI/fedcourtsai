@@ -349,7 +349,14 @@ the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
 retrieval logging and the integration check consume — and the transport is one
 callable `(key, byte range) -> bytes` (boto3-against-S3; offline tests
-substitute an in-memory stand-in). Credit: michalc/sqlite-s3-query and
+substitute an in-memory stand-in) — and that callable is the one place remote
+flakiness is absorbed: a *transient* fault (a 5xx, a throttle, a dropped
+connection) is retried a bounded number of times on a short jittered backoff,
+each retry announced on stderr as a `::warning::` naming the key and range so
+the flake rate is countable from a run log, while a *permanent* one (a 403
+from a role that cannot read the remote, a 404 from a drifted pointer) fails
+immediately and loudly rather than being smeared over a retry budget.
+Credit: michalc/sqlite-s3-query and
 litements/s3sqlite (both MIT) are the reference implementations; this is
 in-repo so it is typed, tested, and reviewed under the same gate.
 

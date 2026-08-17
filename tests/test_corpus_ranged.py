@@ -9,13 +9,22 @@ the network.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import apsw
 import boto3
 import pytest
+from botocore.exceptions import (
+    ClientError,
+    ConnectionClosedError,
+    EndpointConnectionError,
+    IncompleteReadError,
+)
 from moto import mock_aws
 from typer.testing import CliRunner
 
@@ -399,3 +408,157 @@ def test_cli_materialize_event_reads_via_ranged_backend(
     assert dest.is_file()
     assert "ranged corpus reads" in result.stderr  # the per-query egress evidence
     assert not db.exists(), "the ranged read must not create a local corpus file"
+
+
+# --- transport retry: transients absorbed, permanent faults loud -----------------
+
+_KEY = "index/sha256/" + _SHA
+
+
+class StubS3Client:
+    """A ``get_object`` stand-in replaying a scripted sequence of outcomes.
+
+    An ``Exception`` outcome is raised, a ``bytes`` outcome is served as a
+    body; the last outcome repeats, so a script can outlast the attempt budget
+    and let the budget itself be what the assertion measures.
+    """
+
+    def __init__(self, outcomes: Sequence[Exception | bytes]) -> None:
+        self._outcomes = list(outcomes)
+        self.calls: list[dict[str, str]] = []
+
+    def get_object(self, **kwargs: str) -> dict[str, Any]:
+        self.calls.append(kwargs)
+        outcome = self._outcomes[min(len(self.calls), len(self._outcomes)) - 1]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return {"Body": io.BytesIO(outcome)}
+
+
+def _client_error(code: str, status: int) -> ClientError:
+    """A botocore ``ClientError`` in the exact shape boto3 raises from S3."""
+    return ClientError(
+        {
+            "Error": {"Code": code, "Message": f"stub {code}"},
+            "ResponseMetadata": {"HTTPStatusCode": status},
+        },
+        "GetObject",
+    )
+
+
+def _stub_transport(
+    monkeypatch: pytest.MonkeyPatch,
+    outcomes: Sequence[Exception | bytes],
+    *,
+    sleeps: list[float] | None = None,
+) -> corpus_ranged.S3RangeTransport:
+    """The real transport with its S3 client and its pause replaced.
+
+    boto3.client is patched out before construction so the test never builds a
+    real client: an ambient AWS profile (the maintainer's SSO flow) must not
+    be read, and the ~seconds of first-construction cost must not be paid.
+    """
+    import boto3  # noqa: PLC0415
+
+    recorded: list[float] = [] if sleeps is None else sleeps
+    monkeypatch.setattr(corpus_ranged, "_sleep", recorded.append)
+    stub = StubS3Client(outcomes)
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: stub)
+    return corpus_ranged.S3RangeTransport("test-bucket")
+
+
+def _stub_calls(transport: corpus_ranged.S3RangeTransport) -> list[dict[str, str]]:
+    client = transport._client
+    assert isinstance(client, StubS3Client)
+    return client.calls
+
+
+def _warnings(captured: str) -> list[str]:
+    return [line for line in captured.splitlines() if line.startswith("::warning::")]
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        _client_error("SlowDown", 503),
+        _client_error("InternalError", 500),
+        _client_error("ServiceUnavailable", 503),
+        # S3 answers a stalled upload/read with a 4xx status but a transient
+        # meaning, so the code — not the status — is what classifies it.
+        _client_error("RequestTimeout", 400),
+        # An unnamed 5xx still counts: the status carries the transience.
+        _client_error("SomeNewServerFault", 502),
+        # The endpoint URL embeds the bucket, exactly as botocore renders it —
+        # the leak-check below is only load-bearing because of that.
+        EndpointConnectionError(endpoint_url="https://test-bucket.s3.us-east-1.amazonaws.com/x"),
+        ConnectionClosedError(endpoint_url="https://test-bucket.s3.us-east-1.amazonaws.com/x"),
+        IncompleteReadError(actual_bytes=3, expected_bytes=7),
+    ],
+)
+def test_transient_fault_is_retried_until_it_succeeds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], fault: Exception
+) -> None:
+    transport = _stub_transport(monkeypatch, [fault, fault, b"payload"])
+    assert transport(_KEY, 0, 6) == b"payload"
+    assert len(_stub_calls(transport)) == 3, "both transient faults must have been retried"
+
+    warnings = _warnings(capsys.readouterr().err)
+    assert len(warnings) == 2, warnings
+    assert "attempt 1/3" in warnings[0]
+    assert "attempt 2/3" in warnings[1]
+    for line in warnings:
+        # The key and range make the flake attributable to one object read.
+        assert _KEY in line
+        assert "bytes=0-6" in line
+        assert "test-bucket" not in line, "the warning names the read, not the remote"
+
+
+@pytest.mark.parametrize(
+    ("code", "status"),
+    [("AccessDenied", 403), ("NoSuchKey", 404), ("PermanentRedirect", 301), ("InvalidRange", 416)],
+)
+def test_permanent_fault_fails_immediately_without_retry(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], code: str, status: int
+) -> None:
+    """A misconfigured remote is a diagnosis, not a flake — no budget is spent on it."""
+    fault = _client_error(code, status)
+    transport = _stub_transport(monkeypatch, [fault, b"unreachable"])
+    with pytest.raises(ClientError) as raised:
+        transport(_KEY, 0, 6)
+    assert raised.value is fault, "the original fault must propagate unwrapped"
+    assert len(_stub_calls(transport)) == 1
+    assert _warnings(capsys.readouterr().err) == []
+
+
+def test_exhausted_budget_raises_ranged_backend_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sleeps: list[float] = []
+    fault = _client_error("ServiceUnavailable", 503)
+    transport = _stub_transport(monkeypatch, [fault], sleeps=sleeps)
+    attempts = len(corpus_ranged.RETRY_BACKOFF_SECONDS) + 1
+    with pytest.raises(corpus_ranged.RangedBackendError) as raised:
+        transport(_KEY, 0, 6)
+
+    message = str(raised.value)
+    assert f"failed after {attempts} attempts" in message
+    assert _KEY in message and "bytes=0-6" in message
+    assert raised.value.__cause__ is fault
+    assert len(_stub_calls(transport)) == attempts, "the budget must be spent exactly once over"
+    assert len(_warnings(capsys.readouterr().err)) == attempts - 1
+
+    # Each pause sits on its scheduled base, extended by at most the jitter.
+    assert len(sleeps) == len(corpus_ranged.RETRY_BACKOFF_SECONDS)
+    for pause, base in zip(sleeps, corpus_ranged.RETRY_BACKOFF_SECONDS, strict=True):
+        assert base <= pause <= base * (1 + corpus_ranged.RETRY_JITTER)
+
+
+def test_successful_read_neither_sleeps_nor_warns(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sleeps: list[float] = []
+    transport = _stub_transport(monkeypatch, [b"payload"], sleeps=sleeps)
+    assert transport(_KEY, 0, 6) == b"payload"
+    assert _stub_calls(transport) == [{"Bucket": "test-bucket", "Key": _KEY, "Range": "bytes=0-6"}]
+    assert sleeps == []
+    assert capsys.readouterr().err == ""
