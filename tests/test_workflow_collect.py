@@ -14,6 +14,7 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai.cli import _render_approval_report
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.finalize import FinalizeRole
 
@@ -64,6 +65,29 @@ def test_no_workflow_reimplements_collect_inline() -> None:
                 f"{workflow}'s collect job contains {marker!r} inline; "
                 "it belongs in .github/actions/collect-run"
             )
+
+
+def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
+    """The renderer's closing line names the environment a reviewer must find
+    in the Actions UI, and the promotion gate greps for the same binding — a
+    rename that misses one surface points the approver at a gate that does
+    not exist, exactly the drift a reader would have to catch otherwise."""
+    workflow = _load(WORKFLOWS / "run-predict.yml")
+    environment = workflow["jobs"]["approval"]["environment"]
+    plan = {
+        "stage": "predict",
+        "run_id": "20260817T000000Z",
+        "counts": {"provenance": {}, "cell_ledger": {"would_mint_cells": 0}},
+        "would_mint": [],
+        "spend_gate": {"enforced": False, "breached": False},
+        "estimated_spend_usd": 0.0,
+        "deferred_by_cap": {"cells": [], "cases": []},
+        "stranded_guard": {"active": False, "degraded_reason": None, "unparsed_records": []},
+    }
+    report = _render_approval_report(plan, stage="predict-plan", run_url="https://run/1")
+    assert f"`{environment}` deployment" in report
+    gate = (ROOT / "scripts" / "promotion-gate.sh").read_text()
+    assert f"environments/{environment}" in gate
 
 
 def test_the_two_call_sites_differ_only_by_role() -> None:

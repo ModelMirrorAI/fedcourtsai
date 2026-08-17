@@ -8441,8 +8441,10 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
         lines.extend(
             [
                 "",
-                f"Approve or reject the `{plan['stage']}-approval` deployment on the run: "
-                f"{run_url}",
+                # The literal environment name the workflows bind — one `review`
+                # environment serves every spend hold, so the line never derives
+                # a name a stage-specific environment would have to match.
+                f"Approve or reject the `review` deployment on the run: {run_url}",
             ]
         )
     document = "\n".join(lines) + "\n"

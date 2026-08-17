@@ -259,14 +259,20 @@ needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
 `prod` — with two deliberate exceptions. run-predict's `approval` job declares
-**`predict-approval`**, an environment that exists *only* for its required
-reviewers. It carries no secrets, no variables, no role, and no
-deployment-branch policy; the job it gates runs one echo under
-`permissions: {}`, so the environment grants nothing and merely withholds the
-matrix until a named reviewer releases it. It must be created **with required
-reviewers configured before the gate promotes**: GitHub auto-creates a
-referenced environment unprotected, and an unprotected `predict-approval` is
-no gate at all. `staging-corpus-refresh` declares **`staging-corpus`** — the
+**`review`**, an environment that exists *only* for its required reviewers.
+It carries no secrets, no variables, no role, and no deployment-branch
+policy; the job it gates runs one echo under `permissions: {}`, so the
+environment grants nothing and merely withholds the matrix until a named
+reviewer releases it — and any later spend hold (the evaluate gate, when it
+lands) binds this same environment rather than minting its own. It must be
+created **with required reviewers configured before the gate promotes**:
+GitHub auto-creates a referenced environment unprotected, and an unprotected
+`review` environment is no gate at all. Leave **prevent self-review off**: the run's actor is the
+maintainer whenever the trigger label was applied by hand, and in a
+single-maintainer org blocking self-approval would strand exactly those runs
+in *Waiting* until the thirty-day expiry — the hold is a deliberateness gate
+here, not two-person control, a call to revisit if a second maintainer
+joins. `staging-corpus-refresh` declares **`staging-corpus`** — the
 one environment carrying a write-capable role outside `prod`, and the only one
 whose stores are not production's (see *The staging corpus* below).
 
@@ -292,7 +298,7 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 
 **Deployment branches are restricted to `main`** — on `prod` (and to `staging`
 on both the `staging` and `staging-corpus` environments, the latter because it
-carries the one write-capable role outside `prod`); `predict-approval`
+carries the one write-capable role outside `prod`); `review`
 deliberately carries no branch policy, since it holds nothing a branch could
 take. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
@@ -730,7 +736,7 @@ because it is ready. Read the caveat before doing either.
    fails open — two other places check it rather than trusting it. The
    promotion gate's **admin-read `contexts` stage**, which the maintainer runs
    with their own token, verifies the environment's deployment-branch policy
-   names `staging` — the same shape as its `predict-approval` reviewer check,
+   names `staging` — the same shape as its `review`-environment reviewer check,
    and skipped until main's workflows reference the environment. It is
    deliberately **not** part of any automatic gate: reading environment and
    ruleset settings needs admin-level access that ci.yml's promotion-gate job

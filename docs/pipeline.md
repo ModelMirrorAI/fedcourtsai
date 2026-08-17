@@ -350,7 +350,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                     (held per-channel by PREDICT_HANDOFF_ENABLED /
                                      EVALUATE_HANDOFF_ENABLED)
        run:predict → plan (build matrix, post the plan report)
-                                 → approval (predict-approval hold: required
+                                 → approval (the review hold: required
                                  │           reviewers release the spend)
                                  → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
@@ -683,9 +683,9 @@ count surfaced as a `::warning::` and in the plan's step summary; a deferred cas
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
 `PREDICT_HANDOFF_ENABLED` on/off pause below — and distinct again from the
-**predict-approval hold**, the per-run gate between plan and spend: the plan
-job posts its report to the trigger issue, and the matrix waits on a required
-reviewer approving the `predict-approval` deployment in the Actions UI. A run
+**review hold**, the per-run gate between plan and spend: the plan job posts
+its report to the trigger issue, and the matrix waits on a required reviewer
+approving the `review` deployment in the Actions UI. A run
 sitting in *Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
