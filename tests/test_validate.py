@@ -46,6 +46,7 @@ from fedcourtsai.validate import (
     _STALE_GRANT_DAYS,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
+    CHECK_CORPUS_EVENTS_IN_LEDGER,
     CHECK_CORRECT_AGREES,
     CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_SEMANTIC,
@@ -529,6 +530,127 @@ def test_orphan_case_fails(tmp_path: Path) -> None:
     _write_outcome(data_root, "ca9", 999, "evt-motion-stay")  # case not in corpus
     verdict = _run(db, data_root)
     assert _verdict_by_check(verdict)[CHECK_LEDGER_REFERENCES] is False
+
+
+# --- C: minted moments are defined in the ledger ------------------------------
+
+
+def _seed_moment(db: Path, event_id: str, kind: EventKind, stage: Stage) -> None:
+    """A SCOTUS case carrying one declared-moment event row and nothing else."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/7", court="scotus")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id="scotus/7",
+                    court="scotus",
+                    kind=kind,
+                    stage=stage,
+                )
+            ],
+        )
+
+
+def _minted_check(db: Path, data_root: Path) -> CorpusCheck:
+    """The corpus→ledger check's own result, so a test can assert what it *looked* at.
+
+    `passed` alone is not enough: a check that stopped examining anything would
+    pass every "…passes" case below vacuously, so each asserts `checked` too —
+    which is also what pins the population boundary the check exists to draw.
+    """
+    verdict = _run(db, data_root)
+    return next(c for c in verdict.checks if c.name == CHECK_CORPUS_EVENTS_IN_LEDGER)
+
+
+def test_minted_moment_without_its_ledger_definition_fails(tmp_path: Path) -> None:
+    """A half-landed mint: the arrival moment exists in the corpus while the
+    committed tree, which is the pre-registration record, declares no event —
+    and a moment that never earns a cell never gets a first touch to fix it."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-petition-arrival-disposition", EventKind.petition, Stage.cert)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is False
+    assert check.checked == 1
+
+
+def test_minted_moment_with_its_ledger_definition_passes(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    data_root = tmp_path / "data"
+    _seed_moment(db, "evt-petition-arrival-disposition", EventKind.petition, Stage.cert)
+    _write_event(data_root, "scotus", 7, "evt-petition-arrival-disposition")
+    check = _minted_check(db, data_root)
+    assert check.passed is True
+    assert check.checked == 1
+
+
+def test_cert_baseline_without_a_ledger_definition_passes(tmp_path: Path) -> None:
+    """The cert stage's baseline is derived from the docket's own shape, so the
+    corpus holds one for every petition it has ever seen and its ledger half is
+    owed at first touch or at resolution — not at discovery. Requiring a file
+    here would fail on most of the corpus rather than on a defect."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-petition-disposition", EventKind.petition, Stage.cert)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0  # outside the population, not merely satisfied
+
+
+def test_interim_baseline_without_a_ledger_definition_passes(tmp_path: Path) -> None:
+    """The interim stage's baseline is the same shape as the cert stage's: an
+    application docket's mere existence mints it."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-motion-disposition", EventKind.motion, Stage.interim)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0  # outside the population, not merely satisfied
+
+
+def test_a_non_scotus_minted_id_is_outside_the_population(tmp_path: Path) -> None:
+    """The scan is SCOTUS-scoped: only SCOTUS stages declare moments, so a
+    circuit row carrying the same id is another court's event, not a
+    half-landed mint this rule has anything to say about."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="ca9/7", court="ca9")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="ca9/7",
+                    court="ca9",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0
+
+
+def test_a_minted_id_on_a_non_numeric_docket_is_skipped(tmp_path: Path) -> None:
+    """A case id with no numeric docket addresses no ledger path at all, so it
+    is a malformed-id defect for another check — counting it here would report
+    a missing file that could never exist."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/abc", court="scotus")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="scotus/abc",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0
 
 
 # --- C: evaluation targets a prediction ---------------------------------------

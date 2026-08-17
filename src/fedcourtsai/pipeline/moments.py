@@ -193,6 +193,40 @@ def spec_for(event_id: str) -> MomentSpec | None:
     return _BY_EVENT_ID.get(event_id)
 
 
+def minted_moment_ids() -> frozenset[str]:
+    """The declared moments whose ledger ``event.yaml`` is owed **at the mint**.
+
+    Every moment in this table except the two **case-level baselines** — the
+    cert petition's ``evt-petition-disposition`` and the interim application's
+    ``evt-motion-disposition``. Not to be read as "the stage's first position",
+    which is what :func:`moments_for` calls a baseline and a different set:
+    merits' first position, ``evt-order-judgment``, is minted like the rest.
+    A case-level baseline is a fact about a docket merely
+    existing: the ingest projection derives it from the row's own shape, so a
+    corpus row carries one long before anything writes its definition, and its
+    ledger half arrives later — at first touch (``materialize-event`` in a
+    predict cell) or at resolution. Every other moment here exists only because
+    a mint seam decided it does, and that seam writes both halves in one step
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`), so for these
+    ids a corpus row without its ledger file is a half-landed mint — the shape
+    ``validate-corpus``'s corpus→ledger check fails on.
+
+    A case-level baseline is recognized by its id rather than listed: it is the bare
+    ``disposition`` id of its kind (``evt-<kind>-disposition``), which is what
+    the ingest projection synthesizes, while every later moment carries a
+    qualifying label (``arrival-``, ``cvsg-``, ``response-``) or a different
+    decision target (``judgment``). Registering a moment therefore needs no
+    edit here; what would is a new stage whose baseline is *not* the bare
+    ``evt-<kind>-disposition`` shape — the merits precedent, whose first
+    position is a minted moment rather than a first-touch baseline.
+    """
+    return frozenset(
+        spec.event_id
+        for spec in DECLARED_MOMENTS
+        if spec.event_id != ids.event_id(spec.kind.value, "disposition")
+    )
+
+
 def declares(event_id: str, stage: Stage) -> bool:
     """Whether ``event_id`` is a declared moment **of** ``stage``.
 

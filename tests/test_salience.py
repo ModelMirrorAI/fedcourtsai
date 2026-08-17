@@ -6,14 +6,17 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cell_context
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE, DISTRIBUTION_PARSES
 from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
+    _ARRIVAL_EVENT_ID,
     _CIRCUIT_GRANT_RATE,
     SALIENCE_VERSION,
     SCORERS,
@@ -269,6 +272,11 @@ def test_salience_bands_are_ordered_strongest_first() -> None:
 # --- the selection pass --------------------------------------------------------
 
 
+def _data_root(tmp_path: Path) -> Path:
+    """The git ledger root the pass mints each arrival event's `event.yaml` into."""
+    return tmp_path / "data"
+
+
 def _seed(tmp_path: Path, rows: list[corpus.CorpusRow]) -> Path:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
@@ -290,7 +298,7 @@ def test_ranks_and_caps_to_n_with_carveouts_above_n(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=3, floor=0.28)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, config, apply=True)
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     selected = _selected_ids(db)
     assert "scotus/cvsg" in selected  # carve-out, above N
     # The five relist-0 rows tie on score, so the cap takes the 3 lowest case_ids.
@@ -307,11 +315,11 @@ def test_selection_is_sticky_across_runs(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"])
     config = SalienceConfig(per_conference_capacity=2, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/a", "scotus/b"}
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, [_petition("scotus/hot", distribution_count=2)])  # relist-1
-        result = reconcile_salience_selection(conn, config, apply=True)
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     # 'hot' joins; 'b' stays despite dropping out of the fresh top-2. Never de-selected.
     assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/hot"}
     assert result.newly_selected == 1  # only 'hot' is new this run
@@ -330,7 +338,10 @@ def test_capacity_is_per_conference(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     with corpus.connect(db) as conn:
         reconcile_salience_selection(
-            conn, SalienceConfig(per_conference_capacity=1, floor=0.28), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=1, floor=0.28),
+            apply=True,
         )
     selected = _selected_ids(db)
     assert len([s for s in selected if s.startswith("scotus/x")]) == 1
@@ -344,14 +355,14 @@ def test_long_conference_uses_the_larger_cap(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, long_conference_capacity=3, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert len(_selected_ids(db)) == 3  # the long-conference cap, not the regular 1
 
 
 def test_petition_not_yet_distributed_is_scored_but_not_selected(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition("scotus/pending", distribution_count=3, conference=None)])
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, SalienceConfig(), apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), SalienceConfig(), apply=True)
         row = corpus.get_row(conn, "scotus/pending")
     assert row is not None
     assert row.salience_score is not None  # scored
@@ -367,7 +378,9 @@ def test_decided_petition_is_scored_but_never_cohorted(tmp_path: Path) -> None:
         [_petition("scotus/decided", distribution_count=3, date_cert_denied=date(2026, 1, 12))],
     )
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, SalienceConfig(), apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(), apply=True
+        )
         row = corpus.get_row(conn, "scotus/decided")
     assert row is not None
     assert row.salience_score is not None  # scored
@@ -386,7 +399,7 @@ def test_decided_petition_never_displaces_an_open_petition_within_capacity(tmp_p
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/open"}
 
 
@@ -395,7 +408,9 @@ def test_out_of_scope_petition_is_not_scored(tmp_path: Path) -> None:
     # the pass never scores or selects it.
     db = _seed(tmp_path, [_petition("scotus/app", docket="25A100", distribution_count=3)])
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, SalienceConfig(), apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(), apply=True
+        )
         row = corpus.get_row(conn, "scotus/app")
     assert result.eligible_cases == 0
     assert row is not None and row.salience_score is None and row.salience_selected is False
@@ -404,7 +419,9 @@ def test_out_of_scope_petition_is_not_scored(tmp_path: Path) -> None:
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition("scotus/1", distribution_count=3)])
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, SalienceConfig(), apply=False)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(), apply=False
+        )
         row = corpus.get_row(conn, "scotus/1")
     assert result.applied is False and result.scored == 1
     assert row is not None and row.salience_score is None and row.salience_selected is False
@@ -540,7 +557,7 @@ def test_long_conference_realized_count_is_n_plus_carveouts(tmp_path: Path) -> N
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))  # the caps actually in force
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, config, apply=True)
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
 
     selected = _selected_ids(db)
     assert result.eligible_cases == _LC_TOTAL
@@ -562,7 +579,7 @@ def test_every_carveout_survives_a_cohort_far_larger_than_n(tmp_path: Path) -> N
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
 
     selected = _selected_ids(db)
     assert all(f"scotus/r2-{i:04d}" in selected for i in range(_LC_RELIST_2))
@@ -577,7 +594,7 @@ def test_the_cap_prefers_higher_scores_before_it_fills_with_ties(tmp_path: Path)
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
 
     selected = _selected_ids(db)
     capacity = config.long_conference_capacity
@@ -606,7 +623,7 @@ def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
     for name in ("a", "b"):
         db = _seed(tmp_path / name, _long_conference_cohort())
         with corpus.connect(db) as conn:
-            reconcile_salience_selection(conn, config, apply=True)
+            reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
         runs.append(_selected_ids(db))
     assert runs[0] == runs[1]
 
@@ -650,7 +667,10 @@ def test_unlatch_overselected_clears_the_resize_overhang(tmp_path: Path) -> None
     db = _seed(tmp_path, rows)
     with corpus.connect(db) as conn:
         reconcile_salience_selection(
-            conn, SalienceConfig(per_conference_capacity=3, floor=0.28), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=3, floor=0.28),
+            apply=True,
         )
     assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/c", "scotus/cvsg"}
     resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
@@ -723,7 +743,7 @@ def test_unlatch_retains_what_a_filled_reserve_would_displace(tmp_path: Path) ->
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     # The live pass funds the application + 1 cert fill; latch 'b' by hand to
     # simulate a pre-resize latch the reserve would now displace.
     with corpus.connect(db) as conn:
@@ -740,14 +760,17 @@ def test_unlatch_then_live_pass_is_stable(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition(f"scotus/{c}", distribution_count=1) for c in "abcd"])
     with corpus.connect(db) as conn:
         reconcile_salience_selection(
-            conn, SalienceConfig(per_conference_capacity=3, floor=0.28), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=3, floor=0.28),
+            apply=True,
         )
     resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
     with corpus.connect(db) as conn:
         unlatch_overselected(conn, resized, apply=True)
     assert _selected_ids(db) == {"scotus/a"}
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, resized, apply=True)
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), resized, apply=True)
     assert result.newly_selected == 0
     assert _selected_ids(db) == {"scotus/a"}
 
@@ -761,7 +784,7 @@ def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
 
 
@@ -776,7 +799,7 @@ def test_reserve_never_displaces_a_carve_out(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/cvsg"}
 
 
@@ -788,7 +811,7 @@ def test_unfilled_reserve_returns_to_cert(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=3, floor=0.28, interim_reserve_slots=5)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a", "scotus/b"}
 
 
@@ -804,7 +827,7 @@ def test_reserve_picks_climb_the_escalation_ladder(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     # The requested-response application outranks the amicus-carrying one; the
     # signal-less one waits for a freed slot.
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
@@ -823,7 +846,7 @@ def test_reserve_ladder_orders_by_amicus_count_and_breaks_ties_on_case_id(
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     # amici=3 first, then the amici=1 tie resolves to the lower case_id.
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
 
@@ -840,7 +863,7 @@ def test_reserve_ladder_ignores_the_referral_signal(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert _selected_ids(db) == {"scotus/9525000002"}
 
 
@@ -857,14 +880,14 @@ def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
     )
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        first = reconcile_salience_selection(conn, config, apply=True)
+        first = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert first.newly_selected == 0  # the slot is occupied
     assert _selected_ids(db) == {"scotus/9525000001"}
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn, [_application("scotus/9525000001", "25A1", selected=True, disposition="denied")]
         )
-        second = reconcile_salience_selection(conn, config, apply=True)
+        second = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert second.newly_selected == 1
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
@@ -883,7 +906,7 @@ def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, config, apply=True)
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     # Earlier cohort keeps both; the later (current) one shrinks to 1.
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/e1", "scotus/e2", "scotus/l1"}
 
@@ -897,11 +920,15 @@ def test_reserve_zero_keeps_applications_deferred_and_reserve_gates_predict_scop
     db = _seed(tmp_path, [_application("scotus/9525000001", "25A1")])
     assert _in_predict_scope(db, "scotus/9525000001") is True  # unscored: fail-open
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=0), apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=0), apply=True
+        )
     assert _selected_ids(db) == set()
     assert _in_predict_scope(db, "scotus/9525000001") is False  # scored, deferred
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, SalienceConfig(interim_reserve_slots=1), apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=1), apply=True
+        )
     assert _in_predict_scope(db, "scotus/9525000001") is True  # reserve-selected
 
 
@@ -913,8 +940,8 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        first = reconcile_salience_selection(conn, config, apply=True)
-        again = reconcile_salience_selection(conn, config, apply=True)
+        first = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        again = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
     assert first.newly_selected == 2  # the application + the one remaining fill
     assert again.newly_selected == 0
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
@@ -1062,17 +1089,14 @@ def test_sal_v2_selects_the_arrival_cohort_by_predicate() -> None:
     assert not {"scotus/26000058", "scotus/26000001", "scotus/26000002"} & set(v1_select)
 
 
-def test_an_arrival_pick_mints_its_event_in_the_same_pass(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Latch and event arrive together: an arrival-selected undistributed
-    petition leaves the pass with evt-petition-arrival-disposition open beside
-    its baseline, so the sweep has the right — and only the right — cell to
-    queue (the baseline waits for its own distribution moment)."""
-    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+_ARRIVAL_CASE_ID = "scotus/26000002"  # enters the sal-v2 cohort by the federal carve-in
+
+
+def _arrival_case(tmp_path: Path) -> Path:
+    """A corpus holding one arrival-eligible pick: undistributed, in-cohort, baseline open."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     row = _petition(
-        "scotus/26000002",
+        _ARRIVAL_CASE_ID,
         distribution_count=None,
         conference=None,
         docket="26-2",
@@ -1092,12 +1116,152 @@ def test_an_arrival_pick_mints_its_event_in_the_same_pass(
                 )
             ],
         )
-        selected = apply_salience_selection(
-            conn, SalienceConfig(per_conference_capacity=2, floor=0.28)
+    return db
+
+
+def _arrival_ledger_file(tmp_path: Path) -> Path:
+    court, _, docket = _ARRIVAL_CASE_ID.partition("/")
+    return CasePaths(_data_root(tmp_path), court, int(docket)).event(_ARRIVAL_EVENT_ID).event_file
+
+
+def _arrival_pass(db: Path, tmp_path: Path) -> set[str]:
+    """One selection pass over ``db``; returns the case's corpus event ids."""
+    with corpus.connect(db) as conn:
+        apply_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=2, floor=0.28)
         )
-        assert row.case_id in selected
-        events = {e.event_id for e in corpus.events_for_case(conn, row.case_id)}
-    assert "evt-petition-arrival-disposition" in events
+        return {e.event_id for e in corpus.events_for_case(conn, _ARRIVAL_CASE_ID)}
+
+
+def test_an_arrival_pick_mints_both_halves_of_its_event_in_the_same_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Latch and event arrive together, and the event arrives whole: an
+    arrival-selected undistributed petition leaves the pass with
+    evt-petition-arrival-disposition open beside its baseline *and* its ledger
+    `event.yaml` written, because a declared moment's two halves are one mint.
+    Git is the pre-registration record, so the day a case became forecastable
+    is committed at the mint rather than at whatever later touch occurs."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = _arrival_case(tmp_path)
+    events = _arrival_pass(db, tmp_path)
+    assert _ARRIVAL_EVENT_ID in events
+    ledger = _arrival_ledger_file(tmp_path)
+    assert ledger.is_file()
+    defined = yaml.safe_load(ledger.read_text())
+    assert defined["event_id"] == _ARRIVAL_EVENT_ID
+    assert defined["case_id"] == _ARRIVAL_CASE_ID
+    assert defined["resolved"] is False
+
+
+def test_a_missing_ledger_half_is_rewritten_on_the_next_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mint is level-triggered on the pair, not on the corpus row: an
+    arrival event whose `event.yaml` is gone (a pass interrupted between the
+    two writes) heals on the next cycle rather than staying half-minted
+    forever."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = _arrival_case(tmp_path)
+    _arrival_pass(db, tmp_path)
+    ledger = _arrival_ledger_file(tmp_path)
+    ledger.unlink()
+    events = _arrival_pass(db, tmp_path)
+    assert _ARRIVAL_EVENT_ID in events
+    assert ledger.is_file()
+
+
+def test_a_complete_arrival_pair_is_left_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Idempotence: with both halves present the pass skips the case entirely,
+    so a committed definition is never rewritten under a later run."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = _arrival_case(tmp_path)
+    _arrival_pass(db, tmp_path)
+    ledger = _arrival_ledger_file(tmp_path)
+    ledger.write_text("sentinel: the committed definition\n")
+    _arrival_pass(db, tmp_path)
+    assert ledger.read_text() == "sentinel: the committed definition\n"
+
+
+def test_every_owed_arrival_in_one_scan_gets_both_halves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pass buffers its mints and writes after the scan, because the scan
+    streams an open cursor over `cases` while the mint seam commits. With more
+    than one case owed, a pass that wrote mid-scan would be reading through its
+    own writes — so mint every one of them and check all the pairs."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    case_ids = ["scotus/26000002", "scotus/26000003", "scotus/26000004"]
+    with corpus.connect(db) as conn:
+        for n, case_id in enumerate(case_ids, start=2):
+            row = _petition(
+                case_id,
+                distribution_count=None,
+                conference=None,
+                docket=f"26-{n}",
+                petitioner_title="United States",  # the federal carve-in, so every one is picked
+            ).model_copy(update={"date_filed": date(2026, 7, 20)})
+            corpus.upsert_rows(conn, [row])
+            corpus.upsert_events(
+                conn,
+                [
+                    corpus.CorpusEvent(
+                        event_id="evt-petition-disposition",
+                        case_id=case_id,
+                        court="scotus",
+                        kind=EventKind.petition,
+                        stage=Stage.cert,
+                    )
+                ],
+            )
+        apply_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=2, floor=0.28)
+        )
+        minted = {
+            case_id
+            for case_id in case_ids
+            if _ARRIVAL_EVENT_ID in {e.event_id for e in corpus.events_for_case(conn, case_id)}
+        }
+    assert minted == set(case_ids)
+    for case_id in case_ids:
+        court, _, docket = case_id.partition("/")
+        ledger = (
+            CasePaths(_data_root(tmp_path), court, int(docket)).event(_ARRIVAL_EVENT_ID).event_file
+        )
+        assert ledger.is_file(), f"{case_id} minted its corpus row without its ledger half"
+
+
+def test_a_resolved_arrival_event_heals_its_ledger_without_reopening(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Writing the missing half can never undo a resolution: the write path's
+    `resolved` latch holds, so a closed arrival event gains its definition
+    carrying `resolved: true` rather than being minted open again."""
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v2")
+    db = _arrival_case(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=_ARRIVAL_EVENT_ID,
+                    case_id=_ARRIVAL_CASE_ID,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    resolved=True,
+                )
+            ],
+        )
+    _arrival_pass(db, tmp_path)
+    with corpus.connect(db) as conn:
+        stored = {e.event_id: e for e in corpus.events_for_case(conn, _ARRIVAL_CASE_ID)}
+    assert stored[_ARRIVAL_EVENT_ID].resolved is True
+    defined = yaml.safe_load(_arrival_ledger_file(tmp_path).read_text())
+    assert defined["resolved"] is True
 
 
 # --- the versioned distribution parse ---------------------------------------------
