@@ -207,9 +207,11 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Two further writer steps are **not** among the seven and
-never run on a schedule, each gated behind its own dispatch input and on the
-dedupe succeeding. `unlatch-overselected` (the `unlatch_overselected` input)
+any other corpus write. Four further writer steps are **not** among the seven and
+never run on a schedule, each gated behind its own dispatch input; the three
+that read corpus rows also require the dedupe to have succeeded, since each
+must weigh a merged row rather than a twin.
+`unlatch-overselected` (the `unlatch_overselected` input)
 clears the pre-resize `salience_selected`
 overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
 `1 → 0` writer, a
@@ -222,7 +224,51 @@ an `apply` dispatch rewrites the safe classes, verifies its own convergence by
 re-running the dry-run (under the corpus split the durable write is the
 content store's, so the pointer alone cannot witness it), and pushes. The
 dry-run ledger is a maintainer's reading, so the intended procedure is two
-dispatches: `dry-run`, read, then `apply`. The full
+dispatches: `dry-run`, read, then `apply`.
+
+The last two are sequenced after every converging sweep, and in this order —
+**labels first, then the grades computed from them** — because a label rewrite
+landing after a grade was taken leaves that grade stale.
+`converge-disposition-labels` (the `disposition_convergence` input) converges
+stored disposition labels onto the current classifier, writing `outcome.json`
+under `data/` alongside the pointer in the step's one commit. It converges the
+**unscored** population only: rewriting the label under a cell that has already
+been graded would move what a published standing was computed from while the
+standing sat still, so those cells are reported in the dry-run ledger rather
+than rewritten, and closing that backlog is a maintainer's decision — moving
+those labels is deliberately not offered as a dispatch here. An `apply`
+dispatch also requires `disposition_max_relabels` — a positive integer, and the
+count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
+else — blank, zero, negative, decimal — is refused with an error annotation
+before the scan runs: unbounded, a widened predicate becomes a mass rewrite
+rather than a loud failure. On `apply` the step still runs the dry-run into the
+step summary first, as a receipt of what the rewrite acted on.
+
+`stamp-cell --regrade` (the `regrade_stale` input) recomputes an evaluator
+cell's graded fields under the cell's original stamp and rewrites
+`evaluation.json`. It exists because this lane's sweeps rewrite and reopen
+outcomes without consulting who has already graded them, so a cell's committed
+outcome can move under a committed grade; the re-grade is how those grades
+catch up. The write is ledger-only, so that step commits `data/` with no blob
+push and no pointer move. What the scoring surfaces make of the result is the
+command's contract, not the workflow's: per [metrics/README.md](../metrics/README.md),
+a standing moves honestly only through a grading the supersede-collapse counts,
+and a bare re-stamp of an existing `evaluation.json` moves it with a trace only
+in `data/`'s git history. The cells are named explicitly in `regrade_cells`,
+one `court/docket/event/run_id/actor` per line (whitespace-separated, so spaces
+work as well as newlines), one invocation per line — a cell three judges graded
+is three lines, since which judge's evaluation is rewritten is not a thing to
+infer. A `dry-run` dispatch echoes each command without invoking it. Every line
+is matched against the id grammar before anything runs and a single malformed
+line refuses the whole list — the input is maintainer-typed text entering a
+shell, and a half-applied list is harder to reason about than a refused one; an
+empty list is refused too, in `dry-run` as much as in `apply`. Neither of these
+two steps carries `continue-on-error`, and the reason is not that they are
+dispatch-only — `unlatch_overselected` and `qp_backfill` are dispatch-only and
+non-blocking. It is that these two fail by *refusing*: an apply without its
+bound, a malformed cell id, a stamp the command declines. A refusal is the
+answer the dispatch asked for, so it fails the job and the `guard` job names
+the step. The full
 design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
@@ -960,8 +1006,10 @@ comment) — losing a would-be fact costs at most a duplicate trigger, never a
 grading.
 
 Re-queueing costs nothing but latency: the scoring surfaces count one grading per
-(case, event, predictor, evaluator) — newest by harness clock — so a re-grade
-supersedes rather than double-counts, and the `evaluate-matrix` plan gate drops a
+(case, event, predictor, evaluator) — newest by harness clock — so a re-queued
+grading supersedes rather than double-counts (a fresh `evaluation.json` the
+collapse counts, not the in-place recompute `regrade_stale` dispatches), and the
+`evaluate-matrix` plan gate drops a
 cell whose judge has already graded the event (per evaluator) so a re-derivation
 spends model tokens only on the *missing* judges. The gate works at (evaluator,
 event) grain, which carries one accepted limitation: a prediction committed
