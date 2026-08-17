@@ -2425,9 +2425,15 @@ def test_regrade_writes_what_an_ordinary_stamp_would_but_the_version(
     assert regraded["brier_score"] == pytest.approx(0.64)
     assert regraded["claim_scores"] is not None
     # The version each record carries is the one thing the two must not share:
-    # the re-graded cell keeps its own producing run's stamp.
-    assert regraded.pop("process_version")["stamped_at"].startswith("2025-06-01")
-    assert stamped.pop("process_version")["stamped_at"].startswith("2026-01-01")
-    assert regraded.pop("case_id") == "scotus/25"
-    assert stamped.pop("case_id") == "scotus/26"
+    # the re-graded cell keeps its own producing run's stamp. The pops feed the
+    # whole-record comparison below, so they stay out of the asserts
+    # `python -O` strips.
+    regraded_version = regraded.pop("process_version")
+    stamped_version = stamped.pop("process_version")
+    regraded_case = regraded.pop("case_id")
+    stamped_case = stamped.pop("case_id")
+    assert regraded_version["stamped_at"].startswith("2025-06-01")
+    assert stamped_version["stamped_at"].startswith("2026-01-01")
+    assert regraded_case == "scotus/25"
+    assert stamped_case == "scotus/26"
     assert regraded == stamped
