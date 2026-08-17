@@ -181,7 +181,9 @@ than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
 any SCOTUS petition carrying both a CourtListener-keyed row and a live-minted
 reserved-range row — the pair shape a docket-number spelling leaves when it
-defeats the channels' identity join; the **predict-scope reconcile**
+defeats the channels' identity join — moving a minted event's committed
+`event.yaml` with its re-keyed row, staged in the one pointer commit; the
+**predict-scope reconcile**
 (`fedcourts reconcile-scope`), which latches out-of-scope cases (the
 shared exclusion rules — era, staleness, docket form, date consistency, and the
 snapshot-aware bare opinion-import profile) in the corpus so they leave the
