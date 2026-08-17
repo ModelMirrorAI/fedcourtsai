@@ -2014,8 +2014,10 @@ def test_the_approval_report_carries_the_counts_the_table_and_the_spend_caveats(
     assert "| `evt-petition-cert` | `codex` |" in report
     assert "… and" not in report
     # The drop class that actually took cells, as a count and no more — the
-    # per-record reasons stay in the JSON the comment points at.
-    assert "- 2 dropped as already predicted by that predictor" in report
+    # per-record reasons stay in the JSON the comment points at. The label opens
+    # with its own grain: the classes do not share one, and under a section a
+    # reader arrives at counting cells an ungrained count is read as cells.
+    assert "- 2 cell(s) dropped as already predicted by that predictor" in report
     assert "Each drop's per-record reason is in the plan JSON." in report
     # The line the workflow parameterizes, and the only GitHub specific here.
     assert "Approve or reject the `predict-approval` deployment on the run: https://run/9" in report
@@ -2049,7 +2051,12 @@ def test_the_approval_report_truncates_the_cell_table_at_its_row_cap(tmp_path: P
 
     rows = [line for line in report.splitlines() if line.startswith("| `")]
     assert len(rows) == cli._APPROVAL_REPORT_MAX_ROWS == 40
-    assert "… and 160 more cells; the plan JSON carries every one of them." in report
+    assert "… and 160 more cells. Rows are ordered by case, then actor" in report
+    # The kept rows are a contiguous range of the lowest case ids, which is what
+    # makes a truncated table readable: the reader knows the rest lie past them,
+    # rather than seeing every case's first engine with the others cut.
+    dockets = [int(row.split("`")[3].split("/")[1]) for row in rows]
+    assert dockets == sorted(dockets) == list(range(30000, 30040))
     # The header count is the whole fan-out, not the rows that fit: a reader who
     # took 40 for the run size would approve four times the cells they read.
     assert "predict-plan: 200 cell(s) held for approval" in report
@@ -2072,6 +2079,45 @@ def test_the_approval_report_stays_under_the_comment_ceiling_on_a_wide_plan(
     # Bounded by construction, not by the clamp: a document that only just fits
     # because it was cut is one section away from losing something load-bearing.
     assert cli._APPROVAL_REPORT_TRUNCATED not in report
+
+
+def test_the_approval_report_clamp_cuts_a_document_that_overflows_anyway(
+    tmp_path: Path,
+) -> None:
+    # The backstop behind the construction bound, exercised through the one
+    # unbounded string a plan carries into the report — the run id. Whatever
+    # widens past the sections' own caps, the document still fits a comment, and
+    # says it was cut rather than ending mid-sentence.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _, stdout = _report(tmp_path, ["predict-plan", "--body-file", str(body)], env)
+    plan = _plan(stdout)
+    plan["run_id"] = "X" * 70_000
+
+    report = cli._render_approval_report(plan, stage="predict-plan")
+
+    assert len(report) == cli._APPROVAL_REPORT_MAX_CHARS < _COMMENT_LIMIT
+    assert report.endswith(cli._APPROVAL_REPORT_TRUNCATED)
+
+
+def test_every_drop_class_a_plan_emits_is_named_in_the_report(tmp_path: Path) -> None:
+    # The drift guard. A new drop class added to a plan but not to the report's
+    # table renders as a silently missing line — the counts block would still
+    # reconcile, so nothing else fails, and the approval comment would quietly
+    # stop naming a class that took cells.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    named = {key for key, _ in cli._APPROVAL_DROP_CLASSES}
+
+    for command in ("predict-plan", "evaluate-plan"):
+        plan = _plan(runner.invoke(app, [command, "--body-file", str(body)], env=env).stdout)
+        emitted = {k for k in plan if k.startswith(("dropped_", "withheld_"))}
+        assert emitted, f"{command} emitted no drop lists at all"
+        assert emitted <= named, (
+            f"{command} drop classes missing from the report: {emitted - named}"
+        )
 
 
 def test_the_approval_report_carries_a_spend_breach_verbatim(tmp_path: Path) -> None:
@@ -2101,6 +2147,12 @@ def test_the_approval_report_carries_a_spend_breach_verbatim(tmp_path: Path) -> 
     # And the closing spend sentence carries it too, so the last line a reader
     # keeps does not read as a forecast of what approving would cost.
     assert "so a real run mints 0." in report
+    # The heading is the one line a skimmer is guaranteed to read, so it cannot
+    # promise 6 cells a real run would not mint.
+    assert (
+        "## predict-plan: 6 cell(s) held for approval — but a real run mints 0 under the "
+        "spend backstop" in report
+    )
     assert len(_plan(stdout)["would_mint"]) == 6
 
 
@@ -2121,8 +2173,19 @@ def test_the_approval_report_names_a_stranded_guard_that_failed_open(tmp_path: P
     )
 
     assert "### Stranded-run guard" in report
-    assert "The stranded-run guard failed open (" in report
     assert "may re-spend output an uncollected run already produced" in report
+    # The reason quotes the underlying exception, and this census's exception
+    # carries `<class 'dict'>`. Unspanned, GitHub's comment sanitizer eats that
+    # as a tag and the maintainer reads "got ." where the cause should be — so
+    # the whole reason is pinned inside a code span, not merely present.
+    plan = _plan(
+        runner.invoke(
+            app, ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)], env=env
+        ).stdout
+    )
+    reason = plan["stranded_guard"]["degraded_reason"]
+    assert "<class 'dict'>" in reason
+    assert f"The stranded-run guard failed open (`{reason}`)," in report
 
 
 def test_the_approval_report_stays_silent_about_a_guard_that_ran_clean(tmp_path: Path) -> None:

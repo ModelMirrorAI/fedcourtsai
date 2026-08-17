@@ -8046,44 +8046,70 @@ _APPROVAL_REPORT_TRUNCATED = (
     "\n\n_Report truncated at the comment-size ceiling; the plan JSON carries the full fan-out._"
 )
 
-#: Drop classes as (plan key, what the class did), in pipeline order. A key a
-#: seam does not have is skipped — the two gate on different things — as is an
-#: empty one: the counts block above already reconciles, so this section exists
-#: to name the classes that actually took cells.
+#: Drop classes as (plan key, the count's grain and what the class did), in
+#: pipeline order. A key a seam does not have is skipped — the two gate on
+#: different things — as is an empty one: the counts block above already
+#: reconciles, so this section exists to name the classes that actually took
+#: something. Each label opens with its own grain because the classes do not
+#: share one: the scope gate drops whole *cases*, the forecastability re-check
+#: drops *events*, and only the ledger-grain classes drop *cells*. Under a
+#: section a reader arrives at counting cells, an ungrained "3 dropped as out of
+#: scope" is read as three cells when it means three cases' worth of them.
 _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
-    ("dropped_out_of_scope", "dropped as out of scope"),
-    ("dropped_unforecastable", "dropped as no longer forecastable"),
-    ("cases_with_no_default_events", "resolved to no default events"),
-    ("dropped_by_request_narrowing", "narrowed away by the request's event list"),
-    ("dropped_already_predicted", "dropped as already predicted by that predictor"),
-    ("dropped_predictionless", "dropped as having no committed prediction to score"),
-    ("dropped_already_evaluated", "dropped as already graded by that judge"),
-    ("withheld_stranded", "withheld by the stranded-run guard"),
+    ("dropped_out_of_scope", "case(s) dropped as out of scope"),
+    ("dropped_unforecastable", "event(s) dropped as no longer forecastable"),
+    ("cases_with_no_default_events", "case(s) resolved to no default events"),
+    ("dropped_by_request_narrowing", "cell(s) narrowed away by the request's event list"),
+    ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
+    ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
+    ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    ("withheld_stranded", "cell(s) withheld by the stranded-run guard"),
 )
 
 
+def _md_cell(value: object) -> str:
+    """One table cell: the value as a code span, with any pipe escaped.
+
+    A `|` inside a value splits the row into an extra column even within a code
+    span — GFM resolves the table's cell boundaries before it resolves inline
+    code — so escaping is what keeps a stray pipe in an id from silently
+    shifting every column to its right.
+    """
+    return "`" + str(value).replace("|", r"\|") + "`"
+
+
 def _approval_report_table(plan: dict[str, Any]) -> list[str]:
-    """The would-mint cells as a markdown table, truncated with the count it cut."""
+    """The would-mint cells as a markdown table, ordered by case, truncated with its count.
+
+    Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
+    truncated table keeps are a **contiguous range of cases**: a reader can see
+    which cases the visible rows cover and know the rest lie past them, where
+    the registry-major fan-out order would instead show every case's first
+    engine and cut the others.
+    """
     cells = plan["would_mint"]
     if not cells:
         return ["No cells would be minted, so approving this run would spend nothing."]
     evaluate = plan["stage"] == "evaluate"
     actor_key = "evaluator_id" if evaluate else "predictor_id"
+    ordered = sorted(cells, key=lambda c: (c["court"], c["docket"], c[actor_key], c["event_id"]))
     rows = [
         f"| {'Evaluator' if evaluate else 'Predictor'} | Case | Event | Engine |",
         "| --- | --- | --- | --- |",
     ]
     rows.extend(
-        f"| `{cell[actor_key]}` | `{ids.case_id(cell['court'], cell['docket'])}` "
-        f"| `{cell['event_id']}` | `{cell['engine']}` |"
-        for cell in cells[:_APPROVAL_REPORT_MAX_ROWS]
+        f"| {_md_cell(cell[actor_key])} "
+        f"| {_md_cell(ids.case_id(cell['court'], cell['docket']))} "
+        f"| {_md_cell(cell['event_id'])} | {_md_cell(cell['engine'])} |"
+        for cell in ordered[:_APPROVAL_REPORT_MAX_ROWS]
     )
     if len(cells) > _APPROVAL_REPORT_MAX_ROWS:
         rows.extend(
             [
                 "",
-                f"… and {len(cells) - _APPROVAL_REPORT_MAX_ROWS} more cells; the plan JSON "
-                f"carries every one of them.",
+                f"… and {len(cells) - _APPROVAL_REPORT_MAX_ROWS} more cells. Rows are ordered "
+                f"by case, then actor, so the ones above are the lowest case ids; the plan "
+                f"JSON carries every one of them.",
             ]
         )
     return rows
@@ -8106,8 +8132,16 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
     of it, so the report cannot drift from the plan it renders.
     """
     ledger = plan["counts"]["cell_ledger"]
+    # The heading is the one line a reader is guaranteed to see, so under a
+    # breach it carries the consequence rather than a cell count that approving
+    # would not deliver: the backstop empties the matrix whatever the plan lists.
+    breach_heading = (
+        " — but a real run mints 0 under the spend backstop"
+        if plan["spend_gate"]["breached"]
+        else ""
+    )
     lines = [
-        f"## {stage}: {ledger['would_mint_cells']} cell(s) held for approval",
+        f"## {stage}: {ledger['would_mint_cells']} cell(s) held for approval{breach_heading}",
         "",
         f"Run `{plan['run_id']}` is held before minting anything. Nothing has been spent and "
         f"nothing has been written; this is what a run would do if approved.",
@@ -8124,9 +8158,13 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
     if guard is not None and (guard["degraded_reason"] or guard["unparsed_records"]):
         # A withheld count of zero is three states and only one of them is a
         # reason to distrust the plan, so the two degraded ones are named where
-        # the decision is made rather than left for the JSON.
+        # the decision is made rather than left for the JSON. The reason goes in
+        # a code span: it quotes the underlying exception, whose text routinely
+        # carries a repr like `<class 'dict'>` that GitHub's comment sanitizer
+        # eats as a tag — leaving a reader "got ." where the cause should be —
+        # and the span neutralizes any other markdown the exception carries.
         detail = (
-            f"failed open ({guard['degraded_reason']})"
+            f"failed open (`{guard['degraded_reason']}`)"
             if guard["degraded_reason"]
             else f"ran but could not read {len(guard['unparsed_records'])} census record(s)"
         )
@@ -8147,7 +8185,7 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
     deferred = ledger.get("deferred_by_cap_cells", 0)
     if deferred:
         dropped.append(
-            f"- {deferred} deferred by the volume cap "
+            f"- {deferred} cell(s) deferred by the volume cap "
             f"(max {plan['deferred_by_cap']['max_cells']} cells a run); they re-queue next cycle"
         )
     lines.extend(["", "### Dropped", ""])
@@ -8204,6 +8242,14 @@ def _echo_plan(
     and changes neither of the first two — with the flag or without it stdout
     carries the same bytes, so a gate that parses the plan cannot tell whether a
     report was written beside it.
+
+    That write is deliberately **fail-loud**, and deliberately *before* the
+    stdout echo, which is the opposite of the stranded-run close note's
+    fail-open: an unwritable note costs the trigger issue a better message and
+    nothing else, while an unwritable approval report costs the hold its entire
+    decision surface. A gate that read the plan from stdout, found no report,
+    and posted an empty comment would ask a maintainer to approve a fan-out
+    they cannot see. Raising here stops the run instead.
     """
     for line in _plan_count_lines(plan, stage=stage):
         typer.echo(line, err=True)

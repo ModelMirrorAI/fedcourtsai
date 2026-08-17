@@ -626,7 +626,8 @@ pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.
 `fedcourts predict-plan` / `evaluate-plan` are the read-only rehearsal of this
 same builder — every step below, reported as a JSON document with its per-step
-drop counts and nothing minted or written ([cli.md](cli.md)). Each
+drop counts and nothing minted; with `--approval-report` it writes only that one
+report file, the bounded markdown a hold gate posts ([cli.md](cli.md)). Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
 whole fan-out, however many cases it spans. After scope filtering the builder
