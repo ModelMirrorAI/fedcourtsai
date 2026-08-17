@@ -1,0 +1,7 @@
+P(disturbed) = 0.85.
+
+I anchor on the baseline rate of the merits section of the statpack. The pooled sample over the past 10 Terms strictly before the 2025 Term (2015 to 2024, of which 2017 to 2024 are present in the table) yields a disturbed rate of roughly 69.7% (359 / 515 parsed judgments). 
+
+I adjust this base rate significantly upward to 85% based on the substantive context of the case. The case challenges an AR-15 / semiautomatic rifle ban (an "assault weapons" ban) under the Second Amendment, appealing a likely CA7 decision upholding the ban. Given the Court's recent Second Amendment jurisprudence established in *Bruen* and *Heller*, and the current 6-3 conservative majority, the Court is highly likely to reverse the lower court's judgment. The Court granted cert specifically on the question of whether the Second and Fourteenth Amendments guarantee the right to possess AR-15 platform and similar rifles. Because AR-15s are the most widely owned rifle in the United States, they squarely fit the "in common use" test, making a historical justification for a categorical ban extremely difficult for the government to satisfy.
+
+The MCP CourtListener server was returning rate limit errors, so I was unable to pull the CA7 opinion directly or conduct additional case research via CourtListener, but the grant itself combined with the specific QP strongly indicates a reversal of the lower court's decision. I've predicted a clear 6-3 split consistent with the ideological breakdown of the Court on major Second Amendment issues.

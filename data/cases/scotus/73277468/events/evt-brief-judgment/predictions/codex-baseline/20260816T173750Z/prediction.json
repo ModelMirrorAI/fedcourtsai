@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The case will govern a recurring nationwide pleading issue, but its technical civil-procedure focus limits general newsworthiness.",
+  "big_case_score": 0.46,
+  "case_id": "scotus/73277468",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.39
+    }
+  ],
+  "confidence": 0.61,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:26:36Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73277468/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.39,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:28:13.720108Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Rule 8(c)'s command to plead an affirmative defense does not itself prescribe automatic permanent forfeiture, and that Rule 61 and the Rules' express waiver provisions permit a district court to consider an inadvertently unpleaded defense at summary judgment when the delay did not affect the plaintiff's substantial rights."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will limit its rule to an inadvertent omission on a fully developed record where the plaintiff could not have litigated materially differently, while reserving cases involving deliberate sandbagging, disputed facts, or a need for additional discovery."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

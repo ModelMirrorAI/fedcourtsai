@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73274853",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_call_endpoint"],
+  "helpful": ["base rates from metrics/statpack.md"],
+  "gaps": ["Fallback access to the CVSG brief text when MCP is rate limited."],
+  "notes": "MCP call to get dockets hit a rate limit (HTTP 429), so I fell back to the provided inputs and base rates."
+}

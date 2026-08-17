@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275187",
+  "gaps": [
+    "A citation-filter corpus query that matches nothing still costs ~348 MB of ranged reads (1329 GETs); a cheap existence probe or a coverage warning before the transfer would save most of that.",
+    "No way to see why a petition was held between conferences (here Dec 2025 to Jun 2026) or what a supplemental brief said; the snapshot records the entries but no linked text for supplemental filings."
+  ],
+  "helpful": [
+    "Provisioned petition/BIO/QP full text with clean extraction - the whole cert-stage record was readable without any fetch.",
+    "Statpack merits section with the excluded-count pool guard: the scored baseline was computable directly from the committed table."
+  ],
+  "notes": "Merits cell at moment=grant: forecast from the docket skeleton, cert-stage documents, and post-grant press; no merits briefs exist yet. Corpus query returned zero rows (sparse citation coverage), so the statpack anchor did all the base-rate work.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

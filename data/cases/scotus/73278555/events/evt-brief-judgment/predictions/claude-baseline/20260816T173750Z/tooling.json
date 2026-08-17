@@ -1,0 +1,26 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73278555",
+  "gaps": [
+    "Petitioners' merits brief text is not provisioned for a briefed-moment cell even though respondents' is (bundled into brief-in-opposition); a dedicated merits-brief document kind for both sides would put the moment's defining evidence on disk.",
+    "supremecourt.gov and justice.gov return HTTP 403 to WebFetch, so the SG's merits amicus — the single most probative filing here — could only be characterized through secondary coverage.",
+    "fedcourts query has no free-text filter, and the citation filter's 161-of-590k coverage made the one known-case lookup I tried come back empty; a doctrine- or statute-keyed filter would have surfaced the ERISA pleading line directly."
+  ],
+  "helpful": [
+    "The statpack merits section's per-Term disturbed table with the excluded-count guard — the pooled strictly-prior anchor was one arithmetic step.",
+    "The bundled respondents' merits brief text (98 pages) — the briefed moment's key new evidence, on disk without any retrieval.",
+    "context.json's frozen band/term stamps made the no-cert-anchor rule unambiguous to apply."
+  ],
+  "notes": "Forward-mode web search resolved the decisive SG-position question in three calls; total retrieval stayed well under the 25-call budget.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A major Second Amendment challenge to assault weapons bans affecting millions of firearms, clarifying the Bruen standard.",
+  "big_case_score": 0.95,
+  "case_id": "scotus/73279009",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.9
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 17,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:37:50Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.9,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:51:57.962340Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Second Amendment covers semiautomatic rifles like the AR-15 as 'arms', and under Bruen there is no historical tradition of banning such weapons that are in common use for lawful purposes."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court establishes a broad categorical rule that firearms in common use for lawful purposes cannot be banned, firmly extending the Heller and Bruen protections to modern semiautomatic rifles."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "none"
+    }
+  ]
+}

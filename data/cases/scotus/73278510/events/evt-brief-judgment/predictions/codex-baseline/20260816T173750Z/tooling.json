@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278510",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "provisioned snapshot and documents",
+    "committed merits statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The provisioned respondent merits brief exposed the case-specific whole-statute argument.",
+    "The merits statpack supplied the exact scored baseline and coverage context."
+  ],
+  "gaps": [
+    "The petitioner's merits brief was docketed but not provisioned.",
+    "CourtListener MCP searches were unavailable because the daily rate limit was exhausted."
+  ],
+  "notes": "The provisioned brief-in-opposition file combined the cert-stage opposition with the respondent's merits response and was marked truncated. The available text still covered the respondent's central merits argument."
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73279024",
+  "gaps": [
+    "Petitioners' merits brief (and merits amici) are not provisioned on an evt-brief-judgment cell even though the moment is defined by merits briefing; with the shared CourtListener quota exhausted there was no sanctioned way to read them.",
+    "No merits-oriented prior retrieval: fedcourts query keys on cert-era fields; the citation filter is too sparse (161 of 590k scotus rows) to find doctrinal neighbors like Seven County."
+  ],
+  "helpful": [
+    "The provisioned petition text includes the full Ninth Circuit opinion appendix (Berzon majority, VanDyke dissent) \u2014 decisive context a briefed merits cell would otherwise have to retrieve.",
+    "The provisioned respondent file concatenates the BIO and the merits brief, so both sides' merits-stage arguments were readable despite the CourtListener outage.",
+    "The statpack merits section's per-Term disturbed table with the excluded-count guard made the scored baseline computable in one read."
+  ],
+  "notes": "MCP quota exhaustion on the first call suggests per-day quota is consumed by earlier cells in the same fan-out; a per-cell budget or retry-after-aware scheduling would help.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "tools_used": [
+    "metrics/statpack.md (merits-docket table)",
+    "fedcourts query (citation filter; returned no rows)",
+    "courtlistener MCP search (attempted once; rate-limited 429)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

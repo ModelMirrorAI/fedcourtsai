@@ -1,0 +1,7 @@
+P(disturbed) = 0.75. The baseline disturbed rate for merits cases over the prior 10 Terms (OT2015-OT2024) is approximately 69.7% (359 disturbed out of 515 parsed judgments). I adjust this probability slightly upward because the Supreme Court frequently grants certiorari in ERISA cases to reject rigid, categorical rules created by the courts of appeals, as it did in *Hughes* and *Fifth Third*. The Ninth Circuit explicitly adopted a categorical "meaningful benchmark" pleading requirement.
+
+However, the Solicitor General filed an amicus brief supporting the respondents (Intel), arguing that while a categorical rule is inappropriate, a benchmark is still required when underperformance is the sole basis for the claim. When the SG supports the respondent, the probability of an outright reversal decreases. But because the Ninth Circuit's legal formulation was categorical, the most likely outcome is that the Supreme Court vacates the decision to correct the legal standard, even if the plaintiffs ultimately lose on remand. A vacatur counts as 'disturbed,' so the P(disturbed) remains high.
+
+Retrieval notes: I searched Google for the merits briefs ("Anderson v. Intel 25-498 merits briefs") to ascertain the SG's position, as CourtListener MCP search was rate-limited. The search confirmed the SG's support for respondents and the core arguments of the parties.
+
+I did not have access to the full merits briefs text beyond the search summaries, so the reasoning relies on those summaries.

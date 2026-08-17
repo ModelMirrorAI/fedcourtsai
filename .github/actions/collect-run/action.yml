@@ -372,13 +372,17 @@ runs:
           # flag roll-up, which is agent free text. The tested, redacted
           # report (file/rule/line, never the matched text) rides to the
           # trigger issue via the next steps, and the flagged files stay
-          # reviewable in the run's cell artifacts.
+          # reviewable in the run's cell artifacts. The run id keys the
+          # entropy heuristic's one exemption — the collected run's own
+          # ledger directory in the run's own scanned text — equality-pinned, so no
+          # other run's (or an invented) path is exempt.
           jq -r '.body' <<<"$pr" > pr-body.md
           if ! uv run fedcourts scan-diff-for-secrets --name-status-file changes.txt \
               --known-secret-env COURTLISTENER_API_TOKEN \
               --extra-file pr-body.md \
               --issue-comment-file secret-scan-issue.md \
-              --run-url "$run_url"; then
+              --run-url "$run_url" \
+              --run-id "$run_id"; then
             echo "::warning::secret scan did not pass; withholding ${branch}"
             # Hard-reset so a modified tracked file from the withheld union
             # cannot ride into the next iteration's branch; then drop the
@@ -456,7 +460,8 @@ runs:
               --known-secret-env COURTLISTENER_API_TOKEN \
               --extra-file run-flags.md \
               --issue-comment-file secret-scan-issue.md \
-              --run-url "$run_url"; then
+              --run-url "$run_url" \
+              --run-id "$run_id"; then
             echo "::warning::secret scan hit in the flag roll-up; suppressing it"
             flags_md=""
           fi

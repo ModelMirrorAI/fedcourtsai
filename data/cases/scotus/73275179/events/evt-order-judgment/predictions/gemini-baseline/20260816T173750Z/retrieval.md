@@ -1,0 +1,3 @@
+- Attempted `search` via CourtListener MCP server for recent SCOTUS opinions on the Second Amendment and assault weapons, but received a Rate Limit Exceeded (HTTP 429) error.
+- Consulted the provisioned snapshot and document JSON files to identify the case posture and the QP.
+- Used `cat metrics/statpack.md` to review the base rate for merits-stage cases, calculating the pooled disturbed rate over the available prior Terms (2017-2024).

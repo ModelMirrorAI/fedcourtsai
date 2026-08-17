@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73274853",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "MCP CourtListener API rate limit (HTTP 429) was hit during the prediction, blocking access to the CVSG brief. Forecast proceeds using provisioned documents and base rates.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

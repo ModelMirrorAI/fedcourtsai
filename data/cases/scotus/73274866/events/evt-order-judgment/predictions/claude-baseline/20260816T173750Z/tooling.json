@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274866",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "statpack (metrics/statpack.md, merits section)",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "helpful": [
+    "The statpack merits section's per-Term disturbed table made the pooled strictly-prior baseline a two-minute computation.",
+    "Provisioned petition/BIO/QP text meant no document retrieval was needed for the cert-stage record."
+  ],
+  "gaps": [
+    "supremecourt.gov DocketPDF URLs (and DOJ/SCOTUSblog PDF mirrors) return 403 to WebFetch, so the SG's CVSG brief and the filed merits briefs were unreadable; a merits cell would benefit from the pipeline provisioning the CVSG brief and merits-brief text the way it provisions the petition and BIO.",
+    "fedcourts query --citation is nearly unusable on SCOTUS rows (161 of 590k carry citation data) and the single query cost 1329 GETs / ~348 MB for zero rows — an early coverage check before the scan would save the egress."
+  ],
+  "notes": "Forward merits cell at moment=grant; the decisive retrieved signal (SG's CVSG position) came from secondary coverage rather than the brief itself."
+}

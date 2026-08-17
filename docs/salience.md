@@ -1200,6 +1200,35 @@ prediction's, so they slot into the existing forward/replay frame with no new
 machinery: a forward cell computes them live, a replay cell self-selects its
 statpack Term rows behind the `DECIDED_BEFORE` clock.
 
+"Live" is per **moment**, not per wall clock. A stage's moments are declared
+because their information sets differ, so `provision-snapshot` places a forward
+cell whose `--event` names a declared moment at that moment's cutoff — the day
+after the event opened — and derives the frozen conditioning from the cut
+payload like any other. The band therefore states the trajectory as at the
+moment being forecast, not as at the day the cell happened to run, and a merits
+cell run months into briefing is banded on what its grant-moment docket showed.
+
+The cert petition **baseline** is the one moment not placed this way, and the
+exception is that one moment rather than the cert stage: its opening date is
+docketing rather than the distribution its moment declares, so cutting there
+would delete the relist history the band is made of, and it reads the latest
+snapshot. The stage's `cvsg` and `arrival` moments are placed like any other —
+an arrival cell is banded on a docket with no distribution yet recorded, which
+is what `arrival` declares — as is the interim application baseline, whose
+declared moment *is* arrival. `context.cutoff` separates the two conditionings:
+non-null where a moment placed the cell, null where nothing did.
+
+For those two cert moments the placement moves the **base rate**, not just the
+description. The cut removes the relists filed after the trigger, so the frozen
+count and therefore the band are the ones the petition had at the moment — and
+since the band is the key the risk-set rate is chosen on, a placed cell is
+scored against a different anchor than the same petition banded at its terminal
+posture. That is the intended reading (the rate a petition at *that* band
+actually faces), and it is why a band must never be pooled across the cutoff
+boundary. The merits moments differ: distributions are a cert-stage signal that
+stops at the grant, so a merits cell's band is near enough invariant under
+placement and what the cut removes there is the merits calendar.
+
 ## Where it plugs in (seams)
 
 - **`scope.json`** records each entry's `salience_score`, `salience_version`, and

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277468",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot",
+    "provisioned documents (questions-presented, petition, brief-in-opposition + bundled respondent merits brief)"
+  ],
+  "helpful": [
+    "The statpack merits section's per-Term disturbed/parsed table made the strictly-prior pooling arithmetic trivial, and its excluded column made quotability checkable in place.",
+    "The provisioned brief-in-opposition file bundling the respondent's merits brief was the single most valuable input for a grant-moment merits cell — real merits advocacy, not just the docket skeleton."
+  ],
+  "gaps": [
+    "The petitioner's merits brief (filed 2026-06-08) was on the docket but not provisioned, so the merits advocacy I saw was one-sided toward the respondent; a merits-stage cell would benefit from the document pipeline fetching both merits briefs once filed.",
+    "A citation-filtered fedcourts query cost ~348 MB of ranged reads to return zero rows; a cheap existence check on the sparse citation column before the scan would save that egress.",
+    "Amicus briefs are docket entries only — even a party-alignment line (supporting petitioner/respondent/neither) in the snapshot would help read the merits posture."
+  ],
+  "notes": "Forward merits cell at the grant moment; anchored on the statpack merits pool (69.7%) and adjusted to 0.72. The documents.json 'brief-in-opposition' entry is really a two-document bundle (BIO + respondent merits brief) — helpful, but the kind label under-describes it; flagged as info-level data-quality."
+}

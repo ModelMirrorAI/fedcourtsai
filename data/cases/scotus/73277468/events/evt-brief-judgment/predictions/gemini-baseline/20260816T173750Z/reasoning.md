@@ -1,0 +1,11 @@
+P(disturbed) = 0.75.
+
+This is a forward merits prediction for *Younge v. Fulton Judicial Circuit District Attorney's Office* (Docket 25-352). The Court granted certiorari to resolve a circuit split on whether a defendant can raise an affirmative defense for the first time at the summary judgment stage without amending their answer under Federal Rule of Civil Procedure 8(c) and 16(b)(4). The Eleventh Circuit followed the majority rule among circuits, which applies a liberal "no prejudice" standard, allowing unpleaded affirmative defenses at summary judgment so long as the plaintiff is not unfairly surprised.
+
+I anchor my prediction on the `statpack.md` baseline for the merits docket: over the 10 terms prior to OT2025, the base rate of disturbed judgments (reversed, vacated, or affirmed-in-part) is ~69.8% across 539 parsed judgments. 
+
+I adjust this base rate upwards slightly to 0.75 because the question presented involves a strict textual interpretation of the Federal Rules of Civil Procedure. Given the current composition of the Supreme Court, there is a strong tendency toward textualism—reading Rule 8(c) (“must affirmatively state”) and Rule 16(b)(4) (requiring “good cause” to modify a scheduling order) according to their plain text, rather than relying on equitable, "spirit-of-the-rules" exceptions favored by the majority of lower circuits. I expect the Court to reverse the Eleventh Circuit's decision, prioritizing procedural regularity and textual fidelity over the more lenient approach currently dominant in the courts of appeals.
+
+During my evaluation, my CourtListener MCP server hit a rate limit (HTTP 429), preventing direct retrieval of the docket metadata and underlying merits briefs. I relied instead on web searches to ascertain the circuit split context, the 11th Circuit's holding below, and the nature of the questions presented. The provisioned QP file also clarified the scope of the issue.
+
+Given the conservative/textualist makeup of the Court, I estimate a 6-3 split reversing the Eleventh Circuit, with the liberal justices dissenting to favor the more practical, prejudice-based standard currently used by the majority of circuits.

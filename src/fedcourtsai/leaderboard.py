@@ -663,8 +663,13 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     relation between its fields, so the derivation is **checked against the
     record**: a cell whose recorded skill does not reproduce from its own
     recorded base rate and Brier is omitted — visibly, in ``skill_scored`` —
-    rather than published on a baseline it was never graded against. Harness
-    output always agrees; a stale or hand-written record need not.
+    rather than published on a baseline it was never graded against. The
+    harness does not always *agree* — it declines to emit a disagreeing record:
+    on the stages it pools itself the three come off one set of committed
+    inputs, and on the stages where the trio stays the evaluator's,
+    ``stamp-cell --regrade`` refuses a cell whose recorded Brier no longer
+    reproduces against a corrected outcome rather than moving ``correct`` out
+    from under it. A stale or hand-written record still need not agree.
 
     That check is the only one, and it is enough because the numbers are the
     evaluator's word only where a judgment had to be made: on merits and interim

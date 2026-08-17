@@ -1,0 +1,312 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "240b20958e7bfea7",
+      "query": "{\"strategic_intent\": \"Understanding the prediction task requirements by reading the prompt and agent documentation.\", \"title\": \"Reading Instructions\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:22.425Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:24.979Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:24.979Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ac932dbe7659e7e8",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73274859\" --event \"evt-order-judgment\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:30.534Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3c207e4a71bd8eea",
+      "query": "ls -la data/cases/scotus/73274859/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:32.867Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e84993521d3fefe",
+      "query": "ls -la data/cases/scotus/73274859/events/evt-order-judgment/ data/cases/scotus/73274859/record/ data/cases/scotus/73274859/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:35.150Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fe7447d61b123f1",
+      "query": "{\"file_path\": \"data/cases/scotus/73274859/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:37.167Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9d6b327465060c8c",
+      "query": "{\"file_path\": \"data/cases/scotus/73274859/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:37.168Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7d7d5877a0a81609",
+      "query": "ls -la data/cases/scotus/73274859/record/snapshots/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:39.762Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "960a5b2ea7b7c3fb",
+      "query": "{\"file_path\": \"data/cases/scotus/73274859/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:41.662Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:45.175Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9d5b3335f9fd3daf",
+      "query": "grep -C 5 \"County Commissioners of Boulder County\" data/cases/scotus/73274859/record/snapshots/2026-08-16.json | head -n 20",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:54.736Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "630eeef86a04f044",
+      "query": "head -n 50 data/cases/scotus/73274859/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:56.928Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6a0793ed4762b4ff",
+      "query": "grep -C 5 \"Petition GRANTED\" data/cases/scotus/73274859/record/snapshots/2026-08-16.json || grep -C 5 \"granted\" data/cases/scotus/73274859/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:01.318Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4b77bca611009c42",
+      "query": "uv run fedcourts query --court scotus --era 2020s \"jurisdiction to hear this case\" --full > /tmp/query1.txt 2> /tmp/query1.err; cat /tmp/query1.err; head -n 50 /tmp/query1.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:11.271Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:14.247Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fdc0a5dd1e19479d",
+      "query": "\"Suncor Energy\" \"County Commissioners of Boulder County\" Supreme Court granted jurisdiction",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:27.984Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "ad5877c04f6c9937",
+      "query": "uv run fedcourts query --court scotus --era 2020s \"jurisdiction to hear this case\" --limit 5",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:39.952Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4dc8db4d40168dc1",
+      "query": "\"Whether this Court has statutory and Article III jurisdiction\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:42.376Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:54.627Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cba2e5b669eabc5d",
+      "query": "mkdir -p data/cases/scotus/73274859/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:59.257Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "385a8b5fce09c42e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274859\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T18:44:54Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.78,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"reversed\\\",\\n  \\\"votes\\\": [\\n    {\\\"justice\\\": \\\"Roberts\\\", \\\"vot",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:04.582Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:26.199Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "63298c44f00327ab",
+      "query": "{\"content\": \"P(disturbed) = 0.78.\\n\\nThis is a forward `moment: grant` prediction for the high-profile climate change lawsuit *Suncor Energy v. Boulder County*. Suncor is petitioning to reverse a Colorado Supreme Court decision that allowed the state-law public nuisance claims to proceed against them.\\n\\n**Baseline:** The statutory base rate for a disturbed judgment (reversed, vacated, or affirmed-in-part) is 69.7% over the 10 strictly-prior grant Terms (OT2015-OT2024).\\n\\n**Adjustments:**\\nI ad",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:32.877Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "452b01963ea5a378",
+      "query": "{\"content\": \"I predict the Court will resolve this case by reversing the judgment of the Colorado Supreme Court.\\n\\nThe Court will likely hold that it has statutory jurisdiction under 28 U.S.C. \\u00a7 1257 pursuant to the *Cox Broadcasting* finality exceptions, because a refusal to immediately review the federal preemption question would seriously erode the federal policy of maintaining a unified approach to global emissions. It will likewise find no Article III barriers.\\n\\nOn the merits, the c",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:38.135Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b30cbeb30d440535",
+      "query": "{\"content\": \"- Attempted `mcp_courtlistener_search` via the MCP server for \\\"Whether this Court has statutory and Article III jurisdiction\\\", but received an HTTP 429 Rate Limit Exceeded error.\\n- Consulted `metrics/statpack.md` for merits base rates.\\n- Executed `google_web_search` for '\\\"Suncor Energy\\\" \\\"County Commissioners of Boulder County\\\" Supreme Court granted jurisdiction' to establish context on the nature of the climate accountability litigation and the added Question Presented.\", \"f",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:41.079Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8af07bc4634076f5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274859\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"google_web_search\\\", \\\"mcp_courtlistener_search\\\", \\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"google_web_search\\\", \\\"metrics/statpack.md\\\"],\\n  \\\"gaps\\\": [\\\"Fallback options when CourtListener MCP is rate-limited\\\"],\\n  \\\"notes\\\": \\\"CourtListene",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:44.271Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "617f787373b8c3e9",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274859\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"message\\\": \\\"CourtListener MCP search tool failed with HTTP 429 Rate Limit Exceeded. Degraded to Google web search and provisioned documents.\\\",\\n      \\\"event_id\\\": \\\"evt-order-judgment\\\"\\n    }\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73274859/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:47.769Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:09.055Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7825a58fe9e4dff8",
+      "query": "{\"summary\": \"I have completed the merits-stage prediction for Suncor Energy v. Boulder County. I populated all prediction JSON fields, including the mandatory votes block and semantic claims. Additionally, I handled an MCP rate limit error by degrading to web search and recorded this limitation in `flags.json` and `tooling.json`. Finally, I verified that all output files conform to the pipeline schemas with `uv run fedcourts validate data`.\", \"title\": \"Prediction Completed\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:13.363Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "45da6c7457108650",
+      "query": "{\"strategic_intent\": \"Marking the prediction task as fully complete after writing and validating the required outputs.\", \"summary\": \"I have completed the merits-stage prediction for Suncor Energy v. Boulder County. I populated all prediction JSON fields, including the mandatory votes block and semantic claims. Additionally, I handled an MCP rate limit error by degrading to web search and recorded this limitation in `flags.json` and `tooling.json`. Finally, I verified that all output files confor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:16.574Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73274859",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

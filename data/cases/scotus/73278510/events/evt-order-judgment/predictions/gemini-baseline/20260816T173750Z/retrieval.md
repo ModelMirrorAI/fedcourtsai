@@ -1,0 +1,3 @@
+- `fedcourts` was not queried directly.
+- Web search for `"Salazar v. Paramount" Supreme Court VPPA` to understand the circuit split and lower court holding (the case is still pending as of the 2026-08-16 snapshot, set for argument in October 2026).
+- Read baseline metrics from `metrics/statpack.md`.

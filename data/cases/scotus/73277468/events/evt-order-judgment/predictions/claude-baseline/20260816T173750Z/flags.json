@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277468",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The provisioned record/documents/brief-in-opposition.txt bundles two distinct filings under one 'brief-in-opposition' entry: the Feb 13 2026 brief in opposition and the Aug 2026 respondent's brief on the merits (documents.json shows the entry with entry_date 'Aug 03 2026' and two PDF URLs joined by '|'). Legitimate forward-mode input and it materially helped this grant-moment merits cell, but the kind label under-describes the content, and the petitioner's merits brief (filed Jun 08 2026) was not provisioned, leaving the merits advocacy one-sided in the record.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

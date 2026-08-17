@@ -1,0 +1,294 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:13.103Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9070c9308412edb2",
+      "query": "ls -R /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489 2>/dev/null | head -100",
+      "result_capture": "captured",
+      "result_digest": "5eff087d7cadb77b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:13.903Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:23.539Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cb60f262f1382652",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "f09e349c54fac393",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:24.262Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a69b4f1c2fefa618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/context.json\"}",
+      "result_capture": "captured",
+      "result_digest": "4d04b235fdf26bd7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:24.328Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7e4d7956ed690f24",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "a943b8e6a7c11a11",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:32.910Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a4824587332fad68",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/documents.json\"}",
+      "result_capture": "captured",
+      "result_digest": "60169ca26c697fdd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:33.326Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "41c8c86899c1ae77",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/questions-presented.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "fa0dc8daacc3f023",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:43.802Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3d68cda5163b155b",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/brief-in-opposition.txt; grep -n \"merits docket\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head",
+      "result_capture": "captured",
+      "result_digest": "5c669e0309427469",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:12.069Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "52a37899e97b28a3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 80, \"offset\": 231}",
+      "result_capture": "captured",
+      "result_digest": "cdb7fe85db785fb1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:17.884Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "43f16fe2b064b6f8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/petition.txt\", \"limit\": 400}",
+      "result_capture": "captured",
+      "result_digest": "545fb35d4a9f1fee",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:18.036Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e945195a4872618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 30, \"offset\": 249}",
+      "result_capture": "captured",
+      "result_digest": "6d9594f5c7448858",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:33.478Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c2b1a39fab8f2a3a",
+      "query": "grep -n -i -E \"REASONS|split|question of law|jury|summary judgment|vehicle|CONCLUSION\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/brief-in-opposition.txt | head -40",
+      "result_capture": "captured",
+      "result_digest": "d73cefe0325763e4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:34.777Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "896338b97890f3aa",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/record/documents/brief-in-opposition.txt\", \"limit\": 75, \"offset\": 296}",
+      "result_capture": "captured",
+      "result_digest": "ec3e782c0ffaa193",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:50.977Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_capture": "captured",
+      "result_digest": "e0a647fd70eb8461",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:01.263Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "a33d44f1437dddad",
+      "query": "This is the United States' amicus brief filed in response to a CVSG in RiseandShine Corp. v. PepsiCo (No. 24-1016). What disposition does the Solicitor General recommend (grant, deny, GVR)? What is the SG's position on the merits question \u2014 whether trademark strength (conceptual strength) is a question of fact or law in the likelihood-of-confusion analysis? Does the SG say the Second Circuit erred? Quote the key recommendation language.",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:07.425Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "ad26c395a3f91adc",
+      "query": "RiseandShine Rise Brewing PepsiCo solicitor general brief 24-1016 CVSG recommendation trademark strength",
+      "result_capture": "captured",
+      "result_digest": "37618a9be7671653",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:12.188Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "e03f41f568dbfadc",
+      "query": "What disposition did the Solicitor General recommend in RiseandShine Corp. v. PepsiCo (No. 24-1016) \u2014 grant or deny certiorari? What is the United States' position on whether trademark strength / conceptual strength is a question of fact or of law? Quote the \"question presented\" and any recommendation language shown.",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:24.525Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "1e7d7936e9fb0685",
+      "query": "Summarize this post about the Supreme Court's cert grant in RiseandShine (Rise Brewing) v. PepsiCo. What did the Solicitor General's CVSG brief recommend and argue? What do commentators expect the Court to do on the merits? Any details about the Second Circuit's decision below, the reverse-confusion theory, or vehicle problems?",
+      "result_capture": "captured",
+      "result_digest": "99ab1bb3a61e8a57",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:26.092Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "57958da5e7a02b39",
+      "query": "timeout 120 uv run fedcourts query --court scotus --text \"trademark likelihood of confusion Lanham Act question of fact standard of review\" --limit 5 2>&1 | tail -30",
+      "result_capture": "captured",
+      "result_digest": "801ae5e7d6d1448d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:10.230Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "768fe9d12c2e8c97",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '1,60p'",
+      "result_capture": "captured",
+      "result_digest": "60dc80a1ab9a673c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:16.795Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a6c8b2535349a383",
+      "query": "timeout 120 uv run fedcourts query --court scotus --citation \"574 U.S. 418\" --limit 3 2>err.log; echo \"--stderr--\"; cat err.log",
+      "result_capture": "captured",
+      "result_digest": "ef18b184986832d9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:26.484Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b7263911638925a",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/72483489/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+      "result_capture": "captured",
+      "result_digest": "cca63c8746661d12",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:44:57.187Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "155592555d66c8a6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/72483489\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T17:44:57Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/72483489/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.8,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgmen",
+      "result_capture": "captured",
+      "result_digest": "6e1cf3d79f72e7d6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:45:11.673Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bc153fabb05f304a",
+      "query": "{\"content\": \"# Forecast: what the Court will do with the judgment below\\n\\n**Judgment class: `vacated`.** The Court will hold that trademark strength \\u2014\\nconceptual strength included \\u2014 is a question of fact in the likelihood-of-confusion\\nanalysis under 15 U.S.C. \\u00a7 1114, and will vacate the Second Circuit's judgment and\\nremand for that court to reconsider the summary-judgment affirmance under the\\ncorrect characterization. It will not itself decide whether summary judgment for\\nPe",
+      "result_capture": "captured",
+      "result_digest": "370f111af90f302d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:45:38.848Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "171aa4f5d1b9fc70",
+      "query": "{\"content\": \"# Rationale for P(disturbed) = 0.80, judgment = vacated\\n\\n**The committed baseline.** The statpack's \\\"The merits docket (granted cases)\\\"\\nsection publishes an `excluded` count (67), so its rate is quotable and is the bar\\nmy Brier skill is scored against. This case's grant Term is 2025 (petition GRANTED\\nJune 29, 2026, from the event's `opened_at`; the docket-number Term, 2024, is not\\nthe axis). Pooling `disturbed` over `parsed` across the grant Terms strictly\\nbefore 2025 that ",
+      "result_capture": "captured",
+      "result_digest": "f42d17fc2079bc5b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:09.612Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "271c637446c1265e",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot, `event.yaml`, `record/context.json`,\\n`record/documents/` texts) and the committed `metrics/statpack.md`:\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"574 U.S. 418\\\" --limit 3`\\n   (known-case lookup for Hana Financial as a prior) \\u2014 returned no rows.\\n   stderr transfer line: `ranged corpus reads: 1329 GET(s), 348389376 byte(s)`\\n   stderr note line: `note: citations filt",
+      "result_capture": "captured",
+      "result_digest": "5eb235b9bf7f705a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:25.983Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4ea23d40a9602a75",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/72483489\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (citation lookup, empty result)\\\",\\n    \\\"metrics/statpack.md (merits docket section)\\\",\\n    \\\"WebSearch\\\",\\n    \\\"WebFetch\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack merits section with per-Term disturb",
+      "result_capture": "captured",
+      "result_digest": "bf3cb71ce41bf90c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:34.798Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c3723c1a71eba100",
+      "query": "timeout 300 uv run fedcourts validate data 2>&1 | tail -15",
+      "result_capture": "captured",
+      "result_digest": "ecc5d6ea8729ff36",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:39.704Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/72483489",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

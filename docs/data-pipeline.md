@@ -420,8 +420,18 @@ its filed-document text, and the event — from the **content store**
 (`--corpus-backend casestore`, the default under the corpus-split mode, so the
 whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a
-parity gate (`tests/test_provision_casestore.py`). The `casestore` backend has
-no query surface, so `query` / `stats` / `open-events` / scope reconcile read
+parity gate (`tests/test_provision_casestore.py`).
+
+*Which* point in time the record is sourced at is the cell's declared moment,
+not the corpus's newest read: where a forward cell names an event that declares
+a moment, `provision-snapshot` places it at the day after that event opened,
+cutting the snapshot's proceedings and the documents there, and records the
+instant as `context.cutoff`. The terminal-refusal gates below run on the latest
+payload first, before any cut — a disposition filed after the cutoff is exactly
+what a cut would otherwise hide. See [cli.md](cli.md) for the flag, the two
+provenances, and the moments the cut does not apply to.
+
+The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
 `query --full` is the one reader that needs a payload the index does not hold:

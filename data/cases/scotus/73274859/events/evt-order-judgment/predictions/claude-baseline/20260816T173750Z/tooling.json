@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73274859",
+  "gaps": [
+    "Petitioners' and the Solicitor General's merits briefs are on the docket (May 14 / May 21 2026) but not provisioned; for a moment:grant merits cell that runs after merits briefing exists, provisioning the merits briefs alongside the cert-stage documents would materially improve the semantic-claim forecasts.",
+    "No provisioned indicator of Justice recusals (Alito took no part in this litigation's prior petition); a participation signal would sharpen vote forecasts."
+  ],
+  "helpful": [
+    "The statpack merits section with per-Term excluded/parsed counts made the pooled baseline arithmetic unambiguous.",
+    "Provisioned brief text (BIO + respondents' merits brief) gave direct access to the jurisdictional arguments the grant order added."
+  ],
+  "notes": "fedcourts query took over 120s against the ranged remote for a single citation lookup that returned nothing (1329 GETs, ~348MB); for known-case precedent lookups the cost/yield is poor.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "tools_used": [
+    "fedcourts query",
+    "statpack.md",
+    "provisioned documents"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

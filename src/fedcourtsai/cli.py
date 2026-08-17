@@ -66,6 +66,7 @@ from .cert_backtest import (
     replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
+    truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
@@ -100,7 +101,12 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .integrity import cell_clock, evaluation_clock, forward_claim_record
+from .integrity import (
+    cell_clock,
+    evaluation_clock,
+    forward_claim_record,
+    latest_evaluation_runs,
+)
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -2631,7 +2637,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
 
 @app.command("stamp-cell")
-def stamp_cell(
+def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this cell predicted/scored.")],
@@ -2648,6 +2655,15 @@ def stamp_cell(
     stamped_at: Annotated[
         str, typer.Option(help="ISO timestamp of the stamp; defaults to now (UTC).")
     ] = "",
+    regrade: Annotated[
+        bool,
+        typer.Option(
+            "--regrade",
+            help="Evaluator role only: recompute the harness-owned graded fields over "
+            "the committed artifacts as they stand now, leaving each record's "
+            "existing process_version exactly as its producing run stamped it.",
+        ),
+    ] = False,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -2718,34 +2734,65 @@ def stamp_cell(
     :func:`fedcourtsai.validate.check_base_rate_version` holds both halves
     over the committed ledger, so a failed cell reaches a maintainer through
     the run's draft PR rather than a merged one.
+
+    **``--regrade``: this stamp minus the process attribution.** A committed
+    evaluation grades a prediction against a *committed outcome*, so a
+    corrected outcome leaves every evaluation that read the old one recording
+    a stale ``correct``, claim block, and skill record. Every one of those
+    fields is already a pure function of the committed artifacts, so a re-grade
+    recomputes exactly what an ordinary stamp would — and writes it without
+    ``process_version``, because the process that produced the record is
+    unchanged by the correction. The alternative reading, that a re-grade
+    re-stamps the resolving registry's version, is wrong on the evidence: the
+    record's prose was written by the earlier process, and re-labelling it
+    would attribute an older process's judgment to a newer pre-registration.
+    So a re-grade requires a record that already carries a stamp — a
+    never-stamped cell has no attribution to preserve and takes the ordinary
+    stamp — and it refuses ``--role predictor`` (a prediction carries no graded
+    field to recompute) and refuses ``--stamped-at`` / ``--pipeline-sha``,
+    which set only the version it declines to write. Finding no artifact at all
+    exits non-zero, unlike the ordinary stamp's no-op: a re-grade's coordinates
+    are typed by hand, so a mistyped run id must not read as a correction that
+    landed. It also refuses a run a newer grading supersedes (nothing reads it,
+    so recomputing it would report a correction that moved no published
+    number), and a cell whose evaluator-owned Brier trio no longer reproduces
+    against the corrected outcome (:func:`_require_reproducible_trio`) — every
+    one of them judged before the first write, so a refusal cannot leave the
+    event half corrected. Each target's process scope is echoed as it goes,
+    since a frozen-scope cell moving with no ``superseded_gradings`` trace is
+    the one thing a reader would want recorded outside ``data/``.
+
+    The stamp it preserves is the vintage of the **producing** invocation, and
+    a re-grade deliberately re-derives the graded block against the statpack
+    and salience config committed *now* — same rule as the ordinary stamp, that
+    a harness field is a function of the committed artifacts as of the
+    invocation. Reconstructing a stamp-vintage pool would price a corrected
+    outcome against a pack that never saw the correction. So the vintage
+    discipline is the operator's: re-grade a whole cohort against one committed
+    statpack, never a cell at a time across a moving pack.
+
+    Re-grade **every evaluator on the event**, not one: ``validate``'s
+    :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
+    the latest runs and requires the evaluators to agree, so a half-re-graded
+    event fails the ledger — which is the check doing its job, not an obstacle
+    to route around.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
+    if regrade:
+        _refuse_unsupported_regrade(role, pipeline_sha, stamped_at)
 
-    digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-    if stamped_at:
-        # The stamp is the frozen/alpha partition's time key; a naive value
-        # has no defined order against the freeze instant and reads as
-        # pre-freeze, so refuse to write one rather than stamp a cell out of
-        # the headline by formatting accident.
-        try:
-            stamp_moment = datetime.fromisoformat(stamped_at)
-        except ValueError:
-            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
-            raise typer.Exit(code=2) from None
-        if stamp_moment.tzinfo is None:
-            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
-            raise typer.Exit(code=2)
-    else:
-        stamp_moment = datetime.now(UTC)
-    stamp = ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
-        digest=digest,
-        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
-        stamped_at=stamp_moment,
-    )
+    # Under --regrade neither the digest nor the stamp over it is resolved: the
+    # digest *is* the process attribution being withheld, so resolving it would
+    # fail a re-grade of a record whose actor the live registry no longer
+    # carries — over a version this run does not write.
+    digest = ""
+    update: dict[str, object] = {}
+    if not regrade:
+        digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+        update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
 
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     if role == "predictor":
@@ -2759,13 +2806,15 @@ def stamp_cell(
         )
         model_cls = Evaluation
 
+    if regrade:
+        _echo_frozen_scope(_refuse_unregradable(targets, event_paths, actor, run_id))
+
     # A predictor's conditioning is stamped from the same provisioning record the
     # agent read, for the same reason the digest is: it is a scoring input, so it
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
     # where it has to become durable. Absent when provisioning left nothing to
     # freeze — and the evaluator then falls back to the terminal band rather
     # than inventing one.
-    update: dict[str, object] = {"process_version": stamp}
     if role == "predictor":
         # Assigned unconditionally, so an agent-authored block is cleared rather
         # than preserved when provisioning left nothing to freeze. A guarded
@@ -2774,7 +2823,7 @@ def stamp_cell(
         # field must not be.
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
-    stamped = 0
+    graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
     for path in targets:
         if not path.is_file():
@@ -2797,16 +2846,233 @@ def stamp_cell(
             skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
-        stamped += 1
+        graded += 1
 
-    if stamped == 0:
-        typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
         return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
-    typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+    typer.echo(
+        f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
+        if regrade
+        else f"stamp: {actor} {digest} -> {graded} file(s)"
+    )
     _fail_on_mispaired_basis(basis_records)
+
+
+def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
+    """Say that the invocation found nothing to write — and fail a re-grade that did.
+
+    The ordinary stamp's silence is the fan-out's contract: a no-output cell
+    has nothing to stamp and is already routed to a draft, so a missing
+    artifact is that cell's failure and not this step's. A re-grade is the
+    opposite shape — a hand-run correction over cells that already exist, whose
+    coordinates are typed rather than handed down by the matrix — so finding
+    none means the cell was named wrong, and a mistyped run id must not read as
+    a correction that landed.
+    """
+    if regrade:
+        typer.echo(
+            f"::error::regrade: no {role} artifact for {actor} at this event and run id; "
+            + "a re-grade recomputes cells that already exist.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+
+
+def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
+    """Exit non-zero where ``--regrade`` was asked for something it is not.
+
+    Two refusals, both because the flag's whole content is *withholding the
+    process attribution*. A **predictor** cell carries no harness-graded field
+    — its ``correct`` and skill record live on the evaluations that score it —
+    so a re-grade would recompute nothing and merely skip the stamp. And
+    ``--stamped-at`` / ``--pipeline-sha`` set fields of the version a re-grade
+    declines to write, so taking them silently would read as re-dating a stamp
+    that by design never moves.
+    """
+    if role == "predictor":
+        typer.echo(
+            "--regrade recomputes an evaluation's graded fields; a prediction has none, "
+            "so a predictor cell only ever takes the ordinary stamp.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if stamped_at or pipeline_sha:
+        typer.echo(
+            "--regrade writes no process_version, so --stamped-at and --pipeline-sha "
+            "have nothing to set; drop them.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _refuse_unregradable(
+    targets: Sequence[Path], event_paths: EventPaths, actor: str, run_id: str
+) -> list[tuple[Path, Evaluation]]:
+    """The re-gradable targets, or exit non-zero over the first that is not.
+
+    Every check runs **before the first write**, because each failure mode is a
+    half-corrected event: a run that stopped part-way through would leave the
+    event's evaluators disagreeing on ``correct``, which is the exact state
+    ``validate``'s ``evaluation_correct_agrees`` fails.
+
+    Three refusals (:func:`_require_prior_stamp`, :func:`_require_latest_run`,
+    :func:`_require_reproducible_trio`), all of them cases where recomputing
+    the harness fields in place would leave the ledger worse than it found it:
+    a record with no stamp to preserve, a superseded run nothing reads, and a
+    cell whose evaluator-owned Brier trio the correction has invalidated.
+    """
+    records = [(path, read_model(path, Evaluation)) for path in targets if path.is_file()]
+    _require_prior_stamp(records)
+    _require_latest_run(records, event_paths, actor, run_id)
+    _require_reproducible_trio(records, event_paths)
+    return records
+
+
+def _require_prior_stamp(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Exit non-zero unless every target already carries a ``process_version``.
+
+    A re-grade preserves the stamp of the process that produced the record, so
+    an unstamped cell has nothing for it to preserve: writing the graded fields
+    alone would leave a cell reading as scored under no process at all. That
+    cell takes the ordinary stamp instead.
+    """
+    for path, record in records:
+        if record.process_version is None:
+            typer.echo(
+                f"::error::regrade: {path} carries no process_version. A re-grade "
+                + "preserves the stamp of the process that produced the record; an "
+                + "unstamped cell has none, so it takes the ordinary stamp instead.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_latest_run(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths, actor: str, run_id: str
+) -> None:
+    """Exit non-zero where a newer grading by the same evaluator supersedes this run.
+
+    Every surface that aggregates the ledger collapses a grader's re-runs of
+    one cell to the newest (:func:`fedcourtsai.integrity.latest_evaluation_runs`),
+    so recomputing a superseded run moves no published number while exiting
+    clean — a correction that reads as landed and is not. The message names the
+    run that actually wins, since that is the one to re-grade.
+    """
+    committed = sorted((event_paths.base / "evaluations" / actor).glob("*/*/evaluation.json"))
+    graded: list[tuple[Path, Evaluation]] = [(p, read_model(p, Evaluation)) for p in committed]
+    winners = {
+        record.predictor_id: record.run_id
+        for _, record in latest_evaluation_runs(graded, lambda item: item[1])
+    }
+    for path, record in records:
+        winning = winners.get(record.predictor_id)
+        if winning is not None and winning != run_id:
+            typer.echo(
+                f"::error::regrade: {path} is not {actor}'s surviving grading of "
+                + f"{record.predictor_id} on this event — run {winning} supersedes it, and "
+                + "every scoring surface collapses to that one. Re-grade the surviving run.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_reproducible_trio(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths
+) -> None:
+    """Exit non-zero where a correction has invalidated an evaluator-owned Brier trio.
+
+    On the stages :data:`_HARNESS_SKILL_STAGES` does not cover, the Brier, the
+    segment base rate, and the skill over them stay the evaluator's arithmetic
+    against its own frozen band — the stamp does not recompute them, and a
+    re-grade must not either. A correction that moves the outcome's
+    ``actual_granted`` therefore leaves a recomputed ``correct`` and claim
+    block beside a trio scored against the superseded binary, and the two then
+    describe different outcomes: the leaderboard drops such a cell from
+    ``skill_scored`` (its recorded skill no longer reproduces from its own
+    recorded inputs) while the corrected ``correct`` stays in accuracy, so the
+    two columns would run over different populations with nothing saying so.
+
+    Refused rather than repaired, because the repair is a judgment the harness
+    does not hold: which band population the rate was taken over is the
+    evaluator's. The remedy is the one the mispaired-basis guard already names
+    — null ``brier_score``, ``segment_base_rate``, ``base_rate_basis``, and
+    ``brier_skill_score`` together, or commit a genuine re-derivation — after
+    which the re-grade proceeds. A correction that leaves the binary alone (a
+    disposition relabelled within the granted set, say) reproduces and passes.
+    """
+    if _event_stage_and_opened(event_paths)[0] in _HARNESS_SKILL_STAGES:
+        return
+    outcome = _outcome_for(event_paths)
+    for path, record in records:
+        recorded = record.brier_score
+        if recorded is None:
+            continue
+        recomputed = _harness_brier_for(event_paths, record, outcome)
+        if recomputed is None or abs(recomputed - recorded) <= _STAMP_ECHO_TOLERANCE:
+            continue
+        typer.echo(
+            f"::error::regrade: {path} records brier_score {recorded}, which does not "
+            + f"reproduce against the committed outcome ({recomputed}). The Brier, the "
+            + "segment base rate, and the skill over them are the evaluator's on this "
+            + "stage, so a re-grade would leave them scored against the superseded "
+            + "outcome while `correct` moved. Null `brier_score`, `segment_base_rate`, "
+            + "`base_rate_basis`, and `brier_skill_score` together, or commit a "
+            + "re-derivation, then re-grade.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Name each re-graded cell's process scope, one line per target.
+
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
+    is in the frozen set — one whose numbers a published claim may rest on —
+    would otherwise move with nothing outside ``data/``'s git history recording
+    that it did. The line puts that in the writer run's log and step summary,
+    where it is greppable after the fact. It reports the stamp the record
+    already carries, which is exactly the stamp the re-grade preserves.
+    """
+    for path, record in records:
+        stamp = record.process_version
+        if stamp is None:
+            continue
+        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
+
+
+def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:
+    """The ``ProcessVersion`` an ordinary stamp writes, over its resolved digest.
+
+    Exits non-zero rather than writing an unparseable or offset-less
+    ``--stamped-at``, for the reason below.
+    """
+    if stamped_at:
+        # The stamp is the frozen/alpha partition's time key; a naive value
+        # has no defined order against the freeze instant and reads as
+        # pre-freeze, so refuse to write one rather than stamp a cell out of
+        # the headline by formatting accident.
+        try:
+            stamp_moment = datetime.fromisoformat(stamped_at)
+        except ValueError:
+            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
+            raise typer.Exit(code=2) from None
+        if stamp_moment.tzinfo is None:
+            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
+            raise typer.Exit(code=2)
+    else:
+        stamp_moment = datetime.now(UTC)
+    return ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL,
+        digest=digest,
+        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        stamped_at=stamp_moment,
+    )
 
 
 def _fail_on_mispaired_basis(
@@ -4861,8 +5127,66 @@ def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -
     return None
 
 
+def _read_cell_inputs(
+    backend: corpus.CorpusBackend,
+    db_path: Path,
+    case: str,
+    event: str,
+    *,
+    want_row: bool,
+    cut: bool,
+) -> provision.CellRead:
+    """One backend read of everything a cell's provisioning decides on.
+
+    Kept whole, and kept inside one connection, because that is what makes a
+    ranged cell's egress counters (``_echo_read_stats``) the whole story of what
+    the cell cost.
+
+    ``want_row`` fetches the row half of the terminal gate, which only an armed
+    gate reads. ``cut`` asks for the moment placement: ``provision.moment_cutoff``
+    decides from the events whether this event declares a moment with a date to
+    be placed at, and the pre-cutoff snapshot is fetched on the same connection.
+    That read happens before the caller's gates run, so a refused cell pays for
+    one snapshot it never uses; the alternative is a second connection on every
+    cut cell.
+
+    The events are read for either — the gate reads them, and a cutoff is a
+    property of the moment the cell forecasts rather than of the gate — and for
+    neither otherwise, which is the evaluate path: an unread list is egress this
+    command's single-connection design exists to account for.
+    """
+    if backend == "casestore":
+        source = _casestore_source()
+        events = source.events_for_case(case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        return provision.CellRead(
+            latest=source.latest_snapshot(case),
+            documents=source.documents_for_case(case),
+            events=events,
+            # The casestore exposes events but no rows; `_casestore_row_refusal`
+            # is the gate's own fallback for the row half.
+            row=None,
+            cutoff=cutoff,
+            dated=source.snapshot_at(case, before=cutoff) if cutoff is not None else None,
+        )
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        events = corpus.events_for_case(conn, case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        read = provision.CellRead(
+            latest=corpus.latest_snapshot(conn, case),
+            documents=corpus.documents_for_case(conn, case),
+            events=events,
+            row=corpus.get_row(conn, case) if want_row else None,
+            cutoff=cutoff,
+            dated=corpus.snapshot_at(conn, case, before=cutoff) if cutoff is not None else None,
+        )
+        _echo_read_stats(conn)
+    return read
+
+
 @app.command("provision-snapshot")
-def provision_snapshot(
+def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     out: Annotated[
@@ -4897,11 +5221,28 @@ def provision_snapshot(
         str,
         typer.Option(
             help="The event this cell forecasts. Scopes --refuse-terminal to "
-            "that event's own outcome; omitted, the guard reads the "
-            "cert/interim disposition, which is the right question for every "
-            "case-baseline cell.",
+            "that event's own outcome, and places the cell at the event's "
+            "declared moment (see --moment-cutoff); omitted, the guard reads "
+            "the cert/interim disposition, which is the right question for "
+            "every case-baseline cell, and no cut is taken.",
         ),
     ] = "",
+    moment_cutoff: Annotated[
+        bool,
+        typer.Option(
+            "--moment-cutoff/--no-moment-cutoff",
+            help="Cut a forward cell's snapshot and documents to the "
+            "information set its --event declares: everything filed strictly "
+            "before the day after the event opened. A stage's later moments "
+            "exist because their information sets differ, so a grant-moment "
+            "merits cell provisioned from the latest snapshot would read the "
+            "merits briefs only the briefed moment declares. On by default; it "
+            "acts only on a forward cell whose --event names a declared moment "
+            "whose opened_at is that moment's trigger and whose corpus row "
+            "records it, so a case-baseline cell and an evaluate cell (no "
+            "--event) are untouched either way.",
+        ),
+    ] = True,
     max_snapshot_age_days: Annotated[
         int,
         typer.Option(
@@ -4917,7 +5258,7 @@ def provision_snapshot(
     ] = 0,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Materialize a case's latest corpus snapshot (and documents) for an agent run.
+    """Materialize a case's corpus snapshot (and documents) for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate workflows call this to read the most
@@ -4929,7 +5270,18 @@ def provision_snapshot(
     questions presented, brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights. Exits non-zero if the corpus holds no snapshot for the case
+    fetch rights.
+
+    "Most recent" is the answer only for a cell that has no declared moment of
+    its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
+    the default), a forward cell is placed at that moment instead: the snapshot
+    is the one the docket served before the cutoff if the corpus stored one
+    (``dated``), otherwise the latest payload with its post-cutoff entries
+    removed and its date set to the cutoff (``truncated``), and the documents are
+    cut with it. ``record/context.json`` records which, and the cutoff. Both
+    gates below run on the latest payload first, before any of that.
+
+    Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
     record or the snapshot shows the event is not open (code 3, nothing
     written): the record already holds the outcome
@@ -4941,26 +5293,20 @@ def provision_snapshot(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
-    # The gate reads (events, row) ride the same connection as the snapshot
-    # read, so a ranged cell opens one connection and the egress counters
-    # `_echo_read_stats` reports stay the whole story.
     gate_active = refuse_terminal and mode == "forward"
-    gate_events: list[corpus.CorpusEvent] = []
-    gate_row: corpus.CorpusRow | None = None
-    if backend == "casestore":
-        source = _casestore_source()
-        found = source.latest_snapshot(case)
-        documents = source.documents_for_case(case)
-        if gate_active:
-            gate_events = source.events_for_case(case)
-    else:
-        with corpus.connect_readonly(db_path, backend=backend) as conn:
-            found = corpus.latest_snapshot(conn, case)
-            documents = corpus.documents_for_case(conn, case)
-            if gate_active:
-                gate_events = corpus.events_for_case(conn, case)
-                gate_row = corpus.get_row(conn, case)
-            _echo_read_stats(conn)
+    # The cut applies to a forward cell that names an event; whether that event
+    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    read = _read_cell_inputs(
+        backend,
+        db_path,
+        case,
+        event,
+        want_row=gate_active,
+        cut=moment_cutoff and mode == "forward" and bool(event),
+    )
+    found = read.latest
+    documents = read.documents
+    cutoff = read.cutoff
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
@@ -4994,8 +5340,8 @@ def provision_snapshot(
     if gate_active:
         _refuse_forward_if_closed(
             backend,
-            gate_events,
-            gate_row,
+            read.events,
+            read.row,
             court,
             docket,
             event,
@@ -5009,6 +5355,56 @@ def provision_snapshot(
                 err=True,
             )
             raise typer.Exit(code=3)
+    # Both gates ran on the LATEST payload, before the cut, and that ordering is
+    # the point of putting the cut here. The staleness bound asks whether the
+    # *pipeline* is live, which only the latest snapshot's date can answer — a
+    # cut payload is re-dated to its cutoff and would read as months stale by
+    # construction. The terminal scan asks whether the docket is decided, and a
+    # disposing order filed after the cutoff is exactly what the cut would hide:
+    # the cell would be provisioned, not refused, against a case that is over.
+    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    # Nothing was removed from a `dated` payload: it is what the docket served.
+    dropped_entries = 0
+    if cutoff is not None:
+        if read.dated is not None and provision.shows_the_moment(read.dated[1], cutoff):
+            # What the docket really served at the moment, which also knows what
+            # had not yet been filed — strictly better than reconstructing it, so
+            # it is preferred and recorded apart. Only where it reaches the
+            # trigger, though: a stored snapshot from well before the moment
+            # would place the cell earlier than the cohort it is filed under.
+            snapshot_date, payload = read.dated
+            provenance = "dated"
+        else:
+            # Reconstructed from a later payload: post-cutoff entries removed,
+            # and an entry whose date is missing or unparseable removed with them
+            # (`truncate_snapshot` fails closed — an undated entry could be the
+            # one that decides the case). Never `blind`: this path always holds a
+            # cutoff to keep entries against, so it never removes the proceedings
+            # key outright, which is what that provenance records.
+            payload, dropped_entries = truncate_snapshot(payload, cutoff)
+            # The same date rule over the top-level fields truncation does not
+            # reach, so the cut docket does not carry an argument date whose
+            # entry it just removed.
+            payload = provision.cut_dated_fields(payload, cutoff)
+            # The docket as at the cutoff is dated by the cutoff, not by the pull
+            # whose bytes it was reconstructed from — otherwise the one file the
+            # cell's information set is judged against carries a later date than
+            # anything in it.
+            snapshot_date = cutoff
+            provenance = "truncated"
+        kept = provision.documents_before(documents, cutoff)
+        dropped_documents = len(documents) - len(kept)
+        documents = kept
+        # Spoken, never written to `context.json`: the cell reads that file, and
+        # how much a cut removed separates a grant from a denial about as
+        # cleanly as the disposing order does. Here it is the harness's own
+        # record — the auditable size of what placement excluded.
+        typer.echo(
+            f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}): "
+            f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
+            f"postdate the moment",
+            err=True,
+        )
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
@@ -5018,12 +5414,23 @@ def provision_snapshot(
     # rest because the salience band only ever strengthens, so a band re-derived
     # later is the band the petition *ended* at. Derived from the payload rather
     # than the corpus row: the row holds current values, the payload is what this
-    # cell can read, and a baseline has to be conditioned on the latter.
+    # cell can read, and a baseline has to be conditioned on the latter. The
+    # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
+    # non-null was placed at its moment, and a figure that pools it with one
+    # provisioned from the latest snapshot pools two information sets.
     write_raw_json(
         paths.cell_context,
-        cell_context.build(case, snapshot_date, payload, mode).model_dump(mode="json"),
+        cell_context.build(
+            case,
+            snapshot_date,
+            payload,
+            mode,
+            provenance=provenance,
+            cutoff=cutoff,
+        ).model_dump(mode="json"),
     )
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
+    placed = f" cut at {cutoff.isoformat()} ({provenance})" if cutoff is not None else ""
+    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
         for doc in documents:
             write_text(paths.document(doc.kind), doc.text)
@@ -6871,20 +7278,28 @@ def assert_paths_cmd(
 
 
 def _scan_listed_files(
-    files: list[Path] | None, secrets: list[str], *, entropy: bool, noun: str
+    files: list[Path] | None,
+    secrets: list[str],
+    *,
+    entropy: bool,
+    noun: str,
+    run_id: str | None = None,
 ) -> tuple[list[secretscan.Finding], bool]:
     """Scan caller-named files beside the change set; a missing one fails closed.
 
     The caller writes each file immediately before scanning, so absence is a
     misconfigured gate, never an empty surface. ``entropy`` passes through to
     the scanner — off for a transcript, whose format guarantees high-entropy
-    ids as ordinary content.
+    ids as ordinary content — and so does ``run_id``, which narrows the
+    entropy rule alone and is therefore inert wherever that rule is off.
     """
     findings: list[secretscan.Finding] = []
     misconfigured = False
     for path in files or []:
         if path.is_file():
-            findings.extend(secretscan.scan_file(path, str(path), secrets, entropy=entropy))
+            findings.extend(
+                secretscan.scan_file(path, str(path), secrets, entropy=entropy, run_id=run_id)
+            )
         else:
             misconfigured = True
             typer.echo(f"::error::secret-scan: {noun} {path} is missing", err=True)
@@ -6934,6 +7349,17 @@ def scan_diff_for_secrets_cmd(
     run_url: Annotated[
         str, typer.Option(help="Actions run URL, included in the issue comment.")
     ] = "",
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="The run being collected. Exempts that run's own ledger paths "
+            "(`predictions/<actor>/<run id>`, `evaluations/<actor>/<predictor>/"
+            "<run id>`) from the entropy heuristic only — a cell's logged shell "
+            "commands name its own output directory, which is neither secret nor "
+            "random but scores like one. Every other detector is unaffected, and "
+            "the trailing segment must equal this value exactly."
+        ),
+    ] = "",
 ) -> None:
     """Scan a change set's changed data/ files for secrets; exit non-zero on a hit.
 
@@ -6948,7 +7374,8 @@ def scan_diff_for_secrets_cmd(
     too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
     same way rather than silently dropping a detector or a surface. A
     ``--transcript-file`` is scanned without the generic high-entropy
-    heuristic only — see the option's help for why that surface needs it.
+    heuristic only — see the option's help for why that surface needs it, and
+    ``--run-id`` for the one path shape that heuristic is told to skip.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -6964,12 +7391,26 @@ def scan_diff_for_secrets_cmd(
                 err=True,
             )
     changes = parse_name_status(name_status_file.read_text())
-    findings = secretscan.scan_changes(changes, Path(), secrets)
+    own_run = run_id or None
+    # The run id is the single input that defines the exemption's shape, so a
+    # value that is not a run id (an interpolation gone wrong) is a scan
+    # misconfiguration, not a wider exemption.
+    if own_run is not None and not secretscan.is_run_id_shaped(own_run):
+        misconfigured = True
+        own_run = None
+        typer.echo(
+            "::error::secret-scan: --run-id is not a run id; "
+            "the own-run exemption cannot be applied",
+            err=True,
+        )
+    findings = secretscan.scan_changes(changes, Path(), secrets, run_id=own_run)
     for files, entropy, noun in (
         (extra_file, True, "extra file"),
         (transcript_file, False, "transcript file"),
     ):
-        listed_findings, missing = _scan_listed_files(files, secrets, entropy=entropy, noun=noun)
+        listed_findings, missing = _scan_listed_files(
+            files, secrets, entropy=entropy, noun=noun, run_id=own_run
+        )
         findings.extend(listed_findings)
         misconfigured = misconfigured or missing
     if findings:

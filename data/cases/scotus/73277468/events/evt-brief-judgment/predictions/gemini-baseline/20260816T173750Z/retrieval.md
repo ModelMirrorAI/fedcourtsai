@@ -1,0 +1,5 @@
+- Read the provisioned snapshot and event definition.
+- Read the provisioned questions presented at `data/cases/scotus/73277468/record/documents/questions-presented.txt`.
+- Read the `metrics/statpack.md` to get the merits base rate for SCOTUS cases.
+- Attempted to query `mcp_courtlistener_search` for `25-352`, but hit a rate limit (HTTP 429).
+- Conducted Google web searches for `"Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office"`, `"Jasmine Younge" "Fulton Judicial Circuit" Eleventh Circuit`, and `"unpleaded affirmative defense summary judgment circuit split"` to determine the circuit split, case posture, and arguments of the parties.

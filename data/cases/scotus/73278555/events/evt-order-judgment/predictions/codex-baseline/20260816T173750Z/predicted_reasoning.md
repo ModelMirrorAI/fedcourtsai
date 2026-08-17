@@ -1,0 +1,9 @@
+# Forecast of the Court's disposition and reasoning
+
+The Court will vacate the Ninth Circuit's judgment and remand for renewed pleading-stage review. The judgment below will therefore be disturbed. The Court will reach the granted question and hold that ERISA does not impose a categorical rule requiring every fund-underperformance complaint to plead a separate “meaningful benchmark.” A comparator's suitability can be important when comparative performance supplies the inference of imprudence, but it is not the only possible route to pleading a flawed fiduciary process.
+
+The majority will emphasize the statutory direction to evaluate prudence under the circumstances then prevailing and the context-specific approach of *Fifth Third Bancorp v. Dudenhoeffer* and *Hughes v. Northwestern University*. It will leave room for ordinary plausibility review: allegations comparing funds with materially different objectives, risks, and strategies need enough context to support the comparison. The decision will not determine whether Intel's allocations were actually imprudent and will not announce a categorical rule that any alleged underperformance states a claim.
+
+I expect all nine Justices to join the judgment. The recurring unanimity of the Court's ERISA pleading decisions makes a broad ideological split less likely than a narrow opinion policing both judge-made pleading prerequisites and conclusory comparisons. A separate concurrence cautioning about discovery costs or emphasizing ordinary Rule 8 scrutiny is possible, but it should not change the lineup on vacatur.
+
+A DIG or equally divided affirmance is not a live route on this record. The Court selected a final-judgment vehicle presenting the benchmark question directly. The likeliest procedural form is vacatur rather than outright reversal because the Court can reject a mandatory benchmark rule while leaving the lower courts to reassess the complaint contextually.

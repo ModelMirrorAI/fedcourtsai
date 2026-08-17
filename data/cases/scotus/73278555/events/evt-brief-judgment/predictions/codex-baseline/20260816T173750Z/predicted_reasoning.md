@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will vacate the Ninth Circuit's judgment and remand, likely by a 6-3 vote. Chief Justice Roberts and Justices Sotomayor, Kagan, Gorsuch, Barrett, and Jackson will form the majority; Justices Thomas, Alito, and Kavanaugh will dissent.
+
+The majority will reach the question presented as framed: whether an ERISA complaint using fund underperformance to support a duty-of-prudence claim must allege a "meaningful benchmark." It will reject a categorical threshold requiring a better-performing comparator with matching objectives, risks, and potential rewards. Rule 8, Fifth Third Bancorp v. Dudenhoeffer, and Hughes v. Northwestern University instead require a court to consider all well-pleaded allegations together in the context of the particular fiduciary theory. A performance comparison that does not account for different aims or risk tolerances may carry little weight, and relative underperformance standing alone may still fail, but the absence of a qualifying comparator will not permit a court to set aside otherwise factual performance allegations before conducting the holistic plausibility inquiry.
+
+The holding will be narrow. It will not declare hedge funds, private equity, or Intel's downside-risk strategy imprudent, and it will not hold that the participants have stated a claim as a matter of law. The Court will send the case back for the lower courts to reassess the complaint as a whole, including the alleged scale and novelty of the alternative-asset allocations, contemporaneous risk information, fees, internal and external performance comparisons, and Intel's stated risk-mitigation objective.
+
+The majority will treat a dismissal as improvidently granted and an equally divided affirmance as remote. The record identifies no recusal in this case, and the briefing presents a clean disagreement over pleading methodology rather than a post-grant vehicle defect.

@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": null,
+  "case_id": "scotus/73279024",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:37:50Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279024/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:54:28.042174Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court will hold that the Air Force's submission of a permit-renewal application is not 'final agency action' under 5 U.S.C. 704 because it does not mark the consummation of the agency's decisionmaking process and no direct legal consequences flow from the submission itself."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court will state a categorical rule that submitting a permit application to a regulator under a cooperative federalism program is a preliminary step that does not constitute final agency action reviewable under the APA."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "none"
+    }
+  ]
+}

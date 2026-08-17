@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "A nationwide trademark fact-law rule matters to jury allocation and summary judgment, but the dispute concerns one subfactor of a broader likelihood-of-confusion test.",
+  "big_case_score": 0.58,
+  "case_id": "scotus/72483489",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.86
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": "2025-10-06",
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2024
+  },
+  "created_at": "2026-08-16T18:13:27Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/72483489/record/snapshots/2026-08-16.json",
+  "judgment": "vacated",
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.86,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:15:40.467196Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "A mark's inherent or conceptual strength in the Section 1114 likelihood-of-confusion analysis is a fact-sensitive application of law to consumer perception, not a pure legal question for de novo appellate determination, so the Second Circuit erred by conclusively treating RISE as inherently weak as a matter of law."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will be limited to the fact-law treatment of inherent or conceptual strength, preserve Rule 56 when no genuine factual dispute exists, and leave unresolved the proper weighting of acquired strength, reverse confusion, and the remaining likelihood-of-confusion factors."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
