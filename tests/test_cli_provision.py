@@ -77,8 +77,8 @@ def test_provision_snapshot_refuses_a_forward_cell_on_a_terminal_snapshot(
 ) -> None:
     # Leakage guard: under --refuse-terminal the latest snapshot's last entry
     # reads terminal (a GVR), so a forward cell must not be materialized — and
-    # the refusal must write nothing (no snapshot, no context.json), leaving
-    # the cell snapshot-less.
+    # the refusal must write nothing (no snapshot, no context.json), which is
+    # what the workflow's gate reads as a refused cell.
     _seed_decided_snapshot(fixture_corpus)
 
     result = runner.invoke(
@@ -144,7 +144,7 @@ def test_provision_snapshot_provisions_a_merits_cell_on_its_own_grant_order(
     is the judgment, so a grant order — which every merits cell's docket
     necessarily carries, since it is what minted the cell — must provision
     rather than refuse. Without the key the merits fan-out would be a fan-out
-    of snapshot-less cells.
+    of refused cells.
     """
     with corpus.connect(fixture_corpus.db_path) as conn:
         corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 20), _GRANTED_PENDING_PAYLOAD)
@@ -565,7 +565,7 @@ def test_stamping_clears_a_context_the_agent_wrote_itself(
 ) -> None:
     """`context` is a scoring input, so it is the harness's like `process_version`.
 
-    Provisioning is continue-on-error, so a cell can run snapshot-less — and that
+    A cell can still reach the stamp with nothing provisioned to freeze — and that
     is exactly the case where an agent inventing its own band would hand itself a
     baseline. The stamp assigns unconditionally, so an authored block is cleared
     rather than preserved.
@@ -873,6 +873,100 @@ def test_the_staleness_bound_is_inclusive_at_the_boundary(
     past_bound = runner.invoke(app, [*base, "29"])
     assert past_bound.exit_code == 3
     assert "forward bound" in past_bound.output
+
+
+def _provision_305(fixture_corpus: FixtureCorpus) -> CasePaths:
+    """Provision scotus/305 the way a predict cell does, and hand back its paths."""
+    result = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert result.exit_code == 0, result.output
+    return CasePaths(fixture_corpus.data_root, "scotus", 305)
+
+
+_ASSERT = [
+    "assert-cell-record",
+    "--court",
+    "scotus",
+    "--docket",
+    "305",
+    "--event",
+    "evt-petition-disposition",
+]
+
+
+def test_assert_cell_record_accepts_a_complete_record(fixture_corpus: FixtureCorpus) -> None:
+    _provision_305(fixture_corpus)
+
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 0, result.output
+    assert "record complete" in result.output
+
+
+def test_assert_cell_record_refuses_when_nothing_was_provisioned(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The failure this guards: a cell whose record never landed would otherwise
+    # run its agent and forecast from base rates alone, while its output claims
+    # the guaranteed-common snapshot every other predictor read.
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 1
+    assert "no cell context" in result.output
+    assert "context.json" in result.output
+    # The refusal is an Actions annotation naming the cell: a fleet of skipped
+    # cells has to be attributable per cell from the log, which is the whole
+    # reason the command takes an event it does not otherwise need.
+    assert "::warning::" in result.output
+    assert "scotus/305" in result.output
+    assert "evt-petition-disposition" in result.output
+
+
+def test_assert_cell_record_refuses_a_missing_snapshot(fixture_corpus: FixtureCorpus) -> None:
+    # The half-landed write: context.json is there and names a snapshot date,
+    # but the snapshot the cell would read is not.
+    paths = _provision_305(fixture_corpus)
+    paths.snapshot("2025-03-03").unlink()
+
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 1
+    assert "no snapshot at" in result.output
+    assert "2025-03-03" in result.output
+
+
+def test_assert_cell_record_refuses_an_empty_snapshot(fixture_corpus: FixtureCorpus) -> None:
+    # A truncated read leaves a zero-byte file, which exists but carries no docket.
+    paths = _provision_305(fixture_corpus)
+    paths.snapshot("2025-03-03").write_text("")
+
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 1
+    assert "empty snapshot at" in result.output
+
+
+def test_assert_cell_record_refuses_a_truncated_snapshot(fixture_corpus: FixtureCorpus) -> None:
+    # The half-landed write proper: provisioning writes non-atomically, so a
+    # runner killed mid-write leaves a non-empty file that is not a snapshot.
+    # A size check passes it; the cell would then read a broken baseline.
+    paths = _provision_305(fixture_corpus)
+    snapshot = paths.snapshot("2025-03-03")
+    snapshot.write_text(snapshot.read_text()[:40])
+
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 1
+    assert "unreadable snapshot at" in result.output
+
+
+def test_assert_cell_record_refuses_an_unparseable_context(fixture_corpus: FixtureCorpus) -> None:
+    paths = _provision_305(fixture_corpus)
+    paths.cell_context.write_text("{not json")
+
+    result = runner.invoke(app, _ASSERT)
+
+    assert result.exit_code == 1
+    assert "unreadable cell context" in result.output
 
 
 # The moment cutoff: a forward cell placed at the information set its declared

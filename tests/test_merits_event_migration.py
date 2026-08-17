@@ -345,8 +345,8 @@ def test_committed_ledger_artifacts_block_the_mint(tmp_path: Path) -> None:
 
 def test_no_snapshot_blocks_the_mint(tmp_path: Path) -> None:
     # A null merits_judgment means unlatched, not pending: with no stored
-    # snapshot the docket may be decided, and a snapshot-less forward cell
-    # would defeat the provisioning guard. Skip and report.
+    # snapshot the docket may be decided, and the minted event would only ever
+    # fan out cells the provisioning gate refuses. Skip and report.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, [_granted(_GRANTED, "25-100")])

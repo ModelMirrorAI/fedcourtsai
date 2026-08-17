@@ -2933,14 +2933,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # A predictor's conditioning is stamped from the same provisioning record the
     # agent read, for the same reason the digest is: it is a scoring input, so it
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
-    # where it has to become durable. Absent when provisioning failed — that step
-    # is continue-on-error and the cell runs snapshot-less — and the evaluator
-    # then falls back to the terminal band rather than inventing one.
+    # where it has to become durable. Absent when provisioning left nothing to
+    # freeze — and the evaluator then falls back to the terminal band rather
+    # than inventing one.
     if role == "predictor":
         # Assigned unconditionally, so an agent-authored block is cleared rather
         # than preserved when provisioning left nothing to freeze. A guarded
-        # assignment would let a cell that ran snapshot-less supply its own
-        # baseline conditioning, which is the one thing this field must not be.
+        # assignment would let a cell that ran without a provisioned record
+        # supply its own baseline conditioning, which is the one thing this
+        # field must not be.
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
     graded = 0
@@ -5191,8 +5192,8 @@ def _refuse_forward_if_closed(
     the caller, which holds the payload): the record gate over the parts
     provisioning already read on its own connection, the casestore row-half
     fallback through the ordinary index backend, and the wall-clock staleness
-    bound. Refusals are ``::warning::`` annotations so a fleet of
-    snapshot-less cells is attributable per cause from the Actions UI.
+    bound. Refusals are ``::warning::`` annotations so a fleet of skipped
+    cells is attributable per cause from the Actions UI.
     """
     settings = get_settings()
     case = ids.case_id(court, docket)
@@ -5434,11 +5435,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
-    # Refuses before writing anything (no snapshot, no context.json);
-    # run-predict distinguishes the exits: a refusal (exit 3) short-circuits
-    # the cell's agent steps entirely, while a missing snapshot (exit 1) under
-    # its continue-on-error leaves the cell running snapshot-less with the gap
-    # noted per the prompt contract. Opt-in
+    # Refuses before writing anything (no snapshot, no context.json).
+    # run-predict short-circuits the cell's agent steps on either non-zero exit
+    # — this refusal (exit 3) and the missing snapshot (exit 1) alike, since a
+    # predictor with no provisioned record has lost the guaranteed-common input
+    # — and keeps the two causes apart in the log. Opt-in
     # because the other callers *must* see decided dockets: run-evaluate
     # provisions the same forward-mode cell for an already-resolved event, and
     # the replay provisioner truncates point-in-time itself.
@@ -5455,7 +5456,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # un-minting is the plan seam's job (the matrix forecastability re-check), and
     # run-predict's refusal gate skips the cell's agent steps on exit 3
     # entirely. Refusals are ::warning::
-    # annotations so a fleet of snapshot-less cells is attributable per cause
+    # annotations so a fleet of skipped cells is attributable per cause
     # from the Actions UI.
     if gate_active:
         _refuse_forward_if_closed(
@@ -5571,6 +5572,77 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+@app.command("assert-cell-record")
+def assert_cell_record(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[
+        str,
+        typer.Option(
+            help="The event this cell forecasts. Names the cell in the warning so "
+            "a fleet of skipped cells is attributable from the Actions log; the "
+            "record itself is per case, so nothing about the check is event-keyed."
+        ),
+    ],
+) -> None:
+    """Assert that a cell's provisioned record landed complete, or exit 1.
+
+    The provisioned snapshot is every predictor's guaranteed-common input, so a
+    cell whose record never landed must not run its agent: it would forecast from
+    base rates alone while its output claims the shared baseline, and nothing
+    downstream can tell the two apart. ``provision-snapshot`` declares the
+    failures it knows about through its exit code, but a read that half-lands
+    declares nothing — this command asks the disk instead of the exit code, and
+    is the predict cell's gate between provisioning and any token spend.
+
+    Complete means both halves of the provisioning write are there and readable:
+    ``record/context.json`` parses as a
+    :class:`~fedcourtsai.schemas.PredictionContext`, and the dated snapshot that
+    context names is present, non-empty, and parses as JSON. The snapshot is
+    parsed rather than merely counted because provisioning's write is not atomic,
+    so the very failure this command is named for — a write that half-lands —
+    leaves a truncated file that a size check passes. Exit 0 complete; exit 1
+    incomplete, with a ``::warning::`` naming which half is missing. It reads the
+    default record paths — the ones the cell workflows provision into — so a
+    ``provision-snapshot --out`` written elsewhere is not what it checks.
+
+    The context load is spelled out here rather than reusing
+    :func:`_read_cell_context`, which is deliberately tolerant and returns
+    ``None`` for both "absent" and "unreadable": this command's whole output is
+    *which* of those it found.
+    """
+    settings = get_settings()
+    case = ids.case_id(court, docket)
+    paths = CasePaths(settings.data_root, court, docket)
+    context_path = paths.cell_context
+    missing: str | None = None
+    if not context_path.is_file():
+        missing = f"no cell context at {context_path}"
+    else:
+        try:
+            context = PredictionContext.model_validate_json(context_path.read_text())
+        except (OSError, ValueError):
+            missing = f"unreadable cell context at {context_path}"
+        else:
+            snapshot = paths.snapshot(context.snapshot_date.isoformat())
+            if not snapshot.is_file():
+                missing = f"no snapshot at {snapshot}"
+            elif snapshot.stat().st_size == 0:
+                missing = f"empty snapshot at {snapshot}"
+            else:
+                try:
+                    json.loads(snapshot.read_text())
+                except (OSError, ValueError):
+                    missing = f"unreadable snapshot at {snapshot}"
+    if missing is not None:
+        typer.echo(
+            f"::warning::incomplete cell record for {case} {event}: {missing}; no cell runs",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"{case} {event} record complete -> {context_path}")
 
 
 def _read_cell_context(paths: CasePaths) -> PredictionContext | None:

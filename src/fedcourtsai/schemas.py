@@ -859,7 +859,9 @@ class Prediction(_Strict):
         description="The conditioning state this cell ran against, frozen at "
         "provisioning. Harness-written like process_version — anything an agent "
         "puts here is overwritten. Absent on predictions written before the block "
-        "existed, and on cells that ran without a provisioned snapshot.",
+        "existed, and on any cell that ran without a provisioned snapshot — a "
+        "state run-predict refuses outright, so on that path only older records "
+        "carry the gap.",
     )
     claims: list[ClaimProbability] | None = Field(
         default=None,

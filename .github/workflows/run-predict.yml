@@ -274,8 +274,9 @@ jobs:
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
       # to the gitignored record/ path the predictor reads (never committed).
-      # Best-effort — neither a missing snapshot nor a terminal-docket refusal
-      # (below) must abort the run; the agent notes the gap per prompt.
+      # Neither a missing snapshot nor a terminal-docket refusal (below) aborts
+      # the run: each refuses its own cell and leaves the rest of the fan-out
+      # alone.
       - name: Provision the case snapshot from the corpus
         id: provision
         continue-on-error: true
@@ -314,21 +315,34 @@ jobs:
         # `--max-snapshot-age-days 10`: generous against the live poller's
         # daily-ish refresh on selected petitions, so a healthy pipeline never
         # trips it — only a resumed pause or a stalled poller does.
-        # Exit 3 is a REFUSAL and short-circuits the cell (`refused=true`
-        # gates the token mint, the engine steps, and the materialization
-        # below): a refused forward cell must not run at all, or it produces a
-        # context-less prediction that claims a mode it never had. Any other
-        # non-zero exit (no snapshot in the corpus) keeps today's best-effort
-        # shape: the cell runs snapshot-less and the agent notes the gap per
-        # the prompt contract.
+        # Every non-zero exit refuses the cell: `refused=true` gates every
+        # step below that serves the agent — the event materialization, both
+        # MCP steps, the comment-token mint, the engine installs and the engine
+        # steps — so a refused cell runs no agent and spends nothing. (The
+        # corpus sidecar launches before this step and must — it is where
+        # these credentials come from.) Two causes reach that one gate; the
+        # `::warning::` lines name which. Exit 3 is the forward gate's
+        # refusal — a forward cell must not run on a record that already holds
+        # the outcome, or it produces a context-less prediction claiming a mode
+        # it never had. Exit 1 left nothing provisioned, and refuses because the
+        # provisioned snapshot is every predictor's guaranteed-common input: a
+        # cell that runs without one forecasts from base rates alone while its
+        # output claims the shared baseline, and nothing downstream separates
+        # the two.
         run: |
           set -euo pipefail
           status=0
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 || status=$?
           if [ "$status" -eq 1 ]; then
-            # Exit 1 is provisioning's own "no snapshot in the corpus" — the
-            # one shape that keeps the best-effort snapshot-less cell.
-            echo "::warning::no snapshot for ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}; the cell runs snapshot-less"
+            # Nothing was written, so there is no cell to run. The usual cause
+            # is a corpus with no snapshot for the case; a corpus read that
+            # failed outright lands here too, which is why the annotation
+            # states the effect rather than naming a cause it cannot know.
+            echo "refused=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::nothing provisioned for ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}; no cell runs (unprovisioned)"
+            # The step ends red (under continue-on-error) on purpose: an
+            # unprovisioned cell is an anomaly worth a visible mark, where the
+            # forward gate's refusal below is a designed outcome and ends green.
             exit "$status"
           elif [ "$status" -ne 0 ]; then
             # Exit 3 is the gate's refusal; anything else non-zero is an
@@ -337,6 +351,31 @@ jobs:
             # record the gate could not check.
             echo "refused=true" >> "$GITHUB_OUTPUT"
             echo "::warning::forward gate refused ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} (exit ${status}); no cell runs"
+          fi
+
+      # Provisioning declares the failures it knows about through its exit code;
+      # a read that half-lands declares nothing. This asks the disk instead: the
+      # cell context and the dated snapshot it names must both be there, or the
+      # cell is unprovisioned and refuses on the same gate. Cheap, local, and
+      # credential-free — the tested command carries the definition of complete.
+      # Gated on the provision half only: a cell the forward gate refused was
+      # never provisioned by design, and re-asserting would report the refusal
+      # as an incomplete write.
+      - name: Assert the provisioned record landed
+        id: record
+        if: steps.provision.outputs.refused != 'true'
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+        run: |
+          set -euo pipefail
+          status=0
+          uv run fedcourts assert-cell-record --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" || status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "refused=true" >> "$GITHUB_OUTPUT"
+            exit "$status"
           fi
 
       # A predictable event is a corpus fact, not a committed file. Project it into
@@ -348,7 +387,7 @@ jobs:
         # Skipped on a refused cell: with no agent running there is no
         # prediction PR to carry the event.yaml, and the projection read is
         # egress for nothing.
-        if: steps.provision.outputs.refused != 'true'
+        if: steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -376,7 +415,7 @@ jobs:
       # prompt contract says so). Mirrors the corpus sidecar above.
       - # A refused cell serves no agent: do not launch a token-holding
         # sidecar process for it.
-        if: steps.provision.outputs.refused != 'true'
+        if: steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         uses: ./.github/actions/mcp-sidecar
         with:
           role: predictor
@@ -392,7 +431,7 @@ jobs:
       # corpus tooling rather than failing) — so the generated file, though
       # workspace-local and gitignored, contains nothing worth reading.
       - name: Configure agent retrieval (MCP)
-        if: steps.provision.outputs.refused != 'true'
+        if: steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         env:
           ENGINE: ${{ matrix.engine }}
           PREDICTOR_ID: ${{ matrix.predictor_id }}
@@ -499,9 +538,9 @@ jobs:
         id: agent-token
         # Only the Claude step consumes this token (Codex never took one, and
         # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
-        # mint a live credential in cells that cannot use it — or in a cell the
-        # forward gate refused, which runs no agent at all.
-        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true'
+        # mint a live credential in cells that cannot use it — or in a refused
+        # cell, which runs no agent at all.
+        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Minted after provisioning so the refusal gate above can actually
         # withhold it — a step cannot be gated on the output of a later step.
         # Least-privilege token the agent itself uses to comment on the triggering
@@ -518,7 +557,7 @@ jobs:
 
       - name: Predict with Claude Code
         id: predict_claude
-        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true'
+        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Bound the agent below the job timeout so a runaway run trips this *step*
         # (leaving the finalize step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
@@ -601,7 +640,7 @@ jobs:
 
       - name: Predict with Codex
         id: predict_codex
-        if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true'
+        if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
         uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
@@ -689,7 +728,7 @@ jobs:
       # this step's env carries nothing. The workspace settings file is written
       # here too; its telemetry log feeds the usage-capture step.
       - name: Install the Gemini CLI
-        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true'
+        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
         # disabled, and a secret-free environment are the practical controls for
         # a single global CLI; a lockfile is not expressible for `npm i -g`.
@@ -712,7 +751,7 @@ jobs:
       # usage-capture step), and the same headless `--yolo` prompt call.
       - name: Predict with Gemini
         id: predict_gemini
-        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true'
+        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
         env:
