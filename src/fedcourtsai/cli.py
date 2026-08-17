@@ -116,6 +116,7 @@ from .leaderboard import (
 from .matrix import (
     CappedMatrix,
     CaseRequest,
+    GuardedMatrix,
     StrandedCell,
     cap_predict_cells,
     drop_stranded_cells,
@@ -6471,7 +6472,8 @@ def _resolve_cases(
     default_events: Callable[[str, int], list[str]],
     *,
     drop_unforecastable: Callable[[str, int], Mapping[str, str]] | None = None,
-    stage: str = "predict-matrix",
+    stage: str,
+    report: bool,
     dropped_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none.
@@ -6492,9 +6494,11 @@ def _resolve_cases(
     :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
     ``None``, since its listed events are exactly the resolved ones.
 
-    ``stage`` labels the warning lines, so a dry run does not annotate the log
-    under the minting command's name; ``dropped_out`` collects the same drops a
-    plan reports as structured records.
+    ``stage`` labels the warning lines and ``report`` is the minting path — a
+    plan passes ``False`` and suppresses the annotations, carrying the same
+    drops in ``dropped_out`` for its JSON instead. Both are keyword-required:
+    a caller that has to name its stage cannot inherit another command's label
+    by omission.
     """
     kept: list[CaseRequest] = []
     for c in cases:
@@ -6507,10 +6511,11 @@ def _resolve_cases(
         refused = drop_unforecastable(c.court, c.docket)
         gone = {e: refused[e] for e in c.events if e in refused}
         for dropped, reason in sorted(gone.items()):
-            typer.echo(
-                f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — {reason}",
-                err=True,
-            )
+            if report:
+                typer.echo(
+                    f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — {reason}",
+                    err=True,
+                )
             if dropped_out is not None:
                 dropped_out.append(
                     _DropRecord(ids.case_id(c.court, c.docket), reason, event_id=dropped)
@@ -6823,64 +6828,54 @@ def _stranded_note(runs: Sequence[int]) -> str:
     )
 
 
-def _guarded_matrix(
-    matrix: dict[str, list[dict[str, Any]]],
-    stranded_file: Path | None,
-    note_file: Path | None,
-    *,
-    stage: str = "predict-matrix",
-    withheld_out: list[StrandedCell] | None = None,
-    write_summary: bool = True,
-) -> dict[str, list[dict[str, Any]]]:
-    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+@dataclass
+class _StrandedGuardReport:
+    """What the stranded-run guard did on one pass, for a plan to report.
 
-    Fails **open** in every degraded direction — an unreadable census, an
-    artifact name that does not parse — because the failure this guard prevents
-    is expensive, not dangerous: a census the plan cannot trust must never be
-    the reason a legitimate run does not start. Reports on the same channels as
-    the other plan-time gates (workflow-command lines on stderr and the step
-    summary; stdout carries only the matrix JSON), plus ``note_file`` when the
-    guard empties the matrix, which the workflow's close step posts in place of
-    its generic out-of-scope note.
-
-    ``stage`` labels those lines, ``withheld_out`` collects the withheld cells
-    for a plan to report, and ``write_summary=False`` keeps a dry run from
-    appending to the step summary — the reporting a plan must not do, since it
-    mints nothing to report on.
+    A withheld count of zero is three different states, and only one of them is
+    a reason to distrust the plan: the guard ran and matched nothing
+    (``active``, no ``degraded_reason``), no census was supplied so the guard
+    never ran (neither), or the census was unreadable and the guard failed open
+    (a ``degraded_reason``, no ``active``). ``unparsed`` names census records
+    the guard could not read, which leaves it *partly* blind even when active —
+    a withheld count that is honest about the records it was able to match, and
+    silent about the ones it was not.
     """
-    if stranded_file is None:
-        return matrix
-    try:
-        census = read_stranded_census(stranded_file)
-    except (OSError, ValueError) as exc:
-        typer.echo(
-            f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
-            f"unreadable ({exc}). Cells already sitting in an uncollected run may be re-minted.",
-            err=True,
-        )
-        return matrix
-    for name in census.unparsed:
-        typer.echo(
-            f"::warning::{stage}: stranded-run guard skipped the census record {name!r} — "
-            "it does not read as a cell artifact naming predictor/court/docket/event, and a "
-            "guessed reading would withhold the wrong cell",
-            err=True,
-        )
-    guarded = drop_stranded_cells(matrix, census.cells)
-    if withheld_out is not None:
-        withheld_out.extend(guarded.withheld)
-    if not guarded.withheld:
-        return matrix
+
+    active: bool = False
+    degraded_reason: str | None = None
+    unparsed: tuple[str, ...] = ()
+    withheld: tuple[StrandedCell, ...] = ()
+
+    def as_json(self) -> dict[str, Any]:
+        """The guard's state as a plan-JSON block."""
+        return {
+            "active": self.active,
+            "degraded_reason": self.degraded_reason,
+            "unparsed_records": list(self.unparsed),
+        }
+
+
+def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, stage: str) -> None:
+    """The minting path's record of what the stranded-run guard withheld.
+
+    Three channels, all of them a run's record rather than a plan's: a
+    ``::warning::`` per withheld cell carrying its own recovery command, the
+    escalated ``::error::`` plus ``note_file`` close note when the guard emptied
+    the matrix (the workflow's close step posts the note in place of its generic
+    out-of-scope one), and the Actions step summary. Called only when something
+    was actually withheld.
+    """
+    runs = sorted({cell.run_db_id for cell in guarded.withheld})
+    run_list = ", ".join(str(run) for run in runs)
     for cell in guarded.withheld:
         typer.echo(
             f"::warning::{stage}: withheld {cell.predictor_id} "
-            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
-            f"in uncollected run {cell.run_db_id}; recover it with "
+            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already "
+            f"sits in uncollected run {cell.run_db_id}; recover it with "
             f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
             err=True,
         )
-    runs = sorted({cell.run_db_id for cell in guarded.withheld})
-    run_list = ", ".join(str(run) for run in runs)
     if not guarded.include:
         # Every cell withheld: the plan reports has_jobs=false, and the workflow's
         # close step would otherwise post its generic out-of-scope note. Write the
@@ -6911,7 +6906,7 @@ def _guarded_matrix(
             f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
             err=True,
         )
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY") if write_summary else None
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as fh:
             fh.write(
@@ -6922,6 +6917,68 @@ def _guarded_matrix(
                 f"trigger. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
+
+
+def _guarded_matrix(
+    matrix: dict[str, list[dict[str, Any]]],
+    stranded_file: Path | None,
+    note_file: Path | None,
+    *,
+    stage: str,
+    report: bool,
+    guard_out: _StrandedGuardReport | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+
+    Fails **open** in every degraded direction — an unreadable census, an
+    artifact name that does not parse — because the failure this guard prevents
+    is expensive, not dangerous: a census the plan cannot trust must never be
+    the reason a legitimate run does not start. Reports on the same channels as
+    the other plan-time gates (workflow-command lines on stderr and the step
+    summary; stdout carries only the matrix JSON), plus ``note_file`` when the
+    guard empties the matrix, which the workflow's close step posts in place of
+    its generic out-of-scope note.
+
+    ``stage`` labels those lines. ``report`` is the minting path: a plan passes
+    ``False``, which suppresses every workflow-command annotation and the step
+    summary together, and carries the same facts in ``guard_out`` for its JSON
+    instead — a fail-open the plan document does not name would read exactly
+    like a guard that matched nothing.
+    """
+    guard = guard_out if guard_out is not None else _StrandedGuardReport()
+    if stranded_file is None:
+        return matrix
+    try:
+        census = read_stranded_census(stranded_file)
+    except (OSError, ValueError) as exc:
+        guard.degraded_reason = (
+            f"{stranded_file} is unreadable ({exc}); cells already sitting in an "
+            f"uncollected run may be re-minted"
+        )
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
+                f"unreadable ({exc}). Cells already sitting in an uncollected run may be "
+                f"re-minted.",
+                err=True,
+            )
+        return matrix
+    guard.active = True
+    guard.unparsed = census.unparsed
+    if report:
+        for name in census.unparsed:
+            typer.echo(
+                f"::warning::{stage}: stranded-run guard skipped the census record {name!r} — "
+                "it does not read as a cell artifact naming predictor/court/docket/event, and a "
+                "guessed reading would withhold the wrong cell",
+                err=True,
+            )
+    guarded = drop_stranded_cells(matrix, census.cells)
+    guard.withheld = guarded.withheld
+    if not guarded.withheld:
+        return matrix
+    if report:
+        _report_stranded_guard(guarded, note_file, stage=stage)
     return {"include": guarded.include}
 
 
@@ -6939,7 +6996,7 @@ class _PredictFanout:
     resolved: list[CaseRequest]
     scope_dropped: tuple[_DropRecord, ...]
     unforecastable: tuple[_DropRecord, ...]
-    withheld: tuple[StrandedCell, ...]
+    guard: _StrandedGuardReport
     capped: CappedMatrix
     max_cells: int
 
@@ -6960,10 +7017,13 @@ def _predict_fanout(
     and ``predict-plan`` (which reports them and spends nothing), so the dry run
     can never describe a different fan-out than the minting command performs.
 
-    ``report`` is the minting command's reading: it appends the volume cap's
-    block to the Actions step summary. A plan passes ``False`` — the summary is
-    a record of what a run did, and a plan does nothing. ``note_file`` is the
-    other write, and a plan passes ``None``.
+    ``report`` is the minting command's reading: it emits the workflow-command
+    annotations and appends the volume cap's block to the Actions step summary.
+    A plan passes ``False`` — its JSON carries every one of those facts, and an
+    annotation from a run that mints nothing describes something that did not
+    happen. Suppression is all-or-nothing on that flag, so no plan-run log ever
+    carries a partial set. ``note_file`` is the other write, and a plan passes
+    ``None``.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -7011,6 +7071,7 @@ def _predict_fanout(
             )
         ),
         stage=stage,
+        report=report,
         dropped_out=unforecastable,
     )
     if requested and any(c.events for c in requested) and not any(c.events for c in cases):
@@ -7021,11 +7082,12 @@ def _predict_fanout(
         # safe, because every class the re-check drops on needs something other
         # than a re-queue — a grade for a resolved event, a corpus fix for a
         # stale grant. The per-event warnings above carry which class each was.
-        typer.echo(
-            f"::error::{stage}: the forecastability re-check dropped every listed event — "
-            "none is still forecastable; nothing is minted",
-            err=True,
-        )
+        if report:
+            typer.echo(
+                f"::error::{stage}: the forecastability re-check dropped every listed event — "
+                "none is still forecastable; nothing is minted",
+                err=True,
+            )
         # A workflow-log annotation is retention-bounded; the close note is the
         # durable, human-read surface. Re-derive the per-event reasons (point
         # lookups, only on this empty path) and hand the workflow's close step
@@ -7061,14 +7123,14 @@ def _predict_fanout(
     # which is exactly why a failed collect otherwise re-mints the whole run
     # every live cycle. Fail-open in every degraded direction; see
     # `_guarded_matrix` and `drop_stranded_cells`.
-    withheld: list[StrandedCell] = []
+    guard = _StrandedGuardReport()
     matrix = _guarded_matrix(
         matrix,
         stranded_file,
         note_file,
         stage=stage,
-        withheld_out=withheld,
-        write_summary=report,
+        report=report,
+        guard_out=guard,
     )
     # Salience-independent volume backstop, after scope filtering: hold the
     # fan-out under the cell cap even if selection failed open, deferring whole
@@ -7090,7 +7152,7 @@ def _predict_fanout(
         resolved=cases,
         scope_dropped=tuple(scope_dropped),
         unforecastable=tuple(unforecastable),
-        withheld=tuple(withheld),
+        guard=guard,
         capped=capped,
         max_cells=predict_config.max_predict_cells_per_run,
     )
@@ -7164,6 +7226,7 @@ class _EvaluateFanout:
     scope_dropped: tuple[_DropRecord, ...]
     predictionless: tuple[_DropRecord, ...]
     already_evaluated: tuple[_DropRecord, ...]
+    candidates: int
     matrix: dict[str, list[dict[str, Any]]]
 
 
@@ -7173,12 +7236,22 @@ def _evaluate_fanout(
     *,
     stage: str,
     force: bool,
+    report: bool,
 ) -> _EvaluateFanout:
     """Run the evaluate planning pipeline: scope, resolution, and the two gates.
 
     The one definition of what an evaluate run would mint, shared by
     ``evaluate-matrix`` and ``evaluate-plan``, so the dry run cannot describe a
     different fan-out than the minting command performs. Nothing here writes.
+
+    ``report`` is the minting path's per-gate stderr lines; a plan passes
+    ``False`` and carries the same two numbers in its own ``counts`` block,
+    which is its single stderr voice.
+
+    ``candidates`` is the opening balance — every evaluator x case x event cell
+    the resolved request spans, before either gate — so a reader can reconcile
+    the drops against the surviving set rather than take the difference on
+    trust.
     """
     settings = get_settings()
     scope = load_predict_config(settings.config_root).scope
@@ -7195,6 +7268,8 @@ def _evaluate_fanout(
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
+        stage=stage,
+        report=report,
     )
     # Two plan-time gates, both before any model spend: an event with no
     # committed prediction has nothing to score, and a judge that already graded
@@ -7246,9 +7321,9 @@ def _evaluate_fanout(
                     evaluator_id=evaluator.id,
                 )
             )
-    if predictionless:
+    if report and predictionless:
         typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
-    if already:
+    if report and already:
         typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
     return _EvaluateFanout(
         requested=requested_cases,
@@ -7256,6 +7331,7 @@ def _evaluate_fanout(
         scope_dropped=tuple(scope_dropped),
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
+        candidates=len(evaluators) * sum(len(case.events) for case in cases),
         matrix=matrix,
     )
 
@@ -7302,6 +7378,7 @@ def evaluate_matrix_cmd(
         run_id,
         stage="evaluate-matrix",
         force=force,
+        report=True,
     )
     # The same ex-post backstop predict consults: the ceiling governs total
     # inference spend, and a grading costs a cell like a forecast does. An owed
@@ -7342,21 +7419,38 @@ def _plan_spend(cells: int) -> dict[str, Any]:
     }
 
 
-def _already_predicted(
+@dataclass(frozen=True)
+class _LedgerGate:
+    """The predict ledger gate's reading: the opening balance and what it dropped.
+
+    ``candidates`` is every predictor x case x event cell the resolved request
+    spans before any gate — the plan's opening balance, so the later drops
+    reconcile against the surviving set (candidates minus already-predicted
+    minus withheld minus deferred is exactly what a run would mint) instead of
+    being taken on trust.
+    """
+
+    candidates: int
+    already_predicted: tuple[_DropRecord, ...]
+
+
+def _predict_ledger_gate(
     resolved: list[CaseRequest], predictors_path: Path, data_root: Path
-) -> list[_DropRecord]:
-    """The cells :func:`predict_matrix`'s ledger gate skipped, one record each.
+) -> _LedgerGate:
+    """Re-walk :func:`predict_matrix`'s product and report what its ledger gate skipped.
 
     Re-derived from the same predicate, over the same predictor x case x event
     order, rather than by subtracting the surviving cells from a product — so
     the plan's count cannot drift from the gate it reports on, and stays right
     when a later step (the stranded guard, the cap) removes cells of its own.
     """
+    candidates = 0
     records: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
             if case.predictors and predictor.id not in case.predictors:
                 continue
+            candidates += len(case.events)
             records.extend(
                 _DropRecord(
                     ids.case_id(case.court, case.docket),
@@ -7369,7 +7463,7 @@ def _already_predicted(
                     data_root, case.court, case.docket, event_id, predictor_id=predictor.id
                 )
             )
-    return records
+    return _LedgerGate(candidates, tuple(records))
 
 
 def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
@@ -7380,20 +7474,29 @@ def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
     meant for a person goes to stderr.
     """
     counts = plan["counts"]
+    breached = bool(plan["spend_gate"]["breached"])
     typer.echo(
         f"{stage}: " + ", ".join(f"{name}={value}" for name, value in counts.items()),
         err=True,
     )
-    if plan["spend_gate"]["breached"]:
+    if breached:
         typer.echo(
             f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
             f"however many this plan lists; the plan reports the gate rather than applying it",
             err=True,
         )
+    # The closing line carries the breach too. Without the suffix it reads as a
+    # prediction of what the next run costs, directly contradicting the warning
+    # above it — and the last line is the one a reader keeps.
+    breach_note = (
+        " — but the spend backstop would empty the matrix, so a real run mints 0."
+        if breached
+        else "."
+    )
     typer.echo(
         f"{stage}: would mint {counts['would_mint_cells']} cell(s), estimated "
         f"${plan['estimated_spend_usd']:.2f} at the ${_PLANNING_USD_PER_CELL:.2f}/cell planning "
-        f"rate (docs/budget.md). Nothing was spent and nothing was written.",
+        f"rate (docs/budget.md). Nothing was spent and nothing was written{breach_note}",
         err=True,
     )
     typer.echo(json.dumps(plan, separators=(",", ":")))
@@ -7460,7 +7563,7 @@ def predict_plan_cmd(
         note_file=None,
         report=False,
     )
-    already = _already_predicted(
+    gate = _predict_ledger_gate(
         fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
     )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
@@ -7470,6 +7573,11 @@ def predict_plan_cmd(
             "court": cell["court"],
             "docket": cell["docket"],
             "event_id": cell["event_id"],
+            # The resolved pair the cell would actually run on, not the registry
+            # default: what a cell costs is keyed on them, so a plan that priced
+            # the fan-out must name them.
+            "engine": cell["engine"],
+            "model": cell["model"],
         }
         for cell in fanout.capped.include
     ]
@@ -7483,15 +7591,22 @@ def predict_plan_cmd(
             "dropped_unforecastable_events": len(fanout.unforecastable),
             "resolved_cases": len(fanout.resolved),
             "resolved_events": sum(len(c.events) for c in fanout.resolved),
-            "dropped_already_predicted_cells": len(already),
-            "withheld_stranded_cells": len(fanout.withheld),
+            # The opening balance, so the drops below reconcile:
+            # candidate - already_predicted - withheld - deferred == would_mint.
+            "candidate_cells": gate.candidates,
+            "dropped_already_predicted_cells": len(gate.already_predicted),
+            "withheld_stranded_cells": len(fanout.guard.withheld),
             "deferred_by_cap_cells": fanout.capped.dropped_cells,
             "deferred_by_cap_cases": len(fanout.capped.dropped_cases),
             "would_mint_cells": len(would_mint),
         },
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
         "dropped_unforecastable": [r.as_json() for r in fanout.unforecastable],
-        "dropped_already_predicted": [r.as_json() for r in already],
+        "dropped_already_predicted": [r.as_json() for r in gate.already_predicted],
+        # A withheld count of zero means nothing on its own — see
+        # `_StrandedGuardReport`, which separates a clean guard from an absent
+        # one and from one that failed open.
+        "stranded_guard": fanout.guard.as_json(),
         "withheld_stranded": [
             {
                 "case_id": ids.case_id(cell.court, cell.docket),
@@ -7500,7 +7615,7 @@ def predict_plan_cmd(
                 "run_db_id": cell.run_db_id,
                 "reason": f"its output already sits in uncollected run {cell.run_db_id}",
             }
-            for cell in fanout.withheld
+            for cell in fanout.guard.withheld
         ],
         "deferred_by_cap": {
             "cells": fanout.capped.dropped_cells,
@@ -7557,6 +7672,7 @@ def evaluate_plan_cmd(
         planned_run_id,
         stage="evaluate-plan",
         force=force,
+        report=False,
     )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -7565,6 +7681,9 @@ def evaluate_plan_cmd(
             "court": cell["court"],
             "docket": cell["docket"],
             "event_id": cell["event_id"],
+            # See predict-plan: the resolved pair the cell would run on.
+            "engine": cell["engine"],
+            "model": cell["model"],
         }
         for cell in fanout.matrix["include"]
     ]
@@ -7577,6 +7696,9 @@ def evaluate_plan_cmd(
             "dropped_out_of_scope_cases": len(fanout.scope_dropped),
             "resolved_cases": len(fanout.resolved),
             "resolved_events": sum(len(c.events) for c in fanout.resolved),
+            # The opening balance, so the drops below reconcile:
+            # candidate - predictionless - already_evaluated == would_mint.
+            "candidate_cells": fanout.candidates,
             "dropped_predictionless_cells": len(fanout.predictionless),
             "dropped_already_evaluated_cells": len(fanout.already_evaluated),
             "would_mint_cells": len(would_mint),

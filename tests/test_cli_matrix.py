@@ -1431,6 +1431,29 @@ def _files(root: Path) -> set[Path]:
     return {p for p in root.rglob("*") if p.is_file()}
 
 
+def _assert_predict_balances(plan: dict[str, Any]) -> None:
+    """The opening balance reconciles: every candidate cell is minted or accounted for."""
+    c = plan["counts"]
+    assert (
+        c["candidate_cells"]
+        - c["dropped_already_predicted_cells"]
+        - c["withheld_stranded_cells"]
+        - c["deferred_by_cap_cells"]
+        == c["would_mint_cells"]
+    )
+
+
+def _assert_evaluate_balances(plan: dict[str, Any]) -> None:
+    """The same reconciliation across evaluate's two gates."""
+    c = plan["counts"]
+    assert (
+        c["candidate_cells"]
+        - c["dropped_predictionless_cells"]
+        - c["dropped_already_evaluated_cells"]
+        == c["would_mint_cells"]
+    )
+
+
 def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     tmp_path: Path,
 ) -> None:
@@ -1456,14 +1479,28 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
             "court": cell["court"],
             "docket": cell["docket"],
             "event_id": cell["event_id"],
+            "engine": cell["engine"],
+            "model": cell["model"],
         }
         for cell in _cells(minted.stdout)
     ]
     # 3 predictors x 2 cases x 1 event, less the seeded claude-baseline cell on each.
-    assert plan["counts"]["would_mint_cells"] == 4
-    assert plan["counts"]["dropped_already_predicted_cells"] == 2
+    counts = plan["counts"]
+    assert counts["candidate_cells"] == 6
+    assert counts["would_mint_cells"] == 4
+    assert counts["dropped_already_predicted_cells"] == 2
     assert {d["actor_id"] for d in plan["dropped_already_predicted"]} == {"claude-baseline"}
-    assert plan["estimated_spend_usd"] == 4 * plan["planning_rate_usd_per_cell"]
+    _assert_predict_balances(plan)
+    # The rate is pinned in code against docs/budget.md; a silent re-anchor
+    # re-prices every plan, so the literal is asserted rather than derived.
+    assert plan["planning_rate_usd_per_cell"] == 2.50
+    assert plan["estimated_spend_usd"] == 10.00
+    # The guard ran against no census at all — distinct from a clean run.
+    assert plan["stranded_guard"] == {
+        "active": False,
+        "degraded_reason": None,
+        "unparsed_records": [],
+    }
 
 
 def test_predict_plan_names_the_step_that_dropped_a_stale_grant(tmp_path: Path) -> None:
@@ -1511,11 +1548,15 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
             "court": cell["court"],
             "docket": cell["docket"],
             "event_id": cell["event_id"],
+            "engine": cell["engine"],
+            "model": cell["model"],
         }
         for cell in _cells(minted.stdout)
     ]
+    assert plan["counts"]["candidate_cells"] == 6
     assert plan["counts"]["would_mint_cells"] == 3
     assert plan["counts"]["dropped_predictionless_cells"] == 3
+    _assert_evaluate_balances(plan)
     assert {d["case_id"] for d in plan["dropped_predictionless"]} == {"scotus/24002"}
     assert all("no committed prediction" in d["reason"] for d in plan["dropped_predictionless"])
 
@@ -1545,7 +1586,102 @@ def test_predict_plan_writes_nothing_where_the_matrix_command_writes(tmp_path: P
     assert plan["would_mint"] == []
     assert {c["run_db_id"] for c in plan["withheld_stranded"]} == {4242}
     assert plan["estimated_spend_usd"] == 0.0
+    # The guard ran and matched — the state a bare `withheld == 0` cannot show.
+    assert plan["stranded_guard"]["active"] is True
+    assert plan["stranded_guard"]["degraded_reason"] is None
+    _assert_predict_balances(plan)
     # `predict-plan` takes no --stranded-note-file, so no note can exist, and the
     # step summary the matrix command would have appended to stays empty.
     assert summary.read_text() == ""
     assert _files(tmp_path) == before
+
+
+def test_predict_plan_names_a_guard_that_failed_open(tmp_path: Path) -> None:
+    # The guard fails open on an unreadable census, which is the one state a
+    # `withheld_stranded_cells: 0` must not be read as "nothing was stranded":
+    # the cells it could not check may re-spend. A plan run emits no annotation
+    # at all, so the JSON is the only place that distinction can live.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = tmp_path / "stranded-artifacts.json"
+    census.write_text('{"not": "a list"}')
+
+    result = runner.invoke(
+        app,
+        ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)],
+        env=env,
+    )
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    guard = plan["stranded_guard"]
+    assert guard["active"] is False
+    assert guard["degraded_reason"] is not None
+    assert "unreadable" in guard["degraded_reason"]
+    # Fail-open: the cells still plan, exactly as the matrix command mints them.
+    assert plan["counts"]["would_mint_cells"] == 3
+    assert plan["counts"]["withheld_stranded_cells"] == 0
+    # Suppress-all: a plan run leaves no workflow-command annotation behind.
+    assert "::warning::" not in result.stderr
+    assert "::error::" not in result.stderr
+
+
+def test_predict_plan_reports_a_spend_breach_without_emptying_the_cell_set(
+    tmp_path: Path,
+) -> None:
+    # The deliberate asymmetry with `predict-matrix`: a breach empties the
+    # matrix there, and here it is reported beside the fan-out the earlier steps
+    # decided — a plan describes the pipeline rather than standing in for it.
+    # Both halves must be legible, so the closing stderr line carries the breach
+    # rather than contradicting the warning above it.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+        spend_ceiling_usd=10.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    assert plan["spend_gate"]["breached"] is True
+    assert plan["spend_gate"]["enforced"] is True
+    assert plan["counts"]["would_mint_cells"] == 6
+    assert len(plan["would_mint"]) == 6
+    assert "the ex-post spend backstop is breached" in result.stderr
+    assert "so a real run mints 0." in result.stderr
+
+
+def test_evaluate_plan_reports_already_graded_cells_and_what_force_would_change(
+    tmp_path: Path,
+) -> None:
+    # The idempotency gate at plan grain, and the flag that lifts it: without
+    # `--force` a graded event's judge is named as dropped; with it the same
+    # request plans the re-grade.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    seed_evaluation(Path(env["FEDCOURTS_DATA_ROOT"]), "scotus", 24001, EVENT)
+
+    planned = runner.invoke(app, ["evaluate-plan", "--body-file", str(body)], env=env)
+    forced = runner.invoke(app, ["evaluate-plan", "--body-file", str(body), "--force"], env=env)
+
+    assert planned.exit_code == 0
+    assert forced.exit_code == 0
+    plan = _plan(planned.stdout)
+    assert plan["counts"]["dropped_already_evaluated_cells"] == 1
+    assert [d["actor_id"] for d in plan["dropped_already_evaluated"]] == ["claude-judge"]
+    assert plan["dropped_already_evaluated"][0]["case_id"] == "scotus/24001"
+    assert plan["counts"]["would_mint_cells"] == 5
+    _assert_evaluate_balances(plan)
+
+    forced_plan = _plan(forced.stdout)
+    assert forced_plan["dropped_already_evaluated"] == []
+    assert forced_plan["counts"]["would_mint_cells"] == 6
+    _assert_evaluate_balances(forced_plan)
