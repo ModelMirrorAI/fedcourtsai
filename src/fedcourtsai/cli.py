@@ -7719,7 +7719,12 @@ _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
 
 #: What the rates above can and cannot support, carried on every plan beside the
 #: number so the estimate is never read as a measurement of this run. Keyed by
-#: seam where the standing differs; the shared entries apply to both.
+#: seam where the standing differs; :func:`_shared_spend_caveats` adds the rest.
+#:
+#: The two "four"s in this file name different things and each says which: the
+#: four predict *moments* docs/budget.md measures, and the four pre-freeze
+#: *gradings* the evaluate anchor is drawn from (of which the rates here use
+#: three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
         "Measured, but over one post-freeze fan-out (81 cells, 27 events). "
@@ -7728,22 +7733,45 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: no evaluate fan-out has run since the "
-        + "pre-registration freeze, so docs/budget.md scales its four pre-freeze "
-        + "cert-stage graded events by the whole predict move (~+22%). The four "
-        + "are also all cert-stage, so the anchor is stage-narrow whichever row "
-        + "is read.",
+        + "pre-registration freeze, so docs/budget.md scales a pre-freeze anchor "
+        + "by the whole predict move (~+22%). The anchor these rates use is its "
+        + "`proc-v2` row — THREE graded events, the process-stamped subset of the "
+        + "four pre-freeze gradings — taken as the better-matched of the doc's "
+        + "two anchors; the pooled four-grading row is the more cautious one and "
+        + "is NOT what these rates carry. All four are cert-stage, so the anchor "
+        + "is stage-narrow either way.",
     ],
 }
 
-#: The caveats that hold on both seams.
-_SPEND_BASIS_SHARED_CAVEATS: list[str] = [
-    "Measured per-cell cost spans ~$0.25-8.30 by model mix, so a per-engine mean "
-    + "prices a FAN-OUT and never a cell.",
-    "Not conditioned on the forecast moment. Of the four predict moments "
-    + "docs/budget.md measures, only merits-above-cert-arrival (~+$1.2 an event, "
-    + "on 11 events against 12) separates at the measured n; the rest sit within "
-    + "noise of each other, so conditioning on them would fit noise.",
-]
+
+def _shared_spend_caveats(seam: str) -> list[str]:
+    """The caveats that hold on both seams, with the moment note routed by seam.
+
+    The moment caveat is a statement about the *predict* measurements. It still
+    belongs on an evaluate plan, because the evaluate rates are the predict
+    move applied to a pre-freeze anchor — so whatever the predict mix carries,
+    they carry — but it has to say so, or it reads as a claim about measured
+    evaluate moments that do not exist.
+    """
+    moment = (
+        "Not conditioned on the forecast moment. Of the four predict MOMENTS "
+        "docs/budget.md measures, only merits-above-cert-arrival separates at the "
+        "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
+        "within noise of each other, so conditioning on them would fit noise. "
+        "The merits separation is real and is deliberately not applied here, so "
+        "an all-merits plan reads ~10% LOW ($7.47 an event against the $6.79 "
+        "whole-run rate these figures use)."
+    )
+    if seam == "evaluate":
+        moment += (
+            " This describes the predict seam, whose whole-run move the evaluate "
+            "rates are scaled by, so it carries into them."
+        )
+    return [
+        "Measured per-cell cost spans ~$0.25-8.30 by model mix, so a per-engine mean "
+        + "prices a FAN-OUT and never a cell.",
+        moment,
+    ]
 
 
 def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
@@ -7767,7 +7795,10 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         "ceiling_usd": verdict.ceiling_usd if enforced else None,
         "cells": verdict.cells if enforced else None,
         "window_days": verdict.window_days,
-        "spent_usd_is_floor": True,
+        # Only where a figure exists to be a floor of. Claiming a null is a
+        # floor is not a weaker claim than claiming it is exact — it is not a
+        # claim about anything.
+        "spent_usd_is_floor": True if enforced else None,
         "basis": (
             "The ledger counts collected cells only — a cell's usage.json reaches data/ when "
             "its run's collect PR merges — so spent_usd is a FLOOR on spend within the window, "
@@ -7797,7 +7828,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             rate = _PLANNING_USD_PER_CELL
             at_fallback += 1
         total += rate
-    caveats = list(_SPEND_BASIS_CAVEATS[seam]) + list(_SPEND_BASIS_SHARED_CAVEATS)
+    caveats = list(_SPEND_BASIS_CAVEATS[seam]) + _shared_spend_caveats(seam)
     if seam == "predict":
         caveats.append(
             "Covers THIS run only: cells the volume cap deferred (see deferred_by_cap) "
@@ -7819,7 +7850,11 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             if breached
             else None
         ),
-        "planning_rate_usd_per_cell": _PLANNING_USD_PER_CELL,
+        # The fallback rate is deliberately NOT published at the top level beside
+        # `estimated_spend_usd`: there it reads as the rate the estimate used,
+        # and a consumer multiplying it by `would_mint_cells` reconstructs
+        # exactly the flat-rate error the per-engine table exists to remove. It
+        # lives inside the basis block, named as the fallback it is.
         "spend_estimate_basis": {
             "source": (
                 "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
@@ -7943,11 +7978,19 @@ def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
         if deferred
         else ""
     )
+    # The evaluate seam's rates are a scaled pre-freeze anchor, so the one line a
+    # reader is most likely to quote has to carry that in the same sentence as
+    # the number; predict's are measured and need no such clause.
+    rate_note = (
+        "docs/budget.md's per-engine rates, which for the evaluate seam are an "
+        "assumption (pre-freeze cert-stage anchor scaled ~+22%), not a measurement"
+        if plan["stage"] == "evaluate"
+        else "the per-engine rates in docs/budget.md (see spend_estimate_basis)"
+    )
     typer.echo(
         f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
-        f"${plan['estimated_spend_usd']:.2f} at the per-engine rates in "
-        f"docs/budget.md (see spend_estimate_basis). Nothing was spent and nothing was "
-        f"written{breach_note}{cap_note}",
+        f"${plan['estimated_spend_usd']:.2f} at {rate_note}. Nothing was spent and nothing "
+        f"was written{breach_note}{cap_note}",
         err=True,
     )
     typer.echo(json.dumps(plan, separators=(",", ":")))
