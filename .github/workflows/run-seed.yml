@@ -1069,7 +1069,9 @@ jobs:
     needs: [seed]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Sized to the retry worst case: 4 retried call groups x 3 bounded 30s
+    # attempts plus 60s of backoff sleeps. Nothing downstream waits on this job.
+    timeout-minutes: 10
     # This job reads the needs result plus the run's own step outcomes, and writes
     # a NON-triggering issue — no checkout, no corpus, no contents. Per
     # docs/security.md that is exactly the ambient-GITHUB_TOKEN case; the data App
@@ -1087,19 +1089,46 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # Every call below goes to the GitHub API, and a transient 5xx on any
+          # of them turns this watchdog's own bookkeeping into a red run over a
+          # clean walk — or leaves a stale incident open over a healthy one. A
+          # short bounded retry absorbs the blip; a sustained outage still
+          # fails the step loudly, which is the right residue when the API
+          # itself is down.
+          # Each attempt is bounded: gh sets no client-side request timeout, so
+          # a stalled connect against a degraded API would otherwise hang into
+          # the job's own kill — leaving no issue written, the one outcome this
+          # job exists to prevent. Capture-then-print keeps a failed attempt's
+          # partial stdout out of command substitutions. Retrying a
+          # deterministic 4xx costs only the 15s of sleeps, accepted here for
+          # simplicity over push_with_retry.sh's transient/genuine split.
+          retry() {
+            local attempt out
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+            done
+            return 1
+          }
           # `pipeline-health` is a NON-triggering label by design (no run:* workflow
           # keys on it). Create it idempotently, as run-ops does for its label.
-          gh label create pipeline-health --repo "$REPO" --force \
-            --color b60205 --description "Long-lived corpus-writer failure"
-          num=$(gh issue list --repo "$REPO" --label pipeline-health --state open \
+          # Non-fatal after retries: in steady state the label exists, and if it
+          # truly does not, the issue write below fails loudly on its own.
+          retry gh label create pipeline-health --repo "$REPO" --force \
+            --color b60205 --description "Long-lived corpus-writer failure" \
+            || echo "::warning::pipeline-health label create failed after retries; continuing"
+          num=$(retry gh issue list --repo "$REPO" --label pipeline-health --state open \
             --json number --jq '.[0].number')
           # Only 'success' clears; 'failure'/'cancelled' (or any non-skipped
           # not-clean result — this job's always() runs it regardless) escalate.
           if [ "$RESULT" = "success" ]; then
             if [ -n "$num" ]; then
-              gh issue comment "$num" --repo "$REPO" \
+              retry gh issue comment "$num" --repo "$REPO" \
                 --body "✅ The seed walk finished cleanly again ($RUN_URL) — closing."
-              gh issue close "$num" --repo "$REPO" --reason completed
+              retry gh issue close "$num" --repo "$REPO" --reason completed
             fi
             exit 0
           fi
@@ -1112,7 +1141,7 @@ jobs:
           # one would degrade this to the unnamed branch below, never break it.
           # A failed lookup only costs the step name, so it stays non-fatal — but
           # it is NOT silenced, so a 403/404 is in the log for whoever triages.
-          step=$(gh api "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+          step=$(retry gh api "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
             --jq '[.jobs[] | select(.name == "seed") | .steps[]
                    | select(.conclusion != "success" and .conclusion != "skipped")][0].name' \
             || true)
@@ -1123,8 +1152,8 @@ jobs:
           fi
           body="⚠️ The seed (historical) run ended \`${RESULT}\` — ${where}. It commits directly to main with no PR gate, so this needs a look: ${RUN_URL}"
           if [ -n "$num" ]; then
-            gh issue comment "$num" --repo "$REPO" --body "$body"
+            retry gh issue comment "$num" --repo "$REPO" --body "$body"
           else
-            gh issue create --repo "$REPO" --label pipeline-health \
+            retry gh issue create --repo "$REPO" --label pipeline-health \
               --title "Seed walk failing" --body "$body"
           fi
