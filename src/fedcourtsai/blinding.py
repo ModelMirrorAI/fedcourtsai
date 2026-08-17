@@ -458,16 +458,17 @@ def mask_retrieval_log(
     reading path. The query slice and ``retrieved_doc_date`` pass through
     untouched.
 
-    So do each call's ``result_capture`` and the log-level
-    ``result_capture_coverage``, which is a trade and not a free pass — the
+    So do each call's ``result_capture`` and ``result_status`` and the
+    log-level ``result_capture_coverage`` and ``throttled_calls``, which is a
+    trade and not a free pass — the
     capture profile is engine-correlated, as the module docstring's residual
     list records. They survive because stripping them leaks worse: every
     uncaptured call would read as one that returned nothing, which is the
-    grader crediting an engine for a result nobody ever saw. Carrying the rate
-    through verbatim is correct only because this mask keeps ``calls``
+    grader crediting an engine for a result nobody ever saw. Carrying the
+    summaries through verbatim is correct only because this mask keeps ``calls``
     one-for-one; a future mask that dropped or filtered calls would have to
-    recompute it, since the staged rate would otherwise denominate rows the
-    grader cannot see.
+    recompute them, since the staged rate and count would otherwise summarize
+    rows the grader cannot see.
     """
     masked = scrub_json(dict(payload), pattern)
     if not isinstance(masked, dict):  # pragma: no cover - a JSON object by construction

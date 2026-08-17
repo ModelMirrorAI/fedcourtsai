@@ -189,7 +189,13 @@ runbook, [docs/security.md](docs/security.md).
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role
-  and its own engine keys for the pre-promotion integration runs.
+  and its own engine keys for the pre-promotion integration runs. A third,
+  `predict-approval`, holds no secret, no role, and no branch policy: its
+  entire content is a required-reviewer rule, and it exists only as the
+  audit-logged hold between run-predict's plan and its token-spending fan-out.
+  The promotion gate's admin-read stage verifies the rule is present, because
+  an auto-created environment is unprotected and an unprotected hold releases
+  instantly.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat

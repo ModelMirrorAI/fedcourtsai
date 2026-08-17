@@ -439,12 +439,31 @@ directory without knowing which part is which invites trusting the wrong half.
   pair with the call, with `result_capture_coverage` the log-level share. Read
   it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
-  "this call surfaced nothing" is a claim only the marker can support. The
-  evaluate prompt does not name the marker — the process the frozen partition
-  keys on cannot gain a reading instruction without moving
-  ([process-version.md](process-version.md)) — so it serves a maintainer, and
-  is available to the tool-usage rollup, which does not yet read it, until the
-  next re-blessing carries the instruction.
+  "this call surfaced nothing" is a claim only the marker can support. Where a
+  result *was* captured, `result_status` says what came back in it — `ok`,
+  `error` (the engine's own structural failure marker), or `throttled`, the
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  `throttled` is the state that changes how the cell reads: the shared daily
+  quota turned the call away, so it retrieved nothing and the cell is not
+  comparable with a well-fed one. Only a **manifest-tool** call can carry it —
+  the text predicate is gated on the tool name, because a builtin's result is
+  whatever the agent asked it to read (its own `reasoning.md`, this
+  repository's source, another cell's artifacts), and prose about throttling is
+  not this cell being refused. `throttled_calls` is the log-level count over
+  that same gated set, null where no manifest result was legible, because a
+  throttle is only countable where one reached the transcript. Both are floors
+  — the predicate is anchored on the server's own rate-limit phrasing, biased
+  to miss rather than invent, and baked at parse time, since the raw 429 text is
+  digested away one line after it is read and can never be re-examined. The
+  evaluate prompt does not name `result_capture` — the process the frozen
+  partition keys on cannot gain a reading instruction without moving
+  ([process-version.md](process-version.md)) — so that marker serves a
+  maintainer, and is available to the tool-usage rollup, which does not yet
+  read it, until the next re-blessing carries the instruction. `result_status`
+  is under the same silence for the same reason, though the rollup does read
+  it: both reach an evaluator's information set unmasked regardless, which is
+  recorded as a masking-surface entry in
+  [milestones.md](milestones.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts

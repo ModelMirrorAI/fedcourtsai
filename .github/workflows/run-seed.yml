@@ -393,6 +393,7 @@ jobs:
         id: dedupe-live-rows
         if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
         continue-on-error: true
+        timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
@@ -403,15 +404,38 @@ jobs:
             echo "no corpus pointer yet; skipping dedupe"; exit 0
           fi
           gh auth setup-git # persist-credentials is false on checkout
+          # The merge reads committed `data/` as a refusal guard (a twin whose
+          # events carry committed cell output must not merge), so it needs the
+          # remote tip, not this checkout's — a collect PR merging output under
+          # the twin since the walk's last rebase must be visible. Fast-forward
+          # only, for the sibling sweeps' reason: a sibling holding an unpushed
+          # commit fails this closed rather than publishing a split.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the merge moves ledger event
+          # directories with the re-keyed rows, and the would-move ledger must
+          # outlive the step log the way the attribution repairs' does.
+          uv run fedcourts dedupe-live-rows 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           uv run fedcourts dedupe-live-rows --apply
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
+          # The merge writes both halves: the re-keyed rows into the corpus and
+          # the moved minted-event directories into `data/`. Stage them into the
+          # one pointer commit so both land together on the push path. The
+          # guarantee is per-push, not per-step: this step is continue-on-error,
+          # so a corpus-push failure here leaves the applied moves as
+          # uncommitted residue that only a later blanket `git add data/` sweep
+          # (the merits-events step) would carry — the reason the apply runs in
+          # the same window as that sweep and never alone.
           git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
           if git diff --cached --quiet; then
             echo "No duplicate pairs to persist."
             exit 0
           fi
-          git commit -m "seed: dedupe live-minted duplicate rows"
+          git commit -m "seed: dedupe live-minted duplicate rows (corpus + ledger)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "dedupe pointer"
 
