@@ -2024,32 +2024,23 @@ def corpus_seed_slice(
     """
     settings = get_settings()
     destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
+    staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
     try:
         case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
-        # The rail runs before a client is built or a store is opened, so a
-        # dispatch aimed at production is refused in milliseconds and touches
-        # nothing. `seed_slice` re-asserts it — a library entry point has to be
-        # safe on its own — which is why this call is a duplicate, not a
-        # substitute.
+        # Both rails run before a client is built or a store is opened, so a
+        # dispatch aimed at production — or at the checkout's own corpus blob —
+        # is refused in milliseconds and touches nothing. `seed_slice`
+        # re-asserts both, because a library entry point has to be safe on its
+        # own; these calls are a duplicate, not a substitute.
         corpus_seed.assert_destination_is_not_production(destination, settings=settings)
-    except (
-        corpus_seed.SeedSliceError,
-        casestore.CasestoreError,
-        corpus_ranged.RangedBackendError,
-    ) as exc:
+        corpus_seed.assert_stage_db_is_not_the_corpus(staged, settings=settings)
+    except corpus_seed.SeedSliceError as exc:
         typer.echo(f"corpus-seed-slice: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    source_casestore_url = settings.casestore_url
-    if source_casestore_url is None or not source_casestore_url.strip():
-        # A split-mode corpus keeps its payloads in the content store, so a
-        # slice seeded without one would be rows with nothing to provision
-        # from — fail rather than publish a hollow staging corpus.
-        typer.echo(
-            "corpus-seed-slice: the source content store is not configured; "
-            "set the content-store URL to the production value (see docs/security.md)",
-            err=True,
-        )
-        raise typer.Exit(code=1)
+    # The rail already refused an unconfigured production content store — it is
+    # both the comparison basis and the slice's payload source — so by here the
+    # source URL is known present.
+    source_casestore_url = str(settings.casestore_url)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if corpus.resolve_backend() == "local" and not db_path.exists():
         # `connect` would create an empty database and report every requested
@@ -2062,7 +2053,6 @@ def corpus_seed_slice(
         raise typer.Exit(code=1)
     bucket, prefix = casestore.parse_s3_url(source_casestore_url.strip())
     source_objects = casestore.S3ObjectTransport(bucket, prefix=prefix or casestore.DEFAULT_PREFIX)
-    staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
     try:
         with corpus.connect_readonly(db_path) as conn:
             result = corpus_seed.seed_slice(

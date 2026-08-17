@@ -134,12 +134,16 @@ runbook, [docs/security.md](docs/security.md).
   agent's token. Issue and docket text stay untrusted input.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
-  least-privilege IAM role via GitHub OIDC. **Two roles, split by access:**
+  least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
   corpus writers get a **read-write, append-only** role (get/put/list, **no
   delete**) and every corpus consumer a **read-only** role, so a compromised
   consumer runner cannot tamper with the data; the buckets keep **versioning**
-  on, so no run can wipe corpus objects. Both roles' OIDC trust is scoped to
-  this repo's `prod` environment, so a PR-branch job cannot assume them. No
+  on, so no run can wipe corpus objects. The third is the **staging read-write**
+  role — read-only on the production stores, read-write on the staging corpus
+  pair alone — held by one dispatch-only workflow, so the production stores
+  keep exactly one writer. The two production roles' OIDC trust is scoped to
+  this repo's `prod` environment and the staging role's to `staging-corpus`,
+  so a PR-branch job cannot assume any of them. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.

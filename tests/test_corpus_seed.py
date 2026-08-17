@@ -21,8 +21,12 @@ from .test_corpus_remote import InMemoryFileTransport
 
 runner = CliRunner()
 
-PROD_REMOTE = "s3://fcai-prod/corpus"
-PROD_CASESTORE = "s3://fcai-prod/casestore/v1"
+PROD_BUCKET = "fcai-prod"
+PROD_REMOTE = f"s3://{PROD_BUCKET}/corpus"
+# The bare-bucket spelling of the production content store: `parse_s3_url`
+# yields no prefix and the transport falls back to DEFAULT_PREFIX, which is
+# exactly the configured URL below.
+PROD_CASESTORE = f"s3://{PROD_BUCKET}/{casestore.DEFAULT_PREFIX}"
 STAGING_REMOTE = "s3://fcai-staging/corpus"
 STAGING_CASESTORE = "s3://fcai-staging/casestore/v1"
 
@@ -173,10 +177,22 @@ def test_an_empty_slice_is_refused() -> None:
     [
         (PROD_REMOTE, STAGING_CASESTORE),
         (STAGING_REMOTE, PROD_CASESTORE),
-        # Case and a trailing slash must not defeat the comparison.
-        (PROD_REMOTE.upper() + "/", STAGING_CASESTORE),
+        # Bucket/prefix case and a trailing slash must not defeat the
+        # comparison. (An upper-cased *scheme* is refused a step earlier, as
+        # malformed — the transports' parsers do not accept one either.)
+        (f"s3://{PROD_BUCKET.upper()}/CORPUS/", STAGING_CASESTORE),
         # A destination that names the *other* production store is just as wrong.
         (PROD_CASESTORE, STAGING_CASESTORE),
+        # A BARE production bucket in the content-store slot: the transport
+        # falls back to DEFAULT_PREFIX, so this resolves to the production
+        # store even though the URL string differs from the configured one.
+        (STAGING_REMOTE, f"s3://{PROD_BUCKET}"),
+        # A doubled slash: same location, different spelling.
+        (f"s3://{PROD_BUCKET}//corpus", STAGING_CASESTORE),
+        # A prefix *inside* the production bucket — the runbook's own
+        # separate-bucket invariant, enforced rather than merely stated.
+        (f"s3://{PROD_BUCKET}/corpus/staging-slice", STAGING_CASESTORE),
+        (STAGING_REMOTE, f"s3://{PROD_BUCKET}/somewhere/else"),
     ],
 )
 def test_a_production_destination_is_refused(dest_remote: str, dest_casestore: str) -> None:
@@ -185,6 +201,43 @@ def test_a_production_destination_is_refused(dest_remote: str, dest_casestore: s
             corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore),
             settings=_settings(),
         )
+
+
+def test_a_staging_destination_is_allowed() -> None:
+    """The rail must not be so coarse that it refuses the intended pair."""
+    corpus_seed.assert_destination_is_not_production(
+        corpus_seed.Destination(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
+        settings=_settings(),
+    )
+
+
+@pytest.mark.parametrize("unset", ["corpus_remote_url", "casestore_url"])
+def test_an_unconfigured_production_url_fails_closed(unset: str) -> None:
+    """Half a comparison basis is no basis: the rail stops rather than skips."""
+    settings = _settings().model_copy(update={unset: None})
+    with pytest.raises(corpus_seed.SeedSliceError, match="not configured"):
+        corpus_seed.assert_destination_is_not_production(
+            corpus_seed.Destination(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
+            settings=settings,
+        )
+
+
+def test_a_stage_db_on_the_committed_corpus_is_refused(tmp_path: Path) -> None:
+    """`upload_index` writes the pointer beside the blob — never onto production's."""
+    settings = _settings().model_copy(update={"corpus_root": tmp_path / "corpus"})
+    with pytest.raises(corpus_seed.SeedSliceError, match="--stage-db is the corpus blob"):
+        corpus_seed.assert_stage_db_is_not_the_corpus(
+            tmp_path / "corpus" / "corpus.db", settings=settings
+        )
+    # An unresolved spelling of the same file is the same file.
+    with pytest.raises(corpus_seed.SeedSliceError, match="--stage-db is the corpus blob"):
+        corpus_seed.assert_stage_db_is_not_the_corpus(
+            tmp_path / "corpus" / "." / "corpus.db", settings=settings
+        )
+    # The default working file sits beside it and is fine.
+    corpus_seed.assert_stage_db_is_not_the_corpus(
+        tmp_path / "corpus" / "staging-slice.db", settings=settings
+    )
 
 
 def test_the_rail_refuses_before_anything_is_read(
@@ -214,14 +267,16 @@ def test_the_rail_refuses_before_anything_is_read(
 
 
 def test_a_malformed_destination_url_is_refused() -> None:
-    with pytest.raises(corpus_ranged.RangedBackendError):
+    bad = "https://example.invalid/corpus"
+    with pytest.raises(corpus_seed.SeedSliceError) as caught:
         corpus_seed.assert_destination_is_not_production(
-            corpus_seed.Destination(
-                remote_url="https://example.invalid/corpus",
-                casestore_url=STAGING_CASESTORE,
-            ),
+            corpus_seed.Destination(remote_url=bad, casestore_url=STAGING_CASESTORE),
             settings=_settings(),
         )
+    # Names the slot, never the URL: a rail message reaches run logs and a PR,
+    # and a store URL is supplied out of band and never published.
+    assert "--dest-remote" in str(caught.value)
+    assert bad not in str(caught.value)
 
 
 # --- the dry-run census -------------------------------------------------------
@@ -439,9 +494,22 @@ def test_the_production_content_store_is_never_mirrored_to(
             blob_transport=InMemoryFileTransport(),
             apply=True,
         )
+        assert source_objects.objects == before
+        # And the seed put the caller's transport back rather than clearing it:
+        # clearing would silently re-enable a lazy build from settings.
+        assert casestore.active_transport() is source_objects
     finally:
         casestore.reset_active_transport()
-    assert source_objects.objects == before
+
+
+def test_the_mirror_override_restores_the_unbuilt_state() -> None:
+    """A borrowed seam must not force a lazy build the process would have skipped."""
+    casestore.reset_active_transport()
+    with casestore.transport_override(None):
+        pass
+    # Still unbuilt: `transport_override` restored "not built yet", so the next
+    # access is the lazy build it always would have been.
+    assert "transport" not in casestore._ACTIVE
 
 
 # --- the rendering ------------------------------------------------------------
@@ -508,9 +576,10 @@ def test_the_command_refuses_a_production_destination(
     assert "refusing to seed" in result.output
 
 
-def test_the_command_needs_a_source_content_store(
+def test_the_command_fails_closed_without_a_source_content_store(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """The store URL is both the rail's comparison basis and the payload source."""
     _prod_env(monkeypatch, tmp_path)
     monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "")
     result = runner.invoke(
@@ -525,8 +594,30 @@ def test_the_command_needs_a_source_content_store(
             SLICE_CASES[0],
         ],
     )
-    assert result.exit_code == 1
-    assert "source content store is not configured" in result.output
+    assert result.exit_code == 2
+    assert "content-store URL is not configured" in result.output
+
+
+def test_the_command_refuses_a_stage_db_on_the_committed_corpus(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _prod_env(monkeypatch, tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            "--dest-remote",
+            STAGING_REMOTE,
+            "--dest-casestore",
+            STAGING_CASESTORE,
+            "--dockets",
+            SLICE_CASES[0],
+            "--stage-db",
+            str(tmp_path / "corpus" / "corpus.db"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "--stage-db is the corpus blob" in result.output
 
 
 def test_the_command_says_so_when_the_corpus_is_not_pulled(

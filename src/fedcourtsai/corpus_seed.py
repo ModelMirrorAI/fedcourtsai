@@ -26,10 +26,18 @@ scenario reads and writes something real for runner minutes.
   content-addressed document leaf, and the manifests that point at them arrive
   exactly as the writers produced them, not as this module would render them.
 
-**The one hard safety rail** is :func:`assert_destination_is_not_production`:
-a destination equal to either configured production URL is refused before
-anything is read, let alone written. Everything else about the operation is
-convergent rather than destructive — the remote is add-only and
+**The safety rails, and what actually guarantees the property.** What makes it
+impossible to write production here is **IAM**: the seeding role's policy is
+read-only on the production stores, so no input and no bug in this module
+reaches the production write path. The rails are the second line, and they earn
+their place by turning a misconfiguration into a local refusal before anything
+is read rather than an ``AccessDenied`` part-way through:
+:func:`assert_destination_is_not_production` refuses a destination that is, or
+is *inside*, either configured production store — resolved through the same
+parsers the transports use, so no spelling of a location slips past — and
+:func:`assert_stage_db_is_not_the_corpus` refuses a working file that would
+overwrite the checkout's committed pointer. Everything else about the operation
+is convergent rather than destructive — the remote is add-only and
 content-addressed, the store copy skips keys already present — so a re-run
 converges and a half-finished run is resumed by the next one.
 
@@ -53,10 +61,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import casestore, corpus
-from .casestore import DEFAULT_PREFIX, ObjectTransport, S3ObjectTransport, parse_s3_url
+from .casestore import (
+    DEFAULT_PREFIX,
+    CasestoreError,
+    ObjectTransport,
+    S3ObjectTransport,
+    parse_s3_url,
+)
 from .config import Settings
 from .corpus import CorpusEvent, CorpusRow, ReadConnection
-from .corpus_ranged import IndexPointer, parse_remote_url
+from .corpus_ranged import IndexPointer, RangedBackendError, parse_remote_url
 from .corpus_remote import WholeFileTransport, upload_index
 
 # Generous by default: the point of the slice is a handful of real cases, and
@@ -140,6 +154,12 @@ class Destination:
     A staging corpus is a *pair* of stores, the safety rail compares both, and
     the two transports are test seams over that same pair rather than
     independent knobs; unset, each is built from its URL.
+
+    **The rail sees only the URLs.** An injected transport is trusted to be the
+    store its URL names, because nothing here can check that a caller-supplied
+    client points where it claims. Only tests inject one, and a test that
+    injected a transport disagreeing with its URL would be asserting about a
+    configuration that cannot occur in the command.
     """
 
     remote_url: str
@@ -155,46 +175,152 @@ class Destination:
         return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
 
 
-def _normalized(url: str | None) -> str | None:
-    """A store URL folded for comparison, or ``None`` when unset/empty."""
-    if url is None or not url.strip():
-        return None
-    return url.strip().rstrip("/").casefold()
+# A store's identity for the rail: ``(bucket, prefix)`` case-folded. Comparing
+# raw URL strings is not enough — the same location has many spellings
+# (a bare bucket, a doubled slash, a trailing slash), and each one that the
+# transports resolve identically but a string compare does not is a bypass.
+_Location = tuple[str, str]
+
+
+def _fold(location: _Location) -> _Location:
+    return (location[0].casefold(), location[1].casefold())
+
+
+def _remote_location(url: str, *, described_as: str) -> _Location:
+    """The corpus remote's ``(bucket, prefix)``, through the transport's parser.
+
+    Parser failures are re-raised naming only the slot: a rail message reaches
+    run logs and a PR, and a store URL is supplied out of band and never
+    published (see SECURITY.md).
+    """
+    try:
+        return _fold(parse_remote_url(url.strip()))
+    except RangedBackendError as exc:
+        raise SeedSliceError(f"{described_as} is not an s3://<bucket>[/<prefix>] URL") from exc
+
+
+def _store_location(url: str, *, described_as: str) -> _Location:
+    """The content store's ``(bucket, prefix)``, with the transport's own default.
+
+    ``prefix or DEFAULT_PREFIX`` mirrors :func:`casestore.transport_from_settings`
+    exactly — without it a bare production bucket URL and the prefixed spelling
+    of the same store compare unequal while resolving to the same objects.
+    """
+    try:
+        bucket, prefix = parse_s3_url(url.strip())
+    except CasestoreError as exc:
+        raise SeedSliceError(f"{described_as} is not an s3://<bucket>[/<prefix>] URL") from exc
+    return _fold((bucket, prefix or DEFAULT_PREFIX))
+
+
+def _production_locations(settings: Settings) -> dict[str, _Location]:
+    """Both production stores as ``(bucket, prefix)``, failing closed if unset.
+
+    An unset production URL is refused rather than skipped: without it the rail
+    cannot tell a staging destination from production at all, and a rail that
+    silently checks one half is worse than one that stops. The content-store
+    URL is doubly required — it is also the slice's payload source, so a seed
+    without it would publish rows with nothing to provision from.
+    """
+    locations: dict[str, _Location] = {}
+    remote = settings.corpus_remote_url
+    if remote is None or not remote.strip():
+        raise SeedSliceError(
+            "refusing to seed: the production corpus remote URL is not configured, so "
+            "the rail cannot tell a staging destination from production. Set it to the "
+            "production value (the workflow does) — see docs/security.md."
+        )
+    locations["corpus remote"] = _remote_location(
+        remote, described_as="the production corpus remote URL"
+    )
+    store = settings.casestore_url
+    if store is None or not store.strip():
+        raise SeedSliceError(
+            "refusing to seed: the production content-store URL is not configured. The "
+            "rail cannot tell a staging destination from production without it, and it "
+            "is the slice's payload source — see docs/security.md."
+        )
+    locations["content store"] = _store_location(
+        store, described_as="the production content-store URL"
+    )
+    return locations
 
 
 def assert_destination_is_not_production(destination: Destination, *, settings: Settings) -> None:
-    """Refuse a destination that is either configured production store.
+    """Refuse a destination that is, or is inside, either production store.
 
     The one rail that cannot be convergent: everything else this module does is
     add-only and idempotent, but a seed pointed at production would publish a
     handful-of-cases blob as the corpus index and rewrite the pointer to name
-    it. Compared case-normalized and trailing-slash-insensitively against
-    **both** production URLs, in **both** destination slots — a staging content
-    store that happens to name the production corpus remote is just as wrong.
+    it. So the comparison is deliberately coarse in the safe direction, on two
+    levels:
+
+    * **exact location** — the destination's ``(bucket, prefix)``, resolved
+      through the *same parsers the transports use* (content store included,
+      with its ``DEFAULT_PREFIX`` fallback), so every spelling of a location
+      compares equal to every other: a bare bucket, a doubled slash, a trailing
+      slash;
+    * **bucket** — any destination sharing a bucket with either production
+      store is refused whatever its prefix. That is the runbook's own
+      invariant, that the staging pair is a separate bucket and not a prefix
+      inside production's, enforced rather than merely stated — and it is what
+      makes the rail robust to prefix spellings nobody enumerated.
+
+    Both checks run in **both** destination slots against **both** production
+    stores: a staging content store that happens to name the production corpus
+    remote is just as wrong.
+
+    This is the second line, not the guarantee. The first is IAM: the staging
+    read-write role's policy is read-only on the production stores, so a
+    destination that got past this rail still could not be written. The rail
+    catches the misconfiguration the policy would turn into a confusing
+    ``AccessDenied`` — and, being local, it catches it before anything is read.
     """
-    production = {
-        "corpus remote": _normalized(settings.corpus_remote_url),
-        "content store": _normalized(settings.casestore_url),
-    }
+    production = _production_locations(settings)
     slots = (
-        ("--dest-remote", destination.remote_url),
-        ("--dest-casestore", destination.casestore_url),
+        ("--dest-remote", _remote_location(destination.remote_url, described_as="--dest-remote")),
+        (
+            "--dest-casestore",
+            _store_location(destination.casestore_url, described_as="--dest-casestore"),
+        ),
     )
-    for flag, url in slots:
-        normalized = _normalized(url)
-        if normalized is None:
-            raise SeedSliceError(f"{flag} is required and must be an s3://<bucket>[/<prefix>] URL")
+    for flag, location in slots:
         for name, configured in production.items():
-            if configured is not None and normalized == configured:
+            if location == configured:
                 raise SeedSliceError(
                     f"refusing to seed: {flag} names the configured production {name}. "
                     "The staging corpus is its own bucket/prefix pair — see the "
                     "staging-corpus runbook in docs/security.md."
                 )
-    # Shape-check both destinations through the parsers the transports use, so
-    # a typo fails here rather than at the first S3 call.
-    parse_remote_url(destination.remote_url.strip())
-    parse_s3_url(destination.casestore_url.strip())
+            if location[0] == configured[0]:
+                raise SeedSliceError(
+                    f"refusing to seed: {flag} is a prefix inside the production "
+                    f"{name}'s bucket. The staging corpus is a SEPARATE bucket, not a "
+                    "prefix inside production's — see the staging-corpus runbook in "
+                    "docs/security.md."
+                )
+
+
+def assert_stage_db_is_not_the_corpus(stage_db: Path, *, settings: Settings) -> None:
+    """Refuse a working file that would clobber the committed corpus pointer.
+
+    The local half of the same rail. :func:`upload_index` writes the pointer
+    **beside** the blob it publishes, so a ``stage_db`` resolving to the
+    checkout's own ``corpus/corpus.db`` would overwrite ``corpus.db.ref`` with
+    a pointer into the *staging* remote — and a writer lane that then committed
+    it would repoint every consumer of production at a 200-case slice. Resolved
+    before comparing, so ``./corpus/corpus.db`` and an absolute spelling of the
+    same file are one path.
+    """
+    corpus_db = corpus.corpus_db_path(settings.corpus_root)
+    # `strict=False`: neither file need exist yet, and a non-existent path
+    # still resolves to the location it names.
+    if stage_db.resolve(strict=False) == corpus_db.resolve(strict=False):
+        raise SeedSliceError(
+            f"refusing to seed: --stage-db is the corpus blob at {corpus_db}, whose "
+            "committed pointer names production. Stage the slice somewhere else — the "
+            "default is a gitignored path beside it."
+        )
 
 
 # --- the census ---------------------------------------------------------------
@@ -297,13 +423,11 @@ def _mirror_disabled() -> Iterator[None]:
     the *production* content store. The staging store's half is a faithful
     key-level copy instead, so the mirror is switched off outright rather than
     repointed: nothing in this module may write to production, and a sink that
-    is off cannot. Restored to lazy-from-settings on the way out.
+    is off cannot. :func:`casestore.transport_override` puts back exactly what
+    was there, so the block borrows the seam without disturbing its caller.
     """
-    casestore.set_active_transport(None)
-    try:
+    with casestore.transport_override(None):
         yield
-    finally:
-        casestore.reset_active_transport()
 
 
 def build_slice_blob(
@@ -475,6 +599,7 @@ def seed_slice(
     expose.
     """
     assert_destination_is_not_production(destination, settings=settings)
+    assert_stage_db_is_not_the_corpus(stage_db, settings=settings)
     kept, dropped = bound_cases(case_ids, max_cases)
     census = census_slice(
         source_conn, kept, objects=source_objects, requested=len(case_ids), dropped=dropped

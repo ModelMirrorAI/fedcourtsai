@@ -18,11 +18,17 @@ name: staging-corpus-refresh
 # two dispatches: dispatch with `apply` unset, read the census off the step
 # summary, then dispatch again with it set.
 #
-# The command's own safety rail is what makes a dispatch-triggered write
-# acceptable at all: a destination equal to either configured production store
-# is refused before anything is read. The environment variables are what point
-# it at staging; the rail is what stops a misconfigured one from pointing it
-# at production.
+# **What guarantees this cannot write production is IAM, not the command.** The
+# role below is read-only on the production stores by policy, so no input, no
+# variable, and no bug here reaches the production write path. The command's own
+# rail — it refuses a destination that is, or is inside, either configured
+# production store — is the second line: it turns a misconfiguration into a
+# local refusal before anything is read, rather than a confusing AccessDenied
+# part-way through. Neither line covers everything: the rail cannot catch the
+# destination variables being set to some OTHER real bucket, and a swap of the
+# source and destination variables would have the seeder read staging and write
+# staging — wrong, but harmlessly so, and the policy is what keeps it that way.
+# Both together are why the write is dispatch-triggerable at all.
 #
 # Provisioning the environment, its variables, and the role is a maintainer
 # task the workflow cannot do for itself — see the staging-corpus runbook in
