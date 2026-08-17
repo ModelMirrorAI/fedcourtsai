@@ -138,7 +138,11 @@ from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
-from .pipeline.cert_signals import match_disposition_signal
+from .pipeline.cert_signals import (
+    DEFAULT_DISTRIBUTION_PARSE,
+    DISTRIBUTION_PARSES,
+    match_disposition_signal,
+)
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.documents import backfill_questions_presented
@@ -157,6 +161,8 @@ from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
     SALIENCE_VERSION,
+    SCORERS,
+    distribution_census,
     reconcile_salience_selection,
     registered_versions,
     unlatch_overselected,
@@ -617,6 +623,105 @@ def caption_census_cmd(
             f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
             err=True,
         )
+    typer.echo(census.model_dump_json())
+
+
+@app.command("distribution-census")
+def distribution_census_cmd(
+    baseline_parse: str = typer.Option(
+        DEFAULT_DISTRIBUTION_PARSE,
+        "--baseline-parse",
+        help="The registered distribution parse counted as the incumbent.",
+    ),
+    candidate_parse: str = typer.Option(
+        "dist-v2",
+        "--candidate-parse",
+        help="The registered distribution parse counted against the incumbent.",
+    ),
+    version: str = typer.Option(
+        SALIENCE_VERSION,
+        "--version",
+        help="Which registered salience version's band function bands both counts.",
+    ),
+) -> None:
+    """The distribution-parse census: what re-reading DISTRIBUTED would move.
+
+    A deterministic, read-only count of two registered distribution parses
+    (`pipeline.cert_signals`) over the salience gate's scored segment —
+    live-slice, paid, modern-cert petitions, **pending rows included**, since
+    the count is a banding input the gate reads before a petition resolves and
+    the ancillary-paper distributions the readings differ on accumulate on live
+    pending dockets. Both counts come off each case's latest **live-shaped**
+    snapshot — the entry-initial rule is a claim about the live channel's entry
+    conventions, so counting a REST payload under it would report a channel
+    artifact as a parse delta — and are banded by one salience version's band
+    function, so the reported delta (changed counts, the band-transition matrix,
+    a per-Term rollup split by docket maturity, and every changed case id) is
+    attributable to the phrase-reading alone.
+
+    The **input-level** cut only, and conditional: the corpus column, the
+    statpack's band base rates, and the relist-tier cutpoints were all fitted
+    under the default parse, so pinning a new parse means re-deriving the column
+    on a writer job, rebuilding the statpack, and re-measuring the tier rates.
+    The selection question is read from `salience-replay` with the candidate
+    version registered, never from this matrix (`docs/salience.md`). Prints a
+    `DistributionCensus`. Fails loud if the corpus is absent, a parse or version
+    label is unregistered, or the frame is subsampled.
+    """
+    for label in (baseline_parse, candidate_parse):
+        if label not in DISTRIBUTION_PARSES:
+            typer.echo(
+                f"unregistered distribution parse {label!r}; "
+                f"registered: {', '.join(sorted(DISTRIBUTION_PARSES))}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    if version not in SCORERS:
+        typer.echo(
+            f"unregistered salience version {version!r}; registered: {', '.join(sorted(SCORERS))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the distribution census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The provenance the freeze record needs, read exactly as the caption census
+    # reads it: under `local` the hash of the file the census actually ran over,
+    # under `ranged` the pointer's own parsed digest of the immutable blob.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    else:
+        pointer = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = distribution_census(
+            conn,
+            corpus_sha256=corpus_sha,
+            baseline_parse=baseline_parse,
+            candidate_parse=candidate_parse,
+            version=version,
+        )
+    typer.echo(
+        f"distribution census {census.baseline_parse} -> {census.candidate_parse} "
+        f"({census.salience_version}): cases={census.cases} "
+        f"unobservable={census.unobservable} count-changed={census.count_changed} "
+        f"band-changed={census.band_changed}",
+        err=True,
+    )
+    typer.echo(
+        "frame: live-slice paid modern-cert SCOTUS, pending included, "
+        f"latest live snapshot; corpus sha256={census.corpus_sha256 or '(unknown)'}",
+        err=True,
+    )
+    for cell in census.transitions:
+        if cell.from_band != cell.to_band:
+            typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
     typer.echo(census.model_dump_json())
 
 

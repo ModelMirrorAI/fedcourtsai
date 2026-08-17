@@ -5348,6 +5348,103 @@ class CaptionCensus(_Strict):
     pooled: list[CaptionCensusClass] = Field(default_factory=list)
 
 
+class DistributionBandTransition(_Strict):
+    """One cell of the band-transition matrix: how many cases moved from → to."""
+
+    from_band: str = Field(description="The band the baseline parse's count implies")
+    to_band: str = Field(description="The band the candidate parse's count implies")
+    n: int = Field(ge=0, description="Cases making this transition (diagonal cells are unmoved)")
+
+
+class DistributionCensusTerm(_Strict):
+    """One October Term's distribution-parse deltas, split by docket maturity.
+
+    Maturity is carried per Term because it confounds the trend outright: a
+    recent Term is mostly pending, and a pending docket has had fewer
+    conferences to accumulate the ancillary traffic the readings differ on. The
+    resolved figures are the totals less the pending ones.
+    """
+
+    term: int = Field(description="The October Term year")
+    cases: int = Field(ge=0, description="Frame cases with an observable distribution count")
+    pending: int = Field(default=0, ge=0, description="Of those, cases carrying no disposition yet")
+    unobservable: int = Field(
+        default=0,
+        ge=0,
+        description="Frame cases of the Term with no live snapshot or no disclosed "
+        "proceedings — outside `cases`, never counted as agreement; the Term's full "
+        "frame is `cases + unobservable`",
+    )
+    count_changed: int = Field(ge=0, description="Cases whose distribution count differs")
+    band_changed: int = Field(ge=0, description="Cases whose implied salience band differs")
+    pending_count_changed: int = Field(
+        default=0, ge=0, description="Of the count-changed cases, those still pending"
+    )
+    pending_band_changed: int = Field(
+        default=0, ge=0, description="Of the band-changed cases, those still pending"
+    )
+
+
+class DistributionCensus(_Strict):
+    """``distribution-census`` result: what re-reading the DISTRIBUTED phrase would move.
+
+    A deterministic, read-only census of two registered distribution parses
+    (``pipeline.cert_signals.DISTRIBUTION_PARSES``) over one frame, counted off
+    each case's latest **live-shaped** snapshot and banded through one salience
+    version's band function. The count is the band's primary feature, so a parse
+    change is a change to what every band label means; this artifact is what a
+    statistical review reads before any version pins a new parse
+    (``docs/salience.md``). Read-only and count-only — it moves no band by
+    itself.
+
+    **Conditional, and only the input-level cut.** The corpus
+    ``distribution_count`` column, the statpack's per-band base rates, and the
+    relist-tier cutpoints were all fitted under the default parse, so this
+    matrix holds only if the column is re-derived under the candidate parse;
+    pinning a new parse also requires rebuilding the statpack and re-measuring
+    the relist-tier rates. Who the gate would actually *fund* is a rank-and-cap
+    question read from ``salience-replay``, never from this matrix.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    baseline_parse: str = Field(description="The parse counted as the incumbent, e.g. dist-v1")
+    candidate_parse: str = Field(description="The parse counted against it, e.g. dist-v2")
+    salience_version: str = Field(
+        description="The salience version whose band function derived both bands"
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the census ran over — the "
+        "artifact is re-derivable only against this exact corpus state, so a "
+        "freeze record must carry it",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Frame cases whose live snapshot discloses a proceedings list"
+    )
+    unobservable: int = Field(
+        default=0,
+        ge=0,
+        description="Frame cases with no live-shaped snapshot or no disclosed proceedings — "
+        "the parses are unreadable there, which is not evidence that they agree",
+    )
+    count_changed: int = Field(ge=0, default=0, description="Cases whose counts differ")
+    band_changed: int = Field(ge=0, default=0, description="Cases whose implied bands differ")
+    transitions: list[DistributionBandTransition] = Field(
+        default_factory=list,
+        description="The band-transition matrix, occupied cells only, in band order",
+    )
+    terms: list[DistributionCensusTerm] = Field(default_factory=list)
+    count_changed_case_ids: list[str] = Field(
+        default_factory=list,
+        description="Every count-changed case, case_id-sorted — complete rather than "
+        "sampled, because the review this artifact exists for checks the shifted "
+        "dockets one by one",
+    )
+    band_changed_case_ids: list[str] = Field(
+        default_factory=list, description="Every band-changed case, case_id-sorted"
+    )
+
+
 class SalienceUnlatchResult(_Strict):
     """``unlatch-overselected`` result: the one-time latch reconcile's ledger.
 
@@ -5407,9 +5504,12 @@ class SalienceReplayCell(_Strict):
     that selection against the realized grant-family outcomes.
 
     The version is on the **cell**, not the report, so every registered scorer
-    replays over one common projection of the docket in a single run. That is
-    what makes two versions comparable at all: they differ only in the scoring
-    function, never in the reconstructed moment they scored.
+    replays in a single run. Two versions are comparable because they scored the
+    same reconstructed moment; what may differ between them is the scoring
+    function and the ``distribution_parse`` the reconstruction's relist count was
+    read under, which is why the parse is recorded here rather than inferred —
+    versions sharing a parse share one projection, and a version pinning another
+    gets its own.
     """
 
     term: int = Field(description="The October Term whose resolved petitions were replayed")
@@ -5417,6 +5517,12 @@ class SalienceReplayCell(_Strict):
         default="",
         description="The frozen salience-function version whose scoring, banding, "
         "and selection produced this cell (e.g. sal-v1)",
+    )
+    distribution_parse: str = Field(
+        default="",
+        description="The registered DISTRIBUTED reading this cell's distribution "
+        "counts were projected under (e.g. dist-v1) — the version's own pin, so a "
+        "cross-version comparison can say whether the two saw one reading",
     )
     policy: str = Field(
         description="The reconstruction moment: 'arrival' (day after the earliest "

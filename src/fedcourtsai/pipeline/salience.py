@@ -40,8 +40,11 @@ latch lives elsewhere.
 
 **Scoring is versioned by registry, not by edit.** :data:`SCORERS` holds every
 frozen salience version as a :class:`SalienceScorer` — score function, band
-function, band names, and always-include rule together, because all four decide
-what a band label means. :data:`SALIENCE_VERSION` names the **active** one: the
+function, band names, always-include rule, and the distribution parse the
+ranking's primary feature is read under, together, because each of them decides
+what a band label means. :func:`distribution_census` is the read-only artifact
+that measures what a candidate parse would move before any version pins it.
+:data:`SALIENCE_VERSION` names the **active** one: the
 version the live pass scores with and stamps onto the corpus and onto every
 :class:`~fedcourtsai.schemas.PredictionContext`. A refit registers a new version
 beside the old rather than editing it, so a past ranking always replays against
@@ -67,8 +70,14 @@ from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
-from ..schemas import SalienceSelectionResult, SalienceUnlatchResult
-from . import caption
+from ..schemas import (
+    DistributionBandTransition,
+    DistributionCensus,
+    DistributionCensusTerm,
+    SalienceSelectionResult,
+    SalienceUnlatchResult,
+)
+from . import caption, cert_signals
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -312,11 +321,12 @@ class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
 
     A version is not just a score function. The band cutpoints, the band *names*,
-    and the always-include rule are all part of what "sal-v1 high" means, so a
-    refit that changed any of them while reusing the label would silently
-    redefine a published segment. Bundling the four here makes a version a single
-    object to register, and makes "which function produced this band" answerable
-    by lookup rather than by reading the commit that was live at the time.
+    the always-include rule, and the parse that reads the ranking's primary
+    feature off a docket are all part of what "sal-v1 high" means, so a refit
+    that changed any of them while reusing the label would silently redefine a
+    published segment. Bundling them here makes a version a single object to
+    register, and makes "which function produced this band" answerable by lookup
+    rather than by reading the commit that was live at the time.
 
     The pairing of ``carve_out`` with ``bands`` is load-bearing and pinned by
     test: the always-include floor and the strongest band's cutpoint must select
@@ -335,6 +345,15 @@ class SalienceScorer:
     # carve-out predicate. False for sal-v1 — its features are
     # docket-acquired, so it has nothing to say at arrival.
     selects_arrivals: bool = False
+    # Which registered reading of the DISTRIBUTED phrase this version's relist
+    # tier was fitted on (`cert_signals.DISTRIBUTION_PARSES`). The count is the
+    # band's primary feature, so two parses of one docket are two different
+    # inputs to the same cutpoints — which makes the parse part of what a band
+    # label means, exactly as the cutpoints and the carve-out rule are. Pinned
+    # by a literal, never by the parse registry's default, for the reason
+    # `_ARRIVAL_DRAW_KEY` is a literal: registration fixes the assignment, so a
+    # later default cannot re-read a frozen version's ranking.
+    distribution_parse: str = "dist-v1"
 
 
 _SAL_V1 = SalienceScorer(
@@ -405,6 +424,174 @@ def salience_band(row: corpus.CorpusRow) -> str:
 def salience_bands() -> tuple[str, ...]:
     """The active scorer's band names strongest→weakest — the statpack's segment order."""
     return scorer().bands
+
+
+@dataclass
+class _TermTally:
+    """One Term's census counters, named so a transposed slot cannot publish."""
+
+    cases: int = 0
+    count_changed: int = 0
+    band_changed: int = 0
+    pending: int = 0
+    pending_count_changed: int = 0
+    pending_band_changed: int = 0
+    unobservable: int = 0
+
+
+def distribution_census(
+    conn: corpus.ReadConnection,
+    *,
+    corpus_sha256: str = "",
+    baseline_parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
+    candidate_parse: str,
+    version: str | None = None,
+) -> DistributionCensus:
+    """What re-reading the DISTRIBUTED phrase would move, case by case and band by band.
+
+    Two registered parses (:data:`.cert_signals.DISTRIBUTION_PARSES`) count the
+    same docket, and one salience version's band function bands both counts, so
+    the delta reported here is attributable to the phrase-reading alone.
+    ``version`` defaults to the active scorer — the labels a parse change would
+    actually move — and an unregistered parse or version raises rather than
+    falling back.
+
+    **The frame is the gate's scored segment, pending rows included**:
+    live-slice, paid, modern-cert SCOTUS petitions with a parseable Term. It
+    departs from the caption census's frame in exactly one way, and
+    deliberately — that census counts realized grant rates, so it can only read
+    resolved rows, while this one counts a *banding input*, which the gate reads
+    on a pending petition to decide selection. A resolved-only frame would omit
+    the live pending dockets where ancillary-paper distributions accumulate,
+    which is the population the reading is about.
+
+    Both counts come off each case's latest **live-shaped** snapshot, never the
+    newest snapshot of either shape. The two channels docket the same facts in
+    different prose, and the entry-initial reading is a claim about the live
+    channel's entry conventions, so counting a REST payload's ``docket_entries``
+    text under it would report a channel artifact as a parse delta. A case with
+    no live snapshot, or whose snapshot discloses no proceedings list, is
+    counted ``unobservable`` and enters no cell — silence is not agreement
+    between the parses. The corpus's own ``distribution_count`` column supplies
+    neither side: it holds one parse's answer, max-latched across pulls, so it
+    could not produce the candidate's count nor be compared against it on equal
+    terms.
+
+    The frame **must not be subsampled**: a ``sample_weight`` other than 1 raises,
+    as it does in the caption census, because every figure here is a raw count
+    and a denial-sampled row would silently stand for ten.
+
+    **What a transition matrix here does not license.** The corpus column, the
+    statpack's per-band base rates, and the relist-tier cutpoints the bands are
+    built from were all fitted under
+    :data:`.cert_signals.DEFAULT_DISTRIBUTION_PARSE`. So this artifact is the
+    *input-level* cut — it says which cases the readings disagree about and
+    which band labels move — and it is conditional on the corpus column being
+    re-derived under the candidate parse before anything downstream is read.
+    Pinning a new parse in a registered version is therefore three pieces of
+    work, not one: re-derive ``distribution_count`` on a writer job — with a
+    write that bypasses the upsert path's max latch (a direct ``UPDATE``, the
+    bulk scrubs' shape), since a narrower count routed through ``upsert_rows``
+    is a silent no-op — rebuild the statpack so each band's base rate is
+    measured under the same parse, and re-measure the relist-tier grant rates
+    the cutpoints sit between. The
+    *selection* question — who the gate would actually fund — is a different
+    instrument again: rank-and-cap means a band move also moves cohort rank, so
+    that is read from ``salience-replay`` with the candidate version registered,
+    never from this matrix.
+
+    Deterministic and read-only: rows are ``case_id``-ordered and every count is
+    a pure function of a stored payload, so two runs over one corpus pointer
+    agree byte for byte — which is what lets a statistical review of this
+    artifact license a version pinning the candidate parse (``docs/salience.md``).
+    """
+    active = scorer(version)
+    # Resolve both parses up front, so an unregistered label fails on the empty
+    # frame too rather than only where the frame happens to hold a snapshot.
+    cert_signals.distribution_pattern(baseline_parse)
+    cert_signals.distribution_pattern(candidate_parse)
+    transitions: dict[tuple[str, str], int] = defaultdict(int)
+    per_term: dict[int, _TermTally] = defaultdict(_TermTally)
+    count_changed: list[str] = []
+    band_changed: list[str] = []
+    cases = 0
+    unobservable = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if not corpus.is_live_slice(row) or not caption._scored_segment(row):
+            continue
+        term = corpus.scotus_term_year(row.docket_number)
+        if term is None:
+            continue
+        if (row.sample_weight or 1) != 1:
+            raise ValueError(
+                f"{row.case_id}: sample_weight {row.sample_weight} — the census "
+                "counts raw and must not run over a subsampled frame"
+            )
+        term_cell = per_term[term]
+        # The live channel only: see the docstring on why the newest snapshot of
+        # either shape would report a channel artifact as a parse delta.
+        found = corpus.latest_live_snapshot(conn, row.case_id)
+        counts = (
+            (
+                cert_signals.snapshot_distribution_count(found[1], parse=baseline_parse),
+                cert_signals.snapshot_distribution_count(found[1], parse=candidate_parse),
+            )
+            if found is not None
+            else (None, None)
+        )
+        if counts[0] is None or counts[1] is None:
+            unobservable += 1
+            term_cell.unobservable += 1
+            continue
+        # One row, two counts: every other band input — caption, CVSG, circuit —
+        # is held at the corpus's own value, so the band delta isolates the parse.
+        bands = tuple(active.band(row.model_copy(update={"distribution_count": n})) for n in counts)
+        # Maturity is tracked per Term because it confounds the trend outright: a
+        # recent Term is mostly pending, and a pending docket has had fewer
+        # conferences to accumulate ancillary traffic than a resolved one.
+        pending = row.disposition is None
+        cases += 1
+        transitions[(bands[0], bands[1])] += 1
+        term_cell.cases += 1
+        term_cell.pending += int(pending)
+        if counts[0] != counts[1]:
+            count_changed.append(row.case_id)
+            term_cell.count_changed += 1
+            term_cell.pending_count_changed += int(pending)
+        if bands[0] != bands[1]:
+            band_changed.append(row.case_id)
+            term_cell.band_changed += 1
+            term_cell.pending_band_changed += int(pending)
+    order = {band: index for index, band in enumerate(active.bands)}
+    return DistributionCensus(
+        baseline_parse=baseline_parse,
+        candidate_parse=candidate_parse,
+        salience_version=active.version,
+        corpus_sha256=corpus_sha256,
+        cases=cases,
+        unobservable=unobservable,
+        count_changed=len(count_changed),
+        band_changed=len(band_changed),
+        transitions=[
+            DistributionBandTransition(from_band=cell[0], to_band=cell[1], n=transitions[cell])
+            for cell in sorted(transitions, key=lambda cell: (order[cell[0]], order[cell[1]]))
+        ],
+        terms=[
+            DistributionCensusTerm(
+                term=term,
+                cases=per_term[term].cases,
+                pending=per_term[term].pending,
+                unobservable=per_term[term].unobservable,
+                count_changed=per_term[term].count_changed,
+                band_changed=per_term[term].band_changed,
+                pending_count_changed=per_term[term].pending_count_changed,
+                pending_band_changed=per_term[term].pending_band_changed,
+            )
+            for term in sorted(per_term)
+        ],
+        count_changed_case_ids=sorted(count_changed),
+        band_changed_case_ids=sorted(band_changed),
+    )
 
 
 def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:

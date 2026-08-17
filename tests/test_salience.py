@@ -9,7 +9,9 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.config import SalienceConfig, load_salience_config
+from fedcourtsai.pipeline import cell_context
 from fedcourtsai.pipeline import salience as salience_module
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE, DISTRIBUTION_PARSES
 from fedcourtsai.pipeline.pull import _in_predict_scope
 from fedcourtsai.pipeline.salience import (
     _CIRCUIT_GRANT_RATE,
@@ -20,6 +22,7 @@ from fedcourtsai.pipeline.salience import (
     apply_salience_selection,
     arrival_draw,
     carve_out,
+    distribution_census,
     plan_cohorts,
     reconcile_salience_selection,
     registered_versions,
@@ -1095,3 +1098,252 @@ def test_an_arrival_pick_mints_its_event_in_the_same_pass(
         assert row.case_id in selected
         events = {e.event_id for e in corpus.events_for_case(conn, row.case_id)}
     assert "evt-petition-arrival-disposition" in events
+
+
+# --- the versioned distribution parse ---------------------------------------------
+
+
+@pytest.mark.parametrize("version", registered_versions())
+def test_every_registered_scorer_pins_a_registered_distribution_parse(version: str) -> None:
+    """A version's parse is part of what its band labels mean, so it must resolve.
+
+    Every scorer registered today pins ``dist-v1`` — the reading the corpus's
+    own ``distribution_count`` column holds — so the band a cell freezes and the
+    band the live gate ranked it by are derived from one count.
+    """
+    assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
+    assert SCORERS[version].distribution_parse == "dist-v1"
+
+
+def _census_row(case_id: str, docket: str) -> corpus.CorpusRow:
+    """A live-slice, paid, modern-cert petition whose caption bands ``private``."""
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number=docket,
+        case_name="John Doe v. Roe",
+        last_live_polled=date(2026, 8, 1),
+    )
+
+
+def _census_payload(*texts: str) -> dict[str, object]:
+    """A **live-shaped** snapshot — the only channel the census counts."""
+    return {"ProceedingsandOrder": [{"Text": text, "Date": "08/01/2026"} for text in texts]}
+
+
+def _rest_payload(*descriptions: str) -> dict[str, object]:
+    """A REST-shaped snapshot, which the census must skip past rather than count."""
+    return {"docket_entries": [{"description": text} for text in descriptions]}
+
+
+def test_the_distribution_census_counts_both_parses_over_one_frame(tmp_path: Path) -> None:
+    """One frame, two readings, banded by one scorer — so the delta is the parse.
+
+    The frame is the gate's scored segment with pending rows kept, because the
+    count is a banding input the gate reads before a petition resolves. A case
+    whose only extra distribution belongs to an ancillary motion loses that
+    count under ``dist-v2`` and falls a band with it; a case distributed only
+    for itself moves neither.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _census_row("scotus/1", "24-100"),  # band moves: one count is a motion's
+                _census_row("scotus/2", "24-101"),  # unmoved: distributed only for itself
+                _census_row("scotus/3", "24-102"),  # unobservable: no snapshot stored
+                corpus.CorpusRow(  # IFP: outside the scored segment
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="24-5001",
+                    case_name="John Doe v. Roe",
+                    last_live_polled=date(2026, 8, 1),
+                ),
+            ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+            ),
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/2",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        census = distribution_census(conn, candidate_parse="dist-v2")
+    assert (census.baseline_parse, census.candidate_parse) == ("dist-v1", "dist-v2")
+    assert census.salience_version == SALIENCE_VERSION
+    # Two cases carry a readable proceedings list; the third is unobservable
+    # rather than agreeing, and the IFP row never enters the frame at all.
+    assert (census.cases, census.unobservable) == (2, 1)
+    assert (census.count_changed, census.band_changed) == (1, 1)
+    assert census.count_changed_case_ids == ["scotus/1"]
+    assert census.band_changed_case_ids == ["scotus/1"]
+    # One relist under dist-v1 (two conferences), none under dist-v2.
+    assert [(t.from_band, t.to_band, t.n) for t in census.transitions] == [
+        ("elevated", "baseline", 1),
+        ("baseline", "baseline", 1),
+    ]
+    # Maturity and the unobservable denominator ride per Term, not just in the
+    # totals: both frame rows are undecided, and the snapshot-less row is the
+    # Term's own unobservable rather than a repo-wide footnote.
+    assert [
+        (t.term, t.cases, t.pending, t.unobservable, t.count_changed, t.band_changed)
+        for t in census.terms
+    ] == [(2024, 2, 2, 1, 1, 1)]
+    assert [(t.pending_count_changed, t.pending_band_changed) for t in census.terms] == [(1, 1)]
+
+
+def test_the_distribution_census_is_a_no_op_when_both_parses_agree(tmp_path: Path) -> None:
+    """Asked for one parse twice, the census reports a frame and no movement.
+
+    The property that makes the artifact readable: a nonzero ``count_changed``
+    is always the readings differing, never the census's own bookkeeping.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_census_row("scotus/1", "24-100")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+            ),
+        )
+        census = distribution_census(conn, candidate_parse="dist-v1")
+    assert census.cases == 1
+    assert (census.count_changed, census.band_changed) == (0, 0)
+    assert census.count_changed_case_ids == []
+    assert [(t.from_band, t.to_band, t.n) for t in census.transitions] == [
+        ("elevated", "elevated", 1)
+    ]
+
+
+def test_the_distribution_census_refuses_an_unregistered_parse_or_version(tmp_path: Path) -> None:
+    """Both labels resolve up front, so an empty frame fails as loudly as a full one."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        with pytest.raises(KeyError):
+            distribution_census(conn, candidate_parse="dist-v0")
+        with pytest.raises(KeyError):
+            distribution_census(conn, baseline_parse="dist-v0", candidate_parse="dist-v2")
+        with pytest.raises(KeyError):
+            distribution_census(conn, candidate_parse="dist-v2", version="sal-v0")
+
+
+def test_the_distribution_census_counts_the_live_channel_only(tmp_path: Path) -> None:
+    """A newer REST snapshot must not become the thing the parses are compared on.
+
+    The two channels docket the same facts in different prose and the
+    entry-initial rule is a claim about the live channel's conventions, so
+    counting REST text under it would report a channel artifact as a parse
+    delta. A case whose only snapshot is REST-shaped is unobservable.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_census_row("scotus/1", "24-100")])
+        # The live snapshot carries the ancillary entry; a LATER REST snapshot
+        # does not. Reading the newest row of either shape would find no
+        # disagreement at all and report the parses as identical.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+            ),
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 2),
+            _rest_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        census = distribution_census(conn, candidate_parse="dist-v2")
+    assert (census.cases, census.unobservable) == (1, 0)
+    assert census.count_changed_case_ids == ["scotus/1"]
+
+    db2 = tmp_path / "rest-only.db"
+    with corpus.connect(db2) as conn:
+        corpus.upsert_rows(conn, [_census_row("scotus/1", "24-100")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _rest_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        rest_only = distribution_census(conn, candidate_parse="dist-v2")
+    assert (rest_only.cases, rest_only.unobservable) == (0, 1)
+
+
+def test_the_distribution_census_refuses_a_subsampled_frame(tmp_path: Path) -> None:
+    """Every figure is a raw count, so a weighted row would silently stand for ten."""
+    db = tmp_path / "corpus.db"
+    row = _census_row("scotus/1", "24-100").model_copy(update={"sample_weight": 10})
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        with pytest.raises(ValueError, match="sample_weight"):
+            distribution_census(conn, candidate_parse="dist-v2")
+
+
+def test_the_active_scorers_parse_is_the_one_the_corpus_column_holds() -> None:
+    """The alignment the relist-increment claim's monotonicity rests on.
+
+    The claim reads its prediction-time count from the frozen context (the
+    active scorer's parse) and its resolution-time count from the corpus column
+    (written at the default). "The count never falls" holds across that pair
+    only while the two labels agree.
+    """
+    assert SCORERS[SALIENCE_VERSION].distribution_parse == DEFAULT_DISTRIBUTION_PARSE
+
+
+def test_a_cells_frozen_count_follows_the_active_scorers_parse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Registering a dist-v2 scorer moves what a provisioned cell freezes.
+
+    Without this the parse hand-off in `cell_context` is delete-safe — every
+    registered version pins the default today, so nothing else would notice.
+    """
+    narrow = SalienceScorer(
+        version="sal-test",
+        score=SCORERS[SALIENCE_VERSION].score,
+        band=SCORERS[SALIENCE_VERSION].band,
+        bands=SCORERS[SALIENCE_VERSION].bands,
+        carve_out=SCORERS[SALIENCE_VERSION].carve_out,
+        distribution_parse="dist-v2",
+    )
+    payload = {
+        "CaseNumber": "24-100",
+        "PetitionerTitle": "John Doe",
+        "ProceedingsandOrder": [
+            {"Text": "DISTRIBUTED for Conference of 3/24/2023.", "Date": "03/10/2023"},
+            {
+                "Text": "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+                "Date": "05/01/2026",
+            },
+        ],
+    }
+    built = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
+    assert built.distribution_count == 2  # dist-v1: the motion's trip counts
+
+    monkeypatch.setattr(salience_module, "SCORERS", {**SCORERS, "sal-test": narrow})
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-test")
+    narrowed = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
+    assert narrowed.distribution_count == 1

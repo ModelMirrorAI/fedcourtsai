@@ -309,9 +309,10 @@ slice and the carve-in apart.
 
 ### The scorer registry
 
-A salience version is not a function but four things that decide together what
+A salience version is not a function but five things that decide together what
 a band label means: the score function, the band function, the band *names*,
-and the always-include rule. A fifth belongs with them and deliberately does
+the always-include rule, and the **distribution parse** the ranking's primary
+feature is read under (below). A sixth belongs with them and deliberately does
 not travel on the record: the always-include **floor** the carve-out compares
 against is `config/tracking.yaml`'s single shared `salience.floor`, so it is
 config rather than code and every registered version is held to the same value.
@@ -345,13 +346,84 @@ could otherwise leak:
   or not it is the live one. The **Markdown** pack renders the active version
   only, so a reader of `statpack.md` is reading one version of several.
 - **The gate replay is a three-axis report.** Cells span Term x policy x
-  version, and each (Term, policy) is projected once and scored by every
-  registered version, so two versions cannot differ in the dockets they saw.
+  version, and each (Term, policy, distribution parse) is projected once and
+  scored by every registered version pinning that parse, so two versions cannot
+  differ in the dockets they saw except where one deliberately reads them
+  differently.
   They are not compared at a matched operating point, though: the floor and the
   capacity are shared, so a scorer with a different score scale selects a
   differently sized set. Read a cross-version comparison at matched **recall** —
   the bar pre-registered above — never as a bare precision delta
   (`metrics/README.md`).
+
+### The distribution parse
+
+The relist bucket is the score's primary signal, and it is derived — not
+observed. A petition's distribution count is *parsed* out of free docket-entry
+text, so which entries the reading admits is as much a part of the band as the
+cutpoints are. `pipeline.cert_signals.DISTRIBUTION_PARSES` registers each
+reading under a label, every `SalienceScorer` pins the one it was fitted on, and
+a parse is added to the registry rather than edited — the same discipline the
+scorer registry itself keeps, for the same reason: a reading that changed under
+a stable label would silently redefine every band derived from it.
+
+Two readings are registered. **`dist-v1`** matches the conference phrase
+anywhere in an entry. **`dist-v2`** matches it only at the start of the entry,
+which excludes a distribution belonging to some paper other than the petition:
+a motion, an application, or a suggestion of mootness going to conference always
+names that paper first (`Motion (25M82) DISTRIBUTED for Conference of …`), while
+the petition's own distribution opens its entry with the word. Under `dist-v1`
+that ancillary traffic counts toward the petition's trajectory, which reads a
+petition as relisted on the strength of a motion's trip to conference.
+
+Both parses share the rest of the machinery — the same capture group, the same
+date parse, the same distinct-conference-date dedupe — so two counts of one
+docket differ by exactly which entries were read. The parse governs the
+trajectory **count** only: `distributed_for_conference`, the cohort key, stays
+unversioned, because an ancillary paper is distributed for the conference the
+petition is on and a case must sit in one cohort rather than one per parse.
+
+Every registered version pins `dist-v1`, which is also the reading the corpus's
+`distribution_count` column holds, so the parse is a declared dimension and not
+yet a live difference. That alignment is load-bearing beyond banding: the
+relist-increment claim reads its prediction-time count from the frozen context
+(which follows the active scorer's parse) and its resolution-time count from the
+corpus column (which is at the default), and the claim's "the count never falls"
+premise holds across that pair only while the two readings agree.
+
+The evidence a new parse would be argued from is the **`distribution-census`**
+artifact ([cli.md](cli.md)): two parses counted over one frame — the gate's scored
+segment with pending rows kept, since the count is a banding input read long
+before a petition resolves — banded by one scorer, reporting changed counts, the
+band-transition matrix, a per-Term rollup split by docket maturity, and every
+changed case id. Both counts come off each case's latest **live-shaped**
+snapshot, because the entry-initial rule is a claim about the live channel's
+entry conventions and counting a REST payload under it would report a channel
+artifact as a parse delta.
+
+**Activating a parse is three pieces of work, not one.** The census is the
+*input-level* cut and its matrix is conditional on the first of them:
+
+1. **Re-derive the corpus `distribution_count` column** under the new parse, on
+   a writer job — and the write must bypass the max latch (a direct `UPDATE`,
+   the shape the bulk scrubs use), because the latch lives in the upsert path
+   itself: a narrower reading routed through `upsert_rows` is a silent no-op
+   that reads as convergence. Until the column is genuinely re-derived, every
+   downstream consumer is still reading `dist-v1` counts.
+2. **Rebuild the statpack**, so each band's published base rate is measured over
+   a population banded under the same parse. A band whose membership moved but
+   whose quoted rate did not is a mislabeled baseline.
+3. **Re-measure the relist-tier grant rates** the cutpoints sit between. The
+   tiers are empirical rates for "0 relists", "1 relist", "2+"; re-reading which
+   entries count as a relist re-populates those buckets, so the cutpoints are
+   fitted to the old populations until they are re-measured.
+
+And the census answers the *input* question only. Who the gate would actually
+fund is a rank-and-cap question — a band move also moves a petition's cohort
+rank — so that is read from `salience-replay` with the candidate version
+registered, never from the transition matrix. Each replay cell records its own
+`distribution_parse`, so a cross-version comparison can say whether two cells
+saw one reading.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

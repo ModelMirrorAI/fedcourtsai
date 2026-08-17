@@ -27,7 +27,7 @@ from typing import Any, Literal
 from .. import corpus
 from ..schemas import PredictionContext
 from .asof import project_row
-from .salience import SALIENCE_VERSION, salience_band
+from .salience import SALIENCE_VERSION, salience_band, scorer
 
 
 def build(
@@ -97,6 +97,17 @@ def build(
         payload,
         cutoff=cutoff if cutoff is not None else snapshot_date,
         provenance="dated" if provenance == "as-stored" else provenance,
+        # The ACTIVE scorer's parse, read here rather than defaulted, so this
+        # cell's count follows the reading its banding version declares. That is
+        # all this line buys, and the limit is worth stating: the live gate bands
+        # the corpus's max-latched `distribution_count`, written under
+        # `cert_signals.DEFAULT_DISTRIBUTION_PARSE`, and this projection is
+        # deliberately behind that column anyway (it reads one snapshot, as-of).
+        # So the two agree on the reading only while every registered version
+        # pins the default — which the all-versions parse test enforces, and
+        # which a version pinning another parse must revisit together with the
+        # column's own re-derivation.
+        parse=scorer().distribution_parse,
     )
     observable = projected.observable
     count = projected.row.distribution_count
