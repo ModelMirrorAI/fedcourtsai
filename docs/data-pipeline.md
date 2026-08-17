@@ -518,12 +518,17 @@ is the merits cell's own record. On the merits event the test is therefore a
 parsed merits judgment (and, record-side, the latched judgment); on every
 other event it is any entry reading terminal, any entry carrying a
 machine-readable disposition order, or — on an application docket — a legible
-interim disposal. The predict matrix applies the same openness question one
-seam earlier (`predict-matrix` drops a listed event the corpus records
-resolved, wherever the scope gate consults the corpus at all — under
-`predict.scope: all` neither does), so a stale trigger issue sheds its closed
-events at plan time instead of minting cells this guard then refuses one by
-one. A refusal
+interim disposal. The predict matrix applies the same forecastability
+questions one seam earlier (`predict-matrix` drops a listed event the corpus
+records resolved, and any listed merits moment whose row fails the selection
+predicate's row arms — latched judgment or termination, a grant that no
+longer opens a merits proceeding, a stale unparsed grant — wherever the scope
+gate consults the corpus at all; under `predict.scope: all` neither does), so
+a stale trigger issue sheds its dead events at plan time instead of minting
+cells. For the resolved, latched-judgment, and terminated classes this guard
+then re-refuses whatever slips through one by one; for the gvr-re-resolved
+and stale-grant classes the plan seam is the **only** guard — the forward
+record gate does not read those columns — which is why the re-check exists. A refusal
 (exit 3) is a legitimate outcome, not an error — and it **short-circuits the
 cell**: the workflow withholds the agent token, the retrieval config, the
 engine steps, and the event materialization, so a refused forward cell

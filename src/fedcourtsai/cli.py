@@ -222,6 +222,7 @@ from .store import (
     open_events,
     resolved_events,
     stratify,
+    unforecastable_listed_events,
 )
 from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
@@ -4879,7 +4880,7 @@ def provision_snapshot(
     # textual scan by construction. Only then does the textual scan ask whether
     # the payload itself discloses the outcome. None of this rests on the
     # agent: a refused forward cell never receives a snapshot or a context —
-    # un-minting is the plan seam's job (the matrix openness re-check), and
+    # un-minting is the plan seam's job (the matrix forecastability re-check), and
     # run-predict's refusal gate skips the cell's agent steps on exit 3
     # entirely. Refusals are ::warning::
     # annotations so a fleet of snapshot-less cells is attributable per cause
@@ -5928,36 +5929,39 @@ def _resolve_cases(
     cases: list[CaseRequest],
     default_events: Callable[[str, int], list[str]],
     *,
-    drop_resolved: Callable[[str, int], list[str]] | None = None,
+    drop_unforecastable: Callable[[str, int], Mapping[str, str]] | None = None,
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none.
 
-    ``drop_resolved`` re-checks a request's *listed* events against the corpus's
-    resolved set at plan time. A trigger issue is written when its events are
-    open and fanned out whenever the workflow runs — and a pipeline pause can
-    put an arbitrary gap between the two, during which an event resolves.
-    Without the re-check the stale listing mints forward cells that
-    provisioning must then refuse one by one; with it the event is dropped
-    here, once, with the cause on the record. Only an *affirmatively resolved*
-    event is dropped — an event the corpus does not track stays listed, because
-    the matrix has always trusted the trigger's event ids and the provisioning
-    record gate backs the trust. The predict matrix passes the corpus's
-    resolved-events read; evaluate passes ``None``, since its listed events are
-    exactly the resolved ones.
+    ``drop_unforecastable`` re-checks a request's *listed* events against the
+    corpus at plan time, returning ``{event_id: reason}`` for the ones the
+    corpus now refuses. The listing is what makes the re-check necessary: a
+    case with no events runs through selection, which applies every
+    forecastability rule, while a listed event skips selection entirely — and a
+    trigger issue is written when its events are forecastable and fanned out
+    whenever the workflow runs, with a pipeline pause free to put an arbitrary
+    gap between the two. Without the re-check the stale listing mints cells
+    provisioning must then refuse one by one; with it each event is dropped
+    here, once, with its own reason on the record (printed verbatim, so a new
+    refusal class needs no second annotation site). An event the callback does
+    not name stays listed, because the matrix trusts the trigger's event ids
+    and the provisioning record gate backs the trust. The predict matrix passes
+    :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
+    ``None``, since its listed events are exactly the resolved ones.
     """
     kept: list[CaseRequest] = []
     for c in cases:
         if not c.events:
             kept.append(replace(c, events=tuple(default_events(c.court, c.docket))))
             continue
-        if drop_resolved is None:
+        if drop_unforecastable is None:
             kept.append(c)
             continue
-        gone = set(drop_resolved(c.court, c.docket)) & set(c.events)
-        for dropped in sorted(gone):
+        refused = drop_unforecastable(c.court, c.docket)
+        gone = {e: refused[e] for e in c.events if e in refused}
+        for dropped, reason in sorted(gone.items()):
             typer.echo(
-                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — "
-                f"the corpus records it resolved (it closed since the run was queued)",
+                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — {reason}",
                 err=True,
             )
         kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
@@ -6404,40 +6408,75 @@ def predict_matrix_cmd(
         settings.corpus_root,
         settings.corpus_backend,
     )
+    # One clock for the whole plan, so a fan-out that straddles midnight cannot
+    # apply a different staleness bound to selection than to the re-check.
+    today = date.today()
     cases = _resolve_cases(
         requested,
         lambda c, d: forecastable_events(
-            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
+            corpus.corpus_db_path(settings.corpus_root),
+            c,
+            d,
+            backend=settings.corpus_backend,
+            today=today,
         ),
-        # Listed events the corpus now records resolved are dropped at plan
-        # time rather than minted into cells provisioning must refuse. Keyed on
-        # the same condition as the scope gate, because under `all` the corpus
-        # is deliberately never consulted (dev / back-testing may fan out over
-        # an empty corpus).
-        drop_resolved=(
-            (
-                lambda c, d: resolved_events(
-                    corpus.corpus_db_path(settings.corpus_root),
-                    c,
-                    d,
-                    backend=settings.corpus_backend,
+        # Listed events the corpus now refuses — resolved since queueing, or a
+        # merits moment whose row fails the selection predicate's row arms —
+        # are dropped at plan time rather than minted into cells provisioning
+        # must (or, for the gvr/stale classes, cannot) refuse. Keyed on the
+        # same condition as the scope gate, because under `all` the corpus is
+        # deliberately never consulted (dev / back-testing may fan out over an
+        # empty corpus).
+        drop_unforecastable=(
+            recheck := (
+                (
+                    lambda c, d: unforecastable_listed_events(
+                        corpus.corpus_db_path(settings.corpus_root),
+                        c,
+                        d,
+                        today=today,
+                        backend=settings.corpus_backend,
+                    )
                 )
+                if predict_config.scope != PredictScope.all
+                else None
             )
-            if predict_config.scope != PredictScope.all
-            else None
         ),
     )
     if requested and any(c.events for c in requested) and not any(c.events for c in cases):
-        # Every listed event fell to the openness re-check, so the emitted
-        # matrix will be empty and the workflow's empty-matrix step will close
-        # the trigger issue with its generic out-of-scope note (it cannot tell
-        # the causes apart). This line is the correctly-attributed record;
-        # safe, because a resolved event needs an evaluate run, not a re-queue.
+        # Every listed event fell to the forecastability re-check, so the
+        # emitted matrix will be empty and the workflow's empty-matrix step will
+        # close the trigger issue with its generic out-of-scope note (it cannot
+        # tell the causes apart). This line is the correctly-attributed record;
+        # safe, because every class the re-check drops on needs something other
+        # than a re-queue — a grade for a resolved event, a corpus fix for a
+        # stale grant. The per-event warnings above carry which class each was.
         typer.echo(
-            "::error::predict-matrix: the openness re-check dropped every listed event — "
-            "each resolved since the run was queued; nothing is minted",
+            "::error::predict-matrix: the forecastability re-check dropped every listed event — "
+            "none is still forecastable; nothing is minted",
             err=True,
         )
+        # A workflow-log annotation is retention-bounded; the close note is the
+        # durable, human-read surface. Re-derive the per-event reasons (point
+        # lookups, only on this empty path) and hand the workflow's close step
+        # an attributed note in place of its generic out-of-scope one — the
+        # same channel the stranded guard uses.
+        if stranded_note_file is not None and recheck is not None:
+            lines: list[str] = []
+            for c in requested:
+                dropped = recheck(c.court, c.docket)
+                lines.extend(
+                    f"- `{ids.case_id(c.court, c.docket)}` `{event}` — {reason}"
+                    for event, reason in sorted(dropped.items())
+                    if event in c.events
+                )
+            stranded_note_file.write_text(
+                "Every event this trigger listed has become unforecastable since it was "
+                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
+                "None of these needs a re-queue — a resolved event needs its grade, and a "
+                "decided or stale proceeding must not receive a forward cell.\n",
+                encoding="utf-8",
+            )
     # Per-predictor plan-time gate, before any model spend: a (predictor, event)
     # cell whose predictor already committed a prediction for that event is not
     # re-minted, so a re-queue where two of three engines landed mints only the
