@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, corpus_service
+from fedcourtsai import corpus, corpus_service, fixture
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import Disposition
 from tests.conftest import FixtureCorpus
@@ -188,6 +188,40 @@ def test_query_service_backend_needs_url(
     result = runner.invoke(app, ["query", "--corpus-backend", "service"])
     assert result.exit_code == 2
     assert "FEDCOURTS_CORPUS_SERVICE_URL" in result.stderr
+
+
+def test_corpus_info_reports_freshness(fixture_corpus: FixtureCorpus) -> None:
+    # The blob on disk is otherwise undated (the committed pointer is a content
+    # digest), so this line is the whole freshness surface a corpus-dependent
+    # claim can cite. The fixture carries snapshots but no pull stamp.
+    newest = max(case.snapshot_date for case in fixture.FIXTURE_CASES)
+    result = runner.invoke(app, ["corpus-info"])
+    assert result.exit_code == 0, result.output
+    assert f"freshness: never pulled, latest snapshot {newest.isoformat()}" in result.stdout
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        row = corpus.get_row(conn, "ca9/101")
+        assert row is not None
+        corpus.upsert_rows(conn, [row.model_copy(update={"last_pulled": date(2026, 8, 16)})])
+    pulled = runner.invoke(app, ["corpus-info"])
+    assert pulled.exit_code == 0, pulled.output
+    assert "freshness: latest pull 2026-08-16" in pulled.stdout
+
+
+def test_corpus_info_freshness_falls_back_on_an_empty_corpus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The payload-free index shape in miniature: a blob with no snapshot rows
+    # and no pull stamp must degrade to words rather than crash on the NULLs.
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)):
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    result = runner.invoke(app, ["corpus-info"])
+    assert result.exit_code == 0, result.output
+    # "in this blob", not "no snapshots": under the corpus split the content
+    # store holds them, and AGENTS.md points agents at this line as evidence.
+    assert "freshness: never pulled, no snapshots in this blob" in result.stdout
 
 
 def test_corpus_info_rejects_service_backend(fixture_corpus: FixtureCorpus) -> None:

@@ -543,11 +543,21 @@ The full path of a change, operator's view:
    the `all-offline` form and tells you whether anything *else* is missing
    before you pay for the smokes, which step 4 still needs.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
-   `promotion-gate` check re-verifies quiescence + freshness. Re-run that
+   `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
+   **stated effect check** to that PR body — what should be true once it is
+   live and the command that shows it, collected from the feature PRs'
+   handover notes (AGENTS.md asks each for one); the workflow's own body is
+   fixed, so this is a hand edit. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
    merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
    second batch — the *Tags* subsection below). Live on the next workflow
    run.
+5. Run that stated effect check and record what it printed. A promotion
+   changes code, not state, so until something executes the check a batch that
+   changed nothing is indistinguishable from one that worked. Mind the timing:
+   an effect visible only in produced output cannot be checked until the next
+   run of the job that produces it, so a check that comes back empty before
+   then reads *not yet*, not *didn't work* — say which you saw.
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the

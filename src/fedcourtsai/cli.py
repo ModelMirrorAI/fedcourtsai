@@ -4789,7 +4789,27 @@ def make_fixture_corpus(
 
 @app.command("corpus-info")
 def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
-    """Show the corpus location and row count (after `corpus-pull`, or ranged)."""
+    """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
+
+    The freshness line is the reason to run this before making any claim that
+    depends on corpus state: the committed pointer is a content digest carrying
+    no date, so nothing beside the blob dates it, and it is only ever as fresh
+    as the last pull left it. (The docket pack derives the same `last_pulled`
+    maximum for its `pulled through` line — this is the cheap way to the
+    number, not the only one.) Two dates, because they age differently and
+    a blob can carry one without the other — `latest pull` is the newest
+    `last_pulled` over the cases (kept in a payload-free index, so it reports
+    on the production shape too) and `latest snapshot` the newest dated docket
+    state the blob itself stores. A payload-free index stores none: the
+    snapshots live in the per-case content store, which this command does not
+    read. Hence `in this blob` on both snapshot readings — under the corpus
+    split, `no snapshots` would otherwise read as a claim about the system.
+
+    Both are maxima over the whole blob: its vintage, not any one case's. The
+    pull governor rotates stalest-first, so a maximum says when *anything* was
+    last refreshed — a claim about a specific case reads that case's own
+    `last_pulled` instead.
+    """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
@@ -4799,8 +4819,15 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         typer.echo(
             f"corpus {db_path} [{backend}]: {corpus.count(conn)} row(s), "
-            f"{corpus.snapshot_count(conn)} snapshot(s)"
+            f"{corpus.snapshot_count(conn)} snapshot(s) in this blob"
         )
+        pulled = corpus.latest_pull_date(conn)
+        snapshot = corpus.latest_snapshot_date(conn)
+        pulled_text = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
+        snapshot_text = (
+            f"latest snapshot {snapshot.isoformat()}" if snapshot else "no snapshots in this blob"
+        )
+        typer.echo(f"freshness: {pulled_text}, {snapshot_text}")
         _echo_read_stats(conn)
 
 

@@ -117,6 +117,35 @@ non-interactive** container. Two consequences shape everything you do:
   produces — predictions, events, provisioned cells, reports — not by merged
   PRs. Know which produced artifact a change serves and say so briefly in the
   PR description; where it directly affects output, show a produced example.
+- **No claimed effect without an executed check.** (This norm and the two below
+  are development-lane: a cell agent's contract is its prompt template, and it
+  runs none of these commands.) Any claim about run-time behavior — this filter
+  now skips that case, this re-run mints those cells — cites the observation
+  that produced it: a dry-run plan (`fedcourts predict-plan` /
+  `evaluate-plan`), a test, or a produced artifact — the example *Keep the
+  artifact in view* asks for is one such observation. Reading the code that
+  would do it is not the check; a confident reading of a diff is how a claim
+  reaches production and fails there. A staging run is evidence too, but you
+  cannot start one — compose the dispatch command for the maintainer, and the
+  claim stays unverified until it runs. Where nothing can be executed before
+  promotion, say so and carry the command that settles it afterwards.
+- **Corpus-dependent claims state corpus freshness.** Anything concluded from
+  corpus state states the vintage of the blob it was read from, which
+  `fedcourts corpus-info` prints: the newest pull stamp and the newest stored
+  snapshot row, across the whole blob. That is a corpus-wide vintage, not
+  per-case provenance — the pull governor rotates stalest-first, so the maximum
+  says when *anything* was last refreshed, and a claim about one case quotes
+  that case's own `last_pulled` (a `query` away). Refresh the blob yourself
+  with `fedcourts corpus-pull`, which a dev checkout's read-only role serves;
+  when the *remote* is the stale one, compose the `run-pull` dispatch for the
+  maintainer rather than reporting a stale number as current.
+- **A promotion batch states its observable effect as a runnable check.** The
+  promotion PR body carries what should be true once the batch is live and the
+  command that shows it, and the promotion is not done until someone runs that
+  command and reports what it saw. The maintainer runs promotions, so that line
+  reaches the body from the feature PRs in the batch: give yours the effect
+  check as its handover note. A promotion changes code, not state — without the
+  post-check, a batch that did nothing looks exactly like one that worked.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Some fields are the harness's, not yours.** `usage.json`, `retrieval_log.json`,

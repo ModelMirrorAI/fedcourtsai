@@ -310,7 +310,8 @@ Together those cover most "why did this cell get the wrong documents" questions
 directly against the real docket. Reach for a corpus pull only when the question
 is genuinely about the *stored* row rather than the upstream record — and
 remember the local blob is a snapshot, so its freshness is whatever the last
-pull left behind.
+pull left behind (`fedcourts corpus-info` prints those dates, and AGENTS.md
+asks any corpus-dependent claim to state them).
 
 ## The boundary that remains
 
