@@ -4,9 +4,10 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.corpus_ranged import RangedBackendError
@@ -1500,7 +1501,11 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
         "codex": 1.88,
         "gemini": 0.64,
     }
-    assert plan["planning_rate_usd_per_cell"] == 2.50
+    # The fallback rate lives inside the basis block, named as the fallback it
+    # is — never at the top level, where a consumer multiplying it by
+    # `would_mint_cells` would rebuild the flat-rate error the table removes.
+    assert "planning_rate_usd_per_cell" not in plan
+    assert plan["spend_estimate_basis"]["fallback_usd_per_cell"] == 2.50
     # The surviving cells are codex + gemini on both cases, priced per engine.
     assert plan["estimated_spend_usd"] == round(2 * (1.88 + 0.64), 2)
     assert plan["estimated_spend_caveat"] is None
@@ -1517,7 +1522,8 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     assert plan["spend_gate"]["spent_usd"] is None
     assert plan["spend_gate"]["ceiling_usd"] is None
     assert plan["spend_gate"]["cells"] is None
-    assert plan["spend_gate"]["spent_usd_is_floor"] is True
+    # A floor claim about a null is not a weaker claim, it is not a claim.
+    assert plan["spend_gate"]["spent_usd_is_floor"] is None
 
 
 def test_predict_plan_names_the_step_that_dropped_a_stale_grant(tmp_path: Path) -> None:
@@ -1696,6 +1702,8 @@ def test_predict_plan_reports_a_spend_breach_without_emptying_the_cell_set(
     assert plan["spend_gate"]["spent_usd"] == 12.0
     assert plan["spend_gate"]["ceiling_usd"] == 10.0
     assert plan["spend_gate"]["cells"] == 1
+    assert plan["spend_gate"]["spent_usd_is_floor"] is True
+    _assert_predict_balances(plan)
     assert "the ex-post spend backstop is breached" in result.stderr
     assert "so a real run mints 0." in result.stderr
 
@@ -1727,6 +1735,137 @@ def test_evaluate_plan_reports_already_graded_cells_and_what_force_would_change(
     assert forced_plan["dropped_already_evaluated"] == []
     assert forced_plan["counts"]["cell_ledger"]["would_mint_cells"] == 6
     _assert_evaluate_balances(forced_plan)
+
+
+def test_the_planning_rate_table_matches_the_budget_doc_per_event_totals() -> None:
+    """The rate table is a transcription of `docs/budget.md`, so pin its totals.
+
+    Predict: the whole-run row of *Per-cell cost is keyed on the stage* sums to
+    **$6.79 an event**. Evaluate: that section's `proc-v2` row scaled by the
+    predict move sums to **$8.18**, the upper anchor of the doc's $14.6-15.0
+    per-case band. Pinning the sums rather than only the columns means a
+    re-anchor of the doc lands here as a visible test edit instead of silently
+    re-pricing every plan.
+    """
+    assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 6.79
+    assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.18
+    # And the pair is the $14.97 the six-cell $2.50 fallback is the rounding of.
+    assert round(6.79 + 8.18, 2) == 14.97
+
+
+def test_predict_plan_prices_an_unknown_engine_at_the_stated_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A registry entry ahead of the rate table must not vanish from the total.
+    # Standing in for that: a table with gemini removed, which is the same code
+    # path a genuinely new engine takes.
+    monkeypatch.setitem(
+        cli._PLANNING_RATES_USD_PER_CELL,
+        "predict",
+        {"claude-code": 4.27, "codex": 1.88},
+    )
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    basis = plan["spend_estimate_basis"]
+    # One of the three cells ran the unnamed engine and is counted as such.
+    assert plan["counts"]["cell_ledger"]["would_mint_cells"] == 3
+    assert basis["cells_at_fallback_rate"] == 1
+    # Priced in, not dropped: the total carries it at the fallback rate.
+    assert plan["estimated_spend_usd"] == round(4.27 + 1.88 + 2.50, 2)
+    assert any("design-mix fallback" in c for c in basis["caveats"])
+
+
+def test_predict_plan_names_a_case_whose_default_events_resolved_empty(
+    tmp_path: Path,
+) -> None:
+    # The quiet class: a case that listed no events and whose corpus lookup came
+    # back empty stays in the case count and contributes to neither the event
+    # count nor the cell count, so it is invisible unless it is named.
+    body = tmp_path / "issue-body.md"
+    body.write_text('```json\n{"court": "scotus", "docket": 24001}\n```\n')
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    provenance = plan["counts"]["provenance"]
+    assert provenance["resolved_cases"] == 1
+    assert provenance["resolved_events"] == 0
+    assert provenance["cases_with_no_default_events"] == 1
+    assert plan["cases_with_no_default_events"][0]["case_id"] == "scotus/24001"
+    assert "resolved none" in plan["cases_with_no_default_events"][0]["reason"]
+    assert plan["counts"]["cell_ledger"]["candidate_cells"] == 0
+    _assert_predict_balances(plan)
+
+
+def test_predict_plan_names_the_census_records_the_guard_could_not_read(
+    tmp_path: Path,
+) -> None:
+    # Partly blind is its own state: the guard ran, so `active` is true and no
+    # fail-open reason is set, but records it could not parse mean the withheld
+    # count is silent about whatever they named.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = tmp_path / "stranded-artifacts.json"
+    census.write_text(
+        json.dumps([[1, 2], "x", {"artifact_name": 5}, _stranded_cell(4242, "codex-baseline")])
+    )
+
+    result = runner.invoke(
+        app,
+        ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)],
+        env=env,
+    )
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    guard = plan["stranded_guard"]
+    assert guard["active"] is True
+    assert guard["degraded_reason"] is None
+    assert len(guard["unparsed_records"]) == 3
+    # The one record it could read still withheld its cell.
+    assert plan["counts"]["cell_ledger"]["withheld_stranded_cells"] == 1
+    _assert_predict_balances(plan)
+
+
+def test_evaluate_plan_reports_a_spend_breach_without_emptying_the_cell_set(
+    tmp_path: Path,
+) -> None:
+    # The breach trio is not predict-only: an evaluate plan under a breached
+    # ceiling has to be just as legible on stdout, and its stderr line has to
+    # keep the assumption clause beside the number.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        spend_ceiling_usd=10.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    result = runner.invoke(app, ["evaluate-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    ledger = plan["counts"]["cell_ledger"]
+    assert plan["spend_gate"]["breached"] is True
+    assert plan["spend_gate"]["would_empty_matrix"] is True
+    assert ledger["would_mint_cells"] == 6
+    assert ledger["would_mint_cells_after_spend_gate"] == 0
+    assert plan["estimated_spend_caveat"] is not None
+    _assert_evaluate_balances(plan)
+    # The evaluate seam prices an assumption, and the line a reader quotes says so.
+    assert "are an assumption" in result.stderr
+    assert "not a measurement" in result.stderr
 
 
 def test_predict_plan_prices_an_engine_narrowed_backfill_at_that_engine_rate(
@@ -1776,7 +1915,8 @@ def test_predict_plan_prices_an_engine_narrowed_backfill_at_that_engine_rate(
     assert all("gemini-baseline" in d["reason"] for d in plan["dropped_by_request_narrowing"])
     # The whole point: the estimate is not cells x the flat rate.
     assert plan["estimated_spend_usd"] == round(2 * 0.64, 2)
-    assert plan["estimated_spend_usd"] != round(2 * plan["planning_rate_usd_per_cell"], 2)
+    fallback = plan["spend_estimate_basis"]["fallback_usd_per_cell"]
+    assert plan["estimated_spend_usd"] != round(2 * fallback, 2)
 
 
 def test_predict_plan_balances_when_the_volume_cap_defers_a_case(tmp_path: Path) -> None:
