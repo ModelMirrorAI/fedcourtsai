@@ -1,0 +1,7 @@
+P(disturbed) = 0.35. The baseline rate for disturbing a lower court judgment on the merits is roughly 69.7% based on pooled Term data (2017-2024, excluding 2025 since this is an OT2025 case, but the rate is consistent around 65-70%). However, the specific context of this case suggests a strong likelihood of affirmance.
+
+The Sixth Circuit ruled for Paramount, adopting a narrow interpretation of the VPPA's "consumer" definition that excludes subscribers to non-audiovisual services (like newsletters). The Supreme Court granted certiorari to resolve a circuit split between the 6th/D.C. Circuits (narrow) and the 2nd/7th Circuits (broad).
+
+The current conservative majority generally disfavors expansive class-action liability under older privacy statutes (e.g., *Facebook v. Duguid* on the TCPA) and typically avoids extending them to cover modern internet activities outside of congressional design. While strict textualism ("any goods or services") might pull some conservative votes, the Court is likelier to rule for the defense and limit VPPA exposure for media companies, affirming the Sixth Circuit's decision. I adjust the probability of reversal (disturbing the judgment) down to 0.35.
+
+Retrieval involved confirming the Sixth Circuit's decision and the nature of the circuit split via a Google web search for `"Salazar v. Paramount" Supreme Court VPPA`. No outcome information was retrieved as the case is still pending.

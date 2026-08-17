@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73275179",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (citation lookup)",
+    "metrics/statpack.md (merits docket section)",
+    "provisioned snapshot + record/documents texts"
+  ],
+  "helpful": [
+    "The statpack merits section with the excluded-count pool guard made the scored baseline computable in one pass (359/515 over grant Terms 2017-2024).",
+    "Provisioned petition/BIO/QP text was clean and complete (no empty_text), which carried most of the case-specific signal for a moment:grant cell."
+  ],
+  "gaps": [
+    "No free-text or issue-area retrieval on SCOTUS corpus rows: --citation covers 161 of ~590k rows and --topic is circuit-only, so pulling doctrinal-line priors (e.g. the Court's Second Amendment merits cases) is effectively impossible; the one citation query cost ~348 MB of ranged reads to return nothing.",
+    "No published conditional merits cuts (e.g. disturbed rate for grants over uniform circuit agreement, or by issue area) — the 0.697-to-0.86 adjustment had to be entirely qualitative."
+  ],
+  "notes": "Merits moment:grant cell six weeks post-grant: no merits briefs exist yet, so the cert-stage documents plus the docket skeleton were the whole record; forward mode gave nothing further worth fetching."
+}

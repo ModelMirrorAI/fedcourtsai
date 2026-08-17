@@ -1,0 +1,4 @@
+- Consulted the provisioned `petition.txt` and `questions-presented.txt`.
+- Consulted the provisioned `context.json` and snapshot.
+- Attempted to use the CourtListener MCP tool (`mcp_courtlistener_search`) to retrieve the Ninth Circuit's opinion and the merits briefs, but the call failed due to a rate limit exceeded error (HTTP 429).
+- Consulted the `metrics/statpack.md` file to calculate the base disturbed rate for merits cases.

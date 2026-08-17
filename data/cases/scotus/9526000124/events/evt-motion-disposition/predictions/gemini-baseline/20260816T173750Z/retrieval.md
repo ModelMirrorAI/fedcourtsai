@@ -1,0 +1,2 @@
+CourtListener MCP search failed due to rate limits (HTTP 429).
+Web search using Google for "26A124 OR Trump v. California Supreme Court stay First Circuit" to obtain context on the case and lower court proceedings.

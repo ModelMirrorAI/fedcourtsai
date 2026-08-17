@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279024",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "warning",
+      "message": "CourtListener MCP search tool failed due to rate limit HTTP 429.",
+      "event_id": "evt-order-judgment"
+    }
+  ]
+}

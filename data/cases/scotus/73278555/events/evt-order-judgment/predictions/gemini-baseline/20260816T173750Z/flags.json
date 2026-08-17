@@ -1,0 +1,13 @@
+{
+  "case_id": "scotus/73278555",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "warning",
+      "message": "CourtListener MCP tool 'search' returned HTTP 429 Rate limit exceeded. Degraded gracefully to provisioned inputs and corpus tooling, but could not retrieve merits briefs or lower court opinion."
+    }
+  ]
+}

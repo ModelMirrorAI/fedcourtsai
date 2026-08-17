@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Hundreds of pending Meta-pixel VPPA class actions against media, retail, and streaming companies turn on this definition, drawing an eleven-brief business and media amicus lineup; high stakes for industry, though doctrinally a niche statutory-interpretation question rather than a landmark.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73278510",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.45
+    }
+  ],
+  "confidence": 0.4,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:57:04Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73278510/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:59:32.199818Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that 'goods or services from a video tape service provider' in 18 U.S.C. \u00a72710(a)(1) means the audiovisual goods or services whose rental, sale, or delivery makes the entity a video tape service provider \u2014 adopting the Sixth Circuit's interlocking-definitions reading: the parallel between 'renter, purchaser, or subscriber' in (a)(1) and 'rental, sale, or delivery' in (a)(4), reinforced by (a)(3)'s video-specific PII definition and the consent provisions. It rejects Salazar's unqualified plain-meaning reading of 'goods or services,' answers the Second Circuit's superfluity argument by treating (a)(3)'s 'video materials or services' language as confirming the statute's video-transaction focus, and invokes the Court's refusals to read targeted statutes at literal breadth into sweeping statutory-damages regimes (e.g., Facebook v. Duguid). A free-newsletter subscription therefore does not make Salazar a 'consumer.'"
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The stated ground is categorical, not fact-bound: a general rule that VPPA 'consumer' status under \u00a72710(a)(1) requires renting, purchasing, or subscribing to audiovisual goods or services as such \u2014 foreclosing newsletter-subscription and other non-video-transaction theories nationwide, not a narrow ruling limited to Salazar's pleading. The Court applies the rule to affirm outright rather than remanding for pleading-specific analysis of Salazar's allegation that he used the newsletter to view videos, while expressly leaving open questions not presented: who qualifies as a 'video tape service provider,' the scope of 'personally identifiable information,' and the covered status of paid video subscriptions."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

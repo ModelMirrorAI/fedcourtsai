@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": null,
+  "case_id": "scotus/73277468",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.75
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:37:50Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73277468/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.75,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:48:43.207350Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court will hold that under the plain text of Federal Rule of Civil Procedure 8(c), a defendant must affirmatively plead an affirmative defense in its answer, and cannot raise it for the first time at summary judgment without amending the pleading, as doing so would circumvent the good-cause requirement for modifying a scheduling order under Rule 16(b)(4)."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will establish a categorical procedural rule applying to all affirmative defenses in federal civil litigation, rather than a narrow ruling dependent on the specific timeline or prejudice to the plaintiff in this case."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

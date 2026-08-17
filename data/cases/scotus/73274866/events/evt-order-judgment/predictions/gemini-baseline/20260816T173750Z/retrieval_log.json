@@ -1,0 +1,267 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "ad963f71eee2b1d7",
+      "query": "{\"strategic_intent\": \"Read the prediction prompt and agents guide to understand the prediction task and outputs.\", \"summary\": \"I will start by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow for producing a prediction, what tools I need to use, what the contract is, and what output files are expected.\", \"title\": \"Read Prediction Instructions\", \"wait_for_previous\": false}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:07.517Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:07.529Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:07.530Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eac145b31ded99d6",
+      "query": "{\"strategic_intent\": \"Locate and read the per-case inputs for the cell to understand the event and the provided facts.\", \"summary\": \"I have read the prediction prompt and the agents guide. I understand that I need to produce a prediction for a specific case, event, and run. I will now locate the per-case inputs for the cell, specifically `event.yaml` and the snapshot, to understand the event details and facts of the case before writing the prediction.\", \"title\": \"Read Case Inputs\", \"wait_for_pre",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:12.182Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a15b09a77fc96795",
+      "query": "{\"file_path\": \"data/cases/scotus/73274866/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:12.186Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "92f69af3b67f3c5a",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866/events/evt-order-judgment/record\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:14.757Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "ecdbb29856a82aba",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866/events/evt-order-judgment\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:18.162Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "9e55dccfa7e2e98c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:20.148Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "aeb8109dbdfc2cee",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866/record\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:21.926Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "3bc47135358a275c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866/record/snapshots\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:24.248Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "88f0b9bc06016fb2",
+      "query": "{\"file_path\": \"data/cases/scotus/73274866/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:24.248Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fc4acd3d85c0924c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73274866/record/documents\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:24.249Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "cbae767e1bf07a94",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73274866/record/snapshots/2026-08-16.json\", \"start_line\": 1}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:28.273Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8470c6adbb8b65eb",
+      "query": "{\"file_path\": \"data/cases/scotus/73274866/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:28.273Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6868c11f1bbb4b63",
+      "query": "{\"file_path\": \"data/cases/scotus/73274866/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:28.273Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "14aa4ae02de91e34",
+      "query": "{\"strategic_intent\": \"Calculate the merits baseline rate from the statpack and formulate the prediction.\", \"summary\": \"I will read `metrics/statpack.md` to find the \\\"The merits docket (granted cases)\\\" section and calculate the baseline disturbed rate for the 10 grant Terms preceding OT2025. Then, I will write out the prediction json and the two reasoning documents.\", \"title\": \"Calculate Baseline and Predict\", \"wait_for_previous\": false}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:34.343Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:34.347Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4bc6ec97bbe0213f",
+      "query": "{\"end_line\": 260, \"file_path\": \"metrics/statpack.md\", \"start_line\": 240}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:39.387Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "668290bec993fff7",
+      "query": "mkdir -p data/cases/scotus/73274866/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:52.336Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f3a3a30b8d8fb781",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274866\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T17:37:50Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274866/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgment\\\": \\\"affirmed\\\",\\n  \\\"vote",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:12.821Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "387554a12f99cc12",
+      "query": "{\"content\": \"I predict the Court will affirm the Eleventh Circuit's judgment in a 6-3 decision, holding that Title IX does not provide an implied private right of action for employees to sue for sex discrimination in employment.\\n\\nThe Court is likely to rely on strict textualism and the existence of Title VII's comprehensive remedial scheme for employment discrimination. A majority (Roberts, Thomas, Alito, Gorsuch, Kavanaugh, Barrett) will likely conclude that implying a cause of action under T",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:12.824Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5538ac66b8c43b48",
+      "query": "{\"content\": \"P(disturbed) = 0.35.\\n\\nThe baseline disturbed rate pooled over the 8 strictly preceding grant Terms (OT2017-OT2024, as OT2015 and OT2016 were not available in the statpack) is 69.7% (359 disturbed out of 515 parsed judgments).\\n\\nHowever, I am adjusting significantly downward from the baseline. This case presents a clear 8-3 circuit split regarding whether Title IX provides an implied private right of action for employees. The Eleventh Circuit (the decision below) held that it does",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:12.828Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "824d38ebe7e72b54",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`.\", \"file_path\": \"data/cases/scotus/73274866/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:12.831Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1ac9dd9e76759ec8",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274866\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"list_directory\\\", \\\"run_shell_command\\\"]\\n}\", \"file_path\": \"data/cases/scotus/73274866/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:12.834Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:36.030Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc4c8d9458eeffbb",
+      "query": "{\"strategic_intent\": \"Complete the task after successful validation.\", \"summary\": \"I wrote all the expected artifacts into the correct run output directory (`prediction.json`, `reasoning.md`, `predicted_reasoning.md`, `retrieval.md`, and `tooling.json`) and verified them against the schema with `uv run fedcourts validate data`. The validation was successful and the task is now complete.\", \"title\": \"Task Complete\", \"wait_for_previous\": false}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:46:39.429Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73274866",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": null,
+  "case_id": "scotus/73278510",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.35
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:37:50Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73278510/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.35,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:51:04.722453Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The phrase 'goods or services' in the VPPA's definition of 'consumer' must be read in the context of the statute's focus on video materials, thereby limiting the definition to subscribers of audiovisual goods or services."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "A categorical rule that an individual must subscribe to the video-specific offerings of a video tape service provider to qualify as a consumer under the VPPA, excluding individuals who only subscribe to non-audiovisual services like a newsletter."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

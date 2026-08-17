@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000124",
+  "gaps": [
+    "No filed-document text was provisioned under record/documents/ for this application docket; the stay application, opposition, and supplemental briefs exist only as PDF links in the snapshot, so the merits read came from docket captions and general knowledge.",
+    "The statpack's interim section publishes no applicant-class (government vs private) or escalation-conditioned grant rates; for a government application those cuts would dominate the pooled 13.3% anchor.",
+    "CourtListener MCP daily rate limit was already exhausted at cell start; a per-cell quota reservation or a clearer signal of remaining budget would help."
+  ],
+  "helpful": [
+    "The interim-docket statpack section now clears the 50-resolved floor for a Term-2026 cell (225 pooled resolved), so a real scored baseline existed.",
+    "The frozen context's escalation-ladder fields (response_requested, referred_to_court, amicus_briefs) made the increment claims unambiguous to state."
+  ],
+  "notes": "fedcourts query with --include-applications and --disposition granted ranked routine time-extension grants first; a filter to exclude extensions (or select substantive applications only) would make the interim retrieval surface useful.",
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp (failed: rate limit)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,64 @@
+{
+  "big_case_rationale": "High-profile dispute over a presidential executive order regarding citizenship verification and mail-ballot rules, with significant implications for the upcoming November 2026 federal elections.",
+  "big_case_score": 0.95,
+  "case_id": "scotus/9526000124",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.95
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.2
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 6,
+    "band": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2026
+  },
+  "created_at": "2026-08-16T17:40:00Z",
+  "engine": "gemini",
+  "event_id": "evt-motion-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-08-16.json",
+  "judgment": null,
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.15,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:55:50.034165Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

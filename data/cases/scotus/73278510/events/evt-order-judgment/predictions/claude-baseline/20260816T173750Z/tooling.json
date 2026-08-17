@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278510",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits docket section)",
+    "fedcourts paths",
+    "provisioned record/documents texts"
+  ],
+  "helpful": [
+    "statpack merits table with per-Term disturbed rates and the excluded-count pool guard",
+    "provisioned document text: brief-in-opposition.txt carrying the merits response brief made respondent's merits-stage argument readable without any fetch",
+    "context.json's explicit mode/band/term freeze"
+  ],
+  "gaps": [
+    "fedcourts query takes structured filters only; a free-text or issue-based similarity query would have let me pull statutory-interpretation merits priors (the available --court/--era/--disposition filters are too coarse to beat the statpack)",
+    "petitioner's merits brief is on the docket but not provisioned, while respondent's is (inside brief-in-opposition.txt) - a one-sided merits-text asymmetry the document pipeline could even up",
+    "no per-cut merits base rates (e.g. disturbed rate by split posture or by which side prevailed below) to discipline direction-specific adjustments from the pooled rate"
+  ],
+  "notes": "documents.json's brief-in-opposition entry concatenates two PDFs (cert BIO + merits response brief) under one kind with a piped url; it worked fine for this cell but a separate merits-brief kind would make the merits moment's inputs self-describing."
+}

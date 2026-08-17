@@ -1,0 +1,87 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "a16f81b2967b098c",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,240p' .claude/agents/stats-reviewer.md && find data/cases/scotus/73253921/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z -maxdepth 1 -type f -print | sort && printf '\\\\nEVENT\\\\n' && sed -n '1,240p' data/cases/scotus/73253921/events/evt-order-judgment/event.yaml && printf '\\\\nCONTEXT\\\\n' && sed -n '1,240p' data/cases/scotus/73253921/record/context.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\"",
+      "result_capture": "captured",
+      "result_digest": "85f4f2d64b790a78",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:01.038Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "a3f81665f314a16a",
+      "query": "const r = await tools.exec_command({\"cmd\":\"printf '%s\\\\n' 'OUTPUT FILES' && for f in data/cases/scotus/73253921/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z/*; do printf '\\\\n===== %s =====\\\\n' \\\"$f\\\"; nl -ba \\\"$f\\\"; done && printf '\\\\nRECORD FILES\\\\n' && find data/cases/scotus/73253921/record -maxdepth 3 -type f -print | sort && printf '\\\\nEVENT DIR FILES\\\\n' && find data/cases/scotus/73253921/events/evt-order-judgment -maxdepth 2 -type f -print | sort && printf '\\\\nSTAT",
+      "result_capture": "captured",
+      "result_digest": "94c55e9c8151d208",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:04.841Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "f2418437849d9d2c",
+      "query": "const r = await tools.exec_command({\"cmd\":\"printf '%s\\\\n' 'SNAPSHOT' && nl -ba data/cases/scotus/73253921/record/snapshots/2026-08-16.json | sed -n '1,360p' && printf '\\\\nQUESTIONS\\\\n' && nl -ba data/cases/scotus/73253921/record/documents/questions-presented.txt && printf '\\\\nDOCUMENT MANIFEST\\\\n' && nl -ba data/cases/scotus/73253921/record/documents/documents.json && printf '\\\\nPREDICTION SCHEMA\\\\n' && nl -ba schemas/prediction.schema.json | sed -n '1,420p' && printf '\\\\nTOOLING SCHEMA\\\\n' && n",
+      "result_capture": "captured",
+      "result_digest": "07cf457a9b8e9546",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:14.457Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "914a8e73d0bb50e3",
+      "query": "const r = await tools.exec_command({\"cmd\":\"printf '%s\\\\n' 'PETITION MATCHES' && rg -n -i -C 3 'split|thousand|vehicle|civil action|Schlanger|sovereign immunity|tort|Gorsuch|Barrett|Kavanaugh|recommend|unambig|substantial justification|criminal custody|civil immigration|fee' data/cases/scotus/73253921/record/documents/petition.txt | sed -n '1,520p' && printf '\\\\nOPPOSITION MATCHES\\\\n' && rg -n -i -C 3 'split|thousand|vehicle|civil action|Schlanger|sovereign immunity|tort|Gorsuch|Barrett|Kavanaugh",
+      "result_capture": "captured",
+      "result_digest": "eb5f4e373997effc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:18.575Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "f7e82c54c7d4bbca",
+      "query": "const r = await tools.exec_command({\"cmd\":\"nl -ba schemas/prediction.schema.json | sed -n '380,760p' && printf '\\\\nARITHMETIC\\\\n' && awk 'BEGIN {print 359/515, 515/557, (245+121+10)/539}' && printf '\\\\nPETITION VEHICLE/IMPORTANCE\\\\n' && nl -ba data/cases/scotus/73253921/record/documents/petition.txt | sed -n '360,470p' && printf '\\\\nOPPOSITION ARGUMENT/VEHICLE\\\\n' && nl -ba data/cases/scotus/73253921/record/documents/brief-in-opposition.txt | sed -n '220,365p'\",\"workdir\":\"/home/runner/work/fedco",
+      "result_capture": "captured",
+      "result_digest": "a31a8c22ccb72cd9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:28.555Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "70772d419992832a",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:19:52.824Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/73253921",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

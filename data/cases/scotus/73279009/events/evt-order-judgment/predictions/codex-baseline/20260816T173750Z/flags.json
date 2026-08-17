@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279009",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-judgment",
+      "message": "The grant order says this companion was granted only as to the question presented in lead docket No. 25-238, but the provisioned documents contain only No. 25-566's petition and opposition. The exact granted lead question was therefore absent. One permitted CourtListener MCP search for the lead docket returned HTTP 429 and no data, so the forecast uses only the shared assault-weapons issue established by the provisioned record."
+    }
+  ]
+}

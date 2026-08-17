@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73277468",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "run_shell_command", "mcp_courtlistener_search"],
+  "helpful": ["statpack.md base rates"],
+  "gaps": ["Fallback options when CourtListener MCP is rate limited"],
+  "notes": "MCP rate limiting hit immediately on first query."
+}

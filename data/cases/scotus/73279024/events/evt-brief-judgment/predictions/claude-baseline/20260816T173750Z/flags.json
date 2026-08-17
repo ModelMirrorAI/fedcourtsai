@@ -1,0 +1,20 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73279024",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-brief-judgment",
+      "message": "CourtListener MCP was rate-limited (HTTP 429, shared 1400/day quota exhausted, ~89 min to reset) on this cell's first and only attempted call (~18:00Z). The cell degraded gracefully per the prompt: predicted from the provisioned documents, the docket snapshot, the committed statpack, and corpus tooling. Cells later in a large fan-out day may routinely hit this quota.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-judgment",
+      "message": "documents.json lists one kind='brief-in-opposition' entry whose url field carries two pipe-joined URLs (the Jan 16 2026 BIO and the Jul 20 2026 merits brief of respondent) under entry_date 'Jul 20 2026', and the provisioned text file concatenates both filings. The content was usable \u2014 indeed valuable for a briefed-moment merits cell \u2014 but the kind/provenance labeling is misleading; petitioners' merits brief (May 22 2026) has no counterpart entry.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260816T173750Z"
+}

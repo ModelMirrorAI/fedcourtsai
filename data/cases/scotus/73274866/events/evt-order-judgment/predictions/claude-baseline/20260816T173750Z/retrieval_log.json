@@ -1,0 +1,357 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:13.323Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d219b46861261852",
+      "query": "ls -la /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/ 2>/dev/null && find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866 -type f | head -50",
+      "result_capture": "captured",
+      "result_digest": "3e9b1403eb56d42a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:14.493Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ecad9daffc9514eb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/events/evt-order-judgment/event.yaml\"}",
+      "result_capture": "captured",
+      "result_digest": "063627575d101738",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:20.942Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ccaaff5cc235c9ae",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/context.json\"}",
+      "result_capture": "captured",
+      "result_digest": "510bd9fd44955d90",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:21.646Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4c498b07cf3cffbb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/documents.json\"}",
+      "result_capture": "captured",
+      "result_digest": "64b70159e3882925",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:21.705Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "402849c841c65739",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/questions-presented.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "7daa3b8a84988465",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:30.656Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b3e41bef78b3a2c1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/snapshots/2026-08-16.json\"}",
+      "result_capture": "captured",
+      "result_digest": "a41eefb3bbf3fae3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:31.148Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "536ed0be0ebf83d4",
+      "query": "grep -n \"merits docket\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -5",
+      "result_capture": "captured",
+      "result_digest": "9656bbe20914dd48",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:59.250Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_capture": "captured",
+      "result_digest": "f1cd7dee1cff2601",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:39:59.671Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "52a37899e97b28a3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 80, \"offset\": 231}",
+      "result_capture": "captured",
+      "result_digest": "cdb7fe85db785fb1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:03.815Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_capture": "captured",
+      "result_digest": "e0a647fd70eb8461",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:38.008Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d8ecf732004f27ed",
+      "query": "This is the United States' amicus brief filed in response to a CVSG in Crowther v. Board of Regents of the University System of Georgia (No. 25-183), on whether Title IX provides employees a private right of action for employment sex discrimination. What does the Solicitor General recommend (grant/deny), and what position does the United States take on the merits \u2014 does Title IX provide employees a private right of action? Summarize the key arguments.",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:44.318Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "e0b25397a0400d11",
+      "query": "Crowther v. Board of Regents Supreme Court cert granted Title IX employees private right of action",
+      "result_capture": "captured",
+      "result_digest": "d747b2ed19fa13bd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:44.330Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "40626d95f9dba424",
+      "query": "Summarize this case page for Crowther v. Board of Regents (No. 25-183): the question presented, the procedural history, and especially what the Solicitor General's CVSG amicus brief (filed April 2026) recommended \u2014 grant or deny, and what merits position the United States took on whether Title IX provides employees a private right of action. Also note argument date if scheduled.",
+      "result_capture": "captured",
+      "result_digest": "ac2e7646166b04ea",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:58.047Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "d005791dc5b6ef82",
+      "query": "Crowther Board of Regents solicitor general CVSG brief recommendation Title IX \"views of the United States\"",
+      "result_capture": "captured",
+      "result_digest": "fa7c41c46aee672c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:40:58.407Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "36a79aee07dff774",
+      "query": "This is the United States' CVSG amicus brief in Crowther v. Board of Regents (No. 25-183). What does the Solicitor General recommend (grant or deny certiorari)? What position does the United States take on the merits: does Title IX provide employees of federally funded educational institutions a private right of action for employment sex discrimination? Summarize the key arguments (e.g., Cannon, Jackson v. Birmingham, Title VII exclusivity, implied rights of action).",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:12.159Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "38601b378f82a184",
+      "query": "What position does the United States take in this brief in Crowther v. Board of Regents (No. 25-183)? Does it recommend granting or denying certiorari, and what is its merits position on whether Title IX provides employees a private right of action?",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:12.925Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "e6a3a29dcac770aa",
+      "query": "Summarize this article about the Supreme Court granting cert in Crowther v. Board of Regents (Title IX employee private right of action). What did the Solicitor General recommend in the CVSG brief, and what merits position did the United States take? Any other detail about the grant, the circuit split, or expected outcome.",
+      "result_capture": "captured",
+      "result_digest": "9aaa78f913105ae9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:20.022Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "2ad3ca2b1c919126",
+      "query": "Summarize what this page says about case 25-183 Crowther v. Board of Regents: relist history, the Solicitor General's CVSG brief recommendation (grant or deny; merits position on whether Title IX provides employees a private right of action), and any commentary on likely outcome.",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:41:21.700Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "e7a9836d5350ac20",
+      "query": "Summarize this alert on Crowther v. Board of Regents (Supreme Court No. 25-183, cert granted May 2026). What does it say about the Solicitor General's CVSG brief position (grant/deny recommendation and merits position on whether Title IX provides employees a private right of action), the circuit split, and any prediction about the outcome?",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:14.108Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "18cf8760f2eb8ea1",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/brief-in-opposition.txt",
+      "result_capture": "captured",
+      "result_digest": "db952367955187c3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:15.049Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7f984cdfd3fca95e",
+      "query": "Summarize this alert on Crowther v. Board of Regents (Supreme Court No. 25-183). What does it say about the Solicitor General's CVSG brief \u2014 did the United States recommend granting cert, and which side did it support on the merits (does Title IX provide employees a private right of action)? Also the circuit split and any outcome commentary.",
+      "result_capture": "captured",
+      "result_digest": "1334269022cdf984",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:23.874Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "dd864eadaee032a0",
+      "query": "grep -n -i -E \"^[A-Z][A-Z .,'\u2019-]{10,}$|ARGUMENT|REASONS|CONCLUSION\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/brief-in-opposition.txt | head -40",
+      "result_capture": "captured",
+      "result_digest": "6bce367b5dd90838",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:25.185Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f03fb77d9bacc1d3",
+      "query": "sed -n '1,60p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/petition.txt | head -80; echo ===; grep -n -i \"vehicle\\|poor vehicles\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/brief-in-opposition.txt | head",
+      "result_capture": "captured",
+      "result_digest": "1e3f045d4ccbecca",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:44.855Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8f4a77f6d820a62c",
+      "query": "sed -n '255,300p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/record/documents/brief-in-opposition.txt",
+      "result_capture": "captured",
+      "result_digest": "f5dbde25b9b0f444",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:50.226Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "40133d2256c1ad04",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:42:56.386Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "183c984ff596b018",
+      "query": "uv run fedcourts query --court scotus --citation \"441 U.S. 677\" --citation \"544 U.S. 167\" --limit 5 2>&1 | tail -20",
+      "result_capture": "captured",
+      "result_digest": "14b6e8d205c1776f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:43:02.088Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "214ef5035cf2fce8",
+      "query": "cat /tmp/claude-1001/-home-runner-work-fedcourtsai-fedcourtsai/d29eca3a-f205-4b24-b1f2-36879ad3e251/tasks/bbfd31liq.output 2>/dev/null; echo \"---exit?---\"",
+      "result_capture": "captured",
+      "result_digest": "338c481949f51c62",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:45:57.211Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "08d31c9743667dc2",
+      "query": "cat /tmp/claude-1001/-home-runner-work-fedcourtsai-fedcourtsai/d29eca3a-f205-4b24-b1f2-36879ad3e251/tasks/bbfd31liq.output",
+      "result_capture": "captured",
+      "result_digest": "5a6be2f97655095c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:02.045Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "da0f0c17224b3fbc",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274866/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+      "result_capture": "captured",
+      "result_digest": "bc9c4b07126b0425",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:14.478Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a541df2339864e45",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274866\\\",\\n  \\\"event_id\\\": \\\"evt-order-judgment\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T17:46:14Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274866/record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"judgme",
+      "result_capture": "captured",
+      "result_digest": "ca72f7072a0d2dd1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:29.295Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "956d52daccd72651",
+      "query": "{\"content\": \"# Forecast: Crowther v. Board of Regents of the University System of Georgia (No. 25-183)\\n\\n**Event:** the judgment the Court enters on the merits, following the May 18,\\n2026 cert grant. Question presented: whether Title IX provides employees of\\nfederally funded educational institutions a private right of action to sue for\\nsex discrimination in employment.\\n\\n## Judgment class\\n\\nThe Court **affirms** the Eleventh Circuit, holding that Title IX's implied\\nprivate right of action",
+      "result_capture": "captured",
+      "result_digest": "108c5155dc57e533",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:46:53.634Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4744515b747bd9a9",
+      "query": "{\"content\": \"# Rationale for the numbers\\n\\n**P(disturbed) = 0.35; judgment = affirmed; votes 6\\u20133.**\\n\\n## Anchor\\n\\nThe committed statpack's \\\"The merits docket (granted cases)\\\" section publishes\\nan `excluded` count, so its rate is quotable and is the baseline this cell is\\nscored against. My grant Term is OT2025 (grant date 2026-05-18, from the\\nevent's `opened_at`). Pooling `disturbed` over `parsed` across the ten grant\\nTerms strictly before it (2015\\u20132024, of which the pack holds",
+      "result_capture": "captured",
+      "result_digest": "f68741c79fa1ee36",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:47:27.580Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c8de1ab9ac1e139a",
+      "query": "{\"content\": \"# Retrieval log\\n\\nBeyond the provisioned inputs (snapshot 2026-08-16, `petition.txt`,\\n`brief-in-opposition.txt`, `questions-presented.txt`, `documents.json`,\\n`event.yaml`, `record/context.json`) and the committed `metrics/statpack.md`\\n(merits-docket section, cert cuts read for orientation only):\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --citation \\\"441 U.S. 677\\\" --citation \\\"544 U.S. 167\\\" --limit 5`\\n  - stderr: `ranged corpus reads: 1329 GET(s), 348389",
+      "result_capture": "captured",
+      "result_digest": "de7ad42f049c98bc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:47:44.619Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "00a42323354ca45c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274866\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"statpack (metrics/statpack.md, merits section)\\\",\\n    \\\"WebSearch\\\",\\n    \\\"WebFetch\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack merits section's per-Term disturbed table made the pooled strictl",
+      "result_capture": "captured",
+      "result_digest": "1260760e2cf80b97",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:47:51.667Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bae32b3b26a543a5",
+      "query": "uv run fedcourts validate data 2>&1 | tail -15",
+      "result_capture": "captured",
+      "result_digest": "ecc5d6ea8729ff36",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T17:47:56.728Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73274866",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}
