@@ -131,6 +131,14 @@ composite, the labeling job, or the `qp_topics` module — and before any paid
 labeling dispatch**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
+The qp-topic clause generalizes: **a new token-spending run mode lands its
+token-free `integration-test.yml` scenario before its first paid dispatch,
+never after.** The scenario exercises the mode's plumbing — triggers, IO
+staging, guards, the publication path — over canned or fixture inputs, the way
+`qp-topic` and `collect` do, so the plumbing bugs surface for runner minutes
+instead of across paid dispatches. The scenario list above is the checklist:
+a paid surface without one is an incomplete change, and the scenario ships in
+the same batch as the mode it guards.
 The `deploy-environment` input names which deployment environment supplies the
 role and remote variables, and by default resolves from the dispatching branch:
 `main` dispatches use `prod`, and dispatches from `staging` use the `staging`
