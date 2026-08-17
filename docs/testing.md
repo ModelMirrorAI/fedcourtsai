@@ -121,7 +121,14 @@ service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
 engine's real sandbox semantics, which is exactly the layer an engine-level
 integration break (a sandbox denying localhost, a CLI behavior change) hides
-in. Dispatch a scenario around the changes it guards: **before and after any
+in. Its codex leg additionally wires the CourtListener MCP sidecar and the
+generated client config the live cells get, and uploads the cell's rollout
+distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
+names, never a value, so the artifact is publishable where the transcript is
+not): the retrieval parser keys on those shapes, an unrecognized one reads
+exactly like a cell that called nothing, and a real transcript is the only
+thing that separates the two. Observation, not a gate — the leg's verdict is
+still the cell's. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
 **engine-smoke around any engine CLI version bump or sandbox/config change**,

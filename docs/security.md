@@ -390,12 +390,20 @@ freshness runs cannot touch the tournament's budget. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
-step ordering. A codex smoke additionally loosens the runner kernel's
+step ordering. A codex smoke reads one secret more — the CourtListener token,
+which reaches only the MCP sidecar composite's launch step env, exactly as a
+live cell's does, so the agent step and the generated client config carry a
+localhost URL and no token. That leg exists to exercise the MCP wiring itself:
+it is the one engine whose transcript shapes no committed retrieval log has
+ever exhibited, and the leg distills its rollout to item types and key names
+(never a value) as an uploaded artifact. A codex smoke additionally loosens
+the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
 cells) without dropping sudo afterwards — accepted for the same reason as in
 the back-test residual below: same-user co-residency is already conceded as
-a non-boundary, and this job holds only the read-only role and one engine
-key. Within a run, the key rides the single cascade step's env,
+a non-boundary, and this job holds only the read-only role, one engine
+key, and the read-only CourtListener token. Within a run, the engine key rides the
+single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
 runner seam's scrubbed base environment strips every AWS variable and every

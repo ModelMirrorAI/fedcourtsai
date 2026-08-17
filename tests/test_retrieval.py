@@ -14,6 +14,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
     carries_redaction,
+    distill_codex_shapes,
     parse_claude_retrieval,
     parse_codex_retrieval,
     parse_gemini_retrieval,
@@ -1040,3 +1041,123 @@ def test_capture_marker_round_trips_through_the_schema() -> None:
     restored = RetrievalLog.model_validate(legacy)
     assert restored.calls[0].result_capture is None
     assert restored.result_capture_coverage is None
+
+
+def test_codex_shape_distillation_keeps_types_and_keys_and_drops_every_value(
+    tmp_path: Path,
+) -> None:
+    # The verification lever for the Codex parsing above: what an item's type
+    # and field spellings actually are, from a real transcript, without
+    # republishing a line of what the cell retrieved.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "qualified immunity"}),
+            "output": "Roe v. Wade, 410 U.S. 113",
+            "error": None,
+        },
+    )
+    distillation = distill_codex_shapes(sessions)
+    assert distillation["files"] == 1
+    assert distillation["records"] == 1
+    (shape,) = distillation["shapes"]
+    assert shape["count"] == 1
+    assert shape["record_type"] == "response_item"
+    assert shape["record_keys"] == ["payload", "timestamp", "type"]
+    assert shape["payload_type"] == "mcp_call"
+    assert shape["payload_shape"] == {
+        "arguments": "string",
+        "error": "null",
+        "name": "string",
+        "output": "string",
+        "server_label": "string",
+        "type": "string",
+    }
+    # The security property, asserted over the whole artifact rather than a
+    # field at a time: no value the transcript carried reaches the output.
+    rendered = json.dumps(distillation)
+    for value in ("qualified immunity", "Roe v. Wade", "courtlistener", "search"):
+        assert value not in rendered
+
+
+def test_codex_shape_distillation_counts_repeats_and_walks_two_levels(tmp_path: Path) -> None:
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "function_call", "call_id": "c1", "arguments": "{}"},
+        {"type": "function_call", "call_id": "c2", "arguments": "{}"},
+        {
+            "type": "message",
+            "content": [{"type": "output_text", "text": "the model's prose"}],
+            "meta": {"nested": {"deeper": "unreachable"}},
+        },
+    )
+    shapes = {shape["payload_type"]: shape for shape in distill_codex_shapes(sessions)["shapes"]}
+    # Identical items collapse to one shape with a count, so a long transcript
+    # distils to a short artifact.
+    assert shapes["function_call"]["count"] == 2
+    # One level into an array's elements, and no further: the third level is
+    # the type name alone, which is what keeps a nested payload's text out.
+    assert shapes["message"]["payload_shape"]["content"] == [{"text": "string", "type": "string"}]
+    assert shapes["message"]["payload_shape"]["meta"] == {"nested": "object"}
+
+
+def test_codex_shape_distillation_screens_a_data_shaped_key(tmp_path: Path) -> None:
+    # A key name is emitted verbatim, so an object keyed by content rather than
+    # by schema is the one leak path; free text in a key's position is reported
+    # as its shape instead.
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "custom_tool_call", "input": {"petitioner asked whether X": 1}},
+    )
+    (shape,) = distill_codex_shapes(sessions)["shapes"]
+    assert shape["payload_shape"]["input"] == {"<non-identifier>": "number"}
+
+
+def test_codex_shape_distillation_reads_every_session_and_tolerates_a_missing_tree(
+    tmp_path: Path,
+) -> None:
+    # Every rollout in the tree, unlike the parser's newest-only read: the
+    # question a distillation answers is which shapes the engine emits at all.
+    sessions = _codex_rollout(tmp_path, {"type": "function_call", "call_id": "c1"})
+    older = sessions / "2026" / "07" / "09" / "rollout-2026-07-09T12-00-00.jsonl"
+    older.parent.mkdir(parents=True)
+    older.write_text(
+        json.dumps({"timestamp": "x", "type": "response_item", "payload": {"type": "reasoning"}})
+        + "\nnot json at all\n"
+    )
+    distillation = distill_codex_shapes(sessions)
+    assert distillation["files"] == 2
+    assert {shape["payload_type"] for shape in distillation["shapes"]} == {
+        "function_call",
+        "reasoning",
+    }
+    # Instrumentation never fails the run it observes.
+    assert distill_codex_shapes(tmp_path / "absent") == {"files": 0, "records": 0, "shapes": []}
+
+
+def test_codex_item_shapes_command_writes_the_distillation(tmp_path: Path) -> None:
+    sessions = _codex_rollout(tmp_path, {"type": "function_call", "call_id": "c1"})
+    out = tmp_path / "artifact" / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(sessions), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 file(s), 1 record(s), 1 distinct shape(s)" in result.output
+    assert json.loads(out.read_text())["shapes"][0]["payload_type"] == "function_call"
+
+
+def test_codex_item_shapes_command_survives_a_cell_that_never_ran(tmp_path: Path) -> None:
+    # The step runs `if: always()`, so a failed or unstarted cell reaches it
+    # with no sessions tree; an empty distillation is the honest answer, and
+    # exit 0 leaves the smoke's verdict exactly where the cell put it.
+    out = tmp_path / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(tmp_path / "absent"), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text()) == {"files": 0, "records": 0, "shapes": []}
