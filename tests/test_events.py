@@ -269,12 +269,25 @@ def test_multiple_trailing_function_words_are_all_trimmed() -> None:
     assert [e.event_id for e in motions] == ["evt-motion-compel-production-of-documents"]
 
 
-def test_subject_of_only_function_words_falls_back_to_disposition() -> None:
-    # A truncated description leaves nothing but function words after the cut;
-    # the empty slug takes the same fallback an unmatched subject does.
+def test_subject_of_only_function_words_keeps_its_first_word() -> None:
+    # A truncated description leaves nothing but function words. The trim never
+    # empties the subject: `disposition` is the case baseline's identity, and an
+    # entry-pinned event stays clear of it.
     result = extract_events(_docket([_entry(52, "MOTION for the", number=52)]))
     motions = _by_kind(result.events)[EventKind.motion]
-    assert [e.event_id for e in motions] == ["evt-motion-disposition"]
+    assert [e.event_id for e in motions] == ["evt-motion-the"]
+
+
+def test_a_preposition_at_the_cap_is_trimmed_too() -> None:
+    # The trimmed class covers the function words a request phrase can end on,
+    # not conjunctions alone; here the cap lands on "from".
+    result = extract_events(
+        _docket(
+            [_entry(55, "MOTION to strike the declaration of counsel from the record", number=55)]
+        )
+    )
+    motions = _by_kind(result.events)[EventKind.motion]
+    assert [e.event_id for e in motions] == ["evt-motion-strike-the-declaration-of-counsel"]
 
 
 def test_collision_suffix_appends_to_the_trimmed_slug() -> None:

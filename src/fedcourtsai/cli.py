@@ -218,6 +218,7 @@ from .schemas import (
     UsageRole,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend
 from .store import (
     ExcludedCell,
@@ -1214,6 +1215,80 @@ def migrate_gvr_labels_cmd(
     )
     if result.relabeled:
         typer.echo(", ".join(result.relabeled))
+
+
+@app.command("converge-event-slugs")
+def converge_event_slugs_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rename the diverged events; omit for a dry-run report."),
+    ] = False,
+    max_renames: Annotated[
+        int,
+        typer.Option(
+            "--max-renames",
+            help="Blast-radius bound: refuse to apply more renames than this.",
+        ),
+    ] = 20,
+) -> None:
+    """Rename entry-pinned events whose ids the current slug derivation no longer mints.
+
+    An entry-pinned event's id is derived from its docket entry's text, and
+    `corpus.upsert_events` keys on `(case_id, event_id)` — so a row minted under
+    a superseded derivation is not updated by a re-ingest of its docket: the
+    refresh inserts a *second* row under today's id, open, beside the stale one
+    that holds the `resolved` latch and the committed ledger directory. Nothing
+    closes the new row (a SCOTUS disposing order cites no entry number), so the
+    case carries a permanent open event. This convergence sweep re-derives each
+    entry-pinned row's id from its own stored entry text and renames the
+    divergent ones in both stores — the corpus row through
+    `corpus.rename_event` (atomic, `resolved` latch carried, casestore mirror
+    included) and the ledger directory by moving it and restamping the id inside
+    `event.yaml` / `outcome.json`. The ledger half goes first: the corpus row is
+    the detection handle, so an interrupted run is re-found and finished by the
+    next one. A row whose derived id is already taken on the case, whose ledger
+    directory holds committed cell output, or which has directories under both
+    ids, is skipped and reported for triage. Idempotent. Dry-run by default;
+    `--apply` writes, and refuses above `--max-renames`: the population is the
+    finite set of rows a derivation change left behind, so a large count means
+    the derivation moved further than intended. Run where the corpus is pulled:
+    the dry run is a dev checkout's, and an `--apply` needs a writer-lane step,
+    where the ledger half stages into the lane's one pointer commit atomically
+    with the corpus it must match. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        if apply:
+            preview = converge_event_slugs(conn, settings.data_root, apply=False)
+            if len(preview.renamed) > max_renames:
+                typer.echo(
+                    f"converge-event-slugs: refusing to apply {len(preview.renamed)} renames "
+                    f"(--max-renames {max_renames}). The population is the finite set of rows "
+                    "a derivation change left behind; a count this size means the derivation "
+                    "moved further than intended — triage before raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+        result = converge_event_slugs(conn, settings.data_root, apply=apply)
+    verb = "renamed" if apply else "would rename"
+    typer.echo(
+        f"converge-event-slugs ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.renamed)} event(s); "
+        f"{result.already_converged} entry-pinned row(s) already converged; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for ref, new_event_id in result.renamed:
+        typer.echo(f"  {verb} {ref} -> {new_event_id}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
 
 
 @app.command("relabel-application-events")
