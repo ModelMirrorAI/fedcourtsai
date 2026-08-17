@@ -61,6 +61,16 @@ class MomentSpec:
     A moment can be declared, parsed, and latched while still being switched
     off — the honest state for one whose horizon has not been shown to clear
     the pipeline's own commit latency.
+
+    ``opened_at_is_the_moment`` says whether the corpus event's ``opened_at``
+    date *is* the transition this moment is declared at, which is what lets
+    provisioning cut a forward cell's snapshot to the moment's information set.
+    True for every moment a mint seam opens at its own trigger — the CVSG
+    invitation, the cert grant, the response request, the arrival of a petition
+    or an application. False for the cert petition baseline, whose ``opened_at``
+    is docketing: the moment it declares is the **distribution**, so a cut at
+    docketing would delete the distribution and relist history the declared
+    information set is made of.
     """
 
     event_id: str
@@ -72,6 +82,7 @@ class MomentSpec:
     description: str
     claim_set_version: str | None
     forecastable: bool = True
+    opened_at_is_the_moment: bool = True
 
 
 #: Every declared moment, stage-major then ordinal. Add a row to add a moment;
@@ -86,6 +97,11 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         decision_target="disposition",
         description="Disposition of the petition for a writ of certiorari.",
         claim_set_version=CLAIM_SET_CERT_V2,
+        # The one moment whose `opened_at` is not its trigger: the ingest
+        # projection derives this baseline from the docket merely existing, so
+        # the date is docketing. The moment is the distribution, and the
+        # distribution/relist history is the signal the cell is conditioned on.
+        opened_at_is_the_moment=False,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "cvsg-disposition"),

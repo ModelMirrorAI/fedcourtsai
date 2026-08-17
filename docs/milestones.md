@@ -211,6 +211,55 @@ each freeze commit is recorded here.
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.
 
+- **The moment cutoff on forward provisioning, 2026-08-17.** No freeze commit
+  belongs to this entry either, on the `sal-v3` pattern: it moves no digest — no
+  prompt byte changes, and the prompts are the digest's input — and it carries
+  its own data-visible boundary, `context.cutoff`, non-null on a forward cell
+  whose event declares a moment **whose opening date is that moment's own
+  trigger**. What it changes is what such a cell is **conditioned on**:
+  `provision-snapshot` cuts the snapshot's proceedings and the documents at the
+  day after the event opened, so a later moment is provisioned at the
+  information set it declares rather than at the corpus's latest snapshot.
+  Without the cut, a grant-moment merits cell reads the merits calendar — briefs
+  filed, amici filed, the case argued — that only the *briefed* moment declares,
+  and nothing but agent discipline keeps the two forecasts apart. The registering
+  commit is the one this entry lands in; the boundary takes effect for cells
+  provisioned after the promotion carrying it.
+
+  The exception is one **moment**, not one stage: only the cert petition
+  baseline declares `opened_at_is_the_moment=False`, because its opening date is
+  docketing while the moment it declares is the distribution, so a cut there
+  would delete the relist history the cell is conditioned on. Every other
+  declared moment is placed, the cert stage's own `cvsg` and `arrival` moments
+  included, as is the interim application baseline — whose declared moment *is*
+  arrival, so its filing date is the trigger.
+
+  What the cut reaches, and what it leaves, are both part of the boundary. It
+  removes the post-cutoff proceedings entries, the post-cutoff documents, and
+  the top-level fields carrying a date of their own (`date_argued` and its
+  siblings, plus the payload's generation stamp). It does **not** reach the
+  undated top-level blocks — counsel and amici, which accrue as a case proceeds
+  — so a `truncated` cell carries them as at the pull it was reconstructed from.
+  That residual rides `truncated` cells only: a `dated` cell is a genuine
+  point-in-time payload and has none of it. So the provenance split is not
+  merely evidential strength, it is a difference in what survived, and a figure
+  over placed cells owes the `dated`/`truncated` counts beside it
+  ([metrics/README.md](../metrics/README.md)).
+
+  The pre-cut cohort of record is the 27 merits predictions of run
+  `20260816T111104Z` — 9 `evt-order-judgment` events × 3 predictors, the other
+  34 of the 43 minted merits event directories carrying no prediction yet —
+  each with `"cutoff": null` and `"snapshot_provenance": "as-stored"`. What
+  separates them from a placed cell is the **merits calendar**, not the band:
+  distributions are a cert-stage signal that stops at the grant, so those cells'
+  frozen counts (1, 2, 3, 5) are already pre-grant and their bands are near
+  enough invariant across the boundary. Two cautions on top of that. Read
+  `context.cutoff` before pooling forward cells of one moment: null and non-null
+  are two information sets. And these cells were placed under a **frozen prompt
+  that still describes the snapshot as the latest** — the prompt text is the
+  digest's input and moves only at a re-bless — so no cross-cohort claim should
+  span that re-bless either.
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
