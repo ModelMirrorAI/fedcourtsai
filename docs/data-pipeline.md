@@ -813,7 +813,11 @@ give the data **invariants** worth asserting on their own, distinct from
 - **Referential integrity** — every judgment references an event and case that
   exist in the corpus, every evaluation targets a real prediction, and every
   prose document a prediction names exists beside it (so a pointer to a document
-  the cell never wrote fails rather than passing as a valid record).
+  the cell never wrote fails rather than passing as a valid record). The rule
+  runs both ways: the corpus→ledger direction requires every **minted** moment
+  in the corpus to carry the `event.yaml` that defines it, so a moment is
+  declared in git on the day it became forecastable rather than whenever a
+  cell or a resolution next touches it.
 - **Record completeness** — a row that should have resolved by now has. A cert
   grant that opens a merits proceeding and is more than two Terms old, carrying
   neither a parsed judgment nor a recorded termination, is a decided docket the
@@ -838,7 +842,34 @@ deterministic outcome writer is the asymmetry: it materializes the definition
 beside every `outcome.json` it writes on its own writer lane, refusing to
 write an outcome whose event the corpus does not hold — so the committed
 definition converges at resolution even where cells left it at its
-first-touch shape. An event definition also names its **stage** — the
+first-touch shape.
+
+Which events that first-touch schedule governs is the **mint invariant**, and
+it splits the event population in two. A stage's **case-level baseline** — the
+cert petition's `evt-petition-disposition`, the interim application's
+`evt-motion-disposition` — is derived from a docket's mere existence by the
+ingest projection, so its corpus row lands at discovery and its ledger half
+arrives later, at first touch or at resolution, exactly as above. Every other
+declared moment (`pipeline.moments.minted_moment_ids`) is **minted**: it exists
+only because a mint seam decided it does, and a mint owes both halves at once,
+through `outcome.persist_moment_events` and never a bare corpus upsert (the
+dedupe merge's re-key is the one bare writer that *moves* an existing minted
+row — it creates none). So a
+baseline row with no ledger file is the ordinary state of the corpus, while a
+minted row with no ledger file is a defect.
+
+The defect is not that the moment would go undefined forever — `materialize-event`
+would project the corpus row at a cell's first touch just as it does for a
+baseline. It is that **git is the pre-registration record**: a minted moment is
+a decision that this case became forecastable on this day, so it belongs in the
+committed tree at the mint, not at whatever later touch happens to occur — and
+a moment that never earns a cell never gets that touch at all, since a refused
+cell skips the materialization with it. `validate-corpus`'s corpus→ledger
+check (`minted_moments_defined_in_ledger`) draws exactly that line; it needs
+the corpus, so it runs on the scheduled verdict rather than in the offline PR
+gate that `validate` carries.
+
+An event definition also names its **stage** — the
 decision standard that governs it (cert, interim, or merits) — carried from
 the corpus row into `event.yaml` at that first materialization, so a cell and
 its consumers read the standard from the record rather than inferring it from

@@ -59,6 +59,8 @@ from pydantic import ValidationError
 
 from . import corpus
 from .integrity import cell_clock, latest_evaluation_runs
+from .paths import CasePaths
+from .pipeline import moments
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
@@ -105,6 +107,12 @@ CHECK_DOMAIN_VALUES = "domain_values_valid"
 CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
+# The corpus→ledger direction of the same referential rule
+# `CHECK_LEDGER_REFERENCES` runs the other way: a minted forecast moment owes
+# both halves at its mint, so its corpus row must carry the committed
+# `event.yaml` that defines it. Stage baselines are outside the rule — their
+# ledger half is written at first touch or at resolution, not at discovery.
+CHECK_CORPUS_EVENTS_IN_LEDGER = "minted_moments_defined_in_ledger"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 # The id is the durable name of the whole basis-pairing rule (both the
 # risk-set and the terminal half), kept stable across reports even though it
@@ -610,6 +618,63 @@ def check_ledger_references(conn: sqlite3.Connection, data_root: Path) -> Corpus
                 f"{kind} {path}: event ({case_id!r}, {event_id!r}) is not in the corpus"
             )
     return _check(CHECK_LEDGER_REFERENCES, problems, checked=checked)
+
+
+def check_corpus_events_in_ledger(conn: sqlite3.Connection, data_root: Path) -> CorpusCheck:
+    """Every minted forecast moment in the corpus must carry its ledger definition.
+
+    :func:`check_ledger_references` runs ledger→corpus: no judgment about an
+    event the raw-fact store does not know. This is the same rule the other
+    way. A declared **minted** moment
+    (:func:`fedcourtsai.pipeline.moments.minted_moment_ids`) exists only because
+    a mint seam wrote it, and that seam writes the corpus row and the ledger
+    ``event.yaml`` together
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`) — so a corpus
+    row with no committed definition is a half-landed mint.
+
+    Why that matters, given that ``materialize-event`` would project the row
+    into the ledger at a cell's first touch anyway. Two reasons, and neither is
+    the cell: **git is the pre-registration record**, so a moment must be
+    declared there when it is *minted* — the day it became forecastable — not
+    at whatever later touch happens to occur, or that date is recoverable only
+    from the corpus blob. And a moment that never earns a cell never gets that
+    touch: provisioning can refuse, and the materialization is skipped with it,
+    so a corpus-only mint can go undefined until resolution, if it resolves at
+    all. The offline gate's :func:`check_ledger_events_in_git` is no substitute
+    either — it only notices once an artifact lands under the empty directory.
+
+    A stage's case-level baseline is deliberately **not** in the population:
+    the ingest projection derives it from a docket's own shape, so the corpus
+    holds one for every case it has ever seen, and its ledger half is owed at
+    first touch or at resolution rather than at discovery. Requiring a file
+    there would fail on the whole corpus rather than on a defect.
+
+    Scoped to SCOTUS, the only court whose stages declare moments at all. The
+    scan is unindexed on ``court``, which is affordable because
+    ``validate-corpus`` runs only where the corpus has been *pulled* — never
+    against the ranged backend, whose per-query egress this would dominate.
+    """
+    minted_ids = moments.minted_moment_ids()
+    problems: list[str] = []
+    checked = 0
+    for record in conn.execute(
+        "SELECT case_id, event_id FROM events WHERE court = 'scotus' ORDER BY case_id, event_id"
+    ):
+        case_id, event_id = str(record["case_id"]), str(record["event_id"])
+        if event_id not in minted_ids:
+            continue
+        court_id, _, docket = case_id.partition("/")
+        if not docket.isdigit():
+            # No numeric docket id, so the row addresses no ledger path at all —
+            # a different defect (a malformed case id), and not this one's.
+            continue
+        checked += 1
+        if not CasePaths(data_root, court_id, int(docket)).event(event_id).event_file.is_file():
+            problems.append(
+                f"event ({case_id!r}, {event_id!r}) is minted in the corpus "
+                "with no event.yaml in the ledger"
+            )
+    return _check(CHECK_CORPUS_EVENTS_IN_LEDGER, problems, checked=checked)
 
 
 def check_evaluation_targets(data_root: Path) -> CorpusCheck:
@@ -1268,6 +1333,9 @@ def _run_checks(
         check_domain_values(conn, tracked_courts),
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
+        # Corpus-dependent, so it stays off `run_ledger_referential_checks` —
+        # that gate is deliberately offline and has no corpus to read.
+        check_corpus_events_in_ledger(conn, data_root),
         check_evaluation_targets(data_root),
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),

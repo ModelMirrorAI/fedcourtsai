@@ -431,9 +431,13 @@ Selection ranks the scored set and caps it to `N` — and, where the active
 scorer selects arrivals (`selects_arrivals` — true of both caption-banded versions), the same write pass runs
 a second, cohort-less arm: every undistributed pending petition the keyed draw
 or the carve-in predicate picks is latched with no rank and no capacity, and
-its owed `evt-petition-arrival-disposition` event is minted in the same pass,
-idempotently (a crash between latch and mint heals on the next pass — the mint
-is state-driven, keyed on the latch, never on the draw recomputed). The
+its owed `evt-petition-arrival-disposition` event is minted in the same pass —
+**both halves**, the corpus row and the ledger `event.yaml`, through the shared
+mint seam (`outcome.persist_moment_events`), because a declared moment's two
+halves are one write. Idempotently, and keyed on the pair: a crash between
+latch and mint, or between the two halves, heals on the next pass while the
+pick still reads as an arrival (undistributed, baseline open), since the
+mint is state-driven off what is missing and never off the draw recomputed. The
 arrival arm rides beside `N`, never inside it, and the freshness guard on the
 mint (`outcome.arrival_event_for`) refuses a case any distribution has already
 reached — an arrival cell exists only where the forecast genuinely precedes

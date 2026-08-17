@@ -563,7 +563,7 @@ def reconcile_salience_selection_cmd(
         raise typer.Exit(code=1)
     config = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
-        result = reconcile_salience_selection(conn, config, apply=apply)
+        result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
