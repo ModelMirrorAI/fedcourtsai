@@ -19,6 +19,7 @@ from fedcourtsai.retrieval import (
     parse_gemini_retrieval,
 )
 from fedcourtsai.schemas import RetrievalCall, RetrievalLog
+from fedcourtsai.tool_usage import normalize_call
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -233,6 +234,163 @@ def test_codex_empty_output_is_captured_and_an_unanswered_call_is_not(tmp_path: 
     assert [call.result_digest for call in calls] == [None, None]
 
 
+def _codex_rollout(tmp_path: Path, *payloads: dict[str, object]) -> Path:
+    """A one-session rollout of the given response items; returns its sessions dir."""
+    rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
+    rollout.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        {"timestamp": "2026-07-10T12:00:02Z", "type": "response_item", "payload": payload}
+        for payload in payloads
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in lines))
+    return tmp_path / "sessions"
+
+
+def test_codex_mcp_tool_call_pairs_a_separate_output(tmp_path: Path) -> None:
+    # The rollout's own MCP spelling, answered by a sibling output item like any
+    # other call. This path is unchanged by the inline pairing beside it.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "arguments": json.dumps({"q": "qualified immunity"}),
+        },
+        {
+            "type": "mcp_tool_call_output",
+            "call_id": "m1",
+            "output": '{"count": 2, "dateFiled": "2024-01-02"}',
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "mcp__courtlistener__search"
+    assert call.query == "qualified immunity"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_call_pairs_the_result_carried_inline(tmp_path: Path) -> None:
+    # The Responses API settles an MCP call on the call item — the answer under
+    # its own `output`, no `*_output` sibling and no `call_id` to pair one by.
+    # Read only by `call_id`, every such row would claim `unobserved` while the
+    # transcript held the result.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "id": "mcp_1",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": '{"count": 2, "dateFiled": "2024-01-02"}',
+            "error": None,
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "mcp__courtlistener__search"
+    assert call.query == "chevron deference"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_call_inline_error_is_captured(tmp_path: Path) -> None:
+    # A failure that reached the transcript is a captured result: the record
+    # says what came back, and what came back was an error.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": None,
+            "error": "tool call failed: 429 rate limited",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date is None
+
+
+def test_codex_mcp_call_with_no_result_at_all_is_unobserved(tmp_path: Path) -> None:
+    # Neither a sibling output nor an inline one: the item never settled, and
+    # the row must not borrow the inline path's confidence.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": None,
+            "error": None,
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "unobserved"
+    assert call.result_digest is None
+
+
+def test_codex_mcp_name_composes_into_the_rollup_s_mcp_spelling(tmp_path: Path) -> None:
+    # The bare `name` an MCP item carries is `search` — indistinguishable from
+    # an engine builtin once it is a row. Asserted through the rollup's own
+    # normalizer rather than against the string, because what the composition
+    # buys is the MCP classification, not the spelling.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": "{}",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert normalize_call(call.tool) == "courtlistener.search"
+    assert normalize_call("search") is None
+
+
+def test_codex_custom_tool_call_pairs_its_output(tmp_path: Path) -> None:
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "custom_tool_call",
+            "name": "apply_patch",
+            "call_id": "t1",
+            "input": "*** Begin Patch",
+        },
+        {"type": "custom_tool_call_output", "call_id": "t1", "output": "patched"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "apply_patch"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+
+
+def test_codex_local_shell_call_records_its_command(tmp_path: Path) -> None:
+    # No `name` and no `arguments`: the invocation describes itself in `action`,
+    # so the row is named by payload type and queried from the command.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "local_shell_call",
+            "call_id": "s1",
+            "action": {"type": "exec", "command": ["fedcourts", "query", "--court", "scotus"]},
+        },
+        {"type": "local_shell_call_output", "call_id": "s1", "output": "3 rows"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "local_shell_call"
+    assert call.query is not None and "fedcourts" in call.query
+    assert call.result_capture == "captured"
+
+
 def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     telemetry = tmp_path / "telemetry.log"
     events = [
@@ -411,6 +569,33 @@ def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> N
     # The params digest still covers the unredacted payload, so the audit trail
     # keeps its identity even though the text is gone.
     assert calls[0].params_digest is not None
+
+
+def test_codex_inline_mcp_result_is_redacted_at_capture(tmp_path: Path) -> None:
+    # The mirror of the separate-output case for the inline path: an MCP item
+    # that both asks and answers on one record must give the row no route a
+    # credential can ride. The params reach the log as text and are redacted;
+    # the result reaches it only as a digest and a date capture, exactly as a
+    # sibling output does — the pairing changed, the treatment did not.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"message": _FERNET}),
+            "output": json.dumps({"token": _FERNET, "dateFiled": "2024-01-02"}),
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.query is not None
+    assert _FERNET[:40] not in call.query
+    assert "[redacted:fernet-token]" in call.query
+    assert carries_redaction(call)
+    # Nothing of the inline result survives as text anywhere in the row.
+    assert _FERNET[:40] not in call.model_dump_json()
+    assert call.result_digest is not None and call.retrieved_doc_date == "2024-01-02"
 
 
 def test_capture_redacts_a_credential_sitting_past_the_query_cap(tmp_path: Path) -> None:
