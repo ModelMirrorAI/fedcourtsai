@@ -3974,6 +3974,51 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         )
 
 
+@app.command("codex-item-shapes")
+def codex_item_shapes(
+    *,
+    sessions_dir: Annotated[
+        Path, typer.Option(help="Codex sessions dir (CODEX_HOME/sessions) to distill.")
+    ],
+    out: Annotated[Path, typer.Option(help="Where to write the distillation JSON.")],
+) -> None:
+    """Distill a Codex rollout tree into its item shapes — types and keys only.
+
+    The observation half of ``record-retrieval``'s Codex path: that parser
+    keys on the rollout's item types and field spellings, so a shape it does
+    not recognize costs the cell's whole retrieval log while looking exactly
+    like a cell that called nothing. This writes the transcript's distinct
+    item shapes — the record envelope, the payload's type, and its key names
+    with every value replaced by its JSON type name — so a real run can settle
+    which of the two an empty log was, and pin the shapes a fixture must
+    carry.
+
+    No **value** crosses into the output: a rollout holds retrieved documents
+    and tool arguments verbatim, and only key names, type discriminators, and
+    JSON type names are emitted. The residual is stated rather than claimed
+    away — a key name is emitted verbatim where it is identifier-shaped, so an
+    object keyed by data can export a fragment of up to 64 characters (see
+    :func:`~fedcourtsai.retrieval.distill_codex_shapes`). Retained shapes are
+    capped, with the truncation marked in the output, so a transcript cannot
+    choose the artifact's size. Tolerant like the
+    capture steps it observes — a missing sessions dir distills to zero files
+    rather than failing, because instrumentation must never take a run down.
+    """
+    distillation = retrieval.distill_codex_shapes(sessions_dir)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(distillation, indent=2, sort_keys=True) + "\n")
+    truncation = (
+        f", {distillation['shapes_dropped']} record(s) past the shape cap"
+        if distillation["truncated"]
+        else ""
+    )
+    typer.echo(
+        f"codex item shapes: {distillation['files']} file(s), "
+        f"{distillation['records']} record(s), "
+        f"{len(distillation['shapes'])} distinct shape(s){truncation} -> {out}"
+    )
+
+
 @app.command("usage-summary")
 def usage_summary() -> None:
     """Sum recorded ``usage.json`` into an actual \\$/run, as JSON on stdout.

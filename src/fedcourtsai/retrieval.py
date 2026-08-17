@@ -529,6 +529,159 @@ def _codex_payload(record: dict[str, Any]) -> dict[str, Any] | None:
     return record if "type" in record else None
 
 
+# --- Codex transcript shape distillation ---------------------------------
+#
+# The verification lever for the Codex parsing above. That parser reads the
+# rollout against the Responses API's documented item shapes plus the
+# rollout's own spellings, and a shape it does not recognize costs a whole
+# engine's retrieval rows silently — the log records "no calls", which is
+# indistinguishable from a cell that retrieved nothing. Distilling a real
+# transcript's item shapes says which of the two a zero row-count is.
+#
+# Shape-only, by construction: a rollout carries retrieved documents and tool
+# arguments verbatim, so the distillation must never be able to republish
+# them. Every emitted string is either a JSON type name or an
+# identifier-shaped token (:data:`_SHAPE_IDENTIFIER`) read from a *key* or a
+# type discriminator; every *value* is replaced by its type name.
+_SHAPE_DEPTH = 2
+_SHAPE_KEY_CAP = 40
+_SHAPE_VARIANT_CAP = 3
+# How many distinct shapes are retained. A transcript is agent-influenced
+# input: an item stream whose keys vary per record has as many distinct shapes
+# as records, so an uncapped distillation is an unbounded artifact an agent
+# chooses the size of. Past the cap the counting continues and the shapes stop,
+# and the output says so (``truncated``) rather than reading as a complete
+# census of a stream it stopped following.
+_SHAPE_COUNT_CAP = 500
+# What an emitted key or type discriminator may look like: a field
+# identifier's own shape and nothing wider. Values never reach the output at
+# all, so an object keyed by *data* rather than by schema is the single path by
+# which transcript content could — and the screen bounds that path rather than
+# closing it. It refuses what does not fit an identifier: anything spaced or
+# punctuated, a URL or document path, a citation, a sentence, anything past 64
+# characters. It admits what does: **a bare slug (`roe-v-wade`) and a dotted
+# phrase are identifier-shaped and pass verbatim.** So the honest claim is that
+# no *value* is ever emitted and a data-keyed object can still export an
+# identifier-shaped fragment of up to 64 characters — bounded further by the
+# per-object key cap, the shape cap, and a walk that stops at the item
+# envelope, where the keys are the CLI's own. Read the artifact knowing that;
+# do not read it as proof that no retrieved token ever appears.
+_SHAPE_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]{0,63}")
+_SHAPE_NON_IDENTIFIER = "<non-identifier>"
+
+
+# In order: ``bool`` precedes ``int`` because it is a subclass of one.
+_JSON_TYPE_NAMES: tuple[tuple[type | tuple[type, ...], str], ...] = (
+    (bool, "bool"),
+    ((int, float), "number"),
+    (str, "string"),
+    (dict, "object"),
+    (list, "array"),
+)
+
+
+def _json_type_name(value: Any) -> str:
+    """The JSON type name of ``value`` — the only thing a value contributes."""
+    if value is None:
+        return "null"
+    for kinds, name in _JSON_TYPE_NAMES:
+        if isinstance(value, kinds):
+            return name
+    return "unknown"
+
+
+def _shape_token(value: Any) -> str:
+    """A key name or type discriminator, screened to identifier shape.
+
+    ``fullmatch``, not ``match``: a trailing newline sits outside ``$``, so a
+    key carrying one — a line of text ending where an identifier would — would
+    otherwise pass the screen with the newline still on it.
+    """
+    text = value if isinstance(value, str) else str(value)
+    return text if _SHAPE_IDENTIFIER.fullmatch(text) else _SHAPE_NON_IDENTIFIER
+
+
+def _shape(value: Any, depth: int) -> Any:
+    """``value`` with every leaf replaced by its JSON type name.
+
+    Recurses ``depth`` levels into objects, keeping their keys (screened and
+    capped); below that, and for every scalar, only the type name survives. An
+    array spends no level of its own — it is a container, not a nesting step,
+    and the shape that matters is its elements' — so its distinct element
+    shapes (capped) are read at the array's own depth.
+    """
+    if depth <= 0:
+        return _json_type_name(value)
+    if isinstance(value, dict):
+        keys = sorted(_shape_token(key) for key in value)[:_SHAPE_KEY_CAP]
+        by_token = {_shape_token(key): item for key, item in value.items()}
+        return {key: _shape(by_token[key], depth - 1) for key in keys}
+    if isinstance(value, list):
+        variants: list[Any] = []
+        for item in value:
+            shape = _shape(item, depth)
+            if shape not in variants:
+                variants.append(shape)
+            if len(variants) >= _SHAPE_VARIANT_CAP:
+                break
+        return variants
+    return _json_type_name(value)
+
+
+def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
+    """Distinct item shapes across every Codex rollout under ``sessions_dir``.
+
+    Every rollout in the tree, not the newest alone
+    (:func:`parse_codex_retrieval`'s input): the question a distillation
+    answers is which shapes an engine emits at all, and a session that logged
+    the interesting item is as good evidence as the last one written.
+
+    Returns a JSON-ready mapping: the file and record totals, then one entry
+    per distinct shape — the record envelope's type and keys, the payload's
+    own type, and the payload's :func:`_shape` — with the number of records
+    that carried it, most frequent first. At most :data:`_SHAPE_COUNT_CAP`
+    shapes are retained; past that ``truncated`` is true and
+    ``shapes_dropped`` counts the records whose shape was new when the cap was
+    already full, so a bounded artifact never passes as a complete census.
+    Tolerant like the parsers: a missing
+    directory or an unreadable rollout yields an empty distillation, never an
+    exception, because this is instrumentation.
+    """
+    rollouts = sorted(sessions_dir.rglob("*.jsonl")) if sessions_dir.is_dir() else []
+    counts: dict[str, int] = {}
+    entries: dict[str, dict[str, Any]] = {}
+    records = 0
+    dropped = 0
+    for rollout in rollouts:
+        for record in _codex_records(rollout):
+            records += 1
+            payload = _codex_payload(record)
+            entry = {
+                "record_type": _shape_token(record["type"]) if "type" in record else None,
+                "record_keys": sorted(_shape_token(key) for key in record)[:_SHAPE_KEY_CAP],
+                "payload_type": (
+                    _shape_token(payload["type"])
+                    if payload is not None and "type" in payload
+                    else None
+                ),
+                "payload_shape": None if payload is None else _shape(payload, _SHAPE_DEPTH),
+            }
+            key = json.dumps(entry, sort_keys=True)
+            if key not in entries and len(entries) >= _SHAPE_COUNT_CAP:
+                dropped += 1
+                continue
+            entries.setdefault(key, entry)
+            counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts, key=lambda key: (-counts[key], key))
+    return {
+        "files": len(rollouts),
+        "records": records,
+        "truncated": dropped > 0,
+        "shapes_dropped": dropped,
+        "shapes": [{"count": counts[key], **entries[key]} for key in ordered],
+    }
+
+
 def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     """Tool calls from a Gemini CLI OpenTelemetry ``telemetry.log``.
 

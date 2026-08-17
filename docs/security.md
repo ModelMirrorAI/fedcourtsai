@@ -247,9 +247,11 @@ this workflow's own run history.
 
 Every secret and both S3 role ARNs live on the `prod` environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
-the CourtListener API token (used by pull's ingestion; by the cells' MCP
-sidecar launch step, whose background `mcp-serve` process serves agent
-retrieval over localhost — the cells have no REST fallback, so no agent step
+the CourtListener API token (used by pull's ingestion; by the MCP
+sidecar composite's launch step — the cells', and `integration-test`'s
+engine-smoke **codex** leg, which wires the same sidecar to exercise it —
+whose background `mcp-serve` process serves agent
+retrieval over localhost, the cells having no REST fallback, so no agent step
 carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
@@ -400,12 +402,35 @@ freshness runs cannot touch the tournament's budget. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
-step ordering. A codex smoke additionally loosens the runner kernel's
+step ordering. A codex smoke reads one secret more — the CourtListener token,
+which reaches only the MCP sidecar composite's launch step env, exactly as a
+live cell's does, so the agent step and the generated client config carry a
+localhost URL and no token. That leg exists to exercise the MCP wiring itself:
+it is the one engine whose transcript shapes no committed retrieval log has
+ever exhibited, and the leg distills its rollout to item types and key names
+(never a value) as an uploaded artifact — written to the runner temp dir
+rather than the workspace the cell could write, so the published file is the
+tested command's own output. The claim that survives scrutiny is the one about
+values; a key name is emitted verbatim where it is identifier-shaped, so an
+object keyed by retrieved data can export a fragment of up to 64 characters
+(`docs/cli.md` states the bound). **Which of two artifacts a dispatch
+yields depends on the environment it binds**, and a reader must know which
+they hold: the token is a `prod` secret, and an environment that carries no
+copy of its own — `staging` included, unless one has been added there
+alongside its engine keys — launches the sidecar **token-free**, exactly as
+the `mcp-sidecar` scenario does on purpose. That is a degradation, not a
+failure: warn-only health, the handshake and the tool listing still succeed,
+and tool *calls* error. Both artifacts answer the question the leg is for —
+an errored MCP call is still an MCP item, and its shape is what the retrieval
+parser has never had confirmed — but only the token-bearing one also shows
+what a settled call looks like. A codex smoke additionally loosens
+the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
 cells) without dropping sudo afterwards — accepted for the same reason as in
 the back-test residual below: same-user co-residency is already conceded as
-a non-boundary, and this job holds only the read-only role and one engine
-key. Within a run, the key rides the single cascade step's env,
+a non-boundary, and this job holds only the read-only role, one engine
+key, and the read-only CourtListener token. Within a run, the engine key rides the
+single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
 runner seam's scrubbed base environment strips every AWS variable and every
@@ -516,7 +541,13 @@ parent, so the same-user non-boundary above is more direct in this job.
 only accepts a key via `codex login`, so the runner seam logs in to a
 run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
 rest of the job — same-user readable, like the parent's environment already
-is.) Running codex here also requires loosening the runner kernel's AppArmor
+is. The temp home is what the seam picks when the caller names none; a caller
+that pins `CODEX_HOME` keeps it, and the engine-smoke codex leg does pin it —
+to the workspace `.codex` the live cells use, because the cell must read the
+MCP config written there and the shape distillation must find the session
+rollout under it. That trades the temp dir for a gitignored workspace dir on
+the same runner, under the same same-user non-boundary, and the job commits
+nothing.) Running codex here also requires loosening the runner kernel's AppArmor
 restriction on unprivileged user namespaces — the same sysctl prerequisite
 codex-action applies for the live cells — and unlike codex-action, the
 runner-seam jobs do not drop sudo afterwards: accepted out loud, because the
