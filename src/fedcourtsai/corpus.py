@@ -3670,6 +3670,33 @@ def snapshot_count(conn: ReadConnection) -> int:
     return int(cur.fetchone()["n"])
 
 
+def latest_snapshot_date(conn: ReadConnection) -> date | None:
+    """The newest ``snapshot_date`` any case carries, or ``None`` if none does.
+
+    The dated freshness of the docket state a payload-carrying blob holds. A
+    payload-free index carries no snapshot rows at all, so this reads ``None``
+    there and :func:`latest_pull_date` is the surface that survives the split.
+    """
+    cur = conn.execute("SELECT MAX(snapshot_date) AS d FROM snapshots")
+    record = cur.fetchone()
+    stamp = record["d"] if record is not None else None
+    return date.fromisoformat(stamp) if stamp else None
+
+
+def latest_pull_date(conn: ReadConnection) -> date | None:
+    """The newest ``last_pulled`` stamp across cases, or ``None`` if none is set.
+
+    How recently *any* row was refreshed — the freshness surface a blob keeps
+    whether or not it carries payloads, since ``last_pulled`` is a ``cases``
+    column the index build preserves. Answers "how old is the blob I hold",
+    which the committed pointer cannot: it is a content digest with no date.
+    """
+    cur = conn.execute("SELECT MAX(last_pulled) AS d FROM cases")
+    record = cur.fetchone()
+    stamp = record["d"] if record is not None else None
+    return date.fromisoformat(stamp) if stamp else None
+
+
 # --- per-case filed-document text (raw facts) ------------------------------
 
 

@@ -117,6 +117,25 @@ non-interactive** container. Two consequences shape everything you do:
   produces — predictions, events, provisioned cells, reports — not by merged
   PRs. Know which produced artifact a change serves and say so briefly in the
   PR description; where it directly affects output, show a produced example.
+- **No claimed effect without an executed check.** Any claim about run-time
+  behavior — this filter now skips that case, this re-run mints those cells —
+  cites the observation that produced it: a dry-run plan (`fedcourts
+  predict-plan` / `evaluate-plan`), a staging run, a test. Reading the code
+  that would do it is not the check; a confident reading of a diff is how a
+  claim reaches production and fails there. Where nothing can be executed until
+  the change is promoted, label the claim unverified and carry the command that
+  settles it afterwards.
+- **Corpus-dependent claims state corpus freshness.** Anything concluded from
+  corpus state names the snapshot it was checked against, and `fedcourts
+  corpus-info` prints exactly that for the blob you hold — its latest pull and
+  latest stored snapshot. The local blob's freshness is whatever the last pull
+  left behind, so when staleness would change the answer, ask the maintainer
+  for a refreshed blob rather than reporting a stale number as current.
+- **A promotion batch states its observable effect as a runnable check.** The
+  batch says what should be true once it lands and the command that shows it,
+  and the promotion is not done until a post-promotion step runs that command
+  and reports what it saw. A promotion changes code, not state: without the
+  post-check, a batch that did nothing looks exactly like one that worked.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Some fields are the harness's, not yours.** `usage.json`, `retrieval_log.json`,

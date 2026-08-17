@@ -544,6 +544,11 @@ The full path of a change, operator's view:
    merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
    second batch — the *Tags* subsection below). Live on the next workflow
    run.
+5. Run the batch's stated effect check — the command its PR named as what
+   should be true once it is live (AGENTS.md) — and record what it printed.
+   A promotion changes code, not state, so until something executes that
+   check a batch that changed nothing is indistinguishable from one that
+   worked.
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the

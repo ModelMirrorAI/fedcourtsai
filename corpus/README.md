@@ -270,7 +270,7 @@ this table stays empty; with the split mode off they live inline:
 ```bash
 export CORPUS_REMOTE_URL="<your bucket url>"   # out of band, see SECURITY.md
 fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
-fedcourts corpus-info    # show the location and row count
+fedcourts corpus-info    # show the location, row count, and freshness dates
 ```
 
 Without remote access, build a tiny **synthetic** corpus instead — a handful of
