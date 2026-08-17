@@ -100,7 +100,12 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .integrity import cell_clock, evaluation_clock, forward_claim_record
+from .integrity import (
+    cell_clock,
+    evaluation_clock,
+    forward_claim_record,
+    latest_evaluation_runs,
+)
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -2631,7 +2636,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
 
 @app.command("stamp-cell")
-def stamp_cell(
+def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this cell predicted/scored.")],
@@ -2648,6 +2654,15 @@ def stamp_cell(
     stamped_at: Annotated[
         str, typer.Option(help="ISO timestamp of the stamp; defaults to now (UTC).")
     ] = "",
+    regrade: Annotated[
+        bool,
+        typer.Option(
+            "--regrade",
+            help="Evaluator role only: recompute the harness-owned graded fields over "
+            "the committed artifacts as they stand now, leaving each record's "
+            "existing process_version exactly as its producing run stamped it.",
+        ),
+    ] = False,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -2718,34 +2733,65 @@ def stamp_cell(
     :func:`fedcourtsai.validate.check_base_rate_version` holds both halves
     over the committed ledger, so a failed cell reaches a maintainer through
     the run's draft PR rather than a merged one.
+
+    **``--regrade``: this stamp minus the process attribution.** A committed
+    evaluation grades a prediction against a *committed outcome*, so a
+    corrected outcome leaves every evaluation that read the old one recording
+    a stale ``correct``, claim block, and skill record. Every one of those
+    fields is already a pure function of the committed artifacts, so a re-grade
+    recomputes exactly what an ordinary stamp would — and writes it without
+    ``process_version``, because the process that produced the record is
+    unchanged by the correction. The alternative reading, that a re-grade
+    re-stamps the resolving registry's version, is wrong on the evidence: the
+    record's prose was written by the earlier process, and re-labelling it
+    would attribute an older process's judgment to a newer pre-registration.
+    So a re-grade requires a record that already carries a stamp — a
+    never-stamped cell has no attribution to preserve and takes the ordinary
+    stamp — and it refuses ``--role predictor`` (a prediction carries no graded
+    field to recompute) and refuses ``--stamped-at`` / ``--pipeline-sha``,
+    which set only the version it declines to write. Finding no artifact at all
+    exits non-zero, unlike the ordinary stamp's no-op: a re-grade's coordinates
+    are typed by hand, so a mistyped run id must not read as a correction that
+    landed. It also refuses a run a newer grading supersedes (nothing reads it,
+    so recomputing it would report a correction that moved no published
+    number), and a cell whose evaluator-owned Brier trio no longer reproduces
+    against the corrected outcome (:func:`_require_reproducible_trio`) — every
+    one of them judged before the first write, so a refusal cannot leave the
+    event half corrected. Each target's process scope is echoed as it goes,
+    since a frozen-scope cell moving with no ``superseded_gradings`` trace is
+    the one thing a reader would want recorded outside ``data/``.
+
+    The stamp it preserves is the vintage of the **producing** invocation, and
+    a re-grade deliberately re-derives the graded block against the statpack
+    and salience config committed *now* — same rule as the ordinary stamp, that
+    a harness field is a function of the committed artifacts as of the
+    invocation. Reconstructing a stamp-vintage pool would price a corrected
+    outcome against a pack that never saw the correction. So the vintage
+    discipline is the operator's: re-grade a whole cohort against one committed
+    statpack, never a cell at a time across a moving pack.
+
+    Re-grade **every evaluator on the event**, not one: ``validate``'s
+    :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
+    the latest runs and requires the evaluators to agree, so a half-re-graded
+    event fails the ledger — which is the check doing its job, not an obstacle
+    to route around.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
+    if regrade:
+        _refuse_unsupported_regrade(role, pipeline_sha, stamped_at)
 
-    digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-    if stamped_at:
-        # The stamp is the frozen/alpha partition's time key; a naive value
-        # has no defined order against the freeze instant and reads as
-        # pre-freeze, so refuse to write one rather than stamp a cell out of
-        # the headline by formatting accident.
-        try:
-            stamp_moment = datetime.fromisoformat(stamped_at)
-        except ValueError:
-            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
-            raise typer.Exit(code=2) from None
-        if stamp_moment.tzinfo is None:
-            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
-            raise typer.Exit(code=2)
-    else:
-        stamp_moment = datetime.now(UTC)
-    stamp = ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
-        digest=digest,
-        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
-        stamped_at=stamp_moment,
-    )
+    # Under --regrade neither the digest nor the stamp over it is resolved: the
+    # digest *is* the process attribution being withheld, so resolving it would
+    # fail a re-grade of a record whose actor the live registry no longer
+    # carries — over a version this run does not write.
+    digest = ""
+    update: dict[str, object] = {}
+    if not regrade:
+        digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+        update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
 
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     if role == "predictor":
@@ -2759,13 +2805,15 @@ def stamp_cell(
         )
         model_cls = Evaluation
 
+    if regrade:
+        _echo_frozen_scope(_refuse_unregradable(targets, event_paths, actor, run_id))
+
     # A predictor's conditioning is stamped from the same provisioning record the
     # agent read, for the same reason the digest is: it is a scoring input, so it
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
     # where it has to become durable. Absent when provisioning failed — that step
     # is continue-on-error and the cell runs snapshot-less — and the evaluator
     # then falls back to the terminal band rather than inventing one.
-    update: dict[str, object] = {"process_version": stamp}
     if role == "predictor":
         # Assigned unconditionally, so an agent-authored block is cleared rather
         # than preserved when provisioning left nothing to freeze. A guarded
@@ -2773,7 +2821,7 @@ def stamp_cell(
         # baseline conditioning, which is the one thing this field must not be.
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
-    stamped = 0
+    graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
     for path in targets:
         if not path.is_file():
@@ -2796,16 +2844,233 @@ def stamp_cell(
             skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
-        stamped += 1
+        graded += 1
 
-    if stamped == 0:
-        typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
         return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
-    typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+    typer.echo(
+        f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
+        if regrade
+        else f"stamp: {actor} {digest} -> {graded} file(s)"
+    )
     _fail_on_mispaired_basis(basis_records)
+
+
+def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
+    """Say that the invocation found nothing to write — and fail a re-grade that did.
+
+    The ordinary stamp's silence is the fan-out's contract: a no-output cell
+    has nothing to stamp and is already routed to a draft, so a missing
+    artifact is that cell's failure and not this step's. A re-grade is the
+    opposite shape — a hand-run correction over cells that already exist, whose
+    coordinates are typed rather than handed down by the matrix — so finding
+    none means the cell was named wrong, and a mistyped run id must not read as
+    a correction that landed.
+    """
+    if regrade:
+        typer.echo(
+            f"::error::regrade: no {role} artifact for {actor} at this event and run id; "
+            + "a re-grade recomputes cells that already exist.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+
+
+def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
+    """Exit non-zero where ``--regrade`` was asked for something it is not.
+
+    Two refusals, both because the flag's whole content is *withholding the
+    process attribution*. A **predictor** cell carries no harness-graded field
+    — its ``correct`` and skill record live on the evaluations that score it —
+    so a re-grade would recompute nothing and merely skip the stamp. And
+    ``--stamped-at`` / ``--pipeline-sha`` set fields of the version a re-grade
+    declines to write, so taking them silently would read as re-dating a stamp
+    that by design never moves.
+    """
+    if role == "predictor":
+        typer.echo(
+            "--regrade recomputes an evaluation's graded fields; a prediction has none, "
+            "so a predictor cell only ever takes the ordinary stamp.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if stamped_at or pipeline_sha:
+        typer.echo(
+            "--regrade writes no process_version, so --stamped-at and --pipeline-sha "
+            "have nothing to set; drop them.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _refuse_unregradable(
+    targets: Sequence[Path], event_paths: EventPaths, actor: str, run_id: str
+) -> list[tuple[Path, Evaluation]]:
+    """The re-gradable targets, or exit non-zero over the first that is not.
+
+    Every check runs **before the first write**, because each failure mode is a
+    half-corrected event: a run that stopped part-way through would leave the
+    event's evaluators disagreeing on ``correct``, which is the exact state
+    ``validate``'s ``evaluation_correct_agrees`` fails.
+
+    Three refusals (:func:`_require_prior_stamp`, :func:`_require_latest_run`,
+    :func:`_require_reproducible_trio`), all of them cases where recomputing
+    the harness fields in place would leave the ledger worse than it found it:
+    a record with no stamp to preserve, a superseded run nothing reads, and a
+    cell whose evaluator-owned Brier trio the correction has invalidated.
+    """
+    records = [(path, read_model(path, Evaluation)) for path in targets if path.is_file()]
+    _require_prior_stamp(records)
+    _require_latest_run(records, event_paths, actor, run_id)
+    _require_reproducible_trio(records, event_paths)
+    return records
+
+
+def _require_prior_stamp(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Exit non-zero unless every target already carries a ``process_version``.
+
+    A re-grade preserves the stamp of the process that produced the record, so
+    an unstamped cell has nothing for it to preserve: writing the graded fields
+    alone would leave a cell reading as scored under no process at all. That
+    cell takes the ordinary stamp instead.
+    """
+    for path, record in records:
+        if record.process_version is None:
+            typer.echo(
+                f"::error::regrade: {path} carries no process_version. A re-grade "
+                + "preserves the stamp of the process that produced the record; an "
+                + "unstamped cell has none, so it takes the ordinary stamp instead.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_latest_run(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths, actor: str, run_id: str
+) -> None:
+    """Exit non-zero where a newer grading by the same evaluator supersedes this run.
+
+    Every surface that aggregates the ledger collapses a grader's re-runs of
+    one cell to the newest (:func:`fedcourtsai.integrity.latest_evaluation_runs`),
+    so recomputing a superseded run moves no published number while exiting
+    clean — a correction that reads as landed and is not. The message names the
+    run that actually wins, since that is the one to re-grade.
+    """
+    committed = sorted((event_paths.base / "evaluations" / actor).glob("*/*/evaluation.json"))
+    graded: list[tuple[Path, Evaluation]] = [(p, read_model(p, Evaluation)) for p in committed]
+    winners = {
+        record.predictor_id: record.run_id
+        for _, record in latest_evaluation_runs(graded, lambda item: item[1])
+    }
+    for path, record in records:
+        winning = winners.get(record.predictor_id)
+        if winning is not None and winning != run_id:
+            typer.echo(
+                f"::error::regrade: {path} is not {actor}'s surviving grading of "
+                + f"{record.predictor_id} on this event — run {winning} supersedes it, and "
+                + "every scoring surface collapses to that one. Re-grade the surviving run.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_reproducible_trio(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths
+) -> None:
+    """Exit non-zero where a correction has invalidated an evaluator-owned Brier trio.
+
+    On the stages :data:`_HARNESS_SKILL_STAGES` does not cover, the Brier, the
+    segment base rate, and the skill over them stay the evaluator's arithmetic
+    against its own frozen band — the stamp does not recompute them, and a
+    re-grade must not either. A correction that moves the outcome's
+    ``actual_granted`` therefore leaves a recomputed ``correct`` and claim
+    block beside a trio scored against the superseded binary, and the two then
+    describe different outcomes: the leaderboard drops such a cell from
+    ``skill_scored`` (its recorded skill no longer reproduces from its own
+    recorded inputs) while the corrected ``correct`` stays in accuracy, so the
+    two columns would run over different populations with nothing saying so.
+
+    Refused rather than repaired, because the repair is a judgment the harness
+    does not hold: which band population the rate was taken over is the
+    evaluator's. The remedy is the one the mispaired-basis guard already names
+    — null ``brier_score``, ``segment_base_rate``, ``base_rate_basis``, and
+    ``brier_skill_score`` together, or commit a genuine re-derivation — after
+    which the re-grade proceeds. A correction that leaves the binary alone (a
+    disposition relabelled within the granted set, say) reproduces and passes.
+    """
+    if _event_stage_and_opened(event_paths)[0] in _HARNESS_SKILL_STAGES:
+        return
+    outcome = _outcome_for(event_paths)
+    for path, record in records:
+        recorded = record.brier_score
+        if recorded is None:
+            continue
+        recomputed = _harness_brier_for(event_paths, record, outcome)
+        if recomputed is None or abs(recomputed - recorded) <= _STAMP_ECHO_TOLERANCE:
+            continue
+        typer.echo(
+            f"::error::regrade: {path} records brier_score {recorded}, which does not "
+            + f"reproduce against the committed outcome ({recomputed}). The Brier, the "
+            + "segment base rate, and the skill over them are the evaluator's on this "
+            + "stage, so a re-grade would leave them scored against the superseded "
+            + "outcome while `correct` moved. Null `brier_score`, `segment_base_rate`, "
+            + "`base_rate_basis`, and `brier_skill_score` together, or commit a "
+            + "re-derivation, then re-grade.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Name each re-graded cell's process scope, one line per target.
+
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
+    is in the frozen set — one whose numbers a published claim may rest on —
+    would otherwise move with nothing outside ``data/``'s git history recording
+    that it did. The line puts that in the writer run's log and step summary,
+    where it is greppable after the fact. It reports the stamp the record
+    already carries, which is exactly the stamp the re-grade preserves.
+    """
+    for path, record in records:
+        stamp = record.process_version
+        if stamp is None:
+            continue
+        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
+
+
+def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:
+    """The ``ProcessVersion`` an ordinary stamp writes, over its resolved digest.
+
+    Exits non-zero rather than writing an unparseable or offset-less
+    ``--stamped-at``, for the reason below.
+    """
+    if stamped_at:
+        # The stamp is the frozen/alpha partition's time key; a naive value
+        # has no defined order against the freeze instant and reads as
+        # pre-freeze, so refuse to write one rather than stamp a cell out of
+        # the headline by formatting accident.
+        try:
+            stamp_moment = datetime.fromisoformat(stamped_at)
+        except ValueError:
+            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
+            raise typer.Exit(code=2) from None
+        if stamp_moment.tzinfo is None:
+            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
+            raise typer.Exit(code=2)
+    else:
+        stamp_moment = datetime.now(UTC)
+    return ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL,
+        digest=digest,
+        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        stamped_at=stamp_moment,
+    )
 
 
 def _fail_on_mispaired_basis(

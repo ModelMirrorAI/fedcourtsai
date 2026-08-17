@@ -144,9 +144,22 @@ def evaluation_clock(evaluation: Evaluation) -> datetime:
     frozen-scope build every evaluation is stamped and the agent-movable
     clock never picks a winning block behind a claimable mean — the fallback
     only ever orders diagnostic (``--all-versions``) views. The stamp is the
-    exact statpack vintage (the block and the stamp are written by one
-    ``stamp-cell`` invocation); a backdated ``--stamped-at`` can misstate
-    that vintage, which is a reason the flag is harness-side only.
+    vintage of the invocation that **produced** the record: an ordinary
+    ``stamp-cell`` writes the graded block and the stamp together, so on a
+    once-graded cell the stamp dates the statpack the block was pooled from.
+    A ``stamp-cell --regrade`` parts them on purpose — it re-derives the block
+    against the pools committed at re-grade time while preserving the producing
+    run's stamp, because a corrected outcome changes the record's inputs and
+    not the process that judged it — so the stamp bounds the block's vintage
+    from below rather than pinning it. Re-grading a set of cells together is
+    what keeps **that set** internally consistent, and it is the operator's
+    discipline rather than the code's: re-grade a whole cohort against one
+    committed statpack, never a cell at a time across a moving pack. It buys no
+    more than that — the ledger already spreads across pack vintages between
+    runs, which no re-grade widens, and the realized-Term column is immune
+    either way, being built from one handed-in pack. A backdated
+    ``--stamped-at`` misstates the vintage outright, which is a reason the flag
+    is harness-side only.
     """
     return _harness_clock(evaluation.process_version, evaluation.created_at)
 
