@@ -252,7 +252,7 @@
         }
       ],
       "default": null,
-      "description": "What the Court did to the judgment below \u2014 the merits axis, kept off the cert disposition vocabulary because a DIG has no coherent value on the grant binary. Null on a cert-stage outcome, which has no judgment to record"
+      "description": "What the Court did to the judgment below \u2014 the merits axis, kept off the cert disposition vocabulary because a DIG has no coherent value on the grant binary. Null on any outcome off the merits stage, which has no judgment to record: the field's presence is what routes the accuracy comparison onto the merits axis, and that routing does not read the stage"
     },
     "noted_dissent_from_denial": {
       "anyOf": [
