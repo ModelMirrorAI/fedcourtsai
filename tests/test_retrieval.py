@@ -8,9 +8,13 @@ import random
 import time
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.cli import app
+from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
     carries_redaction,
@@ -18,8 +22,7 @@ from fedcourtsai.retrieval import (
     parse_codex_retrieval,
     parse_gemini_retrieval,
 )
-from fedcourtsai.schemas import RetrievalCall, RetrievalLog
-from fedcourtsai.tool_usage import normalize_call
+from fedcourtsai.schemas import RetrievalCall, RetrievalLog, normalize_call
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -1040,3 +1043,372 @@ def test_capture_marker_round_trips_through_the_schema() -> None:
     restored = RetrievalLog.model_validate(legacy)
     assert restored.calls[0].result_capture is None
     assert restored.result_capture_coverage is None
+
+
+# --- the per-call result condition ---------------------------------------------
+
+
+def _claude_result_transcript(payload: object, *, is_error: bool = False) -> list[object]:
+    """A one-call Claude transcript whose ``tool_result`` carries ``payload``."""
+    result: dict[str, object] = {
+        "type": "tool_result",
+        "tool_use_id": "toolu_1",
+        "content": payload,
+    }
+    if is_error:
+        result["is_error"] = True
+    return [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {"q": "chevron deference"},
+                    }
+                ]
+            },
+        },
+        {"type": "user", "message": {"content": [result]}},
+    ]
+
+
+def _claude_status(
+    tmp_path: Path,
+    payload: object,
+    *,
+    is_error: bool = False,
+    tool: str = "mcp__courtlistener__search",
+) -> RetrievalCall:
+    path = tmp_path / "execution.json"
+    transcript = _claude_result_transcript(payload, is_error=is_error)
+    transcript[0]["message"]["content"][0]["name"] = tool  # type: ignore[index]
+    path.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(path)
+    return call
+
+
+# The pinned MCP release's own throttle renderings, quoted from
+# `courtlistener/mcp/middleware.py` (the 429 branch of `on_call_tool`, whose
+# `{exc}` is `CourtListenerAPIError.__str__` -> `HTTP 429: <detail>`) and
+# `courtlistener/mcp/tools/citation_utils.py::format_rate_limit_note`.
+_PINNED_RELEASE_THROTTLE_STRINGS = [
+    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. For higher "
+    + "rate limits, you can upgrade your membership at "
+    + "https://donate.free.law/forms/membership",
+    "Rate limited by the upstream API. Call `resume_citation_analysis` to retry; set "
+    + "`wait=true` to have the server sleep through the rate-limit window.",
+    "Rate limited by the upstream API (retry in ~41s, "
+    + "wait_until=2026-07-10T12:05:00+00:00). Call `resume_citation_analysis` with "
+    + "`wait=true` to have the server sleep through the window.",
+]
+
+
+def test_the_predicate_matches_the_pinned_releases_own_error_strings(tmp_path: Path) -> None:
+    """The predicate is keyed to the pinned MCP release, not to a standard.
+
+    These are that release's strings, so a manifest pin bump has to re-read its
+    error rendering exactly as the sidecar launch has to re-read its
+    constructor. Holding them here makes a bump that changes the wording fail a
+    test rather than quietly turn the marker off for every later run — and
+    asserting the pin itself keeps that coupling local, so the claim the
+    `_THROTTLE_RE` comment makes is checked rather than merely written down.
+    """
+    assert _HTTP_BYPASS_RELEASE == "courtlistener-api-client[mcp]==1.1.0", (
+        "the throttle predicate quotes this release's error rendering; re-read "
+        "courtlistener/mcp/middleware.py and citation_utils.py before bumping the pin"
+    )
+    for rendering in _PINNED_RELEASE_THROTTLE_STRINGS:
+        assert _claude_status(tmp_path, rendering).result_status == "throttled", rendering
+
+
+def test_the_predicate_ignores_the_english_its_phrases_are_made_of(tmp_path: Path) -> None:
+    """A manifest tool returns documents, so the gate alone is not enough.
+
+    Both shapes are ordinary in what a search legitimately hands back — the
+    first in any rate-regulation opinion, the second in a discovery dispute —
+    and each is a substring of a phrase this server does emit. A false positive
+    invents starvation in a run that had none, so the alternations carry their
+    subject or their status code rather than standing alone.
+    """
+    for payload in (
+        "The Commission found that the rate limited the recovery of prudently incurred costs.",
+        "Petitioner served too many requests for admission, and the court so held.",
+        "Rate limits are discussed at length in the briefing.",
+        "See 429 U.S. 274; the request was denied.",
+    ):
+        assert _claude_status(tmp_path, payload).result_status == "ok", payload
+
+
+def test_a_throttled_claude_result_is_marked_and_still_digested(tmp_path: Path) -> None:
+    # The shape the pinned CourtListener MCP server renders an upstream 429 as.
+    # That evidence lives only in the payload, which the row digests away one
+    # line later, so the marker is the last place a starved run stays legible —
+    # and the digest is untouched, because this reads the result, not replaces it.
+    call = _claude_status(
+        tmp_path,
+        [
+            {
+                "type": "text",
+                "text": (
+                    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. "
+                    "For higher rate limits, you can upgrade your membership at "
+                    "https://donate.free.law/forms/membership"
+                ),
+            }
+        ],
+        is_error=True,
+    )
+    # Throttled outranks the engine's own error flag: a 429 arrives *as* an
+    # error, and which error it is, is the whole point of the field.
+    assert call.result_status == "throttled"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+
+
+def test_the_citation_tools_partial_throttle_note_is_marked_too(tmp_path: Path) -> None:
+    # A result the quota cut short rather than refused outright: the call came
+    # back with rows, and the cell still did not get what it asked for.
+    call = _claude_status(
+        tmp_path,
+        "Rate limited by the upstream API (retry in ~41s). Call `resume_citation_analysis`.",
+    )
+    assert call.result_status == "throttled"
+
+
+def test_an_ordinary_result_is_ok_and_a_us_reports_429_is_not_a_throttle(
+    tmp_path: Path,
+) -> None:
+    # The predicate is phrase-anchored precisely because what it scans is
+    # retrieved legal content, where 429 is an everyday reporter volume. A bare
+    # number must never invent starvation in a run that had none.
+    call = _claude_status(
+        tmp_path,
+        [{"type": "text", "text": '{"citation": "429 U.S. 274", "dateFiled": "1977-01-11"}'}],
+    )
+    assert call.result_status == "ok"
+    assert call.retrieved_doc_date == "1977-01-11"
+
+
+def test_a_builtin_reading_prose_about_throttling_is_not_a_throttle(tmp_path: Path) -> None:
+    """The false positive the tool-name gate exists for, and it is not hypothetical.
+
+    A cell's checkout contains this repository — including the very strings the
+    predicate looks for, in this file and in `docs/predicted-artifacts.md` — and
+    an evaluate cell is *instructed* to read the predictor's `reasoning.md`,
+    where a starved cell will have written about being throttled. Ungated, a run
+    with no 429 at all commits `throttled_calls >= 1` the moment any cell reads
+    one of those, and every downstream count inherits it.
+    """
+    for builtin in ("Read", "Bash", "run_shell_command", "read_file", "WebFetch"):
+        call = _claude_status(
+            tmp_path,
+            "The MCP server returned `Rate limit exceeded: HTTP 429` for every search, "
+            "so this prediction rests on the snapshot alone.",
+            tool=builtin,
+        )
+        assert (call.tool, call.result_status) == (builtin, "ok")
+    # The identical payload through a manifest tool is the real thing.
+    assert _claude_status(tmp_path, "Rate limit exceeded: HTTP 429").result_status == "throttled"
+
+
+def test_a_builtin_failure_is_still_an_error_because_the_engine_said_so(tmp_path: Path) -> None:
+    # The gate is on the *text* predicate only. `is_error` is a flag the engine
+    # set, which no retrieved payload can forge, so it needs no tool gate and a
+    # failed builtin is honestly an error rather than a widened `ok`.
+    call = _claude_status(tmp_path, "No such file", is_error=True, tool="Read")
+    assert call.result_status == "error"
+
+
+def test_an_engine_marked_failure_is_an_error_not_an_ok(tmp_path: Path) -> None:
+    # `ok` claims only "captured, unmarked, unthrottled", so a failure the
+    # engine itself flagged must not land there.
+    assert _claude_status(tmp_path, "upstream 502", is_error=True).result_status == "error"
+
+
+def test_an_unanswered_claude_call_has_no_condition_to_read(tmp_path: Path) -> None:
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}}
+                ]
+            },
+        }
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(path)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_a_codex_inline_mcp_error_reads_its_condition_from_the_field(tmp_path: Path) -> None:
+    # The Codex counterpart of `is_error`: the item's own `error` field is the
+    # engine's word that this came back a failure, so no text sniffing is needed
+    # to tell it from an `output` that merely reads badly.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "error": "tool call failed: upstream timeout",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_2",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "major questions"}),
+            "error": "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_3",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "standing"}),
+            "output": '{"results": [], "count": 0}',
+        },
+    )
+    assert [call.result_status for call in parse_codex_retrieval(sessions)] == [
+        "error",
+        "throttled",
+        "ok",
+    ]
+
+
+def test_every_gemini_call_is_condition_blind(tmp_path: Path) -> None:
+    # Not "no throttle" — no observation. The local exporter logs the
+    # invocation and nothing of what came back, so this engine can never be
+    # seen being starved.
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(
+        json.dumps(
+            {
+                "attributes": {
+                    "event.name": "gemini_cli.tool_call",
+                    "function_name": "mcp_cl_search",
+                    "function_args": {"q": "chevron"},
+                    "event.timestamp": "2026-07-10T12:00:01Z",
+                }
+            }
+        )
+    )
+    (call,) = parse_gemini_retrieval(telemetry)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_the_two_result_markers_may_not_disagree_about_capture() -> None:
+    # One fact read twice: a condition is legible exactly when a result was
+    # captured, so a row claiming otherwise means the parser is broken.
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="unobserved", result_status="ok")
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="captured", result_status="unobserved")
+    # A null in either field is the legacy record's capture-unknown, which
+    # constrains nothing.
+    assert RetrievalCall(tool="search", result_status="ok").result_capture is None
+
+
+def _throttled(count: int) -> list[RetrievalCall]:
+    return [
+        RetrievalCall(
+            tool="mcp__courtlistener__search", result_capture="captured", result_status="throttled"
+        )
+        for _ in range(count)
+    ]
+
+
+def _ok(count: int, *, tool: str = "mcp__courtlistener__search") -> list[RetrievalCall]:
+    return [
+        RetrievalCall(tool=tool, result_capture="captured", result_status="ok")
+        for _ in range(count)
+    ]
+
+
+def test_the_log_counts_throttles_over_the_manifest_calls_it_could_read() -> None:
+    assert _log(_throttled(2) + _ok(3)).throttled_calls == 2
+    # A real zero, and the stronger claim: manifest results were legible, none
+    # was a throttle.
+    assert _log(_ok(3)).throttled_calls == 0
+    # Builtins leave both sides of the count untouched — the same exclusion the
+    # per-run note and the corpus rollup apply, so the three cannot disagree.
+    assert _log(_throttled(1) + _ok(9, tool="Read")).throttled_calls == 1
+
+
+def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
+    # The distinction the whole field turns on. A Gemini cell's every result is
+    # unobserved, so a 0 here would assert a clean run out of a blind one.
+    blind = _log(
+        [
+            RetrievalCall(
+                tool="mcp_courtlistener_search",
+                result_capture="unobserved",
+                result_status="unobserved",
+            )
+            for _ in range(4)
+        ]
+    )
+    assert blind.throttled_calls is None
+    assert blind.result_capture_coverage == 0.0
+    # As are an empty log and one written before the field existed.
+    assert _log([]).throttled_calls is None
+    assert _log([RetrievalCall(tool="mcp__courtlistener__search")]).throttled_calls is None
+    # And a cell that called only builtins: it read plenty and could not have
+    # been throttled by this quota, which is not the same as a clean cell.
+    assert _log(_ok(6, tool="Read")).throttled_calls is None
+
+
+def test_the_count_survives_the_blinding_masks_respelling_of_the_tool() -> None:
+    """A staged log is still a RetrievalLog, and revalidating it re-derives this.
+
+    `mask_retrieval_log` rewrites each call's `tool` to its engine-neutral
+    class, so a gate that only knew the engines' own spellings would read every
+    staged manifest call as a builtin and null a count the mask is not supposed
+    to touch — the blinded view would then disagree with the committed log about
+    a number, which is exactly what the mask exists not to do.
+    """
+    masked = neutral_tool_class("mcp__courtlistener__search")
+    assert masked == "mcp:courtlistener:search"
+    assert normalize_call(masked) == "courtlistener.search"
+    staged = _log(
+        [
+            *_throttled(1),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="throttled"),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="ok"),
+        ]
+    )
+    assert staged.throttled_calls == 2
+
+
+def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:
+    asserted = RetrievalLog(
+        case_id="scotus/305",
+        run_id="20260710T120000Z",
+        role="predictor",
+        actor_id="claude-baseline",
+        engine="claude-code",
+        calls=_ok(2),
+        throttled_calls=7,
+    )
+    assert asserted.throttled_calls == 0
+
+
+def test_the_condition_marker_round_trips_through_the_schema() -> None:
+    original = _log(_throttled(1) + _ok(1))
+    payload = json.loads(original.model_dump_json())
+    assert [call["result_status"] for call in payload["calls"]] == ["throttled", "ok"]
+    assert payload["throttled_calls"] == 1
+    assert RetrievalLog.model_validate(payload) == original
+    # A record written before the field existed still validates and reads as
+    # condition-unknown rather than as a cell nothing ever turned away.
+    legacy = {key: value for key, value in payload.items() if key != "throttled_calls"}
+    legacy["calls"] = [{"tool": "search", "result_capture": "captured"}]
+    restored = RetrievalLog.model_validate(legacy)
+    assert restored.calls[0].result_status is None
+    assert restored.throttled_calls is None

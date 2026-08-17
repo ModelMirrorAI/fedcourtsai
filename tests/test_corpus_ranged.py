@@ -173,14 +173,22 @@ def test_resolver_fails_loudly_on_missing_pointer_and_bad_url(tmp_path: Path) ->
 
 
 def test_ranged_backend_matches_local(tmp_path: Path) -> None:
-    pointer, transport = _fixture_remote(tmp_path)
-    db = tmp_path / "corpus.db"
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    with corpus.connect(db) as conn:
+        stamped = corpus.get_row(conn, FIXTURE_CASES[0].case_id)
+        assert stamped is not None
+        # A pull stamp, so the freshness aggregate below compares real dates.
+        corpus.upsert_rows(conn, [stamped.model_copy(update={"last_pulled": date(2026, 8, 16)})])
+    pointer, _ = _write_pointer(db)
+    transport = FileTransport(db.read_bytes())
     prior_query = corpus.PriorQuery(court="ca9", resolved_only=False)
 
     with corpus.connect(db) as conn:
         local = {
             "count": corpus.count(conn),
             "snapshots": corpus.snapshot_count(conn),
+            "latest_snapshot_date": corpus.latest_snapshot_date(conn),
+            "latest_pull": corpus.latest_pull_date(conn),
             "row": corpus.get_row(conn, FIXTURE_CASES[0].case_id),
             "priors": corpus.retrieve_priors(conn, prior_query),
             "events": corpus.events_for_case(conn, FIXTURE_CASES[0].case_id),
@@ -191,6 +199,10 @@ def test_ranged_backend_matches_local(tmp_path: Path) -> None:
     with corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport) as ranged:
         assert corpus.count(ranged) == local["count"]
         assert corpus.snapshot_count(ranged) == local["snapshots"]
+        # The freshness aggregates `corpus-info` prints: MAX over an apsw cursor
+        # reads the same as over sqlite3, so `--corpus-backend ranged` is dated too.
+        assert corpus.latest_snapshot_date(ranged) == local["latest_snapshot_date"]
+        assert corpus.latest_pull_date(ranged) == local["latest_pull"]
         assert corpus.get_row(ranged, FIXTURE_CASES[0].case_id) == local["row"]
         assert corpus.retrieve_priors(ranged, prior_query) == local["priors"]
         assert corpus.events_for_case(ranged, FIXTURE_CASES[0].case_id) == local["events"]

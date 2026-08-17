@@ -198,6 +198,9 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "facts_only": None,
         "skipped": [],
         "flags": "",
+        # A run with no cells has no retrieval to have been throttled, and no
+        # blind cell either — nothing to say, on this surface or in a PR body.
+        "throttle": "",
         "feedback_comment": "",
         "stalled": False,
         "dead_actors": [],
@@ -228,6 +231,157 @@ def _write_flags(root: Path, cell: str, actor: str, *, run_id: str = "R", case: 
             }
         )
     )
+
+
+def _write_retrieval_log(
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    statuses: list[str],
+    run_id: str = "R",
+    case: str = "1",
+    tool: str = "mcp__courtlistener__search",
+) -> None:
+    # Same shape as a cell's flags.json: the harness writes it under the cell's
+    # own data/ subtree, so every artifact also carries every previously
+    # committed log.
+    log_dir = root / cell / "data" / "cases" / "scotus" / case / "events" / "evt-x" / actor / run_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "retrieval_log.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "run_id": run_id,
+                "role": "predictor",
+                "actor_id": actor,
+                "engine": "claude-code",
+                "calls": [
+                    {
+                        "tool": tool,
+                        "result_capture": ("unobserved" if s == "unobserved" else "captured"),
+                        "result_status": s,
+                    }
+                    for s in statuses
+                ],
+            }
+        )
+    )
+
+
+def test_collect_plan_counts_this_run_s_throttled_retrieval(tmp_path: Path) -> None:
+    # The starvation surface: read from the cells' harness-captured logs, and
+    # scoped and deduped exactly like the flags, because every artifact ships
+    # the whole data/ tree and an earlier run's throttling is not this run's.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "claude-baseline"), ("cell-b", "codex-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    _write_retrieval_log(tmp_path, "cell-a", "claude-baseline", statuses=["throttled", "ok"])
+    # The same cell's log riding along in the other artifact — counted once.
+    _write_retrieval_log(tmp_path, "cell-b", "claude-baseline", statuses=["throttled", "ok"])
+    _write_retrieval_log(tmp_path, "cell-b", "codex-baseline", statuses=["ok", "ok"])
+    # A prior run's committed log, carried in every artifact — excluded.
+    _write_retrieval_log(
+        tmp_path, "cell-a", "claude-baseline", statuses=["throttled"], run_id="Q", case="2"
+    )
+    # A capture-blind cell enters neither side of the ratio; it is counted, and
+    # named in the note, as a cell that could not be observed either way.
+    _write_retrieval_log(
+        tmp_path, "cell-b", "gemini-baseline", statuses=["unobserved", "unobserved"]
+    )
+    # A BUILTIN row marked throttled must not enter the count on the run path
+    # either. The parser's tool gate stops one being minted; this is the same
+    # exclusion applied again where the run reads it, so a hand-written or
+    # legacy row cannot put a `Read` of a document about rate limits into a
+    # figure about the upstream refusing this cell.
+    _write_retrieval_log(
+        tmp_path,
+        "cell-b",
+        "builtin-reader",
+        statuses=["throttled", "throttled"],
+        tool="Read",
+    )
+    # An unreadable log must never take down the aggregation carrying the run's
+    # only copy of its output.
+    broken = (
+        tmp_path / "cell-a" / "data" / "cases" / "scotus" / "1" / "events" / "evt-x" / "b" / "R"
+    )
+    broken.mkdir(parents=True)
+    (broken / "retrieval_log.json").write_text("{not json")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    # The note leaves the process on the plan JSON as well as in the PR body,
+    # so the surface that echoes `flags` can echo this beside it.
+    assert "Retrieval was throttled this run" in plan["throttle"]
+    body = plan["ready"]["body"]
+    assert "Retrieval was throttled this run" in body
+    assert "1 of 4 manifest-tool result(s)" in body
+    assert "1 of 2 cell log(s) whose results were legible" in body
+    # The Gemini cell, the builtin-only cell, and the unreadable one: all three
+    # unobservable, none of them clean, and counted on the note rather than
+    # dropped from it. A log nothing can parse is a cell whose condition nothing
+    # can read, which is what the counter means.
+    assert "3 further cell(s) captured no result" in body
+
+
+def test_collect_plan_never_reads_a_builtin_result_as_a_throttle(tmp_path: Path) -> None:
+    # The end-to-end shape of the false positive the tool gate exists for. An
+    # evaluate cell is instructed to read the predictor's artifacts, and a
+    # starved cell's `reasoning.md` says so in prose; a run where that is the
+    # only "throttle" in sight was not throttled at all, and must not commit a
+    # PR body claiming it was.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-judge",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_retrieval_log(
+        tmp_path, "cell-a", "claude-judge", statuses=["throttled", "ok"], tool="Read"
+    )
+    _write_retrieval_log(tmp_path, "cell-a", "claude-judge", statuses=["ok"], case="2")
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert "throttled" not in plan["ready"]["body"]
+    # The manifest-tool cell beside it was legible and clean, so the run is a
+    # genuine zero and says nothing at all — on either surface.
+    assert "not observable" not in plan["ready"]["body"]
+    assert plan["throttle"] == ""
+
+
+def test_collect_plan_says_nothing_when_no_cell_was_throttled(tmp_path: Path) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_retrieval_log(tmp_path, "cell-a", "claude-baseline", statuses=["ok", "ok"])
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    assert "throttled" not in json.loads(result.stdout)["ready"]["body"]
 
 
 def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:

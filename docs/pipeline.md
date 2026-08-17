@@ -88,7 +88,11 @@ each as its own least-privilege job holding only the credentials its mode needs:
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
   engine / actor. The same walk adds per-engine result observability (whether an
-  engine's transcript captures the answer side at all), cuts by mode / role /
+  engine's transcript captures the answer side at all), how often the upstream
+  quota turned a manifest-tool call away (denominated on the calls whose result
+  condition was legible, so a capture-blind engine reads as unobserved rather
+  than as throttle-free, and cut per engine only descriptively — one quota is
+  consumed run-wide), cuts by mode / role /
   actor, calls beside each cell's estimated cost, and call volume against the
   evaluators' Brier scores — that last one scoped to blessed processes like any
   grade-bearing surface, and a denominator table with an under-powered verdict
@@ -190,7 +194,9 @@ than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
 any SCOTUS petition carrying both a CourtListener-keyed row and a live-minted
 reserved-range row — the pair shape a docket-number spelling leaves when it
-defeats the channels' identity join; the **predict-scope reconcile**
+defeats the channels' identity join — moving a minted event's committed
+`event.yaml` with its re-keyed row, staged in the one pointer commit; the
+**predict-scope reconcile**
 (`fedcourts reconcile-scope`), which latches out-of-scope cases (the
 shared exclusion rules — era, staleness, docket form, date consistency, and the
 snapshot-aware bare opinion-import profile) in the corpus so they leave the
@@ -332,7 +338,10 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
                                     (held per-channel by PREDICT_HANDOFF_ENABLED /
                                      EVALUATE_HANDOFF_ENABLED)
-       run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
+       run:predict → plan (build matrix, post the plan report)
+                                 → approval (predict-approval hold: required
+                                 │           reviewers release the spend)
+                                 → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
@@ -552,11 +561,21 @@ The full path of a change, operator's view:
    the `all-offline` form and tells you whether anything *else* is missing
    before you pay for the smokes, which step 4 still needs.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
-   `promotion-gate` check re-verifies quiescence + freshness. Re-run that
+   `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
+   **stated effect check** to that PR body — what should be true once it is
+   live and the command that shows it, collected from the feature PRs'
+   handover notes (AGENTS.md asks each for one); the workflow's own body is
+   fixed, so this is a hand edit. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
    merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
    second batch — the *Tags* subsection below). Live on the next workflow
    run.
+5. Run that stated effect check and record what it printed. A promotion
+   changes code, not state, so until something executes the check a batch that
+   changed nothing is indistinguishable from one that worked. Mind the timing:
+   an effect visible only in produced output cannot be checked until the next
+   run of the job that produces it, so a check that comes back empty before
+   then reads *not yet*, not *didn't work* — say which you saw.
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
@@ -639,7 +658,8 @@ pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.
 `fedcourts predict-plan` / `evaluate-plan` are the read-only rehearsal of this
 same builder — every step below, reported as a JSON document with its per-step
-drop counts and nothing minted or written ([cli.md](cli.md)). Each
+drop counts and nothing minted; with `--approval-report` it writes only that one
+report file, the bounded markdown a hold gate posts ([cli.md](cli.md)). Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
 whole fan-out, however many cases it spans. After scope filtering the builder
@@ -651,7 +671,26 @@ splitting a case's engines) in a deterministic case-id order, with the deferred
 count surfaced as a `::warning::` and in the plan's step summary; a deferred case
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
-`PREDICT_HANDOFF_ENABLED` on/off pause below.
+`PREDICT_HANDOFF_ENABLED` on/off pause below — and distinct again from the
+**predict-approval hold**, the per-run gate between plan and spend: the plan
+job posts its report to the trigger issue, and the matrix waits on a required
+reviewer approving the `predict-approval` deployment in the Actions UI. A run
+sitting in *Waiting* is a request for that decision, not a stall; a hold that
+does not release (rejected, cancelled, or expired) closes its trigger issue
+with the plan report as the record, and re-labelling re-queues with a fresh
+plan. Approve one held run at a time, and treat a hold older than a day as a
+stale plan to reject and re-queue rather than release: the already-predicted
+gate and the stranded-run guard were both evaluated at plan time, so a long
+hold un-anchors them — two simultaneously held plans over overlapping open
+events were each minted before the other spent, and releasing both
+double-spends the overlap. The plan reports on the two issues make the
+overlap visible before either release; a mechanical post-release re-check
+belongs to the auto-release follow-up, where no human reads the reports. A
+rejected hold is an unsatisfied-gate report, not an incident — but unlike
+`promote`, whose failures the ops dashboard annotates as gate reports, the
+dashboard cannot distinguish a rejected hold from a real run-predict failure,
+so a depressed run-predict success rate during shakedown reads against this
+note rather than against the fleet.
 
 A predict cell refuses to run for two reasons, both landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
@@ -798,6 +837,18 @@ gated on the run's secret scan, since flag messages are agent free text — the 
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
+It also reads the run's own harness-captured `retrieval_log.json` files and, if
+any cell's manifest-tool results came back rate-limited, warns in the same PR
+body that the shared upstream quota starved this run's retrieval — how many
+legible results were throttled, across how many cells, and how many further
+cells captured nothing and could not be observed either way. Where *no* cell
+could have shown a throttle it says that instead, because capture-blind and
+throttle-free must not read alike; a genuinely clean run prints nothing. The
+note is harness-rendered from the logs rather than agent free text, so it rides
+even the facts-only PR of a wholesale-failed run, where starvation is a live
+candidate cause. It is the only per-run record there is: the 429 payload itself
+is digested away at capture, so without the marker a starved run and a well-fed
+one look identical afterwards.
 The `run-seed` historical walker has its own instance of that pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears

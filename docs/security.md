@@ -255,10 +255,17 @@ carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
-them declares an environment, and every job declares `prod` except two: the
-`integration-test` scenarios, which resolve theirs from the dispatching branch,
-and `staging-corpus-refresh`, which binds `staging-corpus` — the only
-environment carrying a write-capable role outside `prod`, and the only one
+them declares an environment, and every job outside `integration-test` declares
+`prod` — with two deliberate exceptions. run-predict's `approval` job declares
+**`predict-approval`**, an environment that exists *only* for its required
+reviewers. It carries no secrets, no variables, no role, and no
+deployment-branch policy; the job it gates runs one echo under
+`permissions: {}`, so the environment grants nothing and merely withholds the
+matrix until a named reviewer releases it. It must be created **with required
+reviewers configured before the gate promotes**: GitHub auto-creates a
+referenced environment unprotected, and an unprotected `predict-approval` is
+no gate at all. `staging-corpus-refresh` declares **`staging-corpus`** — the
+one environment carrying a write-capable role outside `prod`, and the only one
 whose stores are not production's (see *The staging corpus* below).
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
@@ -281,7 +288,9 @@ secret-carrying name that dodges the keyword list (and a value that is not one o
 the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
-**Deployment branches are restricted to `main`.** A job can read the environment's
+**Deployment branches are restricted to `main`** — on `prod` (and to `staging`
+on the `staging` environment); `predict-approval` deliberately carries no branch
+policy, since it holds nothing a branch could take. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
