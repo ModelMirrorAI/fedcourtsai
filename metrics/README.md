@@ -870,9 +870,11 @@ the rendered table) and
   is projected to the state its docket disclosed at the policy's moment
   (petition arrival, first distribution, or the last pre-resolution
   distribution), and **every registered** frozen scoring, banding, and
-  per-conference selection runs over that one reconstruction — the projection
-  is built once per (Term, policy) and shared, so the versions cannot differ in
-  what they saw. Each cell names the version that produced it, and reports
+  per-conference selection runs over that reconstruction — the projection is
+  built once per (Term, policy, distribution parse) and shared by the versions
+  pinning that parse, so versions differ in what they saw only where their
+  declared parse differs, and each cell records the parse it was projected
+  under. Each cell names the version that produced it, and reports
   the would-have-been selection (carve-out vs rank-fill, and where capacity
   actually bit), the band mix including `unobservable`, the
   snapshot-provenance mix, and sample-weighted **precision/recall of the
@@ -885,14 +887,18 @@ the rendered table) and
   relist-0 with no conference cohort, so the rank-and-cap selects nothing and
   escalation precision is undefined (the trajectory features cannot
   distinguish petitions before the docket moves). Under a scorer that selects
-  arrivals (sal-v2), the `arrival` policy's cells report the draw slice and
-  the carve-in picks instead — a separate cohort, never pooled into the
-  escalation ones, and still no validation of any caption feature (the
-  reconstruction carries the terminal caption; a declared gap).
+  arrivals (both caption-banded versions declare it), the `arrival` policy's
+  cells report the draw slice and the carve-in picks instead — a separate
+  cohort, never pooled into the escalation ones, and still no validation of
+  any caption feature (the reconstruction carries the terminal caption; a
+  declared gap).
 
-  **Comparing two salience versions.** Cells sharing a (Term, policy) are paired
-  on one identical projection, so any difference between them is the scoring
-  function — but *not* at a matched operating point. Every version is run
+  **Comparing two salience versions.** Cells sharing a (Term, policy) *and a
+  distribution parse* are paired on one identical projection, so any
+  difference between them is the scoring function; where the parses differ,
+  the projections differ with them (each cell records its parse), and the
+  comparison spans the scoring function together with the docket reading it
+  was fitted on — but either way *not* at a matched operating point. Every version is run
   against the same `salience.floor` and the same per-conference capacity, and
   carve-outs sit above `N`, so a scorer whose score scale puts a different
   fraction above the floor selects a **differently sized set**. Raw precision

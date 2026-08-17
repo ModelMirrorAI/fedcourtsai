@@ -41,7 +41,14 @@ from ..supremecourt import (
     parse_scotus_docket_number,
 )
 from . import moments
-from .cert_signals import CVSG_RE, DISTRIBUTED_RE, match_disposition_signal, proceedings_entries
+from .cert_signals import (
+    CVSG_RE,
+    DEFAULT_DISTRIBUTION_PARSE,
+    DISTRIBUTED_RE,
+    distribution_pattern,
+    match_disposition_signal,
+    proceedings_entries,
+)
 from .interim_signals import (
     application_kind,
     escalation_signals,
@@ -557,6 +564,11 @@ _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appell
 # Conference membership rides in the proceedings as its own entry —
 # "DISTRIBUTED for Conference of 3/24/2023." — one entry per (re)distribution.
 # Anchored on the full phrase so a filing's "(Distributed)" suffix never matches.
+# The membership *key* is deliberately not parse-versioned: it answers "which
+# conference is this docket on", where an ancillary paper's distribution names
+# the same conference the petition is on, and the cohort a petition is scored in
+# must be one value per case rather than one per registered parse. The versioned
+# reading governs the trajectory *count* only (`_live_distribution_count`).
 _LIVE_DISTRIBUTED_RE = DISTRIBUTED_RE  # the shared definition; see cert_signals
 
 
@@ -582,17 +594,25 @@ def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
     return conference
 
 
-def _live_distribution_count(entries: list[dict[str, Any]]) -> int:
+def _live_distribution_count(
+    entries: list[dict[str, Any]], *, parse: str = DEFAULT_DISTRIBUTION_PARSE
+) -> int:
     """How many distinct conferences the proceedings distribute this petition for.
 
     Distinct **parsed conference dates**, not raw entry matches, so a duplicated
     entry (upstream re-serves happen) never inflates the count; an unparseable
     date degrades to "not counted", matching :func:`_live_conference_date`.
     Relists derive downstream as ``max(0, count - 1)``.
+
+    ``parse`` names the registered phrase-reading
+    (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`), taken from
+    the same registry the snapshot counter reads, so the corpus column and a
+    snapshot re-derivation cannot disagree about what a parse label means.
     """
+    pattern = distribution_pattern(parse)
     conferences: set[date] = set()
     for entry in entries:
-        match = _LIVE_DISTRIBUTED_RE.search(str(entry.get("description") or ""))
+        match = pattern.search(str(entry.get("description") or ""))
         if match is None:
             continue
         try:

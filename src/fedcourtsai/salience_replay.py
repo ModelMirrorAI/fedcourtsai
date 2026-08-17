@@ -13,10 +13,14 @@ gate *would have* selected then, and scores that selection against the
 realized grant-family outcomes with sample-weighted precision and recall.
 
 Cells span **(Term x policy x salience version)**: every version in
-:data:`~fedcourtsai.pipeline.salience.SCORERS` scores the same reconstruction,
-so a candidate scorer is measured against the incumbent over identical
-projected dockets in a single artifact — which is what makes the difference
-between two cells attributable to the scoring function alone.
+:data:`~fedcourtsai.pipeline.salience.SCORERS` scores a reconstruction built at
+the same moment from the same stored payloads. Versions pinning one
+distribution parse are measured over identical projected dockets, which makes
+the difference between their cells attributable to the scoring function alone;
+a version pinning a different parse gets its own projection (the
+reconstruction follows the parse), so that comparison spans the scoring
+function together with the docket reading it was fitted on. Each cell records
+the parse it was projected under rather than assuming it common.
 
 Two structural facts the numbers document:
 
@@ -97,14 +101,16 @@ def select_replay_population(
 
 
 def _project(
-    conn: sqlite3.Connection, row: corpus.CorpusRow, policy: asof.CutoffPolicy
+    conn: sqlite3.Connection, row: corpus.CorpusRow, policy: asof.CutoffPolicy, *, parse: str
 ) -> tuple[asof.AsOfRow, str] | None:
     """Project one petition to the policy's moment, or ``None`` with no snapshot.
 
     The cert back-test's provisioning ladder, applied to a row instead of a
-    cell: redact the latest payload, find the policy cutoff, prefer a snapshot
-    the docket really served before it (``dated``) over truncating the later
-    payload (``truncated``), and fail closed to blind — proceedings removed
+    cell, with the count re-derived under ``parse`` (the calling version's
+    declared reading): redact the latest payload, find the policy cutoff,
+    prefer a snapshot the docket really served before it (``dated``) over
+    truncating the later payload (``truncated``), and fail closed to blind —
+    proceedings removed
     outright — when no cutoff exists or a disposition survives truncation. The
     returned label is the report's provenance-mix key: the two blind causes are
     told apart (``blind-no-moment`` — the live gate would also never have
@@ -136,7 +142,7 @@ def _project(
         provenance = "blind"
         label = "blind-untrusted-cutoff"
         cutoff = None
-    projected = asof.project_row(row, working, cutoff=cutoff, provenance=provenance)
+    projected = asof.project_row(row, working, cutoff=cutoff, provenance=provenance, parse=parse)
     if cutoff is not None:
         # The as-of conference, so cohorting reproduces the latest-entry-wins
         # value the live channel would have held at that moment.
@@ -145,11 +151,13 @@ def _project(
 
 
 class _Projection(NamedTuple):
-    """One (Term, policy) reconstruction, shared by every version's cell.
+    """One (Term, policy, distribution parse) reconstruction.
 
-    Built once and scored by each registered version in turn, because two
-    versions are comparable only if they saw the same reconstructed docket — and
-    reprojecting per version would re-read every snapshot for no gain.
+    Shared by every version pinning that parse, because two versions are
+    comparable only if they saw the same reconstructed docket — and
+    reprojecting per version under one parse would re-read every snapshot for
+    no gain. Versions pinning different parses get different projections,
+    since the parse changes what the reconstruction counts.
     """
 
     rows: list[tuple[corpus.CorpusRow, asof.AsOfRow]]
@@ -158,14 +166,18 @@ class _Projection(NamedTuple):
 
 
 def _project_cohort(
-    conn: sqlite3.Connection, policy: asof.CutoffPolicy, rows: list[corpus.CorpusRow]
+    conn: sqlite3.Connection,
+    policy: asof.CutoffPolicy,
+    rows: list[corpus.CorpusRow],
+    *,
+    parse: str,
 ) -> _Projection:
-    """Project one Term's petitions to ``policy``'s moment, tallying provenance."""
+    """Project one Term's petitions to ``policy``'s moment under ``parse``, tallying provenance."""
     projected: list[tuple[corpus.CorpusRow, asof.AsOfRow]] = []
     provenance_mix: Counter[str] = Counter()
     skipped = 0
     for row in rows:
-        found = _project(conn, row, policy)
+        found = _project(conn, row, policy, parse=parse)
         if found is None:
             skipped += 1
             continue
@@ -259,6 +271,7 @@ def _replay_cell(
     return SalienceReplayCell(
         term=term,
         salience_version=version.version,
+        distribution_parse=version.distribution_parse,
         policy=str(policy),
         eligible=eligible,
         skipped_no_snapshot=skipped,
@@ -299,9 +312,10 @@ def replay_gate(
 
     **Every registered salience version replays, in one report.** A candidate
     scorer is judged against the incumbent at the same moment over the same
-    reconstructed dockets, so the projection is built once per (Term, policy)
-    and scored by each version in turn — the comparison then isolates the
-    scoring function, which is the only thing that differs between the cells.
+    reconstructed dockets, so the projection is built once per (Term, policy,
+    distribution parse) and scored by each version pinning that parse — the
+    comparison then isolates what differs between the cells, which is the
+    scoring function together with the docket reading it was fitted on.
     """
     cells: list[SalienceReplayCell] = []
     versions = registered_versions()
@@ -314,11 +328,23 @@ def replay_gate(
         for term in terms:
             for policy in policies:
                 rows = by_term.get(term, [])
-                projection = _project_cohort(conn, policy, rows)
+                # One projection per distinct distribution parse, reused by every
+                # version that pins it: the parse decides what `distribution_count`
+                # a projected docket carries, so a version scored on another
+                # version's parse would be measured on a feature it was never
+                # fitted on. Versions sharing a parse — all of them, while one is
+                # registered — still share the single reconstruction, so the
+                # comparison isolates the scoring function.
+                projections: dict[str, _Projection] = {}
                 for version in versions:
-                    cells.append(
-                        _replay_cell(term, policy, len(rows), projection, config, scorer(version))
-                    )
+                    active = scorer(version)
+                    projection = projections.get(active.distribution_parse)
+                    if projection is None:
+                        projection = _project_cohort(
+                            conn, policy, rows, parse=active.distribution_parse
+                        )
+                        projections[active.distribution_parse] = projection
+                    cells.append(_replay_cell(term, policy, len(rows), projection, config, active))
     return SalienceReplay(
         salience_version=SALIENCE_VERSION,
         salience_versions=list(versions),
