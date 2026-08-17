@@ -25,6 +25,11 @@ scenario reads and writes something real for runner minutes.
   makes the staging store a real specimen — every dated snapshot, every
   content-addressed document leaf, and the manifests that point at them arrive
   exactly as the writers produced them, not as this module would render them.
+  The store's two kinds of object are copied on different rules, and the
+  distinction is load-bearing: write-once keys already present are skipped,
+  while the three **mutable** manifests are re-copied every time, because the
+  writers overwrite those in place and a stale copy of one describes a case
+  that no longer exists (see :func:`copy_case_objects`).
 
 **The safety rails, and what actually guarantees the property.** What makes it
 impossible to write production here is **IAM**: the seeding role's policy is
@@ -41,11 +46,13 @@ is convergent rather than destructive — the remote is add-only and
 content-addressed, the store copy skips keys already present — so a re-run
 converges and a half-finished run is resumed by the next one.
 
-**Ordering.** On an apply the content objects are copied *before* the blob is
-published, mirroring the writers' blob-before-pointer rule one level up: a
+**Ordering, at two levels, both the writers' blob-before-pointer rule.** On an
+apply the content objects are copied *before* the blob is published, so a
 reader that resolves the new pointer always finds the payloads its rows refer
-to. A run interrupted between the two leaves a store ahead of its index, which
-the next apply completes.
+to; a run interrupted between the two leaves a store ahead of its index, which
+the next apply completes. Within a case the same rule again: the documents
+manifest is the only object that points at other keys, so it lands **after**
+the leaves it names.
 
 Everything here takes its transports as parameters, so the whole module runs
 offline in tests against in-memory stores — the same seam the casestore and
@@ -81,14 +88,31 @@ DEFAULT_MAX_CASES = 200
 # The case-id grammar the corpus keys on (`<court>/<docket>`; see
 # `fedcourtsai.ids.case_id`). Matched before anything reaches a key prefix, so
 # a malformed entry is a refusal rather than an odd listing that reads as
-# "this case has no content".
+# "this case has no content". Deliberately NARROWER than what `ids.case_id`
+# can emit — `slugify` also passes `.` and `_`, which this rejects — because
+# every id here becomes an S3 key prefix, and excluding `.` means no component
+# can be a `..` path segment whatever a downstream consumer does with the key.
+# A court id that needed those characters would widen this knowingly, not by
+# inheriting the slug rule.
 _CASE_ID_RE = re.compile(r"[a-z0-9][a-z0-9-]*/[0-9]+")
 
-# Where a case's content objects live under its own prefix, used to classify a
-# listed key for the census (the layout itself is `casestore`'s).
-_SNAPSHOTS_SEGMENT = "/snapshots/"
-_DOCUMENTS_SEGMENT = "/documents/"
-_DOCUMENTS_MANIFEST = "/documents/documents.json"
+# Where a case's content objects sit *within* its own prefix (the layout itself
+# is `casestore`'s). Classification is anchored on the case-relative remainder,
+# never a substring of the whole key: a court or docket id containing one of
+# these words would otherwise miscount every object under it.
+_SNAPSHOTS_SEGMENT = "snapshots/"
+_DOCUMENTS_SEGMENT = "documents/"
+
+# The three objects the writers **overwrite in place** — the small mutable
+# manifests, as opposed to the write-once bulk (dated snapshots, and document
+# text leaves whose keys carry their own content digest). The distinction is
+# the whole of `copy_case_objects`' correctness: a destination copy of one of
+# these is a *stale* copy the moment the source case is re-ingested, so it is
+# re-copied on every apply, while an existing write-once key already holds
+# identical bytes and is skipped.
+_MUTABLE_KEYS = ("case.json", "events.json", "documents/documents.json")
+# The manifest that *points at other keys*, so it must land after them.
+_DOCUMENTS_MANIFEST = "documents/documents.json"
 
 
 class SeedSliceError(RuntimeError):
@@ -116,7 +140,9 @@ def parse_case_ids(values: Sequence[str] = (), *, path: Path | None = None) -> l
     if path is not None:
         if not path.is_file():
             raise SeedSliceError(f"no docket list at {path}")
-        raw.extend(path.read_text().splitlines())
+        # Explicit encoding: the workflow writes this file, but a maintainer's
+        # own list should not read differently under a non-UTF-8 locale.
+        raw.extend(path.read_text(encoding="utf-8").splitlines())
     case_ids: list[str] = []
     for line in raw:
         entry = line.split("#", 1)[0].strip()
@@ -268,7 +294,11 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
 
     Both checks run in **both** destination slots against **both** production
     stores: a staging content store that happens to name the production corpus
-    remote is just as wrong.
+    remote is just as wrong. Every exact-location check runs **before** any
+    bucket check, so a destination that is precisely a production store is
+    diagnosed as that rather than as the vaguer "inside its bucket" — the two
+    production stores share a bucket, so the coarse rule would otherwise
+    shadow the precise one and the operator would get the less useful message.
 
     This is the second line, not the guarantee. The first is IAM: the staging
     read-write role's policy is read-only on the production stores, so a
@@ -292,6 +322,8 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
                     "The staging corpus is its own bucket/prefix pair — see the "
                     "staging-corpus runbook in docs/security.md."
                 )
+    for flag, location in slots:
+        for name, configured in production.items():
             if location[0] == configured[0]:
                 raise SeedSliceError(
                     f"refusing to seed: {flag} is a prefix inside the production "
@@ -371,6 +403,16 @@ def _case_keys(objects: ObjectTransport | None, case_id: str) -> list[str]:
     return sorted(objects.list_keys(f"{casestore.case_prefix(case_id)}/"))
 
 
+def _within_case(key: str, case_id: str) -> str:
+    """A listed key's remainder *below* its case prefix (``snapshots/…``).
+
+    Every classification below keys on this rather than on a substring of the
+    whole key, so a court or docket id that happens to contain ``documents``
+    cannot make one object read as another kind.
+    """
+    return key.removeprefix(f"{casestore.case_prefix(case_id)}/")
+
+
 def census_slice(
     conn: ReadConnection,
     case_ids: Sequence[str],
@@ -390,16 +432,17 @@ def census_slice(
         row = corpus.get_row(conn, case_id)
         events = corpus.events_for_case(conn, case_id) if row is not None else []
         keys = _case_keys(objects, case_id)
+        within = [_within_case(key, case_id) for key in keys]
         cases.append(
             CaseCensus(
                 case_id=case_id,
                 present=row is not None,
                 events=len(events),
-                snapshots=sum(1 for key in keys if _SNAPSHOTS_SEGMENT in key),
+                snapshots=sum(1 for rest in within if rest.startswith(_SNAPSHOTS_SEGMENT)),
                 documents=sum(
                     1
-                    for key in keys
-                    if _DOCUMENTS_SEGMENT in key and not key.endswith(_DOCUMENTS_MANIFEST)
+                    for rest in within
+                    if rest.startswith(_DOCUMENTS_SEGMENT) and rest != _DOCUMENTS_MANIFEST
                 ),
                 objects=len(keys),
             )
@@ -449,6 +492,17 @@ def build_slice_blob(
     still says a body exists — it rides the row and dropping the body does not
     re-derive it — so the scope classifiers read the slice the way they read
     production.
+
+    **Two tables are deliberately left empty**: ``discovery_watermarks`` and
+    ``live_discovery_cursors``. Both are *ingestion* state — where the pull
+    governor and the Term walkers resume from — and the staging corpus exists
+    for the read and orchestration seams, which never consult them. Copying
+    them would be worse than useless: a slice carrying production's cursors
+    reads as a corpus already walked to a frontier it does not contain, so
+    anything that did consult them would draw a false conclusion instead of an
+    obviously empty one. An ingestion path exercised against the staging corpus
+    would need them seeded deliberately, which is a different feature from
+    this one.
     """
     rows: list[CorpusRow] = []
     events: list[CorpusEvent] = []
@@ -471,33 +525,70 @@ def build_slice_blob(
     return len(rows), len(events)
 
 
+@dataclass(frozen=True)
+class CopyCounts:
+    """What one object copy moved, skipped, and could not read."""
+
+    copied: int  # written at the destination (new bulk + every mutable manifest)
+    skipped: int  # write-once keys the destination already held
+    unreadable: int  # listed at the source but gone by the time it was read
+
+
+def _copy_order(keys: Sequence[str], case_id: str) -> list[str]:
+    """A case's keys with the documents manifest **last**.
+
+    The module's blob-before-pointer rule, one level down: the manifest is the
+    only object that *points at other keys*, so a copy interrupted part-way
+    must never leave one naming leaves the destination does not hold. Land the
+    leaves first and an interrupted case is merely incomplete — readable, and
+    completed by the next apply — instead of internally inconsistent.
+    """
+    return sorted(keys, key=lambda key: _within_case(key, case_id) == _DOCUMENTS_MANIFEST)
+
+
 def copy_case_objects(
     source: ObjectTransport, dest: ObjectTransport, case_ids: Sequence[str]
-) -> tuple[int, int]:
-    """Copy every content object under each case's prefix; ``(copied, present)``.
+) -> CopyCounts:
+    """Copy every content object under each case's prefix.
 
     A key-level copy, so the destination holds the writers' own bytes rather
     than a re-serialization: dated snapshots, content-addressed document
-    leaves, and the mutable manifests that point at them all arrive unchanged.
-    Keys the destination already holds are skipped, which is what makes a
-    re-run converge to no work — safe because the bulk objects are write-once
-    and content-addressed, and because a manifest only ever gains entries. A
-    key that lists but no longer reads is skipped rather than fatal: the
-    listing is a moment older than the read, and a slice missing one leaf is
-    worth more than a refused seed.
+    leaves, and the manifests that point at them all arrive unchanged.
+
+    **Two classes of key, copied on different rules**, because the store has
+    two kinds of object (see :mod:`fedcourtsai.casestore`):
+
+    * **write-once** — dated snapshots and content-addressed text leaves.
+      Skipped when the destination already holds the key, since that key can
+      only hold identical bytes. This is what makes a re-seed converge to no
+      work.
+    * **mutable** (:data:`_MUTABLE_KEYS`: ``case.json``, ``events.json``,
+      ``documents/documents.json``) — **always re-copied**. The writers
+      overwrite these in place, so an existing destination copy is evidence of
+      nothing: skip them and a re-seed leaves a manifest naming a superseded
+      petition while the new leaf sits unreachable beside it, and a
+      ``case.json`` still saying the case is undecided while the blob half —
+      rebuilt from scratch every apply — says denied. Re-copying is what keeps
+      the two halves of the staging corpus describing the same case.
+
+    A key that lists but no longer reads is counted and skipped rather than
+    fatal: the listing is a moment older than the read, and a slice missing one
+    leaf is worth more than a refused seed.
     """
-    copied = present = 0
+    copied = skipped = unreadable = 0
     for case_id in case_ids:
-        for key in _case_keys(source, case_id):
-            if dest.exists(key):
-                present += 1
+        for key in _copy_order(_case_keys(source, case_id), case_id):
+            mutable = _within_case(key, case_id) in _MUTABLE_KEYS
+            if not mutable and dest.exists(key):
+                skipped += 1
                 continue
             body = source.get(key)
             if body is None:
+                unreadable += 1
                 continue
             dest.put(key, body)
             copied += 1
-    return copied, present
+    return CopyCounts(copied=copied, skipped=skipped, unreadable=unreadable)
 
 
 # --- the operation ------------------------------------------------------------
@@ -511,8 +602,7 @@ class SeedResult:
     applied: bool
     rows: int
     events: int
-    objects_copied: int
-    objects_present: int
+    objects: CopyCounts
     blob_bytes: int
     pointer: IndexPointer | None
 
@@ -550,10 +640,18 @@ class SeedResult:
             lines.append("- nothing written — re-dispatch with `apply` to seed.")
             return "\n".join(lines) + "\n"
         lines += [
-            f"- copied **{self.objects_copied}** object(s) "
-            + f"({self.objects_present} already present)",
+            f"- copied **{self.objects.copied}** object(s) — every mutable manifest "
+            + f"plus any new write-once key; {self.objects.skipped} write-once key(s) "
+            + "the destination already held were skipped",
             f"- published a {self.blob_bytes}-byte index blob",
         ]
+        if self.objects.unreadable:
+            # Never silent: a listed key that would not read means the slice is
+            # missing content the census counted, which the next apply fixes.
+            lines.append(
+                f"- {self.objects.unreadable} listed object(s) could not be read and "
+                + "were left out — re-apply to pick them up"
+            )
         if self.pointer is not None:
             lines += [
                 "",
@@ -575,21 +673,30 @@ class SeedResult:
 def seed_slice(
     *,
     source_conn: ReadConnection,
+    source_objects: ObjectTransport,
     case_ids: Sequence[str],
     destination: Destination,
     settings: Settings,
     stage_db: Path,
-    source_objects: ObjectTransport | None = None,
     apply: bool = False,
     max_cases: int = DEFAULT_MAX_CASES,
 ) -> SeedResult:
     """Measure — and on ``apply``, seed — the staging corpus slice.
 
-    The safety rail runs first, before a single read: a destination naming
-    either production store is refused outright. Then the slice is bounded, the
-    census taken, and on an apply the content objects are copied before the
-    rebuilt index blob is published, so a reader resolving the new pointer
-    always finds the payloads its rows refer to.
+    Both rails run first, before a single read: a destination that is or is
+    inside either production store is refused, as is a working file that would
+    clobber the committed pointer. Then the slice is bounded, the census taken,
+    and on an apply the content objects are copied **before** the rebuilt index
+    blob is published — so a reader resolving the new pointer always finds the
+    payloads its rows refer to. The reverse order would publish an index
+    describing content that is not there yet, which is exactly the window a
+    failed or interrupted run leaves open.
+
+    ``source_objects`` is required rather than optional: the source store is
+    where a split-mode corpus keeps every payload, so a seed without one would
+    publish rows with nothing to provision from — a hollow staging corpus that
+    looks seeded. (:func:`census_slice` keeps it optional, because measuring a
+    blob-only source is a coherent thing to want.)
 
     ``stage_db`` is the runner-local working file the blob is built at; the
     published pointer is written beside it (:func:`upload_index`'s contract),
@@ -610,14 +717,11 @@ def seed_slice(
             applied=False,
             rows=0,
             events=0,
-            objects_copied=0,
-            objects_present=0,
+            objects=CopyCounts(copied=0, skipped=0, unreadable=0),
             blob_bytes=0,
             pointer=None,
         )
-    copied = present = 0
-    if source_objects is not None:
-        copied, present = copy_case_objects(source_objects, destination.object_transport(), kept)
+    objects = copy_case_objects(source_objects, destination.object_transport(), kept)
     rows, events = build_slice_blob(source_conn, kept, stage_db)
     pointer = upload_index(
         stage_db, destination.remote_url.strip(), transport=destination.blob_transport
@@ -627,8 +731,7 @@ def seed_slice(
         applied=True,
         rows=rows,
         events=events,
-        objects_copied=copied,
-        objects_present=present,
+        objects=objects,
         blob_bytes=stage_db.stat().st_size,
         pointer=pointer,
     )

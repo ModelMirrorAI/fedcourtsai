@@ -165,13 +165,17 @@ See *Infra-bound integration* in [testing.md](testing.md).
 the **staging corpus**, a lean slice of real cases in its own bucket/prefix
 pair (`fedcourts corpus-seed-slice`), so orchestration and the read/write seams
 get live end-to-end verification without anything gaining write access to the
-production corpus. Its own workflow file on the risk-class rule below: it is
-the only holder of the staging read-write role and the only binder of the
-`staging-corpus` environment. Dispatch-only and **dry-run by default** — the
-per-case census is the reading an apply is dispatched on, so the procedure is
-two dispatches — and the seeder refuses outright when a destination equals
-either configured production store. Provisioning the stores, the environment,
-and the role is the maintainer runbook in [security.md](security.md).
+production corpus. Its own workflow file on the risk-class rule below, like
+every other corpus writer: it is the only holder of the staging read-write role
+and the only binder of the `staging-corpus` environment. Dispatch-only, from
+the `staging` ref alone (the environment's branch policy, asserted again by the
+promotion gate and by the job's own first step), and **dry-run by default** —
+the per-case census is the reading an apply is dispatched on, so the procedure
+is two dispatches. What keeps it off production is IAM: the role is read-only
+there. The seeder's own rail is the second line, refusing any destination that
+is, or sits inside the bucket of, either configured production store.
+Provisioning the stores, the environment, and the role is the maintainer
+runbook in [security.md](security.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's

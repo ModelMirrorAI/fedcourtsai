@@ -7,13 +7,14 @@ corpus transports already expose — no boto3, no network — mirroring
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import casestore, corpus, corpus_ranged, corpus_seed
+from fedcourtsai import casestore, corpus, corpus_ranged, corpus_remote, corpus_seed
 from fedcourtsai.cli import app
 from fedcourtsai.config import Settings
 
@@ -120,6 +121,7 @@ def _seed(
     with corpus.connect(source_db) as conn:
         return corpus_seed.seed_slice(
             source_conn=conn,
+            source_objects=source_objects,
             case_ids=case_ids,
             destination=corpus_seed.Destination(
                 remote_url=STAGING_REMOTE,
@@ -129,7 +131,6 @@ def _seed(
             ),
             settings=_settings(),
             stage_db=tmp_path / "stage" / "staging-slice.db",
-            source_objects=source_objects,
             apply=apply,
             max_cases=max_cases,
         )
@@ -172,35 +173,50 @@ def test_an_empty_slice_is_refused() -> None:
 # --- the safety rail ----------------------------------------------------------
 
 
+# Each case pins the DISTINGUISHING message, not just "refusing to seed": the
+# rail has two branches — an exact-location match and the coarser
+# bucket-disjointness rule — and a test that accepted either would pass with
+# the exact-location branch deleted, since the bucket check subsumes every case
+# it catches.
+_EXACT = "names the configured production"
+_INSIDE = "is a prefix inside the production"
+
+
 @pytest.mark.parametrize(
-    ("dest_remote", "dest_casestore"),
+    ("dest_remote", "dest_casestore", "expected"),
     [
-        (PROD_REMOTE, STAGING_CASESTORE),
-        (STAGING_REMOTE, PROD_CASESTORE),
-        # Bucket/prefix case and a trailing slash must not defeat the
+        (PROD_REMOTE, STAGING_CASESTORE, _EXACT),
+        (STAGING_REMOTE, PROD_CASESTORE, _EXACT),
+        # Bucket/prefix case and a trailing slash must not defeat the exact
         # comparison. (An upper-cased *scheme* is refused a step earlier, as
         # malformed — the transports' parsers do not accept one either.)
-        (f"s3://{PROD_BUCKET.upper()}/CORPUS/", STAGING_CASESTORE),
-        # A destination that names the *other* production store is just as wrong.
-        (PROD_CASESTORE, STAGING_CASESTORE),
+        (f"s3://{PROD_BUCKET.upper()}/CORPUS/", STAGING_CASESTORE, _EXACT),
+        # A destination naming the *other* production store — the slots are
+        # not checked against their own counterpart only, so this is still an
+        # exact match and is diagnosed as one.
+        (PROD_CASESTORE, STAGING_CASESTORE, _EXACT),
         # A BARE production bucket in the content-store slot: the transport
-        # falls back to DEFAULT_PREFIX, so this resolves to the production
-        # store even though the URL string differs from the configured one.
-        (STAGING_REMOTE, f"s3://{PROD_BUCKET}"),
-        # A doubled slash: same location, different spelling.
-        (f"s3://{PROD_BUCKET}//corpus", STAGING_CASESTORE),
-        # A prefix *inside* the production bucket — the runbook's own
+        # falls back to DEFAULT_PREFIX, so this resolves to exactly the
+        # production store even though the URL string differs.
+        (STAGING_REMOTE, f"s3://{PROD_BUCKET}", _EXACT),
+        # A doubled slash: same location, different spelling — still exact.
+        (f"s3://{PROD_BUCKET}//corpus", STAGING_CASESTORE, _EXACT),
+        # Prefixes *inside* the production bucket — the runbook's own
         # separate-bucket invariant, enforced rather than merely stated.
-        (f"s3://{PROD_BUCKET}/corpus/staging-slice", STAGING_CASESTORE),
-        (STAGING_REMOTE, f"s3://{PROD_BUCKET}/somewhere/else"),
+        (f"s3://{PROD_BUCKET}/corpus/staging-slice", STAGING_CASESTORE, _INSIDE),
+        (STAGING_REMOTE, f"s3://{PROD_BUCKET}/somewhere/else", _INSIDE),
     ],
 )
-def test_a_production_destination_is_refused(dest_remote: str, dest_casestore: str) -> None:
-    with pytest.raises(corpus_seed.SeedSliceError, match="refusing to seed"):
+def test_a_production_destination_is_refused(
+    dest_remote: str, dest_casestore: str, expected: str
+) -> None:
+    with pytest.raises(corpus_seed.SeedSliceError) as caught:
         corpus_seed.assert_destination_is_not_production(
             corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore),
             settings=_settings(),
         )
+    assert "refusing to seed" in str(caught.value)
+    assert expected in str(caught.value)
 
 
 def test_a_staging_destination_is_allowed() -> None:
@@ -250,6 +266,7 @@ def test_the_rail_refuses_before_anything_is_read(
     with corpus.connect(source_db) as conn, pytest.raises(corpus_seed.SeedSliceError):
         corpus_seed.seed_slice(
             source_conn=conn,
+            source_objects=source_objects,
             case_ids=SLICE_CASES,
             destination=corpus_seed.Destination(
                 remote_url=PROD_REMOTE,
@@ -259,7 +276,6 @@ def test_the_rail_refuses_before_anything_is_read(
             ),
             settings=_settings(),
             stage_db=tmp_path / "stage" / "staging-slice.db",
-            source_objects=source_objects,
             apply=True,
         )
     assert dest_objects.objects == {}
@@ -390,8 +406,8 @@ def test_apply_seeds_rows_events_and_objects(
 
     assert result.applied
     assert (result.rows, result.events) == (2, 3)
-    assert result.objects_copied == 12
-    assert result.objects_present == 0
+    assert result.objects.copied == 12
+    assert (result.objects.skipped, result.objects.unreadable) == (0, 0)
 
     # The blob half: only the slice's rows and events, opinion body stripped,
     # and no payload rows at all — split-on parity whatever the seeding mode.
@@ -464,13 +480,147 @@ def test_a_second_apply_converges(
         apply=True,
     )
 
-    # Every object was already present, so nothing was re-copied…
-    assert second.objects_copied == 0
-    assert second.objects_present == first.objects_copied
+    # The write-once keys were already present, so only the three mutable
+    # manifests per case were re-copied — and the bytes are identical, so the
+    # destination is unchanged either way.
+    mutable_per_case = len(corpus_seed._MUTABLE_KEYS)
+    assert second.objects.copied == mutable_per_case * len(SLICE_CASES)
+    assert second.objects.skipped == first.objects.copied - second.objects.copied
+    assert second.objects.unreadable == 0
     assert dest_objects.objects == objects_after_first
     # …and the content-addressed blob key is unchanged, so no re-upload either.
     assert second.pointer == first.pointer
     assert blob_transport.uploads == 1
+
+
+def test_a_re_seed_refreshes_the_mutable_manifests(
+    source_db: Path,
+    source_objects: casestore.InMemoryObjectTransport,
+    tmp_path: Path,
+) -> None:
+    """The three overwrite-in-place keys must track the source, or the two halves
+    of the staging corpus describe different cases.
+
+    Skipping them on the second apply leaves a manifest naming a superseded
+    petition (with the new leaf sitting unreachable beside it) and a `case.json`
+    still saying the case is undecided — while the blob half, rebuilt from
+    scratch every apply, says denied.
+    """
+    dest_objects = casestore.InMemoryObjectTransport()
+    blob_transport = InMemoryFileTransport()
+    case_id = SLICE_CASES[0]
+    _seed(
+        source_db,
+        source_objects,
+        tmp_path,
+        dest_objects=dest_objects,
+        blob_transport=blob_transport,
+        apply=True,
+    )
+
+    # The case moves on at the source, exactly as a re-ingest would move it: a
+    # superseding petition (a NEW content-addressed leaf plus a rewritten
+    # manifest), a rewritten case.json, and a rewritten events.json.
+    superseded = corpus.CaseDocument(
+        case_id=case_id,
+        kind="petition",
+        url="https://sc.gov/petition-v2.pdf",
+        fetched_at=date(2026, 8, 1),
+        text=f"superseding petition text for {case_id}",
+    )
+    casestore.merge_documents(source_objects, case_id, [superseded])
+    casestore.write_case(source_objects, _row(case_id, disposition="denied"))
+    casestore.write_events(
+        source_objects, case_id, [_event(case_id), _event(case_id, "evt-order-judgment")]
+    )
+    with corpus.connect(source_db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id, disposition="denied")])
+
+    second = _seed(
+        source_db,
+        source_objects,
+        tmp_path,
+        dest_objects=dest_objects,
+        blob_transport=blob_transport,
+        apply=True,
+    )
+
+    # Every mutable key tracked the source, byte for byte.
+    for mutable in corpus_seed._MUTABLE_KEYS:
+        key = f"{case_id}/{mutable}"
+        assert dest_objects.objects[key] == source_objects.objects[key], key
+    # The manifest names the new leaf, and that leaf is actually present.
+    manifest = json.loads(dest_objects.objects[f"{case_id}/documents/documents.json"])
+    text_key = manifest["documents"][0]["text_key"]
+    assert "petition-v2" not in text_key  # keys are content-addressed, not named
+    assert dest_objects.objects[text_key].decode() == superseded.text
+    # And case.json agrees with the blob half about the disposition.
+    assert json.loads(dest_objects.objects[f"{case_id}/case.json"])["disposition"] == "denied"
+    with corpus.connect(tmp_path / "stage" / "staging-slice.db") as conn:
+        seeded = corpus.get_row(conn, case_id)
+        assert seeded is not None
+        assert seeded.disposition == "denied"
+    # The new leaf is a new key, so it counts as a copy on top of the mutables.
+    assert second.objects.copied == corpus_seed._MUTABLE_KEYS.__len__() * len(SLICE_CASES) + 1
+
+
+def test_a_case_copies_its_documents_manifest_last(
+    source_db: Path,
+    source_objects: casestore.InMemoryObjectTransport,
+    tmp_path: Path,
+) -> None:
+    """An interrupted copy must not leave a manifest naming absent leaves."""
+    order: list[str] = []
+
+    class RecordingTransport(casestore.InMemoryObjectTransport):
+        def put(self, key: str, body: bytes, *, if_absent: bool = False) -> None:
+            order.append(key)
+            super().put(key, body, if_absent=if_absent)
+
+    dest_objects = RecordingTransport()
+    _seed(
+        source_db,
+        source_objects,
+        tmp_path,
+        dest_objects=dest_objects,
+        blob_transport=InMemoryFileTransport(),
+        apply=True,
+    )
+    for case_id in SLICE_CASES:
+        case_keys = [key for key in order if key.startswith(f"{case_id}/")]
+        assert case_keys[-1] == f"{case_id}/documents/documents.json", case_keys
+
+
+def test_objects_land_before_the_blob_is_published(
+    source_db: Path,
+    source_objects: casestore.InMemoryObjectTransport,
+    tmp_path: Path,
+) -> None:
+    """A reader resolving the new pointer must always find the payloads.
+
+    Pinned by making the blob publish fail: the objects must already be at the
+    destination when it does, or the ordering has silently reversed.
+    """
+
+    class FailingBlobTransport(InMemoryFileTransport):
+        def upload(self, key: str, source: Path) -> None:
+            raise corpus_remote.CorpusRemoteError("upload refused")
+
+    dest_objects = casestore.InMemoryObjectTransport()
+    with pytest.raises(corpus_remote.CorpusRemoteError):
+        _seed(
+            source_db,
+            source_objects,
+            tmp_path,
+            dest_objects=dest_objects,
+            blob_transport=FailingBlobTransport(),
+            apply=True,
+        )
+    # The store is ahead of the index — the safe direction, and the state the
+    # next apply completes.
+    assert dest_objects.objects
+    for case_id in SLICE_CASES:
+        assert f"{case_id}/case.json" in dest_objects.objects
 
 
 def test_the_production_content_store_is_never_mirrored_to(
@@ -505,11 +655,12 @@ def test_the_production_content_store_is_never_mirrored_to(
 def test_the_mirror_override_restores_the_unbuilt_state() -> None:
     """A borrowed seam must not force a lazy build the process would have skipped."""
     casestore.reset_active_transport()
+    assert not casestore.transport_is_built()
     with casestore.transport_override(None):
         pass
     # Still unbuilt: `transport_override` restored "not built yet", so the next
     # access is the lazy build it always would have been.
-    assert "transport" not in casestore._ACTIVE
+    assert not casestore.transport_is_built()
 
 
 # --- the rendering ------------------------------------------------------------

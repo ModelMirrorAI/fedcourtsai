@@ -270,6 +270,16 @@ def reset_active_transport() -> None:
     _ACTIVE.clear()
 
 
+def transport_is_built() -> bool:
+    """Whether the process transport has been resolved yet (never builds one).
+
+    The read-only question :func:`active_transport` cannot answer without
+    answering it — asking it would itself build the transport. Exists so a
+    caller (or a test) can assert on the *unbuilt* state without reaching into
+    this module's cache."""
+    return "transport" in _ACTIVE
+
+
 @contextmanager
 def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
     """Run a block with the process transport forced to ``transport``.

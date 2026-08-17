@@ -659,6 +659,18 @@ step refuses):
    by repository write access plus that branch policy. Add one here if you
    weigh it differently, and revisit the moment anything committed comes to
    depend on the staging corpus.
+   Because this policy is the load-bearing part — and because GitHub
+   auto-creates a referenced environment **unprotected**, so getting it wrong
+   fails open — two other places assert it rather than trusting it. The
+   **promotion gate**'s `contexts` stage reads the environment's
+   deployment-branch policy and fails the promotion unless it names `staging`
+   (the same shape as its `predict-approval` reviewer check, skipped until
+   main's workflows reference the environment); and the **workflow itself**
+   refuses a dispatch whose ref is not `staging` in its first step, so the lane
+   never rests solely on a setting the job cannot read. Neither replaces the
+   policy: a job that binds the environment has already been let in by it, and
+   the in-job check runs after that. They exist so a *misprovisioned*
+   environment is loud instead of silent.
 3. **Create the staging read-write role**, assumed via OIDC (no static keys),
    with two halves and no third: **read + list on the production stores** (what
    the seeder reads its slice from — the same access the read-only role already

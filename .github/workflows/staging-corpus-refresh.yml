@@ -6,11 +6,21 @@ name: staging-corpus-refresh
 # to the production corpus. `fedcourts corpus-seed-slice` does the work; this
 # workflow is the only place its write half can run.
 #
-# Its own workflow file rather than a job on run-analytics or run-seed, on the
-# risk-class rule in AGENTS.md: it is the single holder of a role no other
-# workflow assumes (the staging read-write role) and the single binder of the
-# `staging-corpus` environment. Folding it into a corpus-consuming workflow
-# would put a write-capable role beside jobs that must never hold one.
+# Its own workflow file rather than a mode on an existing one, on AGENTS.md's
+# risk-class rule: this is a **corpus writer**, and every other corpus writer
+# (run-pull, run-seed) is its own workflow for the same reason — a job holding
+# a write-capable role and a job holding a read-only one are different risk
+# classes, and permissions are scoped per job. It is also the only binder of
+# the `staging-corpus` environment and the only assumer of its role, so its
+# whole permission surface is one file to read.
+#
+# It does not reuse the `corpus-readonly` / `corpus-ranged` composites for the
+# credential step, deliberately: those exist to hand a job the PRODUCTION
+# read-only role, which is the opposite posture from this one, and teaching
+# them a second role would put a write-capable path inside composites that
+# every consumer job calls. The cost is one duplicated `configure-aws-credentials`
+# block whose action pin can drift from theirs — accepted, and cheap to notice,
+# because `lint-actions` reads every workflow's pins together.
 #
 # **Dispatch-only, and dry-run by default.** The dry run's census — rows,
 # events, snapshots, documents, and content-store objects per named case — is
@@ -99,6 +109,24 @@ jobs:
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       FEDCOURTS_CORPUS_BACKEND: ranged
     steps:
+      # The environment's deployment-branch policy is the real gate — a
+      # dispatch from any other ref is refused before a step runs — but that
+      # policy is a repository setting this workflow cannot see, and a
+      # misprovisioned environment fails OPEN (GitHub auto-creates a referenced
+      # environment unprotected). So state the requirement in the job too: it
+      # costs one step, it is the same assertion the promotion gate makes from
+      # the outside, and it means the lane never rests solely on a setting
+      # nobody can read from here. Belt and braces, in that order.
+      - name: Refuse a dispatch from anything but the staging branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "${REF_NAME}" != "staging" ]; then
+            echo "::error::staging-corpus-refresh runs only from the 'staging' ref (dispatched from '${REF_NAME}'). The staging-corpus environment's deployment branches should already refuse this — if this message is what stopped the run, the environment's branch policy needs checking too (docs/security.md)."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -118,10 +146,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           action-timeout-s: 120
 
-      # Dry run first, into the step summary — the census is the reading an
-      # apply is dispatched on, and it must outlive the step log either way —
-      # then the apply, only on the explicit input. (On an apply the dry run is
-      # a receipt, not a reading: nobody reads it before the write.)
+      # One invocation, in the mode the input names. An apply is NOT preceded
+      # by a separate dry run: the apply path takes the same census first and
+      # renders it, so a second pass would only duplicate the table and close
+      # it with the dry run's "re-dispatch with `apply`" line — advice the run
+      # has already acted on, and misleading in a summary a maintainer reads
+      # later as the record of what happened.
       - name: Seed the staging corpus slice
         env:
           # The dispatch inputs pass through the environment, never
@@ -134,17 +164,20 @@ jobs:
           DEST_CASESTORE: ${{ vars.STAGING_CASESTORE_URL }}
         run: |
           set -euo pipefail
-          printf '%s\n' "${DOCKETS}" > dockets.txt
+          # Runner-local scratch, not the checkout: the docket list is input,
+          # not source, and nothing here should be able to dirty the tree.
+          dockets_file="${RUNNER_TEMP}/dockets.txt"
+          printf '%s\n' "${DOCKETS}" > "$dockets_file"
           seed() {
             uv run fedcourts corpus-seed-slice \
-              --dockets-file dockets.txt \
+              --dockets-file "$dockets_file" \
               --dest-remote "${DEST_REMOTE}" \
               --dest-casestore "${DEST_CASESTORE}" \
               --summary-out "$GITHUB_STEP_SUMMARY" \
               "$@"
           }
-          seed
           if [ "${APPLY}" != "true" ]; then
+            seed
             echo "dry run only; nothing written."
             exit 0
           fi

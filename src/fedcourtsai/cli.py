@@ -2059,11 +2059,11 @@ def corpus_seed_slice(
         with corpus.connect_readonly(db_path) as conn:
             result = corpus_seed.seed_slice(
                 source_conn=conn,
+                source_objects=source_objects,
                 case_ids=case_ids,
                 destination=destination,
                 settings=settings,
                 stage_db=staged,
-                source_objects=source_objects,
                 apply=apply,
                 max_cases=max_cases,
             )
@@ -2072,9 +2072,14 @@ def corpus_seed_slice(
         casestore.CasestoreError,
         corpus_remote.CorpusRemoteError,
         corpus_ranged.RangedBackendError,
+        # `connect_readonly` rejects the casestore and service backends with a
+        # bare ValueError — a backend setting this command cannot serve. Caught
+        # here so it lands in the same one-line message as every other refusal
+        # rather than as a traceback.
+        ValueError,
     ) as exc:
         typer.echo(f"corpus-seed-slice: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+        raise typer.Exit(code=2) from exc
     markdown = result.render_markdown()
     if summary_out is not None:
         with summary_out.open("a", encoding="utf-8") as fh:
