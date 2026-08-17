@@ -265,6 +265,29 @@ contexts() {
     ${required[@]+"${required[@]}"} ${candidates[@]+"${candidates[@]}"}; then
     fail=1
   fi
+
+  # The predict-approval hold is only a gate while the environment carries
+  # required reviewers: GitHub auto-creates a referenced environment
+  # unprotected, and an unprotected hold releases instantly with no signal
+  # that it did not gate. Enforced here — the same admin-read stage that
+  # verifies the rulesets — from the moment main's workflows reference the
+  # environment; before that the check reports itself skipped.
+  if grep -rq "predict-approval" "$main_workflows"; then
+    local protections
+    protections="$(gh api "repos/${REPO}/environments/predict-approval" \
+      --jq '[.protection_rules[]?.type] | join(",")' 2>/dev/null || true)"
+    case "$protections" in
+      *required_reviewers*)
+        echo "contexts: predict-approval carries required reviewers"
+        ;;
+      *)
+        echo "::error::contexts: the predict-approval environment has no required reviewers — the spend hold is inert; configure the environment before promoting anything that relies on it"
+        fail=1
+        ;;
+    esac
+  else
+    echo "contexts: predict-approval not yet referenced on main; environment check skipped"
+  fi
 }
 
 case "${1:-}" in

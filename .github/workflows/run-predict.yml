@@ -190,6 +190,10 @@ jobs:
             --stranded-file stranded-artifacts.json \
             --stranded-note-file stranded-close.md)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          # The report step re-derives the plan under this same id: the run id
+          # is the join key between the approval record and the committed
+          # prediction paths, so the two invocations must not mint their own.
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           count=$(echo "$matrix" | jq '.include | length')
           if [ "$count" -gt 0 ]; then
             echo "has_jobs=true" >> "$GITHUB_OUTPUT"
@@ -240,6 +244,7 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
         run: |
           set -euo pipefail
           # The report body is rendered by the tested command (bounded by
@@ -248,6 +253,7 @@ jobs:
           # summary, the durable sibling of the comment.
           plan_json=$(uv run fedcourts predict-plan --body-file issue-body.md \
             --stranded-file stranded-artifacts.json \
+            --run-id "$PLAN_RUN_ID" \
             --approval-report plan-report.md \
             --approval-report-run-url "$RUN_URL" 2>plan-stderr.txt) \
             || { cat plan-stderr.txt; exit 1; }
@@ -262,19 +268,11 @@ jobs:
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
           # The report must exist where the approver reads before the hold
-          # releases; a transient API fault retries, a sustained one fails the
-          # plan job loudly and nothing spends. A retry after a lost response
-          # (or a re-run of this job) can duplicate the comment — harmless, the
-          # newest one is the plan.
-          retry() {
-            local attempt
-            for attempt in 1 2 3; do
-              if "$@"; then return 0; fi
-              if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
-            done
-            return 1
-          }
-          retry gh issue comment "$ISSUE" --repo "$REPO" --body-file plan-report.md
+          # releases: the marker-deduped comment command posts exactly once
+          # per run and makes a plan-job re-run safe, and a sustained API
+          # fault fails the plan job loudly, so nothing spends unreported.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- predict-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
 
   # The hold. This job carries no code, no token, and no permissions — its one
   # purpose is the deployment environment: `predict-approval`'s required
@@ -319,7 +317,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold did not release — rejected, cancelled, expired, or the plan failed after posting — so no cell ran and nothing was spent. The plan report above is the record of what was declined: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
 
   predict:
     needs: [plan, approval]

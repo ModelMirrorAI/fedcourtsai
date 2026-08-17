@@ -648,12 +648,19 @@ reviewer approving the `predict-approval` deployment in the Actions UI. A run
 sitting in *Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
-plan. Approve one held run at a time: two simultaneously held plans over
-overlapping open events were each minted before the other spent, so releasing
-both double-spends the overlap — the plan reports on the two issues make the
-overlap visible before either release. Like `promote`, a rejected hold is an
-unsatisfied-gate report, not an incident, when it appears in run history or
-the ops dashboard's failure counts.
+plan. Approve one held run at a time, and treat a hold older than a day as a
+stale plan to reject and re-queue rather than release: the already-predicted
+gate and the stranded-run guard were both evaluated at plan time, so a long
+hold un-anchors them — two simultaneously held plans over overlapping open
+events were each minted before the other spent, and releasing both
+double-spends the overlap. The plan reports on the two issues make the
+overlap visible before either release; a mechanical post-release re-check
+belongs to the auto-release follow-up, where no human reads the reports. A
+rejected hold is an unsatisfied-gate report, not an incident — but unlike
+`promote`, whose failures the ops dashboard annotates as gate reports, the
+dashboard cannot distinguish a rejected hold from a real run-predict failure,
+so a depressed run-predict success rate during shakedown reads against this
+note rather than against the fleet.
 
 A predict cell refuses to run for two reasons, both landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP

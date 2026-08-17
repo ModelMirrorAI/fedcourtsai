@@ -70,12 +70,21 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     """Anything else that diverges is drift the composite was meant to end."""
     predict, evaluate = (_collect_job(w) for w in FAN_OUTS)
 
-    # The matrix job each waits on is legitimately per-workflow. Pop outside the
+    # The matrix job each waits on is legitimately per-workflow, and predict
+    # alone carries the approval hold between plan and spend. Pop outside the
     # assert: a mutating expression inside one vanishes under `python -O`.
     predict_needs = predict.pop("needs")
     evaluate_needs = evaluate.pop("needs")
-    assert predict_needs == ["plan", "predict"]
+    assert predict_needs == ["plan", "approval", "predict"]
     assert evaluate_needs == ["plan", "evaluate"]
+
+    # Predict's collect must not fire on a hold that never released; evaluate
+    # is ungated by decision. The clause is the one sanctioned divergence in
+    # the `if:` — strip exactly it, then the conditions must agree too.
+    predict_if = predict.pop("if")
+    evaluate_if = evaluate.pop("if")
+    assert "needs.approval.result == 'success'" in predict_if
+    assert predict_if.replace(" && needs.approval.result == 'success'", "") == evaluate_if
 
     # The delegating step differs only in `role`; normalize it out, then the two
     # jobs must be byte-equal — setup steps, permissions, timeout, everything.
@@ -290,13 +299,19 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
 def test_the_trigger_issue_reports_are_marker_deduped() -> None:
     """Both reports are posted by steps that rerun with the job, so a plain
     comment would stack one copy per recovery attempt."""
+    # run-predict carries a third marker-deduped poster: the plan-and-hold
+    # approval report, keyed on the fan-out's own run id.
+    expected = {"run-predict.yml": 3, "run-evaluate.yml": 2}
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        assert body.count("post-issue-comment") == 2, f"{workflow}: stall and secret-scan"
+        assert body.count("post-issue-comment") == expected[workflow], (
+            f"{workflow}: every trigger-issue report posts through the deduped command"
+        )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
+    assert "<!-- predict-plan: ${PLAN_RUN_ID} -->" in (WORKFLOWS / "run-predict.yml").read_text()
 
 
 def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:

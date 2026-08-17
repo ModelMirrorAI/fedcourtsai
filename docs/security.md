@@ -285,7 +285,9 @@ secret-carrying name that dodges the keyword list (and a value that is not one o
 the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
-**Deployment branches are restricted to `main`.** A job can read the environment's
+**Deployment branches are restricted to `main`** — on `prod` (and to `staging`
+on the `staging` environment); `predict-approval` deliberately carries no branch
+policy, since it holds nothing a branch could take. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
