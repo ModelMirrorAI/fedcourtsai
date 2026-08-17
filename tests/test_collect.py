@@ -648,12 +648,17 @@ def test_a_starved_run_says_so_in_its_pr_body_and_a_clean_one_stays_quiet() -> N
         FinalizeRole.predict,
         run_id="R",
         cells=[_cell("claude-baseline")],
-        throttle=ThrottleRollup(cells=4, throttled_cells=2, calls=120, throttled_calls=17),
+        throttle=ThrottleRollup(
+            cells=4, throttled_cells=2, calls=120, throttled_calls=17, blind_cells=3
+        ),
     )
     assert starved.ready is not None
     assert "Retrieval was throttled this run" in starved.ready.body
     assert "17 of 120" in starved.ready.body
-    assert "2 of 4 cell log(s)" in starved.ready.body
+    # The cells clause carries its own qualifier: the denominator is the logs
+    # that could have shown a throttle, and the rest are named, not dropped.
+    assert "2 of 4 cell log(s) whose results were legible" in starved.ready.body
+    assert "3 further cell(s) captured no result" in starved.ready.body
     assert starved.throttle_markdown
 
     clean = collect_plan(
@@ -665,8 +670,35 @@ def test_a_starved_run_says_so_in_its_pr_body_and_a_clean_one_stays_quiet() -> N
     assert clean.ready is not None
     assert "throttled" not in clean.ready.body
     assert clean.throttle_markdown == ""
-    # And a run whose cells were all capture-blind has nothing to report either.
+    # No logs at all is not a claim about anything.
     assert render_throttle_note(None) == ""
+    assert render_throttle_note(ThrottleRollup()) == ""
+
+
+def test_a_run_no_cell_could_observe_says_so_rather_than_reading_as_clean() -> None:
+    # Silence here would be read as "nothing was throttled", which is the
+    # reading the marker exists to make impossible: every one of these cells
+    # captured no manifest-tool result condition, so none of them could have
+    # shown a throttle.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("gemini-baseline")],
+        throttle=ThrottleRollup(blind_cells=6),
+    )
+    assert plan.ready is not None
+    assert "Retrieval throttling was not observable this run" in plan.ready.body
+    assert "none of 6 cell log(s)" in plan.ready.body
+    assert "Capture-blind, not throttle-free" in plan.ready.body
+    # A run with even one legible cell and no throttle is a real clean run and
+    # stays quiet, blind cells beside it or not.
+    mixed = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        throttle=ThrottleRollup(cells=1, calls=8, blind_cells=6),
+    )
+    assert mixed.throttle_markdown == ""
 
 
 def test_the_throttle_note_reaches_a_draft_only_run_and_a_wholesale_failed_one() -> None:

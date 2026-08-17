@@ -44,16 +44,19 @@ and its dead-end rows are withheld rather than printed as 100%. Gated on the MCP
 subset rather than on any call, because a builtin whose output pairs cleanly
 says nothing about whether the manifest tools' results reach the transcript.
 
-**Was the cell starved?** Where a result *was* captured, its ``result_status``
-says what came back, and ``throttled`` is the state that changes how the cell
-should be read: the shared upstream quota turned the call away, so it retrieved
-nothing and its cell is not comparable with a well-fed one. Reported per engine
-as a count over the calls whose condition was legible — never over every call,
-since an engine whose results never reach the transcript would otherwise post a
-clean 0% off a transcript that could not have shown a throttle. Every figure is
-a floor: the parse-time predicate is anchored on the server's own rate-limit
-phrasing and biased to miss rather than invent, and calls a starved cell gave up
-on making leave no row at all.
+**Was the cell starved?** Where a **manifest-tool** result was captured, its
+``result_status`` says what came back, and ``throttled`` is the state that
+changes how the cell should be read: the shared upstream quota turned the call
+away, so it retrieved nothing and its cell is not comparable with a well-fed
+one. Reported per engine as a count over the MCP calls whose condition was
+legible — never over every call, since builtins cannot be throttled by this
+quota and an engine whose results never reach the transcript would otherwise
+post a clean 0% off a transcript that could not have shown a throttle. Every
+figure is a floor: the parse-time predicate is anchored on the server's own
+rate-limit phrasing and biased to miss rather than invent, and calls a starved
+cell gave up on making leave no row at all. The cut is **descriptive of which
+cells were unlucky, not a comparison between engines** — one bucket is consumed
+run-wide, so a row measures ordering within the run.
 
 **What did the calling cost?** Each log's sibling ``usage.json`` carries the
 cell's estimated cost, so calls-per-cell and dollars-per-cell come from the same
@@ -71,7 +74,6 @@ pooled coefficient at any n.
 
 from __future__ import annotations
 
-import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -98,6 +100,7 @@ from .schemas import (
     ToolUsefulnessCorrelation,
     ToolUsefulnessSegment,
     UsageRole,
+    normalize_call,
 )
 from .serialize import read_model
 
@@ -132,12 +135,6 @@ _SCATTER_ROWS_MAX = 40
 # happens to dominate today would make the cut agree with itself.
 _UNKNOWN = "unknown"
 
-# An MCP tool call as the engines spell it: `mcp` then the server and tool,
-# separated by either one or two underscores depending on the engine. The tool
-# half may itself contain single underscores (`get_endpoint_schema`), so the
-# separator is matched greedily-left and the remainder taken whole.
-_MCP_CALL = re.compile(r"^mcp_{1,2}(?P<server>[a-z0-9]+)_{1,2}(?P<tool>.+)$")
-
 # The engines' open-web tools, by their own names: claude-code's `WebSearch` /
 # `WebFetch`, gemini's `google_web_search` / `web_fetch`, and codex's hosted
 # `web_search_call`, which the rollout names by payload type rather than by a
@@ -152,20 +149,6 @@ _WEB_TOOLS = frozenset(
 def is_web_tool(tool: str) -> bool:
     """Whether a call is to the open web rather than the corpus or the MCP."""
     return tool in _WEB_TOOLS
-
-
-def normalize_call(tool: str) -> str | None:
-    """An MCP call name as ``<server>.<tool>``, or ``None`` if it is not one.
-
-    Engine built-ins (``Bash``, ``run_shell_command``, ``Read``, ``write_file``)
-    return ``None``: they are real tool use but they are not what the manifest
-    offers, so they are counted separately rather than mixed into the offered
-    denominator.
-    """
-    match = _MCP_CALL.match(tool)
-    if match is None:
-        return None
-    return f"{match['server']}.{match['tool']}"
 
 
 @dataclass(frozen=True)
@@ -512,10 +495,14 @@ def _engine_profiles(
                 calls=calls,
                 calls_with_result=with_result,
                 result_observability_rate=round(with_result / calls, 4) if calls else None,
+                mcp_calls=sum(cell.mcp_calls for cell in rows),
                 mcp_calls_with_result=mcp_with_result,
                 captures_results=mcp_with_result > 0,
                 mcp_calls_with_status=with_status,
-                mcp_throttled_calls=throttled,
+                # Both null together where nothing was legible: a count of
+                # throttles in a transcript that could not record one is no more
+                # a fact than the rate would be.
+                mcp_throttled_calls=throttled if with_status else None,
                 mcp_throttle_rate=round(throttled / with_status, 4) if with_status else None,
                 mean_calls_per_cell=round(fmean(cell.calls for cell in rows), 3),
                 median_calls_per_cell=round(median(cell.calls for cell in rows), 3),
@@ -890,45 +877,71 @@ def _render_observability(usage: ToolUsage) -> list[str]:
     return lines + _render_throttling(usage)
 
 
+def _throttle_cell(profile: ToolUsageEngine) -> str:
+    """One engine's throttle figure, carrying its own reason for being empty.
+
+    Three distinguishable states, each said in the cell rather than in a note
+    below it, because the number is what gets copied out of a report: a real
+    ratio, *capture-blind* (MCP calls were made and no result condition came
+    back), and *no MCP calls* (nothing to be throttled). A bare ``0/0 (—)``
+    collapses the last two into each other and reads as neither.
+    """
+    if profile.mcp_calls_with_status:
+        return (
+            f"`{profile.engine}` {profile.mcp_throttled_calls}/{profile.mcp_calls_with_status} "
+            f"({_rate(profile.mcp_throttle_rate)})"
+        )
+    if profile.mcp_calls:
+        return f"`{profile.engine}` — (capture-blind)"
+    return f"`{profile.engine}` — (no MCP calls)"
+
+
 def _render_throttling(usage: ToolUsage) -> list[str]:
     """How often the upstream quota turned an MCP call away, per engine.
 
     Rendered whenever there are engines to report, zeros included: the reader
     of a retrieval count needs to know a throttle was looked for and not found,
-    which a line that appears only on bad news cannot tell them. The
-    capture-blind engines are named *here*, beside the number, rather than left
-    to a docstring — an em dash in a column is exactly the shape a reader
-    rounds to zero.
+    which a line that appears only on bad news cannot tell them. Every reason a
+    figure is empty is named in the figure itself (:func:`_throttle_cell`) —
+    an em dash in a row of rates is exactly the shape a reader rounds to zero.
     """
     if not usage.engine_profiles:
         return []
-    rows = ", ".join(
-        f"`{p.engine}` {p.mcp_throttled_calls}/{p.mcp_calls_with_status} "
-        f"({_rate(p.mcp_throttle_rate)})"
-        for p in usage.engine_profiles
-    )
+    rows = ", ".join(_throttle_cell(profile) for profile in usage.engine_profiles)
     lines = [
         "",
         "## Upstream throttling",
         "",
-        f"Throttled MCP results, over the calls whose result condition was legible: {rows}.",
+        f"Throttled MCP results, over the manifest-tool calls whose result condition was "
+        f"legible: {rows}.",
         "",
         "_A throttled call is the shared daily quota turning the cell away — it retrieved "
         + "nothing, so a starved cell's coverage is not comparable with a well-fed one's. "
         + "Every count here is a **floor**: the parse-time predicate is anchored on the "
         + "server's own rate-limit phrasing and biased to miss a throttle rather than "
-        + "invent one, and calls the cell gave up on making are not in the ledger at all._",
+        + "invent one, it is read only from manifest-tool results (a builtin echoing prose "
+        + "about rate limits is not this cell being refused), and calls the cell gave up on "
+        + "making are not in the ledger at all._",
+        "",
+        "_**The per-engine cut is descriptive, not a comparison.** The quota is one bucket "
+        + "every cell of a run draws from, so which engine's cells meet the wall is a fact "
+        + "about ordering and concurrency within the run — who called first, who was still "
+        + "running when the budget ran out — not about the engine. Read a row as *these "
+        + "cells were unlucky*; do not rank engines on it, difference two of them, or carry "
+        + "a rate into any cross-engine claim._",
     ]
-    unseeable = [p.engine for p in usage.engine_profiles if p.calls and not p.mcp_calls_with_status]
-    if unseeable:
+    blind = [p.engine for p in usage.engine_profiles if p.mcp_calls and not p.mcp_calls_with_status]
+    if blind:
         lines += [
             "",
-            f"**{', '.join(unseeable)}**: no MCP result condition was legible at all, so the "
-            + "denominator is 0 and the rate is an em dash rather than 0%. Read that as "
-            + "**capture-blind, not throttle-free** — Gemini's telemetry logs no result "
-            + "payload by construction, and a log written before the per-call condition "
-            + "marker existed carries none either. These engines cannot be observed being "
-            + "starved, so they cannot supply evidence that they were not.",
+            f"**{', '.join(blind)}**: made MCP calls and not one of their result conditions "
+            + "was legible, so there is no denominator and the figure is an em dash rather "
+            + "than 0%. Read that as **capture-blind, not throttle-free** — Gemini's "
+            + "telemetry logs no result payload by construction, and a log written before "
+            + "the per-call condition marker existed carries none either. These engines "
+            + "cannot be observed being starved, so they cannot supply evidence that they "
+            + "were not. An engine marked *no MCP calls* is a different thing again: "
+            + "nothing it did could have been throttled.",
         ]
     return lines
 

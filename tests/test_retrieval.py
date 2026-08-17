@@ -20,8 +20,7 @@ from fedcourtsai.retrieval import (
     parse_codex_retrieval,
     parse_gemini_retrieval,
 )
-from fedcourtsai.schemas import RetrievalCall, RetrievalLog
-from fedcourtsai.tool_usage import normalize_call
+from fedcourtsai.schemas import RetrievalCall, RetrievalLog, normalize_call
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -1074,11 +1073,47 @@ def _claude_result_transcript(payload: object, *, is_error: bool = False) -> lis
     ]
 
 
-def _claude_status(tmp_path: Path, payload: object, *, is_error: bool = False) -> RetrievalCall:
+def _claude_status(
+    tmp_path: Path,
+    payload: object,
+    *,
+    is_error: bool = False,
+    tool: str = "mcp__courtlistener__search",
+) -> RetrievalCall:
     path = tmp_path / "execution.json"
-    path.write_text(json.dumps(_claude_result_transcript(payload, is_error=is_error)))
+    transcript = _claude_result_transcript(payload, is_error=is_error)
+    transcript[0]["message"]["content"][0]["name"] = tool  # type: ignore[index]
+    path.write_text(json.dumps(transcript))
     (call,) = parse_claude_retrieval(path)
     return call
+
+
+# The pinned MCP release's own throttle renderings, quoted from
+# `courtlistener/mcp/middleware.py` (the 429 branch of `on_call_tool`, whose
+# `{exc}` is `CourtListenerAPIError.__str__` -> `HTTP 429: <detail>`) and
+# `courtlistener/mcp/tools/citation_utils.py::format_rate_limit_note`.
+_PINNED_RELEASE_THROTTLE_STRINGS = [
+    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. For higher "
+    + "rate limits, you can upgrade your membership at "
+    + "https://donate.free.law/forms/membership",
+    "Rate limited by the upstream API. Call `resume_citation_analysis` to retry; set "
+    + "`wait=true` to have the server sleep through the rate-limit window.",
+    "Rate limited by the upstream API (retry in ~41s, "
+    + "wait_until=2026-07-10T12:05:00+00:00). Call `resume_citation_analysis` with "
+    + "`wait=true` to have the server sleep through the window.",
+]
+
+
+def test_the_predicate_matches_the_pinned_releases_own_error_strings(tmp_path: Path) -> None:
+    """The predicate is keyed to the pinned MCP release, not to a standard.
+
+    These are that release's strings, so a manifest pin bump has to re-read its
+    error rendering exactly as the sidecar launch has to re-read its
+    constructor. Holding them here makes a bump that changes the wording fail a
+    test rather than quietly turn the marker off for every later run.
+    """
+    for rendering in _PINNED_RELEASE_THROTTLE_STRINGS:
+        assert _claude_status(tmp_path, rendering).result_status == "throttled", rendering
 
 
 def test_a_throttled_claude_result_is_marked_and_still_digested(tmp_path: Path) -> None:
@@ -1129,6 +1164,36 @@ def test_an_ordinary_result_is_ok_and_a_us_reports_429_is_not_a_throttle(
     )
     assert call.result_status == "ok"
     assert call.retrieved_doc_date == "1977-01-11"
+
+
+def test_a_builtin_reading_prose_about_throttling_is_not_a_throttle(tmp_path: Path) -> None:
+    """The false positive the tool-name gate exists for, and it is not hypothetical.
+
+    A cell's checkout contains this repository — including the very strings the
+    predicate looks for, in this file and in `docs/predicted-artifacts.md` — and
+    an evaluate cell is *instructed* to read the predictor's `reasoning.md`,
+    where a starved cell will have written about being throttled. Ungated, a run
+    with no 429 at all commits `throttled_calls >= 1` the moment any cell reads
+    one of those, and every downstream count inherits it.
+    """
+    for builtin in ("Read", "Bash", "run_shell_command", "read_file", "WebFetch"):
+        call = _claude_status(
+            tmp_path,
+            "The MCP server returned `Rate limit exceeded: HTTP 429` for every search, "
+            "so this prediction rests on the snapshot alone.",
+            tool=builtin,
+        )
+        assert (call.tool, call.result_status) == (builtin, "ok")
+    # The identical payload through a manifest tool is the real thing.
+    assert _claude_status(tmp_path, "Rate limit exceeded: HTTP 429").result_status == "throttled"
+
+
+def test_a_builtin_failure_is_still_an_error_because_the_engine_said_so(tmp_path: Path) -> None:
+    # The gate is on the *text* predicate only. `is_error` is a flag the engine
+    # set, which no retrieved payload can forge, so it needs no tool gate and a
+    # failed builtin is honestly an error rather than a widened `ok`.
+    call = _claude_status(tmp_path, "No such file", is_error=True, tool="Read")
+    assert call.result_status == "error"
 
 
 def test_an_engine_marked_failure_is_an_error_not_an_ok(tmp_path: Path) -> None:
@@ -1226,22 +1291,28 @@ def test_the_two_result_markers_may_not_disagree_about_capture() -> None:
 
 def _throttled(count: int) -> list[RetrievalCall]:
     return [
-        RetrievalCall(tool="search", result_capture="captured", result_status="throttled")
+        RetrievalCall(
+            tool="mcp__courtlistener__search", result_capture="captured", result_status="throttled"
+        )
         for _ in range(count)
     ]
 
 
-def _ok(count: int) -> list[RetrievalCall]:
+def _ok(count: int, *, tool: str = "mcp__courtlistener__search") -> list[RetrievalCall]:
     return [
-        RetrievalCall(tool="search", result_capture="captured", result_status="ok")
+        RetrievalCall(tool=tool, result_capture="captured", result_status="ok")
         for _ in range(count)
     ]
 
 
-def test_the_log_counts_throttles_over_the_calls_it_could_read() -> None:
+def test_the_log_counts_throttles_over_the_manifest_calls_it_could_read() -> None:
     assert _log(_throttled(2) + _ok(3)).throttled_calls == 2
-    # A real zero, and the stronger claim: results were legible, none was a throttle.
+    # A real zero, and the stronger claim: manifest results were legible, none
+    # was a throttle.
     assert _log(_ok(3)).throttled_calls == 0
+    # Builtins leave both sides of the count untouched — the same exclusion the
+    # per-run note and the corpus rollup apply, so the three cannot disagree.
+    assert _log(_throttled(1) + _ok(9, tool="Read")).throttled_calls == 1
 
 
 def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
@@ -1249,7 +1320,11 @@ def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
     # unobserved, so a 0 here would assert a clean run out of a blind one.
     blind = _log(
         [
-            RetrievalCall(tool="search", result_capture="unobserved", result_status="unobserved")
+            RetrievalCall(
+                tool="mcp_courtlistener_search",
+                result_capture="unobserved",
+                result_status="unobserved",
+            )
             for _ in range(4)
         ]
     )
@@ -1257,7 +1332,10 @@ def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
     assert blind.result_capture_coverage == 0.0
     # As are an empty log and one written before the field existed.
     assert _log([]).throttled_calls is None
-    assert _log([RetrievalCall(tool="search")]).throttled_calls is None
+    assert _log([RetrievalCall(tool="mcp__courtlistener__search")]).throttled_calls is None
+    # And a cell that called only builtins: it read plenty and could not have
+    # been throttled by this quota, which is not the same as a clean cell.
+    assert _log(_ok(6, tool="Read")).throttled_calls is None
 
 
 def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:

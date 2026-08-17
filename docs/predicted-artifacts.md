@@ -441,15 +441,20 @@ directory without knowing which part is which invites trusting the wrong half.
   captured-but-empty result and a never-captured one both leave behind, so
   "this call surfaced nothing" is a claim only the marker can support. Where a
   result *was* captured, `result_status` says what came back in it — `ok`,
-  `error` (the engine's own failure marker), or `throttled`, the shape the
-  pinned CourtListener MCP server renders an upstream HTTP 429 as. `throttled`
-  is the state that changes how the cell reads: the shared daily quota turned
-  the call away, so it retrieved nothing and the cell is not comparable with a
-  well-fed one; `throttled_calls` is the log-level count, null on a log whose
-  every result was unobserved because a throttle is only countable where the
-  result reached the transcript. Both are floors — the predicate is anchored on
-  the server's own rate-limit phrasing and biased to miss rather than invent,
-  and the raw 429 text is digested away one line after it is read. The
+  `error` (the engine's own structural failure marker), or `throttled`, the
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  `throttled` is the state that changes how the cell reads: the shared daily
+  quota turned the call away, so it retrieved nothing and the cell is not
+  comparable with a well-fed one. Only a **manifest-tool** call can carry it —
+  the text predicate is gated on the tool name, because a builtin's result is
+  whatever the agent asked it to read (its own `reasoning.md`, this
+  repository's source, another cell's artifacts), and prose about throttling is
+  not this cell being refused. `throttled_calls` is the log-level count over
+  that same gated set, null where no manifest result was legible, because a
+  throttle is only countable where one reached the transcript. Both are floors
+  — the predicate is anchored on the server's own rate-limit phrasing, biased
+  to miss rather than invent, and baked at parse time, since the raw 429 text is
+  digested away one line after it is read and can never be re-examined. The
   evaluate prompt does not name the marker — the process the frozen partition
   keys on cannot gain a reading instruction without moving
   ([process-version.md](process-version.md)) — so it serves a maintainer, and

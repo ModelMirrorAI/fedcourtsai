@@ -115,7 +115,7 @@
     },
     "ToolUsageEngine": {
       "additionalProperties": false,
-      "description": "One engine's retrieval profile: what it called, what came back, what it cost.\n\nThe result-side fields exist because a rollup that counts only calls cannot\nsee the difference between an engine whose retrieval is observable and one\nwhose transcript records the request and drops the answer \u2014 and the second\nsilently removes that engine's cells from every result-derived reading,\nincluding the evaluator's leakage grading.\n\nThe throttle fields sit here for the same reason and inherit the same limit:\na call the upstream quota turned away retrieved nothing, so a run starved of\nit is not comparable with a well-fed one \u2014 but only an engine whose results\nreach the transcript can be seen being starved, which is why the rate\ndenominates on observed conditions rather than on calls.",
+      "description": "One engine's retrieval profile: what it called, what came back, what it cost.\n\nThe result-side fields exist because a rollup that counts only calls cannot\nsee the difference between an engine whose retrieval is observable and one\nwhose transcript records the request and drops the answer \u2014 and the second\nsilently removes that engine's cells from every result-derived reading,\nincluding the evaluator's leakage grading.\n\nThe throttle fields sit here for the same reason and inherit the same limit:\na call the upstream quota turned away retrieved nothing, so a run starved of\nit is not comparable with a well-fed one \u2014 but only an engine whose results\nreach the transcript can be seen being starved, which is why the rate\ndenominates on observed conditions rather than on calls. They are cut per\nengine because that is the grain the ledger has, not because throttling is\nan engine trait: the quota is one bucket every cell of a run draws from, so\nthe cut says which cells met the wall, never which engine causes walls.",
       "properties": {
         "calls": {
           "default": 0,
@@ -156,6 +156,13 @@
           "title": "Engine",
           "type": "string"
         },
+        "mcp_calls": {
+          "default": 0,
+          "description": "Manifest-tool calls this engine made \u2014 the `calls` subset that excludes builtins. Separates the two reasons a result-side figure below can be empty: an engine that made no MCP call at all, and one that made them and captured nothing back",
+          "minimum": 0,
+          "title": "Mcp Calls",
+          "type": "integer"
+        },
         "mcp_calls_with_result": {
           "default": 0,
           "description": "The manifest-tool subset of `calls_with_result` \u2014 result digests on normalized MCP calls only",
@@ -182,15 +189,22 @@
             }
           ],
           "default": null,
-          "description": "`mcp_throttled_calls / mcp_calls_with_status`, or null where no MCP result of this engine's was legible. Null rather than 0.0 on a capture-blind engine, because 0.0 there would claim a clean run from a transcript that could never have shown one",
+          "description": "`mcp_throttled_calls / mcp_calls_with_status`, or null where no MCP result of this engine's was legible. Null rather than 0.0 on a capture-blind engine, because 0.0 there would claim a clean run from a transcript that could never have shown one. Descriptive of which cells were unlucky, NOT an engine property to compare across engines: the quota is one shared bucket consumed run-wide, so which engine's cells meet the wall is a fact about scheduling order and concurrency, not about the engine",
           "title": "Mcp Throttle Rate"
         },
         "mcp_throttled_calls": {
-          "default": 0,
-          "description": "The subset of `mcp_calls_with_status` whose result carried the upstream rate-limit shape \u2014 the shared daily quota turning a cell away. A floor, twice over: the per-call predicate is biased against inventing a throttle, and a call whose result was never captured cannot be counted at all",
-          "minimum": 0,
-          "title": "Mcp Throttled Calls",
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The subset of `mcp_calls_with_status` whose result carried the upstream rate-limit shape \u2014 the shared daily quota turning a cell away. Null, not 0, where `mcp_calls_with_status` is 0, matching `mcp_throttle_rate`: a 0 there would be a count of throttles in a transcript that could not have recorded one. A floor where it is non-null, twice over: the per-call predicate is biased against inventing a throttle, and a call whose result was never captured is not counted",
+          "title": "Mcp Throttled Calls"
         },
         "mean_calls_per_cell": {
           "default": 0.0,

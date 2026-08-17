@@ -341,10 +341,12 @@ class CollectPlan:
     ``throttle_markdown`` is the harness-side counterpart of ``flags_markdown``:
     the warning that the shared upstream quota starved this run's retrieval,
     counted from the cells' own captured results rather than from an agent's
-    account of them. Empty on any run with no observed throttle; otherwise
-    appended ahead of the flags to whichever PR body opens, ``facts_only``
-    included — starvation is a live candidate cause of the wholesale failure
-    that PR exists for.
+    account of them. It carries either the observed throttling or — where no
+    cell could have shown any — the fact that the run was capture-blind, and is
+    empty on a run that was genuinely clean. When non-empty it is appended
+    ahead of the flags to whichever PR body opens, ``facts_only`` included:
+    starvation is a live candidate cause of the wholesale failure that PR
+    exists for.
     """
 
     ready: PrPlan | None
@@ -449,43 +451,75 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
 class ThrottleRollup:
     """What this run's cell retrieval logs say about being starved by the quota.
 
-    Counted over the calls whose result condition was legible at all
-    (``RetrievalCall.result_status``), never over every call: an engine whose
-    transcript drops results cannot be seen being throttled, and folding its
-    calls into the denominator would dilute a real starvation signal with cells
-    that could never have shown one.
+    Counted over the **manifest-tool** calls whose result condition was legible
+    (``fedcourtsai.schemas.observed_mcp_conditions``), which is the same
+    denominator each log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate use. Both of its exclusions drop calls that could never have
+    shown a throttle: a builtin, which does not talk to the upstream this quota
+    belongs to, and a result no transcript captured.
+
+    ``cells`` therefore counts only the logs that could have shown one;
+    ``blind_cells`` counts the rest — a Gemini cell, a cell that called no
+    manifest tool — separately rather than as clean cells, because a cell that
+    could not be observed is not evidence that nothing happened to it.
     """
 
     cells: int = 0
     throttled_cells: int = 0
     calls: int = 0
     throttled_calls: int = 0
+    blind_cells: int = 0
 
 
 def render_throttle_note(rollup: ThrottleRollup | None) -> str:
-    """The run PR's one-paragraph warning that the upstream quota starved cells.
+    """The run PR's warning about what the upstream quota did to this run.
 
-    Returns ``""`` on a run with no observed throttle — including one whose
-    every cell was capture-blind — so a clean run's PR carries no line at all.
-    Silence is the right default for a notification surface a maintainer reads
-    once per run: a standing "0 throttled" paragraph is noise that trains the
-    eye to skip exactly the place the warning will one day appear. The
-    corpus-wide tool-usage report makes the opposite choice on purpose, because
-    a diagnostic's reader needs to see that the question was asked.
+    Two things can be worth saying, and a run says at most one. A **throttle**
+    was observed → the count, its denominator, and what it costs a reader. No
+    throttle was observed *and no cell could have shown one* → the shorter line
+    that the run is capture-blind, which is a different claim from a clean run
+    and the one a maintainer would otherwise draw by default.
+
+    Everything else returns ``""``, and that includes the genuinely clean run:
+    a standing "0 throttled" paragraph on a surface read once per run is noise
+    that trains the eye to skip exactly the place the warning will one day
+    appear. The corpus-wide tool-usage report makes the opposite choice on
+    purpose — a diagnostic's reader needs to see that the question was asked.
     """
-    if rollup is None or rollup.throttled_calls == 0:
+    if rollup is None:
         return ""
+    if rollup.throttled_calls == 0:
+        if rollup.cells or not rollup.blind_cells:
+            return ""
+        # Logs exist and not one of them could have shown a throttle. Silence
+        # here would be read as a clean run, which is the reading this whole
+        # marker exists to make impossible.
+        return (
+            f"**Retrieval throttling was not observable this run**: none of "
+            f"{rollup.blind_cells} cell log(s) captured a manifest-tool result condition, "
+            f"so no cell could have been seen being rate-limited. Capture-blind, not "
+            f"throttle-free — an engine whose transcript drops results (Gemini's, by "
+            f"construction) and a cell that called no manifest tool both land here, and "
+            f"neither is evidence that the shared quota was not in the way."
+        )
+    blind = (
+        f" {rollup.blind_cells} further cell(s) captured no result and could not be "
+        f"observed either way."
+        if rollup.blind_cells
+        else ""
+    )
     return (
         f"⚠️ **Retrieval was throttled this run**: {rollup.throttled_calls} of "
-        f"{rollup.calls} tool result(s) whose condition capture could read came back "
-        f"rate-limited — the shape an upstream HTTP 429 takes, which is what the "
-        f"CourtListener MCP server renders a quota refusal as — "
-        f"across {rollup.throttled_cells} of {rollup.cells} cell log(s). Those cells "
-        f"retrieved less than an unthrottled cell would have — the shared daily quota, "
-        f"not the agent — so read their coverage, and any comparison that puts them "
-        f"beside a well-fed cell, with that in mind. The count is a floor: a call whose "
-        f"result never reached the transcript cannot be counted, and a cell that gave up "
-        f"on a call leaves no row at all."
+        f"{rollup.calls} manifest-tool result(s) whose condition capture could read came "
+        f"back rate-limited — the shape an upstream HTTP 429 takes, which is what the "
+        f"CourtListener MCP server renders a quota refusal as — across "
+        f"{rollup.throttled_cells} of {rollup.cells} cell log(s) whose results were "
+        f"legible.{blind} Those cells retrieved less than an unthrottled cell would have "
+        f"— the shared daily quota, not the agent — so read their coverage, and any "
+        f"comparison that puts them beside a well-fed cell, with that in mind. The count "
+        f"is a floor: a call whose result never reached the transcript cannot be counted, "
+        f"a builtin's result is not read for this at all, and a cell that gave up on a "
+        f"call leaves no row."
     )
 
 
@@ -595,7 +629,8 @@ def collect_plan(
     the run's cells got the retrieval they asked for — and because the run PR is
     the only durable per-run surface that could carry it: the 429 evidence itself
     is digested away at capture, so nothing else records that a run was starved.
-    Silent when nothing was throttled.
+    Silent on a run that was genuinely clean, but not on one that merely could
+    not see — those two must not look alike.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -758,11 +793,11 @@ def _facts_only_plan(
     agent-authored text — so the producer-side secret scan can never withhold the
     branch and lose the very facts it exists to persist.
 
-    ``throttle_md`` rides along when the run's captured retrieval shows the
-    upstream quota turning cells away, because this is the one PR a
-    wholesale-failed run opens and starvation is a live candidate cause of one.
-    It is harness-rendered from the cells' own logs, so it keeps the body's
-    no-agent-text property.
+    ``throttle_md`` rides along when the run's captured retrieval has anything
+    to say — the quota turning cells away, or no cell being able to tell —
+    because this is the one PR a wholesale-failed run opens and starvation is a
+    live candidate cause of one. It is harness-rendered from the cells' own
+    logs, so it keeps the body's no-agent-text property.
     """
     total = len(skipped) + len(salvage) + len(uncovered)
     if total == 0:

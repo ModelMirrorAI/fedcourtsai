@@ -42,14 +42,19 @@ and an uncaptured one both leave behind; without the marker a reader grades
 "this call surfaced nothing" over calls whose results were never in the log.
 
 Where a result *was* captured, ``result_status`` says what came back in it —
-``throttled`` when the payload carries the shape the pinned CourtListener MCP
-server renders an upstream HTTP 429 as, ``error`` on the engine's own failure
-marker, ``ok`` otherwise. The throttle state is the one that changes how a cell
-should be read: a call the shared daily quota turned away retrieved nothing, so
-a starved run's coverage is not comparable with a well-fed one's, and the 429
-evidence exists nowhere else — the payload it sits in is digested away one line
-later. It is a floor by construction, and only on the engines whose results
-reach a transcript at all; every Gemini row is ``unobserved``.
+``throttled`` when a **manifest-tool** payload carries the shape the pinned
+CourtListener MCP server renders an upstream HTTP 429 as, ``error`` on the
+engine's own structural failure marker, ``ok`` otherwise. The throttle state is
+the one that changes how a cell should be read: a call the shared daily quota
+turned away retrieved nothing, so a starved run's coverage is not comparable
+with a well-fed one's, and the 429 evidence exists nowhere else — the payload it
+sits in is digested away one line later. The manifest-tool gate is what keeps
+that reading honest, because the phrases it looks for are ordinary in text a
+*builtin* hands back: a cell reading its own ``reasoning.md``, or this
+repository's own source and docs, sitting in the checkout the cell runs in. The
+status is a floor by construction, decided once at parse time, and available
+only on engines whose results reach a transcript at all; every Gemini row is
+``unobserved``.
 
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
@@ -68,7 +73,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from .schemas import RetrievalCall, RetrievalResultStatus
+from .schemas import RetrievalCall, RetrievalResultStatus, normalize_call
 from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
 
@@ -91,13 +96,17 @@ _DOC_DATE_RE = re.compile(
     r'\\?"(?:date_?[Ff]iled|date_?[Dd]ecided|decision_?date)\\?"\s*:\s*\\?"(\d{4}-\d{2}-\d{2})\\?"'
 )
 # The shape a captured result takes when the shared upstream quota turned the
-# call away rather than answering it. Read off the pinned CourtListener MCP
-# release (:mod:`fedcourtsai.mcp` names it): its tool-handler middleware turns an
-# upstream HTTP 429 into the tool error `Rate limit exceeded: HTTP 429: <detail>.
-# For higher rate limits, …`, and its citation tools append `Rate limited by the
-# upstream API (retry in ~Ns, …)` to a result the throttle cut short. Both carry
-# one of these phrases; `Too Many Requests` covers a transport-level rendering of
-# the same status.
+# call away rather than answering it. **Keyed to the pinned MCP release** —
+# :data:`fedcourtsai.mcp._HTTP_BYPASS_RELEASE`, the package the sidecar launches
+# — because these are that release's own strings, not a standard: its
+# tool-handler middleware turns an upstream HTTP 429 into the tool error `Rate
+# limit exceeded: HTTP 429: <detail>. For higher rate limits, …`, and its
+# citation tools append `Rate limited by the upstream API (retry in ~Ns, …)` to a
+# result the throttle cut short. `Too Many Requests` covers a transport-level
+# rendering of the same status. A manifest pin bump must re-read those two
+# renderings, exactly as the sidecar launch must re-read the constructor;
+# `test_the_predicate_matches_the_pinned_releases_own_error_strings` holds the
+# strings so the bump fails a test rather than silently going quiet.
 #
 # Phrase-anchored on purpose, unlike the bare `\b429\b` in
 # :mod:`fedcourtsai.pipeline.runner`'s transient-failure regex — that one scans an
@@ -108,6 +117,12 @@ _DOC_DATE_RE = re.compile(
 # leaves a throttled call reading as `ok` — where every call sat before the marker
 # existed. So the predicate is cheap to miss with and expensive to fire wrongly,
 # and every count derived from it is a floor.
+#
+# Scanned only for **manifest-tool** calls (see :func:`_result_status`). These
+# phrases are common in text a *builtin* reads back — a cell's own
+# `reasoning.md` recounting a throttle, this repository's source and docs inside
+# the checkout, the predictor artifacts an evaluate cell is instructed to read —
+# and none of that is the upstream refusing this call.
 _THROTTLE_RE = re.compile(
     r"""
       rate[\s_-]*limit[\s_-]*exceeded   # the MCP tool handler's own 429 rendering
@@ -206,7 +221,7 @@ def _doc_date(text: str) -> str | None:
 
 
 def _result_status(
-    text: str, *, captured: bool, engine_error: bool = False
+    tool: str, text: str, *, captured: bool, engine_error: bool = False
 ) -> RetrievalResultStatus:
     """The condition of a call's result, from what capture actually holds.
 
@@ -216,17 +231,31 @@ def _result_status(
     arrives *as* an error, and which error it is, is the whole point — then the
     engine's own error marker, then ``ok`` as the residual.
 
-    ``engine_error`` is a structural flag the engine set (a Claude
-    ``tool_result``'s ``is_error``, a Codex MCP item's inline ``error``), never
-    a guess from the text: no marker robust enough to sniff a generic failure
-    out of arbitrary result prose exists, and inventing one would put a
-    text-shaped judgment in a field whose whole value is that it is mechanical.
-    Where an engine sets no such flag, its failures land in ``ok`` — which is
-    why ``ok`` claims only "captured, unmarked, unthrottled".
+    The two tests are gated differently, and the split is the point. The
+    **throttle** test reads the payload's *text*, so it runs only where the tool
+    is a manifest one (:func:`~fedcourtsai.schemas.normalize_call`): a builtin's
+    result is whatever the agent asked it to read — its own ``reasoning.md``,
+    this repository's source, another cell's artifacts — and prose *about*
+    throttling is not this call being throttled. ``engine_error`` is a
+    **structural** flag the engine set (a Claude ``tool_result``'s ``is_error``,
+    a Codex MCP item's inline ``error``), which retrieved text cannot forge, so
+    it needs no such gate and a failed builtin is honestly an error. Nothing
+    sniffs a generic failure out of result prose: no marker robust enough
+    exists, and inventing one would put a text-shaped judgment in a field whose
+    whole value is that it is mechanical.
+
+    So ``ok`` is wide — captured, unmarked, and either not a manifest call or a
+    manifest result with no throttle shape — and claims nothing about success.
+
+    Decided once, here, and written into the row: nothing recomputes a status
+    from a committed log, because the payload it was read from is already gone.
+    A later change to the predicate therefore reaches only logs captured after
+    it, and any rollup over the ledger pools whatever predicate each log was
+    minted under.
     """
     if not captured:
         return "unobserved"
-    if _THROTTLE_RE.search(text):
+    if normalize_call(tool) is not None and _THROTTLE_RE.search(text):
         return "throttled"
     return "error" if engine_error else "ok"
 
@@ -258,9 +287,12 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
             captured = call_id in results
             result = answer.get("content") if answer is not None else None
             text = _result_text(result) if result is not None else ""
+            # The redacted name the row will carry, so the manifest-tool gate on
+            # the condition read and the rollup's own exclusion see one string.
+            tool = _tool_name(block["name"])
             calls.append(
                 RetrievalCall(
-                    tool=_tool_name(block["name"]),
+                    tool=tool,
                     query=_query_slice(params),
                     params_digest=_digest(params),
                     timestamp=_text(timestamp),
@@ -270,6 +302,7 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
                     retrieved_doc_date=_doc_date(text) if result is not None else None,
                     result_capture="captured" if captured else "unobserved",
                     result_status=_result_status(
+                        tool,
                         text,
                         captured=captured,
                         engine_error=bool(answer.get("is_error")) if answer is not None else False,
@@ -356,16 +389,21 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
                 field, result = inline
                 captured, engine_error = True, field == "error"
         text = _result_text(result) if result is not None else ""
+        # The composed, redacted name the row will carry — the same string the
+        # manifest-tool gate and the rollup's exclusion both key on.
+        tool = _tool_name(_codex_tool(payload))
         calls.append(
             RetrievalCall(
-                tool=_tool_name(_codex_tool(payload)),
+                tool=tool,
                 query=_query_slice(params),
                 params_digest=_digest(params),
                 timestamp=_text(record.get("timestamp")),
                 result_digest=_digest(result),
                 retrieved_doc_date=_doc_date(text) if result is not None else None,
                 result_capture="captured" if captured else "unobserved",
-                result_status=_result_status(text, captured=captured, engine_error=engine_error),
+                result_status=_result_status(
+                    tool, text, captured=captured, engine_error=engine_error
+                ),
             )
         )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -436,7 +474,7 @@ def _codex_tool(payload: dict[str, Any]) -> Any:
     in the rollout's own — so the two are composed into the
     ``mcp__<server>__<tool>`` spelling the engines' MCP calls share.
     Uncomposed, ``search`` is indistinguishable from an engine builtin
-    and :func:`~fedcourtsai.tool_usage.normalize_call` buckets it as one — the
+    and :func:`~fedcourtsai.schemas.normalize_call` buckets it as one — the
     offered denominator loses the call and the MCP-gated result observability
     reads the engine as having no MCP calls at all.
 

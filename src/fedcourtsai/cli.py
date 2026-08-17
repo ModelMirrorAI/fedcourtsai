@@ -220,6 +220,7 @@ from .schemas import (
     StatPack,
     Stratum,
     UsageRole,
+    observed_mcp_conditions,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
@@ -8828,12 +8829,15 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     fan-out. The record's own ``run_id`` is what the count is actually keyed
     on, so the cheap path filter can never be the thing that decides.
 
-    Denominated on the calls whose condition capture could actually read
-    (``result_status`` present and not ``unobserved``), so a capture-blind cell
-    contributes nothing to either side of the ratio rather than diluting it. A
-    malformed or unreadable log is skipped: this is a notification, and it must
-    never take down the aggregation that carries the run's only copy of its
-    output.
+    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
+    same helper the log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate denominate by — so the three figures a maintainer may read
+    side by side mean one thing. A cell it leaves empty (capture-blind, or
+    calling no manifest tool) is counted as ``blind_cells`` rather than as a
+    clean cell, because it could not have shown a throttle and must not read as
+    evidence of none. A malformed or unreadable log is skipped entirely: this is
+    a notification, and it must never take down the aggregation that carries the
+    run's only copy of its output.
     """
     seen: set[tuple[str, str, str, str]] = set()
     rollup = ThrottleRollup()
@@ -8848,15 +8852,13 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
         if identity in seen:
             continue
         seen.add(identity)
-        observed = [
-            call
-            for call in log.calls
-            if call.result_status is not None and call.result_status != "unobserved"
-        ]
+        observed = observed_mcp_conditions(log.calls)
         if not observed:
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
             continue
         throttled = sum(1 for call in observed if call.result_status == "throttled")
-        rollup = ThrottleRollup(
+        rollup = replace(
+            rollup,
             cells=rollup.cells + 1,
             throttled_cells=rollup.throttled_cells + bool(throttled),
             calls=rollup.calls + len(observed),
