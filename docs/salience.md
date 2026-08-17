@@ -931,6 +931,27 @@ rather than folding it into an undifferentiated "granted."
   accepted residual — indistinguishable post-hoc without re-resolving the source
   docket text (the `outcome.json` does not carry it), and immaterial on the binary
   axis.
+- **A mislabel is not a vocabulary artifact, and the boundary between them is
+  a date in code.** The residual above is what the convention protects: a cert
+  label normalized from the upstream record's own fields, which never passed
+  through the disposition parser at all, so `granted` there is a faithful record
+  of what the older vocabulary could say. It does not cover a resolution the
+  parser itself recorded by reading the docket's order text and got wrong — the
+  prose GVR naming the lower court between the grant and the vacatur, which fell
+  to the cert-before-judgment grant row until `cert_signals._gvr_tail_sentence`
+  closed the gap. Those disagree with their own order text rather than with a
+  superseded convention, and one order can sit behind both labels, so leaving
+  them makes the ledger contradict itself about a single day's work.
+  `converge-disposition-labels` converges them, re-resolving the stored docket
+  text and rewriting only what the parser confirms. The separation is enforced
+  in its predicate, not left to which snapshots happen to be stored: outcomes
+  resolved before `disposition_convergence.PARSED_ORDER_TEXT_SINCE` are reported
+  and never rewritten, so widening snapshot coverage cannot reach the protected
+  residual. The penalization worry does not reach the in-era rows either —
+  their labels were the parser's reading of an order, not the best word an
+  earlier vocabulary offered — and a cell that already carries a committed
+  evaluation is held back regardless, since its `correct` bit was stamped from
+  the label being corrected.
 - **Routing.** "Is this a likely GVR / mootness-prone case" is a genuine routing
   signal, but deterministic **pre-decision** detection does not exist today (a
   strategically-mooted case reveals itself only through docket text that no

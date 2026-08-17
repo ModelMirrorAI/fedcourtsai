@@ -98,6 +98,7 @@ from .config import (
     load_statpack_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .disposition_convergence import converge_disposition_labels
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
@@ -1332,6 +1333,126 @@ def reopen_misattributed_outcomes_cmd(
     )
     for ref in result.reopened:
         typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("converge-disposition-labels")
+def converge_disposition_labels_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the confirmed outcomes; omit for a dry-run report."),
+    ] = False,
+    max_relabels: Annotated[
+        int | None,
+        typer.Option(
+            "--max-relabels",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+    include_scored: Annotated[
+        bool,
+        typer.Option(
+            "--include-scored",
+            help="Also relabel candidates carrying committed predict/evaluate output.",
+        ),
+    ] = False,
+) -> None:
+    """Re-resolve committed `granted` cert outcomes against their stored docket text.
+
+    A deterministic **ledger** convergence sweep for the labels no re-resolution
+    reaches: `record_outcomes` is idempotent-by-filter, so a resolved event is
+    never revisited, and a prose GVR — an order granting, vacating and remanding
+    in one breath, which `match_disposition_signal` now reads through its
+    vacatur-sentence upgrade — stays recorded as a plain `granted`. Over each
+    committed cert-stage outcome labeled `granted` **resolved on or after the era
+    boundary** (`disposition_convergence.PARSED_ORDER_TEXT_SINCE`), the sweep
+    reads the case's latest stored snapshot, parses the earliest disposing entry
+    at or after the recorded resolution date, and relabels **only** where that
+    parse returns `gvr`.
+
+    The era boundary is the separation the forward-convention rule needs, and it
+    is enforced here rather than left to snapshot coverage: before it, a cert
+    label was normalized from upstream record fields and never passed through
+    the disposition parser, so its `granted` is the older vocabulary's faithful
+    record — the protected residual — not a parse gap. Those are reported, never
+    rewritten.
+
+    Candidates carrying committed predict/evaluate output are **held back by
+    default**, because an `evaluation.json` is stamped with a `correct` bit
+    computed from the outcome; `--include-scored` opts in and reports, per
+    relabel, how many stamped evaluations it puts in the re-grade backlog that
+    `stamp-cell --regrade` is the follow-through for.
+
+    Self-confirming, so the report is the point: every population member not
+    relabeled is printed with its reason, and the header carries the honest
+    denominators — how many candidates were actually checkable, how many had no
+    readable text, and how many the sweep declines to judge. Ledger-side only:
+    the corpus's own disposition column converges through the pull path, and
+    corpus writes belong to the writer jobs' upsert path.
+
+    Idempotent (a `gvr` outcome no longer reads `granted`). Dry-run by default.
+    `--apply` writes and **requires** `--max-relabels`, so the number applied is
+    one the maintainer read in the dry run rather than a default nobody chose;
+    it refuses above that bound, since the population this sweep converges is
+    finite and non-growing, so a large count means the predicate widened, not
+    that the ledger did. Run where the corpus is pulled; the snapshot read is
+    split-aware, so it serves from the per-case content store under the
+    corpus-split mode. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_relabels is None:
+        typer.echo(
+            "converge-disposition-labels: --apply requires an explicit --max-relabels. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence sweep.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_disposition_labels(
+            conn,
+            settings.data_root,
+            apply=apply,
+            max_relabels=max_relabels,
+            include_scored=include_scored,
+        )
+    if result.refused:
+        typer.echo(
+            f"converge-disposition-labels: refusing to apply "
+            f"{len(result.relabeled)} relabels (--max-relabels {max_relabels}). "
+            "The population this sweep converges is finite and non-growing; "
+            "a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "relabeled" if apply else "would relabel"
+    typer.echo(
+        f"converge-disposition-labels ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s); "
+        f"{result.uncheckable} uncheckable (no readable docket text); "
+        f"{result.out_of_scope} out of scope"
+    )
+    for entry in result.relabeled:
+        backlog = (
+            f"; {entry.stamped_evaluations} stamped evaluation(s) to re-grade"
+            if entry.stamped_evaluations
+            else ""
+        )
+        typer.echo(
+            f"  {verb} {entry.ref}: {entry.was.value} -> {entry.now.value} ({entry.basis}) "
+            f"[entry {entry.entry_filed.isoformat()}, resolved "
+            f"{entry.resolved_at.isoformat()}, snapshot {entry.snapshot_date.isoformat()}]"
+            f"{backlog} — {entry.evidence!r}"
+        )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
 
