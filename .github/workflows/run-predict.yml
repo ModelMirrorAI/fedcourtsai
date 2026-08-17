@@ -242,27 +242,30 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # The report body is rendered by the tested command (bounded by
+          # construction — a full-width plan cannot outgrow the comment limit);
+          # this step only plumbs it. The full plan JSON goes to the step
+          # summary, the durable sibling of the comment.
           plan_json=$(uv run fedcourts predict-plan --body-file issue-body.md \
-            --stranded-file stranded-artifacts.json 2>plan-stderr.txt)
+            --stranded-file stranded-artifacts.json \
+            --approval-report plan-report.md \
+            --approval-report-run-url "$RUN_URL" 2>plan-stderr.txt) \
+            || { cat plan-stderr.txt; exit 1; }
+          cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
           {
-            echo "## predict plan — token spend holds for approval"
-            echo
-            echo '```'
-            cat plan-stderr.txt
-            echo '```'
-            echo '<details><summary>plan document</summary>'
-            echo
+            echo ''
+            echo '<details><summary>full plan document</summary>'
+            echo ''
             echo '```json'
             echo "$plan_json" | jq .
             echo '```'
             echo '</details>'
-            echo
-            echo "Approve or reject the \`predict-approval\` deployment on the run: ${RUN_URL}"
-          } > plan-report.md
-          cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY"
           # The report must exist where the approver reads before the hold
           # releases; a transient API fault retries, a sustained one fails the
-          # plan job loudly and nothing spends.
+          # plan job loudly and nothing spends. A retry after a lost response
+          # (or a re-run of this job) can duplicate the comment — harmless, the
+          # newest one is the plan.
           retry() {
             local attempt
             for attempt in 1 2 3; do
@@ -292,18 +295,23 @@ jobs:
       - name: Release the held fan-out
         run: echo "predict-approval released — the matrix may spend."
 
-  # A rejected (or failed) hold must not strand the trigger issue open: record
-  # the outcome where the request lives, pointing at the plan report the
-  # decision was made on. Ambient token; closing triggers nothing.
+  # Any hold that did not release must not strand the trigger issue open:
+  # record the outcome where the request lives, pointing at the plan report
+  # the decision was made on. `!= 'success'` covers the whole class — the
+  # Reject button (a failed deployment), a cancelled or expired wait, and a
+  # plan job that died after minting the matrix (approval then skipped).
+  # Best-effort during a run cancellation, like any always() job: an expired
+  # hold whose runner was torn down may still need a manual close. Ambient
+  # token; closing triggers nothing.
   rejected:
     needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'failure' && github.event.issue.number }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       issues: write
     steps:
-      - name: Close the trigger issue as rejected
+      - name: Close the trigger issue when the hold did not release
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -311,7 +319,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold was rejected (or failed before release) — no cell ran and nothing was spent. The plan report above is the record of what was declined: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold did not release — rejected, cancelled, expired, or the plan failed after posting — so no cell ran and nothing was spent. The plan report above is the record of what was declined: ${RUN_URL}. Re-label to re-queue with a fresh plan."
 
   predict:
     needs: [plan, approval]

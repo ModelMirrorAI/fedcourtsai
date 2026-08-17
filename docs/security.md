@@ -255,7 +255,15 @@ agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod`.
+`prod` — with one deliberate exception: run-predict's `approval` job declares
+**`predict-approval`**, an environment that exists *only* for its required
+reviewers. It carries no secrets, no variables, no role, and no
+deployment-branch policy; the job it gates runs one echo under
+`permissions: {}`, so the environment grants nothing and merely withholds the
+matrix until a named reviewer releases it. It must be created **with required
+reviewers configured before the gate promotes**: GitHub auto-creates a
+referenced environment unprotected, and an unprotected `predict-approval` is
+no gate at all.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
