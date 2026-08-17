@@ -1069,7 +1069,9 @@ jobs:
     needs: [seed]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Sized to the retry worst case: 4 retried call groups x 3 bounded 30s
+    # attempts plus 60s of backoff sleeps. Nothing downstream waits on this job.
+    timeout-minutes: 10
     # This job reads the needs result plus the run's own step outcomes, and writes
     # a NON-triggering issue — no checkout, no corpus, no contents. Per
     # docs/security.md that is exactly the ambient-GITHUB_TOKEN case; the data App
@@ -1093,10 +1095,20 @@ jobs:
           # short bounded retry absorbs the blip; a sustained outage still
           # fails the step loudly, which is the right residue when the API
           # itself is down.
+          # Each attempt is bounded: gh sets no client-side request timeout, so
+          # a stalled connect against a degraded API would otherwise hang into
+          # the job's own kill — leaving no issue written, the one outcome this
+          # job exists to prevent. Capture-then-print keeps a failed attempt's
+          # partial stdout out of command substitutions. Retrying a
+          # deterministic 4xx costs only the 15s of sleeps, accepted here for
+          # simplicity over push_with_retry.sh's transient/genuine split.
           retry() {
-            local attempt
+            local attempt out
             for attempt in 1 2 3; do
-              if "$@"; then return 0; fi
+              if out=$(timeout 30 "$@"); then
+                printf '%s' "$out"
+                return 0
+              fi
               if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
             done
             return 1
