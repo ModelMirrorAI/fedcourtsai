@@ -15,7 +15,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -6467,6 +6467,21 @@ class _DropRecord:
         return out
 
 
+@dataclass
+class _ResolveReport:
+    """What event resolution decided, for a plan to report.
+
+    ``unforecastable`` is the re-check's per-event drops. ``no_default_events``
+    is the quieter class beside it: a case that listed no events and whose
+    default lookup came back empty, which resolves to a case carrying zero
+    events rather than to a drop — invisible in a case count and invisible in
+    an event count, so it is named here instead.
+    """
+
+    unforecastable: list[_DropRecord] = field(default_factory=list)
+    no_default_events: list[_DropRecord] = field(default_factory=list)
+
+
 def _resolve_cases(
     cases: list[CaseRequest],
     default_events: Callable[[str, int], list[str]],
@@ -6474,7 +6489,7 @@ def _resolve_cases(
     drop_unforecastable: Callable[[str, int], Mapping[str, str]] | None = None,
     stage: str,
     report: bool,
-    dropped_out: list[_DropRecord] | None = None,
+    report_out: _ResolveReport | None = None,
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none.
 
@@ -6496,14 +6511,23 @@ def _resolve_cases(
 
     ``stage`` labels the warning lines and ``report`` is the minting path — a
     plan passes ``False`` and suppresses the annotations, carrying the same
-    drops in ``dropped_out`` for its JSON instead. Both are keyword-required:
+    drops in ``report_out`` for its JSON instead. Both are keyword-required:
     a caller that has to name its stage cannot inherit another command's label
     by omission.
     """
     kept: list[CaseRequest] = []
     for c in cases:
         if not c.events:
-            kept.append(replace(c, events=tuple(default_events(c.court, c.docket))))
+            resolved = tuple(default_events(c.court, c.docket))
+            if not resolved and report_out is not None:
+                report_out.no_default_events.append(
+                    _DropRecord(
+                        ids.case_id(c.court, c.docket),
+                        "the request listed no events and the corpus resolved none for this "
+                        "case, so it contributes no cells",
+                    )
+                )
+            kept.append(replace(c, events=resolved))
             continue
         if drop_unforecastable is None:
             kept.append(c)
@@ -6516,8 +6540,8 @@ def _resolve_cases(
                     f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — {reason}",
                     err=True,
                 )
-            if dropped_out is not None:
-                dropped_out.append(
+            if report_out is not None:
+                report_out.unforecastable.append(
                     _DropRecord(ids.case_id(c.court, c.docket), reason, event_id=dropped)
                 )
         kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
@@ -6995,7 +7019,7 @@ class _PredictFanout:
     requested: list[CaseRequest]
     resolved: list[CaseRequest]
     scope_dropped: tuple[_DropRecord, ...]
-    unforecastable: tuple[_DropRecord, ...]
+    resolution: _ResolveReport
     guard: _StrandedGuardReport
     capped: CappedMatrix
     max_cells: int
@@ -7028,7 +7052,7 @@ def _predict_fanout(
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
-    unforecastable: list[_DropRecord] = []
+    resolution = _ResolveReport()
     requested = _scope_filtered(
         requested_cases,
         predict_config.scope,
@@ -7072,7 +7096,7 @@ def _predict_fanout(
         ),
         stage=stage,
         report=report,
-        dropped_out=unforecastable,
+        report_out=resolution,
     )
     if requested and any(c.events for c in requested) and not any(c.events for c in cases):
         # Every listed event fell to the forecastability re-check, so the
@@ -7151,7 +7175,7 @@ def _predict_fanout(
         requested=requested_cases,
         resolved=cases,
         scope_dropped=tuple(scope_dropped),
-        unforecastable=tuple(unforecastable),
+        resolution=resolution,
         guard=guard,
         capped=capped,
         max_cells=predict_config.max_predict_cells_per_run,
@@ -7224,6 +7248,7 @@ class _EvaluateFanout:
     requested: list[CaseRequest]
     resolved: list[CaseRequest]
     scope_dropped: tuple[_DropRecord, ...]
+    resolution: _ResolveReport
     predictionless: tuple[_DropRecord, ...]
     already_evaluated: tuple[_DropRecord, ...]
     candidates: int
@@ -7256,6 +7281,7 @@ def _evaluate_fanout(
     settings = get_settings()
     scope = load_predict_config(settings.config_root).scope
     scope_dropped: list[_DropRecord] = []
+    resolution = _ResolveReport()
     cases = _resolve_cases(
         _scope_filtered(
             requested_cases,
@@ -7270,6 +7296,7 @@ def _evaluate_fanout(
         ),
         stage=stage,
         report=report,
+        report_out=resolution,
     )
     # Two plan-time gates, both before any model spend: an event with no
     # committed prediction has nothing to score, and a judge that already graded
@@ -7329,6 +7356,7 @@ def _evaluate_fanout(
         requested=requested_cases,
         resolved=cases,
         scope_dropped=tuple(scope_dropped),
+        resolution=resolution,
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
         candidates=len(evaluators) * sum(len(case.events) for case in cases),
@@ -7390,32 +7418,151 @@ def evaluate_matrix_cmd(
     typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
 
 
-#: The per-cell planning rate, from *Capacity `N`: the funding knob* in
+#: The **fallback** per-cell rate, from *Capacity `N`: the funding knob* in
 #: ``docs/budget.md``: $15 per fully-tournamented case divided across its design
-#: mix of six cells. A plan multiplies it by the cells it would mint, so the
-#: figure is a planning estimate and not a forecast of a particular run's bill —
-#: measured per-cell cost spans roughly $0.25-8.30 by model mix, a range no
-#: single rate can carry. Re-anchor it here when the doc's rate moves.
+#: mix of six cells. It prices a cell whose engine the table below does not name
+#: — a new engine, or a registry entry ahead of the doc — so a plan never
+#: silently drops such a cell from its total. Re-anchor it when the doc moves.
 _PLANNING_USD_PER_CELL = 2.50
+
+#: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
+#: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
+#: — the first post-freeze fan-out, 81 cells over 27 events. The evaluate row is
+#: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
+#: its two anchors), scaled by the whole predict move (x1.218) exactly as the
+#: doc's own per-case derivation does. The two sum to $6.79 + $8.18 = $14.97 a
+#: case — the top of the doc's $14.6-15.0 band, which the $2.50 fallback is the
+#: six-cell rounding of — so a full three-engine, both-seam fan-out prices within
+#: a cent either way. What conditioning buys is the *narrowed* plan: within a
+#: seam the engines differ ~7x, so an engine-narrowed backfill priced at the flat
+#: rate is wrong by up to ~4x.
+#:
+#: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
+#: doc's per-actor columns are one actor per engine in the shipped registries.
+_PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
+    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 0.64},
+    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 0.96},
+}
+
+#: What the rates above can and cannot support, carried on every plan beside the
+#: number so the estimate is never read as a measurement of this run. Keyed by
+#: seam where the standing differs; the shared entries apply to both.
+_SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
+    "predict": [
+        "Measured, but over one post-freeze fan-out (81 cells, 27 events). "
+        + "docs/budget.md reads the ~+20% level gap to the 410-cell pre-freeze "
+        + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
+    ],
+    "evaluate": [
+        "An ASSUMPTION, not a measurement: no evaluate fan-out has run since the "
+        + "pre-registration freeze, so docs/budget.md scales its four pre-freeze "
+        + "cert-stage graded events by the whole predict move (~+22%). The four "
+        + "are also all cert-stage, so the anchor is stage-narrow whichever row "
+        + "is read.",
+    ],
+}
+
+#: The caveats that hold on both seams.
+_SPEND_BASIS_SHARED_CAVEATS: list[str] = [
+    "Measured per-cell cost spans ~$0.25-8.30 by model mix, so a per-engine mean "
+    + "prices a FAN-OUT and never a cell.",
+    "Not conditioned on the forecast moment. Of the four predict moments "
+    + "docs/budget.md measures, only merits-above-cert-arrival (~+$1.2 an event, "
+    + "on 11 events against 12) separates at the measured n; the rest sit within "
+    + "noise of each other, so conditioning on them would fit noise.",
+]
 
 
 def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
-    """The ex-post spend backstop's reading, for a plan to report rather than act on."""
+    """The ex-post spend backstop's reading, for a plan to report rather than act on.
+
+    Two honesty properties the raw verdict does not carry. **Unknowns print as
+    unknown**: with no ceiling configured the backstop short-circuits before
+    reading the ledger, so its zeros are unmeasured rather than measured-zero
+    and are emitted as ``null``. And **the measurement is a floor**: a cell's
+    ``usage.json`` reaches ``data/`` only on its run's collect PR, so spend
+    already incurred but not yet committed is invisible to it.
+    """
+    enforced = verdict.enforced
     return {
-        "enforced": verdict.enforced,
+        "enforced": enforced,
         "breached": verdict.breached,
-        "spent_usd": verdict.spent_usd,
-        "ceiling_usd": verdict.ceiling_usd,
+        # The consequence, stated rather than left to be derived: under a breach
+        # `would_mint` is a fan-out the run would not actually mint.
+        "would_empty_matrix": verdict.breached,
+        "spent_usd": verdict.spent_usd if enforced else None,
+        "ceiling_usd": verdict.ceiling_usd if enforced else None,
+        "cells": verdict.cells if enforced else None,
         "window_days": verdict.window_days,
-        "cells": verdict.cells,
+        "spent_usd_is_floor": True,
+        "basis": (
+            "The ledger counts collected cells only — a cell's usage.json reaches data/ when "
+            "its run's collect PR merges — so spent_usd is a FLOOR on spend within the window, "
+            "never a live figure. Null where no ceiling is configured: the backstop returns "
+            "before reading the ledger, so those figures are unmeasured, not zero."
+        ),
     }
 
 
-def _plan_spend(cells: int) -> dict[str, Any]:
-    """The planning-rate cost of a would-mint cell set, rate included."""
+def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool) -> dict[str, Any]:
+    """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
+
+    Summed cell by cell rather than multiplied by one blended rate, because the
+    engines differ by ~7x within a seam: a plan narrowed to one engine priced at
+    the design-mix average is wrong by up to 4x in either direction, and a
+    narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
+    engine the table does not name falls back to the design-mix rate and is
+    counted, so an unrecognized engine shows up as a stated approximation rather
+    than as a cell missing from the total.
+    """
+    rates = _PLANNING_RATES_USD_PER_CELL[seam]
+    total = 0.0
+    at_fallback = 0
+    for cell in cells:
+        rate = rates.get(str(cell["engine"]))
+        if rate is None:
+            rate = _PLANNING_USD_PER_CELL
+            at_fallback += 1
+        total += rate
+    caveats = list(_SPEND_BASIS_CAVEATS[seam]) + list(_SPEND_BASIS_SHARED_CAVEATS)
+    if seam == "predict":
+        caveats.append(
+            "Covers THIS run only: cells the volume cap deferred (see deferred_by_cap) "
+            "re-queue on a later cycle and cost their own rates then."
+        )
+    if at_fallback:
+        caveats.append(
+            f"{at_fallback} cell(s) ran an engine the rate table does not name and are "
+            f"priced at the ${_PLANNING_USD_PER_CELL:.2f} design-mix fallback."
+        )
     return {
+        "estimated_spend_usd": round(total, 2),
+        # Non-null only under a breach, where the figure prices a fan-out the
+        # run would not mint. Kept beside the number rather than only in
+        # `spend_gate`, so a reader who takes the estimate takes the caveat.
+        "estimated_spend_caveat": (
+            "The ex-post spend backstop is breached, so a real run would mint 0 cells and "
+            "spend $0.00; this prices the fan-out the earlier steps decided."
+            if breached
+            else None
+        ),
         "planning_rate_usd_per_cell": _PLANNING_USD_PER_CELL,
-        "estimated_spend_usd": round(cells * _PLANNING_USD_PER_CELL, 2),
+        "spend_estimate_basis": {
+            "source": (
+                "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
+                "whole-run row) and the evaluate-cohort table beside it (proc-v2 row, "
+                "scaled by the predict move)"
+            ),
+            "seam": seam,
+            "rates_usd_per_cell": dict(rates),
+            "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
+            "fallback_source": (
+                "docs/budget.md — 'Capacity `N`: the funding knob' ($15 per "
+                "fully-tournamented case over a six-cell design mix)"
+            ),
+            "cells_at_fallback_rate": at_fallback,
+            "caveats": caveats,
+        },
     }
 
 
@@ -7423,37 +7570,55 @@ def _plan_spend(cells: int) -> dict[str, Any]:
 class _LedgerGate:
     """The predict ledger gate's reading: the opening balance and what it dropped.
 
-    ``candidates`` is every predictor x case x event cell the resolved request
-    spans before any gate — the plan's opening balance, so the later drops
-    reconcile against the surviving set (candidates minus already-predicted
-    minus withheld minus deferred is exactly what a run would mint) instead of
-    being taken on trust.
+    ``candidates`` is the FULL enabled-predictor x case x event product the
+    resolved request spans, before any narrowing or gate — the plan's opening
+    balance, so the later drops reconcile against the surviving set (candidates
+    minus request-narrowed minus already-predicted minus withheld minus deferred
+    is exactly what a run would mint) instead of being taken on trust.
     """
 
     candidates: int
+    request_narrowed: tuple[_DropRecord, ...]
     already_predicted: tuple[_DropRecord, ...]
 
 
 def _predict_ledger_gate(
     resolved: list[CaseRequest], predictors_path: Path, data_root: Path
 ) -> _LedgerGate:
-    """Re-walk :func:`predict_matrix`'s product and report what its ledger gate skipped.
+    """Re-walk :func:`predict_matrix`'s product and report what removed cells from it.
 
-    Re-derived from the same predicate, over the same predictor x case x event
+    Re-derived from the same predicates, over the same predictor x case x event
     order, rather than by subtracting the surviving cells from a product — so
-    the plan's count cannot drift from the gate it reports on, and stays right
+    the plan's counts cannot drift from the gates they report on, and stay right
     when a later step (the stranded guard, the cap) removes cells of its own.
+
+    Two classes, held apart because they answer different questions: the
+    request's own ``predictors:`` narrowing is what the *trigger* asked for (a
+    backfill body naming the engines that failed), while the ledger gate is what
+    the *corpus* already holds. Collapsed, a narrowed backfill would read as an
+    already-complete event.
     """
     candidates = 0
+    narrowed: list[_DropRecord] = []
     records: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
-            if case.predictors and predictor.id not in case.predictors:
-                continue
             candidates += len(case.events)
+            case_id = ids.case_id(case.court, case.docket)
+            if case.predictors and predictor.id not in case.predictors:
+                narrowed.extend(
+                    _DropRecord(
+                        case_id,
+                        f"the request narrows this case to predictors {sorted(case.predictors)}",
+                        event_id=event_id,
+                        actor_id=predictor.id,
+                    )
+                    for event_id in case.events
+                )
+                continue
             records.extend(
                 _DropRecord(
-                    ids.case_id(case.court, case.docket),
+                    case_id,
                     "this predictor has already committed a prediction for the event",
                     event_id=event_id,
                     actor_id=predictor.id,
@@ -7463,7 +7628,7 @@ def _predict_ledger_gate(
                     data_root, case.court, case.docket, event_id, predictor_id=predictor.id
                 )
             )
-    return _LedgerGate(candidates, tuple(records))
+    return _LedgerGate(candidates, tuple(narrowed), tuple(records))
 
 
 def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
@@ -7471,14 +7636,19 @@ def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
 
     The repo's stdout/stderr split, for the same reason the matrix commands keep
     it: stdout is the machine surface a consuming gate parses, so every word
-    meant for a person goes to stderr.
+    meant for a person goes to stderr. The counts print as two lines because
+    they are two grains — cases and events on one, cells on the other — and a
+    single run-on line invites reading a case count as a cell count.
     """
     counts = plan["counts"]
+    ledger = counts["cell_ledger"]
     breached = bool(plan["spend_gate"]["breached"])
-    typer.echo(
-        f"{stage}: " + ", ".join(f"{name}={value}" for name, value in counts.items()),
-        err=True,
-    )
+    for grain in ("provenance", "cell_ledger"):
+        typer.echo(
+            f"{stage} {grain.replace('_', ' ')}: "
+            + ", ".join(f"{name}={value}" for name, value in counts[grain].items()),
+            err=True,
+        )
     if breached:
         typer.echo(
             f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
@@ -7493,10 +7663,18 @@ def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
         if breached
         else "."
     )
+    deferred = ledger.get("deferred_by_cap_cells", 0)
+    cap_note = (
+        f" Covers this run only: {deferred} cell(s) deferred by the volume cap re-queue on a "
+        f"later cycle at their own cost."
+        if deferred
+        else ""
+    )
     typer.echo(
-        f"{stage}: would mint {counts['would_mint_cells']} cell(s), estimated "
-        f"${plan['estimated_spend_usd']:.2f} at the ${_PLANNING_USD_PER_CELL:.2f}/cell planning "
-        f"rate (docs/budget.md). Nothing was spent and nothing was written{breach_note}",
+        f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
+        f"${plan['estimated_spend_usd']:.2f} at the per-engine rates in "
+        f"docs/budget.md (see spend_estimate_basis). Nothing was spent and nothing was "
+        f"written{breach_note}{cap_note}",
         err=True,
     )
     typer.echo(json.dumps(plan, separators=(",", ":")))
@@ -7541,16 +7719,23 @@ def predict_plan_cmd(
     trigger-issue close note, no Actions step summary, no model spend; only the
     plan document on stdout and its summary lines on stderr.
 
-    stdout is a single JSON object: ``counts`` per step, the drop lists that
-    explain each count (every record carrying the dropping step's own reason),
-    the ``would_mint`` cell set, and the planning-rate estimate of what minting
-    it would cost. That makes "this change protects a rerun" a check someone can
-    execute rather than a claim.
+    stdout is a single JSON object. ``counts`` splits by grain — ``provenance``
+    counts cases and events, ``cell_ledger`` counts cells — because the two are
+    read for different questions and a flat block invites reading a case count
+    as a cell count. The drop lists explain each count, every record carrying
+    the dropping step's own reason; ``would_mint`` is the surviving cell set;
+    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates in
+    ``docs/budget.md``, with ``spend_estimate_basis`` naming the source section,
+    the rates used, and what they cannot support. That makes "this change
+    protects a rerun" a check someone can execute rather than a claim.
 
     The ex-post spend backstop is **reported, not applied**: ``spend_gate``
     carries its verdict while ``would_mint`` stays the fan-out the earlier steps
     decided, because a plan describes the pipeline rather than standing in for
-    it. A breach is called out on stderr.
+    it. The consequence is on stdout as well as stderr —
+    ``would_mint_cells_after_spend_gate``, ``spend_gate.would_empty_matrix``,
+    and ``estimated_spend_caveat`` — so a machine reader cannot take
+    ``would_mint`` for what a run would actually spend.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
@@ -7584,24 +7769,39 @@ def predict_plan_cmd(
     plan: dict[str, Any] = {
         "stage": "predict",
         "run_id": planned_run_id,
+        # Split by grain: `provenance` counts cases and events, `cell_ledger`
+        # counts cells. Every key carries its own grain suffix as well, so a
+        # count read out of its block is still unambiguous.
         "counts": {
-            "requested_cases": len(fanout.requested),
-            "requested_listed_events": sum(len(c.events) for c in fanout.requested),
-            "dropped_out_of_scope_cases": len(fanout.scope_dropped),
-            "dropped_unforecastable_events": len(fanout.unforecastable),
-            "resolved_cases": len(fanout.resolved),
-            "resolved_events": sum(len(c.events) for c in fanout.resolved),
-            # The opening balance, so the drops below reconcile:
-            # candidate - already_predicted - withheld - deferred == would_mint.
-            "candidate_cells": gate.candidates,
-            "dropped_already_predicted_cells": len(gate.already_predicted),
-            "withheld_stranded_cells": len(fanout.guard.withheld),
-            "deferred_by_cap_cells": fanout.capped.dropped_cells,
-            "deferred_by_cap_cases": len(fanout.capped.dropped_cases),
-            "would_mint_cells": len(would_mint),
+            "provenance": {
+                "requested_cases": len(fanout.requested),
+                "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+                "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "dropped_unforecastable_events": len(fanout.resolution.unforecastable),
+                "resolved_cases": len(fanout.resolved),
+                "resolved_events": sum(len(c.events) for c in fanout.resolved),
+                "cases_with_no_default_events": len(fanout.resolution.no_default_events),
+            },
+            "cell_ledger": {
+                # The opening balance, so the drops below reconcile: candidates
+                # - request_narrowed - already_predicted - withheld - deferred
+                # == would_mint.
+                "candidate_cells": gate.candidates,
+                "dropped_by_request_narrowing_cells": len(gate.request_narrowed),
+                "dropped_already_predicted_cells": len(gate.already_predicted),
+                "withheld_stranded_cells": len(fanout.guard.withheld),
+                "deferred_by_cap_cells": fanout.capped.dropped_cells,
+                "would_mint_cells": len(would_mint),
+                # What a real run would mint once the ex-post backstop is
+                # applied — zero under a breach. The plan reports the gate
+                # rather than applying it, so the two numbers differ there.
+                "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
+            },
         },
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
-        "dropped_unforecastable": [r.as_json() for r in fanout.unforecastable],
+        "dropped_unforecastable": [r.as_json() for r in fanout.resolution.unforecastable],
+        "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
+        "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],
         "dropped_already_predicted": [r.as_json() for r in gate.already_predicted],
         # A withheld count of zero means nothing on its own — see
         # `_StrandedGuardReport`, which separates a clean guard from an absent
@@ -7624,7 +7824,7 @@ def predict_plan_cmd(
         },
         "spend_gate": _spend_verdict_json(verdict),
         "would_mint": would_mint,
-        **_plan_spend(len(would_mint)),
+        **_plan_spend(would_mint, seam="predict", breached=verdict.breached),
     }
     _echo_plan(plan, stage="predict-plan")
 
@@ -7662,8 +7862,13 @@ def evaluate_plan_cmd(
     The dry run of ``evaluate-matrix``, through the same pipeline and its two
     plan-time gates — an event with no committed prediction has nothing to
     score, and a judge that already graded the event is not re-minted. Same
-    stdout/stderr split and the same spend-gate reading as ``predict-plan``: the
-    backstop's verdict is reported, never applied.
+    grain-split ``counts``, stdout/stderr split, and spend-gate reading as
+    ``predict-plan``: the backstop's verdict is reported, never applied.
+
+    Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
+    so: no evaluate fan-out has run since the pre-registration freeze, so the
+    rates are ``docs/budget.md``'s scaled assumption rather than a measurement.
+    ``spend_estimate_basis.caveats`` states it on every plan.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
@@ -7690,25 +7895,33 @@ def evaluate_plan_cmd(
     plan: dict[str, Any] = {
         "stage": "evaluate",
         "run_id": planned_run_id,
+        # Split by grain, as predict-plan's is; see there.
         "counts": {
-            "requested_cases": len(fanout.requested),
-            "requested_listed_events": sum(len(c.events) for c in fanout.requested),
-            "dropped_out_of_scope_cases": len(fanout.scope_dropped),
-            "resolved_cases": len(fanout.resolved),
-            "resolved_events": sum(len(c.events) for c in fanout.resolved),
-            # The opening balance, so the drops below reconcile:
-            # candidate - predictionless - already_evaluated == would_mint.
-            "candidate_cells": fanout.candidates,
-            "dropped_predictionless_cells": len(fanout.predictionless),
-            "dropped_already_evaluated_cells": len(fanout.already_evaluated),
-            "would_mint_cells": len(would_mint),
+            "provenance": {
+                "requested_cases": len(fanout.requested),
+                "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+                "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "resolved_cases": len(fanout.resolved),
+                "resolved_events": sum(len(c.events) for c in fanout.resolved),
+                "cases_with_no_default_events": len(fanout.resolution.no_default_events),
+            },
+            "cell_ledger": {
+                # The opening balance, so the drops below reconcile: candidates
+                # - predictionless - already_evaluated == would_mint.
+                "candidate_cells": fanout.candidates,
+                "dropped_predictionless_cells": len(fanout.predictionless),
+                "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+                "would_mint_cells": len(would_mint),
+                "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
+            },
         },
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
         "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
         "spend_gate": _spend_verdict_json(verdict),
         "would_mint": would_mint,
-        **_plan_spend(len(would_mint)),
+        **_plan_spend(would_mint, seam="evaluate", breached=verdict.breached),
     }
     _echo_plan(plan, stage="evaluate-plan")
 
