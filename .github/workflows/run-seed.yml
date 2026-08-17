@@ -403,10 +403,23 @@ jobs:
             echo "no corpus pointer yet; skipping dedupe"; exit 0
           fi
           gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the merge moves ledger event
+          # directories with the re-keyed rows, and the would-move ledger must
+          # outlive the step log the way the attribution repairs' does.
+          uv run fedcourts dedupe-live-rows 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           uv run fedcourts dedupe-live-rows --apply
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
+          # The merge writes both halves: the re-keyed rows into the corpus and
+          # the moved minted-event directories into `data/`. Stage them into the
+          # one pointer commit so the ledger and the corpus it must match move
+          # together or not at all — the sweep cannot re-detect a pair whose
+          # rows merged while the directory move was thrown away with the
+          # runner.
           git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
           if git diff --cached --quiet; then
             echo "No duplicate pairs to persist."
             exit 0
