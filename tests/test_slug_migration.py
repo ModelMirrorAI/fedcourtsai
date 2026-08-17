@@ -164,17 +164,43 @@ def test_existing_target_directory_refuses_the_rename(tmp_path: Path) -> None:
     assert _paths(data_root, _STALE_ID).base.is_dir()
 
 
-def test_existing_target_row_refuses_the_rename(tmp_path: Path) -> None:
-    # The derived id already sits on the case (the re-ingest that duplicated the
-    # row got there first): the pair needs the uniqueness suffix re-assigned.
-    with _seeded(tmp_path, _event(_STALE_ID), _event(_DERIVED_ID, resolved=False)) as conn:
+def test_reingest_duplicate_is_folded_not_reported(tmp_path: Path) -> None:
+    # The dominant shape: a daily refresh already inserted the open duplicate
+    # under the derived id, pinned to the same docket entry. That row *is* what
+    # the sweep exists to clear, so the rename folds onto it — one row, the
+    # resolved latch carried by rename_event's MAX, the ledger directory moved.
+    data_root = _data_root(tmp_path)
+    _commit_ledger(data_root, _STALE_ID)
+    duplicate = _event(_DERIVED_ID, resolved=False)
+    with _seeded(tmp_path, _event(_STALE_ID), duplicate) as conn:
+        result = converge_event_slugs(conn, data_root, apply=True)
+        events = corpus.events_for_case(conn, _CASE)
+    assert result.renamed == [(f"{_CASE}/{_STALE_ID}", _DERIVED_ID)]
+    assert result.skipped == []
+    (event,) = events
+    assert event.event_id == _DERIVED_ID
+    assert event.resolved is True  # the stale row's latch survives the fold
+    assert event.docket_entry_id == 4
+    assert not _paths(data_root, _STALE_ID).base.exists()
+    assert read_model(_paths(data_root, _DERIVED_ID).event_file, PredictableEvent).event_id == (
+        _DERIVED_ID
+    )
+
+
+def test_a_different_entry_holding_the_derived_id_is_reported(tmp_path: Path) -> None:
+    # The genuine collision: two *filings* whose subjects now derive one id.
+    # Folding would write one filing's latch and entry pin onto another, so the
+    # pair needs the uniqueness suffix re-assigned — a maintainer's call.
+    other_filing = _event(_DERIVED_ID, docket_entry_id=9, resolved=False)
+    with _seeded(tmp_path, _event(_STALE_ID), other_filing) as conn:
         result = converge_event_slugs(conn, _data_root(tmp_path), apply=True)
         events = corpus.events_for_case(conn, _CASE)
     assert result.renamed == []
     ((ref, reason),) = result.skipped
     assert ref == f"{_CASE}/{_STALE_ID}"
-    assert "already taken" in reason
-    assert [e.event_id for e in events] == [_DERIVED_ID, _STALE_ID]
+    assert "different docket entry" in reason
+    # Both rows survive untouched for triage.
+    assert [(e.event_id, e.docket_entry_id) for e in events] == [(_DERIVED_ID, 9), (_STALE_ID, 4)]
 
 
 def test_committed_cell_output_refuses_the_rename(tmp_path: Path) -> None:
@@ -205,18 +231,23 @@ def test_collision_suffix_reads_as_converged(tmp_path: Path) -> None:
     assert event.event_id == suffixed
 
 
-def test_interrupted_move_finishes_as_a_corpus_only_rename(tmp_path: Path) -> None:
-    # The ledger half leads, so a run that died between the two halves leaves
-    # the directory under the new id and the row under the old one; the next
-    # run finishes it rather than blocking.
+def test_interrupted_move_finishes_the_restamp_and_the_row(tmp_path: Path) -> None:
+    # The ledger half leads and is itself two steps. A run that died between
+    # them leaves the directory already at the target with its documents still
+    # naming the old id — a shape validate's path/declaration check fails. The
+    # next run must finish *both* the restamp and the corpus row, so the
+    # rewrite cannot hang off the source directory still existing.
     data_root = _data_root(tmp_path)
-    _commit_ledger(data_root, _DERIVED_ID)
+    stranded = _commit_ledger(data_root, _STALE_ID)
+    stranded.base.rename(_paths(data_root, _DERIVED_ID).base)
     with _seeded(tmp_path) as conn:
         result = converge_event_slugs(conn, data_root, apply=True)
         (event,) = corpus.events_for_case(conn, _CASE)
     assert result.renamed == [(f"{_CASE}/{_STALE_ID}", _DERIVED_ID)]
     assert event.event_id == _DERIVED_ID
-    assert _paths(data_root, _DERIVED_ID).base.is_dir()
+    moved = _paths(data_root, _DERIVED_ID)
+    assert read_model(moved.event_file, PredictableEvent).event_id == _DERIVED_ID
+    assert read_model(moved.outcome, Outcome).event_id == _DERIVED_ID
 
 
 def test_case_level_rows_are_never_scanned(tmp_path: Path) -> None:
@@ -240,6 +271,25 @@ def test_row_without_entry_text_is_reported(tmp_path: Path) -> None:
     ((_, reason),) = result.skipped
     assert "no entry text" in reason
     assert event.event_id == _STALE_ID
+
+
+def test_unreadable_kind_is_reported_without_aborting_the_pass(tmp_path: Path) -> None:
+    # One row outside the event vocabulary must not abort a pass that has
+    # already written: it is reported and the sweep carries on.
+    other_case = "scotus/900002"
+    data_root = _data_root(tmp_path)
+    _commit_ledger(data_root, _STALE_ID)
+    with _seeded(tmp_path) as conn:
+        corpus.upsert_rows(conn, [_row(other_case)])
+        corpus.upsert_events(conn, [_event(_STALE_ID, case_id=other_case)])
+        conn.execute("UPDATE events SET kind = 'sanction' WHERE case_id = ?", (other_case,))
+        result = converge_event_slugs(conn, data_root, apply=True)
+        (event,) = corpus.events_for_case(conn, _CASE)
+    assert result.renamed == [(f"{_CASE}/{_STALE_ID}", _DERIVED_ID)]
+    ((ref, reason),) = result.skipped
+    assert ref == f"{other_case}/{_STALE_ID}"
+    assert "vocabulary" in reason
+    assert event.event_id == _DERIVED_ID
 
 
 def test_cli_dry_run_then_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

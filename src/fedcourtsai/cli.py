@@ -1246,15 +1246,20 @@ def converge_event_slugs_cmd(
     included) and the ledger directory by moving it and restamping the id inside
     `event.yaml` / `outcome.json`. The ledger half goes first: the corpus row is
     the detection handle, so an interrupted run is re-found and finished by the
-    next one. A row whose derived id is already taken on the case, whose ledger
-    directory holds committed cell output, or which has directories under both
-    ids, is skipped and reported for triage. Idempotent. Dry-run by default;
-    `--apply` writes, and refuses above `--max-renames`: the population is the
-    finite set of rows a derivation change left behind, so a large count means
-    the derivation moved further than intended. Run where the corpus is pulled:
-    the dry run is a dev checkout's, and an `--apply` needs a writer-lane step,
-    where the ledger half stages into the lane's one pointer commit atomically
-    with the corpus it must match. Fails loud if the corpus is absent.
+    next one. Where the derived id is already on the case *pinned to the same
+    docket entry*, that row is the duplicate this sweep exists to clear, and the
+    rename folds onto it — `rename_event` takes `resolved` as the MAX of the
+    two, so the case ends with one row holding the latch. A **different**
+    entry's row under the derived id is the genuine collision and is reported
+    for triage, as are a ledger directory holding committed cell output,
+    directories under both ids, and a row whose text or kind cannot be read.
+    Idempotent. Dry-run by default; `--apply` writes, and refuses above
+    `--max-renames`: the population is the finite set of rows a derivation
+    change left behind, so a large count means the derivation moved further
+    than intended. Corpus writes exist only inside the writer workflows and no
+    lane runs this sweep, so today only the **dry run** is runnable — from a dev
+    checkout over a pulled corpus, as the triage report a maintainer reads.
+    Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)

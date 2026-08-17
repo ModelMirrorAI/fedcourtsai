@@ -25,20 +25,31 @@ so an interrupted run that already moved the directory is re-found by the next
 run and finished as a corpus-only rename, where flipping the row first would
 strand the directory under an id nothing scans for again.
 
-The within-case uniqueness suffix is not part of the derivation — it depends on
-the docket's *other* entries — so a stored id that is the derived id plus a
-numeric suffix is already converged and is left alone. Where the derived id is
-already taken, by another row on the case or by a rename this same pass already
-planned, the row is reported for triage instead: two stale rows now deriving one
-id need the suffix re-assigned between them, which is a maintainer's call rather
-than a rename's.
+**The duplicate is folded, not reported.** Where the derived id is already on
+the case, what matters is which docket entry holds it. The same entry means the
+occupant *is* the duplicate this sweep exists to clear — the open row a refresh
+already inserted — so the rename folds onto it:
+:func:`fedcourtsai.corpus.rename_event` upserts over that row and drops the
+stale one, taking ``resolved`` as the MAX of the two, so the case ends with one
+row carrying the latch, and the ledger directory moves onto the surviving id.
+An open docket is refreshed daily, so this is the *dominant* shape, not an edge
+case; only a closed docket stays un-duplicated long enough for the rename to
+find its target free. A **different** entry holding the derived id is the
+genuine collision — two filings whose subjects now derive one id — and that
+needs the within-case uniqueness suffix re-assigned between them, which is a
+maintainer's call rather than a rename's, so it is reported for triage. So is
+an occupant carrying no entry pin at all.
 
-Three ledger shapes are likewise skipped and reported: a directory holding
+The within-case uniqueness suffix is itself no part of the derivation — it
+depends on the docket's *other* entries — so a stored id that is the derived id
+plus a numeric suffix is already converged and is left alone.
+
+Three further shapes are likewise skipped and reported: a directory holding
 anything beyond ``event.yaml`` / ``outcome.json`` — committed predict/evaluate
 output names the event id inside its own files, which this sweep does not
 rewrite — a case where the directories under *both* ids exist (merging them is a
-judgement call), and a row whose stored entry text is missing, since the id
-cannot be re-derived without it.
+judgement call), and a row whose stored entry text or kind the derivation cannot
+read, since there is then no id to converge onto.
 """
 
 from __future__ import annotations
@@ -60,9 +71,12 @@ _EVENT_DOCUMENTS = frozenset({"event.yaml", "outcome.json"})
 _NO_TEXT_REASON = (
     "the row stores no entry text, so the id today's rules derive for it is unknowable"
 )
+_UNKNOWN_KIND_REASON = (
+    "the row's kind is outside the event vocabulary, so no derivation applies to it"
+)
 _TARGET_TAKEN_REASON = (
-    "the derived id is already taken on this case, so the two rows need the "
-    "within-case uniqueness suffix re-assigned between them"
+    "the derived id is held by a different docket entry on this case, so the two "
+    "filings need the within-case uniqueness suffix re-assigned between them"
 )
 _BOTH_DIRECTORIES_REASON = (
     "ledger directories exist under both the stored and the derived id; merging "
@@ -86,17 +100,19 @@ def converge_event_slugs(
     """Rename each entry-pinned event whose id the current derivation no longer mints.
 
     Dry run by default (finds the rows, writes nothing); ``apply`` moves the
-    ledger directory and then renames the corpus row, in that order — see the
-    module docstring for why the ledger half leads, and for every skip shape.
+    ledger directory and then renames the corpus row, in that order. A derived
+    id already held by the *same* docket entry is the re-ingest duplicate, and
+    the rename folds onto it rather than reporting it — see the module docstring
+    for that, for why the ledger half leads, and for every skip shape.
     ``data_root`` is the git ledger root.
     """
     result = SlugConvergenceResult(applied=apply)
-    # The ids this pass has already spoken for, so a dry run reports the second
-    # of two rows deriving one id as triage rather than as a rename it could not
-    # perform (an `--apply` sees the first rename in the corpus itself).
-    claimed: set[tuple[str, str]] = set()
+    # Which docket entry each id this pass has already spoken for belongs to, so
+    # a dry run judges the second of two rows deriving one id exactly as an
+    # `--apply` does (which sees the first rename in the corpus itself).
+    claimed: dict[tuple[str, str], int | None] = {}
     rows = conn.execute(
-        "SELECT case_id, event_id, kind, description FROM events "
+        "SELECT case_id, event_id, kind, description, docket_entry_id FROM events "
         "WHERE docket_entry_id IS NOT NULL ORDER BY case_id, event_id"
     ).fetchall()
     for row in rows:
@@ -106,12 +122,22 @@ def converge_event_slugs(
         if not text:
             result.skipped.append((ref, _NO_TEXT_REASON))
             continue
-        derived = entry_event_id(str(text), EventKind(row["kind"]))
+        try:
+            kind = EventKind(row["kind"])
+        except ValueError:
+            # One unreadable row must not abort a pass that has already written:
+            # report it and carry on, as every other unhandled shape does.
+            result.skipped.append((ref, _UNKNOWN_KIND_REASON))
+            continue
+        derived = entry_event_id(str(text), kind)
         if _is_converged(event_id, derived):
             result.already_converged += 1
             continue
+        entry_id = int(row["docket_entry_id"])
         events = {event.event_id: event for event in corpus.events_for_case(conn, case_id)}
-        if derived in events or (case_id, derived) in claimed:
+        holders: dict[str, int | None] = {e.event_id: e.docket_entry_id for e in events.values()}
+        holders.update({eid: pin for (cid, eid), pin in claimed.items() if cid == case_id})
+        if derived in holders and holders[derived] != entry_id:
             result.skipped.append((ref, _TARGET_TAKEN_REASON))
             continue
         old_paths = _ledger_event_paths(data_root, case_id, event_id)
@@ -122,9 +148,9 @@ def converge_event_slugs(
                 result.skipped.append((ref, reason))
                 continue
         result.renamed.append((ref, derived))
-        claimed.add((case_id, derived))
+        claimed[(case_id, derived)] = entry_id
         if apply:
-            if old_paths is not None and new_paths is not None and old_paths.base.is_dir():
+            if old_paths is not None and new_paths is not None:
                 _move_ledger_event(old_paths, new_paths, derived)
             corpus.rename_event(
                 conn,
@@ -175,14 +201,28 @@ def _ledger_blocker(old: EventPaths, new: EventPaths) -> str | None:
 
 
 def _move_ledger_event(old: EventPaths, new: EventPaths, event_id: str) -> None:
-    """Move the committed event directory and restamp the id inside its documents."""
-    old.base.rename(new.base)
+    """Move the committed event directory and restamp the id inside its documents.
+
+    The restamp is unconditional and idempotent: a run interrupted between the
+    two steps leaves the directory already at the target with its documents
+    still naming the old id — a shape the path/declaration check fails and no
+    later pass would revisit if the rewrite hung off the *source* directory's
+    existence. Re-validated, not ``model_copy``, so every carried field
+    normalizes and a future field travels by construction.
+    """
+    if old.base.is_dir():
+        old.base.rename(new.base)
     if new.event_file.is_file():
         event = read_model(new.event_file, PredictableEvent)
-        write_yaml(new.event_file, event.model_copy(update={"event_id": event_id}))
+        write_yaml(
+            new.event_file,
+            PredictableEvent.model_validate({**event.model_dump(), "event_id": event_id}),
+        )
     if new.outcome.is_file():
         outcome = read_model(new.outcome, Outcome)
-        write_json(new.outcome, outcome.model_copy(update={"event_id": event_id}))
+        write_json(
+            new.outcome, Outcome.model_validate({**outcome.model_dump(), "event_id": event_id})
+        )
 
 
 def _ledger_event_paths(data_root: Path, case_id: str, event_id: str) -> EventPaths | None:
