@@ -12,7 +12,9 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.cli import app
+from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
     carries_redaction,
@@ -1110,10 +1112,34 @@ def test_the_predicate_matches_the_pinned_releases_own_error_strings(tmp_path: P
     These are that release's strings, so a manifest pin bump has to re-read its
     error rendering exactly as the sidecar launch has to re-read its
     constructor. Holding them here makes a bump that changes the wording fail a
-    test rather than quietly turn the marker off for every later run.
+    test rather than quietly turn the marker off for every later run — and
+    asserting the pin itself keeps that coupling local, so the claim the
+    `_THROTTLE_RE` comment makes is checked rather than merely written down.
     """
+    assert _HTTP_BYPASS_RELEASE == "courtlistener-api-client[mcp]==1.1.0", (
+        "the throttle predicate quotes this release's error rendering; re-read "
+        "courtlistener/mcp/middleware.py and citation_utils.py before bumping the pin"
+    )
     for rendering in _PINNED_RELEASE_THROTTLE_STRINGS:
         assert _claude_status(tmp_path, rendering).result_status == "throttled", rendering
+
+
+def test_the_predicate_ignores_the_english_its_phrases_are_made_of(tmp_path: Path) -> None:
+    """A manifest tool returns documents, so the gate alone is not enough.
+
+    Both shapes are ordinary in what a search legitimately hands back — the
+    first in any rate-regulation opinion, the second in a discovery dispute —
+    and each is a substring of a phrase this server does emit. A false positive
+    invents starvation in a run that had none, so the alternations carry their
+    subject or their status code rather than standing alone.
+    """
+    for payload in (
+        "The Commission found that the rate limited the recovery of prudently incurred costs.",
+        "Petitioner served too many requests for admission, and the court so held.",
+        "Rate limits are discussed at length in the briefing.",
+        "See 429 U.S. 274; the request was denied.",
+    ):
+        assert _claude_status(tmp_path, payload).result_status == "ok", payload
 
 
 def test_a_throttled_claude_result_is_marked_and_still_digested(tmp_path: Path) -> None:
@@ -1336,6 +1362,28 @@ def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
     # And a cell that called only builtins: it read plenty and could not have
     # been throttled by this quota, which is not the same as a clean cell.
     assert _log(_ok(6, tool="Read")).throttled_calls is None
+
+
+def test_the_count_survives_the_blinding_masks_respelling_of_the_tool() -> None:
+    """A staged log is still a RetrievalLog, and revalidating it re-derives this.
+
+    `mask_retrieval_log` rewrites each call's `tool` to its engine-neutral
+    class, so a gate that only knew the engines' own spellings would read every
+    staged manifest call as a builtin and null a count the mask is not supposed
+    to touch — the blinded view would then disagree with the committed log about
+    a number, which is exactly what the mask exists not to do.
+    """
+    masked = neutral_tool_class("mcp__courtlistener__search")
+    assert masked == "mcp:courtlistener:search"
+    assert normalize_call(masked) == "courtlistener.search"
+    staged = _log(
+        [
+            *_throttled(1),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="throttled"),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="ok"),
+        ]
+    )
+    assert staged.throttled_calls == 2
 
 
 def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:

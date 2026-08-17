@@ -912,8 +912,8 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
         "",
         "## Upstream throttling",
         "",
-        f"Throttled MCP results, over the manifest-tool calls whose result condition was "
-        f"legible: {rows}.",
+        "Throttled MCP results, over the manifest-tool calls whose result condition was "
+        + f"legible: {rows}.",
         "",
         "_A throttled call is the shared daily quota turning the cell away — it retrieved "
         + "nothing, so a starved cell's coverage is not comparable with a well-fed one's. "

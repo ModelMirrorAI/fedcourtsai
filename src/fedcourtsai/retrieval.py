@@ -48,13 +48,16 @@ engine's own structural failure marker, ``ok`` otherwise. The throttle state is
 the one that changes how a cell should be read: a call the shared daily quota
 turned away retrieved nothing, so a starved run's coverage is not comparable
 with a well-fed one's, and the 429 evidence exists nowhere else — the payload it
-sits in is digested away one line later. The manifest-tool gate is what keeps
-that reading honest, because the phrases it looks for are ordinary in text a
-*builtin* hands back: a cell reading its own ``reasoning.md``, or this
-repository's own source and docs, sitting in the checkout the cell runs in. The
-status is a floor by construction, decided once at parse time, and available
-only on engines whose results reach a transcript at all; every Gemini row is
-``unobserved``.
+sits in is digested away one line later. Two things keep that reading honest,
+because the text is not trustworthy from either direction: the **tool gate**
+excludes what a *builtin* hands back (a cell reading its own ``reasoning.md``,
+or this repository's own source and docs, sitting in the checkout the cell runs
+in), and the **phrasing** of each alternation excludes what a manifest tool
+legitimately returns — a search tool's whole job is handing back opinions, and
+an opinion may well discuss a rate limitation or too many requests for
+admission. The status is a floor by construction, decided once at parse time,
+and available only on engines whose results reach a transcript at all; every
+Gemini row is ``unobserved``.
 
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
@@ -118,17 +121,33 @@ _DOC_DATE_RE = re.compile(
 # existed. So the predicate is cheap to miss with and expensive to fire wrongly,
 # and every count derived from it is a floor.
 #
-# Scanned only for **manifest-tool** calls (see :func:`_result_status`). These
-# phrases are common in text a *builtin* reads back — a cell's own
-# `reasoning.md` recounting a throttle, this repository's source and docs inside
-# the checkout, the predictor artifacts an evaluate cell is instructed to read —
-# and none of that is the upstream refusing this call.
+# Two defences, and neither is sufficient alone. The **tool gate** (see
+# :func:`_result_status`) keeps out the text a *builtin* reads back — a cell's
+# own `reasoning.md` recounting a throttle, this repository's source and docs
+# inside the checkout, the predictor artifacts an evaluate cell is instructed to
+# read. It does *not* make the rest of the corpus safe: a manifest tool's whole
+# job is returning documents, and an opinion about utility rates or a discovery
+# dispute is retrieved through the same call that a 429 comes back on. So each
+# alternation must be a string this server emits and not a shape English
+# produces — which is why the two loosest ones carry their subject
+# ("...by the upstream API") or their status code ("429 Too Many Requests")
+# rather than standing alone.
 _THROTTLE_RE = re.compile(
     r"""
-      rate[\s_-]*limit[\s_-]*exceeded   # the MCP tool handler's own 429 rendering
-    | rate[\s_-]*limited                # the citation tools' partial-result note
-    | \bhttp[\s_-]*429\b                # the API client's `HTTP 429: <detail>` str
-    | too[\s_-]*many[\s_-]*requests     # the status' reason phrase
+    # The MCP tool handler's own 429 rendering.
+      rate[\s_-]*limit[\s_-]*exceeded
+    # The citation tools' partial-result note, quoted to its full subject rather
+    # than cut at `rate limited`: "the rate limited the recovery" is ordinary
+    # English in a rate-regulation opinion, and a manifest search returns
+    # opinions.
+    | rate[\s_-]*limited[\s_-]+by[\s_-]+the[\s_-]+upstream[\s_-]+api
+    # The API client's `HTTP 429: <detail>` str.
+    | \bhttp[\s_-]*429\b
+    # The status line as a transport renders it, status and reason adjacent. The
+    # reason phrase alone would match "too many requests for admission" in a
+    # discovery dispute; pinning it to the code costs nothing, because a bare
+    # reason phrase with no status beside it is not a rendering this server emits.
+    | 429[\s:_-]*too[\s_-]*many[\s_-]*requests
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -236,7 +255,10 @@ def _result_status(
     is a manifest one (:func:`~fedcourtsai.schemas.normalize_call`): a builtin's
     result is whatever the agent asked it to read — its own ``reasoning.md``,
     this repository's source, another cell's artifacts — and prose *about*
-    throttling is not this call being throttled. ``engine_error`` is a
+    throttling is not this call being throttled. The gate narrows the text this
+    reads; it does not make that text safe, since a manifest search returns
+    documents too, which is why :data:`_THROTTLE_RE` quotes strings this server
+    emits rather than shapes English produces. ``engine_error`` is a
     **structural** flag the engine set (a Claude ``tool_result``'s ``is_error``,
     a Codex MCP item's inline ``error``), which retrieved text cannot forge, so
     it needs no such gate and a failed builtin is honestly an error. Nothing

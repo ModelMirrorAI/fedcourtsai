@@ -455,11 +455,15 @@ directory without knowing which part is which invites trusting the wrong half.
   — the predicate is anchored on the server's own rate-limit phrasing, biased
   to miss rather than invent, and baked at parse time, since the raw 429 text is
   digested away one line after it is read and can never be re-examined. The
-  evaluate prompt does not name the marker — the process the frozen partition
-  keys on cannot gain a reading instruction without moving
-  ([process-version.md](process-version.md)) — so it serves a maintainer, and
-  is available to the tool-usage rollup, which does not yet read it, until the
-  next re-blessing carries the instruction.
+  evaluate prompt does not name `result_capture` — the process the frozen
+  partition keys on cannot gain a reading instruction without moving
+  ([process-version.md](process-version.md)) — so that marker serves a
+  maintainer, and is available to the tool-usage rollup, which does not yet
+  read it, until the next re-blessing carries the instruction. `result_status`
+  is under the same silence for the same reason, though the rollup does read
+  it: both reach an evaluator's information set unmasked regardless, which is
+  recorded as a masking-surface entry in
+  [milestones.md](milestones.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts

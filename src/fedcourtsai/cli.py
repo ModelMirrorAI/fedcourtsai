@@ -8720,6 +8720,12 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
             if isinstance(c, CellStatus)
         ],
         "flags": plan.flags_markdown,
+        # The harness-side counterpart of `flags`: what this run's captured
+        # retrieval says the upstream quota did to it. It already rides the PR
+        # body, but it leaves the process here too, so the surface that echoes
+        # `flags` into the Actions summary can echo this beside it without
+        # re-reading a single artifact. Empty on a genuinely clean run.
+        "throttle": plan.throttle_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -8835,9 +8841,11 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     side by side mean one thing. A cell it leaves empty (capture-blind, or
     calling no manifest tool) is counted as ``blind_cells`` rather than as a
     clean cell, because it could not have shown a throttle and must not read as
-    evidence of none. A malformed or unreadable log is skipped entirely: this is
-    a notification, and it must never take down the aggregation that carries the
-    run's only copy of its output.
+    evidence of none. A malformed or unreadable log lands there too rather than
+    being dropped: it is a cell of this run — its path carries the run id — whose
+    condition nothing can read, which is exactly what the counter means. It is
+    never fatal, because this is a notification and it must never take down the
+    aggregation that carries the run's only copy of its output.
     """
     seen: set[tuple[str, str, str, str]] = set()
     rollup = ThrottleRollup()
@@ -8845,6 +8853,7 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
         try:
             log = RetrievalLog.model_validate_json(path.read_text())
         except (OSError, ValueError):
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
             continue
         if log.run_id != run_id:
             continue

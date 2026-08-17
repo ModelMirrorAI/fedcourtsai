@@ -1716,7 +1716,18 @@ RetrievalResultStatus = Literal["ok", "throttled", "error", "unobserved"]
 # separated by either one or two underscores depending on the engine. The tool
 # half may itself contain single underscores (`get_endpoint_schema`), so the
 # separator is matched greedily-left and the remainder taken whole.
-_MCP_CALL = re.compile(r"^mcp_{1,2}(?P<server>[a-z0-9]+)_{1,2}(?P<tool>.+)$")
+#
+# The colon form is the blinding mask's engine-neutral respelling
+# (`fedcourtsai.blinding.neutral_tool_class` writes `mcp:<server>:<tool>`,
+# because the raw vocabularies are disjoint per engine and would name the
+# candidate on the grader's own reading path). A staged log is still a
+# `RetrievalLog`, and revalidating one re-derives `throttled_calls` from its
+# rows — so a gate that did not know this spelling would silently null a staged
+# cell's count and make the blinded view disagree with the committed one about
+# a number neither is supposed to change.
+_MCP_CALL = re.compile(
+    r"^mcp(?:_{1,2}(?P<server>[a-z0-9]+)_{1,2}|:(?P<mserver>[a-z0-9]+):)(?P<tool>.+)$"
+)
 
 
 def normalize_call(tool: str) -> str | None:
@@ -1734,11 +1745,15 @@ def normalize_call(tool: str) -> str | None:
     excludes behind it. Two copies of this predicate would be two definitions
     of what a manifest-tool call is, and the three surfaces would drift apart
     exactly where they are meant to agree.
+
+    Both spellings a committed row can carry are recognized — the engines' own
+    and the blinding mask's ``mcp:<server>:<tool>`` — so a staged log
+    revalidates to the same count as the log it was masked from.
     """
     match = _MCP_CALL.match(tool)
     if match is None:
         return None
-    return f"{match['server']}.{match['tool']}"
+    return f"{match['server'] or match['mserver']}.{match['tool']}"
 
 
 class RetrievalCall(_Strict):
@@ -1819,10 +1834,14 @@ class RetrievalCall(_Strict):
         "tool name, because the same phrases occur constantly in what a BUILTIN reads — a "
         "cell's own `reasoning.md` describing a throttle it hit, this repository's source, "
         "an evaluator reading the predictor's artifacts — and a builtin echoing prose about "
-        "throttling is not the upstream refusing this cell. The predicate is anchored on "
-        "those phrases rather than on a bare `429` for the same reason pointed the other "
-        "way: even inside a manifest result, 429 is an ordinary U.S. Reports volume and a "
-        "docket number besides. Biased to miss a throttle rather than invent one, so read "
+        "throttling is not the upstream refusing this cell. That gate narrows the text "
+        "scanned; it does not make the rest of it safe, because a manifest search tool "
+        "returns documents for a living and an opinion may discuss a rate limitation or too "
+        "many requests for admission. So each phrase is quoted to something this server "
+        "actually emits — the note to its subject (`…by the upstream API`), the reason "
+        "phrase to its status code (`429 Too Many Requests`) — and none is a bare `429`, "
+        "which inside a legal payload is an ordinary U.S. Reports volume and a docket "
+        "number besides. Biased to miss a throttle rather than invent one, so read "
         "`throttled` as a floor. `error` is the engine's OWN structural marker on the "
         "result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with "
         "no throttle shape. It is NOT gated on the tool name — it is a flag the engine set, "

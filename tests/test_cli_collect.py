@@ -198,6 +198,9 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "facts_only": None,
         "skipped": [],
         "flags": "",
+        # A run with no cells has no retrieval to have been throttled, and no
+        # blind cell either — nothing to say, on this surface or in a PR body.
+        "throttle": "",
         "feedback_comment": "",
         "stalled": False,
         "dead_actors": [],
@@ -313,13 +316,19 @@ def test_collect_plan_counts_this_run_s_throttled_retrieval(tmp_path: Path) -> N
         ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
     )
     assert result.exit_code == 0
-    body = json.loads(result.stdout)["ready"]["body"]
+    plan = json.loads(result.stdout)
+    # The note leaves the process on the plan JSON as well as in the PR body,
+    # so the surface that echoes `flags` can echo this beside it.
+    assert "Retrieval was throttled this run" in plan["throttle"]
+    body = plan["ready"]["body"]
     assert "Retrieval was throttled this run" in body
     assert "1 of 4 manifest-tool result(s)" in body
     assert "1 of 2 cell log(s) whose results were legible" in body
-    # The Gemini cell and the builtin-only cell: both unobservable, neither
-    # clean, and counted on the note rather than dropped from it.
-    assert "2 further cell(s) captured no result" in body
+    # The Gemini cell, the builtin-only cell, and the unreadable one: all three
+    # unobservable, none of them clean, and counted on the note rather than
+    # dropped from it. A log nothing can parse is a cell whose condition nothing
+    # can read, which is what the counter means.
+    assert "3 further cell(s) captured no result" in body
 
 
 def test_collect_plan_never_reads_a_builtin_result_as_a_throttle(tmp_path: Path) -> None:
@@ -347,11 +356,12 @@ def test_collect_plan_never_reads_a_builtin_result_as_a_throttle(tmp_path: Path)
         ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
     )
     assert result.exit_code == 0
-    body = json.loads(result.stdout)["ready"]["body"]
-    assert "throttled" not in body
+    plan = json.loads(result.stdout)
+    assert "throttled" not in plan["ready"]["body"]
     # The manifest-tool cell beside it was legible and clean, so the run is a
-    # genuine zero and says nothing at all.
-    assert "not observable" not in body
+    # genuine zero and says nothing at all — on either surface.
+    assert "not observable" not in plan["ready"]["body"]
+    assert plan["throttle"] == ""
 
 
 def test_collect_plan_says_nothing_when_no_cell_was_throttled(tmp_path: Path) -> None:

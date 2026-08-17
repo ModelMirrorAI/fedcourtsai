@@ -845,7 +845,15 @@ def _append_sections(
     so they ride the one PR a maintainer reviews — the auto-merging ready PR
     when there is one, otherwise the draft. Empty sections are dropped, so a run
     with neither leaves the body untouched; with no PR at all each roll-up still
-    travels on the plan (``flags_markdown`` / ``throttle_markdown``).
+    travels on the plan (``flags_markdown`` / ``throttle_markdown``) and out
+    through ``collect-plan``'s JSON.
+
+    The two are not equally surfaced. The flag roll-up also reaches the Actions
+    summary and the agent-feedback issue, because the collect action reads it
+    off that JSON and echoes it; the throttle note reaches the PR body alone
+    until that action is wired to echo it too, which is a change to the
+    permission surface and so a maintainer's to make. Both are on the JSON so
+    the wiring is the only thing missing.
     """
     body = "\n\n".join(section for section in sections if section)
     if not body:

@@ -207,6 +207,18 @@ each freeze commit is recorded here.
     promotion lands, so zero frozen-scope cells are stamped before it and the
     frozen information set carries the marker from its first cell. No label
     bump;
+  - the **retrieval-log condition marker** — `result_status` on every call and
+    the log-level `throttled_calls` — which is the capture marker's case
+    exactly: it passes `mask_retrieval_log` unmasked and so reaches the grader
+    on the leakage grading's own required reading path, a change to every
+    evaluator's information set with no digest of its own. It is the same
+    class of change and gets the same treatment rather than a quieter one,
+    because what makes it a masking surface is that it survives the mask, not
+    how interesting the field is. Two things bound it: the evaluate prompt
+    names neither field, so nothing instructs a grader to read them, and a
+    committed call's marker is `null` on every log written before capture
+    minted it — the frozen partition's cells carry the field from their first
+    cell or not at all. No label bump;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.
