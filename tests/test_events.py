@@ -239,6 +239,62 @@ def test_two_like_motions_get_distinct_event_ids() -> None:
     assert ids == ["evt-motion-extension-of-time", "evt-motion-extension-of-time-21"]
 
 
+def test_long_motion_subject_does_not_end_on_a_dangling_conjunction() -> None:
+    # The subject is capped at a few words, so a long motion title is cut
+    # mid-phrase; a slug ending on the conjunction the cap landed on reads as
+    # truncation and distinguishes nothing.
+    result = extract_events(
+        _docket(
+            [
+                _entry(
+                    50,
+                    "MOTION for leave to file amicus brief and appendix out of time",
+                    number=50,
+                )
+            ]
+        )
+    )
+    motions = _by_kind(result.events)[EventKind.motion]
+    assert [e.event_id for e in motions] == ["evt-motion-leave-to-file-amicus-brief"]
+
+
+def test_multiple_trailing_function_words_are_all_trimmed() -> None:
+    # One cut exposes the next: the capped subject ends "…documents and the".
+    result = extract_events(
+        _docket(
+            [_entry(51, "MOTION to compel production of documents and the exhibits", number=51)]
+        )
+    )
+    motions = _by_kind(result.events)[EventKind.motion]
+    assert [e.event_id for e in motions] == ["evt-motion-compel-production-of-documents"]
+
+
+def test_subject_of_only_function_words_falls_back_to_disposition() -> None:
+    # A truncated description leaves nothing but function words after the cut;
+    # the empty slug takes the same fallback an unmatched subject does.
+    result = extract_events(_docket([_entry(52, "MOTION for the", number=52)]))
+    motions = _by_kind(result.events)[EventKind.motion]
+    assert [e.event_id for e in motions] == ["evt-motion-disposition"]
+
+
+def test_collision_suffix_appends_to_the_trimmed_slug() -> None:
+    # Trimming runs before the within-case uniqueness suffix, so two like
+    # motions differ by entry number rather than by a dangling function word.
+    result = extract_events(
+        _docket(
+            [
+                _entry(53, "MOTION for leave to file amicus brief and appendix", number=53),
+                _entry(54, "MOTION for leave to file amicus brief for two parties", number=54),
+            ]
+        )
+    )
+    ids = sorted(e.event_id for e in _by_kind(result.events)[EventKind.motion])
+    assert ids == [
+        "evt-motion-leave-to-file-amicus-brief",
+        "evt-motion-leave-to-file-amicus-brief-54",
+    ]
+
+
 def test_petition_entry_classified_as_petition() -> None:
     result = extract_events(_docket([_entry(30, "PETITION for writ of certiorari", number=30)]))
     petitions = _by_kind(result.events)[EventKind.petition]

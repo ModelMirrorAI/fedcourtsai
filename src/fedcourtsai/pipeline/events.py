@@ -75,6 +75,17 @@ _SUBJECT_PATTERNS: dict[EventKind, re.Pattern[str]] = {
     EventKind.petition: re.compile(r"petition(?:s)?\s+for\s+(?:a\s+)?(.+)", re.IGNORECASE),
 }
 
+# Function words are dropped from the *end* of a capped subject: they carry none
+# of the request's meaning, so a slug ending in one reads as the truncation it is
+# ("…-amicus-brief-and"), and two distinct motions sharing a long prefix end up
+# separated only by whichever function word the cap happened to land on
+# ("…-brief-and" vs "…-brief-for") instead of by the entry-number suffix that
+# actually keeps like ids apart. Only trailing positions are trimmed — inside the
+# phrase these words carry the subject ("extension of time").
+_SUBJECT_TAIL_STOPWORDS = frozenset(
+    {"a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with"}
+)
+
 # The substantive SCOTUS applications worth an entry-pinned event; every other
 # SCOTUS motion (extensions, IFP leave, amicus leave, …) is administrative.
 _SCOTUS_SUBSTANTIVE_MOTION_RE = re.compile(r"\bstay\b|\binjunction\b|\bemergency\b", re.IGNORECASE)
@@ -175,7 +186,11 @@ def _subject_slug(text: str, kind: EventKind) -> str:
     subject = re.split(r"[.;,]| filed | by | pursuant ", subject, maxsplit=1, flags=re.IGNORECASE)[
         0
     ]
-    slug = ids.slugify(" ".join(subject.split()[:6]))
+    words = subject.split()[:6]
+    # Iteratively, because one cut exposes the next ("…brief and the").
+    while words and words[-1].lower() in _SUBJECT_TAIL_STOPWORDS:
+        words.pop()
+    slug = ids.slugify(" ".join(words))
     return slug if slug != "x" else "disposition"
 
 
