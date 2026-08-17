@@ -4764,16 +4764,23 @@ def make_fixture_corpus(
 
 @app.command("corpus-info")
 def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
-    """Show the corpus location, row count, and freshness (after `corpus-pull`).
+    """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
 
     The freshness line is the reason to run this before making any claim that
     depends on corpus state: the committed pointer is a content digest carrying
-    no date, so the blob on disk is otherwise undated, and it is only ever as
-    fresh as the last pull left it. Two dates, because they age differently and
+    no date, so nothing beside the blob dates it, and it is only ever as fresh
+    as the last pull left it. (The docket pack derives the same `last_pulled`
+    maximum for its `pulled through` line — this is the cheap way to the
+    number, not the only one.) Two dates, because they age differently and
     a blob can carry one without the other — `latest pull` is the newest
     `last_pulled` over the cases (kept in a payload-free index, so it reports
     on the production shape too) and `latest snapshot` the newest dated docket
     state stored, which a payload-free index holds none of.
+
+    Both are maxima over the whole blob: its vintage, not any one case's. The
+    pull governor rotates stalest-first, so a maximum says when *anything* was
+    last refreshed — a claim about a specific case reads that case's own
+    `last_pulled` instead.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
