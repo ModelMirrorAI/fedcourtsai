@@ -2039,6 +2039,36 @@ def test_the_approval_report_omits_the_approval_line_without_a_run_url(tmp_path:
     assert "- Nothing was dropped: every candidate cell would be minted." in report
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        # The ordinary case: no escaping, no widened fence.
+        ("claude-baseline", "`claude-baseline`"),
+        # A pipe splits the row into an extra column even inside a code span,
+        # because GFM resolves cell boundaries before inline code.
+        ("pipe|baseline", r"`pipe\|baseline`"),
+        # A backtick would close the span early and let the rest of the value
+        # render as markdown into a public issue comment, so the fence widens
+        # past the longest run inside the value.
+        ("tick`baseline", "``tick`baseline``"),
+        ("two``ticks", "```two``ticks```"),
+        # Padding where the value's own backtick would otherwise touch the
+        # fence; the renderer strips the padding again, so the value survives.
+        ("`leading", "`` `leading ``"),
+        ("trailing`", "`` trailing` ``"),
+        # Both characters at once — neither escape may undo the other.
+        ("a|b`c", "``a\\|b`c``"),
+    ],
+)
+def test_a_table_cell_cannot_break_out_of_its_span(value: str, expected: str) -> None:
+    # The report is posted as a public issue comment, so a value that escaped
+    # its cell would render as markdown in it. Ids are corpus- and
+    # registry-derived, which makes this containment rather than a live threat —
+    # but the property has to hold by construction, not by what ids happen to
+    # contain today.
+    assert cli._md_cell(value) == expected
+
+
 def test_the_approval_report_truncates_the_cell_table_at_its_row_cap(tmp_path: Path) -> None:
     # Past the cap the surviving count carries the fan-out better than another
     # 160 rows would, and the dropped rows are named rather than silently cut.

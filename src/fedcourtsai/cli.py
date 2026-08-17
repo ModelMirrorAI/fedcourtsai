@@ -8070,12 +8070,31 @@ _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
 def _md_cell(value: object) -> str:
     """One table cell: the value as a code span, with any pipe escaped.
 
-    A `|` inside a value splits the row into an extra column even within a code
-    span — GFM resolves the table's cell boundaries before it resolves inline
-    code — so escaping is what keeps a stray pipe in an id from silently
+    Two characters in a value would otherwise escape the cell it is rendered
+    into, and this document is posted as a public issue comment:
+
+    A `|` splits the row into an extra column even within a code span — GFM
+    resolves the table's cell boundaries before it resolves inline code — so it
+    is backslash-escaped, which keeps a stray pipe in an id from silently
     shifting every column to its right.
+
+    A backtick would close the span early and let the rest of the value render
+    as markdown. Rather than dropping it, the span is fenced with one more
+    backtick than the longest run inside the value, padded where the value
+    itself begins or ends with one (the renderer strips that padding again).
+    Values here are corpus- and registry-derived ids, so this is a containment
+    property rather than a live threat — but a cell that cannot break out is
+    the same amount of code as one that can, and only one of them stays true
+    when a future id gains a character nobody anticipated.
     """
-    return "`" + str(value).replace("|", r"\|") + "`"
+    text = str(value).replace("|", r"\|")
+    longest = run = 0
+    for char in text:
+        run = run + 1 if char == "`" else 0
+        longest = max(longest, run)
+    fence = "`" * (longest + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
 
 
 def _approval_report_table(plan: dict[str, Any]) -> list[str]:
