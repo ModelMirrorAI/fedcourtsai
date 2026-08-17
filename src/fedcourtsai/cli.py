@@ -29,11 +29,13 @@ from pydantic import BaseModel, ValidationError
 from . import (
     analytics,
     blinding,
+    casestore,
     cleanup,
     corpus,
     corpus_index,
     corpus_ranged,
     corpus_remote,
+    corpus_seed,
     corpus_service,
     dedupe,
     ids,
@@ -1949,6 +1951,157 @@ def corpus_push() -> None:
         f"pushed {db_path} ({pointer.size} bytes) to {pointer.key}; "
         f"pointer rewritten at {corpus_remote.pointer_path_for(db_path)}"
     )
+
+
+@app.command("corpus-seed-slice")
+def corpus_seed_slice(
+    dest_remote: Annotated[
+        str,
+        typer.Option(
+            help="Destination corpus remote as an s3 bucket URL with an optional "
+            "prefix; must NOT be the production remote."
+        ),
+    ],
+    dest_casestore: Annotated[
+        str,
+        typer.Option(
+            help="Destination content store as an s3 bucket URL with an optional "
+            "prefix; must NOT be the production store."
+        ),
+    ],
+    dockets: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--dockets", help="A `<court>/<docket>` case id to include; repeat for several."
+        ),
+    ] = None,
+    dockets_file: Annotated[
+        Path | None,
+        typer.Option(help="File of case ids, one per line (`#` comments and blanks ignored)."),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Seed the destination; omit for the dry-run census."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(help="Hard bound on cases seeded; the rest are reported as dropped."),
+    ] = corpus_seed.DEFAULT_MAX_CASES,
+    stage_db: Annotated[
+        Path | None,
+        typer.Option(
+            help="Runner-local file the slice blob is built at; defaults to a "
+            "gitignored path under the corpus root, with the pointer beside it."
+        ),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown census + verdict here (the step summary)."),
+    ] = None,
+) -> None:
+    """Copy a named docket slice into a **staging** corpus (its own bucket pair).
+
+    Builds the two halves a split-mode corpus has: a payload-free index blob
+    carrying only the slice's `cases` and `events` rows — rebuilt through the
+    corpus's own upsert seams, then published to `--dest-remote` at its
+    content-addressed key exactly as `corpus-push` publishes production's — and
+    a key-level copy of every content-store object under each case's prefix
+    into `--dest-casestore`, so the staging store holds the writers' own bytes.
+    Objects are copied before the blob is published, so a reader resolving the
+    new pointer always finds the payloads its rows refer to; within a case the
+    documents manifest lands after the leaves it names.
+
+    Reads the production stores read-only: the source corpus comes through the
+    configured read backend (the ranged backend needs no pull — a bounded slice
+    is a handful of point lookups) and the source content store from the
+    configured content-store URL. **Refuses** a destination that *is* either
+    configured production store, or that sits inside either production bucket
+    at any prefix — a local second line behind the IAM policy, which is what
+    actually keeps the seeding role read-only on production.
+
+    Convergent rather than idempotent in the strict sense: the remote is
+    content-addressed and add-only, and write-once keys (dated snapshots,
+    content-addressed document leaves) the destination already holds are
+    skipped — but the three manifests the writers overwrite in place
+    (`case.json`, `events.json`, `documents/documents.json`) are re-copied on
+    every apply, or a re-seed would leave the staging store describing a case
+    the source has moved past.
+
+    Dry-run by default, printing the per-case census (rows, events, snapshots,
+    documents, objects). An `--apply` additionally reports what it copied and
+    the published pointer — the value a staging consumer resolves, and the one
+    thing the thrown-away runner would otherwise lose.
+    """
+    settings = get_settings()
+    destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
+    staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
+    try:
+        case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
+        # Both rails run before a client is built or a store is opened, so a
+        # dispatch aimed at production — or at the checkout's own corpus blob —
+        # is refused in milliseconds and touches nothing. `seed_slice`
+        # re-asserts both, because a library entry point has to be safe on its
+        # own; these calls are a duplicate, not a substitute.
+        corpus_seed.assert_destination_is_not_production(destination, settings=settings)
+        corpus_seed.assert_stage_db_is_not_the_corpus(staged, settings=settings)
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"corpus-seed-slice: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    # The rail already refused an unconfigured production content store — it is
+    # both the comparison basis and the slice's payload source — so by here the
+    # source URL is known present.
+    source_casestore_url = str(settings.casestore_url)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if corpus.resolve_backend() == "local" and not db_path.exists():
+        # `connect` would create an empty database and report every requested
+        # case missing; say what is actually wrong instead.
+        typer.echo(
+            f"corpus-seed-slice: no corpus at {db_path} — `fedcourts corpus-pull` "
+            "to fetch it, or read it in place with the ranged backend.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    bucket, prefix = casestore.parse_s3_url(source_casestore_url.strip())
+    source_objects = casestore.S3ObjectTransport(bucket, prefix=prefix or casestore.DEFAULT_PREFIX)
+    try:
+        with corpus.connect_readonly(db_path) as conn:
+            result = corpus_seed.seed_slice(
+                source_conn=conn,
+                source_objects=source_objects,
+                case_ids=case_ids,
+                destination=destination,
+                settings=settings,
+                stage_db=staged,
+                apply=apply,
+                max_cases=max_cases,
+            )
+    except (
+        corpus_seed.SeedSliceError,
+        casestore.CasestoreError,
+        corpus_remote.CorpusRemoteError,
+        corpus_ranged.RangedBackendError,
+        # `connect_readonly` rejects the casestore and service backends with a
+        # bare ValueError — a backend setting this command cannot serve. Caught
+        # here so it lands in the same one-line message as every other refusal
+        # rather than as a traceback.
+        ValueError,
+    ) as exc:
+        typer.echo(f"corpus-seed-slice: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    markdown = result.render_markdown()
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(markdown)
+    typer.echo(markdown)
+    if result.census.missing:
+        # Loud but not fatal: a slice naming a case the corpus does not carry
+        # is an operator mistake worth seeing, and the cases that do exist are
+        # still worth seeding.
+        typer.echo(
+            f"corpus-seed-slice: {len(result.census.missing)} requested case(s) "
+            "have no row in the source corpus",
+            err=True,
+        )
 
 
 @app.command()

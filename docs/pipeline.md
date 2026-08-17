@@ -14,6 +14,7 @@ stage.
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
+| _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
 
@@ -159,6 +160,29 @@ suite with the three engine-smoke legs dropped: token-free end to end, and
 whole-suite evidence only for a pre-flight that skipped them (*The
 engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
+
+`staging-corpus-refresh` builds what those staging-bound runs are meant to read:
+the **staging corpus**, a lean slice of real cases in its own bucket/prefix
+pair (`fedcourts corpus-seed-slice`), so orchestration and the read/write seams
+get live end-to-end verification without anything gaining write access to the
+production corpus. Its own workflow file on the risk-class rule below, like
+every other corpus writer: it is the only holder of the staging read-write role
+and the only binder of the `staging-corpus` environment. Dispatch-only, from
+the `staging` ref alone — the environment's branch policy is the gate, the
+job's own first step refuses any other ref, and the promotion gate's
+maintainer-run `contexts` stage reports whether that policy is actually set
+(admin-read, advisory, not part of any automatic gate) — and **dry-run by
+default**: the per-case census is the reading an apply is dispatched on, so the
+procedure is two dispatches. What keeps it off production is IAM: the role is
+read-only there. The seeder's own rail is the second line, refusing any
+destination that is, or sits inside the bucket of, either configured production
+store. **One wiring is still outstanding**: every consumer resolves the
+committed `corpus/corpus.db.ref`, whose digest names the production blob, so
+nothing reads the staging corpus yet — the refresh lane produces it, and the
+scenarios still read production's until a follow-up change to
+`integration-test.yml` resolves a staging pointer. Provisioning the stores, the
+environment, and the role — and that outstanding wiring — is the maintainer
+runbook in [security.md](security.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's

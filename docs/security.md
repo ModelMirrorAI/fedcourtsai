@@ -245,7 +245,8 @@ this workflow's own run history.
 
 ## The `prod` environment
 
-Every secret and both S3 role ARNs live on the `prod` environment — the App
+Every secret and the two production S3 role ARNs live on the `prod`
+environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
 sidecar composite's launch step — the cells', and `integration-test`'s
@@ -257,7 +258,7 @@ agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod` — with one deliberate exception: run-predict's `approval` job declares
+`prod` — with two deliberate exceptions. run-predict's `approval` job declares
 **`predict-approval`**, an environment that exists *only* for its required
 reviewers. It carries no secrets, no variables, no role, and no
 deployment-branch policy; the job it gates runs one echo under
@@ -265,7 +266,9 @@ deployment-branch policy; the job it gates runs one echo under
 matrix until a named reviewer releases it. It must be created **with required
 reviewers configured before the gate promotes**: GitHub auto-creates a
 referenced environment unprotected, and an unprotected `predict-approval` is
-no gate at all.
+no gate at all. `staging-corpus-refresh` declares **`staging-corpus`** — the
+one environment carrying a write-capable role outside `prod`, and the only one
+whose stores are not production's (see *The staging corpus* below).
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -288,8 +291,10 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
 **Deployment branches are restricted to `main`** — on `prod` (and to `staging`
-on the `staging` environment); `predict-approval` deliberately carries no branch
-policy, since it holds nothing a branch could take. A job can read the environment's
+on both the `staging` and `staging-corpus` environments, the latter because it
+carries the one write-capable role outside `prod`); `predict-approval`
+deliberately carries no branch policy, since it holds nothing a branch could
+take. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
@@ -356,8 +361,43 @@ the access-gated corpus and the per-case content store. So the exposure a
 workflow change at the staging head buys is corpus *read* and model *spend*,
 which is why the linter gap above is worth naming rather than glossing.
 
+**The `staging-corpus` environment adds a write to that radius, and it is the
+kind that does not move the integrity bound.** Staging-head code can bind it
+and write the *staging* pair: a lean slice of real cases, rebuilt from
+production by one dispatch. It buys **no production write path** (the role is
+read-only on the production stores by policy) and **no new read surface** (the
+same slice the already-trusted read-only role can read in full). What it does
+*not* dilute: the production corpus keeps exactly one writer, and that writer
+is still reachable only from `main`.
+
+What corrupting it *costs* depends on a coupling worth stating rather than
+discovering. Today nothing committed depends on the staging corpus — the
+scenarios still read production's, since the pointer wiring is outstanding — so
+a corrupted slice is caught by the next integration run and fixed by another
+dispatch. **The moment that wiring lands, the coupling is immediate and not
+hypothetical**: the staging integration runs are the promotion gate's freshness
+evidence, so a staging corpus that is corrupt, empty, or subtly wrong makes
+those runs fail or — worse — pass against the wrong content, and promotions
+stall or proceed on evidence that did not test what it claims. That is a
+denial-of-promotion and an evidence-integrity problem, not a nuisance, and it
+arrives with the next change in this area rather than at some distant
+contingency.
+
+**`staging-corpus` carries no required reviewer**, deliberately and for the
+same reasons the `staging` environment carries none: its write reach is the
+staging pair alone, and the dispatch surface is already bounded by repository
+write access plus the branch policy — the approval would be a second click on
+the same decision by the same person. The premises to revisit are the ones
+listed above, plus the coupling just named: **when the pointer wiring lands and
+the staging corpus becomes promotion-gate evidence**, the fixture stops being
+rebuildable-at-will in the sense that matters, and the reviewer question should
+be re-asked in that same change rather than left standing on this paragraph. A
+maintainer who weighs it differently can add one at provisioning; **step 2** of
+*The staging corpus (provisioning runbook)* below names the option.
+
 The read-only role's trust names `staging`'s `sub` (the staging integration runs
-assume it, so this is observed, not assumed); the write role's trust never does.
+assume it, so this is observed, not assumed); the **production** write role's
+trust never does, and never names `staging-corpus` either.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
@@ -439,9 +479,10 @@ back-test replay cell.
 
 ## S3 / the private stores
 
-Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
-stores — the corpus remote (the index blob under its content-addressed
-`index/sha256/<digest>` keys) and the per-case content store:
+Three IAM roles, assumed via GitHub OIDC (no static keys), cover both private
+S3 stores — the corpus remote (the index blob under its content-addressed
+`index/sha256/<digest>` keys) and the per-case content store — plus the staging
+pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull` and `run-seed`) —
   **append-only**: it can read, list, and add objects, with an explicit
@@ -460,6 +501,15 @@ stores — the corpus remote (the index blob under its content-addressed
   process and the deterministic provisioning steps hold them, the agent steps
   never do — see below), and `corpus-readonly` for the scan-heavy
   full-pull consumers (`run-analytics` / the metrics refresh, and `run-backtest`).
+- **Staging read-write role** (`AWS_ROLE_TO_ASSUME_STAGING_RW`, used by
+  `staging-corpus-refresh` alone) — **read + list on the production stores**
+  (the slice's source, the same access the read-only role grants) and
+  **read + write on the staging corpus pair alone**. It is the only
+  write-capable role outside `prod`, and it can write nothing production owns,
+  so the production stores keep exactly one writer. Its trust names the
+  `staging-corpus` environment and nothing else. Provisioning it — and the
+  variable above, which step 4 of *The staging corpus* below sets and the
+  workflow reads — is a maintainer task; see that runbook.
 
 Access mirrors each workflow's role in the pipeline:
 
@@ -473,6 +523,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
+| `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
@@ -485,11 +536,15 @@ Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
 
-Both roles' OIDC trust is scoped to named environments of this repo
+Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
-one of those environments can assume them. The read-write role names `prod`
-alone; the read-only role also names `staging`, which is what lets the
-integration scenarios read the corpus from the staging branch.
+one of those environments can assume it. The production read-write role names
+`prod` alone; the read-only role also names `staging`, which is what lets the
+integration scenarios read the corpus from the staging branch; and the staging
+read-write role names `staging-corpus` alone. The three trusts are disjoint on
+the write side by construction — no environment names two write-capable roles,
+and no write-capable role names two environments — so "who can write which
+store" is answerable from the trust statements without reading a policy.
 
 **Agent shells hold no cloud credential; the residual is a localhost query
 surface.** A predict/evaluate cell runs an agent over third-party snapshot
@@ -601,3 +656,160 @@ on), the cell-blast-radius bound stated above.
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and
 **Block Public Access on**.
+
+## The staging corpus (provisioning runbook)
+
+The production corpus is single-writer by construction — the write credentials
+exist only inside `run-pull` and `run-seed` — which is exactly why no
+orchestration change can be rehearsed against a real corpus before it is
+promoted. The **staging corpus** is the surface that closes that gap: a lean
+slice of real cases, in its **own bucket/prefix pair**, with the same two-store
+shape the split-mode production system has, seeded by
+`fedcourts corpus-seed-slice` from the dispatch-only
+`staging-corpus-refresh` workflow.
+
+**What does not change.** Production keeps its single-writer discipline
+untouched: the production read-write role's trust still names `prod` alone and
+no new job assumes it. **The guarantee is IAM** — the staging role's policy is
+read-only on the production stores, so nothing in this lane can reach the
+production write path whatever it is pointed at. The seeder's own rail, which
+refuses a destination that *is, or is inside*, either configured production
+store, is the second line: it turns a misconfiguration into a local refusal
+before anything is read. Codespaces stays read-only against production
+(see [data-pipeline.md](data-pipeline.md)'s *Developer access*); a dev checkout
+can dry-run the seeder against the read-only role, and its write half exists
+nowhere but the workflow below.
+
+Provisioning is AWS-and-environment work only the maintainer can do. **Steps
+1-4 are the whole of what the refresh lane needs**, and they are ordered: each
+is a prerequisite of the next, and until all four are done a dispatch fails
+closed (an unset role variable resolves empty and the assume-role step
+refuses). Do those four and the lane works — you can seed the staging corpus,
+and step 6's first half is its acceptance.
+
+**Steps 5 and 6's second half are BLOCKED** on a wiring this change does not
+include (see *The outstanding wiring* below). Step 5 points the `staging`
+environment at a corpus its consumers cannot yet resolve, so running it before
+the wiring lands would break the integration scenarios that read production's
+corpus today — it is listed here because it is the right final state, not
+because it is ready. Read the caveat before doing either.
+
+1. **Create the staging bucket/prefix pair.** Two destinations, named by role
+   rather than by literal here as everywhere in this document: a *staging
+   corpus remote* (the content-addressed index blobs) and a *staging content
+   store* (the per-case objects). Same bucket posture as production —
+   versioning on, a noncurrent-version lifecycle rule, Block Public Access on —
+   because it holds the same court-derived content, just less of it. Separate
+   from the production bucket, not a prefix inside it: the point is that a role
+   able to write staging is unable to **write** production at all — it reads
+   and lists there, which is where the slice comes from (step 3), and that is
+   the whole of its production reach. The seeder's rail enforces the separation
+   from the other side, refusing any destination sharing a bucket with
+   production. The licence travels with the slice: it is CourtListener content
+   under the same CC BY-ND no-republication posture
+   ([data-sources.md](data-sources.md)), so the staging pair is access-gated on
+   the same terms — **no wider read principal than production's**, nothing
+   published from it, and it does not become a convenient place to stage a
+   public extract.
+2. **Create the `staging-corpus` environment**, with **deployment branches
+   restricted to `staging`**. The restriction is the gate, and what it enforces
+   is code provenance — only code that passed a pull request and the `staging`
+   ruleset's checks can bind the environment and reach the role — the same
+   shape `prod` and `staging` already use, and the same invariant: the branch
+   restriction must be in place *before* the trust statement below names the
+   environment, or the role is handed to whatever an agent last pushed.
+   **No required reviewer**, as designed — the reasoning is under the
+   staging-head blast radius above: the environment's write reach is the
+   staging pair alone, and the dispatch surface is already bounded by
+   repository write access plus that branch policy. Add one here if you weigh
+   it differently — and note that the change which lands the pointer wiring
+   should re-ask the question, because from then on the staging corpus is the
+   promotion gate's freshness evidence and corrupting it stalls promotions.
+   Because this policy is the load-bearing part — and because GitHub
+   auto-creates a referenced environment **unprotected**, so getting it wrong
+   fails open — two other places check it rather than trusting it. The
+   promotion gate's **admin-read `contexts` stage**, which the maintainer runs
+   with their own token, verifies the environment's deployment-branch policy
+   names `staging` — the same shape as its `predict-approval` reviewer check,
+   and skipped until main's workflows reference the environment. It is
+   deliberately **not** part of any automatic gate: reading environment and
+   ruleset settings needs admin-level access that ci.yml's promotion-gate job
+   does not hold, so a required check would 403 (see the rationale in
+   `scripts/promotion-gate.sh`). It reports; it does not block. The
+   **workflow itself** refuses a dispatch whose ref is not `staging` in its
+   first step, so the lane never rests solely on a setting the job cannot read
+   — that one *does* stop a run, and it is the only one of the three that runs
+   automatically. Neither check replaces the policy: a job that binds the
+   environment has already been let in by it, and the in-job check runs after
+   that. They exist so a *misprovisioned* environment is loud instead of
+   silent.
+3. **Create the staging read-write role**, assumed via OIDC (no static keys),
+   with two halves and no third: **read + list on the production stores** (what
+   the seeder reads its slice from — the same access the read-only role already
+   grants) and **read + write on the staging pair alone**. Its trust names
+   **only** the new environment — the same `...:sub` shape the other roles use,
+   `repo:<owner>/<repo>:environment:staging-corpus` — so no other job in this
+   repository can assume it, and production's writer trust is untouched. Keep
+   the production half explicitly read-only: this role must be unable to write
+   the production corpus by policy, not merely by the command's refusal.
+4. **Set the `staging-corpus` environment's variables** — the destinations
+   `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the role
+   `AWS_ROLE_TO_ASSUME_STAGING_RW`, `AWS_REGION`, and the *sources* the seeder
+   reads its slice from, `CORPUS_REMOTE_URL` and `CASESTORE_URL` at their
+   production values (the same variables every consumer job names, so the
+   command needs no source flags). Values stay out of git, as the production
+   ones do.
+5. **[BLOCKED on the outstanding wiring] Point the `staging` environment at the
+   staging corpus.** Set its `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the
+   staging pair and `FEDCOURTS_CORPUS_SPLIT=1`, so the integration scenarios
+   dispatched from `staging` run split-on against the staging corpus rather
+   than production's. **Do not do this yet**: until the wiring lands, a
+   consumer pointed at the staging remote resolves a pointer that names the
+   production blob, so this step converts working scenarios into failing ones.
+   Two consequences to accept deliberately when it does land: the production
+   **read-only** role that the `staging` environment binds must also be allowed
+   to read and list the staging pair (a read-only widening onto a
+   non-production bucket), and a staging-head preflight from then on certifies
+   the seams against a real but *small* corpus — real shapes, not production's
+   volume.
+6. **Accept it.** The first half is runnable as soon as steps 1-4 are done; the
+   second waits on step 5, and therefore on the wiring.
+
+   *Runnable today.* Dispatch the refresh **from the `staging` ref** — the
+   environment accepts no other, so a dispatch from `main` is refused at its
+   deployment-branch gate before any step runs:
+
+   ```bash
+   gh workflow run staging-corpus-refresh.yml --ref staging \
+     -f dockets="$(printf 'scotus/74112233\nscotus/74112234\n')"
+   # read the census off the run summary, then:
+   gh workflow run staging-corpus-refresh.yml --ref staging \
+     -f dockets="$(printf 'scotus/74112233\nscotus/74112234\n')" -f apply=true
+   ```
+
+   **The observable is the apply run's step summary**: a per-case census (rows,
+   events, snapshots, documents, objects) plus the published-pointer JSON
+   block. Both present, with the case counts you asked for, is the acceptance
+   available today — it proves the role, the environment, the variables, and
+   both destination stores are provisioned and writable.
+
+   *After the wiring.* Then, and only then, step 5 followed by:
+
+   ```bash
+   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade
+   ```
+
+   Green there is the full acceptance — provision → predict → validate over a
+   real, split-on corpus that no production credential was involved in writing.
+
+**The outstanding wiring.** Every corpus consumer resolves the **committed**
+`corpus/corpus.db.ref` pointer, and that pointer carries the digest and size of
+the *production* blob — content addressing means a lean slice can never publish
+under the same key. So a consumer pointed at the staging remote resolves a key
+the staging bucket does not hold. The seeder therefore renders the pointer it
+published into the run summary, which is the value that wiring needs; choosing
+the wiring is a change to `integration-test.yml` (a staging-only pointer path
+selected by a corpus-root variable, or the pointer supplied out of band the way
+the remote URL already is), and lands as its own maintainer-gated change. Until
+then the refresh lane produces the staging corpus and the scenarios still read
+production's — which is why step 5 is blocked rather than merely later.

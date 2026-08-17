@@ -64,7 +64,8 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
@@ -267,6 +268,37 @@ def set_active_transport(transport: ObjectTransport | None) -> None:
 def reset_active_transport() -> None:
     """Clear the cache so the next access rebuilds from settings (tests)."""
     _ACTIVE.clear()
+
+
+def transport_is_built() -> bool:
+    """Whether the process transport has been resolved yet (never builds one).
+
+    The read-only question :func:`active_transport` cannot answer without
+    answering it — asking it would itself build the transport. Exists so a
+    caller (or a test) can assert on the *unbuilt* state without reaching into
+    this module's cache."""
+    return "transport" in _ACTIVE
+
+
+@contextmanager
+def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
+    """Run a block with the process transport forced to ``transport``.
+
+    Restores **exactly** the prior state on the way out, including the
+    "not built yet" state — so a block that borrows the seam never forces a
+    lazy build the process would otherwise have skipped, and never discards a
+    transport its caller had set on purpose. Clearing instead would do both.
+    """
+    had = "transport" in _ACTIVE
+    previous = _ACTIVE.get("transport")
+    _ACTIVE["transport"] = transport
+    try:
+        yield
+    finally:
+        if had:
+            _ACTIVE["transport"] = previous
+        else:
+            _ACTIVE.pop("transport", None)
 
 
 def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:

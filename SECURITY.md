@@ -138,12 +138,19 @@ runbook, [docs/security.md](docs/security.md).
   agent's token. Issue and docket text stay untrusted input.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
-  least-privilege IAM role via GitHub OIDC. **Two roles, split by access:**
+  least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
   corpus writers get a **read-write, append-only** role (get/put/list, **no
   delete**) and every corpus consumer a **read-only** role, so a compromised
   consumer runner cannot tamper with the data; the buckets keep **versioning**
-  on, so no run can wipe corpus objects. Both roles' OIDC trust is scoped to
-  this repo's `prod` environment, so a PR-branch job cannot assume them. No
+  on, so no run can wipe corpus objects. The third is the **staging read-write**
+  role — read-only on the production stores, read-write on the staging corpus
+  pair alone — held by one dispatch-only workflow, so the production stores
+  keep exactly one writer. Every role's OIDC trust is scoped to named
+  environments of this repo — the production read-write role to `prod`, the
+  read-only role to `prod` and `staging` (which is what lets the pre-promotion
+  integration runs read the corpus), the staging role to `staging-corpus` — and
+  each of those environments restricts deployments to one branch, so a
+  PR-branch job cannot assume any of them. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.
@@ -185,7 +192,8 @@ runbook, [docs/security.md](docs/security.md).
   is a new, attributable commit. Forward deletions of ledger records are
   confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
   lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
-  refuses to apply above a per-run blast-radius cap. Secrets and the S3 roles live in the
+  refuses to apply above a per-run blast-radius cap. Secrets and the two
+  production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role
@@ -195,7 +203,13 @@ runbook, [docs/security.md](docs/security.md).
   audit-logged hold between run-predict's plan and its token-spending fan-out.
   The promotion gate's admin-read stage verifies the rule is present, because
   an auto-created environment is unprotected and an unprotected hold releases
-  instantly.
+  instantly. A fourth, `staging-corpus`, is restricted to the `staging` branch
+  and holds the **staging read-write role** — the only credential in the system
+  that can write a corpus store other than through the `prod` writers. It is
+  read-only on production and read-write on the staging bucket pair alone, its
+  OIDC trust names that one environment, and exactly one workflow binds it
+  (`staging-corpus-refresh`, dispatch-only), so production's single-writer
+  discipline is unchanged.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat
