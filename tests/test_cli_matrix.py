@@ -2,6 +2,7 @@ import json
 import shutil
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from typer.testing import CliRunner
 
@@ -1412,3 +1413,139 @@ def test_predict_matrix_errors_when_the_stale_grant_drop_empties_the_matrix(
     assert "::error::predict-matrix: the forecastability re-check dropped every listed event" in (
         result.stderr
     )
+
+
+# The plan-only dry runs. `predict-plan` / `evaluate-plan` report what their
+# matrix counterparts would mint without minting it, so the parity tests below
+# are the contract: a plan that describes a different fan-out than the command
+# performs is worse than no plan at all.
+
+
+def _plan(stdout: str) -> dict[str, Any]:
+    plan: dict[str, Any] = json.loads(stdout)
+    return plan
+
+
+def _files(root: Path) -> set[Path]:
+    """Every file under ``root`` — the snapshot a "writes nothing" claim needs."""
+    return {p for p in root.rglob("*") if p.is_file()}
+
+
+def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
+    tmp_path: Path,
+) -> None:
+    # Parity is the whole point: the plan runs the same pipeline, so its
+    # would-mint set is the matrix command's cell set, field for field.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Seeded predictions leave the per-predictor ledger gate something to
+    # report, so the drop lists are exercised rather than trivially empty.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+
+    minted = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    planned = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert minted.exit_code == 0
+    assert planned.exit_code == 0
+    plan = _plan(planned.stdout)
+    assert plan["would_mint"] == [
+        {
+            "predictor_id": cell["predictor_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+        }
+        for cell in _cells(minted.stdout)
+    ]
+    # 3 predictors x 2 cases x 1 event, less the seeded claude-baseline cell on each.
+    assert plan["counts"]["would_mint_cells"] == 4
+    assert plan["counts"]["dropped_already_predicted_cells"] == 2
+    assert {d["actor_id"] for d in plan["dropped_already_predicted"]} == {"claude-baseline"}
+    assert plan["estimated_spend_usd"] == 4 * plan["planning_rate_usd_per_cell"]
+
+
+def test_predict_plan_names_the_step_that_dropped_a_stale_grant(tmp_path: Path) -> None:
+    # The stale-listing regression, read off the plan: re-labelling an old
+    # trigger replays an event listing that skips selection, and the plan must
+    # attribute each dropped merits moment to the forecastability re-check with
+    # that step's own reason — not merely show a smaller cell set.
+    body = _listing_body(tmp_path / "issue-body.md", [*_MERITS_EVENT_IDS, "evt-petition-cert"])
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    _granted_row(tmp_path / "corpus", "scotus/24001", date(2020, 1, 6))
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    assert plan["counts"]["dropped_unforecastable_events"] == len(_MERITS_EVENT_IDS)
+    dropped = plan["dropped_unforecastable"]
+    assert {d["event_id"] for d in dropped} == set(_MERITS_EVENT_IDS)
+    assert {d["case_id"] for d in dropped} == {"scotus/24001"}
+    assert all("cert grant is more than 730 days old" in d["reason"] for d in dropped)
+    # The cert event the rule says nothing about survives and is priced.
+    assert {c["event_id"] for c in plan["would_mint"]} == {"evt-petition-cert"}
+
+
+def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
+    tmp_path: Path,
+) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    # One case loses its seeded prediction, so the cost gate has cells to name.
+    shutil.rmtree(tmp_path / "data" / "cases" / "scotus" / "24002")
+
+    minted = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    planned = runner.invoke(app, ["evaluate-plan", "--body-file", str(body)], env=env)
+
+    assert minted.exit_code == 0
+    assert planned.exit_code == 0
+    plan = _plan(planned.stdout)
+    assert plan["would_mint"] == [
+        {
+            "evaluator_id": cell["evaluator_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+        }
+        for cell in _cells(minted.stdout)
+    ]
+    assert plan["counts"]["would_mint_cells"] == 3
+    assert plan["counts"]["dropped_predictionless_cells"] == 3
+    assert {d["case_id"] for d in plan["dropped_predictionless"]} == {"scotus/24002"}
+    assert all("no committed prediction" in d["reason"] for d in plan["dropped_predictionless"])
+
+
+def test_predict_plan_writes_nothing_where_the_matrix_command_writes(tmp_path: Path) -> None:
+    # A plan reports; it never mints, and it never leaves a trace. The
+    # all-withheld stranded path is where `predict-matrix` makes both of its
+    # writes — the trigger-issue close note and the Actions step-summary block —
+    # so it is where "writes nothing" is worth asserting.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(tmp_path, [_stranded_cell(4242, pid) for pid in _PREDICTORS])
+    summary = tmp_path / "step-summary.md"
+    summary.write_text("")
+    before = _files(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["predict-plan", "--body-file", str(body), "--stranded-file", str(census)],
+        env={**env, "GITHUB_STEP_SUMMARY": str(summary)},
+    )
+
+    assert result.exit_code == 0
+    plan = _plan(result.stdout)
+    assert plan["counts"]["withheld_stranded_cells"] == 3
+    assert plan["would_mint"] == []
+    assert {c["run_db_id"] for c in plan["withheld_stranded"]} == {4242}
+    assert plan["estimated_spend_usd"] == 0.0
+    # `predict-plan` takes no --stranded-note-file, so no note can exist, and the
+    # step summary the matrix command would have appended to stays empty.
+    assert summary.read_text() == ""
+    assert _files(tmp_path) == before

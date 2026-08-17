@@ -213,7 +213,11 @@ The stub cascade is fast and offline enough to belong in the gate, and it does:
 `tests/test_cascade_smoke.py` drives it over the fixture corpus on every `pytest`
 run, so a broken predict/evaluate cell surfaces *before* a PR is opened. A
 real-engine run is a deliberate, occasional check — it catches prompt-level
-regressions the stub can't see — not the inner loop.
+regressions the stub can't see — not the inner loop. One step earlier,
+`fedcourts predict-plan` / `evaluate-plan` ([cli.md](cli.md)) report the cell
+set a fan-out **would** mint, step by step and spending nothing, so a change
+that claims to protect a re-run is checked by executing it rather than by
+reading the diff.
 
 ## Keep the workflow a thin wrapper
 

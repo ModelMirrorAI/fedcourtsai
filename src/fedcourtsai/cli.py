@@ -15,7 +15,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -116,6 +116,7 @@ from .leaderboard import (
 from .matrix import (
     CappedMatrix,
     CaseRequest,
+    StrandedCell,
     cap_predict_cells,
     drop_stranded_cells,
     evaluate_matrix,
@@ -6437,11 +6438,41 @@ def discover(
     typer.echo(f"Discovered {result.total}/{cap} new case(s) across {len(courts)} court(s)")
 
 
+@dataclass(frozen=True)
+class _DropRecord:
+    """One case, event, or cell a planning step held back, with that step's reason.
+
+    The reason string is the dropping step's own — printed verbatim, never
+    re-worded here — so a plan that reports the wrong cell set names the step
+    that decided it. ``event_id`` and ``actor_id`` are absent where the step
+    works at a coarser grain: the scope gate drops whole cases, and the
+    forecastability re-check whole events. ``actor_id`` is the predictor or
+    evaluator whose cell the drop cost, the same union
+    :class:`fedcourtsai.collect.ExpectedCell` calls an actor.
+    """
+
+    case_id: str
+    reason: str
+    event_id: str | None = None
+    actor_id: str | None = None
+
+    def as_json(self) -> dict[str, str]:
+        """The record as a plan-JSON object, omitting the grains it has none of."""
+        out = {"case_id": self.case_id, "reason": self.reason}
+        if self.event_id is not None:
+            out["event_id"] = self.event_id
+        if self.actor_id is not None:
+            out["actor_id"] = self.actor_id
+        return out
+
+
 def _resolve_cases(
     cases: list[CaseRequest],
     default_events: Callable[[str, int], list[str]],
     *,
     drop_unforecastable: Callable[[str, int], Mapping[str, str]] | None = None,
+    stage: str = "predict-matrix",
+    dropped_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none.
 
@@ -6460,6 +6491,10 @@ def _resolve_cases(
     and the provisioning record gate backs the trust. The predict matrix passes
     :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
     ``None``, since its listed events are exactly the resolved ones.
+
+    ``stage`` labels the warning lines, so a dry run does not annotate the log
+    under the minting command's name; ``dropped_out`` collects the same drops a
+    plan reports as structured records.
     """
     kept: list[CaseRequest] = []
     for c in cases:
@@ -6473,9 +6508,13 @@ def _resolve_cases(
         gone = {e: refused[e] for e in c.events if e in refused}
         for dropped, reason in sorted(gone.items()):
             typer.echo(
-                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — {reason}",
+                f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — {reason}",
                 err=True,
             )
+            if dropped_out is not None:
+                dropped_out.append(
+                    _DropRecord(ids.case_id(c.court, c.docket), reason, event_id=dropped)
+                )
         kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
     return kept
 
@@ -6487,6 +6526,7 @@ def _scope_filtered(
     corpus_backend: corpus.CorpusBackend,
     *,
     for_grading: bool = False,
+    dropped_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -6525,6 +6565,10 @@ def _scope_filtered(
     result), so fail loud. Under ``ranged`` the committed pointer + remote URL
     stand in for the file, and a missing pointer/URL fails loud in
     :func:`corpus.connect_readonly` itself.
+
+    ``dropped_out`` collects each skipped case as a structured record carrying
+    the same reason the stderr note prints, so a plan can attribute a missing
+    case to this step.
     """
     if scope == PredictScope.all:
         return cases
@@ -6540,20 +6584,13 @@ def _scope_filtered(
     with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            drop: str | None
             if row is None or row.court != "scotus":
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: out of prediction scope "
-                    f"(predict.scope=scotus_docket, not a SCOTUS docket).",
-                    err=True,
-                )
+                drop = "out of prediction scope (predict.scope=scotus_docket, not a SCOTUS docket)."
             elif row.predict_excluded:
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: latched out of predict scope "
-                    f"by the corpus reconcile.",
-                    err=True,
-                )
+                drop = "latched out of predict scope by the corpus reconcile."
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
-                typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
+                drop = f"{reason}."
             elif (
                 not for_grading
                 and corpus.is_salience_deferred(row)
@@ -6562,13 +6599,15 @@ def _scope_filtered(
                 # The merits bypass: a below-cap petition still earns no cert
                 # cell, but once the Court grants it the funding question is a
                 # different one and the gate no longer answers it.
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: not selected this salience round "
-                    f"(scored, below the capacity slice).",
-                    err=True,
-                )
+                drop = "not selected this salience round (scored, below the capacity slice)."
             else:
+                drop = None
+            if drop is None:
                 kept.append(case)
+                continue
+            typer.echo(f"Skipping {case.court}/{case.docket}: {drop}", err=True)
+            if dropped_out is not None:
+                dropped_out.append(_DropRecord(ids.case_id(case.court, case.docket), drop))
     return kept
 
 
@@ -6788,6 +6827,10 @@ def _guarded_matrix(
     matrix: dict[str, list[dict[str, Any]]],
     stranded_file: Path | None,
     note_file: Path | None,
+    *,
+    stage: str = "predict-matrix",
+    withheld_out: list[StrandedCell] | None = None,
+    write_summary: bool = True,
 ) -> dict[str, list[dict[str, Any]]]:
     """Withhold cells whose output sits in an uncollected run, and say so loudly.
 
@@ -6799,6 +6842,11 @@ def _guarded_matrix(
     summary; stdout carries only the matrix JSON), plus ``note_file`` when the
     guard empties the matrix, which the workflow's close step posts in place of
     its generic out-of-scope note.
+
+    ``stage`` labels those lines, ``withheld_out`` collects the withheld cells
+    for a plan to report, and ``write_summary=False`` keeps a dry run from
+    appending to the step summary — the reporting a plan must not do, since it
+    mints nothing to report on.
     """
     if stranded_file is None:
         return matrix
@@ -6806,24 +6854,26 @@ def _guarded_matrix(
         census = read_stranded_census(stranded_file)
     except (OSError, ValueError) as exc:
         typer.echo(
-            f"::warning::predict-matrix: the stranded-run guard is off — {stranded_file} is "
+            f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
             f"unreadable ({exc}). Cells already sitting in an uncollected run may be re-minted.",
             err=True,
         )
         return matrix
     for name in census.unparsed:
         typer.echo(
-            f"::warning::predict-matrix: stranded-run guard skipped the census record {name!r} — "
+            f"::warning::{stage}: stranded-run guard skipped the census record {name!r} — "
             "it does not read as a cell artifact naming predictor/court/docket/event, and a "
             "guessed reading would withhold the wrong cell",
             err=True,
         )
     guarded = drop_stranded_cells(matrix, census.cells)
+    if withheld_out is not None:
+        withheld_out.extend(guarded.withheld)
     if not guarded.withheld:
         return matrix
     for cell in guarded.withheld:
         typer.echo(
-            f"::warning::predict-matrix: withheld {cell.predictor_id} "
+            f"::warning::{stage}: withheld {cell.predictor_id} "
             f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
             f"in uncollected run {cell.run_db_id}; recover it with "
             f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
@@ -6837,7 +6887,7 @@ def _guarded_matrix(
         # honest one for it to post instead, and escalate here so the cause is on
         # the record even if the note never reaches the issue.
         typer.echo(
-            f"::error::predict-matrix: the stranded-run guard withheld ALL "
+            f"::error::{stage}: the stranded-run guard withheld ALL "
             f"{len(guarded.withheld)} cell(s) — every event this trigger names already ran in "
             f"uncollected run(s) {run_list}. Recover rather than re-run: "
             f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
@@ -6850,18 +6900,18 @@ def _guarded_matrix(
                 # An unwritable note costs the issue its honest close message,
                 # never the run: the ::error:: above is already on the record.
                 typer.echo(
-                    f"::warning::predict-matrix: could not write the stranded-run close note to "
+                    f"::warning::{stage}: could not write the stranded-run close note to "
                     f"{note_file} ({exc}); the trigger issue closes with the generic note",
                     err=True,
                 )
     else:
         typer.echo(
-            f"::warning::predict-matrix: the stranded-run guard withheld "
+            f"::warning::{stage}: the stranded-run guard withheld "
             f"{len(guarded.withheld)} cell(s) whose output sits in uncollected run(s) "
             f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
             err=True,
         )
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY") if write_summary else None
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as fh:
             fh.write(
@@ -6873,6 +6923,177 @@ def _guarded_matrix(
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
     return {"include": guarded.include}
+
+
+@dataclass(frozen=True)
+class _PredictFanout:
+    """One pass of the predict planning pipeline, recorded step by step.
+
+    Every field is one named step's output, so a fan-out that mints the wrong
+    cells is attributable to the step that decided it rather than to the
+    pipeline as a whole. ``capped.include`` is the surviving cell set — what
+    ``predict-matrix`` emits and ``predict-plan`` reports without minting.
+    """
+
+    requested: list[CaseRequest]
+    resolved: list[CaseRequest]
+    scope_dropped: tuple[_DropRecord, ...]
+    unforecastable: tuple[_DropRecord, ...]
+    withheld: tuple[StrandedCell, ...]
+    capped: CappedMatrix
+    max_cells: int
+
+
+def _predict_fanout(
+    requested_cases: list[CaseRequest],
+    run_id: str,
+    *,
+    stage: str,
+    stranded_file: Path | None,
+    note_file: Path | None,
+    report: bool,
+) -> _PredictFanout:
+    """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
+
+    The one definition of what a predict run would mint, shared by
+    ``predict-matrix`` (which emits the surviving cells as the Actions matrix)
+    and ``predict-plan`` (which reports them and spends nothing), so the dry run
+    can never describe a different fan-out than the minting command performs.
+
+    ``report`` is the minting command's reading: it appends the volume cap's
+    block to the Actions step summary. A plan passes ``False`` — the summary is
+    a record of what a run did, and a plan does nothing. ``note_file`` is the
+    other write, and a plan passes ``None``.
+    """
+    settings = get_settings()
+    predict_config = load_predict_config(settings.config_root)
+    scope_dropped: list[_DropRecord] = []
+    unforecastable: list[_DropRecord] = []
+    requested = _scope_filtered(
+        requested_cases,
+        predict_config.scope,
+        settings.corpus_root,
+        settings.corpus_backend,
+        dropped_out=scope_dropped,
+    )
+    # One clock for the whole plan, so a fan-out that straddles midnight cannot
+    # apply a different staleness bound to selection than to the re-check.
+    today = date.today()
+    cases = _resolve_cases(
+        requested,
+        lambda c, d: forecastable_events(
+            corpus.corpus_db_path(settings.corpus_root),
+            c,
+            d,
+            backend=settings.corpus_backend,
+            today=today,
+        ),
+        # Listed events the corpus now refuses — resolved since queueing, or a
+        # merits moment whose row fails the selection predicate's row arms —
+        # are dropped at plan time rather than minted into cells provisioning
+        # must (or, for the gvr/stale classes, cannot) refuse. Keyed on the
+        # same condition as the scope gate, because under `all` the corpus is
+        # deliberately never consulted (dev / back-testing may fan out over an
+        # empty corpus).
+        drop_unforecastable=(
+            recheck := (
+                (
+                    lambda c, d: unforecastable_listed_events(
+                        corpus.corpus_db_path(settings.corpus_root),
+                        c,
+                        d,
+                        today=today,
+                        backend=settings.corpus_backend,
+                    )
+                )
+                if predict_config.scope != PredictScope.all
+                else None
+            )
+        ),
+        stage=stage,
+        dropped_out=unforecastable,
+    )
+    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
+        # Every listed event fell to the forecastability re-check, so the
+        # emitted matrix will be empty and the workflow's empty-matrix step will
+        # close the trigger issue with its generic out-of-scope note (it cannot
+        # tell the causes apart). This line is the correctly-attributed record;
+        # safe, because every class the re-check drops on needs something other
+        # than a re-queue — a grade for a resolved event, a corpus fix for a
+        # stale grant. The per-event warnings above carry which class each was.
+        typer.echo(
+            f"::error::{stage}: the forecastability re-check dropped every listed event — "
+            "none is still forecastable; nothing is minted",
+            err=True,
+        )
+        # A workflow-log annotation is retention-bounded; the close note is the
+        # durable, human-read surface. Re-derive the per-event reasons (point
+        # lookups, only on this empty path) and hand the workflow's close step
+        # an attributed note in place of its generic out-of-scope one — the
+        # same channel the stranded guard uses.
+        if note_file is not None and recheck is not None:
+            lines: list[str] = []
+            for c in requested:
+                dropped = recheck(c.court, c.docket)
+                lines.extend(
+                    f"- `{ids.case_id(c.court, c.docket)}` `{event}` — {reason}"
+                    for event, reason in sorted(dropped.items())
+                    if event in c.events
+                )
+            note_file.write_text(
+                "Every event this trigger listed has become unforecastable since it was "
+                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
+                "None of these needs a re-queue — a resolved event needs its grade, and a "
+                "decided or stale proceeding must not receive a forward cell.\n",
+                encoding="utf-8",
+            )
+    # Per-predictor plan-time gate, before any model spend: a (predictor, event)
+    # cell whose predictor already committed a prediction for that event is not
+    # re-minted, so a re-queue where two of three engines landed mints only the
+    # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
+    matrix = predict_matrix(
+        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
+    )
+    # The stranded-run guard, before the volume cap so the cap's budget goes to
+    # genuinely new cells: a cell whose output already sits in a run whose
+    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
+    # above cannot see those predictions — they are cell artifacts, not commits —
+    # which is exactly why a failed collect otherwise re-mints the whole run
+    # every live cycle. Fail-open in every degraded direction; see
+    # `_guarded_matrix` and `drop_stranded_cells`.
+    withheld: list[StrandedCell] = []
+    matrix = _guarded_matrix(
+        matrix,
+        stranded_file,
+        note_file,
+        stage=stage,
+        withheld_out=withheld,
+        write_summary=report,
+    )
+    # Salience-independent volume backstop, after scope filtering: hold the
+    # fan-out under the cell cap even if selection failed open, deferring whole
+    # overflow cases (they stay queued and re-run next cycle). See
+    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
+    #
+    # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
+    # which the plan job's `has_jobs=false` path routes to the workflow's
+    # empty-matrix step — and that step closes the trigger issue with a generic
+    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
+    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
+    # on the record; it is safe because the deferred cases persist in the corpus
+    # predict queue and re-queue next cycle regardless of the close.
+    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
+    if capped.dropped_cells and report:
+        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    return _PredictFanout(
+        requested=requested_cases,
+        resolved=cases,
+        scope_dropped=tuple(scope_dropped),
+        unforecastable=tuple(unforecastable),
+        withheld=tuple(withheld),
+        capped=capped,
+        max_cells=predict_config.max_predict_cells_per_run,
+    )
 
 
 @app.command("predict-matrix")
@@ -6912,120 +7133,131 @@ def predict_matrix_cmd(
     A case with no listed ``events`` defaults to that case's open case-baseline
     (petition/appeal-kind) events.
     """
-    settings = get_settings()
-    predict_config = load_predict_config(settings.config_root)
-    requested = _scope_filtered(
+    fanout = _predict_fanout(
         _requested_cases(body_file, court, docket, event),
-        predict_config.scope,
-        settings.corpus_root,
-        settings.corpus_backend,
+        run_id,
+        stage="predict-matrix",
+        stranded_file=stranded_file,
+        note_file=stranded_note_file,
+        report=True,
     )
-    # One clock for the whole plan, so a fan-out that straddles midnight cannot
-    # apply a different staleness bound to selection than to the re-check.
-    today = date.today()
-    cases = _resolve_cases(
-        requested,
-        lambda c, d: forecastable_events(
-            corpus.corpus_db_path(settings.corpus_root),
-            c,
-            d,
-            backend=settings.corpus_backend,
-            today=today,
-        ),
-        # Listed events the corpus now refuses — resolved since queueing, or a
-        # merits moment whose row fails the selection predicate's row arms —
-        # are dropped at plan time rather than minted into cells provisioning
-        # must (or, for the gvr/stale classes, cannot) refuse. Keyed on the
-        # same condition as the scope gate, because under `all` the corpus is
-        # deliberately never consulted (dev / back-testing may fan out over an
-        # empty corpus).
-        drop_unforecastable=(
-            recheck := (
-                (
-                    lambda c, d: unforecastable_listed_events(
-                        corpus.corpus_db_path(settings.corpus_root),
-                        c,
-                        d,
-                        today=today,
-                        backend=settings.corpus_backend,
-                    )
-                )
-                if predict_config.scope != PredictScope.all
-                else None
-            )
-        ),
-    )
-    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
-        # Every listed event fell to the forecastability re-check, so the
-        # emitted matrix will be empty and the workflow's empty-matrix step will
-        # close the trigger issue with its generic out-of-scope note (it cannot
-        # tell the causes apart). This line is the correctly-attributed record;
-        # safe, because every class the re-check drops on needs something other
-        # than a re-queue — a grade for a resolved event, a corpus fix for a
-        # stale grant. The per-event warnings above carry which class each was.
-        typer.echo(
-            "::error::predict-matrix: the forecastability re-check dropped every listed event — "
-            "none is still forecastable; nothing is minted",
-            err=True,
-        )
-        # A workflow-log annotation is retention-bounded; the close note is the
-        # durable, human-read surface. Re-derive the per-event reasons (point
-        # lookups, only on this empty path) and hand the workflow's close step
-        # an attributed note in place of its generic out-of-scope one — the
-        # same channel the stranded guard uses.
-        if stranded_note_file is not None and recheck is not None:
-            lines: list[str] = []
-            for c in requested:
-                dropped = recheck(c.court, c.docket)
-                lines.extend(
-                    f"- `{ids.case_id(c.court, c.docket)}` `{event}` — {reason}"
-                    for event, reason in sorted(dropped.items())
-                    if event in c.events
-                )
-            stranded_note_file.write_text(
-                "Every event this trigger listed has become unforecastable since it was "
-                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
-                "None of these needs a re-queue — a resolved event needs its grade, and a "
-                "decided or stale proceeding must not receive a forward cell.\n",
-                encoding="utf-8",
-            )
-    # Per-predictor plan-time gate, before any model spend: a (predictor, event)
-    # cell whose predictor already committed a prediction for that event is not
-    # re-minted, so a re-queue where two of three engines landed mints only the
-    # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
-    matrix = predict_matrix(
-        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
-    )
-    # The stranded-run guard, before the volume cap so the cap's budget goes to
-    # genuinely new cells: a cell whose output already sits in a run whose
-    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
-    # above cannot see those predictions — they are cell artifacts, not commits —
-    # which is exactly why a failed collect otherwise re-mints the whole run
-    # every live cycle. Fail-open in every degraded direction; see
-    # `_guarded_matrix` and `drop_stranded_cells`.
-    matrix = _guarded_matrix(matrix, stranded_file, stranded_note_file)
-    # Salience-independent volume backstop, after scope filtering: hold the
-    # fan-out under the cell cap even if selection failed open, deferring whole
-    # overflow cases (they stay queued and re-run next cycle). See
-    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
-    #
-    # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
-    # which the plan job's `has_jobs=false` path routes to the workflow's
-    # empty-matrix step — and that step closes the trigger issue with a generic
-    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
-    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
-    # on the record; it is safe because the deferred cases persist in the corpus
-    # predict queue and re-queue next cycle regardless of the close.
-    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
-    if capped.dropped_cells:
-        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
     # The ex-post backstop, last: it reads measured spend rather than projected
     # volume, so it holds whatever the caps above decided. Checked after the cap
     # so a breach is reported against the run that would actually have been minted.
     if _spend_gate_or_empty("predict-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
+    typer.echo(json.dumps({"include": fanout.capped.include}, separators=(",", ":")))
+
+
+@dataclass(frozen=True)
+class _EvaluateFanout:
+    """One pass of the evaluate planning pipeline, recorded step by step.
+
+    The two cell-grain drop classes stay apart — one is a cost gate (nothing to
+    score) and the other an idempotency gate (already scored) — because
+    collapsed, a fully-graded re-queue reads as a run with no predictions.
+    """
+
+    requested: list[CaseRequest]
+    resolved: list[CaseRequest]
+    scope_dropped: tuple[_DropRecord, ...]
+    predictionless: tuple[_DropRecord, ...]
+    already_evaluated: tuple[_DropRecord, ...]
+    matrix: dict[str, list[dict[str, Any]]]
+
+
+def _evaluate_fanout(
+    requested_cases: list[CaseRequest],
+    run_id: str,
+    *,
+    stage: str,
+    force: bool,
+) -> _EvaluateFanout:
+    """Run the evaluate planning pipeline: scope, resolution, and the two gates.
+
+    The one definition of what an evaluate run would mint, shared by
+    ``evaluate-matrix`` and ``evaluate-plan``, so the dry run cannot describe a
+    different fan-out than the minting command performs. Nothing here writes.
+    """
+    settings = get_settings()
+    scope = load_predict_config(settings.config_root).scope
+    scope_dropped: list[_DropRecord] = []
+    cases = _resolve_cases(
+        _scope_filtered(
+            requested_cases,
+            scope,
+            settings.corpus_root,
+            settings.corpus_backend,
+            for_grading=True,
+            dropped_out=scope_dropped,
+        ),
+        lambda c, d: resolved_events(
+            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
+        ),
+    )
+    # Two plan-time gates, both before any model spend: an event with no
+    # committed prediction has nothing to score, and a judge that already graded
+    # the event is not re-minted. See `evaluate_matrix`.
+    evaluators_path = settings.config_root / "evaluators.yaml"
+    matrix = evaluate_matrix(
+        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
+    )
+    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
+    # Report the two gates separately: one is a cost gate (nothing to score) and
+    # the other an idempotency gate (already scored). Collapsed, a fully-graded
+    # re-queue would read as a run with no predictions. Each is counted from the
+    # same predicate the gate uses rather than by subtracting one from the total,
+    # so the arithmetic does not silently depend on the order the gates run in
+    # `evaluate_matrix` — reordering them there would otherwise print a negative.
+    predictionless: list[_DropRecord] = []
+    already: list[_DropRecord] = []
+    for case in cases:
+        case_id = ids.case_id(case.court, case.docket)
+        for event_id in case.events:
+            if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
+                # Attribute an event that is both to the cost gate only; one
+                # record per would-be cell, so the count is cells, not events.
+                predictionless.extend(
+                    _DropRecord(
+                        case_id,
+                        "no committed prediction for this event, so nothing to score",
+                        event_id=event_id,
+                        actor_id=evaluator.id,
+                    )
+                    for evaluator in evaluators
+                )
+                continue
+            if force:
+                continue
+            already.extend(
+                _DropRecord(
+                    case_id,
+                    "this evaluator has already graded the event",
+                    event_id=event_id,
+                    actor_id=evaluator.id,
+                )
+                for evaluator in evaluators
+                if event_has_evaluations(
+                    settings.data_root,
+                    case.court,
+                    case.docket,
+                    event_id,
+                    evaluator_id=evaluator.id,
+                )
+            )
+    if predictionless:
+        typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
+    if already:
+        typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
+    return _EvaluateFanout(
+        requested=requested_cases,
+        resolved=cases,
+        scope_dropped=tuple(scope_dropped),
+        predictionless=tuple(predictionless),
+        already_evaluated=tuple(already),
+        matrix=matrix,
+    )
 
 
 @app.command("evaluate-matrix")
@@ -7065,58 +7297,12 @@ def evaluate_matrix_cmd(
     it for a deliberate re-grade, which otherwise would need committed artifacts
     deleted to get a cell minted.
     """
-    settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
-    cases = _resolve_cases(
-        _scope_filtered(
-            _requested_cases(body_file, court, docket, event),
-            scope,
-            settings.corpus_root,
-            settings.corpus_backend,
-            for_grading=True,
-        ),
-        lambda c, d: resolved_events(
-            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
-        ),
+    fanout = _evaluate_fanout(
+        _requested_cases(body_file, court, docket, event),
+        run_id,
+        stage="evaluate-matrix",
+        force=force,
     )
-    # Two plan-time gates, both before any model spend: an event with no
-    # committed prediction has nothing to score, and a judge that already graded
-    # the event is not re-minted. See `evaluate_matrix`.
-    evaluators_path = settings.config_root / "evaluators.yaml"
-    matrix = evaluate_matrix(
-        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
-    )
-    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
-    # Report the two gates separately: one is a cost gate (nothing to score) and
-    # the other an idempotency gate (already scored). Collapsed, a fully-graded
-    # re-queue would read as a run with no predictions. Each is counted from the
-    # same predicate the gate uses rather than by subtracting one from the total,
-    # so the arithmetic does not silently depend on the order the gates run in
-    # `evaluate_matrix` — reordering them there would otherwise print a negative.
-    predictionless = 0
-    already = 0
-    for case in cases:
-        for event_id in case.events:
-            if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
-                predictionless += len(evaluators)
-                continue  # attribute an event that is both to the cost gate only
-            if force:
-                continue
-            already += sum(
-                1
-                for evaluator in evaluators
-                if event_has_evaluations(
-                    settings.data_root,
-                    case.court,
-                    case.docket,
-                    event_id,
-                    evaluator_id=evaluator.id,
-                )
-            )
-    if predictionless:
-        typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
-    if already:
-        typer.echo(f"evaluate-matrix: dropped {already} already-evaluated cell(s)", err=True)
     # The same ex-post backstop predict consults: the ceiling governs total
     # inference spend, and a grading costs a cell like a forecast does. An owed
     # grading is never lost by deferring it — the backlog deriver re-derives it
@@ -7124,7 +7310,285 @@ def evaluate_matrix_cmd(
     if _spend_gate_or_empty("evaluate-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps(matrix, separators=(",", ":")))
+    typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
+
+
+#: The per-cell planning rate, from *Capacity `N`: the funding knob* in
+#: ``docs/budget.md``: $15 per fully-tournamented case divided across its design
+#: mix of six cells. A plan multiplies it by the cells it would mint, so the
+#: figure is a planning estimate and not a forecast of a particular run's bill —
+#: measured per-cell cost spans roughly $0.25-8.30 by model mix, a range no
+#: single rate can carry. Re-anchor it here when the doc's rate moves.
+_PLANNING_USD_PER_CELL = 2.50
+
+
+def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
+    """The ex-post spend backstop's reading, for a plan to report rather than act on."""
+    return {
+        "enforced": verdict.enforced,
+        "breached": verdict.breached,
+        "spent_usd": verdict.spent_usd,
+        "ceiling_usd": verdict.ceiling_usd,
+        "window_days": verdict.window_days,
+        "cells": verdict.cells,
+    }
+
+
+def _plan_spend(cells: int) -> dict[str, Any]:
+    """The planning-rate cost of a would-mint cell set, rate included."""
+    return {
+        "planning_rate_usd_per_cell": _PLANNING_USD_PER_CELL,
+        "estimated_spend_usd": round(cells * _PLANNING_USD_PER_CELL, 2),
+    }
+
+
+def _already_predicted(
+    resolved: list[CaseRequest], predictors_path: Path, data_root: Path
+) -> list[_DropRecord]:
+    """The cells :func:`predict_matrix`'s ledger gate skipped, one record each.
+
+    Re-derived from the same predicate, over the same predictor x case x event
+    order, rather than by subtracting the surviving cells from a product — so
+    the plan's count cannot drift from the gate it reports on, and stays right
+    when a later step (the stranded guard, the cap) removes cells of its own.
+    """
+    records: list[_DropRecord] = []
+    for predictor in enabled_predictors(predictors_path):
+        for case in resolved:
+            if case.predictors and predictor.id not in case.predictors:
+                continue
+            records.extend(
+                _DropRecord(
+                    ids.case_id(case.court, case.docket),
+                    "this predictor has already committed a prediction for the event",
+                    event_id=event_id,
+                    actor_id=predictor.id,
+                )
+                for event_id in case.events
+                if event_has_predictions(
+                    data_root, case.court, case.docket, event_id, predictor_id=predictor.id
+                )
+            )
+    return records
+
+
+def _echo_plan(plan: dict[str, Any], *, stage: str) -> None:
+    """Print the plan document to stdout and its human summary to stderr.
+
+    The repo's stdout/stderr split, for the same reason the matrix commands keep
+    it: stdout is the machine surface a consuming gate parses, so every word
+    meant for a person goes to stderr.
+    """
+    counts = plan["counts"]
+    typer.echo(
+        f"{stage}: " + ", ".join(f"{name}={value}" for name, value in counts.items()),
+        err=True,
+    )
+    if plan["spend_gate"]["breached"]:
+        typer.echo(
+            f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
+            f"however many this plan lists; the plan reports the gate rather than applying it",
+            err=True,
+        )
+    typer.echo(
+        f"{stage}: would mint {counts['would_mint_cells']} cell(s), estimated "
+        f"${plan['estimated_spend_usd']:.2f} at the ${_PLANNING_USD_PER_CELL:.2f}/cell planning "
+        f"rate (docs/budget.md). Nothing was spent and nothing was written.",
+        err=True,
+    )
+    typer.echo(json.dumps(plan, separators=(",", ":")))
+
+
+@app.command("predict-plan")
+def predict_plan_cmd(
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
+    event: Annotated[
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: open case-baseline events."),
+    ] = None,
+    stranded_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of cell artifacts left by recent runs whose collect did not succeed, "
+            "as `predict-matrix` takes it; a cell already sitting in one is reported withheld.",
+        ),
+    ] = None,
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
+            "carries it — a plan mints none — so it names the run only in the report."
+        ),
+    ] = "",
+) -> None:
+    """Report the predict cells a run would mint, step by step, spending nothing.
+
+    The dry run of ``predict-matrix``: the same inputs through the same pipeline
+    — scope gate, forecastability re-check, per-predictor ledger gate,
+    stranded-run guard, volume cap — with nothing minted and nothing written. No
+    trigger-issue close note, no Actions step summary, no model spend; only the
+    plan document on stdout and its summary lines on stderr.
+
+    stdout is a single JSON object: ``counts`` per step, the drop lists that
+    explain each count (every record carrying the dropping step's own reason),
+    the ``would_mint`` cell set, and the planning-rate estimate of what minting
+    it would cost. That makes "this change protects a rerun" a check someone can
+    execute rather than a claim.
+
+    The ex-post spend backstop is **reported, not applied**: ``spend_gate``
+    carries its verdict while ``would_mint`` stays the fan-out the earlier steps
+    decided, because a plan describes the pipeline rather than standing in for
+    it. A breach is called out on stderr.
+    """
+    settings = get_settings()
+    planned_run_id = run_id or ids.run_id()
+    fanout = _predict_fanout(
+        _requested_cases(body_file, court, docket, event),
+        planned_run_id,
+        stage="predict-plan",
+        stranded_file=stranded_file,
+        # A plan writes nothing: no close note, and no step-summary block.
+        note_file=None,
+        report=False,
+    )
+    already = _already_predicted(
+        fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+    )
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    would_mint = [
+        {
+            "predictor_id": cell["predictor_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+        }
+        for cell in fanout.capped.include
+    ]
+    plan: dict[str, Any] = {
+        "stage": "predict",
+        "run_id": planned_run_id,
+        "counts": {
+            "requested_cases": len(fanout.requested),
+            "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+            "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+            "dropped_unforecastable_events": len(fanout.unforecastable),
+            "resolved_cases": len(fanout.resolved),
+            "resolved_events": sum(len(c.events) for c in fanout.resolved),
+            "dropped_already_predicted_cells": len(already),
+            "withheld_stranded_cells": len(fanout.withheld),
+            "deferred_by_cap_cells": fanout.capped.dropped_cells,
+            "deferred_by_cap_cases": len(fanout.capped.dropped_cases),
+            "would_mint_cells": len(would_mint),
+        },
+        "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "dropped_unforecastable": [r.as_json() for r in fanout.unforecastable],
+        "dropped_already_predicted": [r.as_json() for r in already],
+        "withheld_stranded": [
+            {
+                "case_id": ids.case_id(cell.court, cell.docket),
+                "event_id": cell.event_id,
+                "actor_id": cell.predictor_id,
+                "run_db_id": cell.run_db_id,
+                "reason": f"its output already sits in uncollected run {cell.run_db_id}",
+            }
+            for cell in fanout.withheld
+        ],
+        "deferred_by_cap": {
+            "cells": fanout.capped.dropped_cells,
+            "cases": list(fanout.capped.dropped_cases),
+            "max_cells": fanout.max_cells,
+        },
+        "spend_gate": _spend_verdict_json(verdict),
+        "would_mint": would_mint,
+        **_plan_spend(len(would_mint)),
+    }
+    _echo_plan(plan, stage="predict-plan")
+
+
+@app.command("evaluate-plan")
+def evaluate_plan_cmd(
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
+    event: Annotated[
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: all resolved events."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Plan as a deliberate re-grade (the `evaluate-matrix` flag)."),
+    ] = False,
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
+            "carries it — a plan mints none — so it names the run only in the report."
+        ),
+    ] = "",
+) -> None:
+    """Report the evaluate cells a run would mint, step by step, spending nothing.
+
+    The dry run of ``evaluate-matrix``, through the same pipeline and its two
+    plan-time gates — an event with no committed prediction has nothing to
+    score, and a judge that already graded the event is not re-minted. Same
+    stdout/stderr split and the same spend-gate reading as ``predict-plan``: the
+    backstop's verdict is reported, never applied.
+    """
+    settings = get_settings()
+    planned_run_id = run_id or ids.run_id()
+    fanout = _evaluate_fanout(
+        _requested_cases(body_file, court, docket, event),
+        planned_run_id,
+        stage="evaluate-plan",
+        force=force,
+    )
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    would_mint = [
+        {
+            "evaluator_id": cell["evaluator_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+        }
+        for cell in fanout.matrix["include"]
+    ]
+    plan: dict[str, Any] = {
+        "stage": "evaluate",
+        "run_id": planned_run_id,
+        "counts": {
+            "requested_cases": len(fanout.requested),
+            "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+            "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+            "resolved_cases": len(fanout.resolved),
+            "resolved_events": sum(len(c.events) for c in fanout.resolved),
+            "dropped_predictionless_cells": len(fanout.predictionless),
+            "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+            "would_mint_cells": len(would_mint),
+        },
+        "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
+        "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
+        "spend_gate": _spend_verdict_json(verdict),
+        "would_mint": would_mint,
+        **_plan_spend(len(would_mint)),
+    }
+    _echo_plan(plan, stage="evaluate-plan")
 
 
 @app.command("authorize-trigger")
