@@ -13,7 +13,9 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, dedupe
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.supremecourt import live_docket_id
 
 runner = CliRunner()
@@ -22,6 +24,45 @@ runner = CliRunner()
 # docket: the live id is minted from the Term-form number (Term 25, serial 5184).
 _KEEP = "scotus/73274969"
 _DROP = f"scotus/{live_docket_id(25, 5184)}"
+# A minted forecast moment (both halves owed at the mint) and the case-level
+# baseline that is not one (its ledger half is owed at first touch or
+# resolution), so the two travel differently through a merge.
+_MINTED = "evt-petition-arrival-disposition"
+_BASELINE = "evt-petition-disposition"
+
+
+def _event_paths(data_root: Path, case_id: str, event_id: str) -> EventPaths:
+    court, _, docket = case_id.partition("/")
+    return CasePaths(data_root, court, int(docket)).event(event_id)
+
+
+def _write_ledger_event(
+    data_root: Path, case_id: str, event_id: str, *, with_outcome: bool = True
+) -> EventPaths:
+    """The committed half of one event: `event.yaml`, and its `outcome.json`."""
+    paths = _event_paths(data_root, case_id, event_id)
+    write_yaml(
+        paths.event_file,
+        PredictableEvent(
+            event_id=event_id, case_id=case_id, kind=EventKind.petition, title="Cert petition"
+        ),
+    )
+    if with_outcome:
+        write_json(
+            paths.outcome,
+            Outcome(
+                case_id=case_id,
+                event_id=event_id,
+                resolved_at=date(2026, 1, 12),
+                actual_disposition=Disposition.denied,
+                actual_granted=0,
+            ),
+        )
+    return paths
+
+
+def _corpus_event(case_id: str, event_id: str) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent(event_id=event_id, case_id=case_id, court="scotus", kind="petition")
 
 
 def _row(case_id: str, docket_number: str, **kw: object) -> corpus.CorpusRow:
@@ -83,7 +124,7 @@ def test_a_disagreeing_pair_is_skipped_and_reported_never_dropped(tmp_path: Path
         drop_date_filed=date(2025, 9, 2),
     )
     with _seeded(tmp_path, rows) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.pairs == 1
         assert result.dropped == []
         assert len(result.skipped) == 1
@@ -98,7 +139,7 @@ def test_none_on_one_side_agrees_toward_the_richer_value(tmp_path: Path) -> None
     and the survivor keeps the richer value the agreement accepted."""
     rows = _pair_rows(drop_disposition=Disposition.denied, drop_date_filed=date(2025, 9, 1))
     with _seeded(tmp_path, rows) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.dropped == [_DROP]
         kept = corpus.get_row(conn, _KEEP)
     assert kept is not None
@@ -115,7 +156,7 @@ def test_a_date_decided_disagreement_also_skips(tmp_path: Path) -> None:
         drop_date_decided=date(2026, 1, 20),
     )
     with _seeded(tmp_path, rows) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.dropped == []
         assert any("date_decided" in c for c in result.skipped[0].conflicts)
         assert corpus.get_row(conn, _DROP) is not None
@@ -146,7 +187,7 @@ def test_live_only_facts_survive_the_drop(tmp_path: Path) -> None:
                 )
             ],
         )
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.dropped == [_DROP]
         kept = corpus.get_row(conn, _KEEP)
         assert kept is not None
@@ -183,7 +224,7 @@ def test_a_survivor_side_document_takes_precedence(tmp_path: Path) -> None:
                 ),
             ],
         )
-        dedupe.dedupe_live_rows(conn, apply=True)
+        dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         documents = corpus.documents_for_case(conn, _KEEP)
     assert [d.url for d in documents] == ["https://example.test/newer.pdf"]
 
@@ -195,7 +236,7 @@ def test_the_survivor_takes_the_pair_minimum_weight(tmp_path: Path) -> None:
     ingestion upsert lands when two channels weight one row."""
     rows = _pair_rows(keep_sample_weight=10, drop_sample_weight=1)
     with _seeded(tmp_path, rows) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.dropped == [_DROP]
         kept = corpus.get_row(conn, _KEEP)
     assert kept is not None
@@ -212,7 +253,7 @@ def test_a_missing_weight_reads_as_one(tmp_path: Path) -> None:
 def test_a_dry_run_writes_nothing(tmp_path: Path) -> None:
     rows = _pair_rows(keep_sample_weight=10, drop_sample_weight=1)
     with _seeded(tmp_path, rows) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=False)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=False)
         assert result.applied is False
         assert result.dropped == [_DROP]
         kept = corpus.get_row(conn, _KEEP)
@@ -254,7 +295,7 @@ def test_apply_removes_the_dropped_case_from_all_four_tables(tmp_path: Path) -> 
             ],
         )
 
-        result = dedupe.dedupe_live_rows(conn, apply=True)
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
         assert result.applied is True
         assert result.dropped == [_DROP]
 
@@ -271,12 +312,150 @@ def test_apply_removes_the_dropped_case_from_all_four_tables(tmp_path: Path) -> 
 
 def test_a_second_run_finds_nothing(tmp_path: Path) -> None:
     with _seeded(tmp_path, _pair_rows()) as conn:
-        first = dedupe.dedupe_live_rows(conn, apply=True)
-        second = dedupe.dedupe_live_rows(conn, apply=True)
+        first = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
+        second = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
     assert first.dropped == [_DROP]
     assert second.pairs == 0
     assert second.dropped == []
     assert second.skipped == []
+
+
+def test_a_minted_moments_ledger_half_moves_with_its_row(tmp_path: Path) -> None:
+    """A minted moment owes both halves at its mint, so re-keying the corpus row
+    without the directory leaves the shape `minted_moments_defined_in_ledger`
+    fails on — and most minted moments have no re-mint trigger to heal it."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == [_DROP]
+        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+        assert [event.event_id for event in corpus.events_for_case(conn, _KEEP)] == [_MINTED]
+
+    new_paths = _event_paths(data_root, _KEEP, _MINTED)
+    assert not old_paths.base.exists()
+    assert read_model(new_paths.event_file, PredictableEvent).case_id == _KEEP
+    assert read_model(new_paths.outcome, Outcome).case_id == _KEEP
+
+
+def test_a_survivor_side_directory_refuses_the_whole_pair(tmp_path: Path) -> None:
+    """Two committed definitions of one moment are a judgement call, not a merge:
+    the pair is reported for triage and neither twin is touched at all."""
+    data_root = tmp_path / "data"
+    _write_ledger_event(data_root, _DROP, _MINTED)
+    _write_ledger_event(data_root, _KEEP, _MINTED)
+    with _seeded(tmp_path, _pair_rows(drop_originating_court_name="Supreme Court of Ohio")) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED), _corpus_event(_KEEP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert result.moved_events == []
+        assert len(result.skipped) == 1
+        assert "exist under both ids" in result.skipped[0].conflicts[0]
+        # Nothing of the pair moved: not the rows, not the twin's events, and
+        # not the fill-in the merge would otherwise have made on the survivor.
+        assert corpus.get_row(conn, _DROP) is not None
+        survivor = corpus.get_row(conn, _KEEP)
+        assert survivor is not None and survivor.originating_court_name is None
+        assert [event.case_id for event in corpus.events_for_case(conn, _DROP)] == [_DROP]
+    assert _event_paths(data_root, _DROP, _MINTED).base.is_dir()
+    keep_event = read_model(_event_paths(data_root, _KEEP, _MINTED).event_file, PredictableEvent)
+    assert keep_event.case_id == _KEEP
+
+
+def test_committed_cell_output_under_the_moment_refuses_the_pair(tmp_path: Path) -> None:
+    """A prediction names its own case id inside its own file, which this move
+    does not rewrite — carrying the directory across would trade one broken
+    reference for another, so the pair goes to triage instead."""
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    prediction_dir = paths.prediction_dir("claude-baseline", "20260112T000000Z")
+    prediction_dir.mkdir(parents=True)
+    (prediction_dir / "prediction.json").write_text("{}\n")
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert "more than its two documents" in result.skipped[0].conflicts[0]
+        assert corpus.get_row(conn, _DROP) is not None
+    assert paths.base.is_dir()
+
+
+def test_a_case_baseline_directory_stays_where_it_is(tmp_path: Path) -> None:
+    """A case-level baseline is outside the mint rule — its ledger half is owed
+    at first touch or at resolution — so its row re-keys with no ledger move."""
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == [_DROP]
+        assert result.moved_events == []
+        assert [event.event_id for event in corpus.events_for_case(conn, _KEEP)] == [_BASELINE]
+    assert paths.base.is_dir()
+    assert not _event_paths(data_root, _KEEP, _BASELINE).base.exists()
+    assert read_model(paths.event_file, PredictableEvent).case_id == _DROP
+
+
+def test_a_dry_run_reports_the_move_and_touches_no_directory(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=False)
+        assert result.applied is False
+        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+        assert corpus.get_row(conn, _DROP) is not None
+    assert old_paths.base.is_dir()
+    assert read_model(old_paths.event_file, PredictableEvent).case_id == _DROP
+    assert not _event_paths(data_root, _KEEP, _MINTED).base.exists()
+
+
+def test_an_interrupted_move_converges_on_the_next_apply(tmp_path: Path) -> None:
+    """The crash window between the move and the restamp: the directory is
+    already at the survivor with its documents still naming the dropped case.
+    The restamp is unconditional on the target, so the next pass finishes it."""
+    data_root = tmp_path / "data"
+    paths = _event_paths(data_root, _KEEP, _MINTED)
+    write_yaml(
+        paths.event_file,
+        PredictableEvent(
+            event_id=_MINTED, case_id=_DROP, kind=EventKind.petition, title="Cert petition"
+        ),
+    )
+    write_json(
+        paths.outcome,
+        Outcome(
+            case_id=_DROP,
+            event_id=_MINTED,
+            resolved_at=date(2026, 1, 12),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+        ),
+    )
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == [_DROP]
+        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+    assert read_model(paths.event_file, PredictableEvent).case_id == _KEEP
+    assert read_model(paths.outcome, Outcome).case_id == _KEEP
+
+
+def test_a_converged_survivor_directory_is_not_reported_as_a_move(tmp_path: Path) -> None:
+    """A survivor-side directory already naming the survivor is nothing to do:
+    the twin carries no committed half, so the merge reports no ledger work."""
+    data_root = tmp_path / "data"
+    _write_ledger_event(data_root, _KEEP, _MINTED)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == [_DROP]
+        assert result.moved_events == []
+    survivor_event = read_model(
+        _event_paths(data_root, _KEEP, _MINTED).event_file, PredictableEvent
+    )
+    assert survivor_event.case_id == _KEEP
 
 
 def test_cli_dry_run_reports_and_preserves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -297,6 +476,31 @@ def test_cli_dry_run_reports_and_preserves(tmp_path: Path, monkeypatch: pytest.M
     assert "applied" in applied.output
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
         assert corpus.get_row(conn, _DROP) is None
+
+
+def test_cli_lists_the_ledger_moves_beside_the_dropped_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    data_root = tmp_path / "data"
+    _write_ledger_event(data_root, _DROP, _MINTED)
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(conn, _pair_rows())
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+
+    result = runner.invoke(app, ["dedupe-live-rows"])
+    assert result.exit_code == 0, result.output
+    assert f"would move ledger event directory {_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}" in (
+        result.output
+    )
+    assert _event_paths(data_root, _DROP, _MINTED).base.is_dir()
+
+    applied = runner.invoke(app, ["dedupe-live-rows", "--apply"])
+    assert applied.exit_code == 0, applied.output
+    assert f"moved ledger event directory {_DROP}/{_MINTED}" in applied.output
+    assert _event_paths(data_root, _KEEP, _MINTED).event_file.is_file()
 
 
 def test_cli_fails_loud_when_the_corpus_is_absent(
