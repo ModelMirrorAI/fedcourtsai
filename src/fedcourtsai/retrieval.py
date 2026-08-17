@@ -12,9 +12,12 @@ log tool calls in the same places their token usage lives:
   arrive in subsequent user messages, matched by ``tool_use_id``.
 - **Codex**: the session rollout JSONL's response items carry ``function_call``
   / ``custom_tool_call`` / ``local_shell_call`` / ``mcp_tool_call`` payloads
-  with a ``call_id`` their ``*_output`` items echo. The hosted
-  ``web_search_call`` is the exception: it runs provider-side and carries a
-  query but no ``call_id`` and no output item, so such a row records what was
+  with a ``call_id`` their ``*_output`` items echo. An MCP item is the shape
+  that breaks the echo: the Responses API settles it *on the call item*, with
+  the answer in the item's own ``output`` (or ``error``) and no ``*_output``
+  sibling to pair, so it is paired from the item itself. The hosted
+  ``web_search_call`` is the other exception: it runs provider-side and carries
+  a query but no ``call_id`` and no output item, so such a row records what was
   asked and never what came back.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
   ``function_name`` / ``function_args`` attributes, and no result payload at
@@ -28,7 +31,8 @@ like the usage parsers: an unreadable or unrecognized log yields ``[]``,
 because capture is instrumentation that must never fail a real run.
 
 Every row also states whether its result was seen at all: ``result_capture``
-is ``captured`` where the transcript carried the paired result item and
+is ``captured`` where the transcript carried the result — as a paired result
+item, or on the call item itself where the engine settles it there — and
 ``unobserved`` where nothing came back to capture — every Gemini row, a hosted
 Codex ``web_search_call``, or any call this pairing rule found no result item
 for, which includes one the engine logged without a pairing id and one whose
@@ -208,11 +212,16 @@ def _message_blocks(event: Any) -> list[dict[str, Any]]:
 # Codex payload types that represent a tool invocation / its output.
 # `web_search_call` is the hosted search the engine runs provider-side: it is a
 # retrieval channel like any other, so the leakage grading has to see it.
+# An MCP invocation answers to two type names — the rollout's `mcp_tool_call`
+# and the Responses API's `mcp_call` — and under either it is the one call shape
+# that carries its own result rather than echoing a `call_id` an output item
+# answers.
+_CODEX_MCP_CALL_TYPES = ("mcp_tool_call", "mcp_call")
 _CODEX_CALL_TYPES = (
     "function_call",
     "custom_tool_call",
     "local_shell_call",
-    "mcp_tool_call",
+    *_CODEX_MCP_CALL_TYPES,
     "web_search_call",
 )
 _CODEX_OUTPUT_SUFFIX = "_output"
@@ -223,20 +232,7 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
     rollout = _newest_rollout(sessions_dir)
     if rollout is None:
         return []
-    records: list[dict[str, Any]] = []
-    try:
-        for raw in rollout.read_text().splitlines():
-            line = raw.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(record, dict):
-                records.append(record)
-    except OSError:
-        return []
+    records = _codex_records(rollout)
     outputs: dict[str, Any] = {}
     for record in records:
         payload = _codex_payload(record)
@@ -261,9 +257,16 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         call_id = str(payload.get("call_id", ""))
         captured = call_id in outputs
         result = outputs.get(call_id)
+        # An MCP item settles on itself rather than in a sibling, so where no
+        # output item matched, the item's own result is the pairing. The
+        # sibling path is unchanged and wins wherever one exists.
+        if not captured:
+            inline = _codex_inline_result(payload)
+            if inline is not None:
+                captured, result = True, inline
         calls.append(
             RetrievalCall(
-                tool=_tool_name(payload.get("name") or payload.get("tool") or payload["type"]),
+                tool=_tool_name(_codex_tool(payload)),
                 query=_query_slice(params),
                 params_digest=_digest(params),
                 timestamp=_text(record.get("timestamp")),
@@ -273,6 +276,65 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
             )
         )
     return calls[:RETRIEVAL_CALL_CAP]
+
+
+def _codex_records(rollout: Path) -> list[dict[str, Any]]:
+    """Every JSON object in a rollout JSONL, tolerant of a line that is not one."""
+    try:
+        lines = rollout.read_text().splitlines()
+    except OSError:
+        return []
+    records: list[dict[str, Any]] = []
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def _codex_inline_result(payload: dict[str, Any]) -> Any:
+    """An MCP call item's own settled result, or ``None`` where it holds none.
+
+    The Responses API settles an MCP call **on the call item** — the answer in
+    its ``output``, the failure in its ``error``, and no ``*_output`` sibling
+    emitted either way — so a walk that only pairs by ``call_id`` reads every
+    such row as ``unobserved`` while the transcript held the result. An inline
+    ``error`` counts as captured for the same reason a Claude ``is_error``
+    result does: the transcript recorded what came back, and what came back was
+    a failure. Only MCP shapes are read this way; every other call type pairs
+    against its output item, and the sibling wins wherever one exists.
+
+    Presence is by value, not by key: an unsettled item carries both fields as
+    ``null``, while an empty string is a real, captured, empty answer.
+    """
+    if payload.get("type") not in _CODEX_MCP_CALL_TYPES:
+        return None
+    output = payload.get("output")
+    return output if output is not None else payload.get("error")
+
+
+def _codex_tool(payload: dict[str, Any]) -> Any:
+    """A Codex call item's tool name, in the spelling the rollup normalizes.
+
+    An MCP item names the server in ``server_label`` and the bare tool in
+    ``name``, so the two are composed into the ``mcp__<server>__<tool>``
+    spelling the engines' MCP calls share. Uncomposed, ``search`` is
+    indistinguishable from an engine builtin and
+    :func:`~fedcourtsai.tool_usage.normalize_call` buckets it as one — the
+    offered denominator loses the call and the MCP-gated result observability
+    reads the engine as having no MCP calls at all.
+    """
+    name = payload.get("name") or payload.get("tool")
+    server = payload.get("server_label")
+    if name and server:
+        return f"mcp__{server}__{name}"
+    return name or payload["type"]
 
 
 def _maybe_json(params: Any) -> Any:
