@@ -75,8 +75,8 @@ INDEX_KEY_PREFIX = "index/sha256"
 
 # Pauses *between* ranged-GET attempts, so the attempt budget is one more than
 # the number of pauses. Every predict cell provisions its own snapshot over
-# this transport, so a single transient remote fault would otherwise leave one
-# engine's cell snapshot-less while its siblings on the same event succeed.
+# this transport, so a single transient remote fault would otherwise refuse one
+# engine's cell while its siblings on the same event predict.
 # Fixed rather than configurable: the schedule is short enough to cost nothing
 # when unused and bounded enough that a genuinely down remote still fails fast.
 # This budget layers on top of botocore's own request-level retries (the
@@ -162,7 +162,7 @@ class RangedBackendError(RuntimeError):
     remote layout or missing out-of-band configuration is a diagnosis, not a
     mystery. A permanent per-request fault (403, 404) is *not* wrapped: callers
     that catch this type deliberately degrade, and a misconfigured remote must
-    crash the caller instead of degrading into the snapshot-less path.
+    crash the caller instead of degrading into the unprovisioned path.
     """
 
 

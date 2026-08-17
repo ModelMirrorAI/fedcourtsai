@@ -249,12 +249,15 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
 def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     """A refused forward cell runs no agent at all.
 
-    Provisioning's exit-3 refusal (the record gate, the staleness bound, or the
-    textual scan) sets `refused=true`; every step that would spend tokens, hold
-    a credential, or write a runner-local config for the agent — the comment
-    token mint, the MCP retrieval config, the engine installs and runs, and the
-    event materialization — must carry the gate, or a refused cell produces a
-    context-less prediction claiming a mode it never had.
+    Two outcomes refuse, and each sets `refused=true` on its own step: the
+    provisioning gate's exit 3 (the record gate, the staleness bound, or the
+    textual scan) and an unprovisioned record — no snapshot in the corpus, or a
+    provisioning write that did not land complete, which the `record` step reads
+    off disk. Every step that would spend tokens, hold a credential, or write a
+    runner-local config for the agent — the comment token mint, the MCP
+    retrieval config, the engine installs and runs, and the event
+    materialization — must carry *both* halves of the gate, or a refused cell
+    produces a context-less prediction claiming a mode it never had.
     """
     wf = _load("run-predict.yml")
     steps = wf["jobs"]["predict"]["steps"]
@@ -262,6 +265,14 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     assert provision.get("continue-on-error") is True
     assert "--max-snapshot-age-days" in provision["run"]  # the staleness bound is armed
     assert 'echo "refused=true"' in provision["run"]
+    record = next(s for s in steps if s.get("id") == "record")
+    assert record.get("continue-on-error") is True
+    assert "assert-cell-record" in record["run"]
+    assert 'echo "refused=true"' in record["run"]
+    # The record check is itself gated on provisioning, and on that half only:
+    # a cell the forward gate refused was never provisioned by design, so
+    # re-asserting its record would report the refusal as an incomplete write.
+    assert record.get("if") == "steps.provision.outputs.refused != 'true'"
     gated = [
         "Mint agent comment token",
         "Configure agent retrieval (MCP)",
@@ -274,11 +285,14 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     names = [s.get("name") for s in steps]
     for name in gated:
         step = next(s for s in steps if s.get("name") == name)
-        assert "steps.provision.outputs.refused != 'true'" in str(step.get("if")), name
-    # The gate can only hold for steps that run after provisioning.
+        for half in (
+            "steps.provision.outputs.refused != 'true'",
+            "steps.record.outputs.refused != 'true'",
+        ):
+            assert half in str(step.get("if")), (name, half)
+    # The gate can only hold for steps that run after both refusal points.
     assert all(
-        names.index(name) > names.index("Provision the case snapshot from the corpus")
-        for name in gated
+        names.index(name) > names.index("Assert the provisioned record landed") for name in gated
     )
 
 

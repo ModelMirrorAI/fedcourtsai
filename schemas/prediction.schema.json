@@ -453,7 +453,7 @@
         }
       ],
       "default": null,
-      "description": "The conditioning state this cell ran against, frozen at provisioning. Harness-written like process_version \u2014 anything an agent puts here is overwritten. Absent on predictions written before the block existed, and on cells that ran without a provisioned snapshot."
+      "description": "The conditioning state this cell ran against, frozen at provisioning. Harness-written like process_version \u2014 anything an agent puts here is overwritten. Absent on predictions written before the block existed, and on any cell that ran without a provisioned snapshot \u2014 a state run-predict refuses outright, so on that path only older records carry the gap."
     },
     "created_at": {
       "format": "date-time",

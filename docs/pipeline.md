@@ -589,17 +589,49 @@ splitting a case's engines) in a deterministic case-id order, with the deferred
 count surfaced as a `::warning::` and in the plan's step summary; a deferred case
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
-`PREDICT_HANDOFF_ENABLED` on/off pause below. One interaction to know: a
-forward cell the provisioning gate refuses produces no output, so collect
-records a failure fact that counts toward `predict.max_attempts_per_cell`.
-For a record-gate refusal that terminal state is right — a decided event must
-never re-queue (and the plan-time forecastability re-check drops it anyway). For a
-*staleness* refusal it means a poller stalled for five predict cycles quietly
-retires those cells; the recovery is to fix the poller and re-queue with a
-fresh `run:predict` issue, or clear the committed attempt facts in a reviewed
-PR where the cap itself was the problem. Distinguishing refusal kinds in the
-failure fact so a staleness refusal never burns the cap is open follow-up
-work.
+`PREDICT_HANDOFF_ENABLED` on/off pause below.
+
+A predict cell refuses to run for two reasons, both landing on the same gate in
+`run-predict` (`refused=true`, which skips the event materialization, the MCP
+sidecar, the comment-token mint, and every engine step). One is the
+**provisioning gate**: `provision-snapshot --refuse-terminal` exits 3 when the
+record or the snapshot shows the event is not open, or when the snapshot is
+older than the forward staleness bound. The other is an **unprovisioned
+record**: provisioning wrote nothing (exit 1 — usually a corpus with no
+snapshot for the case, but a failed corpus read lands there too), or
+`assert-cell-record` finds the provisioning write did not land complete — no
+`record/context.json`, one that does not parse, or no readable snapshot at the
+date that context names. That last check parses the snapshot rather than
+counting its bytes: the provisioning write is not atomic, so a half-landed one
+leaves a truncated file a size check would pass.
+The provisioned snapshot is every predictor's guaranteed-common input, so a cell
+that ran without one would forecast from base rates alone while its output
+claimed the shared baseline, and no reader of the ledger could tell the two
+apart. Refusing costs a cell; running one costs the comparison. Which cause
+fired is a `::warning::` annotation on the refusing step, so a fleet of skipped
+cells is attributable from the Actions UI — and the unprovisioned arm ends its
+step red under `continue-on-error` on purpose, since it is an anomaly worth a
+visible mark where the forward gate's refusal is a designed outcome.
+
+The predict prompt still tells a forward cell it may find itself without a
+provisioned snapshot and should then predict from priors and base rates with a
+`flags.json` note. That branch is unreachable — the workflow refuses such a cell
+before any engine step — and the sentence stands until the next re-blessing,
+because the prompt's bytes are a `process_version` digest input
+([process-version.md](process-version.md)): editing it would partition the
+frozen headline across a line no cell can reach.
+
+One interaction to know: a refused cell produces no output either way, so
+collect records a failure fact that counts toward
+`predict.max_attempts_per_cell`. For a record-gate refusal that terminal state
+is right — a decided event must never re-queue (and the plan-time
+forecastability re-check drops it anyway). For a *staleness* or *unprovisioned*
+refusal it means a stalled poller, or a case the corpus never carried, quietly
+retires those cells after five predict cycles; the recovery is to fix the
+upstream gap and re-queue with a fresh `run:predict` issue, or clear the
+committed attempt facts in a reviewed PR where the cap itself was the problem.
+Distinguishing refusal kinds in the failure fact so a non-terminal refusal never
+burns the cap is open follow-up work.
 
 On `run:predict`, `plan` also refuses to re-mint a cell that already ran. A cell
 spends its tokens before `collect`, the run's single durability step, so a

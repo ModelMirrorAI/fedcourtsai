@@ -534,10 +534,16 @@ cell**: the workflow withholds the agent token, the retrieval config, the
 engine steps, and the event materialization, so a refused forward cell
 produces nothing rather than a context-less prediction claiming a mode it
 never had. The cell's status records `produced=false` and the collect census
-warns per cell. Only the other non-zero provisioning exit — no snapshot in
-the corpus at all — keeps the best-effort shape: that cell runs snapshot-less,
-notes the gap in `flags.json`, and predicts from priors and base rates only
-per the prompt contract.
+warns per cell. The other non-zero provisioning exit — no snapshot in the
+corpus at all — short-circuits the predict cell the same way, as does a
+provisioning write that did not land complete (`assert-cell-record`, which
+reads the record off disk rather than trusting the exit code): the provisioned
+snapshot is every predictor's guaranteed-common input, so a cell that ran
+without one would predict from priors and base rates alone while its output
+claimed the shared baseline, and nothing downstream could separate the two.
+An evaluate cell, whose provisioning carries no forward gate, keeps the
+best-effort shape: it runs and records the gap under its prompt's headless
+rule.
 
 One trust boundary to keep in view: `record/context.json` is written by
 provisioning but *lives in the agent's workspace* for the run, so the post-run
