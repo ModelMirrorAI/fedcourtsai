@@ -54,7 +54,12 @@ class Disposition(StrEnum):
     label except the identifiable Munsingwear ones (``granted`` + ``mootness``),
     which a one-time backfill relabels; a plain-``granted`` merits GVR in history
     is an accepted residual (indistinguishable post-hoc without re-resolving the
-    source, and immaterial on the binary axis). On mandatory-jurisdiction direct
+    source, and immaterial on the binary axis). That residual covers a label
+    normalized from the upstream record's own fields, never a resolution the
+    disposition parser itself recorded off order text and got wrong — those
+    disagree with their own order text and are converged against it, behind a
+    date boundary in code so that widening snapshot coverage cannot reach the
+    residual. On mandatory-jurisdiction direct
     appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
     other direct-appeal forms (probable jurisdiction noted, summary affirmance,
     dismissal for want of a substantial federal question) are deliberate resolver
