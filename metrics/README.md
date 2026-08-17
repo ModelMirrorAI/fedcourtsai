@@ -1246,6 +1246,26 @@ call including builtins. An engine with no captured MCP result anywhere has its
 per-tool dead-end rows **withheld** rather than printed as 100%, and where they
 are printed they are an upper bound.
 
+**What may be claimed from the throttle counts.** `result_status` on a
+`RetrievalCall` marks a result the shared upstream quota refused, and the counts
+built on it — the log's `throttled_calls`, the per-run note on a predict /
+evaluate PR, the tool-usage rollup's per-engine cut — support exactly one claim:
+*these cells retrieved less than they asked for, so do not read their coverage
+beside a well-fed cell's.* Three limits bind every figure. It is a **floor**: the
+predicate is anchored on the pinned MCP release's own rate-limit phrasing and
+biased to miss a throttle rather than invent one, it is read only from
+manifest-tool results, and a call a starved cell gave up on making leaves no row
+at all. Its denominator is **observed manifest-tool conditions**, not calls, so
+an engine whose transcript drops results shows an em dash rather than a clean
+zero — capture-blind is not throttle-free, and the surfaces say so where the
+number is printed rather than in a footnote. And the **per-engine cut is
+descriptive, never comparative**: the quota is one bucket every cell of a run
+draws from, so which engine's cells hit the wall records ordering and
+concurrency within that run, not a property of the engine — no engine may be
+ranked, differenced, or excused on it. Statuses are baked at parse time and
+never recomputed, so a ledger-wide count pools whatever predicate each log was
+captured under, exactly as `process_version` scopes a grade.
+
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
 `salience-replay.json`) are **iteration

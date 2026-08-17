@@ -9,6 +9,7 @@ agents and Codex ``--output-schema`` can target them directly.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import date, datetime
 from enum import StrEnum
@@ -1706,6 +1707,55 @@ class CellFailure(_Strict):
     )
 
 
+#: What capture read *in* a call's result, decided at parse time from the
+#: captured payload — the condition of the answer, beside `result_capture`'s
+#: whether-there-was-one.
+RetrievalResultStatus = Literal["ok", "throttled", "error", "unobserved"]
+
+# An MCP tool call as the engines spell it: `mcp` then the server and tool,
+# separated by either one or two underscores depending on the engine. The tool
+# half may itself contain single underscores (`get_endpoint_schema`), so the
+# separator is matched greedily-left and the remainder taken whole.
+#
+# The colon form is the blinding mask's engine-neutral respelling
+# (`fedcourtsai.blinding.neutral_tool_class` writes `mcp:<server>:<tool>`,
+# because the raw vocabularies are disjoint per engine and would name the
+# candidate on the grader's own reading path). A staged log is still a
+# `RetrievalLog`, and revalidating one re-derives `throttled_calls` from its
+# rows — so a gate that did not know this spelling would silently null a staged
+# cell's count and make the blinded view disagree with the committed one about
+# a number neither is supposed to change.
+_MCP_CALL = re.compile(
+    r"^mcp(?:_{1,2}(?P<server>[a-z0-9]+)_{1,2}|:(?P<mserver>[a-z0-9]+):)(?P<tool>.+)$"
+)
+
+
+def normalize_call(tool: str) -> str | None:
+    """An MCP call name as ``<server>.<tool>``, or ``None`` if it is not one.
+
+    Engine built-ins (``Bash``, ``run_shell_command``, ``Read``, ``write_file``)
+    return ``None``: they are real tool use but they are not what the manifest
+    offers, so they are counted separately rather than mixed into the offered
+    denominator.
+
+    It lives beside the models rather than in the rollup that reports on them
+    because three layers must agree on it and one of them is a model's own
+    derivation: capture mints ``RetrievalCall.result_status`` behind this gate,
+    :func:`_throttled_calls` denominates behind it, and the corpus rollup
+    excludes behind it. Two copies of this predicate would be two definitions
+    of what a manifest-tool call is, and the three surfaces would drift apart
+    exactly where they are meant to agree.
+
+    Both spellings a committed row can carry are recognized — the engines' own
+    and the blinding mask's ``mcp:<server>:<tool>`` — so a staged log
+    revalidates to the same count as the log it was masked from.
+    """
+    match = _MCP_CALL.match(tool)
+    if match is None:
+        return None
+    return f"{match['server'] or match['mserver']}.{match['tool']}"
+
+
 class RetrievalCall(_Strict):
     """One tool invocation harvested from the engine's own transcript.
 
@@ -1770,6 +1820,63 @@ class RetrievalCall(_Strict):
         "`returned nothing` silently mis-grades every unobserved call. Null on "
         "records written before the field existed: capture-unknown, not unobserved.",
     )
+    result_status: RetrievalResultStatus | None = Field(
+        default=None,
+        description="What capture read IN this call's result — decided at parse time from "
+        "the captured payload, never the agent's word, and never a judgment about whether "
+        "the call was useful. `throttled` means the payload carries the shape the pinned "
+        "CourtListener MCP server renders an upstream HTTP 429 as: its tool handler raises "
+        "`Rate limit exceeded: HTTP 429: …`, and its citation tools append a `Rate limited "
+        "by the upstream API` note to a result the throttle cut short. That is the shared "
+        "daily quota turning the cell away rather than the corpus being empty, which is the "
+        "one condition a starved run cannot otherwise be told apart from a well-fed one by. "
+        "ONLY a manifest-tool (MCP) call can carry it: the text predicate is gated on the "
+        "tool name, because the same phrases occur constantly in what a BUILTIN reads — a "
+        "cell's own `reasoning.md` describing a throttle it hit, this repository's source, "
+        "an evaluator reading the predictor's artifacts — and a builtin echoing prose about "
+        "throttling is not the upstream refusing this cell. That gate narrows the text "
+        "scanned; it does not make the rest of it safe, because a manifest search tool "
+        "returns documents for a living and an opinion may discuss a rate limitation or too "
+        "many requests for admission. So each phrase is quoted to something this server "
+        "actually emits — the note to its subject (`…by the upstream API`), the reason "
+        "phrase to its status code (`429 Too Many Requests`) — and none is a bare `429`, "
+        "which inside a legal payload is an ordinary U.S. Reports volume and a docket "
+        "number besides. Biased to miss a throttle rather than invent one, so read "
+        "`throttled` as a floor. `error` is the engine's OWN structural marker on the "
+        "result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with "
+        "no throttle shape. It is NOT gated on the tool name — it is a flag the engine set, "
+        "not text a payload can forge, so a failed builtin is honestly an error — and it is "
+        "a floor too, since only some engines set one. `ok` is the residual, and it is "
+        "wide: captured, no engine error marker, and either not a manifest-tool call at all "
+        "or a manifest result with no throttle shape. It is not proof the call succeeded. "
+        "`unobserved` mirrors `result_capture` exactly: no result reached the log, so no "
+        "condition could be read, which is every Gemini call. Null on records written "
+        "before the field existed: condition-unknown, not `ok`. Every status is BAKED AT "
+        "PARSE TIME and never recomputed, so a later recalibration of the predicate reaches "
+        "only new logs; any rollup pools whatever predicate each log was minted under.",
+    )
+
+    @model_validator(mode="after")
+    def _status_agrees_with_capture(self) -> RetrievalCall:
+        """Reject a row whose two result markers disagree about capture.
+
+        The states are one fact read twice — a condition can be read exactly
+        when a result was captured — so `unobserved` must appear in both fields
+        or in neither. Checked rather than derived, because each field is
+        written by the same parser pass and a disagreement means that pass is
+        broken, not that one field needs refreshing. Only when both are
+        present: a null in either is the legacy record's capture-unknown, which
+        constrains nothing.
+        """
+        if self.result_capture is None or self.result_status is None:
+            return self
+        if (self.result_capture == "unobserved") != (self.result_status == "unobserved"):
+            raise ValueError(
+                f"result_capture={self.result_capture!r} and "
+                f"result_status={self.result_status!r} disagree about whether this call's "
+                f"result was captured; `unobserved` belongs in both or neither"
+            )
+        return self
 
 
 def _result_capture_coverage(calls: Sequence[RetrievalCall]) -> float | None:
@@ -1783,6 +1890,43 @@ def _result_capture_coverage(calls: Sequence[RetrievalCall]) -> float | None:
     if not marked:
         return None
     return sum(1 for call in marked if call.result_capture == "captured") / len(marked)
+
+
+def observed_mcp_conditions(calls: Sequence[RetrievalCall]) -> list[RetrievalCall]:
+    """The manifest-tool calls whose result condition capture could actually read.
+
+    The one denominator behind every throttle figure — this log's own
+    ``throttled_calls``, the collect job's per-run note, and the corpus rollup's
+    per-engine rate — so the three cannot mean different things by the same
+    word. Two exclusions, and each drops calls that could never have shown a
+    throttle: a **builtin**, because only a manifest tool talks to the upstream
+    whose quota this is, and an **unobserved** result, because a condition
+    nobody captured cannot be read. A call predating the marker is excluded on
+    the same ground as the second.
+    """
+    return [
+        call
+        for call in calls
+        if call.result_status is not None
+        and call.result_status != "unobserved"
+        and normalize_call(call.tool) is not None
+    ]
+
+
+def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
+    """How many of this log's manifest-tool calls came back throttled.
+
+    ``None`` when :func:`observed_mcp_conditions` is empty — an empty log, one
+    written before the field existed, one whose every result was ``unobserved``
+    (a whole Gemini cell), or one that called no manifest tool at all. A
+    throttle is only countable where a manifest result reached the transcript,
+    so a ``0`` from such a log would assert a clean run out of a blind one; the
+    null says the question could not be asked instead.
+    """
+    observed = observed_mcp_conditions(calls)
+    if not observed:
+        return None
+    return sum(1 for call in observed if call.result_status == "throttled")
 
 
 class RetrievalLog(_Strict):
@@ -1836,14 +1980,33 @@ class RetrievalLog(_Strict):
         "before the marker existed. A 0.0 is a real and different fact — every call ran "
         "with its result unobserved, which is the standing shape of a Gemini cell.",
     )
+    throttled_calls: int | None = Field(
+        default=None,
+        ge=0,
+        description="How many of this log's MANIFEST-TOOL calls carry `result_status` "
+        "`throttled` — the log-level reading of how often the shared upstream quota turned "
+        "this cell away rather than answering it. Derived from `calls`, never asserted "
+        "independently, so the count and the rows cannot disagree; like "
+        "`result_capture_coverage` its denominator is the calls this log RETAINED, after "
+        "capture's head-cut at the schema's 500-call maximum. Builtin calls are excluded "
+        "on both sides — a `Read` of a document that discusses throttling is not this cell "
+        "being throttled — which is the same exclusion the corpus-wide rollup and the "
+        "per-run note apply, so the three figures mean one thing. Null when no manifest "
+        "call's status records an observed condition: an empty log, one predating the "
+        "field, one whose every result was `unobserved`, or one that called no manifest "
+        "tool at all. A real 0 is the stronger claim: manifest results were legible and "
+        "none of them was a throttle. Read any non-null count as a floor — the per-call "
+        "predicate is biased against inventing a throttle, and calls the cell never got to "
+        "make are not here at all.",
+    )
 
     # Derives and replaces where `_check_coverage_denominator` raises, because
-    # this rate is recomputable from the rows it summarizes while a leaderboard's
+    # these are recomputable from the rows they summarize while a leaderboard's
     # covered-count is a union the entries alone cannot reconstruct — there, a
     # writer's number is evidence to check; here it is a copy to refresh.
     @model_validator(mode="after")
-    def _coverage_follows_the_calls(self) -> RetrievalLog:
-        """Derive the capture rate from the rows rather than trusting a writer's copy.
+    def _summaries_follow_the_calls(self) -> RetrievalLog:
+        """Derive the capture rate and throttle count from the rows, not a writer's copy.
 
         Any value supplied is replaced. Recomputing on load reproduces exactly
         what a committed record holds — a log whose calls carry no marker
@@ -1851,6 +2014,7 @@ class RetrievalLog(_Strict):
         reads the ledger without ever rewriting it.
         """
         self.result_capture_coverage = _result_capture_coverage(self.calls)
+        self.throttled_calls = _throttled_calls(self.calls)
         return self
 
 
@@ -3089,6 +3253,15 @@ class ToolUsageEngine(_Strict):
     whose transcript records the request and drops the answer — and the second
     silently removes that engine's cells from every result-derived reading,
     including the evaluator's leakage grading.
+
+    The throttle fields sit here for the same reason and inherit the same limit:
+    a call the upstream quota turned away retrieved nothing, so a run starved of
+    it is not comparable with a well-fed one — but only an engine whose results
+    reach the transcript can be seen being starved, which is why the rate
+    denominates on observed conditions rather than on calls. They are cut per
+    engine because that is the grain the ledger has, not because throttling is
+    an engine trait: the quota is one bucket every cell of a run draws from, so
+    the cut says which cells met the wall, never which engine causes walls.
     """
 
     engine: str = Field(description="Engine id as the logs record it, e.g. `claude-code`")
@@ -3129,6 +3302,45 @@ class ToolUsageEngine(_Strict):
         "why the dead-end rows are withheld rather than reported as total. Gated on MCP "
         "calls rather than on any call, because a builtin's result pairing says nothing "
         "about whether the tool transcript this table is about carries results",
+    )
+    mcp_calls: int = Field(
+        default=0,
+        ge=0,
+        description="Manifest-tool calls this engine made — the `calls` subset that "
+        "excludes builtins. Separates the two reasons a result-side figure below can be "
+        "empty: an engine that made no MCP call at all, and one that made them and "
+        "captured nothing back",
+    )
+    mcp_calls_with_status: int = Field(
+        default=0,
+        ge=0,
+        description="MCP calls whose per-call `result_status` records an observed "
+        "condition — captured, and so legible as throttled or not. The throttle rate's "
+        "denominator, and NOT `calls`: an engine whose transcript drops every result "
+        "scores 0 here, which is what keeps its throttle count from reading as a "
+        "throttle-free engine. 0 also on every log written before the field existed",
+    )
+    mcp_throttled_calls: int | None = Field(
+        default=None,
+        ge=0,
+        description="The subset of `mcp_calls_with_status` whose result carried the "
+        "upstream rate-limit shape — the shared daily quota turning a cell away. Null, not "
+        "0, where `mcp_calls_with_status` is 0, matching `mcp_throttle_rate`: a 0 there "
+        "would be a count of throttles in a transcript that could not have recorded one. A "
+        "floor where it is non-null, twice over: the per-call predicate is biased against "
+        "inventing a throttle, and a call whose result was never captured is not counted",
+    )
+    mcp_throttle_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`mcp_throttled_calls / mcp_calls_with_status`, or null where no MCP "
+        "result of this engine's was legible. Null rather than 0.0 on a capture-blind "
+        "engine, because 0.0 there would claim a clean run from a transcript that could "
+        "never have shown one. Descriptive of which cells were unlucky, NOT an engine "
+        "property to compare across engines: the quota is one shared bucket consumed "
+        "run-wide, so which engine's cells meet the wall is a fact about scheduling order "
+        "and concurrency, not about the engine",
     )
     mean_calls_per_cell: float = Field(default=0.0, ge=0.0, description="calls / cells")
     median_calls_per_cell: float = Field(

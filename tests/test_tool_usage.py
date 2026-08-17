@@ -31,13 +31,13 @@ from fedcourtsai.schemas import (
     RetrievalLog,
     ToolUsefulness,
     UsageRole,
+    normalize_call,
 )
 from fedcourtsai.serialize import write_json
 from fedcourtsai.tool_usage import (
     TOOL_USAGE_CORRELATION_MIN_CELLS,
     build_tool_usage,
     is_web_tool,
-    normalize_call,
     render_tool_usage_markdown,
 )
 from tests.conftest import bless_process
@@ -531,6 +531,153 @@ def test_builtin_results_alone_do_not_open_the_dead_end_gate(tmp_path: Path) -> 
     assert (profile.mcp_calls_with_result, profile.captures_results) == (0, False)
     (entry,) = usage.entries
     assert entry.null_result_calls == {}
+
+
+# --- upstream throttling -------------------------------------------------------
+
+
+def test_throttles_are_counted_over_the_mcp_calls_whose_condition_was_legible(
+    tmp_path: Path,
+) -> None:
+    # The denominator is the legible conditions, not the calls: an unobserved
+    # result could not have shown a throttle, and a builtin's result is not the
+    # manifest tools being starved even when its text talks about rate limits.
+    _log(
+        tmp_path,
+        "a",
+        engine=Engine.claude_code,
+        actor="c",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_digest="d1",
+                result_capture="captured",
+                result_status="throttled",
+            ),
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_digest="d2",
+                result_capture="captured",
+                result_status="ok",
+            ),
+            RetrievalCall(
+                tool="mcp__cl__search", result_capture="unobserved", result_status="unobserved"
+            ),
+            RetrievalCall(
+                tool="WebFetch",
+                result_digest="d3",
+                result_capture="captured",
+                result_status="throttled",
+            ),
+        ],
+    )
+    (profile,) = build_tool_usage(tmp_path).engine_profiles
+    assert (profile.mcp_throttled_calls, profile.mcp_calls_with_status) == (1, 2)
+    assert profile.mcp_throttle_rate == 0.5
+
+
+def test_a_capture_blind_engine_gets_a_null_throttle_count_not_a_clean_one(
+    tmp_path: Path,
+) -> None:
+    # The claim a 0 would make here is one the transcript is not entitled to:
+    # Gemini logs no result at all, so it cannot be observed being starved. The
+    # count goes null with the rate — a count of throttles in a transcript that
+    # could not record one is no more a fact than the rate would be.
+    _log(tmp_path, "g", engine=Engine.gemini, actor="g", tools=["mcp_cl_search"] * 3)
+    (profile,) = build_tool_usage(tmp_path).engine_profiles
+    assert (profile.mcp_calls, profile.mcp_calls_with_status) == (3, 0)
+    assert profile.mcp_throttled_calls is None
+    assert profile.mcp_throttle_rate is None
+
+
+def test_the_throttling_section_names_the_blind_engine_beside_the_number(
+    tmp_path: Path,
+) -> None:
+    # The caveat has to sit where the number is read: an em dash in a line of
+    # rates is exactly the shape a reader rounds to zero.
+    _log(tmp_path, "g", engine=Engine.gemini, actor="g", tools=["mcp_cl_search"])
+    _log(
+        tmp_path,
+        "c",
+        engine=Engine.claude_code,
+        actor="c",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_digest="d1",
+                result_capture="captured",
+                result_status="throttled",
+            )
+        ],
+    )
+    md = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    assert "## Upstream throttling" in md
+    assert "`claude-code` 1/1 (100.0%)" in md
+    # The reason rides in the figure itself, not in a note below it: a bare
+    # `0/0 (—)` is exactly the shape a reader rounds to zero.
+    assert "`gemini` — (capture-blind)" in md
+    assert "0/0" not in md
+    assert "capture-blind, not throttle-free" in md
+    # Rendered on a clean ledger too: a reader needs to know the question was
+    # asked, which a line that appears only on bad news cannot tell them.
+    assert "floor" in md
+    # And the number may not be read as an engine property.
+    assert "per-engine cut is descriptive, not a comparison" in md
+    assert "do not rank engines on it" in md
+
+
+def test_the_throttling_section_reports_a_clean_ledger_rather_than_going_quiet(
+    tmp_path: Path,
+) -> None:
+    _log(
+        tmp_path,
+        "c",
+        engine=Engine.claude_code,
+        actor="c",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_digest="d1",
+                result_capture="captured",
+                result_status="ok",
+            )
+        ],
+    )
+    md = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    assert "`claude-code` 0/1 (0.0%)" in md
+    assert "capture-blind, not throttle-free" not in md
+
+
+def test_an_engine_that_called_no_mcp_tool_is_not_called_capture_blind(
+    tmp_path: Path,
+) -> None:
+    # Two empty figures with different causes. An engine whose MCP results went
+    # uncaptured is capture-blind; one that never called a manifest tool had
+    # nothing to be throttled, and explaining its em dash as a capture gap would
+    # be simply the wrong reason.
+    _log(
+        tmp_path,
+        "c",
+        engine=Engine.claude_code,
+        actor="c",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="Read",
+                result_digest="d1",
+                result_capture="captured",
+                result_status="ok",
+            )
+        ],
+    )
+    (profile,) = build_tool_usage(tmp_path).engine_profiles
+    assert (profile.calls, profile.mcp_calls) == (1, 0)
+    md = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    assert "`claude-code` — (no MCP calls)" in md
+    assert "capture-blind" not in md
 
 
 # --- the mode, role, and actor cuts --------------------------------------------

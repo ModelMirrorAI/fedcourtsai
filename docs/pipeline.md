@@ -87,7 +87,11 @@ each as its own least-privilege job holding only the credentials its mode needs:
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
   engine / actor. The same walk adds per-engine result observability (whether an
-  engine's transcript captures the answer side at all), cuts by mode / role /
+  engine's transcript captures the answer side at all), how often the upstream
+  quota turned a manifest-tool call away (denominated on the calls whose result
+  condition was legible, so a capture-blind engine reads as unobserved rather
+  than as throttle-free, and cut per engine only descriptively — one quota is
+  consumed run-wide), cuts by mode / role /
   actor, calls beside each cell's estimated cost, and call volume against the
   evaluators' Brier scores — that last one scoped to blessed processes like any
   grade-bearing surface, and a denominator table with an under-powered verdict
@@ -785,6 +789,18 @@ gated on the run's secret scan, since flag messages are agent free text — the 
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
+It also reads the run's own harness-captured `retrieval_log.json` files and, if
+any cell's manifest-tool results came back rate-limited, warns in the same PR
+body that the shared upstream quota starved this run's retrieval — how many
+legible results were throttled, across how many cells, and how many further
+cells captured nothing and could not be observed either way. Where *no* cell
+could have shown a throttle it says that instead, because capture-blind and
+throttle-free must not read alike; a genuinely clean run prints nothing. The
+note is harness-rendered from the logs rather than agent free text, so it rides
+even the facts-only PR of a wholesale-failed run, where starvation is a live
+candidate cause. It is the only per-run record there is: the 429 payload itself
+is digested away at capture, so without the marker a starved run and a well-fed
+one look identical afterwards.
 The `run-seed` historical walker has its own instance of that pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears

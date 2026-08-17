@@ -75,6 +75,7 @@ from .collect import (
     ExpectedCell,
     PathJailError,
     PrPlan,
+    ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
     cell_failures,
@@ -219,6 +220,7 @@ from .schemas import (
     StatPack,
     Stratum,
     UsageRole,
+    observed_mcp_conditions,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
@@ -8718,6 +8720,12 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
             if isinstance(c, CellStatus)
         ],
         "flags": plan.flags_markdown,
+        # The harness-side counterpart of `flags`: what this run's captured
+        # retrieval says the upstream quota did to it. It already rides the PR
+        # body, but it leaves the process here too, so the surface that echoes
+        # `flags` into the Actions summary can echo this beside it without
+        # re-reading a single artifact. Empty on a genuinely clean run.
+        "throttle": plan.throttle_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -8806,6 +8814,68 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     return flag_sets
 
 
+def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
+    """Summarize this run's captured retrieval throttling from the cell artifacts.
+
+    The same walk shape as :func:`_load_flag_sets`, and for the same reason:
+    each cell uploads its whole ``data/`` subtree, so the run's
+    ``retrieval_log.json`` files land wherever the cell's own case path puts
+    them. The two filters are the same two as well — **run id**, because every
+    artifact also carries every *previously committed* log and an earlier run's
+    throttling is not this run's; and **identity**, keyed on the cell a log
+    describes, because a log committed by an earlier cell of this same run rides
+    along in later cells' artifacts and would otherwise be counted once per
+    cell.
+
+    The run-id filter runs twice, once in the glob and once on the parsed
+    record, and the pair is not redundant. Both roles key a cell's directory on
+    its run id, so the glob skips the whole committed history without opening
+    it — every log the ledger has ever carried rides in every artifact, so a
+    parse-everything walk would validate that history once per cell of the
+    fan-out. The record's own ``run_id`` is what the count is actually keyed
+    on, so the cheap path filter can never be the thing that decides.
+
+    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
+    same helper the log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate denominate by — so the three figures a maintainer may read
+    side by side mean one thing. A cell it leaves empty (capture-blind, or
+    calling no manifest tool) is counted as ``blind_cells`` rather than as a
+    clean cell, because it could not have shown a throttle and must not read as
+    evidence of none. A malformed or unreadable log lands there too rather than
+    being dropped: it is a cell of this run — its path carries the run id — whose
+    condition nothing can read, which is exactly what the counter means. It is
+    never fatal, because this is a notification and it must never take down the
+    aggregation that carries the run's only copy of its output.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ThrottleRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
+        try:
+            log = RetrievalLog.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            continue
+        if log.run_id != run_id:
+            continue
+        identity = (log.case_id, log.actor_id, str(log.role), log.run_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        observed = observed_mcp_conditions(log.calls)
+        if not observed:
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            continue
+        throttled = sum(1 for call in observed if call.result_status == "throttled")
+        rollup = replace(
+            rollup,
+            cells=rollup.cells + 1,
+            throttled_cells=rollup.throttled_cells + bool(throttled),
+            calls=rollup.calls + len(observed),
+            throttled_calls=rollup.throttled_calls + throttled,
+        )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -8866,6 +8936,11 @@ def collect_plan_cmd(
         # leaves no status.json, so without this it is indistinguishable from a
         # cell that was never queued.
         expected=_expected_cells(matrix_file),
+        # Whether the shared upstream quota starved this run's retrieval. Read
+        # from the cells' harness-captured logs, not from what an agent said:
+        # the 429 evidence lives only in the result payload, which capture
+        # digests away, so the parse-time marker is the last place it is legible.
+        throttle=_load_throttle(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

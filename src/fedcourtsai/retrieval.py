@@ -41,6 +41,24 @@ result sits past a truncated transcript. The digests cannot say it, because a nu
 and an uncaptured one both leave behind; without the marker a reader grades
 "this call surfaced nothing" over calls whose results were never in the log.
 
+Where a result *was* captured, ``result_status`` says what came back in it —
+``throttled`` when a **manifest-tool** payload carries the shape the pinned
+CourtListener MCP server renders an upstream HTTP 429 as, ``error`` on the
+engine's own structural failure marker, ``ok`` otherwise. The throttle state is
+the one that changes how a cell should be read: a call the shared daily quota
+turned away retrieved nothing, so a starved run's coverage is not comparable
+with a well-fed one's, and the 429 evidence exists nowhere else — the payload it
+sits in is digested away one line later. Two things keep that reading honest,
+because the text is not trustworthy from either direction: the **tool gate**
+excludes what a *builtin* hands back (a cell reading its own ``reasoning.md``,
+or this repository's own source and docs, sitting in the checkout the cell runs
+in), and the **phrasing** of each alternation excludes what a manifest tool
+legitimately returns — a search tool's whole job is handing back opinions, and
+an opinion may well discuss a rate limitation or too many requests for
+admission. The status is a floor by construction, decided once at parse time,
+and available only on engines whose results reach a transcript at all; every
+Gemini row is ``unobserved``.
+
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
 here therefore passes through
@@ -58,7 +76,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from .schemas import RetrievalCall
+from .schemas import RetrievalCall, RetrievalResultStatus, normalize_call
 from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
 
@@ -79,6 +97,59 @@ _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "
 # so the serialized form the regex scans carries escaped quotes.
 _DOC_DATE_RE = re.compile(
     r'\\?"(?:date_?[Ff]iled|date_?[Dd]ecided|decision_?date)\\?"\s*:\s*\\?"(\d{4}-\d{2}-\d{2})\\?"'
+)
+# The shape a captured result takes when the shared upstream quota turned the
+# call away rather than answering it. **Keyed to the pinned MCP release** —
+# :data:`fedcourtsai.mcp._HTTP_BYPASS_RELEASE`, the package the sidecar launches
+# — because these are that release's own strings, not a standard: its
+# tool-handler middleware turns an upstream HTTP 429 into the tool error `Rate
+# limit exceeded: HTTP 429: <detail>. For higher rate limits, …`, and its
+# citation tools append `Rate limited by the upstream API (retry in ~Ns, …)` to a
+# result the throttle cut short. `Too Many Requests` covers a transport-level
+# rendering of the same status. A manifest pin bump must re-read those two
+# renderings, exactly as the sidecar launch must re-read the constructor;
+# `test_the_predicate_matches_the_pinned_releases_own_error_strings` holds the
+# strings so the bump fails a test rather than silently going quiet.
+#
+# Phrase-anchored on purpose, unlike the bare `\b429\b` in
+# :mod:`fedcourtsai.pipeline.runner`'s transient-failure regex — that one scans an
+# agent's stderr, this one scans *retrieved legal content*, where 429 is an
+# everyday U.S. Reports volume ("429 U.S. 274") and a docket number besides. The
+# asymmetry is deliberate: a false positive invents starvation in a run that had
+# none and taints every comparison drawn from it, while a false negative only
+# leaves a throttled call reading as `ok` — where every call sat before the marker
+# existed. So the predicate is cheap to miss with and expensive to fire wrongly,
+# and every count derived from it is a floor.
+#
+# Two defences, and neither is sufficient alone. The **tool gate** (see
+# :func:`_result_status`) keeps out the text a *builtin* reads back — a cell's
+# own `reasoning.md` recounting a throttle, this repository's source and docs
+# inside the checkout, the predictor artifacts an evaluate cell is instructed to
+# read. It does *not* make the rest of the corpus safe: a manifest tool's whole
+# job is returning documents, and an opinion about utility rates or a discovery
+# dispute is retrieved through the same call that a 429 comes back on. So each
+# alternation must be a string this server emits and not a shape English
+# produces — which is why the two loosest ones carry their subject
+# ("...by the upstream API") or their status code ("429 Too Many Requests")
+# rather than standing alone.
+_THROTTLE_RE = re.compile(
+    r"""
+    # The MCP tool handler's own 429 rendering.
+      rate[\s_-]*limit[\s_-]*exceeded
+    # The citation tools' partial-result note, quoted to its full subject rather
+    # than cut at `rate limited`: "the rate limited the recovery" is ordinary
+    # English in a rate-regulation opinion, and a manifest search returns
+    # opinions.
+    | rate[\s_-]*limited[\s_-]+by[\s_-]+the[\s_-]+upstream[\s_-]+api
+    # The API client's `HTTP 429: <detail>` str.
+    | \bhttp[\s_-]*429\b
+    # The status line as a transport renders it, status and reason adjacent. The
+    # reason phrase alone would match "too many requests for admission" in a
+    # discovery dispute; pinning it to the code costs nothing, because a bare
+    # reason phrase with no status beside it is not a rendering this server emits.
+    | 429[\s:_-]*too[\s_-]*many[\s_-]*requests
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 # Schema cap on calls per log; a longer transcript is truncated head-first
 # (the earliest calls are the retrieval-shaped ones worth grading).
@@ -149,26 +220,80 @@ def _query_candidate(params: Any) -> str | None:
     return None
 
 
-def _doc_date(result: Any) -> str | None:
-    """The first document/decision date legible in a result payload, if any."""
+def _result_text(result: Any) -> str:
+    """A captured result payload as the one searchable string both readers scan.
+
+    Serialized once per call and handed to the date and condition reads
+    together: a result payload is unbounded, and re-serializing it per question
+    costs the walk in proportion to how much the agent retrieved.
+    """
     try:
-        text = json.dumps(result, default=str)
+        return json.dumps(result, default=str)
     except (TypeError, ValueError):
-        text = str(result)
+        return str(result)
+
+
+def _doc_date(text: str) -> str | None:
+    """The first document/decision date legible in a serialized result, if any."""
     match = _DOC_DATE_RE.search(text)
     return match.group(1) if match else None
+
+
+def _result_status(
+    tool: str, text: str, *, captured: bool, engine_error: bool = False
+) -> RetrievalResultStatus:
+    """The condition of a call's result, from what capture actually holds.
+
+    ``unobserved`` wherever no result reached the log, so this field and
+    ``result_capture`` never disagree about capture (the schema rejects a row
+    where they do). Otherwise the throttle predicate decides first — a 429
+    arrives *as* an error, and which error it is, is the whole point — then the
+    engine's own error marker, then ``ok`` as the residual.
+
+    The two tests are gated differently, and the split is the point. The
+    **throttle** test reads the payload's *text*, so it runs only where the tool
+    is a manifest one (:func:`~fedcourtsai.schemas.normalize_call`): a builtin's
+    result is whatever the agent asked it to read — its own ``reasoning.md``,
+    this repository's source, another cell's artifacts — and prose *about*
+    throttling is not this call being throttled. The gate narrows the text this
+    reads; it does not make that text safe, since a manifest search returns
+    documents too, which is why :data:`_THROTTLE_RE` quotes strings this server
+    emits rather than shapes English produces. ``engine_error`` is a
+    **structural** flag the engine set (a Claude ``tool_result``'s ``is_error``,
+    a Codex MCP item's inline ``error``), which retrieved text cannot forge, so
+    it needs no such gate and a failed builtin is honestly an error. Nothing
+    sniffs a generic failure out of result prose: no marker robust enough
+    exists, and inventing one would put a text-shaped judgment in a field whose
+    whole value is that it is mechanical.
+
+    So ``ok`` is wide — captured, unmarked, and either not a manifest call or a
+    manifest result with no throttle shape — and claims nothing about success.
+
+    Decided once, here, and written into the row: nothing recomputes a status
+    from a committed log, because the payload it was read from is already gone.
+    A later change to the predicate therefore reaches only logs captured after
+    it, and any rollup over the ledger pools whatever predicate each log was
+    minted under.
+    """
+    if not captured:
+        return "unobserved"
+    if normalize_call(tool) is not None and _THROTTLE_RE.search(text):
+        return "throttled"
+    return "error" if engine_error else "ok"
 
 
 def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
     """Tool calls from a Claude Code ``execution_file`` JSON transcript."""
     doc = _load_json(execution_file)
     events = doc if isinstance(doc, list) else [doc] if isinstance(doc, dict) else []
-    # First pass: index tool results by the tool_use id they answer.
-    results: dict[str, Any] = {}
+    # First pass: index tool-result *blocks* by the tool_use id they answer. The
+    # whole block, not just its content: `is_error` rides beside the payload and
+    # is the engine's own word on whether the call came back a failure.
+    results: dict[str, dict[str, Any]] = {}
     for event in events:
         for block in _message_blocks(event):
             if block.get("type") == "tool_result" and block.get("tool_use_id"):
-                results[str(block["tool_use_id"])] = block.get("content")
+                results[str(block["tool_use_id"])] = block
     calls: list[RetrievalCall] = []
     for event in events:
         timestamp = event.get("timestamp") if isinstance(event, dict) else None
@@ -180,19 +305,30 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
             # was still captured, and that is exactly the case the marker
             # exists to separate from one whose result never reached the log.
             call_id = str(block.get("id", ""))
+            answer = results.get(call_id)
             captured = call_id in results
-            result = results.get(call_id)
+            result = answer.get("content") if answer is not None else None
+            text = _result_text(result) if result is not None else ""
+            # The redacted name the row will carry, so the manifest-tool gate on
+            # the condition read and the rollup's own exclusion see one string.
+            tool = _tool_name(block["name"])
             calls.append(
                 RetrievalCall(
-                    tool=_tool_name(block["name"]),
+                    tool=tool,
                     query=_query_slice(params),
                     params_digest=_digest(params),
                     timestamp=_text(timestamp),
                     result_digest=_digest(result),
                     # A date the `\d{4}-\d{2}-\d{2}` capture produced; it has no
                     # room to carry anything else, so it needs no redaction.
-                    retrieved_doc_date=_doc_date(result) if result is not None else None,
+                    retrieved_doc_date=_doc_date(text) if result is not None else None,
                     result_capture="captured" if captured else "unobserved",
+                    result_status=_result_status(
+                        tool,
+                        text,
+                        captured=captured,
+                        engine_error=bool(answer.get("is_error")) if answer is not None else False,
+                    ),
                 )
             )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -261,6 +397,10 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         call_id = str(payload.get("call_id", ""))
         captured = call_id in outputs
         result = outputs.get(call_id)
+        # A sibling `*_output` item carries no failure flag of its own, so a call
+        # paired that way has only its text to be read by: the throttle predicate
+        # can still classify it, but a generic failure lands as `ok`.
+        engine_error = False
         # An MCP item settles on itself rather than in a sibling, so where the
         # sibling lookup produced no result, the item's own is the pairing. A
         # sibling that carried anything at all — an empty string included — wins;
@@ -268,16 +408,24 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         if result is None:
             inline = _codex_inline_result(payload)
             if inline is not None:
-                captured, result = True, inline
+                field, result = inline
+                captured, engine_error = True, field == "error"
+        text = _result_text(result) if result is not None else ""
+        # The composed, redacted name the row will carry — the same string the
+        # manifest-tool gate and the rollup's exclusion both key on.
+        tool = _tool_name(_codex_tool(payload))
         calls.append(
             RetrievalCall(
-                tool=_tool_name(_codex_tool(payload)),
+                tool=tool,
                 query=_query_slice(params),
                 params_digest=_digest(params),
                 timestamp=_text(record.get("timestamp")),
                 result_digest=_digest(result),
-                retrieved_doc_date=_doc_date(result) if result is not None else None,
+                retrieved_doc_date=_doc_date(text) if result is not None else None,
                 result_capture="captured" if captured else "unobserved",
+                result_status=_result_status(
+                    tool, text, captured=captured, engine_error=engine_error
+                ),
             )
         )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -303,8 +451,13 @@ def _codex_records(rollout: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _codex_inline_result(payload: dict[str, Any]) -> Any:
-    """An MCP call item's own settled result, or ``None`` where it holds none.
+def _codex_inline_result(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    """An MCP call item's own settled result as ``(field, value)``, else ``None``.
+
+    The field name rides back with the value because ``error`` is the engine's
+    own word that this call came back a failure — the Codex counterpart of a
+    Claude ``tool_result``'s ``is_error`` — and the per-call condition marker
+    reads it rather than guessing a failure out of the payload's prose.
 
     The Responses API settles an MCP call **on the call item** — the answer in
     its ``output``, the failure in its ``error``, and no ``*_output`` sibling
@@ -331,7 +484,7 @@ def _codex_inline_result(payload: dict[str, Any]) -> Any:
     for field in _CODEX_INLINE_RESULT_FIELDS:
         value = payload.get(field)
         if value is not None:
-            return value
+            return field, value
     return None
 
 
@@ -343,7 +496,7 @@ def _codex_tool(payload: dict[str, Any]) -> Any:
     in the rollout's own — so the two are composed into the
     ``mcp__<server>__<tool>`` spelling the engines' MCP calls share.
     Uncomposed, ``search`` is indistinguishable from an engine builtin
-    and :func:`~fedcourtsai.tool_usage.normalize_call` buckets it as one — the
+    and :func:`~fedcourtsai.schemas.normalize_call` buckets it as one — the
     offered denominator loses the call and the MCP-gated result observability
     reads the engine as having no MCP calls at all.
 
@@ -417,8 +570,11 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
                     timestamp=_text(timestamp),
                     # The local exporter logs the invocation and nothing of what
                     # came back, so every Gemini row is unobserved by
-                    # construction — a whole engine's capture rate is 0.0.
+                    # construction — a whole engine's capture rate is 0.0, and
+                    # its result condition is unreadable rather than fine: this
+                    # engine cannot be seen being throttled at all.
                     result_capture="unobserved",
+                    result_status="unobserved",
                 )
             )
             continue
