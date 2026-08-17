@@ -1026,8 +1026,10 @@ class Outcome(_Strict):
         default=None,
         description="What the Court did to the judgment below — the merits axis, "
         "kept off the cert disposition vocabulary because a DIG has no coherent "
-        "value on the grant binary. Null on a cert-stage outcome, which has no "
-        "judgment to record",
+        "value on the grant binary. Null on any outcome off the merits stage, "
+        "which has no judgment to record: the field's presence is what routes "
+        "the accuracy comparison onto the merits axis, and that routing does "
+        "not read the stage",
     )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(

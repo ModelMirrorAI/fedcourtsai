@@ -111,6 +111,28 @@ docket's disposition entry):
 | A concurrence is filed | *no field yet* |
 | A dissent is filed | *no field yet* |
 
+`Outcome.judgment` is also the routing key for the accuracy bit beside the
+claim scores: `pipeline.evaluate.is_correct` takes the judgment comparison
+wherever that field is non-null and the disposition comparison otherwise. That
+routing never reads the stage, so **no outcome off the merits stage records a
+judgment** — a stray one, on a cert event or a stage-less one alike, would move
+the cell onto the merits axis, where the predictor was never asked for a
+judgment and the cell scores 0 against a question it never received. The merits
+outcome builder is the field's only writer, so `validate`'s
+`judgment_only_on_merits_outcomes` holds that invariant on the artifact. And
+because `correct` is a function of two committed artifacts — the predictor's
+latest prediction *as at the stamp* and the outcome — rather than a judgment
+about them, `evaluation_correct_agrees` requires the **current** stamped
+gradings of one `(case_id, event_id, predictor_id)` cell to record the same bit
+across evaluators; where they differ, the stamps read different pairs (a
+pre-stamp bit surviving, or stamps straddling a re-prediction), and the remedy
+is a re-stamp of the event's evaluations. Superseded runs are collapsed away
+first, exactly as every aggregating surface collapses them: an older stamp
+records what was true when it ran, and nothing reads it. Unstamped records stay
+outside the rule, their disagreement being the signal the stamp displaces; a
+null `correct` — the stamp's own value where either artifact is missing — is
+skipped the same way.
+
 Disposition is **one** claim, not two. `Outcome.actual_granted` is a pure
 function of `actual_disposition` (`pipeline.outcome.granted_flag`), so scoring
 both would score one belief twice — see *No claim may be derived from another*.

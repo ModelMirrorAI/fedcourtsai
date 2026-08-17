@@ -28,10 +28,13 @@ Two layers of checks:
   grades alike — answers the declaration its event carries, since both sides are
   read past silently rather than refused loudly; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
-  its ``judgment`` — the stage-aware half of the merits prediction contract —
-  and no evaluation carries a ``vote_accuracy`` off a merits event, since an
+  its ``judgment`` — the stage-aware half of the merits prediction contract;
+  no evaluation carries a ``vote_accuracy`` off a merits event, since an
   individual cert vote is never scored and that field is the evaluator's own to
-  write.
+  write; one cell's current gradings record the same ``correct`` bit, that bit
+  being a function of two committed artifacts rather than a judgment; and no
+  outcome carries a ``judgment`` off a merits event, that field's presence being
+  what routes the accuracy comparison onto the merits axis.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -55,7 +58,7 @@ import yaml
 from pydantic import ValidationError
 
 from . import corpus
-from .integrity import cell_clock
+from .integrity import cell_clock, latest_evaluation_runs
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
@@ -113,6 +116,11 @@ CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
+# `correct` is a function of two committed artifacts, so one cell's current
+# gradings must record the same bit whichever evaluator wrote them.
+CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
+# Only a merits outcome has a judgment to record, and the field routes `correct`.
+CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 
 # The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the
@@ -1014,6 +1022,148 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
     return _check(CHECK_SCORED_VOTES, problems, checked=checked)
 
 
+def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
+    """One cell's current gradings must record the same ``correct`` bit.
+
+    ``correct`` is not a judgment: ``stamp-cell --role evaluator`` computes it
+    through :func:`fedcourtsai.pipeline.evaluate.is_correct` from the
+    predictor's latest committed prediction and the committed outcome. Both
+    inputs are properties of the cell — the ``(case_id, event_id,
+    predictor_id)`` triple — and neither depends on *who* judged it, so two
+    graders reading one cell cannot land on different bits *from the same
+    committed pair*. A disagreement means the group's stamps did not read one
+    pair: an evaluator's own bit that predates correct-stamping (or a
+    hand-edit) surviving, or two graders' stamps straddling a re-prediction so
+    each read a different "latest" prediction. Either way the accuracy column
+    — the surface that averages this bit — would fold two answers to two
+    different questions into one mean, and the remedy is the same: re-stamp
+    the event's evaluations so every current grading reads the current pair.
+
+    **Across runs it is not a defect, so the rule does not reach there.** The
+    bit is computed against the predictor's latest prediction *as at stamp
+    time*, so a re-predicted cell's older evaluation records what was true when
+    it ran — history, exactly as an earlier judgment-less prediction is history
+    to :func:`check_merits_predictions`. Nothing aggregates it either: every
+    surface collapses re-runs of one grader on one cell first, newest winning.
+    So this check collapses the same way, through
+    :func:`fedcourtsai.integrity.latest_evaluation_runs`, **before** grouping —
+    the rule then holds across evaluators over precisely the records the
+    leaderboard reads, and a superseded stamp can neither fire it nor be
+    repaired by a gate that has no bulk re-stamp to offer.
+
+    Only **stamped** survivors take part (``process_version`` non-null): an
+    unstamped cell's ``correct`` is whatever it was written with, so its
+    disagreement with a stamped sibling is the signal the stamp displaces
+    rather than a defect to refuse. A null ``correct`` — the value the stamp
+    writes where a committed artifact is missing — carries no claim to
+    contradict, so it is excluded too. ``checked`` counts the **groups** with
+    at least one participating record, since the group is the unit the rule
+    holds over; only a group holding two or more can contribute a problem. A
+    file that does not parse is ``validate_ledger``'s concern (schema law) and
+    is skipped.
+
+    The ``(case_id, event_id, predictor_id)`` key is read from the record's own
+    fields, never the path, for the reason
+    :func:`_scored_prediction_context` gives: the stamp joins on the fields, so
+    an un-aliasing that moved a directory but not a field must not let this
+    check group cells the stamp kept apart.
+    """
+    records: list[tuple[Evaluation, Path]] = []
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        # Parsed through the model so `process_version` resolves to its declared
+        # default on a record that omits it rather than reading as unparseable.
+        try:
+            evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        records.append((evaluation, path))
+    groups: dict[tuple[str, str, str], list[tuple[int, Path]]] = {}
+    for evaluation, path in latest_evaluation_runs(records, lambda record: record[0]):
+        if evaluation.process_version is None or evaluation.correct is None:
+            continue
+        key = (evaluation.case_id, evaluation.event_id, evaluation.predictor_id)
+        groups.setdefault(key, []).append((evaluation.correct, path))
+    problems: list[str] = []
+    for (case_id, event_id, predictor_id), graded in sorted(groups.items()):
+        if len({correct for correct, _ in graded}) < 2:
+            continue
+        recorded = ", ".join(
+            f"{correct} at {path}" for correct, path in sorted(graded, key=lambda r: r[1])
+        )
+        problems.append(
+            f"cell ({case_id!r}, {event_id!r}, {predictor_id!r}): its evaluators' current "
+            f"gradings record disagreeing `correct` values — {recorded}"
+        )
+    return _check(CHECK_CORRECT_AGREES, problems, checked=len(groups))
+
+
+def check_judgment_only_on_merits_outcomes(data_root: Path) -> CorpusCheck:
+    """No committed outcome may carry a ``judgment`` off a merits event.
+
+    ``Outcome.judgment`` is the merits axis, and its presence is what routes
+    the accuracy comparison: :func:`fedcourtsai.pipeline.evaluate.is_correct`
+    takes the judgment comparison wherever the field is non-null and the
+    disposition comparison otherwise. That routing is **stage-blind**, so the
+    population at risk is every event that is not merits-stage — a judgment
+    there does not merely record a field the stage has no use for, it silently
+    moves the cell onto the merits axis, where the predictor was never asked
+    for a ``judgment`` and the cell is scored against a question it never
+    received.
+    Stage-less events are inside the rule for the same reason: the router does
+    not read the stage, so a missing stamp cannot excuse the misrouting.
+
+    Refusing this cannot cost a legitimate outcome, because the merits outcome
+    builder is the only writer of the field: "carries a judgment => merits-stage
+    event" is the pipeline's own invariant, and the check holds it on the
+    artifact. The schema states it in ``Outcome.judgment``'s own description
+    but cannot enforce it — an ``outcome.json`` does not carry its event's
+    stage — so the rule needs the committed ``event.yaml`` and lives here, the
+    same shape as :func:`check_scored_votes`.
+
+    ``checked`` counts the non-merits events carrying an ``outcome.json``. The
+    sibling test comes before the parse for the reason
+    :func:`check_merits_predictions` gives: an event with no outcome is outside
+    the rule, and ``validate data`` runs once per cell in both fan-outs. An
+    ``event.yaml`` that does not parse is ``validate_ledger``'s concern (schema
+    law) and is skipped.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        outcome_file = event_file.parent / "outcome.json"
+        if not outcome_file.is_file():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        # `==`, never `is`: the models carry `use_enum_values`, so the stage
+        # comes back as the enum's value.
+        if event.stage == Stage.merits:
+            continue
+        checked += 1
+        # Read raw rather than through `Outcome`, and deliberately unlike the
+        # sibling checks: any non-null value misroutes `is_correct` whatever it
+        # is, so a judgment outside the vocabulary must fire here rather than
+        # be skipped as a model-parse failure. The enclosing file being
+        # malformed JSON is still `validate_ledger`'s concern.
+        try:
+            data = json.loads(outcome_file.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        judgment = data.get("judgment")
+        if judgment is not None:
+            problems.append(
+                f"outcome {outcome_file}: carries judgment {judgment!r} on "
+                f"{event.stage or 'stage-less'}-stage event {event.event_id!r} — "
+                "the field is the merits axis, and its presence routes the accuracy "
+                "comparison off the disposition this cell forecast"
+            )
+    return _check(CHECK_JUDGMENT_ONLY_MERITS, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -1075,8 +1225,9 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     the salience version it was banded under, every prose document a prediction
     names is there, every committed claims block is one the claim scorer will not
     void, every committed semantic block on either side answers the declaration
-    it was asked for, and every merits-stage event's scored prediction carries
-    its judgment.
+    it was asked for, every merits-stage event's scored prediction carries
+    its judgment, one cell's current gradings record the same ``correct`` bit,
+    and no outcome carries a judgment off a merits event.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -1090,6 +1241,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_evaluation_correct_agrees(data_root),
+        check_judgment_only_on_merits_outcomes(data_root),
     ]
 
 
@@ -1123,6 +1276,8 @@ def _run_checks(
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_evaluation_correct_agrees(data_root),
+        check_judgment_only_on_merits_outcomes(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),
