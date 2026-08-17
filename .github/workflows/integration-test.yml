@@ -771,32 +771,39 @@ jobs:
           # rerun 409s here.
           overwrite: true
 
-      # The sidecar's log carries the startup lines (the `health-check corpus
-      # read:` transfer evidence among them) and the per-request records
-      # (server noise, no secrets — GitHub masks the credentials regardless):
-      # surface it in the job log, as the cell workflows do, so a cold-read
-      # stall or a mid-scenario sidecar death is diagnosable from the failed
-      # run instead of a rerun. Head and tail both, because the evidence
-      # lines are at the top and an engine-smoke's query records scroll them
-      # off a tail alone.
-      - name: Show the corpus sidecar log
-        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke') }}
+      # Both sidecars' logs carry startup lines (the corpus one's
+      # `health-check corpus read:` transfer evidence among them) and
+      # per-request records (server noise, no secrets — GitHub masks the
+      # credentials regardless): surface them in the job log, as the cell
+      # workflows do over the same two files, so a cold-read stall or a
+      # mid-scenario sidecar death is diagnosable from the failed run instead
+      # of a rerun. The MCP log is the codex leg's second witness, and the
+      # question needs both: requests in this log with no MCP shapes in the
+      # uploaded distillation is a capture gap, no requests at all is the
+      # engine declining to call — a distinction the shapes artifact alone
+      # cannot draw. Head and tail both, because the evidence lines are at the
+      # top and an engine-smoke's query records scroll them off a tail alone.
+      - name: Show the sidecar logs
+        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'mcp-sidecar') }}
         continue-on-error: true
         run: |
           set -euo pipefail
           # Indent every replayed line: a line starting with ::<command>::
           # would otherwise be parsed as a workflow command by the runner.
-          if [ -f corpus-sidecar.log ]; then
-            echo "--- corpus-sidecar.log"
-            lines=$(wc -l < corpus-sidecar.log)
-            if [ "$lines" -le 120 ]; then
-              sed 's/^/  /' corpus-sidecar.log
-            else
-              head -n 20 corpus-sidecar.log | sed 's/^/  /'
-              echo "  [... $((lines - 120)) line(s) elided ...]"
-              tail -n 100 corpus-sidecar.log | sed 's/^/  /'
+          for log in corpus-sidecar.log cl-mcp-sidecar.log; do
+            if [ ! -f "$log" ]; then
+              continue
             fi
-          fi
+            echo "--- $log"
+            lines=$(wc -l < "$log")
+            if [ "$lines" -le 120 ]; then
+              sed 's/^/  /' "$log"
+            else
+              head -n 20 "$log" | sed 's/^/  /'
+              echo "  [... $((lines - 120)) line(s) elided ...]"
+              tail -n 100 "$log" | sed 's/^/  /'
+            fi
+          done
 
       # --- mcp-sidecar: the tokenless CourtListener MCP surface --------------
 

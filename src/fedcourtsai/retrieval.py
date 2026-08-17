@@ -389,17 +389,20 @@ def _codex_payload(record: dict[str, Any]) -> dict[str, Any] | None:
 # arguments verbatim, so the distillation must never be able to republish
 # them. Every emitted string is either a JSON type name or an
 # identifier-shaped token (:data:`_SHAPE_IDENTIFIER`) read from a *key* or a
-# type discriminator; every *value* is replaced by its type name. The one
-# residual is an object keyed by data rather than by schema — bounded by the
-# identifier screen, the per-object key cap, and a walk that stops at the item
-# envelope, where the keys are the CLI's own.
+# type discriminator; every *value* is replaced by its type name.
 _SHAPE_DEPTH = 2
 _SHAPE_KEY_CAP = 40
 _SHAPE_VARIANT_CAP = 3
-# What an emitted key or type discriminator may look like. Anything else is a
-# free-text string wearing a key's position, and is reported as its shape
-# rather than its content.
-_SHAPE_IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:/-]{1,64}$")
+# What an emitted key or type discriminator may look like: a field
+# identifier's own shape and nothing wider. An object keyed by data rather
+# than by schema is the only path by which transcript content could reach the
+# output at all, so the screen is drawn where identifiers stop — a leading
+# letter or underscore, then word characters, dots, or hyphens. That refuses
+# the shapes retrieved data actually takes in a key position (a URL or
+# document path, a slugged case name, a citation, anything spaced or
+# punctuated), which is what makes "never a value" true by construction rather
+# than by the walk's depth. Anything else is reported as its shape.
+_SHAPE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,63}$")
 _SHAPE_NON_IDENTIFIER = "<non-identifier>"
 
 

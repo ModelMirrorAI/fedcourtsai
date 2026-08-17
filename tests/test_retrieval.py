@@ -1106,14 +1106,23 @@ def test_codex_shape_distillation_counts_repeats_and_walks_two_levels(tmp_path: 
 
 def test_codex_shape_distillation_screens_a_data_shaped_key(tmp_path: Path) -> None:
     # A key name is emitted verbatim, so an object keyed by content rather than
-    # by schema is the one leak path; free text in a key's position is reported
-    # as its shape instead.
+    # by schema is the only path by which transcript content could reach the
+    # output. The screen is drawn at an identifier's own shape, which is what
+    # refuses the forms retrieved data takes in a key position: free text, and
+    # — the one a wider screen would have republished intact — a document URL
+    # or slugged case name.
     sessions = _codex_rollout(
         tmp_path,
-        {"type": "custom_tool_call", "input": {"petitioner asked whether X": 1}},
+        {
+            "type": "custom_tool_call",
+            "input": {"petitioner asked whether X": 1},
+            "output": {"/opinion/12345/roe-v-wade/": "granted"},
+        },
     )
     (shape,) = distill_codex_shapes(sessions)["shapes"]
     assert shape["payload_shape"]["input"] == {"<non-identifier>": "number"}
+    assert shape["payload_shape"]["output"] == {"<non-identifier>": "string"}
+    assert "roe-v-wade" not in json.dumps(shape)
 
 
 def test_codex_shape_distillation_reads_every_session_and_tolerates_a_missing_tree(

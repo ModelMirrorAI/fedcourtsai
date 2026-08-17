@@ -15,6 +15,10 @@ of them while every gate stays green:
 * the **forward leakage guard** — `run-predict`'s provisioning step is the one
   place `--refuse-terminal` defends the forward information set, and it sits
   behind `continue-on-error`, so losing the flag fails nothing at runtime;
+* the **codex MCP wiring** — the live codex cells and the engine-smoke codex
+  leg must name the same sidecar URL, write the client config to the same
+  file, and pin the same `CODEX_HOME`, or the smoke answers a question about a
+  configuration nothing else runs;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
@@ -212,6 +216,70 @@ def test_sidecar_call_sites_pass_the_split_inputs_together() -> None:
                     f"{name}: job {job_id}: corpus-sidecar split inputs must be "
                     f"exactly {SIDECAR_INPUT_EXPRESSIONS}, got {present}"
                 )
+
+
+# The codex cell's MCP wiring, in the one spelling every surface must share.
+# The live cells and the engine-smoke codex leg certify each other only while
+# these agree: the smoke exists to say what a real codex transcript's MCP
+# items look like, and an answer collected under different wiring than the
+# cells run is an answer about a configuration nothing else uses. Each half is
+# separately silent when it drifts — a config written where the CLI does not
+# read it, a port the sidecar does not serve, a server id the manifest does not
+# resolve, a home the session rollout does not land in — and the cell still
+# runs, still validates, and still reports no MCP calls.
+CODEX_MCP_HTTP_URL = "--http-url courtlistener=http://127.0.0.1:8378/mcp"
+CODEX_MCP_CONFIG_REDIRECT = "> .codex/config.toml"
+CODEX_HOME_EXPRESSION = "${{ github.workspace }}/.codex"
+CODEX_MCP_WORKFLOWS = ("run-predict.yml", "integration-test.yml")
+
+
+def _joined_run_blocks(name: str) -> list[str]:
+    """Every ``run:`` block with whitespace collapsed, so a cosmetic re-wrap
+    cannot split a flag off the command it belongs to."""
+    return [" ".join(block.split()) for block in _run_blocks(_load(name))]
+
+
+def test_the_codex_mcp_wiring_agrees_across_the_cells_and_the_smoke() -> None:
+    """`mcp-config --engine codex` is invoked identically on both surfaces:
+    same sidecar URL and server id, redirected to the file the CLI reads."""
+    for name in CODEX_MCP_WORKFLOWS:
+        blocks = [b for b in _joined_run_blocks(name) if "mcp-config --engine codex" in b]
+        assert blocks, f"{name}: no codex mcp-config invocation found"
+        for block in blocks:
+            assert CODEX_MCP_HTTP_URL in block, (
+                f"{name}: codex mcp-config must name the sidecar as "
+                f"{CODEX_MCP_HTTP_URL!r}; a drifted port or server id "
+                f"silently falls back to a stdio spawn or fails the step"
+            )
+            assert CODEX_MCP_CONFIG_REDIRECT in block, (
+                f"{name}: codex mcp-config must write {CODEX_MCP_CONFIG_REDIRECT!r} "
+                f"— the CODEX_HOME the cell runs under"
+            )
+
+
+def test_every_codex_home_is_the_workspace_dir_the_config_is_written_into() -> None:
+    """One spelling of ``CODEX_HOME`` everywhere, and the smoke declares it.
+
+    The config lands in ``.codex`` and the session rollout the usage, retrieval,
+    and shape captures read lands under it, so a step that omits the variable
+    gets the CLI's own default (or, in the local cascade, a temp home named
+    after a pid) and every one of those reads misses in silence.
+    """
+    declared: set[str] = set()
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for context, env in _env_mappings(path.name):
+            if "CODEX_HOME" not in env:
+                continue
+            declared.add(path.name)
+            assert env["CODEX_HOME"] == CODEX_HOME_EXPRESSION, (
+                f"{context}: CODEX_HOME must be exactly {CODEX_HOME_EXPRESSION!r}, "
+                f"got {env['CODEX_HOME']!r}"
+            )
+    assert CODEX_MCP_WORKFLOWS[1] in declared, (
+        "the engine-smoke codex leg must pin CODEX_HOME: unset, the cascade "
+        "picks a temp home and neither the MCP config nor the shape "
+        "distillation finds what it is looking for"
+    )
 
 
 def _provision_lines(name: str) -> list[str]:

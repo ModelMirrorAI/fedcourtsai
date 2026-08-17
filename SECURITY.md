@@ -31,14 +31,18 @@ runbook, [docs/security.md](docs/security.md).
   reach the agent's shell. That strict mode is forced by `GITHUB_SHA`, i.e. in CI
   (the residual: off-CI there is no such barrier, which is a local dev run with
   the dev's own key). The lower-sensitivity CourtListener token is passed as a scoped step env
-  in exactly two deterministic places: the cells' **MCP sidecar launch step**,
+  in exactly two kinds of deterministic place, whatever the caller: the
+  **MCP sidecar composite's launch step**,
   whose background `fedcourts mcp-serve` process inherits it and serves the
-  CourtListener MCP tools over localhost HTTP, and the collect job's
+  CourtListener MCP tools over localhost HTTP — the cells launch it, and so
+  does `integration-test`'s engine-smoke **codex** leg, which exists to
+  exercise that very wiring — and the collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion holds the
-  same secret under its own name; the two places here are the agent
-  workflows'.) **No agent step holds it, and no file an agent can read
+  same secret under its own name; the two kinds here are the agent
+  workflows'. A new caller of the composite is a new *call site*, never a new
+  kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read
   carries it:** the client configs name only the sidecar's `localhost` URL —
   the structural fix that retired the old stdio-transport residual, where the
   token sat as a literal value in a gitignored client-config file the agent's
