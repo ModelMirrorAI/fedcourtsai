@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278555",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "statpack (metrics/statpack.md merits section)",
+    "provisioned snapshot + documents",
+    "web search"
+  ],
+  "helpful": [
+    "The provisioned brief-in-opposition file concatenating the cert BIO and the respondents' merits brief — it put the full merits-stage defense theory on my desk without any retrieval",
+    "The statpack merits table with per-Term excluded counts made the scored baseline a two-line computation"
+  ],
+  "gaps": [
+    "fedcourts query has no caption/subject filter, so there is no way to pull doctrinally similar merits priors (e.g. prior ERISA pleading-standard cases and their judgments) from the corpus; a topic or free-text filter over SCOTUS captions would have replaced my from-memory list of Hughes/Cunningham outcomes",
+    "No provisioned petitioner merits brief or SG merits amicus text, although both were on the docket a month before the snapshot; the document pipeline fetches cert-stage documents only, so the merits advocacy needs manual retrieval"
+  ],
+  "notes": "Forward merits cell at moment=grant but the docket is already fully briefed and set for argument, so the record was far richer than the moment's name suggests."
+}

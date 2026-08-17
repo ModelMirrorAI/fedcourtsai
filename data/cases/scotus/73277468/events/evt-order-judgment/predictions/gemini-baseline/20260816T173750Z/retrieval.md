@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I attempted an MCP search on CourtListener for the lower court opinion, but the server returned a rate limit error (Rate limit exceeded: HTTP 429). I degraded gracefully to the provisioned questions-presented.txt and petition.txt, and used the statpack.md to compute the baseline disturbed rate for merits cases over the prior 10 Terms.

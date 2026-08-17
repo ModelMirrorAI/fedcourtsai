@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72483489",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (citation lookup, empty result)",
+    "metrics/statpack.md (merits docket section)",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "helpful": [
+    "The statpack merits section with per-Term disturbed rates and the excluded-count guard made the baseline arithmetic mechanical",
+    "Provisioned petition/BIO/QP texts were exactly the right evidence for a moment:grant merits cell",
+    "The prompt's stage guidance (do not anchor on the cert band; grant Term from opened_at) prevented two easy mistakes"
+  ],
+  "gaps": [
+    "supremecourt.gov and justice.gov both return 403 to WebFetch, so the SG's CVSG brief - the single most probative post-BIO document at the grant moment, and one that predates the grant - was readable only through blog commentary; provisioning the CVSG amicus text under record/documents/ for granted cases would close this",
+    "fedcourts query has no free-text filter, and SCOTUS citation coverage is ~161 rows, so no similar-prior retrieval was practical for a merits question; the one citation lookup cost 1329 ranged GETs (~348 MB) to return nothing",
+    "No provisioned supplemental-brief texts (both sides filed June 8, 2026 responses to the SG brief) - these are cert-stage documents the pipeline could fetch"
+  ],
+  "notes": "Merits statpack pool for a Term-2025 grant truncates to eight prior Terms (2017-2024); the ten-Term window exceeds what the pack holds."
+}

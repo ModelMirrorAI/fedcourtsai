@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/73274853",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Forward-mode retrieval hygiene note: the decisive signal for this cell's below-baseline number (P(disturbed)=0.45 vs the 0.697 pooled merits baseline) is the Solicitor General's CVSG brief endorsing the Eighth Circuit's federal-standard rule — public information predating the snapshot, but sourced from secondary press summaries (the brief PDF itself was not text-extractable with the cell's tooling). If those summaries mischaracterized the SG's merits position, the adjustment is unsupported.",
+      "event_id": "evt-order-judgment"
+    }
+  ],
+  "schema_version": "1.0"
+}

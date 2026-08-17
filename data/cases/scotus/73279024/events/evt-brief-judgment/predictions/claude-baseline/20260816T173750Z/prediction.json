@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Significant administrative-law vehicle \u2014 APA finality for agency permit applications plus NEPA displacement by a specific environmental statute \u2014 with military operations, territorial communities, an 11-state amicus bloc on each side, and the Chamber of Commerce engaged; consequential for agencies and NEPA litigation but not a marquee public controversy.",
+  "big_case_score": 0.5,
+  "case_id": "scotus/73279024",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:08:08Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73279024/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:10:31.400519Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reverses on the APA finality threshold and does not decide whether RCRA displaces NEPA: applying Bennett v. Spear, it holds the Air Force's submission of a RCRA permit-renewal application to Guam EPA was not final agency action, because the submission neither consummated the agency's decisionmaking (it initiated an iterative permitting process in which a separate actor, Guam EPA, decides \u2014 Franklin v. Massachusetts's report-to-another-decisionmaker logic controls) nor itself determined rights or fixed legal consequences (continued open-detonation authority flows from the 2018 permit's regulatory continuation and Guam EPA's eventual permit decision, not from the application). The majority rejects the Ninth Circuit's recharacterization of the challenged action as the Air Force's 'decision to continue OD operations,' treating a decision memorialized only in an application as unconsummated conduct, not a discrete reviewable order."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The stated ground is categorical, not fact-bound: the majority announces a rule for the class \u2014 a federal agency's application to a permitting regulator (state, territorial, or federal) is not final agency action, because a submission that merely initiates another actor's decision process never satisfies Bennett's two conditions \u2014 rather than resting on Tarague-specific facts such as the 2021 application's permit-continuation effect or the military setting. It reaches agency permit applications generally, beyond RCRA, while expressly preserving APA review of the regulator's eventual permit decision and any later federal implementing action."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

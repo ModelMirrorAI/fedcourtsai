@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Decides whether the VPPA's 'consumer' definition sustains the large wave of pixel-tracking class actions against media and retail companies; high industry stakes (Meta, MPA, Chamber amici) but technical statutory subject matter with modest general-public salience.",
+  "big_case_score": 0.5,
+  "case_id": "scotus/73278510",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.45
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T18:04:18Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73278510/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T18:06:27.944266Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority affirms on contextual-textualist grounds: 'goods or services from a video tape service provider' in 18 U.S.C. \u00a7 2710(a)(1) means the audiovisual goods or services the provider offers in its statutorily defined capacity \u2014 reading the renter/purchaser/subscriber triad in parallel with \u00a7 2710(a)(4)'s 'rental, sale, or delivery of prerecorded video cassette tapes or similar audio visual materials' and reinforcing that reading with \u00a7 2710(a)(3)'s limitation of personally identifiable information to 'specific video materials or services' \u2014 so a subscriber to a free online newsletter is not a 'consumer.' It adopts the Sixth and D.C. Circuits' construction and rejects petitioner's meaningful-variation and 'any'-based plain-meaning argument as reading the unmodified phrase 'goods or services' shorn of its prepositional and structural context."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground is categorical rather than fact-bound: it announces a general construction of 'consumer' under which VPPA protection requires renting, purchasing, or subscribing to audiovisual goods or services, resolving the circuit split with a rule that forecloses newsletter-subscription and other non-audiovisual-subscription VPPA suits across the board, not a narrow holding limited to Salazar or to 247Sports' newsletter; the main question it leaves open is the one assumed below \u2014 whether Paramount qualifies as a 'video tape service provider' at all."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

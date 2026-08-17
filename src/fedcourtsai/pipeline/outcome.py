@@ -1537,6 +1537,20 @@ def persist_moment_events(
     from the corpus row, so an interruption leaves the corpus authoritative
     and the next run converges the ledger. ``events`` must all belong to the
     case ``(court_id, docket_id)`` names.
+
+    **When each half of an event is owed.** A stage's case-level *baseline* —
+    the cert petition's ``evt-petition-disposition``, the interim application's
+    ``evt-motion-disposition`` — is derived from a docket's mere existence by
+    the ingest projection, so its corpus row lands at discovery and its ledger
+    ``event.yaml`` arrives later: at first touch (``materialize-event`` in a
+    predict cell) or at resolution (:func:`record_outcomes`). Every other
+    declared moment (:func:`fedcourtsai.pipeline.moments.minted_moment_ids`) is
+    *minted*, and a mint owes both halves at once — it goes through this
+    function, never a bare :func:`fedcourtsai.corpus.upsert_events` (the
+    dedupe merge's re-key moves existing rows and creates none). The
+    asymmetry is what makes a baseline row without a ledger file ordinary and a
+    minted row without one a defect, which is the line
+    ``validate-corpus``'s corpus→ledger check draws.
     """
     if not events:
         return []

@@ -1,0 +1,249 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "6c175a466d8a0e4a",
+      "query": "{\"strategic_intent\": \"Reading the prompt and agent instructions to understand the prediction task.\", \"summary\": \"I am reading `.github/prompts/predict.md` and `AGENTS.md` to understand the rules and expected outputs for generating a prediction for the specified cell (scotus, 9526000124, evt-motion-disposition).\", \"title\": \"Understanding Prediction Guidelines\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:51.761Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:51.768Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:51.769Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ca39b110712a32cb",
+      "query": "ls -la data/cases/scotus/9526000124/events/evt-motion-disposition/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:55.502Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "27f2ab47265937b4",
+      "query": "ls -la data/cases/scotus/9526000124/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:57.766Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0c3a7e03e8194d85",
+      "query": "ls -la data/cases/scotus/9526000124/record/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:00.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8742f22a51ec6d8f",
+      "query": "ls -la data/cases/scotus/9526000124/events/evt-motion-disposition/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:00.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8f64b08c8939d30a",
+      "query": "cat data/cases/scotus/9526000124/events/evt-motion-disposition/event.yaml data/cases/scotus/9526000124/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:02.460Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "abe0338147c053a9",
+      "query": "ls -la data/cases/scotus/9526000124/record/snapshots/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:05.572Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ce383a16a84281bf",
+      "query": "cat data/cases/scotus/9526000124/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:07.642Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb4352ade70a8545",
+      "query": "uv run fedcourts query --court scotus --decided-before \"2026-08-16\" | head -n 1",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:13.482Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "84b6a7f4bbde9298",
+      "query": "ls -la data/cases/scotus/9526000124/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:16.348Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d08f48fcc9835896",
+      "query": "{\"docket_number\": \"26A124\", \"type\": \"d\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:18.898Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "798f5c7631982056",
+      "query": "\"26A124\" OR \"Trump v. California\" Supreme Court stay First Circuit",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:33.800Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "bc81e4b939d0f8b2",
+      "query": "cat metrics/statpack.md | grep -A 20 \"The interim docket (applications)\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:37.135Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1631efa8640b10bc",
+      "query": "mkdir -p data/cases/scotus/9526000124/events/evt-motion-disposition/predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:55.955Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "191946e5f86a1279",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"event_id\\\": \\\"evt-motion-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T17:40:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.95,\\n  \\\"big_case_rationale\\\": \\\"High-profile disput",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:12.956Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1cb8e9901ef4f639",
+      "query": "{\"content\": \"I expect the Court to deny the emergency application for a stay of the District Court's nationwide injunction. The application concerns an executive order that would significantly alter election administration rules (citizenship verification and mail-in ballot procedures) very close to the November 2026 elections. Enjoining the executive order preserves the status quo, whereas staying the injunction would allow the new rules to take effect immediately, likely causing confusion and v",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:16.459Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "581623c4b2249b6d",
+      "query": "{\"content\": \"P(grant) 0.15. The statpack interim baseline for substantive applications across strictly prior Terms (2025 and 2024, the only prior Terms reaching the 50-resolved floor) is 13.3% (30 granted / 225 resolved). I anchor near this baseline because while this is a highly salient application, the structural factors weigh heavily against a stay. The application seeks to stay an injunction against a new executive order on election rules shortly before a federal election. The Purcell princi",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:20.131Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9cd4bcd1fec6261c",
+      "query": "{\"content\": \"CourtListener MCP search failed due to rate limits (HTTP 429).\\nWeb search using Google for \\\"26A124 OR Trump v. California Supreme Court stay First Circuit\\\" to obtain context on the case and lower court proceedings.\", \"file_path\": \"data/cases/scotus/9526000124/events/evt-motion-disposition/predictions/gemini-baseline/20260816T173750Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:22.496Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "875e8b5f9ba5c198",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"mcp_courtlistener (rate limited)\\\"\\n  ],\\n  \\\"notes\\\": \\\"MCP CourtListener was rate-limited (HTTP 429), so I fell back to Google Web Search to understand",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:25.793Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2ad51dfd2e63baec",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"MCP CourtListener search failed with a rate limit error (HTTP 429). Degraded gracefully to Google Web Search for case context.\\\",\\n      \\\"event_id\\\": \\\"evt-motion-disposition\\\"\\n    }\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/95260001",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:28.767Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:42.103Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "53dcba6bb3ff22f0",
+      "query": "{\"strategic_intent\": \"Finished producing the prediction artifacts and validating them.\", \"summary\": \"I have finished reading the prompt instructions, analyzed the context of the interim emergency application for a stay in Trump v. California, and generated all required files (`prediction.json`, `predicted_reasoning.md`, `reasoning.md`, `retrieval.md`, `tooling.json`, and `flags.json`). The files have been successfully validated using the `fedcourts validate data` command.\", \"title\": \"Completed P",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:55:45.342Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9526000124",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

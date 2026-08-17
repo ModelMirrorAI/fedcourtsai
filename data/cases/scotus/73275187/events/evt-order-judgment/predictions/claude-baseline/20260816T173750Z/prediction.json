@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73275187",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:56:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73275187/record/snapshots/2026-08-16.json",
+  "judgment": "vacated",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:58:26.567628Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will rest the judgment on United States v. Bajakajian itself: the Excessive Fines Clause's gross-disproportionality inquiry measures the gravity of the offense by the specific defendant's own conduct and culpability - the acts he actually committed, the harm he actually caused, his actual sentence relative to statutory maxima, and whether his violation was related to other criminal activity - and the majority will reject the Alaska Supreme Court's abstract, legislature-centered approach (comparing the plane's value to the theoretical maximum fine and charging Jouppi with the generalized societal harms recited in the legislative history) as inconsistent with how Bajakajian applied its own test."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be categorical on the level-of-generality question but no broader: it will announce, for all Excessive Fines Clause cases, that courts must evaluate the gravity of the offense by reference to the particular defendant's wrongdoing rather than the offense in the abstract, while declining to prescribe any specific multi-factor test, declining to decide whether Jouppi's forfeiture is in fact unconstitutionally excessive, and remanding for the Alaska courts to apply the defendant-specific standard in the first instance."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

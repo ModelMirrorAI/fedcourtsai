@@ -111,6 +111,77 @@ def test_provision_record_is_byte_identical(
     assert blob_tree == casestore_tree
 
 
+@mock_aws
+def test_provision_record_is_byte_identical_when_cut_to_a_moment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parity holds on the *cut* path too — the one the split-mode fleet takes.
+
+    The byte-identity test above provisions with no ``--event``, so it never
+    reaches the moment cutoff. This one names a declared moment, which sends both
+    backends through their own ``snapshot_at`` and through ``documents_before``:
+    scotus/306's interim baseline opens at the application's filing, so the cell
+    is placed there and the escalation ladder the docket went on to climb is cut
+    away. The pre-cutoff snapshot seeded here is what makes the read a `dated`
+    one rather than a reconstruction, which is the branch with a store behind it.
+    """
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="fcai-cut")
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "s3://fcai-cut/casestore/v1")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    src = corpus.corpus_db_path(corpus_root)
+    casestore.set_active_transport(casestore.transport_from_settings())
+    build_fixture_corpus(src)
+    with corpus.connect(src) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/306",
+            date(2026, 6, 22),
+            {
+                "id": 306,
+                "docket_number": "26A11",
+                "docket_entries": [
+                    {
+                        "id": 1,
+                        "date_filed": "2026-06-22",
+                        "description": "Application (26A11) for a stay of the mandate.",
+                    }
+                ],
+            },
+        )
+    casestore.reset_active_transport()
+
+    def provision_record(backend: str, data_root: Path) -> dict[str, bytes]:
+        monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+        monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+        snap = runner.invoke(
+            app,
+            [
+                "provision-snapshot",
+                "--court",
+                "scotus",
+                "--docket",
+                "306",
+                "--event",
+                "evt-motion-disposition",
+                "--corpus-backend",
+                backend,
+            ],
+        )
+        assert snap.exit_code == 0, snap.stderr
+        return _tree(data_root)
+
+    blob_tree = provision_record("local", tmp_path / "blob")
+    casestore_tree = provision_record("casestore", tmp_path / "cs")
+    # The cut really happened, and it landed on the seeded point-in-time read.
+    assert "cases/scotus/306/record/snapshots/2026-06-22.json" in blob_tree
+    assert b'"snapshot_provenance": "dated"' in blob_tree["cases/scotus/306/record/context.json"]
+    assert b'"cutoff": "2026-06-23"' in blob_tree["cases/scotus/306/record/context.json"]
+    assert blob_tree == casestore_tree
+
+
 def test_corpus_split_defaults_provisioning_to_casestore(monkeypatch: pytest.MonkeyPatch) -> None:
     """The corpus-split mode routes forward provisioning to the casestore without an
     explicit --corpus-backend; an explicit backend still wins, and the mode off falls

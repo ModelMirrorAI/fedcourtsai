@@ -3,12 +3,13 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -872,3 +873,529 @@ def test_the_staleness_bound_is_inclusive_at_the_boundary(
     past_bound = runner.invoke(app, [*base, "29"])
     assert past_bound.exit_code == 3
     assert "forward bound" in past_bound.output
+
+
+# The moment cutoff: a forward cell placed at the information set its declared
+# moment fixes, rather than at the corpus's latest snapshot.
+
+#: A granted case's docket months into the merits stage. The grant on 2026-01-15
+#: is the merits moment's own trigger; everything after it belongs to the
+#: *briefed* moment, which is a different declared forecast.
+_MERITS_TIMELINE: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "24-12",
+    "docket_entries": [
+        {
+            "id": 1,
+            "date_filed": "2025-01-15",
+            "description": "Petition for writ of certiorari filed.",
+        },
+        {"id": 2, "date_filed": "2026-01-15", "description": "Petition GRANTED."},
+        {
+            "id": 3,
+            "date_filed": "2026-03-02",
+            "description": "Brief of petitioner on the merits filed.",
+        },
+        {
+            "id": 4,
+            "date_filed": "2026-04-06",
+            "description": "SET FOR ARGUMENT on Monday, April 27, 2026.",
+        },
+    ],
+}
+
+#: The same docket as the grant left it: what a cell placed at the merits moment
+#: should be reading, whichever way provisioning gets there.
+_AT_THE_GRANT: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "24-12",
+    "docket_entries": _MERITS_TIMELINE["docket_entries"][:2],
+}
+
+#: The docket before the grant — a stored snapshot that does NOT reach the
+#: merits moment, however far before the cutoff it happens to sit.
+_PENDING_PETITION: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "24-12",
+    "docket_entries": _MERITS_TIMELINE["docket_entries"][:1],
+}
+
+_GRANT_DATE = date(2026, 1, 15)
+#: The day after the grant, exclusive — so the grant entry survives the cut.
+_GRANT_CUTOFF = date(2026, 1, 16)
+
+
+def _seed_merits_event(
+    fixture_corpus: FixtureCorpus, *, opened_at: date | None = _GRANT_DATE
+) -> None:
+    """Give scotus/305 the merits moment a cert grant opens."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/305",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    moment=Moment.grant,
+                    title="Cascade School District v. Doe",
+                    decision_target="judgment",
+                    opened_at=opened_at,
+                )
+            ],
+        )
+
+
+def _seed_snapshot(fixture_corpus: FixtureCorpus, on: date, payload: dict[str, Any]) -> None:
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", on, payload)
+
+
+def _drop_snapshots_before(fixture_corpus: FixtureCorpus, cutoff: date) -> None:
+    """Remove every stored snapshot predating ``cutoff``.
+
+    The fixture gives every case a dated snapshot, so a test about what
+    provisioning does when *nothing* stored predates the cutoff has to take that
+    one away first.
+    """
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute(
+            "DELETE FROM snapshots WHERE case_id = ? AND snapshot_date < ?",
+            ("scotus/305", cutoff.isoformat()),
+        )
+        # `corpus.connect` leaves committing to the writers it yields to.
+        conn.commit()
+
+
+def _provision_cell(*args: str) -> Result:
+    return runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305", *args])
+
+
+def _context(fixture_corpus: FixtureCorpus) -> dict[str, Any]:
+    context: dict[str, Any] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.read_text()
+    )
+    return context
+
+
+def test_a_merits_cell_takes_the_stored_snapshot_from_before_its_moment(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The strongest point-in-time evidence: a snapshot the docket really served
+    # before the grant, which also reflects what had not yet been filed. The
+    # latest snapshot exists and is months of merits briefing later; the cell
+    # must not be reading it.
+    _seed_merits_event(fixture_corpus)
+    # Dated at the grant itself, and carrying it: a snapshot pulled earlier could
+    # not show the moment, which is what the next test is about.
+    _seed_snapshot(fixture_corpus, _GRANT_DATE, _AT_THE_GRANT)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2026-07-20").exists()
+    payload = json.loads(paths.snapshot(_GRANT_DATE.isoformat()).read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    assert "Petition GRANTED." in descriptions
+    assert not any("merits" in text for text in descriptions)
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "dated"
+    assert context["cutoff"] == _GRANT_CUTOFF.isoformat()
+    assert context["snapshot_date"] == _GRANT_DATE.isoformat()
+
+
+def test_a_stored_snapshot_that_predates_the_moment_is_not_taken_as_dated(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # `snapshot_at` is bounded above by the cutoff and not at all below, so the
+    # newest stored snapshot can predate the moment by weeks — routine for an
+    # event opened by a backfill at a long-past latched date. Taking it would
+    # place a merits cell on a still-pending petition while the artifact recorded
+    # `dated` at the grant, putting two very different information sets in one
+    # cohort. Reconstruction from the later payload is what actually reaches the
+    # moment, so the cell gets that instead.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2025, 11, 3), _PENDING_PETITION)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2025-11-03").exists()
+    payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    assert "Petition GRANTED." in descriptions
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "truncated"
+    assert context["cutoff"] == _GRANT_CUTOFF.isoformat()
+
+
+def test_a_merits_cell_with_no_stored_snapshot_before_its_moment_is_truncated(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # No point-in-time snapshot survives, so the docket is reconstructed from the
+    # later payload — and re-dated to the cutoff, because a file dated after
+    # everything it contains would misstate the cell's own information set.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2026-07-20").exists()
+    payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    # The grant survives its own cutoff; the briefing and the argument setting
+    # belong to the briefed moment and do not.
+    assert descriptions == [
+        "Petition for writ of certiorari filed.",
+        "Petition GRANTED.",
+    ]
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "truncated"
+    assert context["cutoff"] == _GRANT_CUTOFF.isoformat()
+    assert context["snapshot_date"] == _GRANT_CUTOFF.isoformat()
+
+
+def test_the_cert_petition_baseline_is_not_cut_at_its_docketing_date(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The baseline's opened_at is docketing, not the distribution its moment
+    # declares, so a cut there would delete the distribution and relist history
+    # the cell is conditioned on. The declaration says so; provisioning obeys it.
+    # scotus/305's petition event opened at filing, 2025-01-15; the latest
+    # snapshot is 2025-03-03 and carries the brief-in-opposition request.
+    result = _provision_cell("--event", "evt-petition-disposition")
+
+    assert result.exit_code == 0, result.output
+    assert CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2025-03-03").exists()
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "as-stored"
+    assert context["cutoff"] is None
+
+
+def test_a_moment_whose_opening_date_was_never_recorded_is_not_cut(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The moment is declared but the date it happened is not, and a guessed
+    # cutoff would condition the cell on a fiction.
+    _seed_merits_event(fixture_corpus, opened_at=None)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    assert CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").exists()
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "as-stored"
+    assert context["cutoff"] is None
+
+
+def test_no_moment_cutoff_provisions_the_latest_snapshot(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The escape hatch, for reading a cell's docket as it stands now.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell("--event", "evt-order-judgment", "--no-moment-cutoff")
+
+    assert result.exit_code == 0, result.output
+    assert CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").exists()
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "as-stored"
+    assert context["cutoff"] is None
+
+
+def test_provisioning_without_an_event_is_never_cut(fixture_corpus: FixtureCorpus) -> None:
+    # run-evaluate provisions with no --event: its judge grades a resolved event
+    # and must see the whole docket. The case's declared moments and their dates
+    # exist either way, so the flag's default must not reach that caller.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").exists()
+    context = _context(fixture_corpus)
+    assert context["snapshot_provenance"] == "as-stored"
+    assert context["cutoff"] is None
+
+
+def test_the_cut_takes_the_documents_with_it(fixture_corpus: FixtureCorpus) -> None:
+    # The snapshot is half a cell's information set: the merits briefs a
+    # grant-moment cell must not read arrive as documents, and an unfiltered
+    # record/documents/ would hand them over whatever the snapshot says.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2025-01-15",
+                    fetched_at=date(2025, 1, 20),
+                    text="The petition.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="merits-brief",
+                    url="https://example/merits.pdf",
+                    entry_date="2026-03-02",
+                    fetched_at=date(2026, 3, 5),
+                    text="The merits brief.",
+                ),
+            ],
+        )
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").read_text() == "The petition.\n"
+    assert not paths.document("merits-brief").exists()
+    manifest = json.loads(paths.documents_manifest.read_text())
+    assert [entry["kind"] for entry in manifest] == ["petition"]
+
+
+def test_a_reconstructed_docket_drops_the_top_level_dates_that_postdate_it(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Cutting the argument *entry* while leaving the argument *date* set would
+    # remove the fact from one half of the payload and hand it over in the
+    # other. The generation stamp goes unconditionally: it dates the pull the
+    # docket was reconstructed from, months ahead of everything else in a file
+    # re-dated to the cutoff.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(
+        fixture_corpus,
+        date(2026, 7, 20),
+        {
+            **_MERITS_TIMELINE,
+            "date_filed": "2025-01-15",
+            "date_argued": "2026-04-27",
+            "sJsonCreationDate": "2026-07-20",
+        },
+    )
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
+    assert "date_argued" not in payload
+    assert "sJsonCreationDate" not in payload
+    # The docket's arrival precedes every moment and identifies what the cell is
+    # looking at, so it is never subject to the rule.
+    assert payload["date_filed"] == "2025-01-15"
+
+
+def test_a_reconstructed_docket_keeps_a_top_level_date_that_precedes_it(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The rule is date-keyed, not key-keyed: a value that was already true at the
+    # moment is part of what the cell should see. (An argument before the grant
+    # is the cert-before-judgment shape.)
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(
+        fixture_corpus,
+        date(2026, 7, 20),
+        {**_MERITS_TIMELINE, "date_argued": "2025-12-01"},
+    )
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
+    assert payload["date_argued"] == "2025-12-01"
+
+
+def test_a_point_in_time_docket_keeps_its_top_level_dates(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The field cut is for the reconstructed branch only: a `dated` payload is
+    # what the docket really served, and its fields were true when it served it.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(
+        fixture_corpus,
+        _GRANT_DATE,
+        {**_AT_THE_GRANT, "sJsonCreationDate": "2026-01-15"},
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    payload = json.loads(paths.snapshot(_GRANT_DATE.isoformat()).read_text())
+    assert payload["sJsonCreationDate"] == "2026-01-15"
+    assert _context(fixture_corpus)["snapshot_provenance"] == "dated"
+
+
+def test_the_placed_path_reports_what_it_removed(fixture_corpus: FixtureCorpus) -> None:
+    # The auditable size of the cut, kept out of context.json on purpose: the
+    # cell reads that file, and how much a cut removed separates a grant from a
+    # denial about as cleanly as the disposing order does.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    # Two of the four entries postdate the grant moment.
+    assert "2 entr(ies) and 0 document(s) postdate the moment" in result.output
+    assert "postdate" not in _context(fixture_corpus).get("notes", "")
+
+
+def test_the_interim_application_baseline_is_cut_at_its_arrival(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The other case-level baseline, and it *is* cut — the two are not a class.
+    # The cert baseline's opened_at is docketing while its moment is the
+    # distribution, so cutting would delete its signal; the interim baseline's
+    # declared moment IS arrival, and the same filing date is that moment's own
+    # trigger. So the escalation ladder the fixture's application climbed —
+    # response requested, referral, an amicus — is exactly what an arrival cell
+    # must not be conditioned on, and the frozen trio says so.
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "306",
+            "--event",
+            "evt-motion-disposition",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 306)
+    # The application was filed 2026-06-22; the docket ran on to 2026-07-14.
+    payload = json.loads(paths.snapshot("2026-06-23").read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    assert len(descriptions) == 1
+    assert descriptions[0].startswith("Application (26A11) for a stay")
+    context = json.loads(paths.cell_context.read_text())
+    assert context["snapshot_provenance"] == "truncated"
+    assert context["cutoff"] == "2026-06-23"
+    assert context["response_requested"] is False
+    assert context["referred_to_court"] is False
+    assert context["amicus_briefs"] == 0
+
+
+def test_a_document_with_no_readable_entry_date_falls_back_to_its_fetch(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The fallback is safe in one direction only: the pipeline cannot fetch a
+    # document before it is filed, so a fetch before the cutoff means a filing
+    # before it. The reverse does not hold — a backfill fetches an old document
+    # late — so a partial date with a late fetch is dropped rather than kept.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    # Partial: `cert_signals.entry_date` refuses it rather than
+                    # letting today's date fill the missing components in.
+                    entry_date="2025",
+                    fetched_at=date(2025, 1, 20),
+                    text="The petition.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="questions-presented",
+                    url="https://example/qp.pdf",
+                    entry_date="",
+                    fetched_at=date(2026, 5, 4),
+                    text="Whether X.",
+                ),
+            ],
+        )
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").read_text() == "The petition.\n"
+    assert not paths.document("questions-presented").exists()
+
+
+def test_the_terminal_gate_reads_a_disposition_the_cut_would_have_hidden(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The ordering the cut depends on: both gates run on the LATEST payload,
+    # before the cut. The judgment postdates the moment, so a cell provisioned
+    # from the cut docket would look open — and would be forecasting a case that
+    # is already over. The refusal writes nothing, cut or no cut.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 1, 14), _AT_THE_GRANT)
+    decided = {
+        **_MERITS_TIMELINE,
+        "docket_entries": [
+            *_MERITS_TIMELINE["docket_entries"],
+            {
+                "id": 5,
+                "date_filed": "2026-06-30",
+                "description": "Judgment REVERSED and case REMANDED.",
+            },
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), decided)
+
+    result = _provision_cell("--event", "evt-order-judgment", "--refuse-terminal")
+
+    assert result.exit_code == 3
+    assert "refusing to provision forward cell" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.snapshot("2026-01-14").exists()
+    assert not paths.cell_context.exists()
+
+
+def test_truncation_drops_an_entry_whose_date_cannot_be_read(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Fails closed: an entry with no usable date could be the one that decides
+    # the case, and nothing about it says otherwise. That costs a little
+    # pre-moment context and cannot leak an outcome, which is the right way
+    # round.
+    _seed_merits_event(fixture_corpus)
+    undated = {
+        **_MERITS_TIMELINE,
+        "docket_entries": [
+            *_MERITS_TIMELINE["docket_entries"][:2],
+            {"id": 3, "date_filed": "", "description": "Record received from the Ninth Circuit."},
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), undated)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    assert "Record received from the Ninth Circuit." not in descriptions
+    assert _context(fixture_corpus)["snapshot_provenance"] == "truncated"

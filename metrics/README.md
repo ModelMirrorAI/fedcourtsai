@@ -155,15 +155,44 @@ stays outside the gate:
   survivor is indistinguishable from a cell graded once, and every figure
   around it is already post-collapse, so re-grading — a maintainer-reachable
   operation — could otherwise move a standing with nothing on any published
-  artifact recording that it happened. It does **not** cover a **re-stamp**:
-  running `stamp-cell` again over an existing `evaluation.json` rewrites
-  `correct` — the first rank key — *in place*, on the same file, so no second
-  grading exists, nothing is collapsed away, and `superseded_gradings` stays
-  where it was. Against a corrected outcome that moves a published standing
-  with a trace only in `data/`'s git history. The honest route to moving a
-  standing after an outcome correction is therefore a **re-grade** — a second
-  `evaluation.json`, which the collapse counts — never a bare re-stamp of the
-  existing one. Read it as an audit line, never as a
+  artifact recording that it happened. It does **not** cover an **in-place
+  rewrite**: running `stamp-cell` again over an existing `evaluation.json`
+  rewrites `correct` — the first rank key — *in place*, on the same file, so no
+  second grading exists, nothing is collapsed away, and `superseded_gradings`
+  stays where it was. Two operations hide under that, and they part on whether
+  a **judgment** changed.
+  A new judgment — the same cell graded again under a changed rubric, prompt,
+  or registry — is a second observation, and its honest route is a second
+  `evaluation.json` from a new evaluator run, which the collapse counts and
+  this figure then records; never a bare re-stamp of the existing one, which
+  would move a standing with nothing published saying so.
+  A **corrected outcome** is not a second observation. `correct`, the claim
+  block, and the skill record are deterministic functions of the committed
+  artifacts, so re-committing an outcome changes those functions' *inputs*
+  while nothing about the grading run changes: minting a second
+  `evaluation.json` would fabricate an observation for the collapse to count,
+  and would copy prose its agent wrote under different ground truth. It would
+  also convert a ground-truth correction into a **process** change: a genuine
+  evaluator re-run resolves a *current* stamp — `stamped_at` moving across
+  `FROZEN_SINCE` and the digest to today's registry — which migrates the cell
+  into a pre-registration cohort it was never produced under, and that is the
+  decisive objection, not merely the copied prose. The
+  sanctioned route there is therefore in place — `stamp-cell --regrade`, which
+  recomputes exactly those harness-owned fields and preserves the producing
+  run's process stamp — and its two trades are worth saying plainly. It leaves
+  **no** `superseded_gradings` trace, so `data/`'s git history is the only
+  record that the numbers moved. And the recomputed `claim_scores` and skill
+  fields pool from the **statpack committed at re-grade time**, not the one the
+  stamp dates, so a re-graded set is comparable within itself and should be
+  re-graded together against one pack. What the ledger gate catches of a
+  partial recompute is narrower than it sounds:
+  `evaluation_correct_agrees` holds the **`correct` bit only**, and only inside
+  a `(case, event, predictor)` group where two or more evaluators left stamped,
+  non-null gradings — so a lone judge's cell, or a recompute that leaves
+  `claim_scores` and the skill record stale while `correct` agrees, passes it
+  clean. The whole-event discipline is the operator's; the gate is the backstop
+  for the one bit the accuracy column averages. Read it as an
+  audit line, never as a
   term: it is **not** subtracted from any count on the board, and a count
   plus it is not a ledger total. Its population is the **scope gate's**, which
   is the board's process scope but a slightly wider set of cells. The scope
@@ -935,6 +964,19 @@ the rendered table) and
   within a Term is the intended reading (mind the shifting blind share);
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
+
+  **The same standard binds the forward stratum.** A forward cell placed at its
+  declared moment carries the same `dated`/`truncated` split, so no forward
+  figure over placed cells may be published without those counts stated inline.
+  The split is not cosmetic on either axis. It is **selected**: `dated` needs a
+  pull that landed on the trigger day, which the live poller does for
+  watchlisted and salient dockets and not for the rest, so the residual
+  concentrates in the `truncated` arm rather than spreading evenly. And the two
+  arms err in opposite directions — `dated` brackets the moment from below (it
+  is the docket as pulled, so it can miss entries filed later the same day),
+  `truncated` from above (it reconstructs to the cutoff but carries the undated
+  counsel/amici blocks as at a much later pull). Pooling them averages a
+  selected mixture of two different biases.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): two cert-era populations side by side, plus the
   interim-docket and merits stage sections described below. The labeled full-corpus

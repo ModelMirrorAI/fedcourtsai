@@ -1,0 +1,2 @@
+- `fedcourts query` (via manual check of `metrics/statpack.md`): Consulted the statpack for interim docket base rates. The strictly prior terms with resolved substantive data (2024, 2025) yield a pooled grant rate of 13.3% (30 granted / 225 resolved).
+- `google_web_search`: Searched for `"26A124" OR "Trump v. California" stay supreme court` to determine the current status of the case and background on Executive Order 14399. Confirmed the case is still pending as of August 16, 2026, and is a high-profile dispute over mail-in voting.

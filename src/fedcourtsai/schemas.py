@@ -606,23 +606,37 @@ class PredictionContext(_Strict):
     snapshot_provenance: Literal["as-stored", "dated", "truncated", "blind"] = Field(
         default="as-stored",
         description="How the provisioned snapshot was obtained. 'as-stored' is the "
-        "corpus payload unmodified, which is every forward cell. 'dated' is a "
-        "snapshot the docket really served at or before the replay cutoff — the "
-        "strongest point-in-time evidence, because it also reflects what had not "
-        "yet been filed. 'truncated' is a later payload with its post-cutoff "
-        "entries removed, which cannot know that a pre-cutoff entry was "
-        "back-filled later. 'blind' is neither: no forward moment could be "
-        "identified, so the proceedings were removed outright and the cell saw no "
-        "trajectory at all. Recorded so the three can be separated; a figure "
-        "pooling them is pooling three different information sets",
+        "corpus payload unmodified — the cell was placed at no cutoff, which is a "
+        "case-baseline cell and any cell whose event declares no moment. 'dated' "
+        "is a snapshot the docket really served before the cutoff — the strongest "
+        "point-in-time evidence, because it also reflects what had not yet been "
+        "filed. 'truncated' is a later payload with its post-cutoff entries "
+        "removed, which cannot know that a pre-cutoff entry was back-filled "
+        "later, and which cuts the dated proceedings only — undated top-level "
+        "blocks (counsel, amici, the payload's own generation date) are as at "
+        "the pull it was reconstructed from. 'blind' is neither: no moment could "
+        "be identified, so the proceedings were removed outright and the cell "
+        "saw no trajectory at all "
+        "— reachable only from the replay provisioner, the one path that removes "
+        "the proceedings key. Recorded so the four can be separated; a figure "
+        "pooling them is pooling different information sets",
     )
     cutoff: date | None = Field(
         default=None,
         description="The instant this cell was placed at: entries filed strictly "
-        "before it are what the snapshot carries. Null on a forward cell, whose "
-        "snapshot is simply the latest. This is the date leakage is judged against "
-        "— material about this case dated at or after it postdates what the cell "
-        "was allowed to see, and no other recorded date stands in for it",
+        "before it are what the snapshot carries. Non-null wherever a moment "
+        "fixed one — a replay cell other than a 'blind' one, and a forward cell "
+        "whose event declares a moment whose opening date is that moment's own "
+        "trigger — and null where nothing did: a cell provisioned for no "
+        "particular event, one whose event declares no moment or records no "
+        "opening date, and the cert petition baseline, whose declared moment is "
+        "the distribution rather than the docketing its opening date carries. "
+        "That makes it the cohort marker those conditionings are separated on. "
+        "What it means for retrieval is keyed on `mode`, not on this field: on a "
+        "replay cell it is also the leakage clock, and material about the case "
+        "dated at or after it postdates what the cell was allowed to see, while "
+        "a forward cell may retrieve without restriction and the cutoff bounds "
+        "only the baseline it was provisioned with",
     )
     decided_before: str | None = Field(
         default=None,

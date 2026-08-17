@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "The survival of the entire genre of state and municipal climate-damages litigation turns on this case: dozens of parallel suits nationwide, a granted question the Court declined in Honolulu, the Solicitor General participating in divided argument, and one of the largest amicus dockets of the Term.",
+  "big_case_score": 0.97,
+  "case_id": "scotus/73274859",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.77
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 6,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:45:22Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73274859/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.77,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:47:50.102841Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests the reversal on structural, constitutionally grounded preclusion rather than implied Clean Air Act preemption: claims seeking redress for injuries caused by interstate and international greenhouse-gas emissions are inherently federal in character (the Milwaukee v. Illinois / AEP v. Connecticut federal-common-law line), so no non-source state's law may impose liability for out-of-state and global emissions \u2014 extending International Paper Co. v. Ouellette's exclusion of affected-state law from transboundary pollution \u2014 and Boulder's deception and failure-to-warn framing does not remove the claims from that rule because the alleged injuries run through the effects of global emissions. The Court reaches the merits, holding it has statutory jurisdiction under Cox Broadcasting's fourth exception and Article III jurisdiction under the ASARCO v. Kadish line."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a categorical rule, not a fact-bound one: every state-law claim \u2014 however pleaded, including deception, failure-to-warn, and unjust-enrichment framings \u2014 that seeks redress for injuries attributable to interstate or international greenhouse-gas emissions is precluded under any non-source state's law, a holding that reaches the entire class of pending state and municipal climate-damages suits rather than resolving only Boulder's complaint; the opinion leaves open at most claims under the source state's own law against in-state emitters, per Ouellette, and does not decide whether those too are barred."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

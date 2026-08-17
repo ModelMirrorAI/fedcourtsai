@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search (failed: rate limit)"
+  ],
+  "helpful": [
+    "The statpack's interim-docket section now pools 225 strictly-prior resolved substantive applications for a Term-2026 cell, so a scored baseline (13.3%) existed for this cell — a real improvement over the under-floor state the prompt describes.",
+    "The frozen escalation-ladder fields in record/context.json (response_requested, referred_to_court, amicus_briefs) made the moment's state unambiguous."
+  ],
+  "gaps": [
+    "The CourtListener MCP daily rate limit (1400/day) was already exhausted on this cell's first call, presumably by earlier cells in the same fan-out; a per-cell quota reservation or a fallback with cached lower-court opinions would keep late cells from running blind.",
+    "fedcourts query with --include-applications ranks recent time-extension applications first; an --application-kind substantive filter (or a party-role filter for government applicants) would surface comparable stay priors directly.",
+    "No record/documents/ text was provisioned for this application; even the application's stated ask (which provisions of the order it seeks to stay) had to be inferred from docket captions."
+  ],
+  "notes": "Amicus count discrepancy between the frozen context (6) and the snapshot (13) flagged in flags.json — looks like a singular/plural 'amicus/amici curiae' matching gap in the counter."
+}

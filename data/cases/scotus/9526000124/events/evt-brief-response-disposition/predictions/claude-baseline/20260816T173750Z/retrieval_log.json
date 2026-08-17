@@ -1,0 +1,312 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "176a3bcaea2fce8f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:15.566Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c0b1f152b4d35195",
+      "query": "uv run fedcourts paths --court scotus --docket 9526000124 --event evt-brief-response-disposition --role predictor 2>&1",
+      "result_capture": "captured",
+      "result_digest": "b9561b1eb3b539c0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:22.124Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b15be13ddeaef1c1",
+      "query": "ls -R /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/ 2>&1 | head -80",
+      "result_capture": "captured",
+      "result_digest": "5d9aafeae3cd3595",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:22.712Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6609f62f719de0a2",
+      "query": "ls -la /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/ && cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/events/evt-brief-response-disposition/event.yaml",
+      "result_capture": "captured",
+      "result_digest": "942d774158935d32",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:29.829Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c0e542aea6f6e04f",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/events/evt-brief-response-disposition/predictions/claude-baseline/20260816T170829Z/attempt.json",
+      "result_capture": "captured",
+      "result_digest": "d19964e3f21b956e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:30.420Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6043efcb884c1c78",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/context.json && ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/snapshots/",
+      "result_capture": "captured",
+      "result_digest": "16f17e24e8eb0e2b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:36.432Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c0738097bb82acc4",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/snapshots/2026-08-16.json'))\nprint(json.dumps({k:v for k,v in d.items() if k!='entries'}, indent=1)[:2000])\nprint('ENTRIES:', len(d.get('entries',[])))\n\"",
+      "result_capture": "captured",
+      "result_digest": "5035c4e13af00e6d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:42.135Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "37702d8eda4edf31",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/snapshots/2026-08-16.json'))\nprint(list(d.keys()))\n\"",
+      "result_capture": "captured",
+      "result_digest": "0b05c088a6991cab",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:49.407Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9150c1623a5f4f88",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/record/snapshots/2026-08-16.json'))\nfor k in ['CaseNumber','DocketedDate','LowerCourt','LowerCourtCaseNumbers','RelatedCaseNumber','sJsonCaseType','sJsonTerm','PetitionerTitle','RespondentTitle']:\n    print(k,'=',d.get(k))\nprint()\nfor e in d['ProceedingsandOrder']:\n    print(e.get('Date'),'|',e.get('Text'))\n\"",
+      "result_capture": "captured",
+      "result_digest": "c517b687a0a46c65",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:08:55.911Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7ae8c5888d6200c9",
+      "query": "grep -n \"interim\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -20",
+      "result_capture": "captured",
+      "result_digest": "a738560ced9c77f0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:09:41.054Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "967ec24cf58e6a96",
+      "query": "sed -n 195,260p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "cbd6348bd5ad088e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:09:45.753Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b2d354287fd2c438",
+      "query": "select:WebSearch,mcp__courtlistener__search",
+      "result_capture": "captured",
+      "result_digest": "05004615d7ddae70",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:10:35.828Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "95cd232bc498aef6",
+      "query": "26A124 Trump v. California Supreme Court stay application Justice Jackson",
+      "result_capture": "captured",
+      "result_digest": "4dc369d8d9e34d43",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:10:40.442Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "8170213e68acacea",
+      "query": "Trump mail-in balloting executive order Supreme Court stay 26A124 supplemental briefs August 2026",
+      "result_capture": "captured",
+      "result_digest": "88181c2c369ccd69",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:10:55.972Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_capture": "captured",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:11:53.289Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "3f26dc83654f0790",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_capture": "captured",
+      "result_digest": "40133d2256c1ad04",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:11:53.647Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4ce509b03e51a673",
+      "query": "Summarize this post: what does it say about how long the Supreme Court has taken on the Trump mail-in balloting emergency stay application (26A124), what comparisons does it draw to past emergency election motions, and what does the author speculate about the delay or likely outcome? Include any dates mentioned.",
+      "result_capture": "captured",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:12:00.721Z",
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "ebb7815e01a21738",
+      "query": "uv run fedcourts query --court scotus --include-applications --limit 8 2>errq.txt | head -20; echo '--- stderr:'; cat errq.txt",
+      "result_capture": "captured",
+      "result_digest": "474a0e5729fabec5",
+      "retrieved_doc_date": "2026-08-14",
+      "timestamp": "2026-08-16T18:12:02.253Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53665d39ec148f7d",
+      "query": "Supreme Court mail-in voting executive order stay decision pending \"longest\" emergency election motion Hasen",
+      "result_capture": "captured",
+      "result_digest": "53a5023860905c4c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:12:14.118Z",
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "5a3009bf6bd55119",
+      "query": "grep -rn \"referred to the Court\\|referred_to_court\\|amicus\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/ --include=\"*.py\" -il | head; echo ---; grep -rn \"referred\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/interim*.py 2>/dev/null | head -20",
+      "result_capture": "captured",
+      "result_digest": "986fec967b8217d0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:12:43.723Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80bace2f9a8c1777",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/interim_signals.py\", \"limit\": 200, \"offset\": 100}",
+      "result_capture": "captured",
+      "result_digest": "9f49edcbf5a2d1db",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:12:47.848Z",
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fecb764d63fd88ab",
+      "query": "grep -n \"interim-v1\\|interim-disposition\\|response-requested-increment\\|referral-increment\\|amicus-increment\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/claims.py | head -20",
+      "result_capture": "captured",
+      "result_digest": "fb4062a54a94543e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:34.881Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8819f044ff2900ed",
+      "query": "python3 -c \"\nimport json\ns=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json'))\nprint(json.dumps(s.get('required')))\nprint(sorted(s['properties'].keys()))\n\"",
+      "result_capture": "captured",
+      "result_digest": "7356da54f3d9867a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:13:36.003Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a32512c45778658",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9526000124/events/evt-brief-response-disposition/predictions/claude-baseline/20260816T173750Z",
+      "result_capture": "captured",
+      "result_digest": "f643b3cbf9cc214c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:00.176Z",
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1514cbc66de9d38d",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"event_id\\\": \\\"evt-brief-response-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-08-16T18:14:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-08-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.6,",
+      "result_capture": "captured",
+      "result_digest": "67235236b2740372",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:08.861Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d405368c257b1bc5",
+      "query": "{\"content\": \"# Forecast \\u2014 Trump v. California (26A124), stay application, response-filed moment\\n\\n**Disposition: the Court denies the application for a stay, most likely with\\none or more separate writings (a dissent from Justices sympathetic to the\\ngovernment's position, or a concurrence stressing election timing).** An\\nunqualified grant \\u2014 the injunction stayed in full pending appeal \\u2014 is unlikely\\n(~15%). If the Court gives the government anything, the likelier shape is\\npart",
+      "result_capture": "captured",
+      "result_digest": "162483b05183ce54",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:14:32.676Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7d368b31774bad00",
+      "query": "{\"content\": \"# Rationale \\u2014 why 0.15 and the other numbers\\n\\n**The cell.** Interim stage, `moment: response-filed`, forward mode. 26A124,\\nTrump v. California: the government seeks a stay of D. Mass. preliminary\\ninjunction orders (Judge Talwani) barring implementation of the March 31,\\n2026 executive order \\\"Ensuring Citizenship Verification and Integrity in\\nFederal Elections\\\" (mail-ballot restrictions, including directing USPS to\\ndeliver mail ballots only per a federal voter list) in t",
+      "result_capture": "captured",
+      "result_digest": "43f16c07ca354d4f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:03.555Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "dd94a736818889b4",
+      "query": "{\"content\": \"# Retrieval log\\n\\nForward-mode cell; retrieval unrestricted. Beyond the provisioned snapshot,\\n`event.yaml`, `record/context.json`, and the committed `metrics/statpack.md`:\\n\\n## Corpus lookups\\n\\n- `uv run fedcourts query --court scotus --include-applications --limit 8`\\n  \\u2014 stderr: `ranged corpus reads: 4 GET(s), 1048576 byte(s)`. Returned mostly\\n  recent time-extension applications plus one substantive capital application;\\n  no usable priors for a government election-stay",
+      "result_capture": "captured",
+      "result_digest": "6cf4078dd978dac6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:20.524Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4a5576c90d97367c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"web search\\\",\\n    \\\"provisioned snapshot + context.json\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack interim section's per-Term substantive counts made the strictl",
+      "result_capture": "captured",
+      "result_digest": "979695f3620ba66e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:29.757Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b683351fdbcb1f3c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/9526000124\\\",\\n  \\\"run_id\\\": \\\"20260816T173750Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-brief-response-disposition\\\",\\n      \\\"message\\\": \\\"The amicus counter (_AMICUS_RE in pipeline/interim_signals.py) matches 'amicus curiae' only, so the seven 'Brief amici curiae ...' entries ",
+      "result_capture": "captured",
+      "result_digest": "ee5723321e6c7a83",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:34.005Z",
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e7d06448200b19a5",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/9526000124/",
+      "result_capture": "captured",
+      "result_digest": "9310d22e9fe963d4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:15:38.394Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9526000124",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

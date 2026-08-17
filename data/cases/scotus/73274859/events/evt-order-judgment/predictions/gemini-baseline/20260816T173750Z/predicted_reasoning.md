@@ -1,0 +1,9 @@
+I predict the Court will resolve this case by reversing the judgment of the Colorado Supreme Court.
+
+The Court will likely hold that it has statutory jurisdiction under 28 U.S.C. § 1257 pursuant to the *Cox Broadcasting* finality exceptions, because a refusal to immediately review the federal preemption question would seriously erode the federal policy of maintaining a unified approach to global emissions. It will likewise find no Article III barriers.
+
+On the merits, the conservative majority is expected to rule that federal law—specifically the Clean Air Act and the structure of the Constitution regarding interstate and international controversies—implicitly preempts state-law public nuisance, trespass, and other tort claims that seek to assign liability and damages based on global greenhouse gas emissions. The majority opinion, likely authored by one of the conservative Justices, will categorize these torts as an impermissible attempt to regulate interstate emissions via state law, expanding on the logic of *American Electric Power Co. v. Connecticut*.
+
+The judgment class will be a clean reversal. I forecast a 6-3 lineup, with the conservative bloc (Roberts, Thomas, Alito, Gorsuch, Kavanaugh, Barrett) forming the majority, and the liberal wing (Sotomayor, Kagan, Jackson) dissenting on grounds that state tort law operates in parallel with federal environmental statutes, absent express preemption.
+
+If the Court unexpectedly concludes that it lacks statutory jurisdiction because the state court's denial of a motion to dismiss is strictly interlocutory, it will dismiss the writ of certiorari as improvidently granted, but this procedural exit is less likely than a decision on the merits.

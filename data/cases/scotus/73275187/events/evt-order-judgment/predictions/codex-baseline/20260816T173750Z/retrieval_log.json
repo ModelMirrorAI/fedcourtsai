@@ -1,0 +1,123 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "736f46c3cfa9d374",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,260p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "1ff0458b608d8a26",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:09.328Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "be76de0c6f0b8084",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '260,620p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "2fa3c3136e2e96fd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:11.170Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "c562a5fb9c370750",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '620,980p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "7d1d43bfcc46e81b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:12.674Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b0d39c4f83b91d7e",
+      "query": "const r = await tools.exec_command({\"cmd\":\"find data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z -maxdepth 1 -type f -print | sort\\nsed -n '1,240p' data/cases/scotus/73275187/events/evt-order-judgment/event.yaml\\nsed -n '1,280p' data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z/prediction.json\\nsed -n '1,280p' data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T1737",
+      "result_capture": "captured",
+      "result_digest": "1cc66e2e7943623d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:18.312Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "4acd904500b765bd",
+      "query": "const r = await tools.exec_command({\"cmd\":\"find data/cases/scotus/73275187/record -maxdepth 3 -type f -print | sort\\nsed -n '1,260p' data/cases/scotus/73275187/record/context.json\\nsed -n '1,320p' data/cases/scotus/73275187/record/snapshots/2026-08-16.json\\nif test -f data/cases/scotus/73275187/record/documents/documents.json; then sed -n '1,260p' data/cases/scotus/73275187/record/documents/documents.json; fi\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_outpu",
+      "result_capture": "captured",
+      "result_digest": "b853edc82fb463fb",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:22.666Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "71956d067a28a52c",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n -i \\\"QUESTION PRESENTED|Bajakajian|six-pack|95,000|1,500|actual conduct|culpability|generalized|statutory harms|theoretical maximum|instrumentalit|professional capacity|knowing|fact-bound|conflict|legislature\\\" data/cases/scotus/73275187/record/documents/questions-presented.txt data/cases/scotus/73275187/record/documents/petition.txt data/cases/scotus/73275187/record/documents/brief-in-opposition.txt\\nrg -n -A80 -B8 \\\"The merits docket \\\\(granted ",
+      "result_capture": "captured",
+      "result_digest": "477de9e586510379",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:27.381Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "adf92bb9aa26b263",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n '\\\"(required|properties|judgment|votes|semantic_claims|claims|probability|predicted_disposition|justice|vote|additionalProperties|minItems|maxLength|enum)\\\"' schemas/prediction.schema.json schemas/agent_tooling.schema.json | head -n 260\\nuv run python - <<'PY'\\nimport json\\nfrom pathlib import Path\\nfrom jsonschema import Draft202012Validator\\npairs = [\\n    (Path('data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/202",
+      "result_capture": "captured",
+      "result_digest": "51bce190178a1201",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:35.487Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "893cc99829cbce78",
+      "query": "const r = await tools.exec_command({\"cmd\":\".venv/bin/python - <<'PY'\\nimport json\\nfrom pathlib import Path\\nfrom jsonschema import Draft202012Validator\\npairs = [\\n    (Path('data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z/prediction.json'), Path('schemas/prediction.schema.json')),\\n    (Path('data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z/tooling.json'), Path('schemas/agent_tooling.schema.json'))",
+      "result_capture": "captured",
+      "result_digest": "556987b8f1d6b64f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:39.323Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5660c5b2c49d3b90",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n \\\"class Prediction\\\\b|class AgentToolingFeedback\\\\b\\\" src/fedcourtsai\\n.venv/bin/python - <<'PY'\\nimport json\\nfrom pathlib import Path\\nfrom fedcourtsai.models import Prediction, AgentToolingFeedback\\nbase=Path('data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z')\\nfor name, cls in [('prediction.json', Prediction), ('tooling.json', AgentToolingFeedback)]:\\n    cls.model_validate_json((base/name).read_",
+      "result_capture": "captured",
+      "result_digest": "7e855e5c862e13cc",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:42.707Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "6e1b32636e1e1852",
+      "query": "const r = await tools.exec_command({\"cmd\":\".venv/bin/python - <<'PY'\\nfrom pathlib import Path\\nfrom fedcourtsai.schemas import Prediction, AgentToolingFeedback\\nbase=Path('data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z')\\nfor name, cls in [('prediction.json', Prediction), ('tooling.json', AgentToolingFeedback)]:\\n    cls.model_validate_json((base/name).read_text())\\n    print(name, 'valid')\\nPY\\nsed -n '720,840p' src/fedcourtsai/schemas.py\\nsed ",
+      "result_capture": "captured",
+      "result_digest": "89c7907f3c9b1f98",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:24:45.905Z",
+      "tool": "exec"
+    }
+  ],
+  "case_id": "scotus/73275187",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

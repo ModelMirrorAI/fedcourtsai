@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278510",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits-docket section)",
+    "provisioned snapshot and documents",
+    "CourtListener MCP search (failed: HTTP 429 daily rate limit)",
+    "web search (2 queries)"
+  ],
+  "helpful": [
+    "The provisioned respondent file carried Paramount's actual merits response brief alongside the BIO, which is exactly the evidence a briefed-moment cell exists to price",
+    "The statpack merits section's excluded-count guard and per-Term parsed counts made the baseline arithmetic unambiguous"
+  ],
+  "gaps": [
+    "Petitioner's merits brief and reply are on the docket but not provisioned, so the briefed moment is one-sided on-desk: respondent's merits advocacy is provided, petitioner's only in cert-stage form",
+    "documents.json labels the concatenated BIO + merits response brief as a single 'brief-in-opposition' entry with pipe-separated URLs; a separate 'merits-brief' kind would make the provisioning legible",
+    "fedcourts query has no subject-matter filter usable for SCOTUS merits cells (topic is circuit-only), so corpus priors are effectively unreachable for a question like this",
+    "CourtListener MCP daily rate limit was exhausted before this cell ran, likely by earlier cells in the fan-out; a per-cell budget or backoff signal would prevent late cells from running blind"
+  ],
+  "notes": "Forward merits cell, briefed moment. All outputs written from provisioned inputs, the committed statpack, and two web searches."
+}

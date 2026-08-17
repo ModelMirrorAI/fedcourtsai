@@ -66,18 +66,22 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
+from ..paths import CasePaths
 from ..schemas import (
     DistributionBandTransition,
     DistributionCensus,
     DistributionCensusTerm,
+    Moment,
     SalienceSelectionResult,
     SalienceUnlatchResult,
+    Stage,
 )
-from . import caption, cert_signals
+from . import caption, cert_signals, moments
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -152,6 +156,14 @@ _ARRIVAL_DRAW_KEY = "sal-v2"
 #: new pre-registered population, never a quiet widening. Backlog cases still
 #: earn escalation selection as their trajectory signals accrue.
 ARRIVAL_COHORT_SINCE = date(2026, 7, 1)
+
+#: The cert stage's arrival moment — the event this module's selection pass
+#: mints. Read off the declared-moments register rather than spelled here, so
+#: the id has exactly one definition and this pass and the mint seam it calls
+#: can never disagree about which event is owed.
+_ARRIVAL_EVENT_ID = next(
+    spec.event_id for spec in moments.moments_for(Stage.cert) if spec.moment is Moment.arrival
+)
 
 
 def arrival_draw(case_id: str, rate: float) -> bool:
@@ -807,7 +819,9 @@ def _selection_plan(
     )
 
 
-def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -> list[str]:
+def apply_salience_selection(
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig
+) -> list[str]:
     """The live cycle's write pass: score, latch, and return the newly-latched ids.
 
     Runs after the cycle's polls so the cohorts reflect the day's ingested
@@ -817,7 +831,8 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     ``predict_queued_at`` debounce — a never-queued case passes it).
 
     Under a scorer with ``selects_arrivals`` the pass also mints the
-    **arrival event** for every latched, pending, undistributed cert row
+    **arrival event** — both halves, into ``data_root``'s ledger as well as the
+    corpus — for every latched, pending, undistributed cert row
     that lacks one — driven off *state*, not off this pass's latch delta, so
     it is idempotent, a crash between the latch write and the mint heals on
     the next pass, and the manual ``reconcile-salience-selection`` command
@@ -830,11 +845,11 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     scores, to_select, _, _ = _selection_plan(conn, config)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
-    _mint_owed_arrival_events(conn)
+    _mint_owed_arrival_events(conn, data_root)
     return to_select
 
 
-def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
+def _mint_owed_arrival_events(conn: sqlite3.Connection, data_root: Path) -> None:
     """Mint the arrival event for every selected arrival still lacking one.
 
     State-driven and idempotent: scans the latched, pending, undistributed
@@ -842,12 +857,27 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
     for a pass interrupted between its latch write and its mint, and the
     reason the manual reconcile needs no minting logic of its own. A no-op
     under a scorer without arrival semantics.
+
+    "Absent" means either half. The arrival moment is a *declared* moment, so
+    it is minted through :func:`fedcourtsai.pipeline.outcome.persist_moment_events`
+    and owes its ledger ``event.yaml`` at the mint, not at some later touch;
+    a corpus row whose ledger file is missing is a half-landed mint, and
+    skipping on the corpus row alone would leave it that way forever. Keying
+    the skip on the **pair** makes the ledger half level-triggered like the
+    rest of the pass: the next cycle writes what is missing (for as long as
+    the row still passes the arrival guards — a since-distributed pick needs a
+    hand ``materialize-event``), and the write
+    path's ``resolved`` latch means re-minting can never reopen an event a
+    resolution already closed.
     """
     if not scorer().selects_arrivals:
         return
     from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
 
-    events: list[corpus.CorpusEvent] = []
+    # Scan to completion first, write after: `iter_rows` streams an open cursor
+    # over `cases` and the mint seam commits, so buffering keeps the scan one
+    # consistent pass rather than reading through its own writes.
+    owed: list[tuple[str, int, corpus.CorpusEvent]] = []
     for row in corpus.iter_rows(conn, court="scotus"):
         if (
             not row.salience_selected
@@ -862,32 +892,41 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
             or row.date_filed < ARRIVAL_COHORT_SINCE
         ):
             continue
+        court_id, _, docket = row.case_id.partition("/")
+        if not docket.isdigit():
+            # No numeric docket id means no ledger path to mint the other half
+            # into, so the pair this pass maintains cannot exist for the row.
+            continue
+        docket_id = int(docket)
         case_events = corpus.events_for_case(conn, row.case_id)
-        if any(e.event_id == "evt-petition-arrival-disposition" for e in case_events):
+        ledger_file = CasePaths(data_root, court_id, docket_id).event(_ARRIVAL_EVENT_ID).event_file
+        if any(e.event_id == _ARRIVAL_EVENT_ID for e in case_events) and ledger_file.is_file():
             continue
         open_ids = [e.event_id for e in case_events if not e.resolved]
         minted = outcome.arrival_event_for(row, open_ids)
         if minted is not None:
-            events.append(minted)
-    if events:
-        corpus.upsert_events(conn, events)
+            owed.append((court_id, docket_id, minted))
+    for court_id, docket_id, event in owed:
+        outcome.persist_moment_events(conn, data_root, court_id, docket_id, [event])
 
 
 def reconcile_salience_selection(
-    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, apply: bool
 ) -> SalienceSelectionResult:
     """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
     Dry run by default (scores and picks are computed but nothing is written);
     ``apply`` writes the scores/version on every in-scope case and latches
-    ``salience_selected`` on the newly-selected ones. Idempotent under the sticky
+    ``salience_selected`` on the newly-selected ones, and mints each owed
+    arrival event into both stores — ``data_root`` is the git ledger root the
+    mint's ``event.yaml`` half lands under. Idempotent under the sticky
     latch — a second run with no corpus change latches nothing new.
     """
     scores, to_select, eligible, conferences = _selection_plan(conn, config)
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
-        _mint_owed_arrival_events(conn)
+        _mint_owed_arrival_events(conn, data_root)
     return SalienceSelectionResult(
         applied=apply,
         version=SALIENCE_VERSION,

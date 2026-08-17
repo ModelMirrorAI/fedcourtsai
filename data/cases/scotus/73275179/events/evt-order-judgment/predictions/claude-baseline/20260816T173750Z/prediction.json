@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Whether the Second Amendment protects AR-15-platform rifles \u2014 the most widely owned rifle in America \u2014 decided on plenary review of consolidated CA7/CA2 cases, controls assault-weapons bans in roughly ten states and many localities.",
+  "big_case_score": 0.97,
+  "case_id": "scotus/73275179",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.86
+    }
+  ],
+  "confidence": 0.72,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 22,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:55:05Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73275179/record/snapshots/2026-08-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.86,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:57:31.277856Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that AR-15-platform and similar semiautomatic rifles are 'Arms' within the Second Amendment's plain text and are protected because they are in common use by law-abiding citizens for lawful purposes, applying Heller's common-use standard as reaffirmed in Bruen; it rejects the Seventh Circuit's Bevis holding that weapons 'that may be reserved for military use' fall outside the Amendment's scope (repudiating the AR-15/M16 equivalence), and holds that no historical tradition of firearms regulation supports prohibiting rifles in common civilian use, the 'dangerous and unusual weapons' exception being categorically unavailable for commonly possessed arms."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground is categorical rather than record-bound: arms in common use by law-abiding citizens for lawful purposes may not be prohibited, a rule that condemns AR-15-style rifle bans generally \u2014 reaching the consolidated Connecticut statute and the similar state and local bans \u2014 rather than resting on defects specific to Cook County's ordinance or this summary-judgment record, while expressly preserving regulation of dangerous and unusual weapons such as machineguns and leaving licensing and registration regimes unaddressed."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

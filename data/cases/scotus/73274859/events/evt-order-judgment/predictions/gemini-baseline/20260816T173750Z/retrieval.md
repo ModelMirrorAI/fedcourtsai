@@ -1,0 +1,3 @@
+- Attempted `mcp_courtlistener_search` via the MCP server for "Whether this Court has statutory and Article III jurisdiction", but received an HTTP 429 Rate Limit Exceeded error.
+- Consulted `metrics/statpack.md` for merits base rates.
+- Executed `google_web_search` for '"Suncor Energy" "County Commissioners of Boulder County" Supreme Court granted jurisdiction' to establish context on the nature of the climate accountability litigation and the added Question Presented.

@@ -1,0 +1,14 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73274859",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-judgment",
+      "message": "documents.json's brief-in-opposition entry concatenates two filings under one kind: the Nov 10 2025 cert-stage BIO and the Jul 27 2026 respondents' merits brief (pipe-joined URLs, truncated at 112 pages). Useful content for this merits cell, but the kind label under-describes what the file holds, and a cert-stage consumer of the same file would silently read merits-stage text.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260816T173750Z"
+}

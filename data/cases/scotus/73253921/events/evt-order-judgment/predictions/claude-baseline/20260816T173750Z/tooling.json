@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73253921",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus priors, citation filter)",
+    "metrics/statpack.md (merits-docket baseline)",
+    "CourtListener MCP search (attempted; rate-limited)"
+  ],
+  "helpful": [
+    "The provisioned document texts were decisive here: full petition and BIO text made the acquiescence posture and the merits arguments directly readable, no retrieval needed.",
+    "The statpack merits table's per-Term disturbed rates with the excluded-count guard made the baseline pooling mechanical."
+  ],
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 (1400/day quota already exhausted) on the first call of this cell; a per-cell or per-run quota reservation, or surfacing remaining quota to the agent, would avoid burning a call to discover exhaustion.",
+    "No committed cut exists for merits disturbed rates conditioned on cert posture (e.g. respondent-acquiesced grants vs. contested grants); I had to apply an unquantified judgment haircut for the acquiescence signal.",
+    "fedcourts query's --citation filter is too sparse on SCOTUS rows to surface doctrinal neighbors; a topic/subject filter on SCOTUS rows would have found the Court's prior EAJA cases."
+  ],
+  "notes": "Merits grant-moment cell, forward mode. Prediction rests on provisioned inputs plus the committed statpack after graceful degradation of both live retrieval surfaces."
+}

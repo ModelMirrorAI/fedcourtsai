@@ -69,6 +69,36 @@ def test_spec_for_is_none_on_an_entry_pinned_or_legacy_id() -> None:
     assert moments.spec_for("") is None
 
 
+def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baselines() -> None:
+    """The line `validate`'s corpus→ledger check draws.
+
+    A case-level baseline is derived from a docket's own shape by `default_event`,
+    so the corpus holds one for nearly every case and its ledger half is owed
+    only at first touch or resolution. Everything else in the register is
+    minted, and a mint owes both halves at once — so the set must be exactly
+    the six non-baseline moments, and must stay derived from the id shape
+    rather than drifting into a hand-maintained list.
+    """
+    minted = moments.minted_moment_ids()
+    assert minted == {
+        "evt-petition-arrival-disposition",
+        "evt-order-cvsg-disposition",
+        "evt-order-response-requested-disposition",
+        "evt-brief-response-disposition",
+        "evt-order-judgment",
+        "evt-brief-judgment",
+    }
+    baselines = {spec.event_id for spec in moments.DECLARED_MOMENTS} - minted
+    assert baselines == {"evt-petition-disposition", "evt-motion-disposition"}
+    # And those two are exactly what the ingest projection derives for a cert
+    # docket and an application docket, which is why they are the exception.
+    for docket_number, expected in (
+        ("25-100", "evt-petition-disposition"),
+        ("26A124", "evt-motion-disposition"),
+    ):
+        assert default_event(_row(docket_number=docket_number)).event_id == expected
+
+
 def test_declares_requires_both_the_id_and_the_stage() -> None:
     """The predicate attribution widens on — both halves are load-bearing.
 

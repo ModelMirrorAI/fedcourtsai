@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Categorical question about Title IX employment coverage for every federally funded school; heavy institutional amicus interest, though Title VII remains available so practical stakes are bounded.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73274866",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.35
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": null,
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-16",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-16T17:46:14Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73274866/record/snapshots/2026-08-16.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.35,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "8d66a4114f79f96ec6bb1fa3f55d139e383f5f89",
+    "stamped_at": "2026-08-16T17:48:38.447130Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Title IX's implied private right of action does not extend to claims by employees of federally funded educational institutions for sex discrimination in their own employment. It rests on the Court's settled reluctance to extend judicially implied causes of action (Alexander v. Sandoval line), confining Cannon v. University of Chicago and Jackson v. Birmingham Board of Education to their holdings, and reasons that Title VII's comprehensive, reticulated remedial scheme for employment discrimination shows Congress did not intend a parallel implied Title IX damages remedy for employees; North Haven Board of Education v. Bell is distinguished as addressing the scope of agency enforcement, not the private right of action."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's ground is categorical, not fact-bound: it announces a rule for all employees of federally funded educational institutions \u2014 employment sex-discrimination claims cannot be brought under Title IX's implied right of action, whatever the employee's role or the strength of the particular record \u2014 rather than resolving the case on petitioners' specific evidence or posture. It formally leaves intact students' Title IX rights and Jackson's retaliation holding rather than overruling either."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

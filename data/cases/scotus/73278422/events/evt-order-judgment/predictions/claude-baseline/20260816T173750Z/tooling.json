@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278422",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service, citation filter - empty result)",
+    "metrics/statpack.md (merits docket section, pooled ten-Term baseline)",
+    "provisioned documents (petition, BIO, questions presented)",
+    "courtlistener MCP search (attempted once, HTTP 429 rate limit)"
+  ],
+  "helpful": [
+    "The provisioned petition and BIO texts were decisive for this merits cell - full extracted text of both sides' cert-stage arguments made the doctrinal forecast possible without any live retrieval.",
+    "The statpack merits section's per-Term table with the excluded-count guard made the baseline arithmetic mechanical and auditable."
+  ],
+  "gaps": [
+    "The MCP sidecar hit the CourtListener daily rate limit on the first call of this cell; a per-cell reservation or backoff-and-retry budget hint would tell an agent whether waiting is ever worthwhile.",
+    "A merits-stage cell would benefit from provisioned post-grant filings where they exist (here: petitioner's merits opening brief and two rounds of pre-grant supplemental briefs were on the docket but unfetched); the document pipeline currently fetches cert-stage papers only.",
+    "fedcourts query has no issue/topic text filter for SCOTUS rows, so doctrine-line priors (e.g. the Bivens line) are not retrievable from the corpus by structure alone."
+  ],
+  "notes": "Forward merits cell forecast from the cert papers plus the docket skeleton; live retrieval degraded (429) after one call, disclosed in reasoning.md and retrieval.md."
+}

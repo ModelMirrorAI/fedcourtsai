@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274853",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "fedcourts query",
+    "committed merits statpack",
+    "official Supreme Court filing retrieval"
+  ],
+  "helpful": [
+    "Provisioned petition, opposition, questions presented, and docket snapshot",
+    "Committed merits statpack",
+    "Official Solicitor General brief linked in the snapshot"
+  ],
+  "gaps": [
+    "CourtListener MCP searches were throttled with HTTP 429",
+    "The corpus query service returned no result or transfer accounting before timeout",
+    "The petitioners' filed merits brief text was not provisioned"
+  ],
+  "notes": "The Solicitor General's pre-grant recommendation to grant and affirm was the most useful case-specific retrieval. The prediction remained feasible despite both legal-research services degrading."
+}

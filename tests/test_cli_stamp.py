@@ -10,12 +10,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai.cli import app
-from fedcourtsai.paths import CasePaths
+from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
@@ -44,7 +45,7 @@ from fedcourtsai.schemas import (
     StatPackTermSegment,
     VoteValue,
 )
-from fedcourtsai.serialize import write_json, write_yaml
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from tests.conftest import seed_evaluation, seed_prediction
 
 runner = CliRunner()
@@ -56,7 +57,15 @@ def _data_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path / "data"
 
 
-def _stamp(role: str, actor: str, docket: int, event: str, run_id: str) -> Result:
+def _stamp(
+    role: str,
+    actor: str,
+    docket: int,
+    event: str,
+    run_id: str,
+    *,
+    stamped_at: str = "2026-01-01T00:00:00Z",
+) -> Result:
     return runner.invoke(
         app,
         [
@@ -74,9 +83,32 @@ def _stamp(role: str, actor: str, docket: int, event: str, run_id: str) -> Resul
             "--actor",
             actor,
             "--stamped-at",
-            "2026-01-01T00:00:00Z",
+            stamped_at,
             "--pipeline-sha",
             "sha-abc",
+        ],
+    )
+
+
+def _regrade(role: str, actor: str, docket: int, event: str, run_id: str) -> Result:
+    """The same cell, re-graded: no stamp flags, since it writes no stamp."""
+    return runner.invoke(
+        app,
+        [
+            "stamp-cell",
+            "--court",
+            "scotus",
+            "--docket",
+            str(docket),
+            "--event",
+            event,
+            "--run-id",
+            run_id,
+            "--role",
+            role,
+            "--actor",
+            actor,
+            "--regrade",
         ],
     )
 
@@ -1930,3 +1962,472 @@ def test_stamp_evaluator_keeps_the_terminal_arm_off_unstaged_events(
 
     result = _stamp("evaluator", "claude-judge", 21, event, "RID")
     assert result.exit_code == 0, result.output
+
+
+_CERT_EVENT = "evt-petition-disposition"
+
+
+def _commit_cert_disposition(event_paths: EventPaths, docket: int, actual: Disposition) -> None:
+    """(Re-)commit the cert event's outcome under one disposition label."""
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id=f"scotus/{docket}",
+            event_id=_CERT_EVENT,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=actual,
+            # `gvr` joins the granted set on the binary axis, so a correction
+            # between *those two* labels moves the label comparison and nothing
+            # else — which is what isolates `correct`. A correction reaching
+            # `denied` moves the binary too, which is the other case entirely.
+            actual_granted=0 if actual is Disposition.denied else 1,
+        ),
+    )
+
+
+def _seed_cert_cell(
+    data_root: Path,
+    docket: int,
+    *,
+    actual: Disposition,
+    basis: Literal["risk_set", "terminal"] | None = None,
+) -> EventPaths:
+    """A cert cell whose predictor called `gvr`, graded against `actual`.
+
+    The prediction freezes no context, so a `risk_set` basis here resolves no
+    salience version — which is the mispairing the stamp's guard fails on.
+    """
+    event_paths = CasePaths(data_root, "scotus", docket).event(_CERT_EVENT)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=_CERT_EVENT,
+            case_id=f"scotus/{docket}",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Petition disposition",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id=_CERT_EVENT,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.6,
+            predicted_disposition=Disposition.gvr,
+        ),
+    )
+    _commit_cert_disposition(event_paths, docket, actual)
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id=f"scotus/{docket}",
+            event_id=_CERT_EVENT,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=0,
+            base_rate_basis=basis,
+            segment_base_rate=None if basis is None else 0.15,
+        ),
+    )
+    return event_paths
+
+
+def _commit_merits_judgment(event_paths: EventPaths, docket: int, judgment: Judgment) -> None:
+    """(Re-)commit the merits event's outcome under one judgment."""
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id=f"scotus/{docket}",
+            event_id=MERITS_EVENT_ID,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.other,
+            # The merits binary is judgment-disturbed, so the correction moves
+            # the Brier's target as well as the label comparison's.
+            actual_granted=1 if judgment is Judgment.reversed else 0,
+            judgment=judgment,
+        ),
+    )
+
+
+def _seed_merits_cell(data_root: Path, docket: int, *, judgment: Judgment) -> EventPaths:
+    """A merits cell whose predictor called `reversed`, graded against `judgment`.
+
+    Identical between two dockets but for the committed judgment, so a pair of
+    these differs only where the outcome does — which is what makes the two
+    stamped records comparable field by field.
+    """
+    event_paths = CasePaths(data_root, "scotus", docket).event(MERITS_EVENT_ID)
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=MERITS_EVENT_ID,
+            case_id=f"scotus/{docket}",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            title="Merits judgment",
+            opened_at=date(2024, 3, 1),  # a March grant → October Term 2023
+        ),
+    )
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id=MERITS_EVENT_ID,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=1,
+            probability=0.8,
+            predicted_disposition=Disposition.other,
+            judgment=Judgment.reversed,
+            votes=[JusticeVote(justice="Roberts", vote=VoteValue.majority)],
+            # The claim block is scored against the frozen context, so without
+            # one there is no block for the twins to differ over.
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=True,
+                band="baseline",
+                salience_version="sal-v1",
+                term=2024,
+            ),
+            claims=[ClaimProbability(claim_id="judgment-disturbed", probability=0.8)],
+        ),
+    )
+    _commit_merits_judgment(event_paths, docket, judgment)
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        Evaluation(
+            case_id=f"scotus/{docket}",
+            event_id=MERITS_EVENT_ID,
+            predictor_id="claude-baseline",
+            evaluator_id="claude-judge",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            # Hand-written and wrong on every axis the harness owns, so a field
+            # the stamp failed to compute would show up as the evaluator's.
+            correct=1,
+            brier_score=0.04,
+            segment_base_rate=0.85,
+            brier_skill_score=0.9,
+        ),
+    )
+    return event_paths
+
+
+def test_regrade_recomputes_correct_under_the_producing_process_stamp(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A corrected outcome re-grades the cell under the stamp already on it.
+
+    `correct` is a comparison between two committed artifacts, so re-committing
+    the outcome makes every evaluation that read the old one stale — while
+    changing nothing about the run that produced them. Recomputing the graded
+    fields is the correction; re-resolving the version beside them would
+    attribute the earlier run's prose and judgment to whatever process the
+    registry resolves now.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 22, actual=Disposition.granted)
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+
+    stamp_result = _stamp("evaluator", "claude-judge", 22, _CERT_EVENT, "RID")
+    assert stamp_result.exit_code == 0, stamp_result.output
+    stamped = json.loads(eval_path.read_text())
+    assert stamped["correct"] == 0, "`gvr` against the disposition as first committed"
+    produced_under = stamped["process_version"]
+    assert produced_under is not None
+
+    _commit_cert_disposition(event_paths, 22, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 22, _CERT_EVENT, "RID")
+    assert result.exit_code == 0, result.output
+
+    regraded = json.loads(eval_path.read_text())
+    assert regraded["correct"] == 1
+    # The whole block, `stamped_at` included: what the correction changed is
+    # the record's inputs, not the process that read them.
+    assert regraded["process_version"] == produced_under
+
+
+def test_regrade_fails_the_mispaired_basis_after_the_graded_fields_land(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The basis guard judges the record as written, and a re-grade writes the
+    same record — so it fails the same way, and after the same writes. A
+    `risk_set` basis whose version does not resolve names a population nothing
+    pins down, and that stays true when the numbers beside it are recomputed
+    rather than first written: the recompute lands, and the cell still fails."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 27, actual=Disposition.granted, basis="risk_set")
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+
+    # The ordinary stamp fails the same guard and still writes, which is what
+    # leaves a stamped record for the re-grade to preserve.
+    first = _stamp("evaluator", "claude-judge", 27, _CERT_EVENT, "RID")
+    assert first.exit_code == 1, first.output
+    produced_under = json.loads(eval_path.read_text())["process_version"]
+    assert produced_under is not None
+
+    _commit_cert_disposition(event_paths, 27, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 27, _CERT_EVENT, "RID")
+    assert result.exit_code == 1, result.output
+    assert "base_rate_basis 'risk_set'" in result.output
+
+    regraded = json.loads(eval_path.read_text())
+    assert regraded["correct"] == 1, "the graded fields landed before the guard fired"
+    assert regraded["process_version"] == produced_under
+
+
+def test_regrade_refuses_a_cert_trio_the_correction_invalidated(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A correction that moves the binary invalidates the evaluator's Brier trio.
+
+    The stamp leaves a cert cell's `brier_score`, `segment_base_rate`, and
+    `brier_skill_score` as the evaluator wrote them — which band population the
+    rate came from is its judgment. So a `denied` → `granted` correction would
+    otherwise recompute `correct` against the new binary while the trio stayed
+    scored against the old one: the leaderboard drops such a cell from
+    `skill_scored` (its recorded skill stops reproducing) while the corrected
+    `correct` stays in accuracy, and the two columns silently run over
+    different populations. Refused instead, pointing at the remedy, with
+    nothing written.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 29, actual=Disposition.denied)
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    # The evaluator's own trio, correct against the outcome as first committed:
+    # the prediction's 0.6 against a denial is (0.6 - 0)**2.
+    write_json(
+        eval_path,
+        read_model(eval_path, Evaluation).model_copy(
+            update={
+                "brier_score": 0.36,
+                "segment_base_rate": 0.15,
+                "base_rate_basis": "terminal",
+                "brier_skill_score": 1 - 0.36 / 0.0225,
+            }
+        ),
+    )
+    first = _stamp("evaluator", "claude-judge", 29, _CERT_EVENT, "RID")
+    assert first.exit_code == 0, first.output
+    before = eval_path.read_bytes()
+
+    # The correction moves the binary: `gvr` joins the granted set, so the
+    # recorded Brier no longer reproduces.
+    _commit_cert_disposition(event_paths, 29, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 29, _CERT_EVENT, "RID")
+    assert result.exit_code == 1
+    assert "does not reproduce" in result.output
+    assert "brier_skill_score" in result.output, "the message names the remedy"
+    assert eval_path.read_bytes() == before, "refused before anything was written"
+
+
+def test_regrade_refuses_a_run_a_newer_grading_supersedes(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every scoring surface collapses a grader's re-runs of one cell to the
+    newest, so recomputing a superseded run moves no published number while
+    exiting clean — a correction that reads as landed and is not. The message
+    names the run that wins."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 30, actual=Disposition.granted)
+    assert _stamp("evaluator", "claude-judge", 30, _CERT_EVENT, "RID").exit_code == 0
+    # A second grading of the same cell, stamped later, which every ledger read
+    # collapses to.
+    write_json(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID2"),
+        read_model(
+            event_paths.evaluation("claude-judge", "claude-baseline", "RID"), Evaluation
+        ).model_copy(update={"run_id": "RID2"}),
+    )
+    assert (
+        _stamp(
+            "evaluator",
+            "claude-judge",
+            30,
+            _CERT_EVENT,
+            "RID2",
+            stamped_at="2026-06-01T00:00:00Z",
+        ).exit_code
+        == 0
+    )
+
+    _commit_cert_disposition(event_paths, 30, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 30, _CERT_EVENT, "RID")
+    assert result.exit_code == 1
+    assert "RID2 supersedes it" in result.output
+    # The surviving run re-grades cleanly.
+    survivor = _regrade("evaluator", "claude-judge", 30, _CERT_EVENT, "RID2")
+    assert survivor.exit_code == 0, survivor.output
+    winning = event_paths.evaluation("claude-judge", "claude-baseline", "RID2")
+    assert json.loads(winning.read_text())["correct"] == 1
+
+
+def test_regrade_echoes_each_cells_process_scope(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A re-grade leaves no `superseded_gradings` trace, so the scope of every
+    cell it touches is echoed: a frozen-scope cell moving is what a reader
+    would want recorded somewhere outside `data/`'s git history."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 31, actual=Disposition.granted)
+    assert _stamp("evaluator", "claude-judge", 31, _CERT_EVENT, "RID").exit_code == 0
+
+    _commit_cert_disposition(event_paths, 31, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 31, _CERT_EVENT, "RID")
+    assert result.exit_code == 0, result.output
+    # The scope word itself is what the freeze state decides, so the assertion
+    # is on the annotation being there and naming the stamp it preserved.
+    assert "-scope cell stamped" in result.output
+    assert CURRENT_PROCESS_LABEL in result.output
+
+
+def test_regrade_fails_where_it_matched_no_artifact(_data_root: Path) -> None:
+    """The ordinary stamp's no-op is the fan-out's contract — a no-output cell
+    is already routed to a draft. A re-grade's coordinates are typed by hand
+    instead, so matching nothing means the cell was named wrong, and a mistyped
+    run id must not exit clean as though a correction had landed."""
+    seed_evaluation(_data_root, "scotus", 28, "evt-y", run_id="RID")
+    result = _regrade("evaluator", "claude-judge", 28, "evt-y", "MISTYPED")
+    assert result.exit_code == 1
+    assert "no evaluator artifact" in result.output
+
+
+def test_regrade_refuses_an_evaluation_that_was_never_stamped(_data_root: Path) -> None:
+    """A re-grade preserves a stamp; where there is none it has nothing to
+    preserve, and writing the graded fields alone would leave a cell that
+    reads as scored under no process at all. The ordinary stamp is the one
+    that resolves a version for it."""
+    seed_evaluation(_data_root, "scotus", 23, "evt-y", run_id="RID")
+    path = (
+        CasePaths(_data_root, "scotus", 23)
+        .event("evt-y")
+        .evaluation("claude-judge", "claude-baseline", "RID")
+    )
+    before = path.read_bytes()
+
+    result = _regrade("evaluator", "claude-judge", 23, "evt-y", "RID")
+    assert result.exit_code != 0
+    assert "no process_version" in result.output
+    assert path.read_bytes() == before, "refused before anything was written"
+
+
+def test_regrade_refuses_the_predictor_role(_data_root: Path) -> None:
+    """A prediction carries no harness-graded field — its `correct` and skill
+    record live on the evaluations that score it — so there is nothing for a
+    re-grade to recompute, and a predictor cell only ever takes the ordinary
+    stamp."""
+    seed_prediction(_data_root, "scotus", 24, "evt-x", predictor_id="claude-baseline")
+    path = (
+        CasePaths(_data_root, "scotus", 24)
+        .event("evt-x")
+        .prediction("claude-baseline", "20260101T000000Z")
+    )
+    before = path.read_bytes()
+
+    result = _regrade("predictor", "claude-baseline", 24, "evt-x", "20260101T000000Z")
+    assert result.exit_code == 2
+    assert path.read_bytes() == before
+
+
+def test_regrade_refuses_the_flags_that_only_set_a_stamp(_data_root: Path) -> None:
+    """`--stamped-at` and `--pipeline-sha` set fields of the version a re-grade
+    declines to write, so accepting them silently would read as re-dating a
+    stamp that never moves."""
+    result = runner.invoke(
+        app,
+        [
+            "stamp-cell",
+            "--court",
+            "scotus",
+            "--docket",
+            "25",
+            "--event",
+            "evt-y",
+            "--run-id",
+            "RID",
+            "--role",
+            "evaluator",
+            "--actor",
+            "claude-judge",
+            "--regrade",
+            "--stamped-at",
+            "2026-01-01T00:00:00Z",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "nothing to set" in result.output
+
+
+def test_regrade_writes_what_an_ordinary_stamp_would_but_the_version(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Re-grade is the ordinary stamp minus the process attribution.
+
+    Twin merits cells over one statpack: one graded against a judgment later
+    corrected and then re-graded, one graded against the corrected judgment
+    from the start. Every harness-owned field — `correct`, the claim block, and
+    the merits skill record — has to land identically, because each is a
+    function of the committed artifacts and of nothing about the run. Only the
+    version differs, and only because the re-graded twin keeps the one its
+    producing run stamped.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            merits=StatPackMerits(
+                parsed=60,
+                disturbed=51,
+                terms=[
+                    StatPackMeritsTerm(term=2023, parsed=30, disturbed=30, cert_order_excluded=0),
+                    StatPackMeritsTerm(term=2022, parsed=30, disturbed=21, cert_order_excluded=0),
+                ],
+            ),
+        ),
+    )
+    corrected = _seed_merits_cell(_data_root, 25, judgment=Judgment.reversed)
+    fresh = _seed_merits_cell(_data_root, 26, judgment=Judgment.affirmed)
+
+    first = _stamp(
+        "evaluator", "claude-judge", 25, MERITS_EVENT_ID, "RID", stamped_at="2025-06-01T00:00:00Z"
+    )
+    assert first.exit_code == 0, first.output
+    _commit_merits_judgment(corrected, 25, Judgment.affirmed)
+    again = _regrade("evaluator", "claude-judge", 25, MERITS_EVENT_ID, "RID")
+    assert again.exit_code == 0, again.output
+    twin = _stamp("evaluator", "claude-judge", 26, MERITS_EVENT_ID, "RID")
+    assert twin.exit_code == 0, twin.output
+
+    regraded = json.loads(
+        corrected.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    stamped = json.loads(fresh.evaluation("claude-judge", "claude-baseline", "RID").read_text())
+    # The graded fields did move off the stale judgment: `reversed` against an
+    # `affirmed` outcome, and the Brier on the undisturbed binary.
+    assert regraded["correct"] == 0
+    assert regraded["brier_score"] == pytest.approx(0.64)
+    assert regraded["claim_scores"] is not None
+    # The version each record carries is the one thing the two must not share:
+    # the re-graded cell keeps its own producing run's stamp.
+    assert regraded.pop("process_version")["stamped_at"].startswith("2025-06-01")
+    assert stamped.pop("process_version")["stamped_at"].startswith("2026-01-01")
+    assert regraded.pop("case_id") == "scotus/25"
+    assert stamped.pop("case_id") == "scotus/26"
+    assert regraded == stamped

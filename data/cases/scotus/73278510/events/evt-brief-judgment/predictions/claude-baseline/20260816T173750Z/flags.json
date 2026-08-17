@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278510",
+  "run_id": "20260816T173750Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "CourtListener MCP was unusable for this cell: the first search call returned HTTP 429 (shared 1400/day limit exhausted, ~100-minute retry window), so the cell degraded to provisioned inputs, the committed statpack, and web search per the retrieval contract. Late cells in a large fan-out will predictably hit this; a per-cell call budget or a workflow-level backoff would keep them from running without live CourtListener access.",
+      "event_id": "evt-brief-judgment"
+    }
+  ]
+}

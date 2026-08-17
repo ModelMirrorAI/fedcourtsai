@@ -1,0 +1,411 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "5021c7267d86ad50",
+      "query": "cat .github/prompts/predict.md AGENTS.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:27.580Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1025a2af575f5c8b",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73274859\" --event \"evt-brief-judgment\" --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:32.018Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8a22a59ed6b218e1",
+      "query": "uv run fedcourts paths --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:35.633Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "72464866c5b7fbf8",
+      "query": "cat schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:39.154Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2b2f38b32db3399",
+      "query": "ls -lR data/cases/scotus/73274859/events/evt-brief-judgment/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:42.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "646bcd7189222ba4",
+      "query": "find data/cases/scotus/73274859 -type f",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:45.079Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "557cca220914b361",
+      "query": "cat data/cases/scotus/73274859/events/evt-brief-judgment/event.yaml data/cases/scotus/73274859/record/context.json data/cases/scotus/73274859/record/documents/documents.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:49.115Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2366e34cb5e1e635",
+      "query": "head -n 50 data/cases/scotus/73274859/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:52.418Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "81e6e0bd491ef7ff",
+      "query": "cat data/cases/scotus/73274859/record/snapshots/2026-08-16.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:54.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "730a85a16fbfc71a",
+      "query": "cat docs/outcome-decomposition.md docs/decision-model.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:41:57.565Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f81e3b9076d4955",
+      "query": "glob \"data/**/prediction.json\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:04.253Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3b420a90c79e445b",
+      "query": "find data -name prediction.json | head -n 5",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:07.698Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c06da9bfcdf39cf4",
+      "query": "find data -name prediction.json | grep evt-brief-judgment | head -n 2",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:10.455Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "82cb3329c7b0bae3",
+      "query": "cat data/cases/scotus/73279865/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z/prediction.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:12.893Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "83bdf38116c3908e",
+      "query": "cat metrics/statpack.json | grep -A 30 '\"merits\"'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:16.788Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4cae6ef53a48ee4b",
+      "query": "Suncor Energy v. County Commissioners of Boulder County Supreme Court cert grant whether federal law precludes state-law claims climate change",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:28.790Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "9bb51cf3112a1564",
+      "query": "cat << 'EOF' > predictions/gemini-baseline/20260816T173750Z/prediction.json\n{\n  \"big_case_rationale\": \"Landmark climate litigation case determining whether dozens of state-level tort lawsuits against major energy companies can proceed, with massive financial implications and significant public interest.\",\n  \"big_case_score\": 0.85,\n  \"case_id\": \"scotus/73274859\",\n  \"claims\": [\n    {\n      \"claim_id\": \"judgment-disturbed\",\n      \"probability\": 0.85\n    }\n  ],\n  \"confidence\": 0.8,\n  \"context\": {\n  ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:41.513Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "39429da56a85a562",
+      "query": "mkdir -p predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:44.023Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9bb51cf3112a1564",
+      "query": "cat << 'EOF' > predictions/gemini-baseline/20260816T173750Z/prediction.json\n{\n  \"big_case_rationale\": \"Landmark climate litigation case determining whether dozens of state-level tort lawsuits against major energy companies can proceed, with massive financial implications and significant public interest.\",\n  \"big_case_score\": 0.85,\n  \"case_id\": \"scotus/73274859\",\n  \"claims\": [\n    {\n      \"claim_id\": \"judgment-disturbed\",\n      \"probability\": 0.85\n    }\n  ],\n  \"confidence\": 0.8,\n  \"context\": {\n  ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:51.233Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ec22e6d5bd6b72a0",
+      "query": "cat << 'EOF' > predictions/gemini-baseline/20260816T173750Z/predicted_reasoning.md\nExpect the Court to reverse the Colorado Supreme Court. The majority will likely hold that state-law nuisance, trespass, and related tort claims seeking damages for injuries caused by interstate and international greenhouse gas emissions are preempted by federal law. The Court will likely reason that regulating emissions is inherently a federal issue that requires balancing environmental protection with energy nee",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:42:58.903Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5aed065968dd873f",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:22.158Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "71cb84d6d5ec680a",
+      "query": "ls -l predictions/gemini-baseline/20260816T173750Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:26.247Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a47259dedb7e9a43",
+      "query": "find predictions",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:29.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3cc7487df8bc2fee",
+      "query": "cat scripts/gate.sh",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:32.596Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b45483141661b6f7",
+      "query": "uv run fedcourts validate data --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:35.409Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a89359f784eab138",
+      "query": "uv run fedcourts validate predictions",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:38.315Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "965de0a3d5bc223e",
+      "query": "cat .gitignore | grep predictions",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:42.002Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9c287c4d000154b1",
+      "query": "cat .github/workflows/predict-cell.yml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:43.991Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc443a17db17431d",
+      "query": "find .github/workflows -name \"*predict*\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:45.976Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d81050bf2596eb41",
+      "query": "cat .github/workflows/run-predict.yml | grep -A 10 predictions",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:51.664Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9ac768e56f7f6e64",
+      "query": "cat .github/workflows/run-predict.yml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:43:53.747Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8cbcf20f3e22d1b",
+      "query": "uv run fedcourts finalize-produced --role predict --court \"scotus\" --docket \"73274859\" --event \"evt-brief-judgment\" --actor \"gemini-baseline\" --run-id \"20260816T173750Z\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:03.747Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0d78f8dcce187a23",
+      "query": "grep -n \"finalize_produced\" src/fedcourtsai/pipeline/finalize.py -A 20",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:06.448Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8ca44dfc6557219e",
+      "query": "grep -rn \"finalize-produced\" src/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:08.578Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f7c50b8ccfb94cc9",
+      "query": "cat src/fedcourtsai/finalize.py",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:10.727Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b683c47962b27369",
+      "query": "python -c 'from pathlib import Path; from src.fedcourtsai.paths import CasePaths; print(CasePaths(Path(\"data\"), \"scotus\", 73274859).event(\"evt-brief-judgment\").prediction(\"gemini-baseline\", \"20260816T173750Z\"))'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:13.730Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e4c218045a588a8f",
+      "query": "uv run python -c 'from pathlib import Path; from fedcourtsai.paths import CasePaths; print(CasePaths(Path(\"data\"), \"scotus\", 73274859).event(\"evt-brief-judgment\").prediction(\"gemini-baseline\", \"20260816T173750Z\"))'",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:16.396Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e7f194353f1972d6",
+      "query": "mkdir -p data/cases/scotus/73274859/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z\nmv predictions/gemini-baseline/20260816T173750Z/* data/cases/scotus/73274859/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/\nrm -rf predictions\nuv run fedcourts finalize-produced --role predict --court \"scotus\" --docket \"73274859\" --event \"evt-brief-judgment\" --actor \"gemini-baseline\" --run-id \"20260816T173750Z\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:25.656Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5aed065968dd873f",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:48.953Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b91b5c3c41b55e39",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 5 helpful",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:44:54.131Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "da81e3ff46ddf376",
+      "query": "git status",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:01.901Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c86cb76f72d3094d",
+      "query": "git restore data/qp-topics/qp-topic-reference.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:45:05.241Z",
+      "tool": "run_shell_command"
+    }
+  ],
+  "case_id": "scotus/73274859",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

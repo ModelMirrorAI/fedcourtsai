@@ -1,0 +1,330 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "05813976912fb27a",
+      "query": "cat .github/prompts/predict.md AGENTS.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:18.869Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10698d4767ed5436",
+      "query": "uv run fedcourts paths --court scotus --docket 73279024 --event evt-brief-judgment --role predictor",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:23.317Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7325cbc854574a22",
+      "query": "ls -la data/cases/scotus/73279024/events/evt-brief-judgment",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:25.816Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "31f5de4f22ebe3f5",
+      "query": "find . -name record -type d",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:29.218Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73b35a8f8d02af4b",
+      "query": "ls -la ./data/cases/scotus/73279024/record",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:31.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfed8eea3d0e4d2",
+      "query": "cat data/cases/scotus/73279024/events/evt-brief-judgment/event.yaml ./data/cases/scotus/73279024/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:33.659Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d51f3fde1a126494",
+      "query": "ls -la ./data/cases/scotus/73279024/record/snapshots/ && cat ./data/cases/scotus/73279024/record/snapshots/* | head -n 30",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:37.289Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fcfb4f31d20da99",
+      "query": "ls -la ./data/cases/scotus/73279024/record/documents/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:39.508Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3928a3d0ade3599",
+      "query": "cat ./data/cases/scotus/73279024/record/documents/questions-presented.txt",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:42.043Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "69264c34ab0448a0",
+      "query": "grep -A 30 \"## Stage: merits\" .github/prompts/predict.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:44.338Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b6e285a297885002",
+      "query": "grep -A 40 \"judgment below is disturbed\" .github/prompts/predict.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:47.877Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "571c67a2b580c29f",
+      "query": "cat metrics/statpack.md | grep -A 50 \"## Stage: merits\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:49.916Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bcbf8caa8b6b5dda",
+      "query": "grep -A 50 -i merits metrics/statpack.md",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:52.492Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e7879281b1f745b9",
+      "query": "cat ./data/cases/scotus/73279024/record/snapshots/* | grep -A 20 -B 10 22-16613",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:56.636Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4f28efcefa99dd09",
+      "query": "{\"court\": \"ca9\", \"docket_number\": \"22-16613\", \"type\": \"o\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:51:59.238Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "18a2f5c3eab758c1",
+      "query": "grep -A 1000 '\"ProceedingsAndOrders\"' ./data/cases/scotus/73279024/record/snapshots/* | head -n 100",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:02.424Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "85debd9a187c8fa4",
+      "query": "jq 'keys' ./data/cases/scotus/73279024/record/snapshots/*",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:04.367Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1dbae5bee74ada4a",
+      "query": "jq '.ProceedingsandOrder' ./data/cases/scotus/73279024/record/snapshots/* | grep -A 50 \"Date\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:06.485Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "11c6cd7eaf7b3349",
+      "query": "uv run fedcourts query --sql \"SELECT count(*), judgment FROM merits WHERE petitioner_type = 'federal' AND lower_court = 'ca9' GROUP BY judgment;\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:12.086Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:15.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8e331fefd5ec43b",
+      "query": "\"Department of the Air Force\" \"Prutehi Guahan\" 22-16613 \"Ninth Circuit\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:27.835Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "4c0b502ed313cd3c",
+      "query": "cat schemas/prediction.schema.json | grep -A 50 \"judgment\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:33.250Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "07aef5f27b06ba8f",
+      "query": "mkdir -p data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:36.924Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "097dc847291269d0",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/prediction.json\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/73279024\",\n  \"event_id\": \"evt-brief-judgment\",\n  \"run_id\": \"20260816T173750Z\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"created_at\": \"2026-08-16T17:37:50Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"input_snapshot\": \"data/cases/scotus/73279024/record/snapshots/2026-08-16.json\",\n  \"predicted_dispositio",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:52:45.286Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:08.417Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c698310072fa4954",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/predicted_reasoning.md\nThe Court will reverse the Ninth Circuit's decision. The majority will hold that the mere submission of a RCRA permit-renewal application by the Air Force to a territorial regulator does not constitute \"final agency action\" under the APA (5 U.S.C. 704). Applying *Bennett v. Spear*, the Court will likely reason that an application is a preliminary step that does ",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:16.189Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7025bbbdbf29053c",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/reasoning.md\nP(disturbed) = 0.85. The baseline reversal rate for merits cases is approximately 69.8%, as reported in the statpack's pooled prior terms. I adjust this probability significantly upward because the petitioner is the federal government (the Department of the Air Force, represented by the Solicitor General). The Supreme Court frequently grants the Solicitor General's petiti",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:19.352Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "35d5295194d40ade",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/retrieval.md\nGoogle web search used to identify the lower court case details for \"Prutehi Guahan v. Department of the Air Force\" (Ninth Circuit 22-16613), which confirmed the Ninth Circuit ruled against the federal government on the \"final agency action\" and NEPA questions.\nEOF",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:22.740Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b854ec950fc113dd",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/73279024\",\n  \"event_id\": \"evt-brief-judgment\",\n  \"run_id\": \"20260816T173750Z\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"role\": \"predictor\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\"google_web_search\", \"run_shell_command\", \"mcp_courtlistener_search\"],\n  \"helpful\": [\"google_web_search for qui",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:26.303Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:53.122Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d82016b476a4a5a5",
+      "query": "cat << 'EOF' > data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/tooling.json\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/73279024\",\n  \"run_id\": \"20260816T173750Z\",\n  \"actor_id\": \"gemini-baseline\",\n  \"role\": \"predictor\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\"google_web_search\", \"run_shell_command\", \"mcp_courtlistener_search\"],\n  \"helpful\": [\"google_web_search for quick identification of lower court decisio",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:53:56.803Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:20.015Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e43fe2ff7a87f10",
+      "query": "cat data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z/prediction.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-16T18:54:22.903Z",
+      "tool": "run_shell_command"
+    }
+  ],
+  "case_id": "scotus/73279024",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260816T173750Z",
+  "schema_version": "1.0"
+}

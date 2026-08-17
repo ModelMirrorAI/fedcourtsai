@@ -1,0 +1,1 @@
+- Used Google Web Search to read news and background regarding the cert grant for *Suncor Energy v. County Commissioners of Boulder County*, which clarified the lower court's ruling (Colorado Supreme Court allowed state-law claims) and the core preemption issue regarding state-law climate litigation against fossil fuel companies.
