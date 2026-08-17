@@ -546,16 +546,27 @@ def _codex_payload(record: dict[str, Any]) -> dict[str, Any] | None:
 _SHAPE_DEPTH = 2
 _SHAPE_KEY_CAP = 40
 _SHAPE_VARIANT_CAP = 3
+# How many distinct shapes are retained. A transcript is agent-influenced
+# input: an item stream whose keys vary per record has as many distinct shapes
+# as records, so an uncapped distillation is an unbounded artifact an agent
+# chooses the size of. Past the cap the counting continues and the shapes stop,
+# and the output says so (``truncated``) rather than reading as a complete
+# census of a stream it stopped following.
+_SHAPE_COUNT_CAP = 500
 # What an emitted key or type discriminator may look like: a field
-# identifier's own shape and nothing wider. An object keyed by data rather
-# than by schema is the only path by which transcript content could reach the
-# output at all, so the screen is drawn where identifiers stop — a leading
-# letter or underscore, then word characters, dots, or hyphens. That refuses
-# the shapes retrieved data actually takes in a key position (a URL or
-# document path, a slugged case name, a citation, anything spaced or
-# punctuated), which is what makes "never a value" true by construction rather
-# than by the walk's depth. Anything else is reported as its shape.
-_SHAPE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,63}$")
+# identifier's own shape and nothing wider. Values never reach the output at
+# all, so an object keyed by *data* rather than by schema is the single path by
+# which transcript content could — and the screen bounds that path rather than
+# closing it. It refuses what does not fit an identifier: anything spaced or
+# punctuated, a URL or document path, a citation, a sentence, anything past 64
+# characters. It admits what does: **a bare slug (`roe-v-wade`) and a dotted
+# phrase are identifier-shaped and pass verbatim.** So the honest claim is that
+# no *value* is ever emitted and a data-keyed object can still export an
+# identifier-shaped fragment of up to 64 characters — bounded further by the
+# per-object key cap, the shape cap, and a walk that stops at the item
+# envelope, where the keys are the CLI's own. Read the artifact knowing that;
+# do not read it as proof that no retrieved token ever appears.
+_SHAPE_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]{0,63}")
 _SHAPE_NON_IDENTIFIER = "<non-identifier>"
 
 
@@ -580,9 +591,14 @@ def _json_type_name(value: Any) -> str:
 
 
 def _shape_token(value: Any) -> str:
-    """A key name or type discriminator, screened to identifier shape."""
+    """A key name or type discriminator, screened to identifier shape.
+
+    ``fullmatch``, not ``match``: a trailing newline sits outside ``$``, so a
+    key carrying one — a line of text ending where an identifier would — would
+    otherwise pass the screen with the newline still on it.
+    """
     text = value if isinstance(value, str) else str(value)
-    return text if _SHAPE_IDENTIFIER.match(text) else _SHAPE_NON_IDENTIFIER
+    return text if _SHAPE_IDENTIFIER.fullmatch(text) else _SHAPE_NON_IDENTIFIER
 
 
 def _shape(value: Any, depth: int) -> Any:
@@ -623,7 +639,11 @@ def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
     Returns a JSON-ready mapping: the file and record totals, then one entry
     per distinct shape — the record envelope's type and keys, the payload's
     own type, and the payload's :func:`_shape` — with the number of records
-    that carried it, most frequent first. Tolerant like the parsers: a missing
+    that carried it, most frequent first. At most :data:`_SHAPE_COUNT_CAP`
+    shapes are retained; past that ``truncated`` is true and
+    ``shapes_dropped`` counts the records whose shape was new when the cap was
+    already full, so a bounded artifact never passes as a complete census.
+    Tolerant like the parsers: a missing
     directory or an unreadable rollout yields an empty distillation, never an
     exception, because this is instrumentation.
     """
@@ -631,6 +651,7 @@ def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
     counts: dict[str, int] = {}
     entries: dict[str, dict[str, Any]] = {}
     records = 0
+    dropped = 0
     for rollout in rollouts:
         for record in _codex_records(rollout):
             records += 1
@@ -646,12 +667,17 @@ def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
                 "payload_shape": None if payload is None else _shape(payload, _SHAPE_DEPTH),
             }
             key = json.dumps(entry, sort_keys=True)
+            if key not in entries and len(entries) >= _SHAPE_COUNT_CAP:
+                dropped += 1
+                continue
             entries.setdefault(key, entry)
             counts[key] = counts.get(key, 0) + 1
     ordered = sorted(counts, key=lambda key: (-counts[key], key))
     return {
         "files": len(rollouts),
         "records": records,
+        "truncated": dropped > 0,
+        "shapes_dropped": dropped,
         "shapes": [{"count": counts[key], **entries[key]} for key in ordered],
     }
 

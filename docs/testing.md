@@ -124,7 +124,8 @@ integration break (a sandbox denying localhost, a CLI behavior change) hides
 in. Its codex leg additionally wires the CourtListener MCP sidecar and the
 generated client config the live cells get, and uploads the cell's rollout
 distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
-names, never a value, so the artifact is publishable where the transcript is
+names, never a value, with the key screen's residual and the shape cap stated
+in [cli.md](cli.md), so the artifact is publishable where the transcript is
 not): the retrieval parser keys on those shapes, an unrecognized one reads
 exactly like a cell that called nothing, and a real transcript is the only
 thing that separates the two. Read the artifact against the environment the

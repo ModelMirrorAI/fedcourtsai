@@ -257,6 +257,39 @@ def test_the_codex_mcp_wiring_agrees_across_the_cells_and_the_smoke() -> None:
             )
 
 
+# A credential-shaped env name on an `mcp-config` step is the one input that
+# changes what the command writes: stdio entries inject token values from the
+# emitting process's environment into the generated file, which is the residual
+# the localhost sidecar retired. `--http-url` entries carry no token whatever
+# the env holds, so this is defence for the day someone drops the flag.
+_CREDENTIAL_ENV_NAME = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|AUTH", re.IGNORECASE)
+
+
+def test_no_mcp_config_step_can_inject_a_token_into_the_file_it_writes() -> None:
+    """Every `mcp-config` step's env is identifiers only — no credential-shaped
+    name, no `secrets.` expression — on the cell workflows and the smoke leg
+    alike, so no generated client config can carry a token value."""
+    seen: set[str] = set()
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(path.name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                run = step.get("run")
+                if not isinstance(run, str) or "mcp-config" not in run:
+                    continue
+                seen.add(path.name)
+                context = f"{path.name}: job {job_id}, step {step.get('name')!r}"
+                for key, value in (step.get("env") or {}).items():
+                    assert not _CREDENTIAL_ENV_NAME.search(key), (
+                        f"{context}: credential-shaped env {key!r} on an mcp-config "
+                        f"step — a stdio entry would write its value into the "
+                        f"generated config file"
+                    )
+                    assert "secrets." not in str(value), (
+                        f"{context}: env {key!r} interpolates a secret into an mcp-config step"
+                    )
+    assert CODEX_MCP_WORKFLOWS[1] in seen, "the smoke leg must generate its own MCP config"
+
+
 def test_every_codex_home_is_the_workspace_dir_the_config_is_written_into() -> None:
     """One spelling of ``CODEX_HOME`` everywhere, and the smoke declares it.
 

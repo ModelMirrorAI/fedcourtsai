@@ -17,6 +17,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
+    _SHAPE_COUNT_CAP,
     carries_redaction,
     distill_codex_shapes,
     parse_claude_retrieval,
@@ -1480,24 +1481,64 @@ def test_codex_shape_distillation_counts_repeats_and_walks_two_levels(tmp_path: 
 
 
 def test_codex_shape_distillation_screens_a_data_shaped_key(tmp_path: Path) -> None:
-    # A key name is emitted verbatim, so an object keyed by content rather than
-    # by schema is the only path by which transcript content could reach the
-    # output. The screen is drawn at an identifier's own shape, which is what
-    # refuses the forms retrieved data takes in a key position: free text, and
-    # — the one a wider screen would have republished intact — a document URL
-    # or slugged case name.
+    # A key name is emitted verbatim where it is identifier-shaped, so an
+    # object keyed by content rather than by schema is the single path by which
+    # transcript content could reach the output at all. The screen refuses what
+    # does not fit an identifier: spacing, punctuation, a path, a trailing
+    # newline (which is why the match is anchored at both ends).
     sessions = _codex_rollout(
         tmp_path,
         {
             "type": "custom_tool_call",
             "input": {"petitioner asked whether X": 1},
             "output": {"/opinion/12345/roe-v-wade/": "granted"},
+            "meta": {"docket_no\n": "22-1234"},
         },
     )
     (shape,) = distill_codex_shapes(sessions)["shapes"]
     assert shape["payload_shape"]["input"] == {"<non-identifier>": "number"}
     assert shape["payload_shape"]["output"] == {"<non-identifier>": "string"}
+    assert shape["payload_shape"]["meta"] == {"<non-identifier>": "string"}
     assert "roe-v-wade" not in json.dumps(shape)
+
+
+def test_codex_shape_distillation_admits_an_identifier_shaped_data_key(tmp_path: Path) -> None:
+    # The residual, pinned rather than pretended away: the screen bounds the
+    # data-keyed path, it does not close it. A bare slug and a dotted phrase
+    # ARE identifier-shaped, so a key made of retrieved content in those forms
+    # crosses into the artifact verbatim, up to 64 characters. Read a published
+    # distillation knowing that; it is not proof that no retrieved token
+    # appears in it. What holds unconditionally is the other half — no *value*
+    # is ever emitted, only its JSON type name.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "custom_tool_call",
+            "input": {"roe-v-wade": 1, "Petitioner.confidential.sealed.brief": 2},
+        },
+    )
+    (shape,) = distill_codex_shapes(sessions)["shapes"]
+    assert shape["payload_shape"]["input"] == {
+        "Petitioner.confidential.sealed.brief": "number",
+        "roe-v-wade": "number",
+    }
+
+
+def test_codex_shape_distillation_caps_the_shapes_it_retains(tmp_path: Path) -> None:
+    # A transcript is agent-influenced input: an item stream whose keys vary
+    # per record has as many distinct shapes as records, so the artifact's size
+    # would be the agent's to choose. Past the cap the counting continues and
+    # the shapes stop, and the output says so rather than reading as a complete
+    # census.
+    payloads: list[dict[str, object]] = [
+        {"type": f"item_{index}"} for index in range(_SHAPE_COUNT_CAP + 25)
+    ]
+    sessions = _codex_rollout(tmp_path, *payloads)
+    distillation = distill_codex_shapes(sessions)
+    assert len(distillation["shapes"]) == _SHAPE_COUNT_CAP
+    assert distillation["records"] == _SHAPE_COUNT_CAP + 25
+    assert distillation["truncated"] is True
+    assert distillation["shapes_dropped"] == 25
 
 
 def test_codex_shape_distillation_reads_every_session_and_tolerates_a_missing_tree(
@@ -1519,7 +1560,13 @@ def test_codex_shape_distillation_reads_every_session_and_tolerates_a_missing_tr
         "reasoning",
     }
     # Instrumentation never fails the run it observes.
-    assert distill_codex_shapes(tmp_path / "absent") == {"files": 0, "records": 0, "shapes": []}
+    assert distill_codex_shapes(tmp_path / "absent") == {
+        "files": 0,
+        "records": 0,
+        "truncated": False,
+        "shapes_dropped": 0,
+        "shapes": [],
+    }
 
 
 def test_codex_item_shapes_command_writes_the_distillation(tmp_path: Path) -> None:
@@ -1544,4 +1591,27 @@ def test_codex_item_shapes_command_survives_a_cell_that_never_ran(tmp_path: Path
         ["codex-item-shapes", "--sessions-dir", str(tmp_path / "absent"), "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(out.read_text()) == {"files": 0, "records": 0, "shapes": []}
+    assert json.loads(out.read_text()) == {
+        "files": 0,
+        "records": 0,
+        "truncated": False,
+        "shapes_dropped": 0,
+        "shapes": [],
+    }
+
+
+def test_codex_item_shapes_command_reports_a_truncated_distillation(tmp_path: Path) -> None:
+    # The marker reaches the run log too, not only the artifact: a capped
+    # distillation read as a complete census is the wrong reading of it.
+    payloads: list[dict[str, object]] = [
+        {"type": f"item_{index}"} for index in range(_SHAPE_COUNT_CAP + 2)
+    ]
+    sessions = _codex_rollout(tmp_path, *payloads)
+    out = tmp_path / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(sessions), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "2 record(s) past the shape cap" in result.output
+    assert json.loads(out.read_text())["truncated"] is True

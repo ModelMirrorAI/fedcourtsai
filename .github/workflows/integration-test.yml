@@ -737,6 +737,15 @@ jobs:
       # rendered step summary, so nothing transcript-derived reaches live
       # Markdown.
       #
+      # It also goes to `RUNNER_TEMP`, not the workspace, and that placement is
+      # the security control rather than tidiness: the cell has just had write
+      # access to the whole workspace, so a path there can be pre-planted — a
+      # file, a directory, a symlink out of the tree — and the distill step is
+      # `continue-on-error`, so a failed write is swallowed and the upload
+      # publishes whatever sits at the path, unscanned, from a public repo.
+      # `RUNNER_TEMP` is outside the workspace-write sandbox, which makes the
+      # uploaded artifact the tested command's own output by construction.
+      #
       # Observation, never a gate: `always()` so a failed cell still yields
       # its shapes (a blocked cell's transcript is exactly the interesting
       # one), `continue-on-error` and a tolerant command so the smoke's
@@ -749,7 +758,8 @@ jobs:
         run: |
           set -euo pipefail
           uv run fedcourts codex-item-shapes \
-            --sessions-dir "$CODEX_HOME/sessions" --out codex-item-shapes.json
+            --sessions-dir "$CODEX_HOME/sessions" \
+            --out "$RUNNER_TEMP/codex-item-shapes.json"
 
       - name: Upload the codex transcript's item shapes
         if: ${{ always() && matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
@@ -757,7 +767,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codex-item-shapes
-          path: codex-item-shapes.json
+          path: ${{ runner.temp }}/codex-item-shapes.json
           # Warn, not error: a cell that died before writing a transcript
           # leaves nothing to upload, and this step must not be the thing
           # that reddens the smoke.

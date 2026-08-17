@@ -408,7 +408,12 @@ live cell's does, so the agent step and the generated client config carry a
 localhost URL and no token. That leg exists to exercise the MCP wiring itself:
 it is the one engine whose transcript shapes no committed retrieval log has
 ever exhibited, and the leg distills its rollout to item types and key names
-(never a value) as an uploaded artifact. **Which of two artifacts a dispatch
+(never a value) as an uploaded artifact — written to the runner temp dir
+rather than the workspace the cell could write, so the published file is the
+tested command's own output. The claim that survives scrutiny is the one about
+values; a key name is emitted verbatim where it is identifier-shaped, so an
+object keyed by retrieved data can export a fragment of up to 64 characters
+(`docs/cli.md` states the bound). **Which of two artifacts a dispatch
 yields depends on the environment it binds**, and a reader must know which
 they hold: the token is a `prod` secret, and an environment that carries no
 copy of its own — `staging` included, unless one has been added there
@@ -536,7 +541,13 @@ parent, so the same-user non-boundary above is more direct in this job.
 only accepts a key via `codex login`, so the runner seam logs in to a
 run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
 rest of the job — same-user readable, like the parent's environment already
-is.) Running codex here also requires loosening the runner kernel's AppArmor
+is. The temp home is what the seam picks when the caller names none; a caller
+that pins `CODEX_HOME` keeps it, and the engine-smoke codex leg does pin it —
+to the workspace `.codex` the live cells use, because the cell must read the
+MCP config written there and the shape distillation must find the session
+rollout under it. That trades the temp dir for a gitignored workspace dir on
+the same runner, under the same same-user non-boundary, and the job commits
+nothing.) Running codex here also requires loosening the runner kernel's AppArmor
 restriction on unprivileged user namespaces — the same sysctl prerequisite
 codex-action applies for the live cells — and unlike codex-action, the
 runner-seam jobs do not drop sudo afterwards: accepted out loud, because the
