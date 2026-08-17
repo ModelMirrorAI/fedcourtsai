@@ -66,6 +66,7 @@ from .cert_backtest import (
     replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
+    truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
@@ -5125,8 +5126,66 @@ def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -
     return None
 
 
+def _read_cell_inputs(
+    backend: corpus.CorpusBackend,
+    db_path: Path,
+    case: str,
+    event: str,
+    *,
+    want_row: bool,
+    cut: bool,
+) -> provision.CellRead:
+    """One backend read of everything a cell's provisioning decides on.
+
+    Kept whole, and kept inside one connection, because that is what makes a
+    ranged cell's egress counters (``_echo_read_stats``) the whole story of what
+    the cell cost.
+
+    ``want_row`` fetches the row half of the terminal gate, which only an armed
+    gate reads. ``cut`` asks for the moment placement: ``provision.moment_cutoff``
+    decides from the events whether this event declares a moment with a date to
+    be placed at, and the pre-cutoff snapshot is fetched on the same connection.
+    That read happens before the caller's gates run, so a refused cell pays for
+    one snapshot it never uses; the alternative is a second connection on every
+    cut cell.
+
+    The events are read for either — the gate reads them, and a cutoff is a
+    property of the moment the cell forecasts rather than of the gate — and for
+    neither otherwise, which is the evaluate path: an unread list is egress this
+    command's single-connection design exists to account for.
+    """
+    if backend == "casestore":
+        source = _casestore_source()
+        events = source.events_for_case(case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        return provision.CellRead(
+            latest=source.latest_snapshot(case),
+            documents=source.documents_for_case(case),
+            events=events,
+            # The casestore exposes events but no rows; `_casestore_row_refusal`
+            # is the gate's own fallback for the row half.
+            row=None,
+            cutoff=cutoff,
+            dated=source.snapshot_at(case, before=cutoff) if cutoff is not None else None,
+        )
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        events = corpus.events_for_case(conn, case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        read = provision.CellRead(
+            latest=corpus.latest_snapshot(conn, case),
+            documents=corpus.documents_for_case(conn, case),
+            events=events,
+            row=corpus.get_row(conn, case) if want_row else None,
+            cutoff=cutoff,
+            dated=corpus.snapshot_at(conn, case, before=cutoff) if cutoff is not None else None,
+        )
+        _echo_read_stats(conn)
+    return read
+
+
 @app.command("provision-snapshot")
-def provision_snapshot(
+def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     out: Annotated[
@@ -5161,11 +5220,28 @@ def provision_snapshot(
         str,
         typer.Option(
             help="The event this cell forecasts. Scopes --refuse-terminal to "
-            "that event's own outcome; omitted, the guard reads the "
-            "cert/interim disposition, which is the right question for every "
-            "case-baseline cell.",
+            "that event's own outcome, and places the cell at the event's "
+            "declared moment (see --moment-cutoff); omitted, the guard reads "
+            "the cert/interim disposition, which is the right question for "
+            "every case-baseline cell, and no cut is taken.",
         ),
     ] = "",
+    moment_cutoff: Annotated[
+        bool,
+        typer.Option(
+            "--moment-cutoff/--no-moment-cutoff",
+            help="Cut a forward cell's snapshot and documents to the "
+            "information set its --event declares: everything filed strictly "
+            "before the day after the event opened. A stage's later moments "
+            "exist because their information sets differ, so a grant-moment "
+            "merits cell provisioned from the latest snapshot would read the "
+            "merits briefs only the briefed moment declares. On by default; it "
+            "acts only on a forward cell whose --event names a declared moment "
+            "whose opened_at is that moment's trigger and whose corpus row "
+            "records it, so a case-baseline cell and an evaluate cell (no "
+            "--event) are untouched either way.",
+        ),
+    ] = True,
     max_snapshot_age_days: Annotated[
         int,
         typer.Option(
@@ -5181,7 +5257,7 @@ def provision_snapshot(
     ] = 0,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Materialize a case's latest corpus snapshot (and documents) for an agent run.
+    """Materialize a case's corpus snapshot (and documents) for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate workflows call this to read the most
@@ -5193,7 +5269,18 @@ def provision_snapshot(
     questions presented, brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights. Exits non-zero if the corpus holds no snapshot for the case
+    fetch rights.
+
+    "Most recent" is the answer only for a cell that has no declared moment of
+    its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
+    the default), a forward cell is placed at that moment instead: the snapshot
+    is the one the docket served before the cutoff if the corpus stored one
+    (``dated``), otherwise the latest payload with its post-cutoff entries
+    removed and its date set to the cutoff (``truncated``), and the documents are
+    cut with it. ``record/context.json`` records which, and the cutoff. Both
+    gates below run on the latest payload first, before any of that.
+
+    Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
     record or the snapshot shows the event is not open (code 3, nothing
     written): the record already holds the outcome
@@ -5205,26 +5292,20 @@ def provision_snapshot(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
-    # The gate reads (events, row) ride the same connection as the snapshot
-    # read, so a ranged cell opens one connection and the egress counters
-    # `_echo_read_stats` reports stay the whole story.
     gate_active = refuse_terminal and mode == "forward"
-    gate_events: list[corpus.CorpusEvent] = []
-    gate_row: corpus.CorpusRow | None = None
-    if backend == "casestore":
-        source = _casestore_source()
-        found = source.latest_snapshot(case)
-        documents = source.documents_for_case(case)
-        if gate_active:
-            gate_events = source.events_for_case(case)
-    else:
-        with corpus.connect_readonly(db_path, backend=backend) as conn:
-            found = corpus.latest_snapshot(conn, case)
-            documents = corpus.documents_for_case(conn, case)
-            if gate_active:
-                gate_events = corpus.events_for_case(conn, case)
-                gate_row = corpus.get_row(conn, case)
-            _echo_read_stats(conn)
+    # The cut applies to a forward cell that names an event; whether that event
+    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    read = _read_cell_inputs(
+        backend,
+        db_path,
+        case,
+        event,
+        want_row=gate_active,
+        cut=moment_cutoff and mode == "forward" and bool(event),
+    )
+    found = read.latest
+    documents = read.documents
+    cutoff = read.cutoff
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
@@ -5258,8 +5339,8 @@ def provision_snapshot(
     if gate_active:
         _refuse_forward_if_closed(
             backend,
-            gate_events,
-            gate_row,
+            read.events,
+            read.row,
             court,
             docket,
             event,
@@ -5273,6 +5354,56 @@ def provision_snapshot(
                 err=True,
             )
             raise typer.Exit(code=3)
+    # Both gates ran on the LATEST payload, before the cut, and that ordering is
+    # the point of putting the cut here. The staleness bound asks whether the
+    # *pipeline* is live, which only the latest snapshot's date can answer — a
+    # cut payload is re-dated to its cutoff and would read as months stale by
+    # construction. The terminal scan asks whether the docket is decided, and a
+    # disposing order filed after the cutoff is exactly what the cut would hide:
+    # the cell would be provisioned, not refused, against a case that is over.
+    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    # Nothing was removed from a `dated` payload: it is what the docket served.
+    dropped_entries = 0
+    if cutoff is not None:
+        if read.dated is not None and provision.shows_the_moment(read.dated[1], cutoff):
+            # What the docket really served at the moment, which also knows what
+            # had not yet been filed — strictly better than reconstructing it, so
+            # it is preferred and recorded apart. Only where it reaches the
+            # trigger, though: a stored snapshot from well before the moment
+            # would place the cell earlier than the cohort it is filed under.
+            snapshot_date, payload = read.dated
+            provenance = "dated"
+        else:
+            # Reconstructed from a later payload: post-cutoff entries removed,
+            # and an entry whose date is missing or unparseable removed with them
+            # (`truncate_snapshot` fails closed — an undated entry could be the
+            # one that decides the case). Never `blind`: this path always holds a
+            # cutoff to keep entries against, so it never removes the proceedings
+            # key outright, which is what that provenance records.
+            payload, dropped_entries = truncate_snapshot(payload, cutoff)
+            # The same date rule over the top-level fields truncation does not
+            # reach, so the cut docket does not carry an argument date whose
+            # entry it just removed.
+            payload = provision.cut_dated_fields(payload, cutoff)
+            # The docket as at the cutoff is dated by the cutoff, not by the pull
+            # whose bytes it was reconstructed from — otherwise the one file the
+            # cell's information set is judged against carries a later date than
+            # anything in it.
+            snapshot_date = cutoff
+            provenance = "truncated"
+        kept = provision.documents_before(documents, cutoff)
+        dropped_documents = len(documents) - len(kept)
+        documents = kept
+        # Spoken, never written to `context.json`: the cell reads that file, and
+        # how much a cut removed separates a grant from a denial about as
+        # cleanly as the disposing order does. Here it is the harness's own
+        # record — the auditable size of what placement excluded.
+        typer.echo(
+            f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}): "
+            f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
+            f"postdate the moment",
+            err=True,
+        )
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
@@ -5282,12 +5413,23 @@ def provision_snapshot(
     # rest because the salience band only ever strengthens, so a band re-derived
     # later is the band the petition *ended* at. Derived from the payload rather
     # than the corpus row: the row holds current values, the payload is what this
-    # cell can read, and a baseline has to be conditioned on the latter.
+    # cell can read, and a baseline has to be conditioned on the latter. The
+    # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
+    # non-null was placed at its moment, and a figure that pools it with one
+    # provisioned from the latest snapshot pools two information sets.
     write_raw_json(
         paths.cell_context,
-        cell_context.build(case, snapshot_date, payload, mode).model_dump(mode="json"),
+        cell_context.build(
+            case,
+            snapshot_date,
+            payload,
+            mode,
+            provenance=provenance,
+            cutoff=cutoff,
+        ).model_dump(mode="json"),
     )
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
+    placed = f" cut at {cutoff.isoformat()} ({provenance})" if cutoff is not None else ""
+    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
         for doc in documents:
             write_text(paths.document(doc.kind), doc.text)

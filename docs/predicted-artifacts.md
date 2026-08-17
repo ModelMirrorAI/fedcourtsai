@@ -452,10 +452,13 @@ directory without knowing which part is which invites trusting the wrong half.
   human-readable sugar and never a partition key. See
   [process-version.md](process-version.md).
 - **`context`** on `prediction.json` — the `PredictionContext` block: the
-  cell's mode and replay cutoff, and the conditioning state frozen at
-  provisioning: the salience band, the distribution count and CVSG date as at
-  prediction, the Term, and — on an application cell only — the interim
-  escalation trio as at prediction. Written by provisioning and copied on by the stamp. It
+  cell's mode, the cutoff it was placed at (the replay cutoff on a replay cell,
+  the declared moment on a forward one; null where nothing placed it, as in the
+  cert-baseline example above — and distinct from `decided_before`, the replay
+  clock beside it), and the conditioning state frozen at provisioning: the
+  salience band, the distribution count and CVSG date as at that cutoff (as at
+  the snapshot where there is none), the Term, and — on an application cell only
+  — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a

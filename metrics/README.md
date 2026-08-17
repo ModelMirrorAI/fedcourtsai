@@ -964,6 +964,19 @@ the rendered table) and
   within a Term is the intended reading (mind the shifting blind share);
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
+
+  **The same standard binds the forward stratum.** A forward cell placed at its
+  declared moment carries the same `dated`/`truncated` split, so no forward
+  figure over placed cells may be published without those counts stated inline.
+  The split is not cosmetic on either axis. It is **selected**: `dated` needs a
+  pull that landed on the trigger day, which the live poller does for
+  watchlisted and salient dockets and not for the rest, so the residual
+  concentrates in the `truncated` arm rather than spreading evenly. And the two
+  arms err in opposite directions — `dated` brackets the moment from below (it
+  is the docket as pulled, so it can miss entries filed later the same day),
+  `truncated` from above (it reconstructs to the cutoff but carries the undated
+  counsel/amici blocks as at a much later pull). Pooling them averages a
+  selected mixture of two different biases.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): two cert-era populations side by side, plus the
   interim-docket and merits stage sections described below. The labeled full-corpus

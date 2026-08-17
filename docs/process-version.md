@@ -108,6 +108,15 @@ the whole tree at the `prereg/<label>` tag — lookback window included — and 
 later window change belongs in the freeze record beside the masking changes,
 never in a commit message alone.
 
+The **provisioning cutoff** is the list's predictor-side member: where a forward
+cell's event declares a moment, provisioning places the cell at that moment
+rather than at the corpus's latest snapshot, which moves what the predictor is
+conditioned on without touching a prompt byte and so without moving a digest.
+It does carry a data-visible boundary — `context.cutoff`, non-null exactly on a
+placed cell — so the two conditionings are separable in the record rather than
+pooled silently, which is the property the scoring baseline lacks. It belongs in
+the freeze record on the same terms as the rest.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
