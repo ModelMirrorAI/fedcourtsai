@@ -13,6 +13,7 @@ from fedcourtsai.collect import (
     CellStatus,
     ExpectedCell,
     PathJailError,
+    ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
     cell_artifact_name,
@@ -24,6 +25,7 @@ from fedcourtsai.collect import (
     render_feedback_comment,
     render_flags,
     render_stall_comment,
+    render_throttle_note,
 )
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.schemas import AgentFlag, AgentFlags, FlagCategory, FlagSeverity, UsageRole
@@ -634,6 +636,61 @@ def test_facts_only_pr_opens_when_every_cell_died_and_never_closes_the_issue() -
     assert "Closes #" not in fo.body, "a failed run must keep its trigger issue open"
     # There is exactly one failure fact for this run, which the PR exists to commit.
     assert len(cell_failures(plan, run_id="R", role=FinalizeRole.predict)) == 1
+
+
+def test_a_starved_run_says_so_in_its_pr_body_and_a_clean_one_stays_quiet() -> None:
+    # The comparability gap this exists to close: a run whose retrieval the
+    # shared quota starved is otherwise indistinguishable from one it did not,
+    # because the 429 evidence is digested away at capture. A clean run prints
+    # nothing — a standing "0 throttled" paragraph trains the eye to skip
+    # exactly the place the warning will one day appear.
+    starved = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        throttle=ThrottleRollup(cells=4, throttled_cells=2, calls=120, throttled_calls=17),
+    )
+    assert starved.ready is not None
+    assert "Retrieval was throttled this run" in starved.ready.body
+    assert "17 of 120" in starved.ready.body
+    assert "2 of 4 cell log(s)" in starved.ready.body
+    assert starved.throttle_markdown
+
+    clean = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        throttle=ThrottleRollup(cells=4, throttled_cells=0, calls=120, throttled_calls=0),
+    )
+    assert clean.ready is not None
+    assert "throttled" not in clean.ready.body
+    assert clean.throttle_markdown == ""
+    # And a run whose cells were all capture-blind has nothing to report either.
+    assert render_throttle_note(None) == ""
+
+
+def test_the_throttle_note_reaches_a_draft_only_run_and_a_wholesale_failed_one() -> None:
+    # Whichever PR the run opens is where a maintainer reads it. On a
+    # wholesale-failed run that is the facts-only PR — and starvation is a live
+    # candidate cause of exactly that failure.
+    rollup = ThrottleRollup(cells=2, throttled_cells=2, calls=30, throttled_calls=30)
+    draft_only = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", validated=False)],
+        throttle=rollup,
+    )
+    assert draft_only.ready is None and draft_only.partial is not None
+    assert "Retrieval was throttled this run" in draft_only.partial.body
+
+    failed = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False)],
+        throttle=rollup,
+    )
+    assert failed.facts_only is not None
+    assert "Retrieval was throttled this run" in failed.facts_only.body
 
 
 def test_facts_only_pr_covers_a_no_artifact_run_from_the_matrix_alone() -> None:

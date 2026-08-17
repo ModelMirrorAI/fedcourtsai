@@ -230,6 +230,101 @@ def _write_flags(root: Path, cell: str, actor: str, *, run_id: str = "R", case: 
     )
 
 
+def _write_retrieval_log(
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    statuses: list[str],
+    run_id: str = "R",
+    case: str = "1",
+) -> None:
+    # Same shape as a cell's flags.json: the harness writes it under the cell's
+    # own data/ subtree, so every artifact also carries every previously
+    # committed log.
+    log_dir = root / cell / "data" / "cases" / "scotus" / case / "events" / "evt-x" / actor / run_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "retrieval_log.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "run_id": run_id,
+                "role": "predictor",
+                "actor_id": actor,
+                "engine": "claude-code",
+                "calls": [
+                    {
+                        "tool": "mcp__courtlistener__search",
+                        "result_capture": ("unobserved" if s == "unobserved" else "captured"),
+                        "result_status": s,
+                    }
+                    for s in statuses
+                ],
+            }
+        )
+    )
+
+
+def test_collect_plan_counts_this_run_s_throttled_retrieval(tmp_path: Path) -> None:
+    # The starvation surface: read from the cells' harness-captured logs, and
+    # scoped and deduped exactly like the flags, because every artifact ships
+    # the whole data/ tree and an earlier run's throttling is not this run's.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "claude-baseline"), ("cell-b", "codex-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    _write_retrieval_log(tmp_path, "cell-a", "claude-baseline", statuses=["throttled", "ok"])
+    # The same cell's log riding along in the other artifact — counted once.
+    _write_retrieval_log(tmp_path, "cell-b", "claude-baseline", statuses=["throttled", "ok"])
+    _write_retrieval_log(tmp_path, "cell-b", "codex-baseline", statuses=["ok", "ok"])
+    # A prior run's committed log, carried in every artifact — excluded.
+    _write_retrieval_log(
+        tmp_path, "cell-a", "claude-baseline", statuses=["throttled"], run_id="Q", case="2"
+    )
+    # A capture-blind cell enters neither side of the ratio.
+    _write_retrieval_log(
+        tmp_path, "cell-b", "gemini-baseline", statuses=["unobserved", "unobserved"]
+    )
+    # An unreadable log must never take down the aggregation carrying the run's
+    # only copy of its output.
+    broken = (
+        tmp_path / "cell-a" / "data" / "cases" / "scotus" / "1" / "events" / "evt-x" / "b" / "R"
+    )
+    broken.mkdir(parents=True)
+    (broken / "retrieval_log.json").write_text("{not json")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    body = json.loads(result.stdout)["ready"]["body"]
+    assert "Retrieval was throttled this run" in body
+    assert "1 of 4 tool result(s)" in body
+    assert "1 of 2 cell log(s)" in body
+
+
+def test_collect_plan_says_nothing_when_no_cell_was_throttled(tmp_path: Path) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_retrieval_log(tmp_path, "cell-a", "claude-baseline", statuses=["ok", "ok"])
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    assert "throttled" not in json.loads(result.stdout)["ready"]["body"]
+
+
 def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
     base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
     _write_cell(

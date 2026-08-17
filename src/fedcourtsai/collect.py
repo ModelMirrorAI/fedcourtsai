@@ -337,12 +337,21 @@ class CollectPlan:
     ``Closes #`` — the run genuinely failed, so the trigger issue stays open for
     the stall/human — and its body is deterministic (no agent free text), so the
     secret scan cannot withhold the very facts it exists to persist.
+
+    ``throttle_markdown`` is the harness-side counterpart of ``flags_markdown``:
+    the warning that the shared upstream quota starved this run's retrieval,
+    counted from the cells' own captured results rather than from an agent's
+    account of them. Empty on any run with no observed throttle; otherwise
+    appended ahead of the flags to whichever PR body opens, ``facts_only``
+    included — starvation is a live candidate cause of the wholesale failure
+    that PR exists for.
     """
 
     ready: PrPlan | None
     partial: PrPlan | None
     skipped: tuple[CellStatus, ...] = ()
     flags_markdown: str = ""
+    throttle_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
@@ -436,6 +445,50 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
     )
 
 
+@dataclass(frozen=True)
+class ThrottleRollup:
+    """What this run's cell retrieval logs say about being starved by the quota.
+
+    Counted over the calls whose result condition was legible at all
+    (``RetrievalCall.result_status``), never over every call: an engine whose
+    transcript drops results cannot be seen being throttled, and folding its
+    calls into the denominator would dilute a real starvation signal with cells
+    that could never have shown one.
+    """
+
+    cells: int = 0
+    throttled_cells: int = 0
+    calls: int = 0
+    throttled_calls: int = 0
+
+
+def render_throttle_note(rollup: ThrottleRollup | None) -> str:
+    """The run PR's one-paragraph warning that the upstream quota starved cells.
+
+    Returns ``""`` on a run with no observed throttle — including one whose
+    every cell was capture-blind — so a clean run's PR carries no line at all.
+    Silence is the right default for a notification surface a maintainer reads
+    once per run: a standing "0 throttled" paragraph is noise that trains the
+    eye to skip exactly the place the warning will one day appear. The
+    corpus-wide tool-usage report makes the opposite choice on purpose, because
+    a diagnostic's reader needs to see that the question was asked.
+    """
+    if rollup is None or rollup.throttled_calls == 0:
+        return ""
+    return (
+        f"⚠️ **Retrieval was throttled this run**: {rollup.throttled_calls} of "
+        f"{rollup.calls} tool result(s) whose condition capture could read came back "
+        f"rate-limited — the shape an upstream HTTP 429 takes, which is what the "
+        f"CourtListener MCP server renders a quota refusal as — "
+        f"across {rollup.throttled_cells} of {rollup.cells} cell log(s). Those cells "
+        f"retrieved less than an unthrottled cell would have — the shared daily quota, "
+        f"not the agent — so read their coverage, and any comparison that puts them "
+        f"beside a well-fed cell, with that in mind. The count is a floor: a call whose "
+        f"result never reached the transcript cannot be counted, and a cell that gave up "
+        f"on a call leaves no row at all."
+    )
+
+
 def feedback_marker(role: FinalizeRole, run_id: str) -> str:
     """The hidden HTML marker that keys one run's note on the agent-feedback issue.
 
@@ -491,6 +544,7 @@ def collect_plan(
     flags: Sequence[AgentFlags] = (),
     missing_artifacts: Sequence[str] = (),
     expected: Sequence[ExpectedCell] = (),
+    throttle: ThrottleRollup | None = None,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -534,6 +588,14 @@ def collect_plan(
     Actions summary, and as ``feedback_comment`` for the long-lived agent-feedback
     tracking issue — a durable, centralized home for an agent's note that survives
     the trigger issue's closure and even a fully-failed run that opens no PR.
+
+    ``throttle`` is the run's harness-captured starvation count, summarized from
+    the cells' own retrieval logs. It rides the same PR body as the flags because
+    it answers the question a reader of those flags is already asking — whether
+    the run's cells got the retrieval they asked for — and because the run PR is
+    the only durable per-run surface that could carry it: the 429 evidence itself
+    is digested away at capture, so nothing else records that a run was starved.
+    Silent when nothing was throttled.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -633,6 +695,8 @@ def collect_plan(
             artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
+    throttle_md = render_throttle_note(throttle)
+
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
     # to persist (skipped/salvage/uncovered), and no other PR to carry them. The
     # facts-only PR does that so the attempt cap advances even for a narrow run
@@ -648,15 +712,20 @@ def collect_plan(
             skipped=skipped,
             salvage=tuple(salvage),
             uncovered=uncovered,
+            throttle_md=throttle_md,
         )
 
     flags_md = render_flags(flags)
-    ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
+    # Throttle first: it is a harness fact about what the run could see, which
+    # is the frame a maintainer needs before reading agents' accounts of what
+    # they found.
+    ready_plan, partial_plan = _append_sections(ready_plan, partial_plan, (throttle_md, flags_md))
     return CollectPlan(
         ready=ready_plan,
         partial=partial_plan,
         skipped=skipped,
         flags_markdown=flags_md,
+        throttle_markdown=throttle_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
         dead_actors=dead_actors,
@@ -675,6 +744,7 @@ def _facts_only_plan(
     skipped: Sequence[CellStatus],
     salvage: Sequence[CellStatus],
     uncovered: Sequence[ExpectedCell],
+    throttle_md: str = "",
 ) -> PrPlan | None:
     """The auto-merging PR that persists a wholesale-failed run's failure facts.
 
@@ -687,6 +757,12 @@ def _facts_only_plan(
     closes the trigger issue (the run failed) and its body is deterministic — no
     agent-authored text — so the producer-side secret scan can never withhold the
     branch and lose the very facts it exists to persist.
+
+    ``throttle_md`` rides along when the run's captured retrieval shows the
+    upstream quota turning cells away, because this is the one PR a
+    wholesale-failed run opens and starvation is a live candidate cause of one.
+    It is harness-rendered from the cells' own logs, so it keeps the body's
+    no-agent-text property.
     """
     total = len(skipped) + len(salvage) + len(uncovered)
     if total == 0:
@@ -709,6 +785,8 @@ def _facts_only_plan(
         f"The trigger issue stays open — the run genuinely failed and still needs "
         f"a successful retry or a human."
     )
+    if throttle_md:
+        body = f"{body}\n\n{throttle_md}"
     return PrPlan(
         branch=f"{role.value}/run-{run_id}-facts",
         commit_message=f"{role.value}(run {run_id}): {total} cell-failure fact(s)",
@@ -723,21 +801,24 @@ def _facts_row(actor: str, court: str, docket: int, event_id: str, why: str) -> 
     return f"| `{actor}` | `{court}/{docket}` | `{event_id}` | {why} |"
 
 
-def _append_flags(
-    ready: PrPlan | None, partial: PrPlan | None, flags_md: str
+def _append_sections(
+    ready: PrPlan | None, partial: PrPlan | None, sections: Sequence[str]
 ) -> tuple[PrPlan | None, PrPlan | None]:
-    """Append the flag roll-up to the run's primary PR body (ready, else draft).
+    """Append the run-level roll-ups to the run's primary PR body (ready, else draft).
 
-    The flags belong to the run, not a single cell, so they ride the one PR a
-    maintainer reviews — the auto-merging ready PR when there is one, otherwise the
-    draft. With no PR at all the roll-up still travels as ``flags_markdown``.
+    The flag roll-up and the throttle note belong to the run, not a single cell,
+    so they ride the one PR a maintainer reviews — the auto-merging ready PR
+    when there is one, otherwise the draft. Empty sections are dropped, so a run
+    with neither leaves the body untouched; with no PR at all each roll-up still
+    travels on the plan (``flags_markdown`` / ``throttle_markdown``).
     """
-    if not flags_md:
+    body = "\n\n".join(section for section in sections if section)
+    if not body:
         return ready, partial
     if ready is not None:
-        return replace(ready, body=f"{ready.body}\n\n{flags_md}"), partial
+        return replace(ready, body=f"{ready.body}\n\n{body}"), partial
     if partial is not None:
-        return ready, replace(partial, body=f"{partial.body}\n\n{flags_md}")
+        return ready, replace(partial, body=f"{partial.body}\n\n{body}")
     return ready, partial
 
 

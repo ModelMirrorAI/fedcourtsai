@@ -71,6 +71,25 @@
           "description": "SHA-256 (hex, 16 chars) of the logged result payload",
           "title": "Result Digest"
         },
+        "result_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "ok",
+                "throttled",
+                "error",
+                "unobserved"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What capture read IN this call's result \u2014 decided at parse time from the captured payload, never the agent's word, and never a judgment about whether the call was useful. `throttled` means the payload carries the shape the pinned CourtListener MCP server renders an upstream HTTP 429 as: its tool handler raises `Rate limit exceeded: HTTP 429: \u2026`, and its citation tools append a `Rate limited by the upstream API` note to a result the throttle cut short. That is the shared daily quota turning the cell away rather than the corpus being empty, which is the one condition a starved run cannot otherwise be told apart from a well-fed one by. The predicate is anchored on those phrases rather than on a bare `429`, because what it scans is retrieved legal content in which 429 is an ordinary U.S. Reports volume and a docket number besides; it is deliberately biased to miss a throttle rather than invent one, so read `throttled` as a floor. `error` is the engine's OWN error marker on the result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with no throttle shape \u2014 a floor too, since only some engines set one. `ok` is the residual: captured, no error marker, no throttle shape. It is not proof the call succeeded \u2014 a failure an engine does not mark lands here. `unobserved` mirrors `result_capture` exactly: no result reached the log, so no condition could be read, which is every Gemini call. Null on records written before the field existed: condition-unknown, not `ok`.",
+          "title": "Result Status"
+        },
         "retrieved_doc_date": {
           "anyOf": [
             {
@@ -200,6 +219,20 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "throttled_calls": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How many of this log's calls carry `result_status` `throttled` \u2014 the log-level reading of how often the shared upstream quota turned this cell away rather than answering it. Derived from `calls`, never asserted independently, so the count and the rows cannot disagree; like `result_capture_coverage` its denominator is the calls this log RETAINED, after capture's head-cut at the schema's 500-call maximum. Null when no call's status records an observed condition \u2014 an empty log, one predating the field, or one whose every result was `unobserved` \u2014 because a throttle is only countable where the result reached the transcript, and a 0 from a capture-blind log would read as a clean run. A real 0 is the stronger claim: results were legible and none of them was a throttle. Read any non-null count as a floor \u2014 the per-call predicate is biased against inventing a throttle, and calls the cell never got to make are not here at all.",
+      "title": "Throttled Calls"
     }
   },
   "required": [

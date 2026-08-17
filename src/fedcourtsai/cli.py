@@ -75,6 +75,7 @@ from .collect import (
     ExpectedCell,
     PathJailError,
     PrPlan,
+    ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
     cell_failures,
@@ -8806,6 +8807,64 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     return flag_sets
 
 
+def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
+    """Summarize this run's captured retrieval throttling from the cell artifacts.
+
+    The same walk shape as :func:`_load_flag_sets`, and for the same reason:
+    each cell uploads its whole ``data/`` subtree, so the run's
+    ``retrieval_log.json`` files land wherever the cell's own case path puts
+    them. The two filters are the same two as well — **run id**, because every
+    artifact also carries every *previously committed* log and an earlier run's
+    throttling is not this run's; and **identity**, keyed on the cell a log
+    describes, because a log committed by an earlier cell of this same run rides
+    along in later cells' artifacts and would otherwise be counted once per
+    cell.
+
+    The run-id filter runs twice, once in the glob and once on the parsed
+    record, and the pair is not redundant. Both roles key a cell's directory on
+    its run id, so the glob skips the whole committed history without opening
+    it — every log the ledger has ever carried rides in every artifact, so a
+    parse-everything walk would validate that history once per cell of the
+    fan-out. The record's own ``run_id`` is what the count is actually keyed
+    on, so the cheap path filter can never be the thing that decides.
+
+    Denominated on the calls whose condition capture could actually read
+    (``result_status`` present and not ``unobserved``), so a capture-blind cell
+    contributes nothing to either side of the ratio rather than diluting it. A
+    malformed or unreadable log is skipped: this is a notification, and it must
+    never take down the aggregation that carries the run's only copy of its
+    output.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ThrottleRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
+        try:
+            log = RetrievalLog.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if log.run_id != run_id:
+            continue
+        identity = (log.case_id, log.actor_id, str(log.role), log.run_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        observed = [
+            call
+            for call in log.calls
+            if call.result_status is not None and call.result_status != "unobserved"
+        ]
+        if not observed:
+            continue
+        throttled = sum(1 for call in observed if call.result_status == "throttled")
+        rollup = ThrottleRollup(
+            cells=rollup.cells + 1,
+            throttled_cells=rollup.throttled_cells + bool(throttled),
+            calls=rollup.calls + len(observed),
+            throttled_calls=rollup.throttled_calls + throttled,
+        )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -8866,6 +8925,11 @@ def collect_plan_cmd(
         # leaves no status.json, so without this it is indistinguishable from a
         # cell that was never queued.
         expected=_expected_cells(matrix_file),
+        # Whether the shared upstream quota starved this run's retrieval. Read
+        # from the cells' harness-captured logs, not from what an agent said:
+        # the 429 evidence lives only in the result payload, which capture
+        # digests away, so the parse-time marker is the last place it is legible.
+        throttle=_load_throttle(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

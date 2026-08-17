@@ -44,6 +44,17 @@ and its dead-end rows are withheld rather than printed as 100%. Gated on the MCP
 subset rather than on any call, because a builtin whose output pairs cleanly
 says nothing about whether the manifest tools' results reach the transcript.
 
+**Was the cell starved?** Where a result *was* captured, its ``result_status``
+says what came back, and ``throttled`` is the state that changes how the cell
+should be read: the shared upstream quota turned the call away, so it retrieved
+nothing and its cell is not comparable with a well-fed one. Reported per engine
+as a count over the calls whose condition was legible — never over every call,
+since an engine whose results never reach the transcript would otherwise post a
+clean 0% off a transcript that could not have shown a throttle. Every figure is
+a floor: the parse-time predicate is anchored on the server's own rate-limit
+phrasing and biased to miss rather than invent, and calls a starved cell gave up
+on making leave no row at all.
+
 **What did the calling cost?** Each log's sibling ``usage.json`` carries the
 cell's estimated cost, so calls-per-cell and dollars-per-cell come from the same
 join. A cell that committed no usage record contributes a null cost, never a
@@ -76,6 +87,7 @@ from .schemas import (
     Evaluation,
     ModelUsage,
     Prediction,
+    RetrievalCall,
     RetrievalLog,
     ToolUsage,
     ToolUsageCell,
@@ -222,6 +234,8 @@ class _Ledger:
     web_without_mcp: Counter[str] = field(default_factory=Counter)
     result_calls: Counter[str] = field(default_factory=Counter)
     mcp_result_calls: Counter[str] = field(default_factory=Counter)
+    mcp_status_calls: Counter[str] = field(default_factory=Counter)
+    mcp_throttled_calls: Counter[str] = field(default_factory=Counter)
     engines_by_tool: defaultdict[str, Counter[str]] = field(
         default_factory=lambda: defaultdict(Counter)
     )
@@ -269,6 +283,7 @@ class _Ledger:
                 self.null_results[normalized][engine] += 1
             else:
                 self.mcp_result_calls[engine] += 1
+            self._count_condition(call, engine)
             seen_here.add(normalized)
         for normalized in seen_here:
             self.cells_by_tool[normalized] += 1
@@ -291,6 +306,23 @@ class _Ledger:
         )
         self.cells.append(cell)
         self._remember_predicted(path, cell)
+
+    def _count_condition(self, call: RetrievalCall, engine: str) -> None:
+        """Count one MCP call's result condition toward the engine's throttle rate.
+
+        Counted over MCP calls alone, and denominated on the ones whose
+        condition was legible rather than on every call: a builtin fetch of a
+        page that happens to discuss rate limits is not this engine's manifest
+        tools being starved, and an engine whose transcript captures no result
+        at all must not read as one nothing ever turned away. A call with no
+        condition marker — an unobserved result, or a log written before the
+        marker existed — enters neither side.
+        """
+        if call.result_status is None or call.result_status == "unobserved":
+            return
+        self.mcp_status_calls[engine] += 1
+        if call.result_status == "throttled":
+            self.mcp_throttled_calls[engine] += 1
 
     def _remember_predicted(self, log_path: Path, cell: ToolUsageCell) -> None:
         """Keep this predicted cell for the usefulness join, latest run per cell.
@@ -398,7 +430,11 @@ def build_tool_usage(
 
     return ToolUsage(
         engine_profiles=_engine_profiles(
-            ledger.cells, ledger.result_calls, ledger.mcp_result_calls
+            ledger.cells,
+            ledger.result_calls,
+            ledger.mcp_result_calls,
+            mcp_status_calls=ledger.mcp_status_calls,
+            mcp_throttled_calls=ledger.mcp_throttled_calls,
         ),
         by_mode=_cut(ledger.cells, lambda cell: cell.mode),
         by_role=_cut(ledger.cells, lambda cell: cell.role),
@@ -441,6 +477,9 @@ def _engine_profiles(
     cells: list[ToolUsageCell],
     result_calls: Mapping[str, int],
     mcp_result_calls: Mapping[str, int],
+    *,
+    mcp_status_calls: Mapping[str, int],
+    mcp_throttled_calls: Mapping[str, int],
 ) -> list[ToolUsageEngine]:
     """Per-engine result observability and cost-per-cell, engine-id ordered.
 
@@ -451,6 +490,11 @@ def _engine_profiles(
     output pairs cleanly says nothing about whether the manifest tools' results
     reach the transcript, and it is the manifest tools whose dead-end rows that
     bit releases.
+
+    The throttle rate takes ``mcp_status_calls`` as its denominator rather than
+    the engine's calls, so an engine that captures no result condition at all
+    lands a null instead of a 0.0 — a clean rate is a claim only a transcript
+    that could have shown a throttle is entitled to make.
     """
     profiles: list[ToolUsageEngine] = []
     for engine in sorted({cell.engine for cell in cells}):
@@ -458,6 +502,8 @@ def _engine_profiles(
         calls = sum(cell.calls for cell in rows)
         with_result = result_calls.get(engine, 0)
         mcp_with_result = mcp_result_calls.get(engine, 0)
+        with_status = mcp_status_calls.get(engine, 0)
+        throttled = mcp_throttled_calls.get(engine, 0)
         costs = [cell.cost_usd for cell in rows if cell.cost_usd is not None]
         profiles.append(
             ToolUsageEngine(
@@ -468,6 +514,9 @@ def _engine_profiles(
                 result_observability_rate=round(with_result / calls, 4) if calls else None,
                 mcp_calls_with_result=mcp_with_result,
                 captures_results=mcp_with_result > 0,
+                mcp_calls_with_status=with_status,
+                mcp_throttled_calls=throttled,
+                mcp_throttle_rate=round(throttled / with_status, 4) if with_status else None,
                 mean_calls_per_cell=round(fmean(cell.calls for cell in rows), 3),
                 median_calls_per_cell=round(median(cell.calls for cell in rows), 3),
                 cells_with_cost=len(costs),
@@ -837,6 +886,49 @@ def _render_observability(usage: ToolUsage) -> list[str]:
             + "than as an engine whose every call came back empty — and note what it costs "
             + "downstream: the leakage grading reads results, so those cells are graded on "
             + "queries alone.",
+        ]
+    return lines + _render_throttling(usage)
+
+
+def _render_throttling(usage: ToolUsage) -> list[str]:
+    """How often the upstream quota turned an MCP call away, per engine.
+
+    Rendered whenever there are engines to report, zeros included: the reader
+    of a retrieval count needs to know a throttle was looked for and not found,
+    which a line that appears only on bad news cannot tell them. The
+    capture-blind engines are named *here*, beside the number, rather than left
+    to a docstring — an em dash in a column is exactly the shape a reader
+    rounds to zero.
+    """
+    if not usage.engine_profiles:
+        return []
+    rows = ", ".join(
+        f"`{p.engine}` {p.mcp_throttled_calls}/{p.mcp_calls_with_status} "
+        f"({_rate(p.mcp_throttle_rate)})"
+        for p in usage.engine_profiles
+    )
+    lines = [
+        "",
+        "## Upstream throttling",
+        "",
+        f"Throttled MCP results, over the calls whose result condition was legible: {rows}.",
+        "",
+        "_A throttled call is the shared daily quota turning the cell away — it retrieved "
+        + "nothing, so a starved cell's coverage is not comparable with a well-fed one's. "
+        + "Every count here is a **floor**: the parse-time predicate is anchored on the "
+        + "server's own rate-limit phrasing and biased to miss a throttle rather than "
+        + "invent one, and calls the cell gave up on making are not in the ledger at all._",
+    ]
+    unseeable = [p.engine for p in usage.engine_profiles if p.calls and not p.mcp_calls_with_status]
+    if unseeable:
+        lines += [
+            "",
+            f"**{', '.join(unseeable)}**: no MCP result condition was legible at all, so the "
+            + "denominator is 0 and the rate is an em dash rather than 0%. Read that as "
+            + "**capture-blind, not throttle-free** — Gemini's telemetry logs no result "
+            + "payload by construction, and a log written before the per-call condition "
+            + "marker existed carries none either. These engines cannot be observed being "
+            + "starved, so they cannot supply evidence that they were not.",
         ]
     return lines
 

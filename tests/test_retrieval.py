@@ -8,6 +8,8 @@ import random
 import time
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
@@ -1040,3 +1042,247 @@ def test_capture_marker_round_trips_through_the_schema() -> None:
     restored = RetrievalLog.model_validate(legacy)
     assert restored.calls[0].result_capture is None
     assert restored.result_capture_coverage is None
+
+
+# --- the per-call result condition ---------------------------------------------
+
+
+def _claude_result_transcript(payload: object, *, is_error: bool = False) -> list[object]:
+    """A one-call Claude transcript whose ``tool_result`` carries ``payload``."""
+    result: dict[str, object] = {
+        "type": "tool_result",
+        "tool_use_id": "toolu_1",
+        "content": payload,
+    }
+    if is_error:
+        result["is_error"] = True
+    return [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {"q": "chevron deference"},
+                    }
+                ]
+            },
+        },
+        {"type": "user", "message": {"content": [result]}},
+    ]
+
+
+def _claude_status(tmp_path: Path, payload: object, *, is_error: bool = False) -> RetrievalCall:
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(_claude_result_transcript(payload, is_error=is_error)))
+    (call,) = parse_claude_retrieval(path)
+    return call
+
+
+def test_a_throttled_claude_result_is_marked_and_still_digested(tmp_path: Path) -> None:
+    # The shape the pinned CourtListener MCP server renders an upstream 429 as.
+    # That evidence lives only in the payload, which the row digests away one
+    # line later, so the marker is the last place a starved run stays legible —
+    # and the digest is untouched, because this reads the result, not replaces it.
+    call = _claude_status(
+        tmp_path,
+        [
+            {
+                "type": "text",
+                "text": (
+                    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. "
+                    "For higher rate limits, you can upgrade your membership at "
+                    "https://donate.free.law/forms/membership"
+                ),
+            }
+        ],
+        is_error=True,
+    )
+    # Throttled outranks the engine's own error flag: a 429 arrives *as* an
+    # error, and which error it is, is the whole point of the field.
+    assert call.result_status == "throttled"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+
+
+def test_the_citation_tools_partial_throttle_note_is_marked_too(tmp_path: Path) -> None:
+    # A result the quota cut short rather than refused outright: the call came
+    # back with rows, and the cell still did not get what it asked for.
+    call = _claude_status(
+        tmp_path,
+        "Rate limited by the upstream API (retry in ~41s). Call `resume_citation_analysis`.",
+    )
+    assert call.result_status == "throttled"
+
+
+def test_an_ordinary_result_is_ok_and_a_us_reports_429_is_not_a_throttle(
+    tmp_path: Path,
+) -> None:
+    # The predicate is phrase-anchored precisely because what it scans is
+    # retrieved legal content, where 429 is an everyday reporter volume. A bare
+    # number must never invent starvation in a run that had none.
+    call = _claude_status(
+        tmp_path,
+        [{"type": "text", "text": '{"citation": "429 U.S. 274", "dateFiled": "1977-01-11"}'}],
+    )
+    assert call.result_status == "ok"
+    assert call.retrieved_doc_date == "1977-01-11"
+
+
+def test_an_engine_marked_failure_is_an_error_not_an_ok(tmp_path: Path) -> None:
+    # `ok` claims only "captured, unmarked, unthrottled", so a failure the
+    # engine itself flagged must not land there.
+    assert _claude_status(tmp_path, "upstream 502", is_error=True).result_status == "error"
+
+
+def test_an_unanswered_claude_call_has_no_condition_to_read(tmp_path: Path) -> None:
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}}
+                ]
+            },
+        }
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(path)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_a_codex_inline_mcp_error_reads_its_condition_from_the_field(tmp_path: Path) -> None:
+    # The Codex counterpart of `is_error`: the item's own `error` field is the
+    # engine's word that this came back a failure, so no text sniffing is needed
+    # to tell it from an `output` that merely reads badly.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "error": "tool call failed: upstream timeout",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_2",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "major questions"}),
+            "error": "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_3",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "standing"}),
+            "output": '{"results": [], "count": 0}',
+        },
+    )
+    assert [call.result_status for call in parse_codex_retrieval(sessions)] == [
+        "error",
+        "throttled",
+        "ok",
+    ]
+
+
+def test_every_gemini_call_is_condition_blind(tmp_path: Path) -> None:
+    # Not "no throttle" — no observation. The local exporter logs the
+    # invocation and nothing of what came back, so this engine can never be
+    # seen being starved.
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(
+        json.dumps(
+            {
+                "attributes": {
+                    "event.name": "gemini_cli.tool_call",
+                    "function_name": "mcp_cl_search",
+                    "function_args": {"q": "chevron"},
+                    "event.timestamp": "2026-07-10T12:00:01Z",
+                }
+            }
+        )
+    )
+    (call,) = parse_gemini_retrieval(telemetry)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_the_two_result_markers_may_not_disagree_about_capture() -> None:
+    # One fact read twice: a condition is legible exactly when a result was
+    # captured, so a row claiming otherwise means the parser is broken.
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="unobserved", result_status="ok")
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="captured", result_status="unobserved")
+    # A null in either field is the legacy record's capture-unknown, which
+    # constrains nothing.
+    assert RetrievalCall(tool="search", result_status="ok").result_capture is None
+
+
+def _throttled(count: int) -> list[RetrievalCall]:
+    return [
+        RetrievalCall(tool="search", result_capture="captured", result_status="throttled")
+        for _ in range(count)
+    ]
+
+
+def _ok(count: int) -> list[RetrievalCall]:
+    return [
+        RetrievalCall(tool="search", result_capture="captured", result_status="ok")
+        for _ in range(count)
+    ]
+
+
+def test_the_log_counts_throttles_over_the_calls_it_could_read() -> None:
+    assert _log(_throttled(2) + _ok(3)).throttled_calls == 2
+    # A real zero, and the stronger claim: results were legible, none was a throttle.
+    assert _log(_ok(3)).throttled_calls == 0
+
+
+def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
+    # The distinction the whole field turns on. A Gemini cell's every result is
+    # unobserved, so a 0 here would assert a clean run out of a blind one.
+    blind = _log(
+        [
+            RetrievalCall(tool="search", result_capture="unobserved", result_status="unobserved")
+            for _ in range(4)
+        ]
+    )
+    assert blind.throttled_calls is None
+    assert blind.result_capture_coverage == 0.0
+    # As are an empty log and one written before the field existed.
+    assert _log([]).throttled_calls is None
+    assert _log([RetrievalCall(tool="search")]).throttled_calls is None
+
+
+def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:
+    asserted = RetrievalLog(
+        case_id="scotus/305",
+        run_id="20260710T120000Z",
+        role="predictor",
+        actor_id="claude-baseline",
+        engine="claude-code",
+        calls=_ok(2),
+        throttled_calls=7,
+    )
+    assert asserted.throttled_calls == 0
+
+
+def test_the_condition_marker_round_trips_through_the_schema() -> None:
+    original = _log(_throttled(1) + _ok(1))
+    payload = json.loads(original.model_dump_json())
+    assert [call["result_status"] for call in payload["calls"]] == ["throttled", "ok"]
+    assert payload["throttled_calls"] == 1
+    assert RetrievalLog.model_validate(payload) == original
+    # A record written before the field existed still validates and reads as
+    # condition-unknown rather than as a cell nothing ever turned away.
+    legacy = {key: value for key, value in payload.items() if key != "throttled_calls"}
+    legacy["calls"] = [{"tool": "search", "result_capture": "captured"}]
+    restored = RetrievalLog.model_validate(legacy)
+    assert restored.calls[0].result_status is None
+    assert restored.throttled_calls is None
