@@ -770,6 +770,39 @@ dashboard's triage list ("court/docket — reason"), with the count on
 the Actions step summary, for maintainer triage — recording nothing beats a
 guess.
 
+## A corrected outcome: re-grading the event's evaluations
+
+Correcting a committed `outcome.json` — a disposition relabelled, a judgment
+fixed — leaves every evaluation that graded against the old one carrying a
+stale `correct`, claim block, and skill record, and `correct` is the
+leaderboard's first rank key. The remedy is `fedcourts stamp-cell --regrade`
+over **every evaluator on the event**: it recomputes exactly the harness-owned
+fields and preserves each record's existing process stamp, because a correction
+changes the record's inputs and not the process that judged it. Read
+[process-version.md](process-version.md) before running it; the trade (no
+`superseded_gradings` trace, so `data/`'s git history is the only record that
+the numbers moved) is in [metrics/README.md](../metrics/README.md).
+
+This is a *recompute*, not the re-grade the leaderboard's collapse counts. A
+changed rubric or prompt wants the other route — a fresh evaluator run minting
+a second `evaluation.json`, which is what `evaluate-matrix --force` re-mints —
+and that route is wrong for a corrected outcome, which produced no second
+judgment to record.
+
+**Who runs it.** The edited files land under `data/`, so the same ownership as
+every other data mutation applies: a dev checkout can run the command and read
+the resulting working-tree diff, but nothing it writes can reach `main` — the
+commit credentials live only in the writer lane's jobs, and a re-grade is not a
+promotion-batch change. So the route is a maintainer-dispatched writer run that
+executes the command for each of the event's evaluators and commits the changed
+`evaluation.json` files; an agent that finds the correction composes the exact
+per-evaluator commands and leaves them where the maintainer will see them
+(`gh workflow run` is refused for a session token). Two disciplines the runbook
+carries rather than the code: re-grade the whole event, or `validate`'s
+`evaluation_correct_agrees` fails the ledger on the half-corrected state; and
+re-grade a whole cohort against one committed statpack, since the recomputed
+pools are read at re-grade time.
+
 ## Recovering a run whose `collect` failed
 
 `collect` is the single writer for a run's agent output, so an all-or-nothing
