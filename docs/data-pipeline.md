@@ -674,7 +674,11 @@ or network.
   corpus.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
-  live-minted duplicate rows), `fedcourts reconcile-scope --apply` (the
+  live-minted duplicate rows; a minted moment's committed event directory moves
+  onto the survivor with its re-keyed row, so the lane must stage the moved
+  `data/` paths in the same pointer commit — an uncommitted ledger half strands
+  the directory under an id the corpus no longer carries, and no later pass
+  re-detects it), `fedcourts reconcile-scope --apply` (the
   predict-scope latch sweep), `fedcourts relabel-application-events --apply`
   (application baselines to their motion/interim identity), `fedcourts
   backfill-merits-judgments --apply` (the judgment a merits-bound grant
@@ -868,9 +872,11 @@ ingest projection, so its corpus row lands at discovery and its ledger half
 arrives later, at first touch or at resolution, exactly as above. Every other
 declared moment (`pipeline.moments.minted_moment_ids`) is **minted**: it exists
 only because a mint seam decided it does, and a mint owes both halves at once,
-through `outcome.persist_moment_events` and never a bare corpus upsert (the
-dedupe merge's re-key is the one bare writer that *moves* an existing minted
-row — it creates none). So a
+through `outcome.persist_moment_events` and never a bare corpus upsert. The one
+writer that *moves* an existing minted row rather than creating one is the
+dedupe merge's re-key onto a surviving twin, and it carries the row's committed
+event directory across with it — restamping the case id inside — so the pair
+stays whole through the move. So a
 baseline row with no ledger file is the ordinary state of the corpus, while a
 minted row with no ledger file is a defect.
 

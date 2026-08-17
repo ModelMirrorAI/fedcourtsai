@@ -41,6 +41,9 @@ def move_event_directory(old: EventPaths, new: EventPaths, restamp: Mapping[str,
     field normalizes and a future field travels by construction.
     """
     if old.base.is_dir():
+        # A rename within one case lands in an `events/` directory that already
+        # holds the source; a move *between* cases may be the first thing the
+        # target case commits, so its parent has to be made.
         new.base.parent.mkdir(parents=True, exist_ok=True)
         old.base.rename(new.base)
     if new.event_file.is_file():

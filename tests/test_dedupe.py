@@ -65,6 +65,19 @@ def _corpus_event(case_id: str, event_id: str) -> corpus.CorpusEvent:
     return corpus.CorpusEvent(event_id=event_id, case_id=case_id, court="scotus", kind="petition")
 
 
+def _move(event_id: str, *, restamp_only: bool = False) -> dedupe.LedgerMove:
+    return dedupe.LedgerMove(
+        event_id=event_id, from_case=_DROP, to_case=_KEEP, restamp_only=restamp_only
+    )
+
+
+def _write_cell_output(paths: EventPaths) -> None:
+    """A committed prediction under an event — the shape no restamp here rewrites."""
+    prediction_dir = paths.prediction_dir("claude-baseline", "20260112T000000Z")
+    prediction_dir.mkdir(parents=True)
+    (prediction_dir / "prediction.json").write_text("{}\n")
+
+
 def _row(case_id: str, docket_number: str, **kw: object) -> corpus.CorpusRow:
     base: dict[str, object] = {
         "case_id": case_id,
@@ -330,7 +343,7 @@ def test_a_minted_moments_ledger_half_moves_with_its_row(tmp_path: Path) -> None
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == [_DROP]
-        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+        assert result.ledger_moves == [_move(_MINTED)]
         assert [event.event_id for event in corpus.events_for_case(conn, _KEEP)] == [_MINTED]
 
     new_paths = _event_paths(data_root, _KEEP, _MINTED)
@@ -349,7 +362,7 @@ def test_a_survivor_side_directory_refuses_the_whole_pair(tmp_path: Path) -> Non
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED), _corpus_event(_KEEP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == []
-        assert result.moved_events == []
+        assert result.ledger_moves == []
         assert len(result.skipped) == 1
         assert "exist under both ids" in result.skipped[0].conflicts[0]
         # Nothing of the pair moved: not the rows, not the twin's events, and
@@ -369,16 +382,72 @@ def test_committed_cell_output_under_the_moment_refuses_the_pair(tmp_path: Path)
     reference for another, so the pair goes to triage instead."""
     data_root = tmp_path / "data"
     paths = _write_ledger_event(data_root, _DROP, _MINTED)
-    prediction_dir = paths.prediction_dir("claude-baseline", "20260112T000000Z")
-    prediction_dir.mkdir(parents=True)
-    (prediction_dir / "prediction.json").write_text("{}\n")
+    _write_cell_output(paths)
     with _seeded(tmp_path, _pair_rows()) as conn:
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == []
-        assert "more than its two documents" in result.skipped[0].conflicts[0]
+        assert "holds committed cell output" in result.skipped[0].conflicts[0]
         assert corpus.get_row(conn, _DROP) is not None
     assert paths.base.is_dir()
+
+
+def test_cell_output_under_a_baseline_event_refuses_the_pair(tmp_path: Path) -> None:
+    """The refusal looks past the moments this merge would move: the row delete
+    reaches every event of the twin, so a prediction committed under the
+    case-level baseline — which no move carries — would be orphaned all the
+    same, into a `ledger_references_exist` failure."""
+    data_root = tmp_path / "data"
+    minted_paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    baseline_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    _write_cell_output(baseline_paths)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED), _corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert result.ledger_moves == []
+        assert _BASELINE in result.skipped[0].conflicts[0]
+        assert corpus.get_row(conn, _DROP) is not None
+    # The minted moment's directory does not move on a refused pair either.
+    assert minted_paths.base.is_dir()
+    assert not _event_paths(data_root, _KEEP, _MINTED).base.exists()
+
+
+def test_one_blocking_moment_moves_neither_of_the_pairs_directories(tmp_path: Path) -> None:
+    """The refusal is whole-pair, not per-event: a second minted moment that
+    would have moved cleanly stays put, because a twin merged in part leaves the
+    case split across two ids with no handle to finish it."""
+    data_root = tmp_path / "data"
+    other = "evt-order-cvsg-disposition"
+    movable = _write_ledger_event(data_root, _DROP, other)
+    _write_ledger_event(data_root, _DROP, _MINTED)
+    _write_ledger_event(data_root, _KEEP, _MINTED)  # the collision
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED), _corpus_event(_DROP, other)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert result.ledger_moves == []
+        assert "exist under both ids" in result.skipped[0].conflicts[0]
+        assert corpus.get_row(conn, _DROP) is not None
+    assert movable.base.is_dir()
+    assert not _event_paths(data_root, _KEEP, other).base.exists()
+
+
+def test_an_unreadable_survivor_document_sends_the_pair_to_triage(tmp_path: Path) -> None:
+    """Whether a survivor-side directory is an interrupted move is a question its
+    documents answer; when one will not read, the pair is reported instead —
+    one bad file must not abort a pass that may already have written."""
+    data_root = tmp_path / "data"
+    paths = _event_paths(data_root, _KEEP, _MINTED)
+    paths.base.mkdir(parents=True)
+    paths.event_file.write_text("event_id: [unclosed\n")
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert result.ledger_moves == []
+        assert "could not be read" in result.skipped[0].conflicts[0]
+        assert corpus.get_row(conn, _DROP) is not None
 
 
 def test_a_case_baseline_directory_stays_where_it_is(tmp_path: Path) -> None:
@@ -390,7 +459,7 @@ def test_a_case_baseline_directory_stays_where_it_is(tmp_path: Path) -> None:
         corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == [_DROP]
-        assert result.moved_events == []
+        assert result.ledger_moves == []
         assert [event.event_id for event in corpus.events_for_case(conn, _KEEP)] == [_BASELINE]
     assert paths.base.is_dir()
     assert not _event_paths(data_root, _KEEP, _BASELINE).base.exists()
@@ -404,7 +473,7 @@ def test_a_dry_run_reports_the_move_and_touches_no_directory(tmp_path: Path) -> 
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=False)
         assert result.applied is False
-        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+        assert result.ledger_moves == [_move(_MINTED)]
         assert corpus.get_row(conn, _DROP) is not None
     assert old_paths.base.is_dir()
     assert read_model(old_paths.event_file, PredictableEvent).case_id == _DROP
@@ -437,7 +506,7 @@ def test_an_interrupted_move_converges_on_the_next_apply(tmp_path: Path) -> None
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == [_DROP]
-        assert result.moved_events == [f"{_DROP}/{_MINTED} -> {_KEEP}/{_MINTED}"]
+        assert result.ledger_moves == [_move(_MINTED, restamp_only=True)]
     assert read_model(paths.event_file, PredictableEvent).case_id == _KEEP
     assert read_model(paths.outcome, Outcome).case_id == _KEEP
 
@@ -451,7 +520,7 @@ def test_a_converged_survivor_directory_is_not_reported_as_a_move(tmp_path: Path
         corpus.upsert_events(conn, [_corpus_event(_DROP, _MINTED)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == [_DROP]
-        assert result.moved_events == []
+        assert result.ledger_moves == []
     survivor_event = read_model(
         _event_paths(data_root, _KEEP, _MINTED).event_file, PredictableEvent
     )
