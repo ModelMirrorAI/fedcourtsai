@@ -623,7 +623,10 @@ cases × events** into a GitHub Actions matrix. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
 pulls the corpus; with the gate on
-and no corpus on disk the build fails loud rather than emit an empty matrix. Each
+and no corpus on disk the build fails loud rather than emit an empty matrix.
+`fedcourts predict-plan` / `evaluate-plan` are the read-only rehearsal of this
+same builder — every step below, reported as a JSON document with its per-step
+drop counts and nothing minted or written ([cli.md](cli.md)). Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
 whole fan-out, however many cases it spans. After scope filtering the builder
