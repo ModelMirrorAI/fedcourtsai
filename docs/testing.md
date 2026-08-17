@@ -131,14 +131,22 @@ composite, the labeling job, or the `qp_topics` module — and before any paid
 labeling dispatch**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
+
 The qp-topic clause generalizes: **a new token-spending run mode lands its
 token-free `integration-test.yml` scenario before its first paid dispatch,
-never after.** The scenario exercises the mode's plumbing — triggers, IO
-staging, guards, the publication path — over canned or fixture inputs, the way
-`qp-topic` and `collect` do, so the plumbing bugs surface for runner minutes
-instead of across paid dispatches. The scenario list above is the checklist:
-a paid surface without one is an incomplete change, and the scenario ships in
-the same batch as the mode it guards.
+never after.** The scenario exercises the mode's plumbing — artifact hand-off,
+IO staging, guards, the publication path — over canned or fixture inputs, the
+way `qp-topic` and `collect` do, so plumbing bugs surface for runner minutes
+instead of across paid dispatches. `integration-test.yml`'s scenario roster
+above is the checklist: a new paid surface without a scenario is an incomplete
+change unless it ships an equally token-free dry-run mode of itself (the
+`run:backtest` replay's stub engine is that shape, and stronger evidence than
+a scenario would be), and the scenario ships in the same batch as the mode it
+guards. A scenario that joins the promotion gate's **required** set moves the
+run counts below and the gate's own scenario roster with it — both
+maintainer-gated surfaces, so that batch is a maintainer-merged one by
+construction.
+
 The `deploy-environment` input names which deployment environment supplies the
 role and remote variables, and by default resolves from the dispatching branch:
 `main` dispatches use `prod`, and dispatches from `staging` use the `staging`
