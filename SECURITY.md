@@ -141,9 +141,12 @@ runbook, [docs/security.md](docs/security.md).
   on, so no run can wipe corpus objects. The third is the **staging read-write**
   role — read-only on the production stores, read-write on the staging corpus
   pair alone — held by one dispatch-only workflow, so the production stores
-  keep exactly one writer. The two production roles' OIDC trust is scoped to
-  this repo's `prod` environment and the staging role's to `staging-corpus`,
-  so a PR-branch job cannot assume any of them. No
+  keep exactly one writer. Every role's OIDC trust is scoped to named
+  environments of this repo — the production read-write role to `prod`, the
+  read-only role to `prod` and `staging` (which is what lets the pre-promotion
+  integration runs read the corpus), the staging role to `staging-corpus` — and
+  each of those environments restricts deployments to one branch, so a
+  PR-branch job cannot assume any of them. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.
@@ -185,7 +188,8 @@ runbook, [docs/security.md](docs/security.md).
   is a new, attributable commit. Forward deletions of ledger records are
   confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
   lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
-  refuses to apply above a per-run blast-radius cap. Secrets and the S3 roles live in the
+  refuses to apply above a per-run blast-radius cap. Secrets and the two
+  production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role

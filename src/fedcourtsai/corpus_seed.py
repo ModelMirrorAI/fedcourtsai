@@ -43,8 +43,9 @@ parsers the transports use, so no spelling of a location slips past — and
 :func:`assert_stage_db_is_not_the_corpus` refuses a working file that would
 overwrite the checkout's committed pointer. Everything else about the operation
 is convergent rather than destructive — the remote is add-only and
-content-addressed, the store copy skips keys already present — so a re-run
-converges and a half-finished run is resumed by the next one.
+content-addressed, and the store copy skips *write-once* keys already present
+while re-copying the three mutable manifests — so a re-run converges on the
+source's current state and a half-finished run is resumed by the next one.
 
 **Ordering, at two levels, both the writers' blob-before-pointer rule.** On an
 apply the content objects are copied *before* the blob is published, so a

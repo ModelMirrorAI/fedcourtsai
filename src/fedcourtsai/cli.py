@@ -2008,16 +2008,24 @@ def corpus_seed_slice(
     a key-level copy of every content-store object under each case's prefix
     into `--dest-casestore`, so the staging store holds the writers' own bytes.
     Objects are copied before the blob is published, so a reader resolving the
-    new pointer always finds the payloads its rows refer to.
+    new pointer always finds the payloads its rows refer to; within a case the
+    documents manifest lands after the leaves it names.
 
     Reads the production stores read-only: the source corpus comes through the
     configured read backend (the ranged backend needs no pull — a bounded slice
     is a handful of point lookups) and the source content store from the
-    configured content-store URL. **Refuses outright** when either destination
-    names a configured production store; that rail is the reason the command
-    can be dispatch-triggered at all. Idempotent: the remote is
-    content-addressed and add-only, and the object copy skips keys the
-    destination already holds, so a re-run converges.
+    configured content-store URL. **Refuses** a destination that *is* either
+    configured production store, or that sits inside either production bucket
+    at any prefix — a local second line behind the IAM policy, which is what
+    actually keeps the seeding role read-only on production.
+
+    Convergent rather than idempotent in the strict sense: the remote is
+    content-addressed and add-only, and write-once keys (dated snapshots,
+    content-addressed document leaves) the destination already holds are
+    skipped — but the three manifests the writers overwrite in place
+    (`case.json`, `events.json`, `documents/documents.json`) are re-copied on
+    every apply, or a re-seed would leave the staging store describing a case
+    the source has moved past.
 
     Dry-run by default, printing the per-case census (rows, events, snapshots,
     documents, objects). An `--apply` additionally reports what it copied and

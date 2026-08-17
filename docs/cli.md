@@ -92,7 +92,7 @@ The offline checks the PR gate can run without the corpus remote.
 | `scope-manifest` | Publish the prediction-scope decision (`predict_eligible` / `predict_excluded` / exclusion reason / sample weight / salience score, version, and selection latch) for every docket **already public** under `data/cases`, to `data/scope/scope.json` — the transparency counterpart of `reconcile-scope` (which decides scope in the corpus; this publishes it). Enumerated from the committed `data/cases` tree **alone**, never a corpus scan, so it discloses only the already-public set and by construction cannot enumerate the wider ingested corpus. Deterministic and offline; writes the empty `skipped` manifest when the corpus is absent. Emits a `ScopeManifest`; regenerate and open a reviewed PR when the public set or its latches change. | `--out` |
 | `corpus-status` | Check the committed corpus + metrics bookkeeping is internally consistent — the blob out of git and gitignored, the `corpus.db.ref` pointer well-formed, the metrics roll-ups committed — and, when the corpus blob is present locally, that its physical layout matches the ranged-read contract (64 KB pages, non-WAL at rest). | `PATH` (default `.`) |
 
-## Corpus transport — move the blob
+## Corpus transport — move the blob, and copy a slice of both stores
 
 The pull/push pair the data workflows (and a developer with credentials) use to
 move the corpus index blob between disk and the S3 remote; both read the remote

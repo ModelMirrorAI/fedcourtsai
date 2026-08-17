@@ -168,13 +168,20 @@ get live end-to-end verification without anything gaining write access to the
 production corpus. Its own workflow file on the risk-class rule below, like
 every other corpus writer: it is the only holder of the staging read-write role
 and the only binder of the `staging-corpus` environment. Dispatch-only, from
-the `staging` ref alone (the environment's branch policy, asserted again by the
-promotion gate and by the job's own first step), and **dry-run by default** —
-the per-case census is the reading an apply is dispatched on, so the procedure
-is two dispatches. What keeps it off production is IAM: the role is read-only
-there. The seeder's own rail is the second line, refusing any destination that
-is, or sits inside the bucket of, either configured production store.
-Provisioning the stores, the environment, and the role is the maintainer
+the `staging` ref alone — the environment's branch policy is the gate, the
+job's own first step refuses any other ref, and the promotion gate's
+maintainer-run `contexts` stage reports whether that policy is actually set
+(admin-read, advisory, not part of any automatic gate) — and **dry-run by
+default**: the per-case census is the reading an apply is dispatched on, so the
+procedure is two dispatches. What keeps it off production is IAM: the role is
+read-only there. The seeder's own rail is the second line, refusing any
+destination that is, or sits inside the bucket of, either configured production
+store. **One wiring is still outstanding**: every consumer resolves the
+committed `corpus/corpus.db.ref`, whose digest names the production blob, so
+nothing reads the staging corpus yet — the refresh lane produces it, and the
+scenarios still read production's until a follow-up change to
+`integration-test.yml` resolves a staging pointer. Provisioning the stores, the
+environment, and the role — and that outstanding wiring — is the maintainer
 runbook in [security.md](security.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),

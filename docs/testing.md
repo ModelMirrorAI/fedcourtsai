@@ -154,16 +154,20 @@ environment, which holds the same read-only role and remote variables plus its
 own engine keys; any other branch resolves its own name — an unconfigured,
 empty environment with no role variables and no keys — and an explicit choice
 (the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
-environment stays pinned to its one branch. What those staging-bound runs read
-is meant to become the **staging corpus** — a lean slice of real cases in its
-own bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
-workflow (`fedcourts corpus-seed-slice`) so orchestration and the read/write
-seams get live verification for runner minutes without anything gaining write
-access to production; provisioning it, and the one wiring still outstanding, is
-the staging-corpus runbook in [security.md](security.md).
+environment stays pinned to its one branch.
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
-structurally cannot provide. Changed seams are therefore validated after the
+structurally cannot provide.
+
+What those staging-bound runs read is production's corpus today, and is meant
+to become the **staging corpus**: a lean slice of real cases in its own
+bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
+workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
+seams get live verification for runner minutes without anything gaining write
+access to production. It is not wired up yet — every consumer still resolves
+the committed pointer, which names the production blob — so provisioning it,
+and the wiring that remains, are the staging-corpus runbook in
+[security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the nine required integration runs — all seven real
 scenarios, with engine-smoke counted once per engine, or one green
