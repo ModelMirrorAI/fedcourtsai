@@ -474,6 +474,97 @@ def resolved_events(
     return [event.event_id for event in events if event.resolved]
 
 
+def unforecastable_listed_events(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_id: int,
+    *,
+    today: date,
+    backend: corpus.CorpusBackend | None = None,
+) -> dict[str, str]:
+    """Why the corpus refuses each of a case's events, keyed by event id.
+
+    The re-check for events a caller *lists* rather than selects: queue
+    selection (:func:`forecastable_events`) applies every forecastability rule,
+    but a trigger issue names its event ids, and replaying an old one bypasses
+    selection entirely. This is the same refusal read back from the corpus at
+    fan-out time, in the two classes that turn a queued event unforecastable
+    while the issue waits:
+
+    * **Resolved since queueing** — the event carries ``resolved = 1``. A
+      trigger issue is written when its events are open and fanned out whenever
+      the workflow runs, and a pipeline pause can put an arbitrary gap between
+      the two.
+    * **Merits proceeding no longer forecastable** — the row fails one of the
+      row-level arms of the selection predicate (:func:`_merits_forecastable`):
+      the grant no longer opens a merits proceeding (a docket re-resolved to
+      ``gvr`` leaves the cert order carrying the disposition), a judgment or
+      termination is latched while the event stays open for triage, or the
+      grant is :func:`fedcourtsai.corpus.is_stale_unparsed_grant`. Each is a
+      decided or non-existent proceeding a forward cell must not forecast, and
+      for all of them this seam is load-bearing: provisioning's forward gate
+      re-refuses only the latched-judgment and terminated arms, so the gvr and
+      stale classes have no later backstop. The refusal is a property of the
+      *proceeding*, not of one moment, so every declared merits moment is
+      refused together — keyed per event id without consulting the events
+      table, since a merits moment absent from the corpus is still a moment of
+      the proceeding the listing names. ``today`` anchors the stale bound,
+      passed by the caller so one run's decisions cannot straddle midnight.
+
+    Where both classes apply the resolved reason wins, because it is the one
+    that says what to do next (grade it). The row-only scope refusals
+    (``predict_excluded``, out-of-scope) are not re-stated here — the scope
+    gate drops those whole cases before event resolution. Empty (not created)
+    if the local corpus does not exist yet; ``backend`` selects the read
+    backend (see :func:`corpus.connect_readonly`).
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return {}
+    case_id = ids.case_id(court_id, docket_id)
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        events = corpus.events_for_case(conn, case_id)
+        row = corpus.get_row(conn, case_id)
+    reasons = {
+        event.event_id: "the corpus records it resolved (it closed since the run was queued)"
+        for event in events
+        if event.resolved
+    }
+    if row is not None:
+        refusal = _merits_listing_refusal(row, today=today)
+        if refusal is not None:
+            for spec in moments.moments_for(Stage.merits):
+                reasons.setdefault(spec.event_id, refusal)
+    return reasons
+
+
+def _merits_listing_refusal(row: corpus.CorpusRow, *, today: date) -> str | None:
+    """Why a listed merits moment on this row is unforecastable, or ``None``.
+
+    The row-level arms of :func:`_merits_forecastable`, read back as reasons;
+    the arms must not drift apart, so any arm added there is owed here. The
+    scope arm is deliberately absent (the scope gate drops those cases whole).
+    """
+    if row.merits_judgment is not None or row.merits_terminated is not None:
+        return (
+            "the corpus row already carries its merits outcome (a parsed judgment or a "
+            "recorded termination held for triage), so a forward cell would forecast a "
+            "decided docket"
+        )
+    if not corpus.opens_merits_proceeding(row):
+        return (
+            "the corpus row's grant no longer opens a merits proceeding (re-resolved so the "
+            "cert order carries the disposition), so there is nothing left to forecast"
+        )
+    if corpus.is_stale_unparsed_grant(row, today=today):
+        return (
+            f"its cert grant is more than {corpus.STALE_GRANT_DAYS} days old with neither a "
+            "parsed judgment nor a recorded termination, so the merits proceeding reads as a "
+            "decided docket the record never resolved rather than a pending one"
+        )
+    return None
+
+
 def event_recorded_closed(
     data_root: Path,
     court_id: str,

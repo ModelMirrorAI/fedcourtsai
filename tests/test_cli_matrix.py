@@ -1,6 +1,6 @@
 import json
 import shutil
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -10,6 +10,8 @@ from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
@@ -17,6 +19,10 @@ from tests.conftest import seed_evaluation, seed_prediction
 runner = CliRunner()
 
 _REPO_CONFIG = Path(__file__).resolve().parents[1] / "config"
+
+#: Every declared merits moment, read off the register rather than spelled out,
+#: so a moment added there is asserted on here without a test edit.
+_MERITS_EVENT_IDS = [spec.event_id for spec in moments.moments_for(Stage.merits)]
 
 _BATCH_BODY = """Long conference.
 
@@ -1175,7 +1181,7 @@ def test_matrix_is_unaffected_when_no_spend_section_is_configured(tmp_path: Path
 def test_predict_matrix_drops_events_resolved_since_queueing(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # The openness re-check: a trigger issue queued while both events were open
+    # The forecastability re-check: a trigger issue queued while both events were open
     # fans out after one resolved (the paused-pipeline gap). The resolved
     # listing is dropped at plan time, with the cause on the record, rather
     # than minted into a cell provisioning must refuse.
@@ -1209,7 +1215,7 @@ def test_predict_matrix_drops_events_resolved_since_queueing(tmp_path: Path) -> 
     assert "resolved" in result.stderr
 
 
-def test_predict_matrix_errors_when_the_openness_recheck_empties_the_matrix(
+def test_predict_matrix_errors_when_the_forecastability_recheck_empties_the_matrix(
     tmp_path: Path,
 ) -> None:
     body = tmp_path / "issue-body.md"
@@ -1239,23 +1245,44 @@ def test_predict_matrix_errors_when_the_openness_recheck_empties_the_matrix(
             ],
         )
 
+    note = tmp_path / "close-note.md"
     result = runner.invoke(
-        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-note-file",
+            str(note),
+        ],
+        env=env,
     )
 
     assert result.exit_code == 0
     assert _cells(result.stdout) == []
-    assert "::error::predict-matrix: the openness re-check dropped every listed event" in (
+    assert "::error::predict-matrix: the forecastability re-check dropped every listed event" in (
         result.stderr
     )
+    # The durable half of the record: an attributed close note for the
+    # workflow's close step, naming each dropped event and its reason.
+    text = note.read_text(encoding="utf-8")
+    assert "unforecastable since it was queued" in text
+    assert "`scotus/24001` `evt-petition-cert`" in text
+    assert "resolved" in text
 
 
-def test_predict_matrix_scope_all_skips_the_openness_recheck(tmp_path: Path) -> None:
+def test_predict_matrix_scope_all_skips_the_forecastability_recheck(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # Under `all` the scope gate never consults the corpus, and the openness
-    # re-check follows it: a listed event the corpus records resolved still
-    # fans out, because dev/back-test runs may target exactly that shape.
+    # Under `all` the scope gate never consults the corpus, and the
+    # forecastability re-check follows it: a listed event the corpus records
+    # resolved still fans out, because dev/back-test runs may target exactly
+    # that shape. The bypass carries a residue the resolved class does not:
+    # a stale or gvr-re-resolved grant minted under `all` provisions as a
+    # *forward* cell with no later backstop, so `all` is a dev-only scope on
+    # purpose (shipped config is scotus_docket).
     env = _env(tmp_path, scope="all", seed_predictions=False)
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_events(
@@ -1281,3 +1308,107 @@ def test_predict_matrix_scope_all_skips_the_openness_recheck(tmp_path: Path) -> 
         ("scotus", 24002),
     }
     assert "dropped" not in result.stderr
+
+
+def _listing_body(path: Path, events: list[str], *, docket: int = 24001) -> Path:
+    """A one-case trigger body **listing** its events — the replay shape.
+
+    A listing skips queue selection entirely, which is what the forecastability
+    re-check exists to cover.
+    """
+    listing = json.dumps([{"court": "scotus", "docket": docket, "events": events}])
+    path.write_text(f"Queued.\n\n```json\n{listing}\n```\n")
+    return path
+
+
+def _granted_row(corpus_root: Path, case_id: str, granted: date) -> None:
+    """Overwrite ``case_id``'s row with a cert grant that opened a merits proceeding."""
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    date_cert_granted=granted,
+                    distribution_count=1,
+                )
+            ],
+        )
+
+
+def test_predict_matrix_drops_listed_merits_events_on_a_stale_grant(tmp_path: Path) -> None:
+    # The replay hole the re-check closes: re-labeling an old trigger issue
+    # replays its event listing, which skips the selection-time stale-grant
+    # refusal. Every declared merits moment goes — the staleness is a property
+    # of the proceeding — while the case's cert event, which the rule says
+    # nothing about, stays listed.
+    body = _listing_body(tmp_path / "issue-body.md", [*_MERITS_EVENT_IDS, "evt-petition-cert"])
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    _granted_row(tmp_path / "corpus", "scotus/24001", date(2020, 1, 6))
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {c["event_id"] for c in _cells(result.stdout)} == {"evt-petition-cert"}
+    for event_id in _MERITS_EVENT_IDS:
+        assert f"dropped {event_id} on scotus/24001" in result.stderr
+    assert "cert grant is more than 730 days old" in result.stderr
+
+
+def test_predict_matrix_keeps_listed_merits_events_on_a_fresh_grant(tmp_path: Path) -> None:
+    # The other side of the bound: a grant inside the merits window is a
+    # pending proceeding, and its listed merits event mints its cells.
+    body = _listing_body(tmp_path / "issue-body.md", [MERITS_EVENT_ID])
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    _granted_row(tmp_path / "corpus", "scotus/24001", date.today() - timedelta(days=30))
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {c["event_id"] for c in _cells(result.stdout)} == {MERITS_EVENT_ID}
+    assert "dropped" not in result.stderr
+
+
+def test_predict_matrix_scope_all_keeps_a_stale_grants_merits_event(tmp_path: Path) -> None:
+    # Under `all` the corpus is deliberately never consulted, so the stale-grant
+    # class rides the same bypass as the resolved one: back-testing targets
+    # exactly this shape.
+    body = _listing_body(tmp_path / "issue-body.md", [MERITS_EVENT_ID])
+    env = _env(tmp_path, scope="all", seed_predictions=False)
+    _granted_row(tmp_path / "corpus", "scotus/24001", date(2020, 1, 6))
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {c["event_id"] for c in _cells(result.stdout)} == {MERITS_EVENT_ID}
+    assert "dropped" not in result.stderr
+
+
+def test_predict_matrix_errors_when_the_stale_grant_drop_empties_the_matrix(
+    tmp_path: Path,
+) -> None:
+    # An emptied matrix closes the trigger issue with the workflow's generic
+    # out-of-scope note, so the re-check must leave the attributed record —
+    # reason-agnostic, since the per-event warnings carry which class each was.
+    body = _listing_body(tmp_path / "issue-body.md", [MERITS_EVENT_ID])
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    _granted_row(tmp_path / "corpus", "scotus/24001", date(2020, 1, 6))
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::predict-matrix: the forecastability re-check dropped every listed event" in (
+        result.stderr
+    )

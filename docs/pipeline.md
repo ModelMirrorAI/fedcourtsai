@@ -593,7 +593,7 @@ drops. This is the numeric backstop, distinct from the coarse
 forward cell the provisioning gate refuses produces no output, so collect
 records a failure fact that counts toward `predict.max_attempts_per_cell`.
 For a record-gate refusal that terminal state is right — a decided event must
-never re-queue (and the plan-time openness re-check drops it anyway). For a
+never re-queue (and the plan-time forecastability re-check drops it anyway). For a
 *staleness* refusal it means a poller stalled for five predict cycles quietly
 retires those cells; the recovery is to fix the poller and re-queue with a
 fresh `run:predict` issue, or clear the committed attempt facts in a reviewed
@@ -636,8 +636,9 @@ in the first place; this is the backstop for a manually-filed or partial one.) N
 the volume cap above can also empty the matrix (when it defers *every* case);
 so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
 — armed, see [budget.md](budget.md)) when the trailing window's measured spend
-reaches the ceiling; and so can the plan-time openness re-check, when every
-event the trigger listed has resolved since the issue was queued. The close
+reaches the ceiling; and so can the plan-time forecastability re-check, when no
+event the trigger listed is still forecastable — each has resolved since the
+issue was queued, or is a merits moment on a grant gone stale unparsed. The close
 step cannot tell any of those from scope-empty, so it closes with the
 out-of-scope note in all four cases. On `run:predict` the stranded-run guard is
 the one exception: when it withholds *every* cell, `predict-matrix` writes the
@@ -645,8 +646,9 @@ close note itself (`--stranded-note-file`) and the step posts that instead, so a
 fully-superseded run says recover the uncollected run rather than reporting
 nothing was in scope. Each surfaces its own escalated `::error::` for correct
 attribution, and the close is safe in each case for its own reason: a cap- or
-spend-deferred case stays in its queue and re-queues next cycle, a resolved
-event needs an evaluate run rather than a re-queue, and a withheld event
+spend-deferred case stays in its queue and re-queues next cycle, an
+unforecastable event needs something other than a re-queue (a grade for a
+resolved one, a corpus fix for a stale grant), and a withheld event
 re-queues on a later cycle for as long as no prediction is committed for it. A
 spend-breach deferral clears on its own when the window rolls past the burst
 that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
