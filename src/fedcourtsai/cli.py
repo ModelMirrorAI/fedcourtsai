@@ -4775,7 +4775,10 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     a blob can carry one without the other — `latest pull` is the newest
     `last_pulled` over the cases (kept in a payload-free index, so it reports
     on the production shape too) and `latest snapshot` the newest dated docket
-    state stored, which a payload-free index holds none of.
+    state the blob itself stores. A payload-free index stores none: the
+    snapshots live in the per-case content store, which this command does not
+    read. Hence `in this blob` on both snapshot readings — under the corpus
+    split, `no snapshots` would otherwise read as a claim about the system.
 
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
@@ -4791,12 +4794,14 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         typer.echo(
             f"corpus {db_path} [{backend}]: {corpus.count(conn)} row(s), "
-            f"{corpus.snapshot_count(conn)} snapshot(s)"
+            f"{corpus.snapshot_count(conn)} snapshot(s) in this blob"
         )
         pulled = corpus.latest_pull_date(conn)
         snapshot = corpus.latest_snapshot_date(conn)
         pulled_text = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
-        snapshot_text = f"latest snapshot {snapshot.isoformat()}" if snapshot else "no snapshots"
+        snapshot_text = (
+            f"latest snapshot {snapshot.isoformat()}" if snapshot else "no snapshots in this blob"
+        )
         typer.echo(f"freshness: {pulled_text}, {snapshot_text}")
         _echo_read_stats(conn)
 

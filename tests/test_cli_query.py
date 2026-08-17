@@ -219,7 +219,9 @@ def test_corpus_info_freshness_falls_back_on_an_empty_corpus(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
     result = runner.invoke(app, ["corpus-info"])
     assert result.exit_code == 0, result.output
-    assert "freshness: never pulled, no snapshots" in result.stdout
+    # "in this blob", not "no snapshots": under the corpus split the content
+    # store holds them, and AGENTS.md points agents at this line as evidence.
+    assert "freshness: never pulled, no snapshots in this blob" in result.stdout
 
 
 def test_corpus_info_rejects_service_backend(fixture_corpus: FixtureCorpus) -> None:

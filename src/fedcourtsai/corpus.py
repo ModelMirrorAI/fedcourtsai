@@ -3690,6 +3690,10 @@ def latest_pull_date(conn: ReadConnection) -> date | None:
     whether or not it carries payloads, since ``last_pulled`` is a ``cases``
     column the index build preserves. Answers "how old is the blob I hold",
     which the committed pointer cannot: it is a content digest with no date.
+
+    Sits beside :func:`latest_snapshot_date` deliberately: the two are read as
+    a pair, since which of them is meaningful depends on whether the blob in
+    hand carries payloads.
     """
     cur = conn.execute("SELECT MAX(last_pulled) AS d FROM cases")
     record = cur.fetchone()
