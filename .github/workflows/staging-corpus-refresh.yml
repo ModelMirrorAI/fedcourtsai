@@ -1,0 +1,152 @@
+name: staging-corpus-refresh
+
+# Rebuild the **staging corpus** — a lean slice of real cases in its own
+# bucket/prefix pair — so orchestration and the read/write seams can be
+# verified end to end for runner minutes without anything gaining write access
+# to the production corpus. `fedcourts corpus-seed-slice` does the work; this
+# workflow is the only place its write half can run.
+#
+# Its own workflow file rather than a job on run-analytics or run-seed, on the
+# risk-class rule in AGENTS.md: it is the single holder of a role no other
+# workflow assumes (the staging read-write role) and the single binder of the
+# `staging-corpus` environment. Folding it into a corpus-consuming workflow
+# would put a write-capable role beside jobs that must never hold one.
+#
+# **Dispatch-only, and dry-run by default.** The dry run's census — rows,
+# events, snapshots, documents, and content-store objects per named case — is
+# the reading a maintainer does before an apply, so the intended procedure is
+# two dispatches: dispatch with `apply` unset, read the census off the step
+# summary, then dispatch again with it set.
+#
+# The command's own safety rail is what makes a dispatch-triggered write
+# acceptable at all: a destination equal to either configured production store
+# is refused before anything is read. The environment variables are what point
+# it at staging; the rail is what stops a misconfigured one from pointing it
+# at production.
+#
+# Provisioning the environment, its variables, and the role is a maintainer
+# task the workflow cannot do for itself — see the staging-corpus runbook in
+# docs/security.md. Until it is done, a dispatch fails closed: an unset role
+# variable resolves empty and the assume-role step refuses.
+on:
+  workflow_dispatch:
+    inputs:
+      dockets:
+        description: >-
+          The slice, one `<court>/<docket>` case id per line. Every id is
+          matched against the case-id grammar before anything runs, and the
+          whole list is refused if any line fails. Pick cases that are real
+          specimens of what the scenarios read: an undisposed SCOTUS petition
+          with an open event and a stored snapshot is the shape
+          `integration-test.yml` targets.
+        required: true
+        type: string
+      apply:
+        description: >-
+          Seed the staging stores. Left unset — the default — the run is a
+          dry-run census and writes nothing. Set it only after reading a
+          previous dispatch's census: an apply run's own census is a receipt,
+          not a reading, since nobody reads it before the write.
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege by default; the job widens only to what the seed needs.
+permissions: {}
+
+# The staging corpus is a single destination pair, so two refreshes must not
+# interleave. cancel-in-progress:false because a superseded refresh has already
+# begun copying objects: letting it finish leaves a converged store, while
+# cancelling it leaves a partial one for the next run to complete. It shares no
+# group with the production `corpus-write` lock — nothing here touches the
+# production corpus, so serialising against its writers would only make both
+# lanes wait.
+concurrency:
+  group: staging-corpus-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # The slice is bounded by the command's own --max-cases, and each case
+    # costs a handful of small S3 objects plus point lookups over the ranged
+    # index, so a refresh is minutes. The cap is a backstop against a degraded
+    # endpoint, not a budget for the work.
+    timeout-minutes: 30
+    # The one environment that carries the staging read-write role. Its
+    # deployment branches are restricted to `staging` (see the runbook), so the
+    # role is reachable only from code that passed the staging ruleset's checks
+    # — the same code-provenance gate every other environment here uses.
+    environment: staging-corpus
+    permissions:
+      contents: read
+      id-token: write # assume the staging read-write AWS role
+    # The SOURCE stores, read-only: the production corpus remote and content
+    # store, exactly as every consumer job names them. The ranged backend reads
+    # the index in place — a bounded slice is point lookups, so no full pull —
+    # and the split flag is inert here (the seeder reads the source content
+    # store explicitly and builds a payload-free slice either way), but it is
+    # set for parity with every other corpus-reading job.
+    env:
+      CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BACKEND: ranged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The staging read-write role: read on the production stores, read-write
+      # on the staging pair alone, and an OIDC trust naming ONLY this
+      # environment — so no other job in this repository can assume it, and
+      # nothing it can assume reaches the production write path. The
+      # assume-role wall clock is bounded for the reason recorded in
+      # docs/pipeline.md's workflow-traps list.
+      - name: Configure AWS credentials (staging corpus, read-write)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_STAGING_RW }}
+          aws-region: ${{ vars.AWS_REGION }}
+          action-timeout-s: 120
+
+      # Dry run first, into the step summary — the census is the reading an
+      # apply is dispatched on, and it must outlive the step log either way —
+      # then the apply, only on the explicit input. (On an apply the dry run is
+      # a receipt, not a reading: nobody reads it before the write.)
+      - name: Seed the staging corpus slice
+        env:
+          # The dispatch inputs pass through the environment, never
+          # interpolated into this script, so maintainer-typed text cannot
+          # inject commands; the command itself matches every line against the
+          # case-id grammar and refuses the whole list on any failure.
+          DOCKETS: ${{ inputs.dockets }}
+          APPLY: ${{ inputs.apply }}
+          DEST_REMOTE: ${{ vars.STAGING_CORPUS_REMOTE_URL }}
+          DEST_CASESTORE: ${{ vars.STAGING_CASESTORE_URL }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${DOCKETS}" > dockets.txt
+          seed() {
+            uv run fedcourts corpus-seed-slice \
+              --dockets-file dockets.txt \
+              --dest-remote "${DEST_REMOTE}" \
+              --dest-casestore "${DEST_CASESTORE}" \
+              --summary-out "$GITHUB_STEP_SUMMARY" \
+              "$@"
+          }
+          seed
+          if [ "${APPLY}" != "true" ]; then
+            echo "dry run only; nothing written."
+            exit 0
+          fi
+          # The seed copies the content objects before it publishes the index
+          # blob, so a reader that resolves the new pointer always finds the
+          # payloads its rows refer to; an interrupted apply leaves a store
+          # ahead of its index, which the next apply completes. The published
+          # pointer lands in the summary beside the census: the runner is
+          # thrown away, and that value is the only thing a staging consumer
+          # needs from this run.
+          seed --apply

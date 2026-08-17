@@ -96,12 +96,16 @@ The offline checks the PR gate can run without the corpus remote.
 
 The pull/push pair the data workflows (and a developer with credentials) use to
 move the corpus index blob between disk and the S3 remote; both read the remote
-URL from `CORPUS_REMOTE_URL` (legacy `DVC_REMOTE_URL` accepted).
+URL from `CORPUS_REMOTE_URL` (legacy `DVC_REMOTE_URL` accepted). The seeder
+below moves a *slice* of both stores onto a second, non-production pair, and
+names its destinations explicitly rather than reading them from that variable —
+the configured value is what it refuses to write to.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `corpus-pull` | Download the blob the committed `corpus/corpus.db.ref` pointer names, verifying its checksum + size before the file lands. | `--missing-pointer fail\|warn` |
 | `corpus-push` | Digest the local blob, upload it to its content-addressed key (put-if-absent; the remote stays add-only), and rewrite the pointer — blob before pointer, so a committed pointer always resolves. | |
+| `corpus-seed-slice` | Copy a named docket slice into a **staging corpus** — its own bucket/prefix pair, so orchestration and the read/write seams get live end-to-end verification without anything gaining write access to production. Builds the two halves a split-mode corpus has: a payload-free index blob carrying only the slice's `cases` and `events` rows (rebuilt through the corpus's own upsert seams, so it is schema-current whatever the source's vintage; the opinion body is dropped and no snapshot or document row is written, so the slice has split-on parity whatever mode the seeding process runs under) published to `--dest-remote` at its content-addressed key exactly as `corpus-push` publishes production's, and a **key-level copy** of every content-store object under each case's prefix into `--dest-casestore` — the writers' own bytes, not a re-serialization, so every dated snapshot and content-addressed document leaf arrives unchanged. Objects are copied *before* the blob is published, so a reader resolving the new pointer always finds the payloads its rows refer to. The source corpus is read through the configured backend (ranged needs no pull — a bounded slice is point lookups) and the source content store from the configured content-store URL, both read-only. **The one hard rail:** a destination equal to either configured production store is refused before anything is read — which is what makes the write dispatch-triggerable at all. Idempotent (the remote is content-addressed and add-only; the object copy skips keys already present), and bounded by `--max-cases`. Dry-run by default, printing the per-case census — rows, events, snapshots, documents, objects — which is the reading an apply is dispatched on; an apply additionally reports what it copied and **the published pointer**, the one thing a staging consumer needs and the thrown-away runner would otherwise lose. Runs only in the `staging-corpus-refresh` workflow, the sole holder of the staging read-write role; a dev checkout can dry-run it against the read-only role. Provisioning the stores, the environment, and the role is the maintainer runbook in [security.md](security.md). | `--dest-remote`, `--dest-casestore`, `--dockets`, `--dockets-file`, `--apply`, `--max-cases`, `--stage-db`, `--summary-out` |
 
 ## Diagnostics — read-only probes
 

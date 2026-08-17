@@ -150,6 +150,7 @@ SPLIT_PAIR_WORKFLOWS = {
     "run-predict.yml",
     "run-pull.yml",
     "run-seed.yml",
+    "staging-corpus-refresh.yml",
 }
 
 

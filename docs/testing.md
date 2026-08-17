@@ -154,7 +154,13 @@ environment, which holds the same read-only role and remote variables plus its
 own engine keys; any other branch resolves its own name — an unconfigured,
 empty environment with no role variables and no keys — and an explicit choice
 (the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
-environment stays pinned to its one branch.
+environment stays pinned to its one branch. What those staging-bound runs read
+is meant to become the **staging corpus** — a lean slice of real cases in its
+own bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
+workflow (`fedcourts corpus-seed-slice`) so orchestration and the read/write
+seams get live verification for runner minutes without anything gaining write
+access to production; provisioning it, and the one wiring still outstanding, is
+the staging-corpus runbook in [security.md](security.md).
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide. Changed seams are therefore validated after the

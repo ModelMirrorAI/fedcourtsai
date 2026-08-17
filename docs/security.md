@@ -560,3 +560,86 @@ on), the cell-blast-radius bound stated above.
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and
 **Block Public Access on**.
+
+## The staging corpus (provisioning runbook)
+
+The production corpus is single-writer by construction — the write credentials
+exist only inside `run-pull` and `run-seed` — which is exactly why no
+orchestration change can be rehearsed against a real corpus before it is
+promoted. The **staging corpus** is the surface that closes that gap: a lean
+slice of real cases, in its **own bucket/prefix pair**, with the same two-store
+shape the split-mode production system has, seeded by
+`fedcourts corpus-seed-slice` from the dispatch-only
+`staging-corpus-refresh` workflow.
+
+**What does not change.** Production keeps its single-writer discipline
+untouched: the read-write role's trust still names `prod` alone, no new job
+assumes it, and the seeder refuses outright when a destination equals either
+configured production store. Codespaces stays read-only against production
+(see [data-pipeline.md](data-pipeline.md)'s *Developer access*); a dev checkout
+can dry-run the seeder against the read-only role, and its write half exists
+nowhere but the workflow below.
+
+Provisioning is AWS-and-environment work only the maintainer can do. In order —
+each step is a prerequisite of the next, and the workflow fails closed until
+they are all done (an unset role variable resolves empty and the assume-role
+step refuses):
+
+1. **Create the staging bucket/prefix pair.** Two destinations, named by role
+   rather than by literal here as everywhere in this document: a *staging
+   corpus remote* (the content-addressed index blobs) and a *staging content
+   store* (the per-case objects). Same bucket posture as production —
+   versioning on, a noncurrent-version lifecycle rule, Block Public Access on —
+   because it holds the same court-derived content, just less of it. Separate
+   from the production bucket, not a prefix inside it: the point is that a role
+   able to write staging is unable to name production at all.
+2. **Create the `staging-corpus` environment**, with **deployment branches
+   restricted to `staging`**. The restriction is the gate, and what it enforces
+   is code provenance — only code that passed a pull request and the `staging`
+   ruleset's checks can bind the environment and reach the role — the same
+   shape `prod` and `staging` already use, and the same invariant: the branch
+   restriction must be in place *before* the trust statement below names the
+   environment, or the role is handed to whatever an agent last pushed.
+3. **Create the staging read-write role**, assumed via OIDC (no static keys),
+   with two halves and no third: **read + list on the production stores** (what
+   the seeder reads its slice from — the same access the read-only role already
+   grants) and **read + write on the staging pair alone**. Its trust names
+   **only** the new environment — the same `...:sub` shape the other roles use,
+   `repo:<owner>/<repo>:environment:staging-corpus` — so no other job in this
+   repository can assume it, and production's writer trust is untouched. Keep
+   the production half explicitly read-only: this role must be unable to write
+   the production corpus by policy, not merely by the command's refusal.
+4. **Set the `staging-corpus` environment's variables** — the destinations
+   `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the role
+   `AWS_ROLE_TO_ASSUME_STAGING_RW`, `AWS_REGION`, and the *sources* the seeder
+   reads its slice from, `CORPUS_REMOTE_URL` and `CASESTORE_URL` at their
+   production values (the same variables every consumer job names, so the
+   command needs no source flags). Values stay out of git, as the production
+   ones do.
+5. **Point the `staging` environment at the staging corpus.** Set its
+   `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair and
+   `FEDCOURTS_CORPUS_SPLIT=1`, so the integration scenarios dispatched from
+   `staging` run split-on against the staging corpus rather than production's.
+   Two consequences to accept deliberately: the production **read-only** role
+   that the `staging` environment binds must also be allowed to read and list
+   the staging pair (a read-only widening onto a non-production bucket), and a
+   staging-head preflight from then on certifies the seams against a real but
+   *small* corpus — real shapes, not production's volume.
+6. **Accept it.** Dispatch `staging-corpus-refresh` with the slice and no
+   `apply`, read the census off the step summary, then dispatch again with
+   `apply`. Then dispatch `integration-test.yml` with `scenario=stub-cascade`
+   from `staging`: green is the acceptance — provision → predict → validate
+   over a real, split-on corpus that no production credential was involved in
+   writing.
+
+**One wiring still stands between step 5 and step 6.** Every corpus consumer
+resolves the **committed** `corpus/corpus.db.ref` pointer, and that pointer
+carries the digest and size of the *production* blob — content addressing means
+a lean slice can never publish under the same key. So a consumer pointed at the
+staging remote resolves a key the staging bucket does not hold. The seeder
+therefore renders the pointer it published into the run summary, which is the
+value that wiring needs; choosing the wiring is a change to
+`integration-test.yml` (a staging-only pointer path selected by a corpus-root
+variable, or the pointer supplied out of band the way the remote URL already
+is), and lands as its own maintainer-gated change. Until then the refresh lane
+produces the staging corpus and the scenarios still read production's.

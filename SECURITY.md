@@ -185,7 +185,14 @@ runbook, [docs/security.md](docs/security.md).
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role
-  and its own engine keys for the pre-promotion integration runs.
+  and its own engine keys for the pre-promotion integration runs. A third,
+  `staging-corpus`, is restricted to the same branch and holds the **staging
+  read-write role** — the only credential in the system that can write a corpus
+  store other than through the `prod` writers. It is read-only on production
+  and read-write on the staging bucket pair alone, its OIDC trust names that
+  one environment, and exactly one workflow binds it
+  (`staging-corpus-refresh`, dispatch-only), so production's single-writer
+  discipline is unchanged.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat
