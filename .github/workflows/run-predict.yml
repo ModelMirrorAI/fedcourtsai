@@ -227,8 +227,94 @@ jobs:
           # commented-but-still-open state if a separate close were to fail.
           gh issue close "$ISSUE" --repo "$REPO" --comment "$comment"
 
-  predict:
+      # The plan report the approval below is judged on: the tested plan
+      # command re-derives the same fan-out the matrix step just minted (same
+      # helpers, zero spend) and renders per-step counts, the would-mint cell
+      # list, and the seam- and engine-conditioned spend estimate. Posted to
+      # the trigger issue and the step summary BEFORE the hold, so the record
+      # of what was approved exists whether or not the release ever comes.
+      - name: Post the plan report for approval
+        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          plan_json=$(uv run fedcourts predict-plan --body-file issue-body.md \
+            --stranded-file stranded-artifacts.json 2>plan-stderr.txt)
+          {
+            echo "## predict plan — token spend holds for approval"
+            echo
+            echo '```'
+            cat plan-stderr.txt
+            echo '```'
+            echo '<details><summary>plan document</summary>'
+            echo
+            echo '```json'
+            echo "$plan_json" | jq .
+            echo '```'
+            echo '</details>'
+            echo
+            echo "Approve or reject the \`predict-approval\` deployment on the run: ${RUN_URL}"
+          } > plan-report.md
+          cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
+          # The report must exist where the approver reads before the hold
+          # releases; a transient API fault retries, a sustained one fails the
+          # plan job loudly and nothing spends.
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+            done
+            return 1
+          }
+          retry gh issue comment "$ISSUE" --repo "$REPO" --body-file plan-report.md
+
+  # The hold. This job carries no code, no token, and no permissions — its one
+  # purpose is the deployment environment: `predict-approval`'s required
+  # reviewers gate it, so every downstream job that spends (the matrix and the
+  # collect writer behind it) waits on an explicit, audit-logged release. The
+  # wait happens before the job is scheduled, so timeout-minutes bounds only
+  # the no-op itself. The environment must exist WITH required reviewers
+  # configured before this reaches main: GitHub auto-creates a referenced
+  # environment unprotected, and an unprotected environment is no gate at all.
+  approval:
     needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: predict-approval
+    permissions: {}
+    steps:
+      - name: Release the held fan-out
+        run: echo "predict-approval released — the matrix may spend."
+
+  # A rejected (or failed) hold must not strand the trigger issue open: record
+  # the outcome where the request lives, pointing at the plan report the
+  # decision was made on. Ambient token; closing triggers nothing.
+  rejected:
+    needs: [plan, approval]
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'failure' && github.event.issue.number }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the trigger issue as rejected
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh issue close "$ISSUE" --repo "$REPO" --comment "The predict-approval hold was rejected (or failed before release) — no cell ran and nothing was spent. The plan report above is the record of what was declined: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+
+  predict:
+    needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -990,12 +1076,15 @@ jobs:
     concurrency:
       group: collect-${{ github.workflow }}-${{ github.run_id }}
       cancel-in-progress: false
-    needs: [plan, predict]
+    needs: [plan, approval, predict]
     # Run after the whole fan-out even if some cells failed, as long as the plan
-    # queued jobs. This is the only writer: it unions the cells' artifacts into one
+    # queued jobs AND the hold released. Without the approval clause, always()
+    # would fire this writer on a rejected hold (predict merely skipped) and
+    # spin up the collect machinery over a run that spent nothing. This is the
+    # only writer: it unions the cells' artifacts into one
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
     runs-on: ubuntu-latest
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
