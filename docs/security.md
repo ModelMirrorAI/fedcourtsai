@@ -743,7 +743,8 @@ because it is ready. Read the caveat before doing either.
 2. **Verify the `staging` environment restricts deployments with a custom
    branch policy naming `staging`** — the named-policy mode, not "protected
    branches only": the gate's check reads the named policies, and the other
-   mode reads as a missing policy — no new environment is created; the write role's trust
+   mode reads as a missing policy. No new environment is created; the write
+   role's trust
    deliberately names the environment the integration scenarios already bind,
    so staging rehearses production's provenance model (in `prod` too, the
    write role trusts the environment every reader binds, and review of what

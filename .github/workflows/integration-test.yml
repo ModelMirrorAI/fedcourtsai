@@ -46,8 +46,8 @@ run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario ==
 # remote variables plus its own engine keys, and the trust of the staging
 # read-write role, which any staging-bound job may therefore ask for (the
 # refresh lane is the one reviewed asker; docs/security.md carries the
-# provenance model) — and any other branch resolves its
-# own name, which names no configured environment and so binds nothing: no role
+# provenance model) — and any other branch resolves its own name, which
+# names no configured environment and so binds nothing: no role
 # variables, no keys. An explicit choice still wins over the resolution.
 # Each environment restricts deployments to its one branch, so the
 # gate is code provenance — only what passed a PR and the branch's required
