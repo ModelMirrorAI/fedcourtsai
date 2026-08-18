@@ -1,0 +1,12 @@
+case_id: scotus/9526000176
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: '2026-08-07'
+resolved: true
+schema_version: '1.0'
+stage: interim
+title: LaVonne Washington, et al. v. United States, et al.
