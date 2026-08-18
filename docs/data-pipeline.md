@@ -587,6 +587,32 @@ the remote URL as `CORPUS_REMOTE_URL`, exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
 
+The **staging pair** (the lean real-slice corpus of
+[security.md](security.md)'s staging-corpus runbook) is served by the same
+read-only role — the maintainer's role-assumed flow; the contributor IAM
+user stays scoped to production — and its URLs arrive as two more user-scoped
+secrets, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`: the same
+names the `staging` Actions environment carries for the refresh lane,
+deliberately, since they hold the same URLs in a different config store.
+`scripts/corpus-env` (invoked from the repo root) switches the whole env
+contract between the pairs — both accepted spellings of the remote and
+casestore URLs plus `FEDCOURTS_CORPUS_SPLIT`, together, because the
+`FEDCOURTS_`-prefixed aliases outrank the bare names and a hand-rolled export
+of one spelling half-switches: `scripts/corpus-env staging <command>` runs
+one command against staging (the form that works from any shell, a coding
+agent's per-call shells included), while `eval "$(scripts/corpus-env
+staging)"` flips an interactive shell and `eval "$(scripts/corpus-env prod)"`
+flips it back. What the switch reaches today is the **content-store half**:
+casestore-path reads of a seeded case's snapshots, events, and documents. The
+**index half is not readable yet** — every consumer resolves the committed
+`corpus/corpus.db.ref`, whose digest names the production blob, so a ranged
+query or `corpus-pull` in a staging-flipped shell asks the staging bucket for
+a key it does not hold and fails as a missing key; the pointer wiring that
+unblocks the integration scenarios (*The outstanding wiring* in
+[security.md](security.md)) is the same wiring that unblocks this. The split
+flag rides along because the slice is payload-free by construction: without
+it, payload reads bypass the casestore and find nothing, silently.
+
 ### Corpus schema
 
 Each corpus row is a normalized, **labeled** record: identifiers, dates, the

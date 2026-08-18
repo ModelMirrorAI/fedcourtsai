@@ -16,6 +16,6 @@ env_file="${HOME}/.fedcourts-env.sh"
 if aws sts get-caller-identity >/dev/null 2>&1; then
   echo "Corpus credentials live (${AWS_PROFILE})."
 else
-  echo "AWS SSO session expired or absent — run: corpus-login"
+  echo "AWS SSO session expired or absent — run: scripts/corpus-login"
 fi
 exit 0

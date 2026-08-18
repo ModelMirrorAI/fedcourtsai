@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Point one command — or, via eval, one shell — at the staging or production
+# corpus pair, by re-exporting the env contract the tooling reads: the corpus
+# remote and casestore URLs in both accepted spellings (the FEDCOURTS_-prefixed
+# aliases outrank the bare workflow names in fedcourtsai.config, so both must
+# move together or a stray prefixed export half-switches the pair), plus
+# FEDCOURTS_CORPUS_SPLIT, which travels with the pair because staging is
+# written split-on. Store URLs are never committed: staging's arrive as the
+# user-scoped Codespaces secrets STAGING_CORPUS_REMOTE_URL and
+# STAGING_CASESTORE_URL, production's as CORPUS_REMOTE_URL (see "Developer
+# access" in docs/data-pipeline.md). Both targets are served by the same
+# read-only role — this switches which pair is read, never what may be
+# written — and no mode prints a URL: the eval form emits variable references
+# the target shell expands itself, so no store URL lands on stdout, in a
+# transcript, or in a log.
+#
+#   scripts/corpus-env staging <command...>   run one command against staging
+#   eval "$(scripts/corpus-env staging)"      flip the current shell
+#   eval "$(scripts/corpus-env prod)"         flip it back
+#
+# The one-command form is the one that works from any shell — a coding agent's
+# per-call shells included, where an eval'd flip would not outlive the call.
+# The first flip to staging captures the production values (FEDCOURTS_PROD_*)
+# once; later staging flips leave the capture alone, which is what lets "prod"
+# restore them — legitimately-empty values included — in a shell that has
+# flipped any number of times. Bash-only: the emitted text uses [[ ]], and the
+# devcontainer provides bash.
+set -euo pipefail
+
+usage() {
+  echo "usage: scripts/corpus-env {staging|prod} [command ...]" >&2
+  exit 2
+}
+
+[[ $# -ge 1 ]] || usage
+target="$1"
+shift
+
+# Production's effective values, resolved the way fedcourtsai.config would:
+# prefixed alias first, then the bare name, then the legacy DVC spellings the
+# devcontainer hook still honors. A FEDCOURTS_PROD_* capture wins outright —
+# it exists only in a flipped shell, where the ambient values are staging's.
+# The emitted staging capture below encodes the same resolution; the two must
+# stay in agreement.
+if [[ -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
+  prod_remote="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}"
+  prod_casestore="${FEDCOURTS_PROD_CASESTORE_URL-}"
+  prod_split="${FEDCOURTS_PROD_CORPUS_SPLIT-}"
+else
+  prod_remote="${FEDCOURTS_CORPUS_REMOTE_URL:-${CORPUS_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-${DVC_REMOTE_URL:-}}}}"
+  prod_casestore="${FEDCOURTS_CASESTORE_URL:-${CASESTORE_URL-}}"
+  prod_split="${FEDCOURTS_CORPUS_SPLIT-}"
+fi
+
+case "${target}" in
+  staging)
+    if [[ -z "${STAGING_CORPUS_REMOTE_URL:-}" || -z "${STAGING_CASESTORE_URL:-}" ]]; then
+      echo "corpus-env: STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL must both be set" \
+        "(user-scoped Codespaces secrets; see docs/data-pipeline.md, Developer access)." >&2
+      exit 1
+    fi
+    remote="${STAGING_CORPUS_REMOTE_URL}"
+    casestore="${STAGING_CASESTORE_URL}"
+    split="1"
+    ;;
+  prod)
+    if [[ -z "${prod_remote}" ]]; then
+      echo "corpus-env: no production corpus URL in the environment (CORPUS_REMOTE_URL unset)." >&2
+      exit 1
+    fi
+    remote="${prod_remote}"
+    casestore="${prod_casestore}"
+    split="${prod_split}"
+    ;;
+  *)
+    usage
+    ;;
+esac
+
+if [[ $# -gt 0 ]]; then
+  # Empty means off for both the casestore URL and the split flag
+  # (fedcourtsai.config reads empty as unset for each).
+  CORPUS_REMOTE_URL="${remote}" FEDCOURTS_CORPUS_REMOTE_URL="${remote}" \
+    CASESTORE_URL="${casestore}" FEDCOURTS_CASESTORE_URL="${casestore}" \
+    FEDCOURTS_CORPUS_SPLIT="${split}" exec "$@"
+fi
+
+# No command: emit shell text for eval. Everything below is literal — the
+# target shell expands the references against its own environment, so no
+# store URL passes through this process's stdout.
+if [[ "${target}" == staging ]]; then
+  cat <<'EOS'
+if [[ -z "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
+  export FEDCOURTS_PROD_CORPUS_REMOTE_URL="${FEDCOURTS_CORPUS_REMOTE_URL:-${CORPUS_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-${DVC_REMOTE_URL:-}}}}"
+  export FEDCOURTS_PROD_CASESTORE_URL="${FEDCOURTS_CASESTORE_URL:-${CASESTORE_URL-}}"
+  export FEDCOURTS_PROD_CORPUS_SPLIT="${FEDCOURTS_CORPUS_SPLIT-}"
+fi
+export CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL}" FEDCOURTS_CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL}"
+export CASESTORE_URL="${STAGING_CASESTORE_URL}" FEDCOURTS_CASESTORE_URL="${STAGING_CASESTORE_URL}"
+export FEDCOURTS_CORPUS_SPLIT=1
+echo "corpus env -> staging"
+EOS
+else
+  cat <<'EOS'
+if [[ -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
+  export CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}" FEDCOURTS_CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}"
+  export CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}" FEDCOURTS_CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}"
+  export FEDCOURTS_CORPUS_SPLIT="${FEDCOURTS_PROD_CORPUS_SPLIT-}"
+fi
+echo "corpus env -> prod"
+EOS
+fi
