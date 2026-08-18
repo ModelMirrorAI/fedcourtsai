@@ -144,13 +144,19 @@ runbook, [docs/security.md](docs/security.md).
   consumer runner cannot tamper with the data; the buckets keep **versioning**
   on, so no run can wipe corpus objects. The third is the **staging read-write**
   role — read-only on the production stores, read-write on the staging corpus
-  pair alone — held by one dispatch-only workflow, so the production stores
-  keep exactly one writer. Every role's OIDC trust is scoped to named
-  environments of this repo — the production read-write role to `prod`, the
-  read-only role to `prod` and `staging` (which is what lets the pre-promotion
-  integration runs read the corpus), the staging role to `staging-corpus` — and
-  each of those environments restricts deployments to one branch, so a
-  PR-branch job cannot assume any of them. No
+  pair alone — so the production stores keep exactly one writer whatever
+  happens to it. Every role's OIDC trust is scoped to named environments of
+  this repo — the production read-write role to `prod`, the read-only role to
+  `prod` and `staging` (which is what lets the pre-promotion integration runs
+  read the corpus), the staging read-write role to `staging` — and each of
+  those environments restricts deployments to one branch, so a PR-branch job
+  cannot assume any of them. Within an environment the split is provenance,
+  not identity, on both sides of the promotion: any `prod`-bound job could ask
+  for the production write role and any `staging`-bound job for the staging
+  one, and what stops the wrong job asking is review of the code the branch
+  policy admits — deliberately symmetric, so a wrongly-writing change fails
+  visibly against the disposable staging pair before promotion instead of
+  succeeding first in production. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.
@@ -208,13 +214,12 @@ runbook, [docs/security.md](docs/security.md).
   a deliberateness gate — an explicit, audit-logged reading of the plan before
   the spend — not two-person control, and blocking the run's own actor would
   make a maintainer-labeled run unreleasable. Revisit if a second maintainer
-  joins. A fourth, `staging-corpus`, is restricted to the `staging` branch
-  and holds the **staging read-write role** — the only credential in the system
-  that can write a corpus store other than through the `prod` writers. It is
-  read-only on production and read-write on the staging bucket pair alone, its
-  OIDC trust names that one environment, and exactly one workflow binds it
-  (`staging-corpus-refresh`, dispatch-only), so production's single-writer
-  discipline is unchanged.
+  joins. The `staging` environment also carries the **staging read-write
+  role**'s trust — the only credential in the system that can write a corpus
+  store other than through the `prod` writers, read-only on production and
+  read-write on the staging bucket pair alone, so production's single-writer
+  discipline is unchanged and the worst a staging-bound write can corrupt is
+  the re-seedable fixture the refresh lane rebuilds in one dispatch.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat

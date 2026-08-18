@@ -1,4 +1,4 @@
-"""The staging-corpus seeder (``fedcourtsai.corpus_seed``), fully offline.
+"""The staging corpus slice seeder (``fedcourtsai.corpus_seed``), fully offline.
 
 Both destinations are in-memory transports injected through the seams the
 corpus transports already expose — no boto3, no network — mirroring

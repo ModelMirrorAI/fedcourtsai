@@ -166,8 +166,10 @@ the **staging corpus**, a lean slice of real cases in its own bucket/prefix
 pair (`fedcourts corpus-seed-slice`), so orchestration and the read/write seams
 get live end-to-end verification without anything gaining write access to the
 production corpus. Its own workflow file on the risk-class rule below, like
-every other corpus writer: it is the only holder of the staging read-write role
-and the only binder of the `staging-corpus` environment. Dispatch-only, from
+every other corpus writer: it is the one reviewed asker of the staging
+read-write role, whose trust names the `staging` environment itself — the
+prod-fidelity call, so a wrongly-writing change fails visibly against the
+disposable pair before promotion rather than first in production. Dispatch-only, from
 the `staging` ref alone — the environment's branch policy is the gate, the
 job's own first step refuses any other ref, and the promotion gate's
 maintainer-run `contexts` stage reports whether that policy is actually set

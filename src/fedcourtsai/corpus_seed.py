@@ -321,7 +321,7 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
                 raise SeedSliceError(
                     f"refusing to seed: {flag} names the configured production {name}. "
                     "The staging corpus is its own bucket/prefix pair — see the "
-                    "staging-corpus runbook in docs/security.md."
+                    "staging corpus runbook in docs/security.md."
                 )
     for flag, location in slots:
         for name, configured in production.items():
@@ -329,7 +329,7 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
                 raise SeedSliceError(
                     f"refusing to seed: {flag} is a prefix inside the production "
                     f"{name}'s bucket. The staging corpus is a SEPARATE bucket, not a "
-                    "prefix inside production's — see the staging-corpus runbook in "
+                    "prefix inside production's — see the staging corpus runbook in "
                     "docs/security.md."
                 )
 

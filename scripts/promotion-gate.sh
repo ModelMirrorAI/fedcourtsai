@@ -292,30 +292,32 @@ contexts() {
     echo "contexts: the review environment is not yet referenced on main; environment check skipped"
   fi
 
-  # The staging-corpus mirror of the same failure mode, for the same reason:
-  # that environment's protection is a deployment-branch policy naming
-  # `staging`, and it is what keeps the only write-capable role outside `prod`
-  # off arbitrary branches. An auto-created environment carries no policy at
-  # all, so a referenced-but-unprovisioned `staging-corpus` would hand the role
-  # to whatever ref dispatched it. Same grep guard, so the check reports itself
-  # skipped until main's workflows actually reference the environment.
-  if grep -rq "staging-corpus" "$main_workflows"; then
+  # The staging environment's mirror of the same failure mode: the staging
+  # read-write role's trust names `environment: staging` — deliberately, so
+  # staging rehearses production's provenance model — which makes that
+  # environment's deployment-branch policy the one thing keeping the only
+  # write-capable role outside `prod` off arbitrary branches. The policy
+  # predates the role and exists for the integration runs too, but once main
+  # references the write role the policy is load-bearing for write provenance,
+  # so it is verified rather than assumed. Keyed on the role variable, so the
+  # check reports itself skipped until main's workflows actually bind it.
+  if grep -rq "AWS_ROLE_TO_ASSUME_STAGING_RW" "$main_workflows"; then
     local branch_policy
     # `deployment_branch_policy.custom_branch_policies` means named branches;
     # the names themselves are a second call.
-    branch_policy="$(gh api "repos/${REPO}/environments/staging-corpus/deployment-branch-policies" \
+    branch_policy="$(gh api "repos/${REPO}/environments/staging/deployment-branch-policies" \
       --jq '[.branch_policies[]?.name] | join(",")' 2>/dev/null || true)"
     case ",${branch_policy}," in
       *,staging,*)
-        echo "contexts: staging-corpus restricted to the staging branch"
+        echo "contexts: the staging environment is restricted to the staging branch"
         ;;
       *)
-        echo "::error::contexts: the staging-corpus environment does not restrict deployments to the 'staging' branch — the staging read-write role would be reachable from any ref that can dispatch; configure the environment before promoting anything that relies on it"
+        echo "::error::contexts: the staging environment does not restrict deployments to the 'staging' branch — the staging read-write role its trust names would be reachable from any ref that can dispatch; fix the environment's branch policy before promoting anything that relies on it"
         fail=1
         ;;
     esac
   else
-    echo "contexts: staging-corpus not yet referenced on main; environment check skipped"
+    echo "contexts: the staging write role is not yet referenced on main; environment check skipped"
   fi
 }
 
