@@ -88,6 +88,16 @@ if [[ -n "${remote_url}" ]]; then
   echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
 fi
 
+# The staging pair's URLs need no translation — the STAGING_* secrets are
+# already the names scripts/corpus-env reads — so presence is just worth a
+# pointer to the switcher, and a half-configured pair a warning (the switcher
+# refuses one URL without the other).
+if [[ -n "${STAGING_CORPUS_REMOTE_URL:-}" && -n "${STAGING_CASESTORE_URL:-}" ]]; then
+  echo "Staging corpus pair configured (read-only): scripts/corpus-env staging <cmd>, or eval \"\$(scripts/corpus-env staging)\" for the shell."
+elif [[ -n "${STAGING_CORPUS_REMOTE_URL:-}${STAGING_CASESTORE_URL:-}" ]]; then
+  echo "Staging corpus pair half-configured: set both STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL (scripts/corpus-env refuses one without the other)."
+fi
+
 source_line='if [ -f "$HOME/.fedcourts-env.sh" ]; then . "$HOME/.fedcourts-env.sh"; fi'
 if ! grep -qxF "${source_line}" "${HOME}/.bashrc" 2>/dev/null; then
   printf '%s\n' "${source_line}" >> "${HOME}/.bashrc"

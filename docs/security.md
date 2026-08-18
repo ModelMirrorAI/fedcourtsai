@@ -704,10 +704,15 @@ read-only on the production stores, so nothing in this lane can reach the
 production write path whatever it is pointed at. The seeder's own rail, which
 refuses a destination that *is, or is inside*, either configured production
 store, is the second line: it turns a misconfiguration into a local refusal
-before anything is read. Codespaces stays read-only against production
-(see [data-pipeline.md](data-pipeline.md)'s *Developer access*); a dev checkout
-can dry-run the seeder against the read-only role, and its write half exists
-nowhere but the workflow below.
+before anything is read. Codespaces stays read-only: against production for
+both developer flows, and against the staging pair for the maintainer's
+role-assumed flow, whose read-only role's policy also reads it (see
+[data-pipeline.md](data-pipeline.md)'s *Developer access* for the
+`scripts/corpus-env` switch). A dev checkout can dry-run the seeder against
+the read-only role, and its write half exists nowhere but the workflow below —
+but dry-run it from a prod-pointed shell: the rail resolves "production" from
+the very variables the switcher rewrites, so a staging-flipped shell re-bases
+what the rail refuses.
 
 Provisioning is AWS-and-environment work only the maintainer can do. **Steps
 1-4 are the whole of what the refresh lane needs**, and they are ordered: each
@@ -807,9 +812,10 @@ because it is ready. Read the caveat before doing either.
    Three consequences to accept deliberately when it does land: the seeder's
    source variables must decouple from the repointed pair (the step-4 note);
    the production
-   **read-only** role that the `staging` environment binds must also be allowed
-   to read and list the staging pair (a read-only widening onto a
-   non-production bucket), and a staging-head preflight from then on certifies
+   **read-only** role that the `staging` environment binds must be able
+   to read and list the staging pair (the read-side extension below, which may
+   land at any time and is already absorbed if it landed early), and a
+   staging-head preflight from then on certifies
    the seams against a real but *small* corpus — real shapes, not production's
    volume.
 6. **Accept it.** The first half is runnable as soon as steps 1-4 are done; the
@@ -841,6 +847,23 @@ because it is ready. Read the caveat before doing either.
 
    Green there is the full acceptance — provision → predict → validate over a
    real, split-on corpus that no production credential was involved in writing.
+
+**One read-side extension sits outside the lane's ordering**: extend the
+**read-only** role's policy — the role Codespaces assumes and the integration
+scenarios bind — with the same read + list statements on the staging pair,
+mirrored from its production statements (where the explicit write/delete deny
+names resources, the staging pair joins that list too). The refresh lane does
+not need it; two consumers do. It serves the maintainer's developer reads of
+the pair from Codespaces ([data-pipeline.md](data-pipeline.md)'s *Developer
+access*; the contributor IAM user is deliberately not extended, so the
+system's one static credential stays scoped to production), and step 5
+requires it for the repointed scenarios — landing it early turns a step-5
+prerequisite into a done item. It stays inside step 1's "no wider read
+principal than production's": the widening lands on production's existing
+reader principal, not a new one. And no trust statement changes, only the
+permission policy — Codespaces reaches the role by STS from the Identity
+Center profile, and the CI readers bind it through the OIDC trust that
+already names `prod` and `staging`.
 
 **The outstanding wiring.** Every corpus consumer resolves the **committed**
 `corpus/corpus.db.ref` pointer, and that pointer carries the digest and size of

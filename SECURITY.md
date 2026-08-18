@@ -165,8 +165,10 @@ runbook, [docs/security.md](docs/security.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces
   secrets (never repo-level, never committed): the maintainer via IAM Identity
-  Center's short-lived SSO tokens, and contributors via a dedicated read-only
-  IAM user provisioned on demand. The exposure a leaked contributor key could
+  Center's short-lived SSO tokens — the role-assumed flow, whose read-only
+  role also reads the staging pair — and contributors via a dedicated
+  read-only IAM user provisioned on demand, scoped to the production stores
+  alone. The exposure a leaked contributor key could
   buy is deliberately small: the corpus is public court data, neither principal
   can write or delete anything, and a billing alarm bounds egress abuse. See
   *Developer access* in [docs/data-pipeline.md](docs/data-pipeline.md).
