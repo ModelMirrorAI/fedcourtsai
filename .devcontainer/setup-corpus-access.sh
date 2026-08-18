@@ -65,14 +65,12 @@ EOF
   # static-key flow (boto3 fails on a profile no config file defines).
   cat >> "${env_file}" <<'EOF'
 export AWS_PROFILE=fedcourts-ro
-
-# Refresh the short-lived SSO session. Device code because a codespace has no
-# browser for the redirect flow.
-corpus-login() {
-  aws sso login --sso-session modelmirror --use-device-code
-}
 EOF
-  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'corpus-login' when the session expires."
+  # A convenience name for interactive terminals; the committed script is the
+  # definition, and the one spelling that also resolves where .bashrc
+  # functions are not inherited (a coding agent's per-call shells).
+  printf 'corpus-login() {\n  %q "$@"\n}\n' "$(pwd)/scripts/corpus-login" >> "${env_file}"
+  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run scripts/corpus-login when the session expires."
 elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   # Contributor flow: nothing to configure — boto3 picks the key pair up from
   # the environment, and no profile must be set (see the remoteEnv note above).
