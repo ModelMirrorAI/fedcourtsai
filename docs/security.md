@@ -346,11 +346,18 @@ a maintainer-only act, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
 can dispatch, whether a workflow declaring `actions: write` or either App
-granted an Actions scope; or the first workflow that binds `staging` on a
+granted an Actions scope; the first workflow that binds `staging` on a
 **non-dispatch trigger** — a `push` or `pull_request` filter naming the branch
 would bind the environment on the merge itself, and agents merge their own PRs
-to `staging`. No workflow filters on a staging ref today; every branch filter
-names `main`.
+to `staging`, which since the environment carries the staging write role's
+trust would hand *write* reach on the fixture, not just read and spend, at an
+agent's own merge; or **the pointer wiring landing**, from which point the
+staging corpus is the promotion gate's freshness evidence and the code that
+can write the evidence is the thing a reviewer would be approving — the
+re-seed practice above keeps the evidence honest between reviews, but it does
+not answer that question, so the change that lands the wiring re-asks it
+rather than leaving it standing on this paragraph. No workflow filters on a
+staging ref today; every branch filter names `main`.
 
 What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
@@ -361,12 +368,15 @@ at all. The real control is `AGENTS.md`'s rule that `.github/workflows/**` and
 composite runs inside the job and reads the same secrets — wait for the
 maintainer even into `staging`. Convention, not ruleset, and recorded as such.
 
-Blast radius is bounded on **integrity**, not on confidentiality or spend:
-staging's engine keys are separate and independently revocable, and its AWS role
-is read-only with no write path to the corpus — but that role reads and lists
-the access-gated corpus and the per-case content store. So the exposure a
-workflow change at the staging head buys is corpus *read* and model *spend*,
-which is why the linter gap above is worth naming rather than glossing.
+Blast radius is bounded on **integrity of production**, not on confidentiality
+or spend: staging's engine keys are separate and independently revocable, and
+its **read-only** AWS role has no write path to the *production* corpus — but
+that role reads and lists the access-gated corpus and the per-case content
+store, and the environment now also carries a role that writes the staging
+pair (next paragraph). So the exposure a workflow change at the staging head
+buys is corpus *read*, model *spend*, and a write to the re-seedable staging
+fixture — which is why the linter gap above is worth naming rather than
+glossing.
 
 **The staging read-write role adds a write to that radius, and it is the
 kind that does not move the integrity bound.** Its trust names the `staging`
@@ -383,7 +393,14 @@ from production by one dispatch. It buys **no production write path** (the
 role is read-only on the production stores by policy) and **no new read
 surface** (the same slice the already-trusted read-only role can read in
 full). What it does *not* dilute: the production corpus keeps exactly one
-writer, and that writer is still reachable only from `main`.
+writer, and that writer is still reachable only from `main`. One control
+changes weight rather than shape: the agent-env scrub (every `AWS_*` name and
+every credential-shaped name stripped from the agent subprocess) was a read-
+confidentiality control while staging's OIDC bought read alone; a
+staging-bound job that holds `id-token: write` *and* runs an agent over
+untrusted docket text — the engine-smoke legs — could otherwise mint the
+write role's credentials, so the scrub is now load-bearing for the staging
+pair's write integrity too.
 
 What corrupting it *costs* depends on a coupling worth stating rather than
 discovering. Today nothing committed depends on the staging corpus — the
@@ -723,8 +740,10 @@ because it is ready. Read the caveat before doing either.
    the same terms — **no wider read principal than production's**, nothing
    published from it, and it does not become a convenient place to stage a
    public extract.
-2. **Verify the `staging` environment's deployment-branch policy names
-   `staging`** — no new environment is created; the write role's trust
+2. **Verify the `staging` environment restricts deployments with a custom
+   branch policy naming `staging`** — the named-policy mode, not "protected
+   branches only": the gate's check reads the named policies, and the other
+   mode reads as a missing policy — no new environment is created; the write role's trust
    deliberately names the environment the integration scenarios already bind,
    so staging rehearses production's provenance model (in `prod` too, the
    write role trusts the environment every reader binds, and review of what
@@ -742,7 +761,9 @@ because it is ready. Read the caveat before doing either.
    promotion gate's **admin-read `contexts` stage**, which the maintainer runs
    with their own token, verifies the environment's deployment-branch policy
    names `staging` — the same shape as its `review`-environment reviewer check,
-   and skipped until main's workflows reference the environment. It is
+   and skipped until main's workflows bind the staging write role's variable
+   (main will reference the `staging` environment itself long before anything
+   arms the role). It is
    deliberately **not** part of any automatic gate: reading environment and
    ruleset settings needs admin-level access that ci.yml's promotion-gate job
    does not hold, so a required check would 403 (see the rationale in

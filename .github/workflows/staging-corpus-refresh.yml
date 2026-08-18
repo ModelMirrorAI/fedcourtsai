@@ -44,8 +44,9 @@ name: staging-corpus-refresh
 # Both together are why the write is dispatch-triggerable at all.
 #
 # Provisioning the variables and the role is a maintainer task the workflow
-# cannot do for itself — see the staging corpus runbook in docs/security.md. Until it is done, a dispatch fails closed: an unset role
-# variable resolves empty and the assume-role step refuses.
+# cannot do for itself — see the staging corpus runbook in docs/security.md.
+# Until it is done, a dispatch fails closed: an unset role variable resolves
+# empty and the assume-role step refuses.
 on:
   workflow_dispatch:
     inputs:
@@ -113,9 +114,9 @@ jobs:
     steps:
       # The environment's deployment-branch policy is the real gate — a
       # dispatch from any other ref is refused before a step runs — but that
-      # policy is a repository setting this workflow cannot see, and a
-      # misprovisioned environment fails OPEN (GitHub auto-creates a referenced
-      # environment unprotected). So state the requirement in the job too: it
+      # policy is a repository setting this workflow cannot see, and the live
+      # failure mode is the policy edited or removed on the pre-existing
+      # environment, which fails OPEN. So state the requirement in the job too: it
       # costs one step, it is the same assertion the promotion gate makes from
       # the outside, and it means the lane never rests solely on a setting
       # nobody can read from here. Belt and braces, in that order.

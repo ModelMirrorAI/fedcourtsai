@@ -606,3 +606,15 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     assert len(tolerated) == 2
     untolerated = [s for s in scenario if s.get("continue-on-error") is not True]
     assert untolerated[0]["with"]["labeler"] == "canned/reference"
+
+
+def test_the_gate_key_for_the_staging_write_role_pins_to_the_workflow_that_binds_it() -> None:
+    """The promotion gate arms its staging-environment branch-policy check by
+    grepping main's workflows for the write role's variable name. That key is a
+    cross-file coupling: rename the variable in the refresh workflow and the
+    check would report itself skipped forever, exactly when it should enforce.
+    Pin both ends to the one string."""
+    gate = (WORKFLOWS.parent.parent / "scripts" / "promotion-gate.sh").read_text()
+    key = "AWS_ROLE_TO_ASSUME_STAGING_RW"
+    assert f'grep -rq "{key}"' in gate
+    assert key in (WORKFLOWS / "staging-corpus-refresh.yml").read_text()
