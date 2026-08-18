@@ -43,8 +43,11 @@ run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario ==
 # infrastructure before it is promoted, and its `auto` default resolves the
 # environment from the dispatching branch: `main` resolves `prod` as always,
 # `staging` resolves the `staging` environment — the same read-only role and
-# remote variables plus its own engine keys — and any other branch resolves its
-# own name, which names no configured environment and so binds nothing: no role
+# remote variables plus its own engine keys, and the trust of the staging
+# read-write role, which any staging-bound job may therefore ask for (the
+# refresh lane is the one reviewed asker; docs/security.md carries the
+# provenance model) — and any other branch resolves its own name, which
+# names no configured environment and so binds nothing: no role
 # variables, no keys. An explicit choice still wins over the resolution.
 # Each environment restricts deployments to its one branch, so the
 # gate is code provenance — only what passed a PR and the branch's required

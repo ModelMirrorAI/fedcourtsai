@@ -169,8 +169,8 @@ production corpus. Its own workflow file on the risk-class rule below, like
 every other corpus writer: it is the one reviewed asker of the staging
 read-write role, whose trust names the `staging` environment itself — the
 prod-fidelity call, so a wrongly-writing change fails visibly against the
-disposable pair before promotion rather than first in production. Dispatch-only, from
-the `staging` ref alone — the environment's branch policy is the gate, the
+disposable pair before promotion rather than first in production.
+Dispatch-only, from the `staging` ref alone — the environment's branch policy is the gate, the
 job's own first step refuses any other ref, and the promotion gate's
 maintainer-run `contexts` stage reports whether that policy is actually set
 (admin-read, advisory, not part of any automatic gate) — and **dry-run by
@@ -601,10 +601,10 @@ the requirement, on every PR it does not gate; requiring a context before its
 producing job reaches `main` strands every collect auto-merge PR, which is
 what the procedure's ordering prevents.
 
-The `staging`
-*deployment environment* the freshness runs deploy to (deployment branches
-restricted to `staging`, read-only role trust, per-environment engine keys) is
-separate wiring, described in docs/security.md.
+The `staging` *deployment environment* the freshness runs deploy to
+(deployment branches restricted to `staging`, the read-only and staging
+read-write role trusts, per-environment engine keys) is separate wiring,
+described in docs/security.md.
 
 ### Tags
 

@@ -556,3 +556,18 @@ def test_dependabot_targets_staging() -> None:
     config = _load(ROOT / ".github" / "dependabot.yml")
     for update in config["updates"]:
         assert update.get("target-branch") == "staging", update["package-ecosystem"]
+
+
+def test_the_gate_checks_the_environment_the_staging_writer_actually_binds() -> None:
+    """The gate hard-codes which environment's deployment-branch policy it
+    verifies, and the refresh workflow independently declares the environment
+    whose trust carries the staging write role. Rename either and the gate
+    silently checks a policy on an environment the job no longer deploys to —
+    pin both ends to the one name."""
+    gate = GATE_SCRIPT.read_text()
+    assert "environments/staging/deployment-branch-policies" in gate
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "staging-corpus-refresh.yml").read_text()
+    )
+    (job,) = workflow["jobs"].values()
+    assert job["environment"] == "staging"
