@@ -33,7 +33,7 @@
       "problems": []
     },
     {
-      "checked": 669,
+      "checked": 668,
       "detail": "granted before 2024-08-18 (730 days); 12 resolved by termination",
       "failures": 23,
       "name": "no_stale_unparsed_grants",
