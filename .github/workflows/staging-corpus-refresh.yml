@@ -10,9 +10,12 @@ name: staging-corpus-refresh
 # risk-class rule: this is a **corpus writer**, and every other corpus writer
 # (run-pull, run-seed) is its own workflow for the same reason — a job holding
 # a write-capable role and a job holding a read-only one are different risk
-# classes, and permissions are scoped per job. It is also the only binder of
-# the `staging-corpus` environment and the only assumer of its role, so its
-# whole permission surface is one file to read.
+# classes, and permissions are scoped per job. Its whole permission surface
+# is one file to read: the staging read-write role's trust names the
+# `staging` environment — deliberately, so staging rehearses production's
+# provenance model (in prod too, the write role trusts the environment every
+# reader binds, and review of what reaches the branch is the control) — and
+# this workflow is the one reviewed asker.
 #
 # It does not reuse the `corpus-readonly` / `corpus-ranged` composites for the
 # credential step, deliberately: those exist to hand a job the PRODUCTION
@@ -40,9 +43,8 @@ name: staging-corpus-refresh
 # staging — wrong, but harmlessly so, and the policy is what keeps it that way.
 # Both together are why the write is dispatch-triggerable at all.
 #
-# Provisioning the environment, its variables, and the role is a maintainer
-# task the workflow cannot do for itself — see the staging-corpus runbook in
-# docs/security.md. Until it is done, a dispatch fails closed: an unset role
+# Provisioning the variables and the role is a maintainer task the workflow
+# cannot do for itself — see the staging corpus runbook in docs/security.md. Until it is done, a dispatch fails closed: an unset role
 # variable resolves empty and the assume-role step refuses.
 on:
   workflow_dispatch:
@@ -89,11 +91,11 @@ jobs:
     # index, so a refresh is minutes. The cap is a backstop against a degraded
     # endpoint, not a budget for the work.
     timeout-minutes: 30
-    # The one environment that carries the staging read-write role. Its
-    # deployment branches are restricted to `staging` (see the runbook), so the
-    # role is reachable only from code that passed the staging ruleset's checks
-    # — the same code-provenance gate every other environment here uses.
-    environment: staging-corpus
+    # The environment whose deployment branches are restricted to `staging`,
+    # so the staging read-write role its trust names is reachable only from
+    # code that passed the staging ruleset's checks — provenance, not a
+    # separate identity boundary, exactly as production scopes its own writer.
+    environment: staging
     permissions:
       contents: read
       id-token: write # assume the staging read-write AWS role
@@ -123,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${REF_NAME}" != "staging" ]; then
-            echo "::error::staging-corpus-refresh runs only from the 'staging' ref (dispatched from '${REF_NAME}'). The staging-corpus environment's deployment branches should already refuse this — if this message is what stopped the run, the environment's branch policy needs checking too (docs/security.md)."
+            echo "::error::staging-corpus-refresh runs only from the 'staging' ref (dispatched from '${REF_NAME}'). The staging environment's deployment branches should already refuse this — if this message is what stopped the run, the environment's branch policy needs checking too (docs/security.md)."
             exit 1
           fi
 

@@ -272,9 +272,9 @@ maintainer whenever the trigger label was applied by hand, and in a
 single-maintainer org blocking self-approval would strand exactly those runs
 in *Waiting* until the thirty-day expiry — the hold is a deliberateness gate
 here, not two-person control, a call to revisit if a second maintainer
-joins. `staging-corpus-refresh` declares **`staging-corpus`** — the
-one environment carrying a write-capable role outside `prod`, and the only one
-whose stores are not production's (see *The staging corpus* below).
+joins. `staging-corpus-refresh` declares **`staging`** — the same environment
+the integration scenarios bind, because the staging read-write role's trust
+deliberately names it (see *The staging corpus* below).
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -297,8 +297,9 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
 **Deployment branches are restricted to `main`** — on `prod` (and to `staging`
-on both the `staging` and `staging-corpus` environments, the latter because it
-carries the one write-capable role outside `prod`); `review`
+on the `staging` environment, whose policy is load-bearing twice over: the
+read-only role's trust names it, and so does the one write-capable role
+outside `prod`); `review`
 deliberately carries no branch policy, since it holds nothing a branch could
 take. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
@@ -367,14 +368,22 @@ the access-gated corpus and the per-case content store. So the exposure a
 workflow change at the staging head buys is corpus *read* and model *spend*,
 which is why the linter gap above is worth naming rather than glossing.
 
-**The `staging-corpus` environment adds a write to that radius, and it is the
-kind that does not move the integrity bound.** Staging-head code can bind it
-and write the *staging* pair: a lean slice of real cases, rebuilt from
-production by one dispatch. It buys **no production write path** (the role is
-read-only on the production stores by policy) and **no new read surface** (the
-same slice the already-trusted read-only role can read in full). What it does
-*not* dilute: the production corpus keeps exactly one writer, and that writer
-is still reachable only from `main`.
+**The staging read-write role adds a write to that radius, and it is the
+kind that does not move the integrity bound.** Its trust names the `staging`
+environment itself — deliberately, so staging rehearses production's
+provenance model rather than adding an identity boundary production does not
+have: in `prod` too, the write role trusts the environment every reader
+binds, and review of what reaches the branch is the control. The symmetry is
+the point — a change that wrongly writes fails *visibly here*, against the
+disposable staging pair, in the testing the maintainer reads before
+promotion, instead of failing an AssumeRole in staging (reading as
+misconfiguration) and then succeeding first in production. What staging-head
+code can now write is the staging pair: a lean slice of real cases, rebuilt
+from production by one dispatch. It buys **no production write path** (the
+role is read-only on the production stores by policy) and **no new read
+surface** (the same slice the already-trusted read-only role can read in
+full). What it does *not* dilute: the production corpus keeps exactly one
+writer, and that writer is still reachable only from `main`.
 
 What corrupting it *costs* depends on a coupling worth stating rather than
 discovering. Today nothing committed depends on the staging corpus — the
@@ -389,21 +398,16 @@ denial-of-promotion and an evidence-integrity problem, not a nuisance, and it
 arrives with the next change in this area rather than at some distant
 contingency.
 
-**`staging-corpus` carries no required reviewer**, deliberately and for the
-same reasons the `staging` environment carries none: its write reach is the
-staging pair alone, and the dispatch surface is already bounded by repository
-write access plus the branch policy — the approval would be a second click on
-the same decision by the same person. The premises to revisit are the ones
-listed above, plus the coupling just named: **when the pointer wiring lands and
-the staging corpus becomes promotion-gate evidence**, the fixture stops being
-rebuildable-at-will in the sense that matters, and the reviewer question should
-be re-asked in that same change rather than left standing on this paragraph. A
-maintainer who weighs it differently can add one at provisioning; **step 2** of
-*The staging corpus (provisioning runbook)* below names the option.
+The corruption cost has a standing mitigation that keeps the evidence
+honest: **re-seed before an evidence-bearing run**. The refresh lane rebuilds
+the slice from production in one dispatch, so a promotion that leans on
+staging results starts from a fixture the maintainer just reset — a poisoned
+slice persists across runs in a way a lying workflow does not, and the
+re-seed is what clears it.
 
 The read-only role's trust names `staging`'s `sub` (the staging integration runs
 assume it, so this is observed, not assumed); the **production** write role's
-trust never does, and never names `staging-corpus` either.
+trust never names `staging` at all.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
@@ -513,7 +517,9 @@ pair the third one writes:
   **read + write on the staging corpus pair alone**. It is the only
   write-capable role outside `prod`, and it can write nothing production owns,
   so the production stores keep exactly one writer. Its trust names the
-  `staging-corpus` environment and nothing else. Provisioning it — and the
+  `staging` environment and nothing else — the same environment the
+  integration scenarios bind, deliberately (see the runbook's provenance
+  note). Provisioning it — and the
   variable above, which step 4 of *The staging corpus* below sets and the
   workflow reads — is a maintainer task; see that runbook.
 
@@ -547,7 +553,7 @@ Every role's OIDC trust is scoped to named environments of this repo
 one of those environments can assume it. The production read-write role names
 `prod` alone; the read-only role also names `staging`, which is what lets the
 integration scenarios read the corpus from the staging branch; and the staging
-read-write role names `staging-corpus` alone. The three trusts are disjoint on
+read-write role names `staging` alone. The trusts stay disjoint on
 the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
 store" is answerable from the trust statements without reading a policy.
@@ -717,23 +723,22 @@ because it is ready. Read the caveat before doing either.
    the same terms — **no wider read principal than production's**, nothing
    published from it, and it does not become a convenient place to stage a
    public extract.
-2. **Create the `staging-corpus` environment**, with **deployment branches
-   restricted to `staging`**. The restriction is the gate, and what it enforces
-   is code provenance — only code that passed a pull request and the `staging`
-   ruleset's checks can bind the environment and reach the role — the same
-   shape `prod` and `staging` already use, and the same invariant: the branch
-   restriction must be in place *before* the trust statement below names the
-   environment, or the role is handed to whatever an agent last pushed.
-   **No required reviewer**, as designed — the reasoning is under the
-   staging-head blast radius above: the environment's write reach is the
-   staging pair alone, and the dispatch surface is already bounded by
-   repository write access plus that branch policy. Add one here if you weigh
-   it differently — and note that the change which lands the pointer wiring
-   should re-ask the question, because from then on the staging corpus is the
-   promotion gate's freshness evidence and corrupting it stalls promotions.
-   Because this policy is the load-bearing part — and because GitHub
-   auto-creates a referenced environment **unprotected**, so getting it wrong
-   fails open — two other places check it rather than trusting it. The
+2. **Verify the `staging` environment's deployment-branch policy names
+   `staging`** — no new environment is created; the write role's trust
+   deliberately names the environment the integration scenarios already bind,
+   so staging rehearses production's provenance model (in `prod` too, the
+   write role trusts the environment every reader binds, and review of what
+   reaches the branch is the control — a change that wrongly writes fails
+   visibly here, against the disposable pair, before it can succeed in
+   production). The branch policy is the gate, and what it enforces is code
+   provenance: only code that passed a pull request and the `staging`
+   ruleset's checks can bind the environment and reach the role. It predates
+   this role, but from the moment the trust statement below names the
+   environment it is load-bearing for write provenance, and it must be in
+   place *before* that trust exists, or the role is handed to whatever an
+   agent last pushed.
+   Because this policy is the load-bearing part, two other places check it
+   rather than trusting it. The
    promotion gate's **admin-read `contexts` stage**, which the maintainer runs
    with their own token, verifies the environment's deployment-branch policy
    names `staging` — the same shape as its `review`-environment reviewer check,
@@ -753,18 +758,23 @@ because it is ready. Read the caveat before doing either.
    with two halves and no third: **read + list on the production stores** (what
    the seeder reads its slice from — the same access the read-only role already
    grants) and **read + write on the staging pair alone**. Its trust names
-   **only** the new environment — the same `...:sub` shape the other roles use,
-   `repo:<owner>/<repo>:environment:staging-corpus` — so no other job in this
-   repository can assume it, and production's writer trust is untouched. Keep
+   **only** the `staging` environment — the same `...:sub` shape the other
+   roles use, `repo:<owner>/<repo>:environment:staging` — so any staging-bound
+   job may ask for it and nothing on any other ref can, and production's
+   writer trust is untouched. Keep
    the production half explicitly read-only: this role must be unable to write
    the production corpus by policy, not merely by the command's refusal.
-4. **Set the `staging-corpus` environment's variables** — the destinations
+4. **Set the variables on the `staging` environment** — the destinations
    `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the role
-   `AWS_ROLE_TO_ASSUME_STAGING_RW`, `AWS_REGION`, and the *sources* the seeder
-   reads its slice from, `CORPUS_REMOTE_URL` and `CASESTORE_URL` at their
-   production values (the same variables every consumer job names, so the
-   command needs no source flags). Values stay out of git, as the production
-   ones do.
+   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the source variables
+   `CORPUS_REMOTE_URL` / `CASESTORE_URL` are already there at their production
+   values for the integration runs, and the seeder reads the same pair as its
+   source). Values stay out of git, as the production ones do. Note the
+   coupling this creates with step 5: once those shared variables repoint to
+   the staging pair, the seeder's source moves with them — the wiring change
+   must give the refresh lane explicit production-source variables in the
+   same change, or the lane would seed staging from itself and the refusal
+   rail would refuse the now-"production" staging destination.
 5. **[BLOCKED on the outstanding wiring] Point the `staging` environment at the
    staging corpus.** Set its `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the
    staging pair and `FEDCOURTS_CORPUS_SPLIT=1`, so the integration scenarios
@@ -772,7 +782,9 @@ because it is ready. Read the caveat before doing either.
    than production's. **Do not do this yet**: until the wiring lands, a
    consumer pointed at the staging remote resolves a pointer that names the
    production blob, so this step converts working scenarios into failing ones.
-   Two consequences to accept deliberately when it does land: the production
+   Three consequences to accept deliberately when it does land: the seeder's
+   source variables must decouple from the repointed pair (the step-4 note);
+   the production
    **read-only** role that the `staging` environment binds must also be allowed
    to read and list the staging pair (a read-only widening onto a
    non-production bucket), and a staging-head preflight from then on certifies
