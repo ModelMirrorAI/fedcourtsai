@@ -192,9 +192,12 @@ head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. A `promote` dispatch carrying
 `skip_engine_smoke` narrows what *that pre-flight* asks for to the six
 token-free scenarios, taking a green `scenario=all-offline` run as their
-whole-suite evidence — for batches that cannot affect a cell, and never by
-default. The required check is unaffected: it sets no skip, so the nine stand
-between any batch and `main`.
+whole-suite evidence — never by default. It decides nothing about the merge:
+waiving the smokes at the required check is a second, separate act, the
+`promote:skip-engine-smoke` label on the promotion PR, and the batch that
+carries it merges with no real-engine evidence at its head sha (*Promotion:
+staging → main* in [pipeline.md](pipeline.md) carries the trade). Unlabelled —
+the default — the nine stand between a batch and `main`.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that

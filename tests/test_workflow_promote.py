@@ -114,7 +114,7 @@ def test_ci_promotion_gate_runs_only_on_the_same_repo_promotion_pr() -> None:
     assert "environment" not in job
     # Freshness must see the PR *head* sha — no integration run ever carries
     # the synthetic merge-commit sha, so github.sha would be vacuously red.
-    (gate_step,) = [s for s in job["steps"] if "promotion-gate" in str(s.get("run", ""))]
+    (gate_step,) = [s for s in job["steps"] if "promotion-gate.sh" in str(s.get("run", ""))]
     assert gate_step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
 
 
@@ -468,11 +468,12 @@ def test_promote_threads_the_skip_to_the_freshness_step_only() -> None:
 
 def test_no_workflow_ever_overrides_the_required_set() -> None:
     # PROMOTION_SCENARIOS is a local re-check narrowing and must never be set
-    # on any automated surface; PROMOTION_SKIP_SMOKE is the one sanctioned
-    # workflow-side relaxation, and only the promote dispatch may set it — the
-    # required check on the promotion PR runs the gate strictly. Assignments
-    # only: naming either variable in a comment (ci.yml says which it does not
-    # set, and why) is documentation, not a setting.
+    # on any automated surface. PROMOTION_SKIP_SMOKE is the one sanctioned
+    # workflow-side relaxation, with exactly two setters: the promote dispatch
+    # (narrowing one pre-flight) and ci.yml's promotion-gate job (narrowing
+    # what one labelled batch merges on). A third surface setting either is
+    # what this fails on. Assignments only: naming a variable in a comment is
+    # documentation, not a setting.
     surfaces = [
         path
         for pattern in ("*.yml", "*.yaml")
@@ -491,7 +492,10 @@ def test_no_workflow_ever_overrides_the_required_set() -> None:
             if match is None:
                 continue
             found.append((path.name, match.group(1)))
-    assert found == [("promote.yml", "PROMOTION_SKIP_SMOKE")], found
+    assert found == [
+        ("ci.yml", "PROMOTION_SKIP_SMOKE"),
+        ("promote.yml", "PROMOTION_SKIP_SMOKE"),
+    ], found
 
 
 def test_promote_help_text_lists_every_required_scenario() -> None:
@@ -571,3 +575,90 @@ def test_the_gate_checks_the_environment_the_staging_writer_actually_binds() -> 
     )
     (job,) = workflow["jobs"].values()
     assert job["environment"] == "staging"
+
+
+WAIVER_LABEL = "promote:skip-engine-smoke"
+
+
+def _promotion_gate_job() -> dict[str, Any]:
+    job = _load(WORKFLOWS / "ci.yml")["jobs"]["promotion-gate"]
+    assert isinstance(job, dict)
+    return job
+
+
+def _waiver_step() -> dict[str, Any]:
+    return next(s for s in _promotion_gate_job()["steps"] if s.get("id") == "waiver")
+
+
+def test_the_merge_gate_waiver_is_derived_from_the_label_never_hardcoded() -> None:
+    """The maintainer's dial: the promotion PR carries the waiver label, and this
+    check drops the engine smokes for that batch. The value must come from the
+    label read — a literal `1` here would waive every promotion silently and
+    forever, which is the one thing the two-setter rule exists to prevent.
+    """
+    job = _promotion_gate_job()
+    assert job["env"]["WAIVER_LABEL"] == WAIVER_LABEL
+    (gate_step,) = [s for s in job["steps"] if "promotion-gate.sh" in str(s.get("run", ""))]
+    assert gate_step["env"]["PROMOTION_SKIP_SMOKE"] == "${{ steps.waiver.outputs.skip }}"
+    # One literal, in WAIVER_LABEL; everything else reads it by name. A second
+    # literal is how the check and its warning start naming different labels.
+    # Comments may say it as often as they need to.
+    literals = [
+        line
+        for line in (WORKFLOWS / "ci.yml").read_text().splitlines()
+        if WAIVER_LABEL in line and not line.lstrip().startswith("#")
+    ]
+    assert literals == [f"      WAIVER_LABEL: {WAIVER_LABEL}"], literals
+
+
+def test_the_waiver_label_is_read_at_check_time_not_from_the_event_payload() -> None:
+    """A re-run replays the original `pull_request` payload, so a payload read
+    would miss a label added after the gate first failed — the usual sequence.
+    Fixing that through the payload would need `labeled`/`unlabeled` on the
+    trigger, re-running the whole workflow on every label edit to every PR. The
+    API read is what keeps "re-run this check before merging" sufficient.
+    """
+    run = str(_waiver_step()["run"])
+    assert "issues/${PR_NUMBER}/labels" in run
+    body = (WORKFLOWS / "ci.yml").read_text()
+    assert "pull_request.labels" not in body
+    types = _load(WORKFLOWS / "ci.yml")[True]["pull_request"]["types"]
+    for stale in ("labeled", "unlabeled"):
+        assert stale not in types, "the API read exists so these are not needed"
+
+
+def test_the_waiver_fails_closed_and_says_so_when_it_fires() -> None:
+    """Waiving removes the only real-engine evidence a promotion has, so the
+    two things that must never break are: nothing but an exact label waives,
+    and a batch that waived is legible as waived from its own run record.
+    """
+    step = _waiver_step()
+    run = str(step["run"])
+    # Whole-line match: a label that merely contains this one waives nothing.
+    assert "grep -Fqx" in run
+    # A failed read must not read as a waiver.
+    assert "|| true" in run
+    assert 'echo "skip=1"' in run
+    # Loud on the PR, and durable in the run record the promotion is audited
+    # from.
+    assert "::warning::" in run
+    assert "$GITHUB_STEP_SUMMARY" in run
+    # `issues: read` is what the label read needs; it is already there for
+    # quiescence, but dropping it would break this silently.
+    assert _promotion_gate_job()["permissions"]["issues"] == "read"
+
+
+def test_the_gate_script_names_what_the_waiver_dropped(tmp_path: Path) -> None:
+    """A waived run must be readable as waived from the gate's own log, without
+    reconstructing which surface set the variable."""
+    offline = _per_scenario_titles(
+        [entry for entry in _required_scenario_entries() if entry not in SMOKE_ENTRIES]
+    )
+    waived = _run_freshness(tmp_path, offline, PROMOTION_SKIP_SMOKE="1")
+    assert waived.returncode == 0, waived.stderr
+    assert "engine-smoke waived" in waived.stdout
+    for engine in ("claude-code", "codex", "gemini"):
+        assert f"engine-smoke/{engine}" in waived.stdout
+    # Strict runs stay silent about a waiver that did not happen.
+    strict = _run_freshness(tmp_path, offline)
+    assert "waived" not in strict.stdout

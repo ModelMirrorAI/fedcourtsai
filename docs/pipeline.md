@@ -550,20 +550,33 @@ The mechanics:
   it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
-- **The engine-smoke skip, and how far it reaches.** `promote`'s
-  `skip_engine_smoke` input drops the three engine-smoke runs from that
-  dispatch's freshness check and accepts a token-free `scenario=all-offline`
-  run as whole-suite evidence instead. It costs the only evidence that real
-  engine cells still run in the production posture at the sha being promoted,
-  so it is reserved for batches that cannot affect a cell — docs, analytics,
-  non-cell code — and the default is the full suite.
-  **It narrows the pre-flight only.** ci.yml's `promotion-gate` job sets the
-  variable nowhere, so the required check on the promotion PR still demands
-  all nine runs at the head sha, and `main`'s ruleset has no bypass for it —
-  the data App's deterministic writers are its only bypass actor. A skipped
-  batch therefore reaches a green summary and a mergeable PR only once the
-  smokes have run too; what the input buys is a cheap answer to *is anything
-  else missing* before paying for them.
+- **The engine-smoke skip, and how far it reaches.** Waiving the three
+  engine-smoke runs costs the only evidence that real engine cells still run
+  in the production posture at the sha being promoted. Whether that evidence
+  is worth its tokens for a given batch is the maintainer's risk call; the
+  default at every surface is the full suite, and a batch that cannot affect a
+  cell — docs, analytics, non-cell code — is the clear case for waiving.
+  It takes **two separate acts**, because a pre-flight and a merge are
+  different decisions:
+  - `promote`'s **`skip_engine_smoke` input** drops the smokes from that
+    dispatch's freshness check and accepts a token-free `scenario=all-offline`
+    run as whole-suite evidence. It buys a cheap answer to *is anything else
+    missing* before paying for them, and decides nothing about the merge.
+  - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
+    from ci.yml's `promotion-gate` job — the required check — for that batch
+    only. `main`'s ruleset still has no bypass for the check itself (the data
+    App's deterministic writers are its only bypass actor), so the label is
+    the whole of the discretion: every other gate stays strict, and the next
+    promotion starts strict again.
+
+  The label is read from the API when the check runs, not from the event
+  payload, so the documented practice — re-run `promotion-gate` immediately
+  before merging — picks it up without `labeled`/`unlabeled` on ci.yml's
+  trigger, which would re-run the whole suite on every label edit to every PR.
+  A waived run says so three ways: the gate script names the dropped entries
+  in its log, and the check annotates the PR and writes what was traded away
+  into its run summary — so a batch that merged without real-engine evidence
+  is legible as such from the promotion's own record.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
